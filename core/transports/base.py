@@ -1,18 +1,21 @@
-from typing import Protocol, runtime_checkable
+from typing import ClassVar, Protocol, runtime_checkable
 
-from core.device import DeviceConfig
-from core.types import DataType, TransportProtocols
+from core.types import AttributeValueType, DeviceConfig, TransportProtocols
 
 
 # Abstract base for transport clients
 @runtime_checkable
 class TransportClient(Protocol):
-    protocol: TransportProtocols
+    protocol: ClassVar[TransportProtocols]
 
-    async def read(self, address: str, device_config: DeviceConfig) -> DataType: ...
+    async def read(
+        self,
+        address: str,
+        device_config: DeviceConfig,
+    ) -> AttributeValueType: ...
     async def write(
         self,
         address: str,
-        value: DataType,
+        value: AttributeValueType,
         device_config: DeviceConfig,
     ) -> None: ...

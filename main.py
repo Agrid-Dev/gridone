@@ -1,5 +1,8 @@
+from core.device import Device
 from core.device_schema import DeviceSchema
 from core.device_schema.base import AttributeSchema, DeviceConfigField
+from core.driver import Driver
+from core.transports.http import HTTPTransportClient
 
 # "om" stands for OpenMeteo
 
@@ -23,3 +26,21 @@ om_schema = DeviceSchema(
         ),
     ],
 )
+
+http_client = HTTPTransportClient()
+
+om_driver = Driver(
+    transport=http_client,
+    schema=om_schema,
+)
+
+om_device = Device.from_driver(
+    om_driver,
+    config={
+        "lattitude": "48.866667",
+        "longitude": "2.333",  # Paris
+    },
+)
+
+if __name__ == "__main__":
+    print(om_device)

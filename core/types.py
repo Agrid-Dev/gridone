@@ -26,3 +26,6 @@ class TransportProtocols(StrEnum):
     MODBUS = "modbus"
     HTTP = "http"
     MQTT = "mqtt"
+
+
+type DeviceConfig = dict[str, str]
