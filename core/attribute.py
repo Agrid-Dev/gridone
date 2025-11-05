@@ -29,3 +29,18 @@ class Attribute:
         self._ensure_type(new_value)
         object.__setattr__(self, "current_value", new_value)
         object.__setattr__(self, "last_updated", datetime.now(UTC))
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        data_type: DataType,
+        read_write_modes: set[ReadWriteMode],
+    ) -> "Attribute":
+        return cls(
+            name=name,
+            data_type=data_type,
+            read_write_modes=read_write_modes,
+            current_value=None,
+            last_updated=None,
+        )

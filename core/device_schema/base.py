@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from core.types import AttributeValueType
+from core.types import AttributeValueType, DataType
 
 
 @dataclass
@@ -15,7 +15,8 @@ type ValueParser = Callable[[dict], AttributeValueType]
 
 @dataclass
 class AttributeSchema:
-    name: str  # core side - the target attribute name
+    attribute_name: str  # core side - the target attribute name
+    data_type: DataType
     protocol_key: str  # protocol side - the key used in the protocol
     value_parser: ValueParser | None = field(default=None)
 
