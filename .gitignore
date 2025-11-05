@@ -11,3 +11,6 @@ wheels/
 
 # Ide config
 .zed
+
+# development
+.db

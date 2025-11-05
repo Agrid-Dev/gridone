@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "python-jsonpath>=2.0.1",
+    "pyyaml>=6.0.3",
+]
 
 [dependency-groups]
 dev = [
@@ -23,3 +26,7 @@ ignore = [
    "D"
 ]
 fixable = ["ALL"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101"]

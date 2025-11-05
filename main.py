@@ -3,12 +3,13 @@ from core.device_schema import DeviceSchema
 from core.device_schema.base import AttributeSchema, DeviceConfigField
 from core.driver import Driver
 from core.transports.http import HTTPTransportClient
-from core.types import DataType
+from core.types import DataType, TransportProtocols
 
 # "om" stands for OpenMeteo
 
 om_schema = DeviceSchema(
     name="open-meteo-current-weather",
+    transport=TransportProtocols.HTTP,
     device_config_fields=[
         DeviceConfigField(
             name="lattitude",
@@ -44,5 +45,14 @@ om_device = Device.from_driver(
     },
 )
 
+
+async def main():
+    print(f"Readding temperature for device {om_device.id}...")
+    temperature = await om_device.read_attribute_value("temperature")
+    print(f"Current temperature: {temperature} °C")
+
+
 if __name__ == "__main__":
-    print(om_device)
+    import asyncio
+
+    asyncio.run(main())

@@ -40,6 +40,8 @@ class Device:
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType:
         return self.get_attribute(attribute_name).current_value
 
-    # async def read_attribute_value(self, attribute_name: str) -> AttributeValueType:
-    #     new_value = self.driver.
-    #     return await self.driver.read_attribute(self, attribute_name)
+    async def read_attribute_value(self, attribute_name: str) -> AttributeValueType:
+        attribute = self.get_attribute(attribute_name)
+        new_value = await self.driver.read_value(attribute_name, self.config)
+        attribute.update_value(new_value)
+        return attribute.current_value
