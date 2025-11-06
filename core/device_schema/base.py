@@ -16,17 +16,20 @@ class DeviceSchema:
         self,
         *,
         attribute_name: str | None = None,
-        protocol_key: str | None = None,
+        address: str | None = None,
     ) -> AttributeSchema:
-        if attribute_name is None and protocol_key is None:
-            msg = "Either attribute_name or protocol_key must be provided"
+        if attribute_name is None and address is None:
+            msg = "Either attribute_name or address must be provided"
             raise ValueError(msg)
         for schema in self.attribute_schemas:
             if attribute_name is not None and schema.attribute_name == attribute_name:
                 return schema
-            if protocol_key is not None and schema.protocol_key == protocol_key:
+            if address is not None and schema.address == address:
                 return schema
-        msg = f"Attribute schema not found for attribute_name='{attribute_name}' protocol_key='{protocol_key}'"
+        msg = (
+            f"Attribute schema not found for attribute_name='{attribute_name}' "
+            f"address='{address}'"
+        )
         raise KeyError(msg)
 
     def parse_value(
@@ -43,5 +46,17 @@ class DeviceSchema:
         cls,
         data: dict[str, str],
     ) -> "DeviceSchema":
-        print(data)
-        raise NotImplementedError("We're not finished here")
+        attribute_schemas = [
+            AttributeSchema.from_dict(sch)  # ty: ignore[invalid-argument-type]
+            for sch in data["attributes"]
+        ]
+        device_config_fields = [
+            DeviceConfigField(**dfc)  # ty: ignore[invalid-argument-type]
+            for dfc in data["device_config"]
+        ]
+        return cls(
+            name=data["name"],
+            transport=TransportProtocols(data["transport"]),
+            device_config_fields=device_config_fields,
+            attribute_schemas=attribute_schemas,
+        )

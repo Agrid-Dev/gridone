@@ -1,6 +1,7 @@
 from typing import ClassVar, Protocol, runtime_checkable
 
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from core.value_parsers import ValueParser
 
 
 # Abstract base for transport clients
@@ -12,6 +13,7 @@ class TransportClient(Protocol):
         self,
         address: str,
         device_config: DeviceConfig,
+        value_parser: ValueParser | None = None,
     ) -> AttributeValueType: ...
     async def write(
         self,

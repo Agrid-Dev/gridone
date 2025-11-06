@@ -16,12 +16,13 @@ class Driver:
         attribute_name: str,
         device_config: DeviceConfig,
     ) -> AttributeValueType:
-        atttibute_schema = self.schema.get_attribute_schema(
+        attibute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         )
         return await self.transport.read(
-            address=atttibute_schema.protocol_key,
+            address=attibute_schema.address,
             device_config=device_config,
+            value_parser=attibute_schema.value_parser,
         )
 
     @classmethod
