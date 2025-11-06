@@ -7,7 +7,7 @@ from core.value_parsers import ValueParser, value_parser_factory
 @dataclass
 class DeviceConfigField:
     name: str
-    required: bool = False
+    required: bool = True
 
 
 @dataclass

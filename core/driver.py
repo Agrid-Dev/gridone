@@ -8,6 +8,7 @@ from .transports import TransportClient, get_transport_client
 
 @dataclass
 class Driver:
+    env: dict
     transport: TransportClient
     schema: DeviceSchema
 
@@ -21,7 +22,7 @@ class Driver:
         )
         return await self.transport.read(
             address=attibute_schema.address,
-            device_config=device_config,
+            context={**device_config, **self.env},
             value_parser=attibute_schema.value_parser,
         )
 
@@ -33,7 +34,9 @@ class Driver:
             raise ValueError(msg)
         transport_client = get_transport_client(data["transport"])
         device_schema = DeviceSchema.from_dict(data)
+        driver_env = data.get("env", {})
         return cls(
+            env=driver_env,
             transport=transport_client,
             schema=device_schema,
         )

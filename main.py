@@ -17,6 +17,8 @@ async def main():
     print(f"Readding temperature for device {om_device.id}...")
     temperature = await om_device.read_attribute_value("temperature")
     print(f"Current temperature: {temperature} °C")
+    weather_code = await om_device.read_attribute_value("weather_code")
+    print(f"Current weather code: {weather_code}")
 
 
 if __name__ == "__main__":

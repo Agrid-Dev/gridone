@@ -1,7 +1,7 @@
 from core.types import TransportProtocols
 
 from .base import TransportClient
-from .http import HTTPTransportClient
+from .http_transport import HTTPTransportClient
 
 
 def get_transport_client(transport: TransportProtocols) -> TransportClient:

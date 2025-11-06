@@ -1,6 +1,6 @@
 from typing import ClassVar, Protocol, runtime_checkable
 
-from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
 
@@ -12,12 +12,12 @@ class TransportClient(Protocol):
     async def read(
         self,
         address: str,
-        device_config: DeviceConfig,
+        context: dict,
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType: ...
     async def write(
         self,
         address: str,
         value: AttributeValueType,
-        device_config: DeviceConfig,
+        context: dict,
     ) -> None: ...

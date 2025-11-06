@@ -15,9 +15,8 @@ class Device:
 
     @classmethod
     def from_driver(cls, driver: Driver, config: DeviceConfig) -> "Device":
-        # TODO build ids
         return cls(
-            id="my-device",
+            id="my-device",  # TODO build ids  # noqa: FIX002, TD002, TD003, TD004
             driver=driver,
             config=config,
             attributes={
