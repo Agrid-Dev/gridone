@@ -1,7 +1,16 @@
 from pathlib import Path
 
+import yaml
+
 from core.device import Device
-from load_driver import load_driver
+from core.driver import Driver
+
+
+def load_driver(path: Path) -> Driver:
+    with path.open("r") as f:
+        schema_data = yaml.safe_load(f)
+        return Driver.from_dict(schema_data)
+
 
 om_driver = load_driver(Path(".db/drivers/open_meteo.yaml"))
 om_device = Device.from_driver(
