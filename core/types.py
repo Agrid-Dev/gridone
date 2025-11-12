@@ -23,7 +23,7 @@ DATA_TYPES: dict[DataType, type] = {
 
 class TransportProtocols(StrEnum):
     BACNET = "bacnet"
-    MODBUS = "modbus"
+    MODBUS_TCP = "modbus-tcp"
     HTTP = "http"
     MQTT = "mqtt"
 

@@ -8,6 +8,7 @@ from .transports import TransportClient, get_transport_client
 
 @dataclass
 class Driver:
+    name: str
     env: dict
     transport: TransportClient
     schema: DeviceSchema
@@ -32,10 +33,14 @@ class Driver:
         if transport is None or transport not in TransportProtocols:
             msg = f"Invalid or missing transport protocol: '{transport}'"
             raise ValueError(msg)
-        transport_client = get_transport_client(data["transport"])
+        transport_client = get_transport_client(
+            data["transport"],
+            data["transport_config"],
+        )
         device_schema = DeviceSchema.from_dict(data)
         driver_env = data.get("env", {})
         return cls(
+            name=data.get("name", ""),
             env=driver_env,
             transport=transport_client,
             schema=device_schema,
