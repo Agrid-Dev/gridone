@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import TypedDict
 
 import yaml
 
@@ -13,14 +14,22 @@ def load_driver(path: Path, transport_config: dict) -> Driver:
 
 
 def load_device(
-    driver_path: Path, device_config: dict, transport_config: dict
+    driver_path: Path,
+    device_config: dict,
+    transport_config: dict,
 ) -> Device:
     driver = load_driver(driver_path, transport_config)
     return Device.from_driver(driver=driver, config=device_config)
 
 
+class DeviceData(TypedDict):
+    driver: str
+    transport_config: dict
+    device_config: dict
+
+
 DRIVERS_DB = Path(".db/drivers")
-DEVICES_DATA = [
+DEVICES_DATA: list[DeviceData] = [
     {
         "driver": "open_meteo",
         "transport_config": {},
@@ -47,13 +56,17 @@ async def main():
         for d in DEVICES_DATA
     }
     print(f"Loaded {len(devices)} devices: {', '.join(devices.keys())}")
-    for device in devices.values():
-        print(
-            f"Readding temperature for device {device.id}",
-            f"({device.driver.name} - {device.driver.transport.protocol})...",
+    for i, device_data in enumerate(DEVICES_DATA):
+        print(f"💡 Device {i + 1}/{len(devices)} ({device_data['driver']})")
+        device = load_device(
+            DRIVERS_DB / (device_data["driver"] + ".yaml"),
+            device_data["device_config"],
+            device_data["transport_config"],
         )
-        temperature = await device.read_attribute_value("temperature")
-        print(f"Current temperature: {temperature:.2f} °C")
+        async with device.driver.transport:
+            for attribute in device.attributes:
+                value = await device.read_attribute_value(attribute)
+                print(f"{attribute}: {value}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,12 @@
+from core.types import AttributeValueType
+
 from .json_pointer_parser import is_valid_json_pointer, json_pointer_parser
 from .scale_parser import scale_parser
 from .value_parser import ValueParser
+
+
+def identity_function(result: AttributeValueType) -> AttributeValueType:
+    return result
 
 
 def value_parser_factory(
@@ -16,5 +22,4 @@ def value_parser_factory(
         return lambda result: json_pointer_parser(result, json_pointer)  # pyright: ignore[reportArgumentType]
     if scale is not None:
         return lambda result: scale_parser(result, float(scale))
-    msg = "At least one parser parameter must be provided"
-    raise ValueError(msg)
+    return identity_function

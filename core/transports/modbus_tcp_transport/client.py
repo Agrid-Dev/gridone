@@ -21,6 +21,9 @@ class ModbusTCPTransportClient(TransportClient):
     async def connect(self) -> None:
         await self._client.connect()
 
+    async def close(self) -> None:
+        self._client.close()
+
     async def _read_modbus(self, address: str, device_id: int) -> bool | int:
         if not self._client.connected:
             await self.connect()

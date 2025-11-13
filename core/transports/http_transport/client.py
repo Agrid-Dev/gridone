@@ -24,6 +24,13 @@ class HTTPTransportClient(TransportClient):
         if not hasattr(self, "_client"):
             self._client = httpx.AsyncClient(timeout=timeout)
 
+    async def connect(self) -> None:
+        pass  # No action needed; httpx handles connection pooling.
+
+    async def close(self) -> None:
+        if hasattr(self, "_client") and self._client is not None:
+            await self._client.aclose()
+
     async def read(
         self,
         address: str,
