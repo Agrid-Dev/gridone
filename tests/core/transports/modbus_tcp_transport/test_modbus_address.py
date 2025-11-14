@@ -5,46 +5,69 @@ from core.transports.modbus_tcp_transport.modbus_address import (
     ModbusAddressType,
 )
 
+TEST_CASES: list[tuple[str, dict, ModbusAddress]] = [
+    (
+        "HR25",
+        {"type": "HR", "instance": 25},
+        ModbusAddress(
+            type=ModbusAddressType.HOLDING_REGISTER,
+            instance=25,
+        ),
+    ),
+    (
+        "DI:4",
+        {"type": "DI", "instance": 4},
+        ModbusAddress(
+            type=ModbusAddressType.DISCRETE_INPUT,
+            instance=4,
+        ),
+    ),
+    (
+        "C2 ",
+        {"type": "C", "instance": 2},
+        ModbusAddress(
+            type=ModbusAddressType.COIL,
+            instance=2,
+        ),
+    ),
+    (
+        "C03 ",
+        {"type": "C", "instance": 3},
+        ModbusAddress(
+            type=ModbusAddressType.COIL,
+            instance=3,
+        ),
+    ),
+    (
+        "IR 12 ",
+        {"type": "IR", "instance": 12},
+        ModbusAddress(
+            type=ModbusAddressType.INPUT_REGISTER,
+            instance=12,
+        ),
+    ),
+]
+
 
 @pytest.mark.parametrize(
-    ("raw_address", "expected"),
-    [
-        (
-            "HR25",
-            ModbusAddress(
-                type=ModbusAddressType.HOLDING_REGISTER,
-                instance=25,
-            ),
-        ),
-        (
-            "DI:4",
-            ModbusAddress(
-                type=ModbusAddressType.DISCRETE_INPUT,
-                instance=4,
-            ),
-        ),
-        (
-            "C2 ",
-            ModbusAddress(
-                type=ModbusAddressType.COIL,
-                instance=2,
-            ),
-        ),
-        (
-            "C03 ",
-            ModbusAddress(
-                type=ModbusAddressType.COIL,
-                instance=3,
-            ),
-        ),
-        (
-            "IR 12 ",
-            ModbusAddress(
-                type=ModbusAddressType.INPUT_REGISTER,
-                instance=12,
-            ),
-        ),
-    ],
+    ("raw_address", "_", "expected"),
+    TEST_CASES,
 )
-def test_modbus_address_from_str(raw_address: str, expected: ModbusAddress) -> None:
+def test_modbus_address_from_string(
+    raw_address: str,
+    _: dict,
+    expected: ModbusAddress,
+) -> None:
     assert ModbusAddress.from_str(raw_address) == expected
+
+
+@pytest.mark.parametrize(
+    ("_", "raw_address", "expected"),
+    TEST_CASES,
+)
+def test_modbus_address_from_dict(
+    _: str,
+    raw_address: dict,
+    expected: ModbusAddress,
+) -> None:
+    assert ModbusAddress.from_dict(raw_address) == expected
