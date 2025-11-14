@@ -4,4 +4,7 @@ from core.types import AttributeValueType
 
 type InputDict = dict
 
-type ValueParser = Callable[[InputDict], AttributeValueType]
+type DictValueParser = Callable[[InputDict], AttributeValueType]
+type FloatValueParser = Callable[[float], AttributeValueType]
+
+type ValueParser = DictValueParser | FloatValueParser
