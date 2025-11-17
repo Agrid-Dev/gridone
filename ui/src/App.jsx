@@ -3,6 +3,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ApiConfigProvider } from '@/contexts/ApiConfigContext'
 import { DeviceDataProvider } from '@/contexts/DeviceDataContext'
 import { AlertsProvider } from '@/contexts/AlertsContext'
+import { AutomationProvider } from '@/contexts/AutomationContext'
 import { LanguageProvider } from '@/contexts/LanguageContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -13,6 +14,7 @@ import { DeviceDetailPage } from '@/pages/DeviceDetailPage'
 import { ZonesPage } from '@/pages/ZonesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { AlertsPage } from '@/pages/AlertsPage'
+import { AutomationPage } from '@/pages/AutomationPage'
 
 export default function App() {
   return (
@@ -28,7 +30,9 @@ export default function App() {
                   <ProtectedRoute>
                     <DeviceDataProvider>
                       <AlertsProvider>
-                        <AppLayout />
+                        <AutomationProvider>
+                          <AppLayout />
+                        </AutomationProvider>
                       </AlertsProvider>
                     </DeviceDataProvider>
                   </ProtectedRoute>
@@ -40,6 +44,7 @@ export default function App() {
                 <Route path="zones" element={<ZonesPage />} />
                 <Route path="alerts" element={<AlertsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="automation" element={<AutomationPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

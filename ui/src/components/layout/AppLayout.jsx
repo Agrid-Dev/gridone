@@ -9,6 +9,7 @@ import {
   WifiOff,
   Wifi as WifiIcon,
   LogOut,
+  Workflow,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,12 @@ const NAV_ITEMS = [
     labelKey: "layout.nav.alerts",
     defaultLabel: "Alerts",
     icon: BellRing,
+  },
+  {
+    to: "/automation",
+    labelKey: "layout.nav.automation",
+    defaultLabel: "Automation",
+    icon: Workflow,
   },
   {
     to: "/settings",

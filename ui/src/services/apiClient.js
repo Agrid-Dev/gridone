@@ -1,4 +1,13 @@
-import { mockActivity, mockAlertConfig, mockAlerts, mockDevices, mockZones } from '@/data/mockData'
+import {
+  mockActivity,
+  mockAlertConfig,
+  mockAlerts,
+  mockAutomationRules,
+  mockDevices,
+  mockScenes,
+  mockSchedules,
+  mockZones,
+} from '@/data/mockData'
 import { calculateDeviceStats, mergeZoneDeviceStats } from '@/lib/metrics'
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -34,6 +43,9 @@ const mockStore = {
   activity: clone(mockActivity),
   alerts: clone(mockAlerts),
   alertConfig: clone(mockAlertConfig),
+  schedules: clone(mockSchedules),
+  scenes: clone(mockScenes),
+  automationRules: clone(mockAutomationRules),
   alertHistory: [],
 }
 
@@ -552,6 +564,150 @@ function syncZones() {
 }
 
 syncZones()
+mockStore.schedules.forEach((schedule) => refreshScheduleWindow(schedule))
+
+
+
+function clampMinutes(value) {
+  const MINUTES_PER_DAY = 24 * 60
+  if (Number.isNaN(value)) return 0
+  return Math.min(Math.max(value, 0), MINUTES_PER_DAY - 1)
+}
+
+function clampIndex(value, max) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0
+  return Math.max(0, Math.min(Math.floor(value), max))
+}
+
+function parseTimeToMinutes(value) {
+  if (typeof value !== 'string') return null
+  const [hoursStr, minutesStr] = value.split(':')
+  const hours = Number.parseInt(hoursStr, 10)
+  const minutes = Number.parseInt(minutesStr, 10)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+  return clampMinutes(hours * 60 + minutes)
+}
+
+function formatMinutesToTime(totalMinutes) {
+  const safeMinutes = clampMinutes(totalMinutes ?? 0)
+  const hours = String(Math.floor(safeMinutes / 60)).padStart(2, '0')
+  const minutes = String(Math.round(safeMinutes % 60)).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+function recordAutomationEvent(entity, description, details = {}) {
+  const now = new Date().toISOString()
+  const name = entity?.name || entity?.title || 'Automation'
+  mockStore.activity.unshift({
+    id: `automation-${Date.now()}`,
+    deviceId: entity?.id || 'automation',
+    deviceName: name,
+    description,
+    timestamp: now,
+    changes: details,
+  })
+  mockStore.activity = mockStore.activity.slice(0, 25)
+}
+
+function findSchedule(scheduleId) {
+  const schedule = mockStore.schedules.find((entry) => entry.id === scheduleId)
+  if (!schedule) {
+    throw new Error('Schedule not found')
+  }
+  return schedule
+}
+
+function refreshScheduleWindow(schedule) {
+  if (!schedule) return
+  const start = parseTimeToMinutes(schedule.startTime ?? null) ?? 0
+  let end =
+    parseTimeToMinutes(schedule.endTime ?? null) ??
+    clampMinutes(start + (schedule.durationMinutes || 60))
+  if (end <= start) {
+    end = clampMinutes(start + Math.max(schedule.durationMinutes || 60, 15))
+  }
+  schedule.startMinutes = start
+  schedule.endMinutes = end
+  const duration = Math.max(15, end - start)
+  schedule.durationMinutes = duration
+  schedule.startTime = formatMinutesToTime(start)
+  schedule.endTime = formatMinutesToTime(end)
+}
+
+function findScene(sceneId) {
+  const scene = mockStore.scenes.find((entry) => entry.id === sceneId)
+  if (!scene) {
+    throw new Error('Scene not found')
+  }
+  return scene
+}
+
+function findRule(ruleId) {
+  const rule = mockStore.automationRules.find((entry) => entry.id === ruleId)
+  if (!rule) {
+    throw new Error('Automation rule not found')
+  }
+  return rule
+}
+
+function applySceneDevices(scene, actor = 'scene-engine') {
+  if (!scene?.devices?.length) return
+  scene.devices.forEach((deviceState) => {
+    const changes = {
+      ...(deviceState.state ? { state: deviceState.state } : {}),
+      ...(deviceState.settings || {}),
+    }
+    if (Object.keys(changes).length === 0) return
+    applyDeviceChanges(deviceState.deviceId, changes, actor)
+  })
+}
+
+function activateSceneInStore(sceneId, options = {}) {
+  const scene = findScene(sceneId)
+  const now = new Date().toISOString()
+  applySceneDevices(scene, options.actor || 'scene-automation')
+  scene.metadata = {
+    ...(scene.metadata || {}),
+    lastActivated: now,
+    usageCount: (scene.metadata?.usageCount || 0) + 1,
+  }
+  recordAutomationEvent(scene, `Scene activated: ${scene.name}`, {
+    context: options.context || 'manual',
+    scheduleId: options.scheduleId || null,
+  })
+  if (options.scheduleId) {
+    const schedule = mockStore.schedules.find((entry) => entry.id === options.scheduleId)
+    if (schedule) {
+      schedule.lastTriggered = now
+      schedule.nextRun = options.nextRun || schedule.nextRun
+    }
+  }
+  return scene
+}
+
+function reorderAutomationPriority(ruleId, { targetPriority, direction } = {}) {
+  const ordered = [...mockStore.automationRules].sort((a, b) => a.priority - b.priority)
+  const currentIndex = ordered.findIndex((entry) => entry.id === ruleId)
+  if (currentIndex === -1) {
+    throw new Error('Automation rule not found')
+  }
+  let nextIndex = currentIndex
+  if (typeof targetPriority === 'number') {
+    nextIndex = clampIndex(targetPriority - 1, ordered.length - 1)
+  } else if (direction === 'up') {
+    nextIndex -= 1
+  } else if (direction === 'down') {
+    nextIndex += 1
+  }
+  nextIndex = Math.max(0, Math.min(nextIndex, ordered.length - 1))
+  const [rule] = ordered.splice(currentIndex, 1)
+  ordered.splice(nextIndex, 0, rule)
+  ordered.forEach((entry, index) => {
+    entry.priority = index + 1
+  })
+  mockStore.automationRules = ordered
+  return rule
+}
 
 class MockApiClient {
   async getDevices() {
@@ -686,6 +842,346 @@ class MockApiClient {
     const alert = generateRandomAlertFromDevice()
     return alert
   }
+
+  async getSchedules() {
+    await wait(randomLatency())
+    return clone(mockStore.schedules)
+  }
+
+  async createSchedule(payload = {}) {
+    await wait(randomLatency())
+    const now = new Date().toISOString()
+    const startMinutes =
+      typeof payload.startMinutes === 'number'
+        ? clampMinutes(payload.startMinutes)
+        : parseTimeToMinutes(payload.startTime ?? null) ?? 480
+    let endMinutes
+    if (typeof payload.endMinutes === 'number') {
+      endMinutes = clampMinutes(payload.endMinutes)
+    } else if (typeof payload.durationMinutes === 'number') {
+      endMinutes = clampMinutes(startMinutes + payload.durationMinutes)
+    } else {
+      endMinutes = parseTimeToMinutes(payload.endTime ?? null)
+      if (endMinutes === null) {
+        endMinutes = clampMinutes(startMinutes + 60)
+      }
+    }
+    const enabled = payload.enabled ?? true
+    const schedule = {
+      id: payload.id || `schedule-${Date.now()}`,
+      name: payload.name || 'Untitled schedule',
+      type: payload.type || 'time',
+      targetType: payload.targetType || (payload.sceneId ? 'scene' : 'device'),
+      targetId: payload.targetId || null,
+      sceneId: payload.sceneId || null,
+      actions: payload.actions ? clone(payload.actions) : [],
+      timezone: payload.timezone || 'local',
+      recurring:
+        payload.recurring || { type: 'daily', daysOfWeek: [0, 1, 2, 3, 4, 5, 6], description: 'Daily' },
+      enabled,
+      status: enabled ? payload.status || (payload.type === 'condition' ? 'conditional' : 'scheduled') : 'paused',
+      lastTriggered: payload.lastTriggered || null,
+      nextRun: payload.nextRun || null,
+      color: payload.color || ['#f97316', '#0ea5e9', '#10b981', '#a855f7'][mockStore.schedules.length % 4],
+      conditions: payload.conditions ? clone(payload.conditions) : [],
+      override: payload.override || null,
+      metadata: payload.metadata ? clone(payload.metadata) : {},
+      createdAt: now,
+      updatedAt: now,
+    }
+    if (schedule.override?.active && schedule.enabled) {
+      schedule.status = 'overridden'
+    }
+    schedule.startTime = formatMinutesToTime(startMinutes)
+    schedule.endTime = formatMinutesToTime(endMinutes)
+    refreshScheduleWindow(schedule)
+    mockStore.schedules = [schedule, ...mockStore.schedules]
+    recordAutomationEvent(schedule, `Schedule created: ${schedule.name}`, {
+      type: schedule.type,
+    })
+    return clone(schedule)
+  }
+
+  async updateSchedule(scheduleId, updates = {}) {
+    await wait(randomLatency())
+    const schedule = findSchedule(scheduleId)
+    const next = { ...updates }
+    const hasStartMinutes = typeof next.startMinutes === 'number' || typeof next.startTime === 'string'
+    const hasEndMinutes =
+      typeof next.endMinutes === 'number' || typeof next.endTime === 'string' || typeof next.durationMinutes === 'number'
+    if (hasStartMinutes) {
+      const startMinutes =
+        typeof next.startMinutes === 'number' ? clampMinutes(next.startMinutes) : parseTimeToMinutes(next.startTime)
+      if (typeof startMinutes === 'number') {
+        schedule.startTime = formatMinutesToTime(startMinutes)
+        schedule.startMinutes = startMinutes
+      }
+    }
+    if (hasEndMinutes) {
+      let endMinutes =
+        typeof next.endMinutes === 'number' ? clampMinutes(next.endMinutes) : parseTimeToMinutes(next.endTime)
+      if (typeof endMinutes !== 'number' && typeof next.durationMinutes === 'number' && typeof schedule.startMinutes === 'number') {
+        endMinutes = clampMinutes(schedule.startMinutes + next.durationMinutes)
+      }
+      if (typeof endMinutes === 'number') {
+        schedule.endTime = formatMinutesToTime(endMinutes)
+        schedule.endMinutes = endMinutes
+      }
+    }
+    delete next.startMinutes
+    delete next.endMinutes
+    delete next.durationMinutes
+    delete next.startTime
+    delete next.endTime
+    if (next.actions) {
+      schedule.actions = clone(next.actions)
+      delete next.actions
+    }
+    if (next.conditions) {
+      schedule.conditions = clone(next.conditions)
+      delete next.conditions
+    }
+    if (next.recurring) {
+      schedule.recurring = {
+        ...schedule.recurring,
+        ...next.recurring,
+      }
+      delete next.recurring
+    }
+    if (next.metadata) {
+      schedule.metadata = {
+        ...(schedule.metadata || {}),
+        ...next.metadata,
+      }
+      delete next.metadata
+    }
+    if (typeof next.enabled === 'boolean') {
+      schedule.enabled = next.enabled
+      schedule.status = next.enabled
+        ? schedule.override?.active
+          ? 'overridden'
+          : schedule.type === 'condition'
+            ? 'conditional'
+            : 'scheduled'
+        : 'paused'
+    }
+    if (Object.prototype.hasOwnProperty.call(next, 'override')) {
+      schedule.override = next.override
+      schedule.status =
+        schedule.override?.active && schedule.enabled
+          ? 'overridden'
+          : schedule.enabled
+            ? schedule.status
+            : 'paused'
+      delete next.override
+    }
+    Object.assign(schedule, next)
+    refreshScheduleWindow(schedule)
+    schedule.updatedAt = new Date().toISOString()
+    recordAutomationEvent(schedule, `Schedule updated: ${schedule.name}`, {
+      fields: Object.keys(updates),
+    })
+    return clone(schedule)
+  }
+
+  async toggleSchedule(scheduleId, enabled) {
+    await wait(randomLatency())
+    const schedule = findSchedule(scheduleId)
+    const nextEnabled = typeof enabled === 'boolean' ? enabled : !schedule.enabled
+    schedule.enabled = nextEnabled
+    schedule.status = nextEnabled
+      ? schedule.override?.active
+        ? 'overridden'
+        : schedule.type === 'condition'
+          ? 'conditional'
+          : 'scheduled'
+      : 'paused'
+    schedule.updatedAt = new Date().toISOString()
+    recordAutomationEvent(schedule, `${nextEnabled ? 'Enabled' : 'Disabled'} schedule: ${schedule.name}`)
+    return clone(schedule)
+  }
+
+  async overrideSchedule(scheduleId, override) {
+    await wait(randomLatency())
+    const schedule = findSchedule(scheduleId)
+    if (override) {
+      schedule.override = {
+        active: true,
+        actor: override.actor || 'operator',
+        reason: override.reason || 'Manual override',
+        appliedAt: override.appliedAt || new Date().toISOString(),
+        expiresAt: override.expiresAt || null,
+        state: override.state,
+      }
+      schedule.status = 'overridden'
+    } else {
+      schedule.override = null
+      schedule.status = schedule.enabled
+        ? schedule.type === 'condition'
+          ? 'conditional'
+          : 'scheduled'
+        : 'paused'
+    }
+    schedule.updatedAt = new Date().toISOString()
+    recordAutomationEvent(schedule, override ? `Override applied: ${schedule.name}` : `Override cleared: ${schedule.name}`, {
+      override: schedule.override,
+    })
+    return clone(schedule)
+  }
+
+  async getScenes() {
+    await wait(randomLatency())
+    return clone(mockStore.scenes)
+  }
+
+  async createScene(payload = {}) {
+    await wait(randomLatency())
+    const scene = {
+      id: payload.id || `scene-${Date.now()}`,
+      name: payload.name || 'New scene',
+      description: payload.description || '',
+      icon: payload.icon || 'sparkles',
+      accentColor: payload.accentColor || '#22c55e',
+      tags: payload.tags ? [...payload.tags] : [],
+      devices: payload.devices ? clone(payload.devices) : [],
+      linkedSchedules: payload.linkedSchedules ? [...payload.linkedSchedules] : [],
+      metadata: {
+        createdBy: payload.metadata?.createdBy || 'operator',
+        lastActivated: null,
+        usageCount: 0,
+        ...(payload.metadata || {}),
+      },
+    }
+    mockStore.scenes = [scene, ...mockStore.scenes]
+    recordAutomationEvent(scene, `Scene created: ${scene.name}`)
+    return clone(scene)
+  }
+
+  async updateScene(sceneId, updates = {}) {
+    await wait(randomLatency())
+    const scene = findScene(sceneId)
+    const next = { ...updates }
+    if (next.devices) {
+      scene.devices = clone(next.devices)
+      delete next.devices
+    }
+    if (next.linkedSchedules) {
+      scene.linkedSchedules = [...new Set(next.linkedSchedules)]
+      delete next.linkedSchedules
+    }
+    if (next.metadata) {
+      scene.metadata = {
+        ...(scene.metadata || {}),
+        ...next.metadata,
+      }
+      delete next.metadata
+    }
+    if (next.tags) {
+      scene.tags = [...next.tags]
+      delete next.tags
+    }
+    Object.assign(scene, next)
+    recordAutomationEvent(scene, `Scene updated: ${scene.name}`, {
+      fields: Object.keys(updates),
+    })
+    return clone(scene)
+  }
+
+  async activateScene(sceneId, options = {}) {
+    await wait(randomLatency())
+    const scene = activateSceneInStore(sceneId, options)
+    return clone(scene)
+  }
+
+  async getAutomationRules() {
+    await wait(randomLatency())
+    const ordered = [...mockStore.automationRules].sort((a, b) => a.priority - b.priority)
+    return clone(ordered)
+  }
+
+  async createAutomationRule(payload = {}) {
+    await wait(randomLatency())
+    const now = new Date().toISOString()
+    const rule = {
+      id: payload.id || `rule-${Date.now()}`,
+      name: payload.name || 'New automation rule',
+      description: payload.description || '',
+      enabled: payload.enabled ?? true,
+      priority: mockStore.automationRules.length + 1,
+      trigger: payload.trigger ? clone(payload.trigger) : { type: 'manual', description: 'Manual trigger' },
+      conditions: payload.conditions ? clone(payload.conditions) : [],
+      actions: payload.actions ? clone(payload.actions) : [],
+      elseActions: payload.elseActions ? clone(payload.elseActions) : [],
+      conflictStrategy: payload.conflictStrategy || 'prefer_highest_priority',
+      tags: payload.tags ? [...payload.tags] : [],
+      lastEvaluatedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+    mockStore.automationRules.push(rule)
+    if (typeof payload.priority === 'number') {
+      reorderAutomationPriority(rule.id, { targetPriority: payload.priority })
+    }
+    recordAutomationEvent(rule, `Rule created: ${rule.name}`)
+    return clone(rule)
+  }
+
+  async updateAutomationRule(ruleId, updates = {}) {
+    await wait(randomLatency())
+    const rule = findRule(ruleId)
+    const next = { ...updates }
+    if (next.trigger) {
+      rule.trigger = {
+        ...rule.trigger,
+        ...next.trigger,
+      }
+      delete next.trigger
+    }
+    if (next.conditions) {
+      rule.conditions = clone(next.conditions)
+      delete next.conditions
+    }
+    if (next.actions) {
+      rule.actions = clone(next.actions)
+      delete next.actions
+    }
+    if (next.elseActions) {
+      rule.elseActions = clone(next.elseActions)
+      delete next.elseActions
+    }
+    if (next.tags) {
+      rule.tags = [...next.tags]
+      delete next.tags
+    }
+    Object.assign(rule, next)
+    if (typeof updates.priority === 'number') {
+      reorderAutomationPriority(rule.id, { targetPriority: updates.priority })
+    }
+    rule.updatedAt = new Date().toISOString()
+    recordAutomationEvent(rule, `Rule updated: ${rule.name}`, {
+      fields: Object.keys(updates),
+    })
+    return clone(rule)
+  }
+
+  async toggleAutomationRule(ruleId, enabled) {
+    await wait(randomLatency())
+    const rule = findRule(ruleId)
+    const nextEnabled = typeof enabled === 'boolean' ? enabled : !rule.enabled
+    rule.enabled = nextEnabled
+    rule.updatedAt = new Date().toISOString()
+    recordAutomationEvent(rule, `${nextEnabled ? 'Enabled' : 'Disabled'} rule: ${rule.name}`)
+    return clone(rule)
+  }
+
+  async reorderAutomationRules(ruleId, options = {}) {
+    await wait(randomLatency())
+    const rule = reorderAutomationPriority(ruleId, options)
+    recordAutomationEvent(rule, `Rule priority changed: ${rule.name}`, {
+      priority: rule.priority,
+    })
+    return clone(mockStore.automationRules)
+  }
 }
 
 class RestApiClient {
@@ -794,6 +1290,100 @@ class RestApiClient {
     return this.request('/api/alerts/config', {
       method: 'PATCH',
       body: JSON.stringify(partial),
+    })
+  }
+
+  getSchedules() {
+    return this.request('/api/automation/schedules')
+  }
+
+  createSchedule(payload) {
+    return this.request('/api/automation/schedules', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  updateSchedule(scheduleId, updates) {
+    return this.request(`/api/automation/schedules/${scheduleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    })
+  }
+
+  toggleSchedule(scheduleId, enabled) {
+    return this.request(`/api/automation/schedules/${scheduleId}/state`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  overrideSchedule(scheduleId, override) {
+    if (override) {
+      return this.request(`/api/automation/schedules/${scheduleId}/override`, {
+        method: 'POST',
+        body: JSON.stringify(override),
+      })
+    }
+    return this.request(`/api/automation/schedules/${scheduleId}/override`, {
+      method: 'DELETE',
+    })
+  }
+
+  getScenes() {
+    return this.request('/api/automation/scenes')
+  }
+
+  createScene(payload) {
+    return this.request('/api/automation/scenes', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  updateScene(sceneId, updates) {
+    return this.request(`/api/automation/scenes/${sceneId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    })
+  }
+
+  activateScene(sceneId, options) {
+    return this.request(`/api/automation/scenes/${sceneId}/activate`, {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
+    })
+  }
+
+  getAutomationRules() {
+    return this.request('/api/automation/rules')
+  }
+
+  createAutomationRule(payload) {
+    return this.request('/api/automation/rules', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  updateAutomationRule(ruleId, updates) {
+    return this.request(`/api/automation/rules/${ruleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    })
+  }
+
+  toggleAutomationRule(ruleId, enabled) {
+    return this.request(`/api/automation/rules/${ruleId}/state`, {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  reorderAutomationRules(ruleId, options) {
+    return this.request(`/api/automation/rules/${ruleId}/priority`, {
+      method: 'POST',
+      body: JSON.stringify(options || {}),
     })
   }
 }
