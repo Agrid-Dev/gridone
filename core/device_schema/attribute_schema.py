@@ -14,7 +14,7 @@ class DeviceConfigField:
 class AttributeSchema:
     attribute_name: str  # core side - the target attribute name
     data_type: DataType
-    address: str  # protocol side - the address used in the protocol
+    address: str | dict  # protocol side - the address used in the protocol
     value_parser: ValueParser
 
     @classmethod

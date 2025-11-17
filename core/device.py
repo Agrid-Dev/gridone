@@ -36,10 +36,13 @@ class Device:
             msg = f"Attribute '{attribute_name}' not found in device '{self.id}'"
             raise KeyError(msg) from ke
 
-    def get_attribute_value(self, attribute_name: str) -> AttributeValueType:
+    def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
 
-    async def read_attribute_value(self, attribute_name: str) -> AttributeValueType:
+    async def read_attribute_value(
+        self,
+        attribute_name: str,
+    ) -> AttributeValueType | None:
         attribute = self.get_attribute(attribute_name)
         new_value = await self.driver.read_value(attribute_name, self.config)
         attribute.update_value(new_value)
