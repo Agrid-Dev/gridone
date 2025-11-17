@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ApiConfigProvider } from '@/contexts/ApiConfigContext'
 import { DeviceDataProvider } from '@/contexts/DeviceDataContext'
+import { AlertsProvider } from '@/contexts/AlertsContext'
 import { LanguageProvider } from '@/contexts/LanguageContext'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -11,6 +12,7 @@ import { DevicesPage } from '@/pages/DevicesPage'
 import { DeviceDetailPage } from '@/pages/DeviceDetailPage'
 import { ZonesPage } from '@/pages/ZonesPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { AlertsPage } from '@/pages/AlertsPage'
 
 export default function App() {
   return (
@@ -25,7 +27,9 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <DeviceDataProvider>
-                      <AppLayout />
+                      <AlertsProvider>
+                        <AppLayout />
+                      </AlertsProvider>
                     </DeviceDataProvider>
                   </ProtectedRoute>
                 }
@@ -34,6 +38,7 @@ export default function App() {
                 <Route path="devices" element={<DevicesPage />} />
                 <Route path="devices/:deviceId" element={<DeviceDetailPage />} />
                 <Route path="zones" element={<ZonesPage />} />
+                <Route path="alerts" element={<AlertsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

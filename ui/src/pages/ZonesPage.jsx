@@ -7,12 +7,13 @@ import { useDeviceData } from '@/contexts/DeviceDataContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 const zoneIcons = {
-  living_room: HomeIcon,
-  bedroom: HomeIcon,
-  kitchen: Flame,
-  office: Fan,
-  garage: Power,
-  patio: Lightbulb,
+  lobby: HomeIcon,
+  guest_floor_12: HomeIcon,
+  grand_ballroom: Lightbulb,
+  main_kitchen: Flame,
+  spa: Fan,
+  service_elevator: Power,
+  sky_lounge: Lightbulb,
 }
 
 export function ZonesPage() {

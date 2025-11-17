@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
+import { useAlerts } from '@/contexts/AlertsContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 const typeIcons = {
@@ -18,6 +19,7 @@ const typeIcons = {
 
 export function DashboardPage() {
   const { stats, zones, activity, loading, error, refresh } = useDeviceData()
+  const { activeCount: activeAlerts, loading: alertsLoading } = useAlerts()
   const { t } = useTranslation()
 
   const typeEntries = Object.entries(stats.byType || {})
@@ -108,7 +110,7 @@ export function DashboardPage() {
             <Radio className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{loading ? '—' : stats.alerts}</div>
+            <div className="text-2xl font-bold">{alertsLoading ? '—' : activeAlerts}</div>
             <p className="text-xs text-muted-foreground">
               {t('dashboard.cards.alerts.helper', {
                 defaultValue: 'Temperature offsets and offline devices',
@@ -166,8 +168,8 @@ export function DashboardPage() {
               <p className="text-sm text-muted-foreground">
                 {t('dashboard.health.stability', { defaultValue: 'Stability' })}
               </p>
-              <Badge variant={stats.alerts > 0 ? 'destructive' : 'success'}>
-                {stats.alerts > 0
+              <Badge variant={activeAlerts > 0 ? 'destructive' : 'success'}>
+                {activeAlerts > 0
                   ? t('dashboard.health.attention', { defaultValue: 'Attention' })
                   : t('dashboard.health.optimal', { defaultValue: 'Optimal' })}
               </Badge>
@@ -186,10 +188,10 @@ export function DashboardPage() {
               </div>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-              {stats.alerts > 0
+              {activeAlerts > 0
                 ? t('dashboard.health.alertMessage', {
                     defaultValue: '{count} device(s) outside expected range.',
-                    values: { count: stats.alerts },
+                    values: { count: activeAlerts },
                   })
                 : t('dashboard.health.nominal', { defaultValue: 'All systems nominal.' })}
             </div>

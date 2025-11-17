@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Activity,
+  BellRing,
   Gauge,
   LayoutDashboard,
   Settings,
@@ -16,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDeviceData } from "@/contexts/DeviceDataContext";
 import { useApiConfig } from "@/contexts/ApiConfigContext";
 import { useTranslation } from "@/contexts/LanguageContext";
+import { NotificationCenter } from "@/components/alerts/NotificationCenter";
 import Logo from "../../assets/logo.png";
 const NAV_ITEMS = [
   {
@@ -35,6 +37,12 @@ const NAV_ITEMS = [
     labelKey: "layout.nav.zones",
     defaultLabel: "Zones",
     icon: Activity,
+  },
+  {
+    to: "/alerts",
+    labelKey: "layout.nav.alerts",
+    defaultLabel: "Alerts",
+    icon: BellRing,
   },
   {
     to: "/settings",
@@ -221,6 +229,7 @@ export function AppLayout() {
           </div>
           <div className="flex items-center gap-3">
             <LanguageSwitcher className="hidden w-32 md:flex" />
+            <NotificationCenter />
             <div className="text-right">
               <p className="text-sm font-semibold">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user?.role}</p>

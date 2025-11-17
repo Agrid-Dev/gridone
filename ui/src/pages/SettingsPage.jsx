@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bolt, RefreshCcw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,19 +6,142 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { useApiConfig } from '@/contexts/ApiConfigContext'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
+import { useAlerts } from '@/contexts/AlertsContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 export function SettingsPage() {
   const { mode, setMode, endpoints, updateEndpoint, apiModes } = useApiConfig()
   const { refresh, connectionStatus } = useDeviceData()
+  const { alertConfig, updateAlertConfig, updatingConfig } = useAlerts()
   const { t } = useTranslation()
   const [status, setStatus] = useState(null)
+  const [configStatus, setConfigStatus] = useState(null)
+  const [draftConfig, setDraftConfig] = useState(alertConfig)
   const formatStatus = (value) => {
     if (!value) return ''
     const fallback = value.charAt(0).toUpperCase() + value.slice(1)
     return t(`common.status.${value}`, { defaultValue: fallback })
+  }
+
+  const formatLabel = (value = '') => value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+
+  const getAlertTypeLabel = useCallback(
+    (value) => t(`settings.alerts.types.${value}`, { defaultValue: formatLabel(value) }),
+    [t],
+  )
+
+  const getDeviceTypeLabel = useCallback(
+    (value) => t(`devices.types.${value}`, { defaultValue: formatLabel(value) }),
+    [t],
+  )
+
+  const getMetricLabel = useCallback(
+    (value) => t(`settings.alerts.metrics.${value}`, { defaultValue: formatLabel(value) }),
+    [t],
+  )
+
+  const getBoundLabel = useCallback(
+    (value) => t(`settings.alerts.bounds.${value}`, { defaultValue: formatLabel(value) }),
+    [t],
+  )
+
+  useEffect(() => {
+    setDraftConfig(alertConfig)
+  }, [alertConfig])
+
+  const handleThresholdChange = (deviceType, metric, field, value) => {
+    setDraftConfig((prev) => {
+      if (!prev) return prev
+      const parsed = value === '' ? null : Number(value)
+      const nextValue = parsed === null || Number.isNaN(parsed)
+        ? prev.thresholds[deviceType][metric][field]
+        : parsed
+      return {
+        ...prev,
+        thresholds: {
+          ...prev.thresholds,
+          [deviceType]: {
+            ...prev.thresholds[deviceType],
+            [metric]: {
+              ...prev.thresholds[deviceType][metric],
+              [field]: nextValue,
+            },
+          },
+        },
+      }
+    })
+  }
+
+  const handleToggleAlertType = (typeKey, checked) => {
+    setDraftConfig((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        enabledTypes: {
+          ...prev.enabledTypes,
+          [typeKey]: checked,
+        },
+      }
+    })
+  }
+
+  const handleRoutingChange = (routeId, field, value) => {
+    setDraftConfig((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        routingRules: prev.routingRules.map((rule) =>
+          rule.id === routeId
+            ? {
+                ...rule,
+                [field]: value
+                  .split(',')
+                  .map((entry) => entry.trim())
+                  .filter(Boolean),
+              }
+            : rule,
+        ),
+      }
+    })
+  }
+
+  const handleEscalationChange = (policyId, field, value) => {
+    setDraftConfig((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        escalationPolicies: prev.escalationPolicies.map((policy) =>
+          policy.id === policyId
+            ? {
+                ...policy,
+                [field]: field === 'escalateAfterMinutes'
+                  ? (() => {
+                      const parsed = Number(value)
+                      return Number.isNaN(parsed) ? policy.escalateAfterMinutes : parsed
+                    })()
+                  : value
+                      .split(',')
+                      .map((entry) => entry.trim())
+                      .filter(Boolean),
+              }
+            : policy,
+        ),
+      }
+    })
+  }
+
+  const handleSaveAlertConfig = async () => {
+    if (!draftConfig) return
+    await updateAlertConfig(draftConfig)
+    setConfigStatus(
+      t('settings.alerts.saved', {
+        defaultValue: 'Alert configuration saved successfully.',
+      }),
+    )
+    setTimeout(() => setConfigStatus(null), 2500)
   }
 
   const handleRefresh = async () => {
@@ -115,6 +238,192 @@ export function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {t('settings.alerts.title', { defaultValue: 'Alert automation' })}
+          </CardTitle>
+          <CardDescription>
+            {t('settings.alerts.subtitle', {
+              defaultValue: 'Enable alert types, routing rules, and escalation policies.',
+            })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {!draftConfig && (
+            <p className="text-sm text-muted-foreground">
+              {t('settings.alerts.loading', { defaultValue: 'Loading alert configuration...' })}
+            </p>
+          )}
+          {draftConfig && (
+            <>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  {t('settings.alerts.types', { defaultValue: 'Alert types' })}
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {Object.entries(draftConfig.enabledTypes).map(([typeKey, enabled]) => (
+                    <div key={typeKey} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium capitalize">{getAlertTypeLabel(typeKey)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t(`settings.alerts.typeDescriptions.${typeKey}`, {
+                            defaultValue: 'Toggle alert generation for this condition.',
+                          })}
+                        </p>
+                      </div>
+                      <Switch checked={enabled} onCheckedChange={(checked) => handleToggleAlertType(typeKey, checked)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  {t('settings.alerts.routing', { defaultValue: 'Routing rules' })}
+                </p>
+                <div className="mt-3 space-y-3">
+                  {(draftConfig.routingRules || []).map((rule) => (
+                    <div key={rule.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">
+                          {t(`alerts.severity.${rule.severity}`, {
+                            defaultValue: formatLabel(rule.severity),
+                          })}
+                        </p>
+                        <Badge variant={rule.severity === 'critical' ? 'destructive' : 'secondary'}>
+                          {(rule.channels || []).join(', ') || t('settings.alerts.noChannels', { defaultValue: 'No channels' })}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div>
+                          <Label>{t('settings.alerts.channels', { defaultValue: 'Channels' })}</Label>
+                          <Input
+                            value={(rule.channels || []).join(', ')}
+                            onChange={(event) => handleRoutingChange(rule.id, 'channels', event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t('settings.alerts.targets', { defaultValue: 'Targets' })}</Label>
+                          <Input
+                            value={(rule.targets || []).join(', ')}
+                            onChange={(event) => handleRoutingChange(rule.id, 'targets', event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">
+                  {t('settings.alerts.escalation', { defaultValue: 'Escalation policies' })}
+                </p>
+                <div className="mt-3 space-y-3">
+                  {(draftConfig.escalationPolicies || []).map((policy) => (
+                    <div key={policy.id} className="rounded-lg border p-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">
+                          {t(`alerts.severity.${policy.severity}`, {
+                            defaultValue: formatLabel(policy.severity),
+                          })}
+                        </p>
+                        <Badge variant="outline">
+                          {t('settings.alerts.escalateAfter', {
+                            defaultValue: '{minutes} min',
+                            values: { minutes: policy.escalateAfterMinutes },
+                          })}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div>
+                          <Label>{t('settings.alerts.minutes', { defaultValue: 'Minutes to escalate' })}</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={policy.escalateAfterMinutes}
+                            onChange={(event) => handleEscalationChange(policy.id, 'escalateAfterMinutes', event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <Label>{t('settings.alerts.notify', { defaultValue: 'Notify roles' })}</Label>
+                          <Input
+                            value={(policy.notifyRoles || []).join(', ')}
+                            onChange={(event) => handleEscalationChange(policy.id, 'notifyRoles', event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={handleSaveAlertConfig} disabled={updatingConfig}>
+                  {updatingConfig
+                    ? t('common.saving', { defaultValue: 'Saving...' })
+                    : t('settings.alerts.save', { defaultValue: 'Save alert rules' })}
+                </Button>
+                {configStatus && <p className="text-xs text-muted-foreground">{configStatus}</p>}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {t('settings.alerts.thresholdsTitle', { defaultValue: 'Threshold configuration' })}
+          </CardTitle>
+          <CardDescription>
+            {t('settings.alerts.thresholdsSubtitle', {
+              defaultValue: 'Define acceptable operating ranges per device type.',
+            })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!draftConfig && (
+            <p className="text-sm text-muted-foreground">
+              {t('settings.alerts.loading', { defaultValue: 'Loading alert configuration...' })}
+            </p>
+          )}
+          {draftConfig &&
+            Object.entries(draftConfig.thresholds).map(([deviceType, metrics]) => (
+              <div key={deviceType} className="rounded-xl border p-4">
+                <p className="text-sm font-semibold capitalize">{getDeviceTypeLabel(deviceType)}</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {Object.entries(metrics).map(([metric, bounds]) => (
+                    <div key={metric} className="rounded-lg bg-muted/40 p-3">
+                      <p className="text-xs uppercase text-muted-foreground">{getMetricLabel(metric)}</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {Object.entries(bounds).map(([boundKey, boundValue]) => (
+                          <div key={boundKey}>
+                            <Label>{getBoundLabel(boundKey)}</Label>
+                            <Input
+                              type="number"
+                              value={boundValue}
+                              onChange={(event) => handleThresholdChange(deviceType, metric, boundKey, event.target.value)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          {draftConfig && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" onClick={handleSaveAlertConfig} disabled={updatingConfig}>
+                {updatingConfig
+                  ? t('common.saving', { defaultValue: 'Saving...' })
+                  : t('settings.alerts.saveThresholds', { defaultValue: 'Save thresholds' })}
+              </Button>
+              {configStatus && <p className="text-xs text-muted-foreground">{configStatus}</p>}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
