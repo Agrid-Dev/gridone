@@ -6,18 +6,20 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
+import { useTranslation } from '@/contexts/LanguageContext'
 
 const typeLabels = {
-  air_conditioner: 'AC Unit',
-  thermostat: 'Thermostat',
-  air_purifier: 'Air Purifier',
-  light: 'Light',
-  fan: 'Fan',
-  sensor: 'Sensor',
+  air_conditioner: { key: 'devices.typeLabels.air_conditioner', fallback: 'AC Unit' },
+  thermostat: { key: 'devices.typeLabels.thermostat', fallback: 'Thermostat' },
+  air_purifier: { key: 'devices.typeLabels.air_purifier', fallback: 'Air Purifier' },
+  light: { key: 'devices.typeLabels.light', fallback: 'Light' },
+  fan: { key: 'devices.typeLabels.fan', fallback: 'Fan' },
+  sensor: { key: 'devices.typeLabels.sensor', fallback: 'Sensor' },
 }
 
 export function DevicesPage() {
   const { devices, zones, updateDevice, error, refresh } = useDeviceData()
+  const { t } = useTranslation()
   const [filter, setFilter] = useState('all')
 
   const filteredDevices = useMemo(() => {
@@ -25,25 +27,39 @@ export function DevicesPage() {
     return devices.filter((device) => device.zone === filter)
   }, [devices, filter])
 
+  const getTypeLabel = (type) => {
+    const entry = typeLabels[type]
+    if (entry) {
+      return t(entry.key, { defaultValue: entry.fallback })
+    }
+    return type.replace('_', ' ')
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Devices</h1>
-        <p className="text-sm text-muted-foreground">Monitor every connected device and drill into details.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {t('devices.title', { defaultValue: 'Devices' })}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {t('devices.subtitle', { defaultValue: 'Monitor every connected device and drill into details.' })}
+        </p>
       </div>
 
       {error && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {error}{' '}
           <button type="button" className="underline" onClick={refresh}>
-            Retry
+            {t('common.retry', { defaultValue: 'Retry' })}
           </button>
         </div>
       )}
 
       <Tabs value={filter} onValueChange={setFilter} className="w-full">
         <TabsList className="w-full overflow-x-auto">
-          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="all">
+            {t('devices.tabs.all', { defaultValue: 'All' })}
+          </TabsTrigger>
           {zones.map((zone) => (
             <TabsTrigger key={zone.id} value={zone.id} className="capitalize">
               {zone.name}
@@ -60,20 +76,24 @@ export function DevicesPage() {
                       <div>
                         <CardTitle className="text-lg">{device.name}</CardTitle>
                         <CardDescription className="capitalize">
-                          {typeLabels[device.type] || device.type} • {device.zone.replace('_', ' ')}
+                          {getTypeLabel(device.type)} • {device.zone.replace('_', ' ')}
                         </CardDescription>
                       </div>
                       <Badge variant={device.online ? 'success' : 'destructive'} className="flex items-center gap-1">
                         {device.online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                        {device.online ? 'Online' : 'Offline'}
+                        {device.online
+                          ? t('common.online', { defaultValue: 'Online' })
+                          : t('common.offline', { defaultValue: 'Offline' })}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <DeviceMetrics device={device} />
+                    <DeviceMetrics device={device} t={t} />
                     <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-3 py-2" onClick={(event) => event.preventDefault()}>
                       <div>
-                        <p className="text-xs uppercase text-muted-foreground">State</p>
+                        <p className="text-xs uppercase text-muted-foreground">
+                          {t('common.state', { defaultValue: 'State' })}
+                        </p>
                         <p className="text-sm font-medium capitalize">{device.state}</p>
                       </div>
                       <Switch
@@ -84,14 +104,18 @@ export function DevicesPage() {
                         }}
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">ID: {device.id}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('common.idLabel', { defaultValue: 'ID' })}: {device.id}
+                    </p>
                   </CardContent>
                 </Card>
               </Link>
             ))}
             {filteredDevices.length === 0 && (
               <Card>
-                <CardContent className="py-10 text-center text-sm text-muted-foreground">No devices in this zone.</CardContent>
+                <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                  {t('devices.empty', { defaultValue: 'No devices in this zone.' })}
+                </CardContent>
               </Card>
             )}
           </div>
@@ -101,30 +125,36 @@ export function DevicesPage() {
   )
 }
 
-function DeviceMetrics({ device }) {
+function DeviceMetrics({ device, t }) {
   if (device.type === 'light') {
     return (
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <Metric label="Brightness" value={`${device.brightness ?? 0}%`} />
-        <Metric label="Color" value={device.color || '#FFFFFF'} />
+        <Metric label={t('devices.metrics.brightness', { defaultValue: 'Brightness' })} value={`${device.brightness ?? 0}%`} />
+        <Metric label={t('devices.metrics.color', { defaultValue: 'Color' })} value={device.color || '#FFFFFF'} />
       </div>
     )
   }
   if (device.type === 'thermostat' || device.type === 'air_conditioner') {
     return (
       <div className="grid grid-cols-2 gap-3 text-sm">
-        <Metric label="Current" value={`${device.temperature ?? device.currentTemperature ?? '—'}°C`} />
-        <Metric label="Target" value={`${device.targetTemperature ?? '—'}°C`} />
-        <Metric label="Mode" value={device.mode || 'auto'} />
-        <Metric label="Humidity" value={`${device.humidity ?? '—'}%`} />
+        <Metric
+          label={t('devices.metrics.current', { defaultValue: 'Current' })}
+          value={`${device.temperature ?? device.currentTemperature ?? '—'}°C`}
+        />
+        <Metric label={t('devices.metrics.target', { defaultValue: 'Target' })} value={`${device.targetTemperature ?? '—'}°C`} />
+        <Metric label={t('devices.metrics.mode', { defaultValue: 'Mode' })} value={device.mode || 'auto'} />
+        <Metric label={t('devices.metrics.humidity', { defaultValue: 'Humidity' })} value={`${device.humidity ?? '—'}%`} />
       </div>
     )
   }
 
   return (
     <div className="grid grid-cols-2 gap-3 text-sm">
-      <Metric label="Mode" value={device.mode || '—'} />
-      <Metric label="Updated" value={new Date(device.lastUpdated).toLocaleTimeString()} />
+      <Metric label={t('devices.metrics.mode', { defaultValue: 'Mode' })} value={device.mode || '—'} />
+      <Metric
+        label={t('devices.metrics.updated', { defaultValue: 'Updated' })}
+        value={new Date(device.lastUpdated).toLocaleTimeString()}
+      />
     </div>
   )
 }

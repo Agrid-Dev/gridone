@@ -9,6 +9,7 @@ import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
+import { useTranslation } from '@/contexts/LanguageContext'
 
 const modeOptions = ['cool', 'heat', 'fan', 'auto']
 const fanSpeeds = ['low', 'medium', 'high', 'auto']
@@ -17,9 +18,18 @@ export function DeviceDetailPage() {
   const { deviceId } = useParams()
   const navigate = useNavigate()
   const { devices, activity, updateDevice, loading } = useDeviceData()
+  const { t } = useTranslation()
   const [device, setDevice] = useState(() => devices.find((entry) => entry.id === deviceId))
   const [statusMessage, setStatusMessage] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
+  const modeLabel = (value) =>
+    t(`deviceDetail.modes.${value}`, {
+      defaultValue: value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Auto',
+    })
+  const fanSpeedLabel = (value) =>
+    t(`deviceDetail.fanSpeeds.${value}`, {
+      defaultValue: value ? value.charAt(0).toUpperCase() + value.slice(1) : 'Auto',
+    })
 
   useEffect(() => {
     const currentDevice = devices.find((entry) => entry.id === deviceId)
@@ -36,7 +46,9 @@ export function DeviceDetailPage() {
   if (!device && loading) {
     return (
       <Card>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">Loading device…</CardContent>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          {t('deviceDetail.loading', { defaultValue: 'Loading device…' })}
+        </CardContent>
       </Card>
     )
   }
@@ -45,8 +57,12 @@ export function DeviceDetailPage() {
     return (
       <Card>
         <CardContent className="py-12 text-center">
-          <p className="mb-4 text-sm text-muted-foreground">Device not found.</p>
-          <Button onClick={() => navigate('/devices')}>Back to devices</Button>
+          <p className="mb-4 text-sm text-muted-foreground">
+            {t('deviceDetail.notFound', { defaultValue: 'Device not found.' })}
+          </p>
+          <Button onClick={() => navigate('/devices')}>
+            {t('deviceDetail.actions.back', { defaultValue: 'Back to devices' })}
+          </Button>
         </CardContent>
       </Card>
     )
@@ -56,9 +72,15 @@ export function DeviceDetailPage() {
     setIsSaving(true)
     try {
       await updateDevice(device.id, updates)
-      setStatusMessage({ type: 'success', text: 'Device updated successfully.' })
+      setStatusMessage({
+        type: 'success',
+        text: t('deviceDetail.status.success', { defaultValue: 'Device updated successfully.' }),
+      })
     } catch (error) {
-      setStatusMessage({ type: 'error', text: error.message || 'Unable to update device.' })
+      setStatusMessage({
+        type: 'error',
+        text: error.message || t('deviceDetail.status.error', { defaultValue: 'Unable to update device.' }),
+      })
     } finally {
       setIsSaving(false)
       setTimeout(() => setStatusMessage(null), 4000)
@@ -72,7 +94,7 @@ export function DeviceDetailPage() {
           <Button variant="ghost" size="sm" asChild className="px-0 text-muted-foreground">
             <Link to="/devices" className="flex items-center gap-1 text-sm">
               <ArrowLeft className="h-4 w-4" />
-              Back to devices
+              {t('deviceDetail.actions.back', { defaultValue: 'Back to devices' })}
             </Link>
           </Button>
           <h1 className="text-2xl font-semibold">{device.name}</h1>
@@ -81,7 +103,9 @@ export function DeviceDetailPage() {
           </p>
         </div>
         <Badge variant={device.online ? 'success' : 'destructive'}>
-          {device.online ? 'Online' : 'Offline'}
+          {device.online
+            ? t('common.online', { defaultValue: 'Online' })
+            : t('common.offline', { defaultValue: 'Offline' })}
         </Badge>
       </div>
 
@@ -98,14 +122,22 @@ export function DeviceDetailPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Controls</CardTitle>
-            <CardDescription>Modify available settings in real-time.</CardDescription>
+            <CardTitle>
+              {t('deviceDetail.controls.title', { defaultValue: 'Controls' })}
+            </CardTitle>
+            <CardDescription>
+              {t('deviceDetail.controls.subtitle', { defaultValue: 'Modify available settings in real-time.' })}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-4 py-3">
               <div>
-                <p className="text-sm font-medium">Power</p>
-                <p className="text-xs text-muted-foreground">Switch the device on or off</p>
+                <p className="text-sm font-medium">
+                  {t('deviceDetail.controls.power', { defaultValue: 'Power' })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t('deviceDetail.controls.powerDescription', { defaultValue: 'Switch the device on or off' })}
+                </p>
               </div>
               <Switch
                 checked={device.state === 'on'}
@@ -118,8 +150,12 @@ export function DeviceDetailPage() {
               <div className="space-y-4 rounded-xl border bg-background/80 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Target temperature</p>
-                    <p className="text-xs text-muted-foreground">16°C - 30°C</p>
+                    <p className="text-sm font-medium">
+                      {t('deviceDetail.controls.targetTemperature', { defaultValue: 'Target temperature' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('deviceDetail.controls.temperatureRange', { defaultValue: '16°C - 30°C' })}
+                    </p>
                   </div>
                   <Badge variant="outline">{device.targetTemperature ?? '—'}°C</Badge>
                 </div>
@@ -133,30 +169,36 @@ export function DeviceDetailPage() {
                 />
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-2">
-                    <p className="text-xs uppercase text-muted-foreground">Mode</p>
+                    <p className="text-xs uppercase text-muted-foreground">
+                      {t('devices.metrics.mode', { defaultValue: 'Mode' })}
+                    </p>
                     <Select value={device.mode || 'auto'} onValueChange={(value) => handleUpdate({ mode: value })} disabled={isSaving}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select mode" />
+                        <SelectValue
+                          placeholder={t('deviceDetail.controls.selectMode', { defaultValue: 'Select mode' })}
+                        />
                       </SelectTrigger>
                       <SelectContent>
                         {modeOptions.map((option) => (
                           <SelectItem key={option} value={option}>
-                            {option}
+                            {modeLabel(option)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-xs uppercase text-muted-foreground">Fan speed</p>
+                    <p className="text-xs uppercase text-muted-foreground">
+                      {t('deviceDetail.controls.fanSpeed', { defaultValue: 'Fan speed' })}
+                    </p>
                     <Select value={device.fanSpeed || 'auto'} onValueChange={(value) => handleUpdate({ fanSpeed: value })} disabled={isSaving}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Auto" />
+                        <SelectValue placeholder={t('deviceDetail.controls.auto', { defaultValue: 'Auto' })} />
                       </SelectTrigger>
                       <SelectContent>
                         {fanSpeeds.map((speed) => (
                           <SelectItem key={speed} value={speed}>
-                            {speed}
+                            {fanSpeedLabel(speed)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -170,8 +212,12 @@ export function DeviceDetailPage() {
               <div className="space-y-4 rounded-xl border bg-background/80 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Brightness</p>
-                    <p className="text-xs text-muted-foreground">Dim or brighten light</p>
+                    <p className="text-sm font-medium">
+                      {t('devices.metrics.brightness', { defaultValue: 'Brightness' })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('deviceDetail.controls.brightnessDescription', { defaultValue: 'Dim or brighten light' })}
+                    </p>
                   </div>
                   <Badge variant="outline">{device.brightness ?? 0}%</Badge>
                 </div>
@@ -184,7 +230,9 @@ export function DeviceDetailPage() {
                   disabled={isSaving}
                 />
                 <div className="space-y-2">
-                  <p className="text-xs uppercase text-muted-foreground">Color</p>
+                  <p className="text-xs uppercase text-muted-foreground">
+                    {t('devices.metrics.color', { defaultValue: 'Color' })}
+                  </p>
                   <Input
                     type="color"
                     value={device.color || '#ffffff'}
@@ -198,15 +246,19 @@ export function DeviceDetailPage() {
 
             {device.type === 'air_purifier' && (
               <div className="space-y-2 rounded-xl border bg-background/80 p-4">
-                <p className="text-sm font-medium">Purifier speed</p>
+                <p className="text-sm font-medium">
+                  {t('deviceDetail.controls.purifierSpeed', { defaultValue: 'Purifier speed' })}
+                </p>
                 <Select value={device.fanSpeed || 'auto'} onValueChange={(value) => handleUpdate({ fanSpeed: value })} disabled={isSaving}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select speed" />
+                    <SelectValue
+                      placeholder={t('deviceDetail.controls.selectSpeed', { defaultValue: 'Select speed' })}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {fanSpeeds.map((speed) => (
                       <SelectItem key={speed} value={speed}>
-                        {speed}
+                        {fanSpeedLabel(speed)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -217,36 +269,72 @@ export function DeviceDetailPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Device summary</CardTitle>
-            <CardDescription>Live metrics pulled from the device.</CardDescription>
+            <CardTitle>
+              {t('deviceDetail.summary.title', { defaultValue: 'Device summary' })}
+            </CardTitle>
+            <CardDescription>
+              {t('deviceDetail.summary.subtitle', { defaultValue: 'Live metrics pulled from the device.' })}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="rounded-lg border bg-muted/30 px-3 py-2">
-              <p className="text-xs uppercase text-muted-foreground">State</p>
+              <p className="text-xs uppercase text-muted-foreground">
+                {t('common.state', { defaultValue: 'State' })}
+              </p>
               <p className="text-sm font-medium capitalize">{device.state}</p>
             </div>
             {typeof device.temperature === 'number' && (
-              <SummaryItem label="Current Temp" value={`${device.temperature}°C`} icon={ThermalIcon} />
+              <SummaryItem
+                label={t('deviceDetail.summary.currentTemp', { defaultValue: 'Current Temp' })}
+                value={`${device.temperature}°C`}
+                icon={ThermalIcon}
+              />
             )}
             {typeof device.currentTemperature === 'number' && (
-              <SummaryItem label="Current Temp" value={`${device.currentTemperature}°C`} icon={ThermalIcon} />
+              <SummaryItem
+                label={t('deviceDetail.summary.currentTemp', { defaultValue: 'Current Temp' })}
+                value={`${device.currentTemperature}°C`}
+                icon={ThermalIcon}
+              />
             )}
-            {typeof device.humidity === 'number' && <SummaryItem label="Humidity" value={`${device.humidity}%`} icon={DropletIcon} />}
+            {typeof device.humidity === 'number' && (
+              <SummaryItem
+                label={t('devices.metrics.humidity', { defaultValue: 'Humidity' })}
+                value={`${device.humidity}%`}
+                icon={DropletIcon}
+              />
+            )}
             {typeof device.powerConsumption === 'number' && (
-              <SummaryItem label="Power" value={`${device.powerConsumption.toFixed(1)} kW`} icon={Zap} />
+              <SummaryItem
+                label={t('deviceDetail.summary.power', { defaultValue: 'Power' })}
+                value={`${device.powerConsumption.toFixed(1)} kW`}
+                icon={Zap}
+              />
             )}
-            <SummaryItem label="Last updated" value={new Date(device.lastUpdated).toLocaleTimeString()} icon={Settings2} />
+            <SummaryItem
+              label={t('deviceDetail.summary.lastUpdated', { defaultValue: 'Last updated' })}
+              value={new Date(device.lastUpdated).toLocaleTimeString()}
+              icon={Settings2}
+            />
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Activity log</CardTitle>
-          <CardDescription>Chronological updates for this device.</CardDescription>
+          <CardTitle>
+            {t('deviceDetail.activity.title', { defaultValue: 'Activity log' })}
+          </CardTitle>
+          <CardDescription>
+            {t('deviceDetail.activity.subtitle', { defaultValue: 'Chronological updates for this device.' })}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {relatedActivity.length === 0 && <p className="text-sm text-muted-foreground">No updates yet.</p>}
+          {relatedActivity.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              {t('deviceDetail.activity.empty', { defaultValue: 'No updates yet.' })}
+            </p>
+          )}
           {relatedActivity.map((event) => (
             <div key={event.id} className="flex items-center justify-between border-b pb-3 last:border-0 last:pb-0">
               <div>
@@ -260,7 +348,7 @@ export function DeviceDetailPage() {
       </Card>
       {isSaving && (
         <div className="fixed bottom-4 right-4 flex items-center gap-2 rounded-full bg-background/90 px-4 py-2 text-sm shadow-lg">
-          <Loader2 className="h-4 w-4 animate-spin" /> Applying changes…
+          <Loader2 className="h-4 w-4 animate-spin" /> {t('deviceDetail.status.applying', { defaultValue: 'Applying changes…' })}
         </div>
       )}
     </div>
