@@ -1,7 +1,7 @@
 import pytest
 
 from core.transports.http_transport.http_address import (
-    parse_http_address,
+    HttpAddress,
     render_endpoint,
 )
 
@@ -16,8 +16,50 @@ from core.transports.http_transport.http_address import (
         ),
     ],
 )
-def test_parse_http_address(address, method, endpoint) -> None:  # noqa: ANN001
-    assert parse_http_address(address) == (method, endpoint)
+def test_parse_http_address_from_string(address, method, endpoint) -> None:  # noqa: ANN001
+    result = HttpAddress.from_raw(address)
+    assert result.method == method
+    assert result.path == endpoint
+
+
+@pytest.mark.parametrize(
+    ("raw_address", "expected"),
+    [
+        (
+            {"method": "GET", "path": "/my-value"},
+            HttpAddress(
+                method="GET",
+                path="/my-value",  # no body
+            ),
+        ),
+        (
+            {"method": "POST", "path": "/show_data", "body": "dataname=Tsetpoint"},
+            HttpAddress(
+                method="POST",
+                path="/show_data",
+                body="dataname=Tsetpoint",  # with string body
+            ),
+        ),
+        (
+            {
+                "method": "POST",
+                "path": "/show_data",
+                "body": {
+                    "dataname": "Tsetpoint",
+                },
+            },
+            HttpAddress(
+                method="POST",
+                path="/show_data",
+                body={
+                    "dataname": "Tsetpoint",  # with json body
+                },
+            ),
+        ),
+    ],
+)
+def test_parse_http_address_from_dict(raw_address: dict, expected: HttpAddress) -> None:
+    assert HttpAddress.from_dict(raw_address) == expected
 
 
 @pytest.mark.parametrize(

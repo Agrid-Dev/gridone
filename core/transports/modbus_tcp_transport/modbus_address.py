@@ -2,6 +2,8 @@ import re
 from dataclasses import dataclass
 from enum import StrEnum
 
+from core.transports.transport_address import RawTransportAddress, TransportAddress
+
 
 class ModbusAddressType(StrEnum):
     COIL = "C"
@@ -17,17 +19,30 @@ instance_regex = r"^\d+$"
 
 
 @dataclass
-class ModbusAddress:
+class ModbusAddress(TransportAddress):
     type: ModbusAddressType
     instance: int
 
-    @staticmethod
-    def from_str(raw_address: str) -> "ModbusAddress":
-        trimmed_address = raw_address.strip()
+    @classmethod
+    def from_str(cls, address: str) -> "ModbusAddress":
+        trimmed_address = address.strip()
         match = re.fullmatch(address_type_regex, trimmed_address)
         if not match:
-            msg = f"Invalid Modbus address format: {raw_address}"
+            msg = f"Invalid Modbus address format: {address}"
             raise ValueError(msg)
         address_type = ModbusAddressType(match.group(1))
         instance = int(match.group(2))
-        return ModbusAddress(type=address_type, instance=instance)
+        return cls(type=address_type, instance=instance)
+
+    @classmethod
+    def from_dict(cls, address: dict) -> "ModbusAddress":
+        return cls(**address)
+
+    @classmethod
+    def from_raw(cls, raw_address: RawTransportAddress) -> "ModbusAddress":
+        if isinstance(raw_address, str):
+            return cls.from_str(raw_address)
+        if isinstance(raw_address, dict):
+            return cls.from_dict(raw_address)
+        msg = "Invalid raw address type"
+        raise ValueError(msg)

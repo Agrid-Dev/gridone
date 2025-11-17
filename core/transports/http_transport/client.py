@@ -4,7 +4,7 @@ from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
-from .http_address import parse_http_address, render_endpoint
+from .http_address import HttpAddress, render_endpoint
 
 REQUEST_TIMEOUT = 10.0  # s
 
@@ -25,7 +25,9 @@ class HTTPTransportClient(TransportClient):
             self._client = httpx.AsyncClient(timeout=timeout)
 
     async def connect(self) -> None:
-        pass  # No action needed; httpx handles connection pooling.
+        if self._client and self._client.is_closed:  # reopen client if closed
+            print("Reopening !")
+            self._client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
 
     async def close(self) -> None:
         if hasattr(self, "_client") and self._client is not None:
@@ -33,13 +35,17 @@ class HTTPTransportClient(TransportClient):
 
     async def read(
         self,
-        address: str,
+        address: str | dict,
         context: dict,
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType:
-        method, raw_endpoint = parse_http_address(address)
-        endpoint = render_endpoint(raw_endpoint, context)
-        response = await self._client.request(method, endpoint)
+        http_address = HttpAddress.from_raw(address)
+        endpoint = render_endpoint(http_address.path, context)
+        response = await self._client.request(
+            http_address.method,
+            endpoint,
+            data=http_address.body,  # ty: ignore[invalid-argument-type]
+        )
         result = response.json()
         if value_parser:
             result = value_parser(result)

@@ -24,10 +24,10 @@ class ModbusTCPTransportClient(TransportClient):
     async def close(self) -> None:
         self._client.close()
 
-    async def _read_modbus(self, address: str, device_id: int) -> bool | int:
+    async def _read_modbus(self, address: str | dict, device_id: int) -> bool | int:
         if not self._client.connected:
             await self.connect()
-        modbus_address = ModbusAddress.from_str(address)
+        modbus_address = ModbusAddress.from_raw(address)
         if modbus_address.type == ModbusAddressType.COIL:
             result = await self._client.read_coils(
                 modbus_address.instance,

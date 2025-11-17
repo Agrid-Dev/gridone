@@ -21,7 +21,7 @@ class TransportClient(ABC):
     @abstractmethod
     async def read(
         self,
-        address: str,
+        address: str | dict,
         context: dict,
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType:

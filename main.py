@@ -43,10 +43,15 @@ DEVICES_DATA: list[DeviceData] = [
         "transport_config": {"host": "10.125.0.11", "port": 4196},
         "device_config": {"device_id": 11},
     },
+    {
+        "driver": "agrid_thermostat_http",
+        "transport_config": {},
+        "device_config": {"ip": "http://10.125.0.120"},
+    },
 ]
 
 
-async def main():
+async def main() -> None:
     devices = {
         d["driver"]: load_device(
             DRIVERS_DB / (d["driver"] + ".yaml"),

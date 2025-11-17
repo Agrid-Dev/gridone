@@ -16,7 +16,7 @@ class DeviceSchema:
         self,
         *,
         attribute_name: str | None = None,
-        address: str | None = None,
+        address: str | dict | None = None,
     ) -> AttributeSchema:
         if attribute_name is None and address is None:
             msg = "Either attribute_name or address must be provided"
@@ -39,7 +39,7 @@ class DeviceSchema:
     ) -> AttributeValueType:
         attribute_schema = self.get_attribute_schema(attribute_name=attribute)
 
-        return attribute_schema.value_parser(transport_response)
+        return attribute_schema.value_parser(transport_response)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     def from_dict(
@@ -52,7 +52,7 @@ class DeviceSchema:
         ]
         device_config_fields = [
             DeviceConfigField(**dfc)  # ty: ignore[invalid-argument-type]
-            for dfc in data["device_config"]
+            for dfc in data.get("device_config", {})
         ]
         return cls(
             name=data["name"],
