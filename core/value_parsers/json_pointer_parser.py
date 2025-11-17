@@ -20,4 +20,4 @@ def json_pointer_parser(data: dict, json_pointer: str) -> AttributeValueType:
     (RFC 6901 standard)
     Ex: data= {"a": 1, "b": {"c": 2}}, json_pointer="/b/c" -> returns 2
     """
-    return pointer.resolve(json_pointer, data)
+    return pointer.resolve(json_pointer, data)  # ty: ignore[invalid-return-type]
