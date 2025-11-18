@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pytest
 
 from core.utils.templating.render import (
@@ -34,7 +36,9 @@ TEST_CONTEXT = {
     ],
 )
 def test_render_str(template: str, context: dict, expected: str) -> None:
+    previous_template = deepcopy(template)
     assert render_str(template, context) == expected
+    assert template == previous_template  # ensure template is not modified
 
 
 @pytest.mark.parametrize(

@@ -1,12 +1,12 @@
 import re
-from typing import TypedDict, TypeVar
+from typing import TypedDict, TypeVar, Unpack
 
 DEFAULT_TEMPLATE_PATTERN = r"\$\{(\w+)\}"
 
 type TemplatingContext = dict[str, str | float | bool]
 
 
-class RenderStrKwargs(TypedDict):
+class RenderStrKwargs(TypedDict, total=False):
     template_pattern: str
     raise_for_missing_context: bool
 
@@ -37,7 +37,7 @@ Struct = TypeVar("Struct", bound=dict | list | str)
 def render_struct[Struct: dict | list | str](
     struct: Struct,
     context: TemplatingContext,
-    **kwargs: RenderStrKwargs,
+    **kwargs: Unpack[RenderStrKwargs],
 ) -> Struct:
     if isinstance(struct, str):
         return render_str(struct, context, **kwargs)  # ty: ignore[invalid-return-type]

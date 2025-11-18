@@ -2,7 +2,13 @@ from dataclasses import dataclass
 
 from core.types import AttributeValueType, TransportProtocols
 
-from .attribute_schema import AttributeSchema, DeviceConfigField
+from .attribute_schema import AttributeSchema
+
+
+@dataclass
+class DeviceConfigField:
+    name: str
+    required: bool = True
 
 
 @dataclass

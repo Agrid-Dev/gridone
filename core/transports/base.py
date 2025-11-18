@@ -22,7 +22,6 @@ class TransportClient(ABC):
     async def read(
         self,
         address: str | dict,
-        context: dict,
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType:
         """Read a value from the transport."""
@@ -33,7 +32,6 @@ class TransportClient(ABC):
         self,
         address: str,
         value: AttributeValueType,
-        context: dict,
     ) -> None:
         """Write a value to the transport."""
         raise NotImplementedError

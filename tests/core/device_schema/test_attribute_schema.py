@@ -1,3 +1,5 @@
+import pytest
+
 from core.device_schema.attribute_schema import AttributeSchema
 from core.types import DataType
 
@@ -19,3 +21,30 @@ def test_attribute_schema_from_dict() -> None:
         },
     }
     assert schema.value_parser(example_result) == exemple_temperature
+
+
+@pytest.mark.parametrize(
+    ("attribute_schema", "context", "expected_address"),
+    [
+        (
+            AttributeSchema.from_dict(
+                {
+                    "name": "temperature",
+                    "data_type": "float",
+                    "address": "${base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
+                    "json_pointer": "/current_weather/temperature",
+                },
+            ),
+            {
+                "base_url": "https://api.open-meteo.com/v1/forecast",
+            },
+            "https://api.open-meteo.com/v1/forecast/?latitude={lattitude}&longitude={longitude}&current_weather=true",
+        ),
+    ],
+)
+def test_render(
+    attribute_schema: AttributeSchema,
+    context: dict,
+    expected_address: str | dict,
+) -> None:
+    assert attribute_schema.render(context).address == expected_address

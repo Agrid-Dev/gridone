@@ -4,7 +4,7 @@ from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
-from .http_address import HttpAddress, render_endpoint
+from .http_address import HttpAddress
 
 REQUEST_TIMEOUT = 10.0  # s
 
@@ -36,14 +36,12 @@ class HTTPTransportClient(TransportClient):
     async def read(
         self,
         address: str | dict,
-        context: dict,
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType:
         http_address = HttpAddress.from_raw(address)
-        endpoint = render_endpoint(http_address.path, context)
         response = await self._client.request(
             http_address.method,
-            endpoint,
+            http_address.path,
             data=http_address.body,  # ty: ignore[invalid-argument-type]
         )
         result = response.json()
@@ -55,7 +53,6 @@ class HTTPTransportClient(TransportClient):
         self,
         address: str,
         value: AttributeValueType,
-        context: dict,  # noqa: ARG002
     ) -> None:
         print(
             f"Writing via HTTP to {address} with value {value}",
