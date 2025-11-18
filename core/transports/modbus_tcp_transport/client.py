@@ -64,8 +64,10 @@ class ModbusTCPTransportClient(TransportClient):
 
     async def read(
         self,
-        address: str,
+        address: str | dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,
     ) -> AttributeValueType:
         raw_value = await self._read_modbus(address, context.get("device_id", 1))
         if value_parser:

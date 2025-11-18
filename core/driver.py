@@ -18,12 +18,14 @@ class Driver:
         attribute_name: str,
         device_config: DeviceConfig,
     ) -> AttributeValueType:
+        context = {**device_config, **self.env}
         attibute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
-        ).render({**device_config, **self.env})
+        ).render(context)
         return await self.transport.read(
             address=attibute_schema.address,
             value_parser=attibute_schema.value_parser,
+            context=context,
         )
 
     @classmethod

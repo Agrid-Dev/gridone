@@ -23,6 +23,8 @@ class TransportClient(ABC):
         self,
         address: str | dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,
     ) -> AttributeValueType:
         """Read a value from the transport."""
         ...

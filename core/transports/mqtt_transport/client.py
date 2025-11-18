@@ -36,6 +36,8 @@ class MqttTransportClient(TransportClient):
         self,
         address: str | dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
         mqtt_address = MqttAddress.from_raw(address)
         async with self._client.messages() as messages:

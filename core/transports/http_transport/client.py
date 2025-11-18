@@ -26,7 +26,6 @@ class HTTPTransportClient(TransportClient):
 
     async def connect(self) -> None:
         if self._client and self._client.is_closed:  # reopen client if closed
-            print("Reopening !")
             self._client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
 
     async def close(self) -> None:
@@ -37,6 +36,8 @@ class HTTPTransportClient(TransportClient):
         self,
         address: str | dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
         http_address = HttpAddress.from_raw(address)
         response = await self._client.request(
@@ -54,6 +55,4 @@ class HTTPTransportClient(TransportClient):
         address: str,
         value: AttributeValueType,
     ) -> None:
-        print(
-            f"Writing via HTTP to {address} with value {value}",
-        )
+        raise NotImplementedError
