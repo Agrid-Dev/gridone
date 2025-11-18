@@ -5,9 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "asyncio-mqtt>=0.16.2",
+    "aiomqtt>=2.4.0",
     "httpx>=0.28.1",
-    "paho-mqtt<2.0",
     "pydantic>=2.12.4",
     "pymodbus>=3.11.3",
     "python-jsonpath>=2.0.1",

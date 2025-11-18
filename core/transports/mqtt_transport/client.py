@@ -1,6 +1,6 @@
 import asyncio
 
-import asyncio_mqtt as aiomqtt
+import aiomqtt
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
@@ -40,26 +40,26 @@ class MqttTransportClient(TransportClient):
         context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
         mqtt_address = MqttAddress.from_raw(address)
-        async with self._client.messages() as messages:
-            await self._client.subscribe(mqtt_address.topic)
-            await self._client.publish(
-                mqtt_address.request_read.topic,
-                payload=mqtt_address.request_read.message,
-            )
-            try:
-                # Wait for the first matching message within TIMEOUT
-                async with asyncio.timeout(TIMEOUT):
-                    async for message in messages:
-                        if value_parser:
-                            try:
-                                return value_parser(message.payload.decode())
-                            except ValueError:
-                                continue  # Not the message we expect → keep listening
-                        return message.payload
+        await self._client.subscribe(mqtt_address.topic)
 
-            except TimeoutError as err:
-                msg = "MQTT issue: no message received before timeout"
-                raise ValueError(msg) from err
+        await self._client.publish(
+            mqtt_address.request_read.topic,
+            payload=mqtt_address.request_read.message,
+        )
+        try:
+            # Wait for the first matching message within TIMEOUT
+            async with asyncio.timeout(TIMEOUT):
+                async for message in self._client.messages:
+                    if value_parser:
+                        try:
+                            return value_parser(message.payload.decode())
+                        except ValueError:
+                            continue  # Not the message we expect → keep listening
+                    return message.payload
+
+        except TimeoutError as err:
+            msg = "MQTT issue: no message received before timeout"
+            raise ValueError(msg) from err
         msg = "Unable to read value"
         raise ValueError(msg)
 
