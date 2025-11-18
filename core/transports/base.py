@@ -25,7 +25,7 @@ class TransportClient(ABC):
         value_parser: ValueParser | None = None,
     ) -> AttributeValueType:
         """Read a value from the transport."""
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     async def write(
@@ -34,7 +34,7 @@ class TransportClient(ABC):
         value: AttributeValueType,
     ) -> None:
         """Write a value to the transport."""
-        raise NotImplementedError
+        ...
 
     # Default implementation for async context manager
     async def __aenter__(self) -> "TransportClient":
