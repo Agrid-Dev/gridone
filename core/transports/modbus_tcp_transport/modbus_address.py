@@ -1,6 +1,7 @@
 import re
-from dataclasses import dataclass
 from enum import StrEnum
+
+from pydantic import BaseModel, PositiveInt
 
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
@@ -18,10 +19,10 @@ instance_regex = r"^\d+$"
 instance_regex = r"^\d+$"
 
 
-@dataclass
-class ModbusAddress(TransportAddress):
+class ModbusAddress(BaseModel, TransportAddress):
     type: ModbusAddressType
-    instance: int
+    instance: PositiveInt
+    device_id: PositiveInt = 1
 
     @classmethod
     def from_str(cls, address: str) -> "ModbusAddress":

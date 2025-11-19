@@ -48,6 +48,11 @@ DEVICES_DATA: list[DeviceData] = [
         "transport_config": {},
         "device_config": {"ip": "http://10.125.0.120"},
     },
+    {
+        "driver": "agrid_thermostat_mqtt",
+        "transport_config": {"host": "10.125.0.1"},
+        "device_config": {"mac": "F0F5BD273F98"},
+    },
 ]
 
 

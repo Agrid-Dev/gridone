@@ -22,21 +22,21 @@ class TransportClient(ABC):
     async def read(
         self,
         address: str | dict,
-        context: dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,
     ) -> AttributeValueType:
         """Read a value from the transport."""
-        raise NotImplementedError
+        ...
 
     @abstractmethod
     async def write(
         self,
         address: str,
         value: AttributeValueType,
-        context: dict,
     ) -> None:
         """Write a value to the transport."""
-        raise NotImplementedError
+        ...
 
     # Default implementation for async context manager
     async def __aenter__(self) -> "TransportClient":
