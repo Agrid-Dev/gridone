@@ -20,7 +20,7 @@ def test_attribute_schema_from_dict() -> None:
             "temperature": exemple_temperature,
         },
     }
-    assert schema.value_parser(example_result) == exemple_temperature
+    assert schema.value_parser(example_result) == exemple_temperature  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(

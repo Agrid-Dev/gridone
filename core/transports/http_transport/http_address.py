@@ -46,7 +46,8 @@ class HttpAddress(BaseModel, TransportAddress):
 
 
 def render_endpoint(endpoint: str, config: dict) -> str:
-    """Renders templated endpoint eg {base_url}/?latitude={lattitude}&longitude={longitude}
+    """Renders templated endpoint
+    eg {base_url}/?latitude={lattitude}&longitude={longitude}
     from dictionary data"""
     for key, value in config.items():
         endpoint = endpoint.replace(f"{{{key}}}", str(value))
