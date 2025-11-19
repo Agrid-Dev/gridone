@@ -21,7 +21,7 @@ def value_parser_factory(
         if not is_valid:
             msg = f"Invalid JSON pointer: {json_pointer} ({error_message})"
             raise ValueError(msg)
-        return lambda result: json_pointer_parser(result, json_pointer)  # pyright: ignore[reportArgumentType]
+        return lambda result: json_pointer_parser(result, json_pointer)
     if json_path is not None:
         return lambda result: json_path_parser(result, json_path)
     if scale is not None:

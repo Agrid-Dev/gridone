@@ -18,8 +18,8 @@ def render_str(
     template_pattern: str = DEFAULT_TEMPLATE_PATTERN,
     raise_for_missing_context: bool = False,
 ) -> str:
-    """Renders a template string using a data dictionnary.
-    Matches field names to dictionnary keys and replaces by values."""
+    """Renders a template string using a data dictionary.
+    Matches field names to dictionary keys and replaces by values."""
 
     def replacer(match: re.Match) -> str:
         key = match.group(1)
@@ -42,8 +42,8 @@ def render_struct[Struct: dict | list | str](
     context: TemplatingContext,
     **kwargs: Unpack[RenderStrKwargs],
 ) -> Struct:
-    """Recursively renders strings within a nested structure using a data dictionnary.
-    Matches field names to dictionnary keys and replaces by values."""
+    """Recursively renders strings within a nested structure using a data dictionary.
+    Matches field names to dictionary keys and replaces by values."""
     if isinstance(struct, str):
         return render_str(struct, context, **kwargs)  # ty: ignore[invalid-return-type]
     if isinstance(struct, list):
