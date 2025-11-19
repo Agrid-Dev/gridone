@@ -7,8 +7,6 @@ from core.value_parsers import ValueParser
 from .modbus_address import ModbusAddress, ModbusAddressType
 from .transport_config import ModbusTCPTransportConfig
 
-MODBUS_TCP_DEFAULT_PORT = 502
-
 
 class ModbusTCPTransportClient(TransportClient):
     _client: AsyncModbusTcpClient
@@ -66,20 +64,20 @@ class ModbusTCPTransportClient(TransportClient):
 
     async def read(
         self,
-        address: str,
-        context: dict,
+        address: str | dict,
         value_parser: ValueParser | None = None,
+        *,
+        context: dict,
     ) -> AttributeValueType:
         raw_value = await self._read_modbus(address, context.get("device_id", 1))
         if value_parser:
-            return value_parser(raw_value)  # pyright: ignore[reportArgumentType]
+            return value_parser(raw_value)
         return raw_value
 
     async def write(
         self,
         address: str,
         value: AttributeValueType,
-        context: dict,
     ) -> None:
         msg = "Not ready !"
         raise NotImplementedError(msg)

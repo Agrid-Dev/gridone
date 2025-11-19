@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiomqtt>=2.4.0",
     "httpx>=0.28.1",
     "pydantic>=2.12.4",
     "pymodbus>=3.11.3",
