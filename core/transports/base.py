@@ -42,7 +42,6 @@ class TransportClient(ABC):
     async def __aenter__(self) -> "TransportClient":
         """Support async context manager (async with)."""
         await self.connect()
-        print("__aenter__ !")
         return self
 
     async def __aexit__(
@@ -53,4 +52,3 @@ class TransportClient(ABC):
     ) -> None:
         """Ensure the client is closed when exiting the context."""
         await self.close()
-        print("__aexit__ !")
