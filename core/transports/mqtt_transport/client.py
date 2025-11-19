@@ -29,7 +29,7 @@ class MqttTransportClient(TransportClient):
 
     async def close(self) -> None:
         """Disconnect from the MQTT broker."""
-        if hasattr(self, "_client") and self._client:
+        if hasattr(self, "_client"):
             await self._client.__aexit__(None, None, None)
 
     async def read(
