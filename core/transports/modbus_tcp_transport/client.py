@@ -71,7 +71,7 @@ class ModbusTCPTransportClient(TransportClient):
     ) -> AttributeValueType:
         raw_value = await self._read_modbus(address, context.get("device_id", 1))
         if value_parser:
-            return value_parser(raw_value)  # pyright: ignore[reportArgumentType]
+            return value_parser(raw_value)
         return raw_value
 
     async def write(

@@ -50,12 +50,12 @@ class MqttTransportClient(TransportClient):
             # Wait for the first matching message within TIMEOUT
             async with asyncio.timeout(TIMEOUT):
                 async for message in self._client.messages:
-                    if value_parser:
-                        try:
-                            return value_parser(message.payload.decode())
-                        except ValueError:
-                            continue  # Not the message we expect → keep listening
-                    return message.payload
+                    if message.topic.matches(mqtt_address.topic):  # noqa: SIM102
+                        if value_parser:
+                            try:
+                                return value_parser(message.payload.decode())
+                            except ValueError:
+                                continue  # Not the message we expect → keep listening
 
         except TimeoutError as err:
             msg = "MQTT issue: no message received before timeout"
