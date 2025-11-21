@@ -1,4 +1,6 @@
 import asyncio
+import json
+from typing import NotRequired, TypedDict
 
 import aiomqtt
 from aiomqtt.client import ProxySettings
@@ -12,6 +14,12 @@ from .mqtt_address import MqttAddress
 from .transport_config import MqttTransportConfig
 
 TIMEOUT = 10
+
+
+class _MqttWriteAddress(TypedDict, total=False):
+    topic: str
+    data: str
+    command: NotRequired[str]
 
 
 class MqttTransportClient(TransportClient):
@@ -92,9 +100,38 @@ class MqttTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
         *,
         context: dict,  # noqa: ARG002
     ) -> None:
-        raise NotImplementedError
+        if self._client is None:
+            msg = "MQTT transport is not connected"
+            raise RuntimeError(msg)
+
+        if not isinstance(address, dict):
+            msg = "MQTT write requires a mapping with 'topic' and 'data'"
+            raise ValueError(msg)
+
+        write_address = _MqttWriteAddress(**address)  # type: ignore[arg-type]
+        topic = write_address.get("topic")
+        data_field = write_address.get("data")
+        command = write_address.get("command", "WRITE_DATA")
+
+        if not topic or not data_field:
+            msg = "MQTT write address must include both 'topic' and 'data'"
+            raise ValueError(msg)
+
+        try:
+            payload = json.dumps(
+                {
+                    "command": command,
+                    "data": data_field,
+                    "value": value,
+                },
+            )
+        except (TypeError, ValueError) as exc:
+            msg = "MQTT write value is not JSON serializable"
+            raise ValueError(msg) from exc
+
+        await self._client.publish(topic, payload=payload)

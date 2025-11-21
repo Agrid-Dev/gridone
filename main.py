@@ -84,6 +84,13 @@ async def main() -> None:
                     target_setpoint,
                 )
                 print(f"temperature_setpoint written to {target_setpoint}")
+            if device_data["driver"] == "agrid_thermostat_mqtt":
+                mqtt_setpoint = 23
+                await device.write_attribute_value(
+                    "temperature_setpoint",
+                    mqtt_setpoint,
+                )
+                print(f"temperature_setpoint (MQTT) written to {mqtt_setpoint}")
 
 
 if __name__ == "__main__":
