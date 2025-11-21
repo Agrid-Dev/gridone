@@ -18,7 +18,10 @@ def get_transport_client(
     if transport == TransportProtocols.MODBUS_TCP:
         return ModbusTCPTransportClient(ModbusTCPTransportConfig(**config))
     if transport == TransportProtocols.MQTT:
-        return MqttTransportClient(MqttTransportConfig(**config))
+        return MqttTransportClient(
+            MqttTransportConfig(**config),
+            socks_proxy=socks_proxy,
+        )
     msg = f"Transport client for protocol '{transport}' is not implemented"
     raise NotImplementedError(
         msg,
