@@ -48,3 +48,30 @@ def test_render(
     expected_address: str | dict,
 ) -> None:
     assert attribute_schema.render(context).address == expected_address
+
+
+def test_render_with_write_address_uses_value_context() -> None:
+    schema = AttributeSchema.from_dict(
+        {
+            "name": "temperature_setpoint",
+            "data_type": "float",
+            "address": {"method": "POST", "path": "${ip}/show_data"},
+            "write_address": {
+                "method": "POST",
+                "path": "${ip}/update_data",
+                "body": {"dataname": "Tsetpoint", "value": "${value}"},
+            },
+            "json_pointer": "/data/0/value",
+        },
+    )
+    base_context = {"ip": "http://192.168.1.2"}
+    # write address is left untouched when not rendering it
+    rendered_for_read = schema.render(base_context, render_write_address=False)
+    assert rendered_for_read.write_address == schema.write_address
+
+    rendered_for_write = schema.render({**base_context, "value": 22})
+    assert rendered_for_write.write_address == {
+        "method": "POST",
+        "path": "http://192.168.1.2/update_data",
+        "body": {"dataname": "Tsetpoint", "value": "22"},
+    }

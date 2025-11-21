@@ -32,8 +32,10 @@ class TransportClient(ABC):
     @abstractmethod
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        context: dict,
     ) -> None:
         """Write a value to the transport."""
         ...

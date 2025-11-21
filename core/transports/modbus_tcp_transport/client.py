@@ -76,8 +76,10 @@ class ModbusTCPTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        context: dict,  # noqa: ARG002
     ) -> None:
         msg = "Not ready !"
         raise NotImplementedError(msg)

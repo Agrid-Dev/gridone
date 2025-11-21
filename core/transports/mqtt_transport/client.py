@@ -94,5 +94,7 @@ class MqttTransportClient(TransportClient):
         self,
         address: str,
         value: AttributeValueType,
+        *,
+        context: dict,  # noqa: ARG002
     ) -> None:
         raise NotImplementedError

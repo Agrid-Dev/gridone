@@ -66,7 +66,20 @@ class HTTPTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        context: dict,  # noqa: ARG002
     ) -> None:
-        raise NotImplementedError
+        if self._client is None:
+            msg = "HTTP transport is not connected"
+            raise RuntimeError(msg)
+        http_address = HttpAddress.from_raw(address)
+        # Body is already rendered when coming from the driver; if the caller
+        # wants to inject the value they can template it in the write_address.
+        response = await self._client.request(
+            http_address.method,
+            http_address.path,
+            data=http_address.body if http_address.body is not None else {"value": value},
+        )
+        response.raise_for_status()
