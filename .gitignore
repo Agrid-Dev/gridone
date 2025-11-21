@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+python-gridone/
 
 # Virtual environments
 .venv
