@@ -37,6 +37,15 @@ wheels = [
 ]
 
 [[package]]
+name = "bacpypes3"
+version = "0.0.102"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/09/d2/a82e2d34a812d771149dfc6f45c28964234c6c1d9cda3ff51269b643a3b6/bacpypes3-0.0.102.tar.gz", hash = "sha256:869cdd3d9a73c7f9a390a963b0730b8bafab349dbfeb573ac980adfcd3a43094", size = 262949, upload-time = "2025-03-17T19:24:05.508Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5b/c7/e0a623a7163337d6f7b9685ffc5825f6a448b6dadb988318201a3d0c22e5/bacpypes3-0.0.102-py3-none-any.whl", hash = "sha256:eb9485eb4d07bb6c3e59c8b711bd936384178f27f89416de107bf0add3b7c894", size = 308749, upload-time = "2025-03-17T19:24:03.812Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2025.10.5"
 source = { registry = "https://pypi.org/simple" }
@@ -60,6 +69,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiomqtt" },
+    { name = "bacpypes3" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pymodbus" },
@@ -77,6 +87,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiomqtt", specifier = ">=2.4.0" },
+    { name = "bacpypes3", specifier = ">=0.0.102" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pymodbus", specifier = ">=3.11.3" },
