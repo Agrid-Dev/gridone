@@ -3,11 +3,9 @@ import json
 from typing import NotRequired, TypedDict
 
 import aiomqtt
-from aiomqtt.client import ProxySettings
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.utils.proxy import SocksProxyConfig
 from core.value_parsers import ValueParser
 
 from .mqtt_address import MqttAddress
@@ -29,33 +27,14 @@ class MqttTransportClient(TransportClient):
     def __init__(
         self,
         config: MqttTransportConfig,
-        *,
-        socks_proxy: SocksProxyConfig | None = None,
     ) -> None:
         self.config = config
-        self._socks_proxy = socks_proxy
         self._client: aiomqtt.Client | None = None
 
-    def _build_proxy_settings(self) -> ProxySettings | None:
-        if not self._socks_proxy:
-            return None
-        try:
-            import socks  # type: ignore[import-not-found]
-        except ModuleNotFoundError as exc:
-            msg = "PySocks is required for SOCKS proxy support in MQTT. Install it with `uv add PySocks`."
-            raise RuntimeError(msg) from exc
-        return ProxySettings(
-            proxy_type=socks.SOCKS5,
-            proxy_addr=self._socks_proxy.host,
-            proxy_port=self._socks_proxy.port,
-        )
-
     async def connect(self) -> None:
-        proxy_settings = self._build_proxy_settings()
         self._client = aiomqtt.Client(
             self.config.host,
             port=self.config.port,
-            proxy=proxy_settings,
         )
         await self._client.__aenter__()
 

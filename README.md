@@ -60,4 +60,5 @@ uv run ruff format --check # format check
 uv run ty check # type check
 uv run pytest # runs tests
 uv run python main.py
+proxychains4 uv run python main.py
 ```

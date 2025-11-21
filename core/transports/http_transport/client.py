@@ -1,18 +1,12 @@
-import inspect
-
 import httpx
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.utils.proxy import SocksProxyConfig
 from core.value_parsers import ValueParser
 
 from .http_address import HttpAddress
 
 REQUEST_TIMEOUT = 10.0  # s
-
-_HTTPX_ASYNC_CLIENT_PARAMS = inspect.signature(httpx.AsyncClient.__init__).parameters
-_PROXY_PARAM_NAME = "proxy" if "proxy" in _HTTPX_ASYNC_CLIENT_PARAMS else "proxies"
 
 
 class HTTPTransportClient(TransportClient):
@@ -22,16 +16,12 @@ class HTTPTransportClient(TransportClient):
         self,
         *,
         timeout: float = REQUEST_TIMEOUT,
-        socks_proxy: SocksProxyConfig | None = None,
     ) -> None:
         self._timeout = timeout
-        self._socks_proxy = socks_proxy
         self._client: httpx.AsyncClient | None = None
 
     def _build_client(self) -> httpx.AsyncClient:
         client_kwargs: dict[str, object] = {"timeout": self._timeout}
-        if self._socks_proxy:
-            client_kwargs[_PROXY_PARAM_NAME] = self._socks_proxy.url
         return httpx.AsyncClient(**client_kwargs)
 
     async def connect(self) -> None:
