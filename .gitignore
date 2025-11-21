@@ -17,3 +17,7 @@ python-gridone/
 # development
 .db
 .BENCH.md
+
+# ui
+ui/node_modules/
+ui/dist/
