@@ -38,11 +38,11 @@ DEVICES_DATA: list[DeviceData] = [
             "longitude": "2.333",  # Paris
         },
     },
-    {
-        "driver": "carel_thermostat",
-        "transport_config": {"host": "10.125.0.11", "port": 4196},
-        "device_config": {"device_id": 11},
-    },
+    # {
+    #     "driver": "carel_thermostat",
+    #     "transport_config": {"host": "10.125.0.11", "port": 4196},
+    #     "device_config": {"device_id": 11},
+    # },
     {
         "driver": "agrid_thermostat_http",
         "transport_config": {},

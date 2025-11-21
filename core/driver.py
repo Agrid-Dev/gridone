@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from core.utils.proxy import configure_socks_proxy
 
 from .device_schema import DeviceSchema
 from .transports import TransportClient, get_transport_client
@@ -34,12 +35,19 @@ class Driver:
         if transport is None or transport not in TransportProtocols:
             msg = f"Invalid or missing transport protocol: '{transport}'"
             raise ValueError(msg)
+        transport_protocol = TransportProtocols(transport)
+        driver_env_raw = data.get("env", {})
+        driver_env = driver_env_raw if isinstance(driver_env_raw, dict) else {}
+        socks_proxy = configure_socks_proxy(
+            driver_env,
+            install_asyncio_patch=transport_protocol != TransportProtocols.HTTP,
+        )
         transport_client = get_transport_client(
-            data["transport"],
+            transport_protocol,
             data["transport_config"],
+            socks_proxy=socks_proxy,
         )
         device_schema = DeviceSchema.from_dict(data)
-        driver_env = data.get("env", {})
         return cls(
             name=data.get("name", ""),
             env=driver_env,

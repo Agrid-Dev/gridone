@@ -1,36 +1,47 @@
+import inspect
+
 import httpx
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
+from core.utils.proxy import SocksProxyConfig
 from core.value_parsers import ValueParser
 
 from .http_address import HttpAddress
 
 REQUEST_TIMEOUT = 10.0  # s
 
+_HTTPX_ASYNC_CLIENT_PARAMS = inspect.signature(httpx.AsyncClient.__init__).parameters
+_PROXY_PARAM_NAME = "proxy" if "proxy" in _HTTPX_ASYNC_CLIENT_PARAMS else "proxies"
+
 
 class HTTPTransportClient(TransportClient):
     protocol = TransportProtocols.HTTP
-    _instance = None
-    _client: httpx.AsyncClient  # always typed
 
-    def __new__(cls, *args, **kwargs) -> "HTTPTransportClient":  # noqa: ANN002, ANN003, ARG004
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    def __init__(
+        self,
+        *,
+        timeout: float = REQUEST_TIMEOUT,
+        socks_proxy: SocksProxyConfig | None = None,
+    ) -> None:
+        self._timeout = timeout
+        self._socks_proxy = socks_proxy
+        self._client: httpx.AsyncClient | None = None
 
-    def __init__(self, timeout: float = REQUEST_TIMEOUT) -> None:
-        # Only create the client once
-        if not hasattr(self, "_client"):
-            self._client = httpx.AsyncClient(timeout=timeout)
+    def _build_client(self) -> httpx.AsyncClient:
+        client_kwargs: dict[str, object] = {"timeout": self._timeout}
+        if self._socks_proxy:
+            client_kwargs[_PROXY_PARAM_NAME] = self._socks_proxy.url
+        return httpx.AsyncClient(**client_kwargs)
 
     async def connect(self) -> None:
-        if self._client and self._client.is_closed:  # reopen client if closed
-            self._client = httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
+        if self._client is None or self._client.is_closed:
+            self._client = self._build_client()
 
     async def close(self) -> None:
-        if hasattr(self, "_client") and self._client is not None:
+        if self._client is not None:
             await self._client.aclose()
+            self._client = None
 
     async def read(
         self,
@@ -39,6 +50,9 @@ class HTTPTransportClient(TransportClient):
         *,
         context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
+        if self._client is None:
+            msg = "HTTP transport is not connected"
+            raise RuntimeError(msg)
         http_address = HttpAddress.from_raw(address)
         response = await self._client.request(
             http_address.method,

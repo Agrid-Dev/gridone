@@ -59,4 +59,5 @@ uv run ruff format # formatting
 uv run ruff format --check # format check
 uv run ty check # type check
 uv run pytest # runs tests
+uv run python main.py
 ```
