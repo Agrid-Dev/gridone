@@ -23,7 +23,7 @@ class Device:
                 a.attribute_name: Attribute.create(
                     a.attribute_name,
                     a.data_type,
-                    {"read"},
+                    {"read", "write"} if a.write_address is not None else {"read"},
                 )
                 for a in driver.schema.attribute_schemas
             },
@@ -46,4 +46,18 @@ class Device:
         attribute = self.get_attribute(attribute_name)
         new_value = await self.driver.read_value(attribute_name, self.config)
         attribute.update_value(new_value)
+        return attribute.current_value
+
+    async def write_attribute_value(
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+    ) -> AttributeValueType:
+        attribute = self.get_attribute(attribute_name)
+        if "write" not in attribute.read_write_modes:
+            msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
+            raise PermissionError(msg)
+        validated_value = attribute._ensure_type(value)
+        await self.driver.write_value(attribute_name, self.config, validated_value)
+        attribute.update_value(validated_value)
         return attribute.current_value
