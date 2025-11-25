@@ -38,7 +38,7 @@ class AttributeSchema(BaseModel):
         self,
         context: dict,
         *,
-        render_write_address: bool = True,
+        render_write_address: bool,
     ) -> "AttributeSchema":
         rendered_address = render_struct(
             self.address,

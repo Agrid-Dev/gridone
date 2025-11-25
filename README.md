@@ -59,5 +59,12 @@ uv run ruff format # formatting
 uv run ruff format --check # format check
 uv run ty check # type check
 uv run pytest # runs tests
+```
+
+### Running with a proxy
+
+If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
+
+```sh
 proxychains4 uv run python main.py
 ```
