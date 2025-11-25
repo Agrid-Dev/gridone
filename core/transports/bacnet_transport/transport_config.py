@@ -2,7 +2,7 @@ import ipaddress
 from typing import Annotated
 
 from bacpypes3.basetypes import Segmentation
-from pydantic import AfterValidator, BaseModel, PositiveInt
+from pydantic import AfterValidator, BaseModel, PositiveFloat, PositiveInt
 
 DEFAULT_LOCAL_DEVICE_INSTANCE = 990001
 DEFAULT_LOCAL_DEVICE_NAME = "GridOne BACnet Client"
@@ -10,6 +10,8 @@ DEFAULT_MAX_APDU_LENGTH = 1024
 DEFAULT_VENDOR_IDENTIFIER = 999
 DEFAULT_SEGMENTATION_SUPPORTED = Segmentation.noSegmentation
 DEFAULT_PORT = 47808
+DEFAULT_DISCOVERY_TIMEOUT = 10.0  # seconds
+DEFAULT_READ_PROPERTY_TIMEOUT = 5.0  # seconds
 
 DEFAULT_MASK = "/24"
 
@@ -34,3 +36,5 @@ class BacnetTransportConfig(BaseModel):
     max_apdu_length: PositiveInt = DEFAULT_MAX_APDU_LENGTH
     vendor_identifier: PositiveInt = DEFAULT_VENDOR_IDENTIFIER
     segmentation_supported: PositiveInt = DEFAULT_SEGMENTATION_SUPPORTED
+    discovery_timeout: PositiveFloat = DEFAULT_DISCOVERY_TIMEOUT
+    read_property_timeout: PositiveFloat = DEFAULT_READ_PROPERTY_TIMEOUT

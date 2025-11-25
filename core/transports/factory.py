@@ -1,5 +1,6 @@
 from core.types import TransportProtocols
 
+from .bacnet_transport import BacnetTransportClient, BacnetTransportConfig
 from .base import TransportClient
 from .http_transport import HTTPTransportClient
 from .modbus_tcp_transport import ModbusTCPTransportClient, ModbusTCPTransportConfig
@@ -16,6 +17,8 @@ def get_transport_client(
         return ModbusTCPTransportClient(ModbusTCPTransportConfig(**config))
     if transport == TransportProtocols.MQTT:
         return MqttTransportClient(MqttTransportConfig(**config))
+    if transport == TransportProtocols.BACNET:
+        return BacnetTransportClient(BacnetTransportConfig(**config))
     msg = f"Transport client for protocol '{transport}' is not implemented"
     raise NotImplementedError(
         msg,

@@ -5,6 +5,8 @@ from pydantic import BaseModel, PositiveInt
 
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
+DEFAULT_PROPERTY_NAME = "present-value"  # use dash form
+
 
 class BacnetObjectType(StrEnum):
     """Object type enumeration using values as in bacpypes 3.
@@ -42,6 +44,7 @@ bacnet_object_regex = r"^([A-Za-z-_]+)[\s:-]*(\d+)$"
 class BacnetAddress(BaseModel, TransportAddress):
     object_type: BacnetObjectType
     object_instance: PositiveInt
+    property_name: str = DEFAULT_PROPERTY_NAME
 
     @classmethod
     def from_dict(cls, address: dict) -> "BacnetAddress":

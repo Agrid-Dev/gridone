@@ -15,3 +15,6 @@ wheels/
 # development
 .db
 .BENCH.md
+
+# test scripts
+bacnet.py

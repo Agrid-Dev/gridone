@@ -53,6 +53,11 @@ DEVICES_DATA: list[DeviceData] = [
         "transport_config": {"host": "10.125.0.1"},
         "device_config": {"mac": "F0F5BD273F98"},
     },
+    {
+        "driver": "breeze_bc106_4d_thermostat",
+        "transport_config": {"ip_with_mask": "10.125.0.1/24"},
+        "device_config": {"device_instance": 856402},
+    },
 ]
 
 
@@ -66,13 +71,9 @@ async def main() -> None:
         for d in DEVICES_DATA
     }
     print(f"Loaded {len(devices)} devices: {', '.join(devices.keys())}")
-    for i, device_data in enumerate(DEVICES_DATA):
-        print(f"💡 Device {i + 1}/{len(devices)} ({device_data['driver']})")
-        device = load_device(
-            DRIVERS_DB / (device_data["driver"] + ".yaml"),
-            device_data["device_config"],
-            device_data["transport_config"],
-        )
+    for i, device in enumerate(devices.values()):
+        print(f"💡 Device {i + 1}/{len(devices)} ({device.driver.name})")
+
         async with device.driver.transport:
             for attribute in device.attributes:
                 value = await device.read_attribute_value(attribute)
