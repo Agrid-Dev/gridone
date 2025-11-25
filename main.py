@@ -86,7 +86,6 @@ async def read_all() -> None:
                     target_setpoint,
                 )
                 print(f"temperature_setpoint written to {target_setpoint}")
-            
 
 
 async def write_attribute(
