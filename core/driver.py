@@ -25,7 +25,7 @@ class Driver:
         context = {**device_config, **self.env}
         attribute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
-        ).render(context, render_write_address=False)
+        ).render(context)
         return await self.transport.read(
             address=attribute_schema.address,
             value_parser=attribute_schema.value_parser,
@@ -41,7 +41,7 @@ class Driver:
         context = {**device_config, **self.env, "value": value}
         attribute_schema: AttributeSchema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
-        ).render(context, render_write_address=True)
+        ).render(context)
         if attribute_schema.write_address is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)

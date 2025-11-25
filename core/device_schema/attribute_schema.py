@@ -37,8 +37,6 @@ class AttributeSchema(BaseModel):
     def render(
         self,
         context: dict,
-        *,
-        render_write_address: bool = False,
     ) -> "AttributeSchema":
         rendered_address = render_struct(
             self.address,
@@ -46,11 +44,11 @@ class AttributeSchema(BaseModel):
             raise_for_missing_context=True,
         )
         rendered_write_address = self.write_address
-        if self.write_address is not None and render_write_address:
+        if self.write_address is not None:
             rendered_write_address = render_struct(
                 self.write_address,
                 context,
-                raise_for_missing_context=True,
+                raise_for_missing_context=False,
             )
         return self.model_copy(
             update={
