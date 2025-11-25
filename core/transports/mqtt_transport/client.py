@@ -37,7 +37,7 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser | None = None,
         *,
-        context: dict,  # noqa: ARG002
+        _context: dict,
     ) -> AttributeValueType:
         mqtt_address = MqttAddress.from_raw(address)
         await self._client.subscribe(mqtt_address.topic)
@@ -65,7 +65,9 @@ class MqttTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        _context: dict,
     ) -> None:
         raise NotImplementedError

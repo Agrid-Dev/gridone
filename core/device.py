@@ -57,7 +57,7 @@ class Device:
         if "write" not in attribute.read_write_modes:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
-        validated_value = attribute._ensure_type(value)
+        validated_value = attribute.ensure_type(value)
         await self.driver.write_value(attribute_name, self.config, validated_value)
         attribute.update_value(validated_value)
         return attribute.current_value

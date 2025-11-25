@@ -1,9 +1,13 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
 
 from .device_schema import DeviceSchema
 from .transports import TransportClient, get_transport_client
+
+if TYPE_CHECKING:
+    from .device_schema.attribute_schema import AttributeSchema
 
 
 @dataclass
@@ -25,7 +29,7 @@ class Driver:
         return await self.transport.read(
             address=attribute_schema.address,
             value_parser=attribute_schema.value_parser,
-            context=context,
+            _context=context,
         )
 
     async def write_value(
@@ -35,16 +39,16 @@ class Driver:
         value: AttributeValueType,
     ) -> None:
         context = {**device_config, **self.env, "value": value}
-        attribute_schema = self.schema.get_attribute_schema(
+        attribute_schema: AttributeSchema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
-        ).render(context)
+        ).render(context, render_write_address=True)
         if attribute_schema.write_address is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
         await self.transport.write(
             address=attribute_schema.write_address,
             value=value,
-            context=context,
+            _context=context,
         )
 
     @classmethod

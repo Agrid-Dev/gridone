@@ -1,10 +1,16 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
 import httpx
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.value_parsers import ValueParser
 
 from .http_address import HttpAddress
+
+if TYPE_CHECKING:
+    from core.value_parsers import ValueParser
 
 REQUEST_TIMEOUT = 10.0  # s
 
@@ -21,8 +27,7 @@ class HTTPTransportClient(TransportClient):
         self._client: httpx.AsyncClient | None = None
 
     def _build_client(self) -> httpx.AsyncClient:
-        client_kwargs: dict[str, object] = {"timeout": self._timeout}
-        return httpx.AsyncClient(**client_kwargs)
+        return httpx.AsyncClient(timeout=self._timeout)
 
     async def connect(self) -> None:
         if self._client is None or self._client.is_closed:
@@ -38,16 +43,25 @@ class HTTPTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser | None = None,
         *,
-        context: dict,  # noqa: ARG002
+        _context: dict,
     ) -> AttributeValueType:
         if self._client is None:
             msg = "HTTP transport is not connected"
             raise RuntimeError(msg)
         http_address = HttpAddress.from_raw(address)
+        data: dict[str, Any] | None = None
+        content: str | bytes | None = None
+        if http_address.body is None:
+            data = None
+        elif isinstance(http_address.body, dict):
+            data = cast("dict[str, Any]", http_address.body)
+        else:
+            content = http_address.body
         response = await self._client.request(
             http_address.method,
             http_address.path,
-            data=http_address.body,  # ty: ignore[invalid-argument-type]
+            data=data,
+            content=content,
         )
         result = response.json()
         if value_parser:
@@ -59,7 +73,7 @@ class HTTPTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        context: dict,  # noqa: ARG002
+        _context: dict,
     ) -> None:
         if self._client is None:
             msg = "HTTP transport is not connected"
@@ -67,9 +81,21 @@ class HTTPTransportClient(TransportClient):
         http_address = HttpAddress.from_raw(address)
         # Body is already rendered when coming from the driver; if the caller
         # wants to inject the value they can template it in the write_address.
+        data: dict[str, Any] | None
+        content: str | bytes | None
+        if http_address.body is None:
+            data = {"value": value}
+            content = None
+        elif isinstance(http_address.body, dict):
+            data = cast("dict[str, Any]", http_address.body)
+            content = None
+        else:
+            data = None
+            content = http_address.body
         response = await self._client.request(
             http_address.method,
             http_address.path,
-            data=http_address.body if http_address.body is not None else {"value": value},
+            data=data,
+            content=content,
         )
         response.raise_for_status()

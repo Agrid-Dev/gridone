@@ -84,7 +84,6 @@ async def main() -> None:
                     target_setpoint,
                 )
                 print(f"temperature_setpoint written to {target_setpoint}")
-            
 
 
 if __name__ == "__main__":
