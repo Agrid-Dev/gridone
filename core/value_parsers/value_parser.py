@@ -1,10 +1,25 @@
+from abc import ABC, abstractmethod
 from collections.abc import Callable
+from typing import TypeVar
 
 from core.types import AttributeValueType
 
 type InputDict = dict
 
+T = TypeVar("T", dict, float)
+
 type DictValueParser = Callable[[InputDict], AttributeValueType]
 type FloatValueParser = Callable[[float], AttributeValueType]
 
-type ValueParser = DictValueParser | FloatValueParser
+
+class ValueParser[T](ABC):
+    @abstractmethod
+    def __init__(self, raw: str) -> None: ...
+
+    @abstractmethod
+    def parse(self, value: T) -> AttributeValueType: ...
+
+
+class ReversibleValueParser(ValueParser[T]):
+    @abstractmethod
+    def revert(self, value: AttributeValueType) -> T: ...

@@ -2,9 +2,9 @@ from typing import Any
 
 import pytest
 
-from core.value_parsers.json_pointer_parser import (
+from core.value_parsers.registry.json_pointer_parser import (
+    JsonPointerParser,
     is_valid_json_pointer,
-    json_pointer_parser,
 )
 
 
@@ -39,4 +39,5 @@ def test_is_valid_json_pointer(pointer: str, is_valid: bool) -> None:
     ],
 )
 def test_json_pointer_parser(data: dict, json_pointer: str, expected: Any) -> None:
-    assert json_pointer_parser(data, json_pointer) == expected
+    parser = JsonPointerParser(json_pointer)
+    assert parser.parse(data) == expected

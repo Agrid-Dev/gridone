@@ -2,7 +2,7 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.value_parsers import ValueParser
+from core.value_parsers import ReversibleValueParser, ValueParser
 
 from .modbus_address import (
     WRITABLE_MODBUS_ADDRESS_TYPES,
@@ -69,7 +69,10 @@ class ModbusTCPTransportClient(TransportClient):
         raise ValueError(msg)
 
     async def _write_modbus(
-        self, modbus_address: ModbusAddress, device_id: int, value: int | bool
+        self,
+        modbus_address: ModbusAddress,
+        device_id: int,
+        value: int | bool,  # noqa: FBT001
     ) -> None:
         if modbus_address.type not in WRITABLE_MODBUS_ADDRESS_TYPES:
             msg = f"Address type {modbus_address.type} is not writable"
@@ -90,7 +93,10 @@ class ModbusTCPTransportClient(TransportClient):
             try:
                 int_value = int(value)
             except ValueError as e:
-                msg = f"Cannot write a non integer value ({value}) to a Modbus HOLDING_REGISTER"
+                msg = (
+                    f"Cannot write a non integer value ({value}) "
+                    "to a Modbus HOLDING_REGISTER"
+                )
                 raise ValueError(msg) from e
             await self._client.write_register(
                 modbus_address.instance,
@@ -111,7 +117,7 @@ class ModbusTCPTransportClient(TransportClient):
         modbus_address = ModbusAddress.from_raw(address)
         raw_value = await self._read_modbus(modbus_address, context.get("device_id", 1))
         if value_parser:
-            return value_parser(raw_value)
+            return value_parser.parse(raw_value)
         return raw_value
 
     async def write(
@@ -124,5 +130,8 @@ class ModbusTCPTransportClient(TransportClient):
     ) -> None:
         modbus_address = ModbusAddress.from_raw(address)
         device_id = context.get("device_id", 1)
-        # TODO : reverse value parser
-        raise NotImplementedError
+        if value_parser and isinstance(value_parser, ReversibleValueParser):
+            value_to_write = value_parser.revert(value)
+        else:
+            value_to_write = value
+        await self._write_modbus(modbus_address, device_id, value_to_write)  # ty: ignore[invalid-argument-type]

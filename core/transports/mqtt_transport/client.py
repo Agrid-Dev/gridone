@@ -53,7 +53,7 @@ class MqttTransportClient(TransportClient):
                     if message.topic.matches(mqtt_address.topic):  # noqa: SIM102
                         if value_parser:
                             try:
-                                return value_parser(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
+                                return value_parser.parse(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
                             except ValueError:
                                 continue  # Not the message we expect → keep listening
 

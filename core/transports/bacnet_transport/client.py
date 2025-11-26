@@ -94,7 +94,7 @@ class BacnetTransportClient(TransportClient):
         bacnet_address = BacnetAddress.from_raw(address)
         raw_value = await self._read_bacnet(device_instance, bacnet_address)
         if value_parser:
-            return value_parser(raw_value)
+            return value_parser.parse(raw_value)
         return raw_value
 
     async def write(

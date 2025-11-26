@@ -20,8 +20,8 @@ class HttpAddress(BaseModel, TransportAddress):
     body: str | dict | None = None
 
     @classmethod
-    def from_str(cls, address: str) -> "HttpAddress":
-        parts = address.strip().split()
+    def from_str(cls, address_str: str) -> "HttpAddress":
+        parts = address_str.strip().split()
         method = parts[0]
         if method not in HTTP_METHODS:
             msg = f"Invalid HTTP method {method}, allowed: {' ,'.join(HTTP_METHODS)}"
@@ -32,8 +32,8 @@ class HttpAddress(BaseModel, TransportAddress):
         return cls(method=cast("HttpMethod", method), path=endpoint)
 
     @classmethod
-    def from_dict(cls, address: dict) -> "HttpAddress":
-        return cls(**address)
+    def from_dict(cls, address_dict: dict) -> "HttpAddress":
+        return cls(**address_dict)
 
     @classmethod
     def from_raw(cls, raw_address: RawTransportAddress) -> "HttpAddress":

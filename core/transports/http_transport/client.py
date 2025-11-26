@@ -65,7 +65,7 @@ class HTTPTransportClient(TransportClient):
         )
         result = response.json()
         if value_parser:
-            return value_parser(result)
+            return value_parser.parse(result)
         return result
 
     async def write(
