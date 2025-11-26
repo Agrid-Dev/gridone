@@ -10,7 +10,12 @@ from core.transports.bacnet_transport.bacnet_address import (
 
 @pytest.mark.parametrize(
     ("full", "expected"),
-    [("binary-value", "BV"), ("binary-input", "BI"), ("analog-value", "AV")],
+    [
+        ("binary-value", "BV"),
+        ("binary-input", "BI"),
+        ("analog-value", "AV"),
+        ("analog--value-", "AV"),
+    ],
 )
 def test_initials(full: str, expected: str) -> None:
     assert initials(full) == expected

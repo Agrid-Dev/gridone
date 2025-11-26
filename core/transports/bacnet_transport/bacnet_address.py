@@ -47,25 +47,25 @@ class BacnetAddress(BaseModel, TransportAddress):
     property_name: str = DEFAULT_PROPERTY_NAME
 
     @classmethod
-    def from_dict(cls, address: dict) -> "BacnetAddress":
+    def from_dict(cls, address_dict: dict) -> "BacnetAddress":
         try:
             return cls(
-                object_type=bacnet_object_type_from_raw(address["object_type"]),
-                object_instance=int(address["object_instance"]),
+                object_type=bacnet_object_type_from_raw(address_dict["object_type"]),
+                object_instance=int(address_dict["object_instance"]),
             )
         except (KeyError, ValueError) as e:
-            msg = f"Invalid Modbus address: {address}"
+            msg = f"Invalid Modbus address_dict: {address_dict}"
             raise ValueError(msg) from e
 
     @classmethod
-    def from_str(cls, address: str) -> "BacnetAddress":
-        match = re.fullmatch(bacnet_object_regex, address.strip())
+    def from_str(cls, address_str: str) -> "BacnetAddress":
+        match = re.fullmatch(bacnet_object_regex, address_str.strip())
         if match is None:
-            msg = f"Invalid Modbus address format: {address}"
+            msg = f"Invalid Modbus address format: {address_str}"
             raise ValueError(msg)
         groups = match.groups()
         if len(groups) != 2:  # noqa: PLR2004
-            msg = f"Invalid Modbus address format: {address}"
+            msg = f"Invalid Modbus address format: {address_str}"
             raise ValueError(msg)
         object_type = bacnet_object_type_from_raw(match.group(1))
         object_instance = int(match.group(2))
