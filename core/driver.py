@@ -54,10 +54,19 @@ class Driver:
         if attribute_schema.write_address is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
+        value_parser = (
+            build_value_parser(
+                attribute_schema.value_parser.parser_key,
+                attribute_schema.value_parser.parser_raw,
+            )
+            if attribute_schema.value_parser
+            else None
+        )
         await self.transport.write(
             address=attribute_schema.write_address,
             value=value,
             context=context,
+            value_parser=value_parser,
         )
 
     @classmethod
