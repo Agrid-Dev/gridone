@@ -4,6 +4,8 @@ from typing import ClassVar
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
+from .transport_address import RawTransportAddress
+
 
 class TransportClient(ABC):
     protocol: ClassVar[TransportProtocols]
@@ -21,7 +23,7 @@ class TransportClient(ABC):
     @abstractmethod
     async def read(
         self,
-        address: str | dict,
+        address: RawTransportAddress,
         value_parser: ValueParser | None = None,
         *,
         context: dict,
@@ -32,10 +34,11 @@ class TransportClient(ABC):
     @abstractmethod
     async def write(
         self,
-        address: str | dict,
+        address: RawTransportAddress,
         value: AttributeValueType,
         *,
-        _context: dict,
+        value_parser: ValueParser | None = None,
+        context: dict,
     ) -> None:
         """Write a value to the transport."""
         ...

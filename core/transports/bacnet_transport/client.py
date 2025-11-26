@@ -99,8 +99,11 @@ class BacnetTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        value_parser: ValueParser | None = None,
+        context: dict,
     ) -> None:
         """Write a value to the transport."""
         raise NotImplementedError

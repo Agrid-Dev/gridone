@@ -13,6 +13,11 @@ class ModbusAddressType(StrEnum):
     HOLDING_REGISTER = "HR"
 
 
+WRITABLE_MODBUS_ADDRESS_TYPES = {
+    ModbusAddressType.COIL,
+    ModbusAddressType.HOLDING_REGISTER,
+}
+
 address_type_regex = r"^(" + "|".join(list(ModbusAddressType)) + r")[\s:-]*(\d+)$"
 instance_regex = r"^\d+$"
 
@@ -23,19 +28,19 @@ class ModbusAddress(BaseModel, TransportAddress):
     device_id: PositiveInt = 1
 
     @classmethod
-    def from_str(cls, address: str) -> "ModbusAddress":
-        trimmed_address = address.strip()
+    def from_str(cls, address_str: str) -> "ModbusAddress":
+        trimmed_address = address_str.strip()
         match = re.fullmatch(address_type_regex, trimmed_address)
         if not match:
-            msg = f"Invalid Modbus address format: {address}"
+            msg = f"Invalid Modbus address format: {address_str}"
             raise ValueError(msg)
         address_type = ModbusAddressType(match.group(1))
         instance = int(match.group(2))
         return cls(type=address_type, instance=instance)
 
     @classmethod
-    def from_dict(cls, address: dict) -> "ModbusAddress":
-        return cls(**address)
+    def from_dict(cls, address_dict: dict) -> "ModbusAddress":
+        return cls(**address_dict)
 
     @classmethod
     def from_raw(cls, raw_address: RawTransportAddress) -> "ModbusAddress":

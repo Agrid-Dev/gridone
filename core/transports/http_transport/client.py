@@ -73,7 +73,8 @@ class HTTPTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        _context: dict,
+        value_parser: ValueParser | None = None,  # noqa: ARG002
+        context: dict,  # noqa: ARG002
     ) -> None:
         if self._client is None:
             msg = "HTTP transport is not connected"

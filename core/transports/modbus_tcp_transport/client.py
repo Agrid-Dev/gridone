@@ -4,7 +4,11 @@ from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
-from .modbus_address import ModbusAddress, ModbusAddressType
+from .modbus_address import (
+    WRITABLE_MODBUS_ADDRESS_TYPES,
+    ModbusAddress,
+    ModbusAddressType,
+)
 from .transport_config import ModbusTCPTransportConfig
 
 
@@ -64,6 +68,39 @@ class ModbusTCPTransportClient(TransportClient):
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
 
+    async def _write_modbus(
+        self, modbus_address: ModbusAddress, device_id: int, value: int | bool
+    ) -> None:
+        if modbus_address.type not in WRITABLE_MODBUS_ADDRESS_TYPES:
+            msg = f"Address type {modbus_address.type} is not writable"
+            raise ValueError(msg)
+        if modbus_address.type == ModbusAddressType.COIL:
+            try:
+                bool_value = bool(value)
+            except ValueError as e:
+                msg = f"Cannot write a non boolean value ({value}) to a Modbus COIL"
+                raise ValueError(msg) from e
+            await self._client.write_coil(
+                modbus_address.instance,
+                bool_value,
+                device_id=device_id,
+            )
+            return
+        if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
+            try:
+                int_value = int(value)
+            except ValueError as e:
+                msg = f"Cannot write a non integer value ({value}) to a Modbus HOLDING_REGISTER"
+                raise ValueError(msg) from e
+            await self._client.write_register(
+                modbus_address.instance,
+                int_value,
+                device_id=device_id,
+            )
+            return
+        msg = f"Unknown address type: {modbus_address.type}"
+        raise ValueError(msg)
+
     async def read(
         self,
         address: str | dict,
@@ -82,7 +119,10 @@ class ModbusTCPTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        _context: dict,
+        value_parser: ValueParser | None = None,
+        context: dict,
     ) -> None:
-        msg = "Not ready !"
-        raise NotImplementedError(msg)
+        modbus_address = ModbusAddress.from_raw(address)
+        device_id = context.get("device_id", 1)
+        # TODO : reverse value parser
+        raise NotImplementedError

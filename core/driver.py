@@ -48,7 +48,7 @@ class Driver:
         await self.transport.write(
             address=attribute_schema.write_address,
             value=value,
-            _context=context,
+            context=context,
         )
 
     @classmethod
