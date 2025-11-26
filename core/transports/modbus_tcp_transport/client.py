@@ -69,7 +69,7 @@ class ModbusTCPTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser | None = None,
         *,
-        _context: dict,
+        context: dict,
     ) -> AttributeValueType:
         modbus_address = ModbusAddress.from_raw(address)
         raw_value = await self._read_modbus(modbus_address, context.get("device_id", 1))
