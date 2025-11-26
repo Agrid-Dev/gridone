@@ -37,7 +37,7 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser | None = None,
         *,
-        _context: dict,
+        context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
         mqtt_address = MqttAddress.from_raw(address)
         await self._client.subscribe(mqtt_address.topic)
@@ -53,7 +53,7 @@ class MqttTransportClient(TransportClient):
                     if message.topic.matches(mqtt_address.topic):  # noqa: SIM102
                         if value_parser:
                             try:
-                                return value_parser(message.payload.decode())
+                                return value_parser(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
                             except ValueError:
                                 continue  # Not the message we expect → keep listening
 

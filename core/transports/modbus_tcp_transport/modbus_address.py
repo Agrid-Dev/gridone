@@ -16,8 +16,6 @@ class ModbusAddressType(StrEnum):
 address_type_regex = r"^(" + "|".join(list(ModbusAddressType)) + r")[\s:-]*(\d+)$"
 instance_regex = r"^\d+$"
 
-instance_regex = r"^\d+$"
-
 
 class ModbusAddress(BaseModel, TransportAddress):
     type: ModbusAddressType

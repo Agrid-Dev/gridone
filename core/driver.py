@@ -29,7 +29,7 @@ class Driver:
         return await self.transport.read(
             address=attribute_schema.address,
             value_parser=attribute_schema.value_parser,
-            _context=context,
+            context=context,
         )
 
     async def write_value(
