@@ -12,10 +12,10 @@ class Attribute:
     current_value: AttributeValueType | None
     last_updated: datetime | None = field(default=None)
 
-    def _ensure_type(
+    def ensure_type(
         self,
-        raw_value: AttributeValueType | None,
-    ) -> AttributeValueType | None:
+        raw_value: AttributeValueType,
+    ) -> AttributeValueType:
         if raw_value is not None:
             try:
                 return DATA_TYPES[self.data_type](raw_value)
@@ -30,10 +30,10 @@ class Attribute:
         return raw_value
 
     def __post_init__(self) -> None:
-        self._ensure_type(self.current_value)
+        self.ensure_type(self.current_value)
 
     def update_value(self, new_value: AttributeValueType) -> None:
-        object.__setattr__(self, "current_value", self._ensure_type(new_value))
+        object.__setattr__(self, "current_value", self.ensure_type(new_value))
         object.__setattr__(self, "last_updated", datetime.now(UTC))
 
     @classmethod

@@ -77,6 +77,13 @@ async def main() -> None:
             for attribute in device.attributes:
                 value = await device.read_attribute_value(attribute)
                 print(f"{attribute}: {value}")
+            if device_data["driver"] == "agrid_thermostat_http":
+                target_setpoint = 23
+                await device.write_attribute_value(
+                    "temperature_setpoint",
+                    target_setpoint,
+                )
+                print(f"temperature_setpoint written to {target_setpoint}")
 
 
 if __name__ == "__main__":

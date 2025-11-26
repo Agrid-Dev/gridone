@@ -67,17 +67,19 @@ class ModbusTCPTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser | None = None,
         *,
-        context: dict,
+        _context: dict,
     ) -> AttributeValueType:
-        raw_value = await self._read_modbus(address, context.get("device_id", 1))
+        raw_value = await self._read_modbus(address, _context.get("device_id", 1))
         if value_parser:
             return value_parser(raw_value)
         return raw_value
 
     async def write(
         self,
-        address: str,
+        address: str | dict,
         value: AttributeValueType,
+        *,
+        _context: dict,
     ) -> None:
         msg = "Not ready !"
         raise NotImplementedError(msg)
