@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from typing import TypedDict
 
@@ -94,6 +95,7 @@ async def write_attribute(
     async with device.driver.transport:
         await device.write_attribute_value(target_attribute, value)
         print("write seems to have succeeded, confirming...")
+        await asyncio.sleep(0.25)  # wait propagation
         new_value = await device.read_attribute_value(target_attribute)
         if new_value == value:
             print("✅ Success")
@@ -103,8 +105,8 @@ async def write_attribute(
 
 WRITABLE = ["agrid_thermostat_http", "carel_thermostat"]
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(read_all())
+    asyncio.run(write_attribute("agrid_thermostat_mqtt", "state", False))
+    asyncio.run(write_attribute("agrid_thermostat_mqtt", "temperature_setpoint", 20))
     asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 21))
-    asyncio.run(write_attribute("carel_thermostat", "state", True))  # noqa: FBT003
+    asyncio.run(write_attribute("carel_thermostat", "state", False))

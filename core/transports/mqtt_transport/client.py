@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import aiomqtt
 
@@ -76,6 +77,13 @@ class MqttTransportClient(TransportClient):
             raise RuntimeError(msg)
 
         write_address = MqttAddress.from_raw(address)
-        payload = render_struct(write_address.request.message, {"value": value})
+        value_template_pattern = r"<(value)>"
+        raw_message = write_address.request.message
+        message = render_struct(
+            write_address.request.message,
+            {"value": value if isinstance(raw_message, dict) else json.dumps(value)},
+            template_pattern=value_template_pattern,
+        )
+        payload = json.dumps(message) if isinstance(message, dict) else message
 
         await self._client.publish(write_address.request.topic, payload=payload)
