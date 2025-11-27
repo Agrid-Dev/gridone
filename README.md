@@ -68,3 +68,11 @@ If you need to route network calls through a proxy (for example when testing fro
 ```sh
 proxychains4 uv run python main.py
 ```
+
+### Running with a proxy
+
+If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
+
+```sh
+proxychains4 uv run python main.py
+```

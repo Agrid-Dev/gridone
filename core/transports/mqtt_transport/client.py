@@ -1,9 +1,11 @@
 import asyncio
+import json
 
 import aiomqtt
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
+from core.utils.templating.render import render_struct
 from core.value_parsers import ValueParser
 
 from .mqtt_address import MqttAddress
@@ -43,8 +45,8 @@ class MqttTransportClient(TransportClient):
         await self._client.subscribe(mqtt_address.topic)
 
         await self._client.publish(
-            mqtt_address.request_read.topic,
-            payload=mqtt_address.request_read.message,
+            mqtt_address.request.topic,
+            payload=mqtt_address.request.message,
         )
         try:
             # Wait for the first matching message within TIMEOUT
@@ -67,7 +69,21 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        context: dict,
-        value_parser: ValueParser,
+        context: dict,  # noqa: ARG002
+        value_parser: ValueParser,  # noqa: ARG002
     ) -> None:
-        raise NotImplementedError
+        if self._client is None:
+            msg = "MQTT transport is not connected"
+            raise RuntimeError(msg)
+
+        write_address = MqttAddress.from_raw(address)
+        value_template_pattern = r"<(value)>"
+        raw_message = write_address.request.message
+        message = render_struct(
+            write_address.request.message,
+            {"value": value if isinstance(raw_message, dict) else json.dumps(value)},
+            template_pattern=value_template_pattern,
+        )
+        payload = json.dumps(message) if isinstance(message, dict) else message
+
+        await self._client.publish(write_address.request.topic, payload=payload)

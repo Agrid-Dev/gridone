@@ -5,12 +5,12 @@ from core.transports.transport_address import RawTransportAddress, TransportAddr
 
 class MqttRequest(BaseModel):
     topic: str
-    message: str
+    message: str | dict
 
 
 class MqttAddress(BaseModel, TransportAddress):
     topic: str
-    request_read: MqttRequest
+    request: MqttRequest
 
     @classmethod
     def from_str(cls, address_str: str) -> "MqttAddress":
