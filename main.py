@@ -79,21 +79,6 @@ async def read_all() -> None:
             for attribute in device.attributes:
                 value = await device.read_attribute_value(attribute)
                 print(f"{attribute}: {value}")
-            if device_data["driver"] == "agrid_thermostat_http":
-                target_setpoint = 23
-                await device.write_attribute_value(
-                    "temperature_setpoint",
-                    target_setpoint,
-                )
-                print(f"temperature_setpoint written to {target_setpoint}")
-            if device_data["driver"] == "agrid_thermostat_mqtt":
-                mqtt_setpoint = 21
-                await device.write_attribute_value(
-                    "temperature_setpoint",
-                    mqtt_setpoint,
-                )
-                print(f"temperature_setpoint (MQTT) written to {mqtt_setpoint}")
-
 
 
 async def write_attribute(
@@ -121,5 +106,5 @@ if __name__ == "__main__":
     import asyncio
 
     asyncio.run(read_all())
-    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 19))
+    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 21))
     asyncio.run(write_attribute("carel_thermostat", "state", True))  # noqa: FBT003
