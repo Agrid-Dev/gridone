@@ -1,9 +1,11 @@
+from .registry.identity_parser import IdentityParser
 from .registry.json_path_parser import JsonPathParser
 from .registry.json_pointer_parser import JsonPointerParser
 from .registry.scale_parser import ScaleParser
 from .value_parser import ValueParser
 
 value_parser_builders = {
+    "identity": IdentityParser,
     "scale": ScaleParser,
     "json_pointer": JsonPointerParser,
     "json_path": JsonPathParser,

@@ -24,7 +24,7 @@ class TransportClient(ABC):
     async def read(
         self,
         address: RawTransportAddress,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,
     ) -> AttributeValueType:
@@ -37,7 +37,7 @@ class TransportClient(ABC):
         address: RawTransportAddress,
         value: AttributeValueType,
         *,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         context: dict,
     ) -> None:
         """Write a value to the transport."""

@@ -41,7 +41,7 @@ class HTTPTransportClient(TransportClient):
     async def read(
         self,
         address: str | dict,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
@@ -73,7 +73,7 @@ class HTTPTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        value_parser: ValueParser | None = None,  # noqa: ARG002
+        value_parser: ValueParser,  # noqa: ARG002
         context: dict,  # noqa: ARG002
     ) -> None:
         if self._client is None:
@@ -82,13 +82,11 @@ class HTTPTransportClient(TransportClient):
         http_address = HttpAddress.from_raw(address)
         # Body is already rendered when coming from the driver; if the caller
         # wants to inject the value they can template it in the write_address.
-        data: dict[str, Any] | None
-        content: str | bytes | None
         if http_address.body is None:
             data = {"value": value}
             content = None
         elif isinstance(http_address.body, dict):
-            data = cast("dict[str, Any]", http_address.body)
+            data = http_address.body
             content = None
         else:
             data = None

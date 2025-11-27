@@ -81,7 +81,7 @@ class BacnetTransportClient(TransportClient):
     async def read(
         self,
         address: str | dict,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,
     ) -> AttributeValueType:
@@ -102,7 +102,7 @@ class BacnetTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         context: dict,
     ) -> None:
         """Write a value to the transport."""

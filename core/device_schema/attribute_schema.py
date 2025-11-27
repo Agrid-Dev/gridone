@@ -10,12 +10,15 @@ class ValueParserSchema(BaseModel):
     parser_raw: str | float
 
 
+DEFAULT_VALUE_PARSER_SCHEMA = ValueParserSchema(parser_key="identity", parser_raw="")
+
+
 class AttributeSchema(BaseModel):
     attribute_name: str  # core side - the target attribute name
     data_type: DataType
     address: str | dict  # protocol side - the address used in the protocol
     write_address: str | dict | None = None
-    value_parser: ValueParserSchema | None = None
+    value_parser: ValueParserSchema = DEFAULT_VALUE_PARSER_SCHEMA
 
     @classmethod
     def from_dict(cls, data: dict[str, str]) -> "AttributeSchema":
@@ -36,7 +39,9 @@ class AttributeSchema(BaseModel):
             data_type=DataType(data_type),
             address=address,
             write_address=write_address,
-            value_parser=value_parsers[0] if value_parsers else None,
+            value_parser=value_parsers[0]
+            if value_parsers
+            else DEFAULT_VALUE_PARSER_SCHEMA,
         )
 
     def render(

@@ -111,27 +111,25 @@ class ModbusTCPTransportClient(TransportClient):
     async def read(
         self,
         address: str | dict,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,
     ) -> AttributeValueType:
         modbus_address = ModbusAddress.from_raw(address)
         raw_value = await self._read_modbus(modbus_address, context.get("device_id", 1))
-        if value_parser:
-            return value_parser.parse(raw_value)
-        return raw_value
+        return value_parser.parse(raw_value)
 
     async def write(
         self,
         address: str | dict,
         value: AttributeValueType,
         *,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         context: dict,
     ) -> None:
         modbus_address = ModbusAddress.from_raw(address)
         device_id = context.get("device_id", 1)
-        if value_parser and isinstance(value_parser, ReversibleValueParser):
+        if isinstance(value_parser, ReversibleValueParser):
             value_to_write = value_parser.revert(value)
         else:
             value_to_write = value
