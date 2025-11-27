@@ -77,12 +77,14 @@ class MqttTransportClient(TransportClient):
             raise RuntimeError(msg)
 
         write_address = MqttAddress.from_raw(address)
-        value_template_pattern = r"<(value)>"
-        raw_message = write_address.request.message
+        message_template = (write_address.request.message,)
         message = render_struct(
             write_address.request.message,
-            {"value": value if isinstance(raw_message, dict) else json.dumps(value)},
-            template_pattern=value_template_pattern,
+            {
+                "value": json.dumps(value)
+                if isinstance(message_template, str)
+                else value
+            },
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
