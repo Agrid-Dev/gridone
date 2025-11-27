@@ -36,7 +36,7 @@ class AttributeSchema(BaseModel):
             data_type=DataType(data_type),
             address=address,
             write_address=write_address,
-            value_parser=value_parsers[0] if len(value_parsers) > 0 else None,
+            value_parser=value_parsers[0] if value_parsers else None,
         )
 
     def render(

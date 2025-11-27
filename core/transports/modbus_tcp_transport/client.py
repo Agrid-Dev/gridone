@@ -2,6 +2,7 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
+from core.utils.cast_as_bool import cast_as_bool
 from core.value_parsers import ReversibleValueParser, ValueParser
 
 from .modbus_address import (
@@ -79,7 +80,7 @@ class ModbusTCPTransportClient(TransportClient):
             raise ValueError(msg)
         if modbus_address.type == ModbusAddressType.COIL:
             try:
-                bool_value = bool(value)
+                bool_value = cast_as_bool(value)
             except ValueError as e:
                 msg = f"Cannot write a non boolean value ({value}) to a Modbus COIL"
                 raise ValueError(msg) from e
