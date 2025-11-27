@@ -2,9 +2,14 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.value_parsers import ValueParser
+from core.utils.cast_as_bool import cast_as_bool
+from core.value_parsers import ReversibleValueParser, ValueParser
 
-from .modbus_address import ModbusAddress, ModbusAddressType
+from .modbus_address import (
+    WRITABLE_MODBUS_ADDRESS_TYPES,
+    ModbusAddress,
+    ModbusAddressType,
+)
 from .transport_config import ModbusTCPTransportConfig
 
 
@@ -64,25 +69,68 @@ class ModbusTCPTransportClient(TransportClient):
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
 
+    async def _write_modbus(
+        self,
+        modbus_address: ModbusAddress,
+        device_id: int,
+        value: int | bool,  # noqa: FBT001
+    ) -> None:
+        if modbus_address.type not in WRITABLE_MODBUS_ADDRESS_TYPES:
+            msg = f"Address type {modbus_address.type} is not writable"
+            raise ValueError(msg)
+        if modbus_address.type == ModbusAddressType.COIL:
+            try:
+                bool_value = cast_as_bool(value)
+            except ValueError as e:
+                msg = f"Cannot write a non boolean value ({value}) to a Modbus COIL"
+                raise ValueError(msg) from e
+            await self._client.write_coil(
+                modbus_address.instance,
+                bool_value,
+                device_id=device_id,
+            )
+            return
+        if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
+            try:
+                int_value = int(value)
+            except ValueError as e:
+                msg = (
+                    f"Cannot write a non integer value ({value}) "
+                    "to a Modbus HOLDING_REGISTER"
+                )
+                raise ValueError(msg) from e
+            await self._client.write_register(
+                modbus_address.instance,
+                int_value,
+                device_id=device_id,
+            )
+            return
+        msg = f"Unknown address type: {modbus_address.type}"
+        raise ValueError(msg)
+
     async def read(
         self,
         address: str | dict,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,
     ) -> AttributeValueType:
         modbus_address = ModbusAddress.from_raw(address)
         raw_value = await self._read_modbus(modbus_address, context.get("device_id", 1))
-        if value_parser:
-            return value_parser(raw_value)
-        return raw_value
+        return value_parser.parse(raw_value)
 
     async def write(
         self,
         address: str | dict,
         value: AttributeValueType,
         *,
-        _context: dict,
+        value_parser: ValueParser,
+        context: dict,
     ) -> None:
-        msg = "Not ready !"
-        raise NotImplementedError(msg)
+        modbus_address = ModbusAddress.from_raw(address)
+        device_id = context.get("device_id", 1)
+        if isinstance(value_parser, ReversibleValueParser):
+            value_to_write = value_parser.revert(value)
+        else:
+            value_to_write = value
+        await self._write_modbus(modbus_address, device_id, value_to_write)  # ty: ignore[invalid-argument-type]

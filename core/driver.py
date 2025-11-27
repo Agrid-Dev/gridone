@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from core.value_parsers import build_value_parser
 
 from .device_schema import DeviceSchema
 from .transports import TransportClient, get_transport_client
@@ -26,9 +27,14 @@ class Driver:
         attribute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         ).render(context)
+        value_parser = build_value_parser(
+            attribute_schema.value_parser.parser_key,
+            attribute_schema.value_parser.parser_raw,
+        )
+
         return await self.transport.read(
             address=attribute_schema.address,
-            value_parser=attribute_schema.value_parser,
+            value_parser=value_parser,
             context=context,
         )
 
@@ -45,10 +51,15 @@ class Driver:
         if attribute_schema.write_address is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
+        value_parser = build_value_parser(
+            attribute_schema.value_parser.parser_key,
+            attribute_schema.value_parser.parser_raw,
+        )
         await self.transport.write(
             address=attribute_schema.write_address,
             value=value,
-            _context=context,
+            context=context,
+            value_parser=value_parser,
         )
 
     @classmethod

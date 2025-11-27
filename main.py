@@ -5,6 +5,7 @@ import yaml
 
 from core.device import Device
 from core.driver import Driver
+from core.types import AttributeValueType
 
 
 def load_driver(path: Path, transport_config: dict) -> Driver:
@@ -61,7 +62,7 @@ DEVICES_DATA: list[DeviceData] = [
 ]
 
 
-async def main() -> None:
+async def read_all() -> None:
     devices = {
         d["driver"]: load_device(
             DRIVERS_DB / (d["driver"] + ".yaml"),
@@ -78,16 +79,32 @@ async def main() -> None:
             for attribute in device.attributes:
                 value = await device.read_attribute_value(attribute)
                 print(f"{attribute}: {value}")
-            if device.driver.name == "agrid_thermostat_http":
-                target_setpoint = 23
-                await device.write_attribute_value(
-                    "temperature_setpoint",
-                    target_setpoint,
-                )
-                print(f"temperature_setpoint written to {target_setpoint}")
 
 
+async def write_attribute(
+    driver_name: str, target_attribute: str, value: AttributeValueType
+) -> None:
+    device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
+    device = load_device(
+        DRIVERS_DB / (device_data["driver"] + ".yaml"),
+        device_data["device_config"],
+        device_data["transport_config"],
+    )
+    print(f"Writing {value:.1f} -> {driver_name} / {target_attribute}")
+    async with device.driver.transport:
+        await device.write_attribute_value(target_attribute, value)
+        print("write seems to have succeeded, confirming...")
+        new_value = await device.read_attribute_value(target_attribute)
+        if new_value == value:
+            print("✅ Success")
+        else:
+            print(f"❌ Failed: {new_value} != {value}")
+
+
+WRITABLE = ["agrid_thermostat_http", "carel_thermostat"]
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(main())
+    asyncio.run(read_all())
+    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 19))
+    asyncio.run(write_attribute("carel_thermostat", "state", True))  # noqa: FBT003

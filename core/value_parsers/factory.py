@@ -1,29 +1,25 @@
-from core.types import AttributeValueType
-
-from .json_path_parser import json_path_parser
-from .json_pointer_parser import is_valid_json_pointer, json_pointer_parser
-from .scale_parser import scale_parser
+from .registry.identity_parser import IdentityParser
+from .registry.json_path_parser import JsonPathParser
+from .registry.json_pointer_parser import JsonPointerParser
+from .registry.scale_parser import ScaleParser
 from .value_parser import ValueParser
 
+value_parser_builders = {
+    "identity": IdentityParser,
+    "scale": ScaleParser,
+    "json_pointer": JsonPointerParser,
+    "json_path": JsonPathParser,
+}
 
-def identity_function(result: AttributeValueType) -> AttributeValueType:
-    return result
+supported_value_parsers = list(value_parser_builders.keys())
 
 
-def value_parser_factory(
-    *,
-    json_pointer: str | None = None,
-    json_path: str | None = None,
-    scale: str | float | None = None,
-) -> ValueParser:
-    if json_pointer is not None:
-        is_valid, error_message = is_valid_json_pointer(json_pointer)
-        if not is_valid:
-            msg = f"Invalid JSON pointer: {json_pointer} ({error_message})"
-            raise ValueError(msg)
-        return lambda result: json_pointer_parser(result, json_pointer)
-    if json_path is not None:
-        return lambda result: json_path_parser(result, json_path)
-    if scale is not None:
-        return lambda result: scale_parser(result, float(scale))
-    return identity_function
+def build_value_parser(parser_key: str, parser_raw: str | float) -> ValueParser:
+    builder = value_parser_builders.get(parser_key)
+    if not builder:
+        msg = (
+            f"Unknown value parser: {parser_key}."
+            f"Available value parsers: {supported_value_parsers}"
+        )
+        raise ValueError(msg)
+    return builder(str(parser_raw))

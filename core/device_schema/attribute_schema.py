@@ -2,7 +2,15 @@ from pydantic import BaseModel
 
 from core.types import DataType
 from core.utils.templating.render import render_struct
-from core.value_parsers import ValueParser, value_parser_factory
+from core.value_parsers.factory import supported_value_parsers
+
+
+class ValueParserSchema(BaseModel):
+    parser_key: str
+    parser_raw: str | float
+
+
+DEFAULT_VALUE_PARSER_SCHEMA = ValueParserSchema(parser_key="identity", parser_raw="")
 
 
 class AttributeSchema(BaseModel):
@@ -10,7 +18,7 @@ class AttributeSchema(BaseModel):
     data_type: DataType
     address: str | dict  # protocol side - the address used in the protocol
     write_address: str | dict | None = None
-    value_parser: ValueParser
+    value_parser: ValueParserSchema = DEFAULT_VALUE_PARSER_SCHEMA
 
     @classmethod
     def from_dict(cls, data: dict[str, str]) -> "AttributeSchema":
@@ -20,18 +28,20 @@ class AttributeSchema(BaseModel):
         address = data["address"]
         write_address = data.get("write_address")
         # Collect the rest as parser arguments
-        parsers = {
-            k: v
-            for k, v in data.items()
-            if k not in ("name", "data_type", "address", "write_address")
-        }
-        value_parser = value_parser_factory(**parsers)
+        value_parsers = [
+            ValueParserSchema(parser_key=key, parser_raw=data[key])
+            for key in supported_value_parsers
+            if key in data
+        ]
+
         return cls(
             attribute_name=attribute_name,
             data_type=DataType(data_type),
             address=address,
             write_address=write_address,
-            value_parser=value_parser,
+            value_parser=value_parsers[0]
+            if value_parsers
+            else DEFAULT_VALUE_PARSER_SCHEMA,
         )
 
     def render(

@@ -13,13 +13,13 @@ class MqttAddress(BaseModel, TransportAddress):
     request_read: MqttRequest
 
     @classmethod
-    def from_str(cls, _: str) -> "MqttAddress":
+    def from_str(cls, address_str: str) -> "MqttAddress":
         msg = "Creating mqtt address from string is not supported."
         raise NotImplementedError(msg)
 
     @classmethod
-    def from_dict(cls, raw_address: dict) -> "MqttAddress":
-        return cls(**raw_address)  # ty: ignore[invalid-argument-type]
+    def from_dict(cls, address_dict: dict) -> "MqttAddress":
+        return cls(**address_dict)
 
     @classmethod
     def from_raw(cls, raw_address: RawTransportAddress) -> "MqttAddress":

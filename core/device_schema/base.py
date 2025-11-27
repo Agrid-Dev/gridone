@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from core.types import AttributeValueType, TransportProtocols
+from core.types import TransportProtocols
 
 from .attribute_schema import AttributeSchema
 
@@ -37,15 +37,6 @@ class DeviceSchema:
             f"address='{address}'"
         )
         raise KeyError(msg)
-
-    def parse_value(
-        self,
-        attribute: str,
-        transport_response: dict,
-    ) -> AttributeValueType:
-        attribute_schema = self.get_attribute_schema(attribute_name=attribute)
-
-        return attribute_schema.value_parser(transport_response)  # ty: ignore[invalid-argument-type]
 
     @classmethod
     def from_dict(

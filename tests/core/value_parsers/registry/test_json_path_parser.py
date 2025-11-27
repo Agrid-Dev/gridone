@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from core.value_parsers.json_path_parser import (
+from core.value_parsers.registry.json_path_parser import (
     json_path_parser,
 )
 

@@ -35,7 +35,7 @@ class MqttTransportClient(TransportClient):
     async def read(
         self,
         address: str | dict,
-        value_parser: ValueParser | None = None,
+        value_parser: ValueParser,
         *,
         context: dict,  # noqa: ARG002
     ) -> AttributeValueType:
@@ -50,12 +50,11 @@ class MqttTransportClient(TransportClient):
             # Wait for the first matching message within TIMEOUT
             async with asyncio.timeout(TIMEOUT):
                 async for message in self._client.messages:
-                    if message.topic.matches(mqtt_address.topic):  # noqa: SIM102
-                        if value_parser:
-                            try:
-                                return value_parser(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
-                            except ValueError:
-                                continue  # Not the message we expect → keep listening
+                    if message.topic.matches(mqtt_address.topic):
+                        try:
+                            return value_parser.parse(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
+                        except ValueError:
+                            continue  # Not the message we expect → keep listening
 
         except TimeoutError as err:
             msg = "MQTT issue: no message received before timeout"
@@ -68,6 +67,7 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        _context: dict,
+        context: dict,
+        value_parser: ValueParser,
     ) -> None:
         raise NotImplementedError
