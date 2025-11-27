@@ -91,7 +91,7 @@ async def write_attribute(
         device_data["device_config"],
         device_data["transport_config"],
     )
-    print(f"Writing {value:.1f} -> {driver_name} / {target_attribute}")
+    print(f"Writing {value} -> {driver_name} / {target_attribute}")
     async with device.driver.transport:
         await device.write_attribute_value(target_attribute, value)
         print("write seems to have succeeded, confirming...")
@@ -108,5 +108,5 @@ if __name__ == "__main__":
     asyncio.run(read_all())
     asyncio.run(write_attribute("agrid_thermostat_mqtt", "state", False))
     asyncio.run(write_attribute("agrid_thermostat_mqtt", "temperature_setpoint", 20))
-    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 21))
+    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 20))
     asyncio.run(write_attribute("carel_thermostat", "state", False))
