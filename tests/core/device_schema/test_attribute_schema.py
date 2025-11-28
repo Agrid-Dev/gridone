@@ -8,15 +8,17 @@ def test_attribute_schema_from_dict() -> None:
     data = {
         "name": "temperature",
         "data_type": "float",
-        "address": "{base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
+        "read": "{base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
         "json_pointer": "/current_weather/temperature",
     }
     schema = AttributeSchema.from_dict(data)
-    assert schema.attribute_name == "temperature"
+    assert schema.name == "temperature"
     assert schema.data_type == DataType.FLOAT
     assert schema.value_parser is not None
     assert schema.value_parser.parser_key == "json_pointer"
     assert schema.value_parser.parser_raw == "/current_weather/temperature"
+    assert schema.read == data["read"]
+    assert schema.write is None
 
 
 @pytest.mark.parametrize(
@@ -27,7 +29,7 @@ def test_attribute_schema_from_dict() -> None:
                 {
                     "name": "temperature",
                     "data_type": "float",
-                    "address": "${base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
+                    "read": "${base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
                     "json_pointer": "/current_weather/temperature",
                 },
             ),
@@ -43,4 +45,4 @@ def test_render(
     context: dict,
     expected_address: str | dict,
 ) -> None:
-    assert attribute_schema.render(context).address == expected_address
+    assert attribute_schema.render(context).read == expected_address

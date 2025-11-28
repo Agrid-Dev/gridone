@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
 from core.types import TransportProtocols
 
 from .attribute_schema import AttributeSchema
@@ -11,8 +13,7 @@ class DeviceConfigField:
     required: bool = True
 
 
-@dataclass
-class DeviceSchema:
+class DeviceSchema(BaseModel):
     name: str
     transport: TransportProtocols
     device_config_fields: list[DeviceConfigField]
@@ -21,22 +22,17 @@ class DeviceSchema:
     def get_attribute_schema(
         self,
         *,
-        attribute_name: str | None = None,
-        address: str | dict | None = None,
+        attribute_name: str,
     ) -> AttributeSchema:
-        if attribute_name is None and address is None:
-            msg = "Either attribute_name or address must be provided"
-            raise ValueError(msg)
-        for schema in self.attribute_schemas:
-            if attribute_name is not None and schema.attribute_name == attribute_name:
-                return schema
-            if address is not None and schema.address == address:
-                return schema
-        msg = (
-            f"Attribute schema not found for attribute_name='{attribute_name}' "
-            f"address='{address}'"
-        )
-        raise KeyError(msg)
+        try:
+            return next(
+                schema
+                for schema in self.attribute_schemas
+                if schema.name == attribute_name
+            )
+        except StopIteration as e:
+            msg = f"Attribute schema not found for attribute_name='{attribute_name}' "
+            raise ValueError(msg) from e
 
     @classmethod
     def from_dict(

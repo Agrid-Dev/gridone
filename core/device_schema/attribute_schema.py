@@ -1,5 +1,8 @@
-from pydantic import BaseModel
+from typing import Any
 
+from pydantic import BaseModel, model_validator
+
+from core.transports import RawTransportAddress
 from core.types import DataType
 from core.utils.templating.render import render_struct
 from core.value_parsers.factory import supported_value_parsers
@@ -13,56 +16,59 @@ class ValueParserSchema(BaseModel):
 DEFAULT_VALUE_PARSER_SCHEMA = ValueParserSchema(parser_key="identity", parser_raw="")
 
 
+def get_value_parser_schema(attribute_schema_dict: dict) -> ValueParserSchema:
+    for key in supported_value_parsers:
+        if key in attribute_schema_dict:
+            return ValueParserSchema(
+                parser_key=key, parser_raw=attribute_schema_dict[key]
+            )
+    return DEFAULT_VALUE_PARSER_SCHEMA
+
+
 class AttributeSchema(BaseModel):
-    attribute_name: str  # core side - the target attribute name
+    name: str  # core side - the target attribute name
     data_type: DataType
-    address: str | dict  # protocol side - the address used in the protocol
-    write_address: str | dict | None = None
-    value_parser: ValueParserSchema = DEFAULT_VALUE_PARSER_SCHEMA
+    read: RawTransportAddress
+    write: RawTransportAddress | None = None
+    value_parser: ValueParserSchema
+
+    @model_validator(mode="before")
+    @classmethod
+    def use_read_write_as_fallback(cls, data: Any):  # noqa: ANN206, ANN401
+        if not isinstance(data, dict):
+            return data
+        rw = data.get("read_write")
+        if rw is not None:
+            # Only fill if not already provided
+            data.setdefault("read", rw)
+            data.setdefault("write", rw)
+
+        return data
 
     @classmethod
     def from_dict(cls, data: dict[str, str]) -> "AttributeSchema":
-        # Destructure known fields
-        attribute_name = data["name"]
-        data_type = data["data_type"]
-        address = data["address"]
-        write_address = data.get("write_address")
-        # Collect the rest as parser arguments
-        value_parsers = [
-            ValueParserSchema(parser_key=key, parser_raw=data[key])
-            for key in supported_value_parsers
-            if key in data
-        ]
-
-        return cls(
-            attribute_name=attribute_name,
-            data_type=DataType(data_type),
-            address=address,
-            write_address=write_address,
-            value_parser=value_parsers[0]
-            if value_parsers
-            else DEFAULT_VALUE_PARSER_SCHEMA,
-        )
+        value_parser = get_value_parser_schema(data)
+        return cls(**{**data, "value_parser": value_parser})
 
     def render(
         self,
         context: dict,
     ) -> "AttributeSchema":
-        rendered_address = render_struct(
-            self.address,
+        rendered_read_address = render_struct(
+            self.read,
             context,
             raise_for_missing_context=True,
         )
-        rendered_write_address = self.write_address
-        if self.write_address is not None:
+        rendered_write_address = self.write
+        if self.write is not None:
             rendered_write_address = render_struct(
-                self.write_address,
+                self.write,
                 context,
                 raise_for_missing_context=False,
             )
         return self.model_copy(
             update={
-                "address": rendered_address,
-                "write_address": rendered_write_address,
+                "read": rendered_read_address,
+                "write": rendered_write_address,
             },
         )

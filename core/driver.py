@@ -33,7 +33,7 @@ class Driver:
         )
 
         return await self.transport.read(
-            address=attribute_schema.address,
+            address=attribute_schema.read,
             value_parser=value_parser,
             context=context,
         )
@@ -48,7 +48,7 @@ class Driver:
         attribute_schema: AttributeSchema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         ).render(context)
-        if attribute_schema.write_address is None:
+        if attribute_schema.write is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
         value_parser = build_value_parser(
@@ -56,7 +56,7 @@ class Driver:
             attribute_schema.value_parser.parser_raw,
         )
         await self.transport.write(
-            address=attribute_schema.write_address,
+            address=attribute_schema.write,
             value=value,
             context=context,
             value_parser=value_parser,
