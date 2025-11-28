@@ -55,11 +55,11 @@ DEVICES_DATA: list[DeviceData] = [
         "transport_config": {"host": "10.125.0.1"},
         "device_config": {"mac": "F0F5BD273F98"},
     },
-    {
-        "driver": "breeze_bc106_4d_thermostat",
-        "transport_config": {"ip_with_mask": "10.125.0.1/24"},
-        "device_config": {"device_instance": 856402},
-    },
+    # {
+    #     "driver": "breeze_bc106_4d_thermostat",
+    #     "transport_config": {"ip_with_mask": "10.125.0.1/24"},
+    #     "device_config": {"device_instance": 856402},
+    # },
 ]
 
 

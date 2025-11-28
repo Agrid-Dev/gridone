@@ -44,9 +44,14 @@ class MqttTransportClient(TransportClient):
         mqtt_address = MqttAddress.from_raw(address)
         await self._client.subscribe(mqtt_address.topic)
 
+        payload = (
+            json.dumps(mqtt_address.request.message)
+            if isinstance(mqtt_address.request.message, dict)
+            else mqtt_address.request.message
+        )
         await self._client.publish(
             mqtt_address.request.topic,
-            payload=mqtt_address.request.message,
+            payload=payload,
         )
         try:
             # Wait for the first matching message within TIMEOUT
@@ -77,14 +82,10 @@ class MqttTransportClient(TransportClient):
             raise RuntimeError(msg)
 
         write_address = MqttAddress.from_raw(address)
-        message_template = (write_address.request.message,)
+        message_template = write_address.request.message
         message = render_struct(
-            write_address.request.message,
-            {
-                "value": json.dumps(value)
-                if isinstance(message_template, str)
-                else value
-            },
+            message_template,
+            {"value": json.dumps(value) if isinstance(message_template, str) else value},
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
