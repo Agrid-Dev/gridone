@@ -33,6 +33,8 @@ TEST_CONTEXT = {
             TEST_CONTEXT,
             "Hello John you are ${size} tall",
         ),  # missing field. Not raising by default
+        ("${age}", TEST_CONTEXT, 32),
+        ("${verified}", {"verified": True}, True),
     ],
 )
 def test_render_str(template: str, context: dict, expected: str) -> None:
@@ -84,7 +86,7 @@ def test_render_str_missing_context(
             TEST_CONTEXT,
             {
                 "value_list": [
-                    {"name": "John", "age": "32"},
+                    {"name": "John", "age": 32},
                 ],
             },
         ),
