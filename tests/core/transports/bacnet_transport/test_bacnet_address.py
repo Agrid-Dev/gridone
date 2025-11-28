@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from core.transports.bacnet_transport.bacnet_address import (
     BacnetAddress,
@@ -62,7 +63,47 @@ ANALOG_INPUT_5_ADDRESS = BacnetAddress(
             ANALOG_INPUT_5_ADDRESS,
         ),
         ("ANALOG_INPUT:5", ANALOG_INPUT_5_ADDRESS),
+        (
+            "AI05 P8",
+            BacnetAddress(
+                object_type=BacnetObjectType.ANALOG_INPUT,
+                object_instance=5,
+                write_priority=8,
+            ),
+        ),
     ],
 )
 def test_bacnet_address_from_str(raw: str, expected: BacnetAddress) -> None:
     assert BacnetAddress.from_str(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("address_dict", "expected"),
+    [
+        ({"object_type": "analog-input", "object_instance": 5}, ANALOG_INPUT_5_ADDRESS),
+        ({"object_type": "AI", "object_instance": 5}, ANALOG_INPUT_5_ADDRESS),
+        ({"object_type": "ANALOG_INPUT", "object_instance": 5}, ANALOG_INPUT_5_ADDRESS),
+        (
+            {"object_type": "ANALOG_INPUT", "object_instance": 5, "write_priority": 8},
+            BacnetAddress(
+                object_type=BacnetObjectType.ANALOG_INPUT,
+                object_instance=5,
+                write_priority=8,
+            ),
+        ),
+    ],
+)
+def test_bacnet_address_from_dict(address_dict: dict, expected: BacnetAddress) -> None:
+    assert BacnetAddress.from_dict(address_dict) == expected
+
+
+@pytest.mark.parametrize(
+    ("address_dict"),
+    [
+        ({"object_type": "ANALOG_INPUT", "object_instance": 5, "write_priority": 2}),
+        ({"object_type": "ANALOG_INPUT", "object_instance": 5, "write_priority": 18}),
+    ],
+)
+def test_bacnet_address_from_dict_invalid_priority(address_dict: dict) -> None:
+    with pytest.raises(ValidationError):
+        BacnetAddress.from_dict(address_dict)
