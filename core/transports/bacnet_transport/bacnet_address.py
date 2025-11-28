@@ -1,23 +1,13 @@
 import re
-from enum import StrEnum
+from typing import Annotated
 
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel, BeforeValidator, PositiveInt
 
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
+from .bacnet_types import BacnetObjectType, BacnetWritePriority
+
 DEFAULT_PROPERTY_NAME = "present-value"  # use dash form
-
-
-class BacnetObjectType(StrEnum):
-    """Object type enumeration using values as in bacpypes 3.
-    Not exhaustive."""
-
-    BINARY_VALUE = "binary-value"
-    BINARY_INPUT = "binary-input"
-    ANALOG_VALUE = "analog-value"
-    ANALOG_INPUT = "analog-input"
-    MULTISTATE_VALUE = "multistate-value"
-    MULTISTATE_INPUT = "multistate-input"
 
 
 def initials(s: str) -> str:
@@ -38,38 +28,44 @@ def bacnet_object_type_from_raw(raw: str) -> BacnetObjectType:
     raise ValueError(msg)
 
 
-bacnet_object_regex = r"^([A-Za-z-_]+)[\s:-]*(\d+)$"
+bacnet_object_regex = r"^([A-Za-z-_]+)[\s:-]*(\d+)"
+bacnet_write_priority_regex = r"P(\d{1,2})"
 
 
 class BacnetAddress(BaseModel, TransportAddress):
-    object_type: BacnetObjectType
+    object_type: Annotated[
+        BacnetObjectType, BeforeValidator(bacnet_object_type_from_raw)
+    ]
     object_instance: PositiveInt
     property_name: str = DEFAULT_PROPERTY_NAME
+    write_priority: BacnetWritePriority | None = None
 
     @classmethod
     def from_dict(cls, address_dict: dict) -> "BacnetAddress":
-        try:
-            return cls(
-                object_type=bacnet_object_type_from_raw(address_dict["object_type"]),
-                object_instance=int(address_dict["object_instance"]),
-            )
-        except (KeyError, ValueError) as e:
-            msg = f"Invalid Modbus address_dict: {address_dict}"
-            raise ValueError(msg) from e
+        return cls(**address_dict)
 
     @classmethod
     def from_str(cls, address_str: str) -> "BacnetAddress":
-        match = re.fullmatch(bacnet_object_regex, address_str.strip())
+        match = re.match(bacnet_object_regex, address_str.strip())
         if match is None:
-            msg = f"Invalid Modbus address format: {address_str}"
+            msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         groups = match.groups()
         if len(groups) != 2:  # noqa: PLR2004
-            msg = f"Invalid Modbus address format: {address_str}"
+            msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         object_type = bacnet_object_type_from_raw(match.group(1))
         object_instance = int(match.group(2))
-        return cls(object_type=object_type, object_instance=object_instance)
+        write_priority_match = re.search(bacnet_write_priority_regex, address_str)
+
+        write_priority = (
+            int(write_priority_match.group(1)) if write_priority_match else None
+        )
+        return cls(
+            object_type=object_type,
+            object_instance=object_instance,
+            write_priority=write_priority,
+        )
 
     @classmethod
     def from_raw(cls, raw_address: RawTransportAddress) -> "BacnetAddress":

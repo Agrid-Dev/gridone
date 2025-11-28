@@ -1,10 +1,24 @@
 import asyncio
 
-from bacpypes3.apdu import ReadPropertyACK, ReadPropertyRequest
+from bacpypes3.apdu import (
+    AbortPDU,
+    Error,
+    ReadPropertyACK,
+    ReadPropertyRequest,
+    RejectPDU,
+    SimpleAckPDU,
+    WritePropertyRequest,
+)
+from bacpypes3.basetypes import BinaryPV
 from bacpypes3.constructeddata import AnyAtomic
 from bacpypes3.ipv4.app import NormalApplication
 from bacpypes3.pdu import Address
-from bacpypes3.primitivedata import ObjectIdentifier
+from bacpypes3.primitivedata import (
+    CharacterString,
+    Integer,
+    ObjectIdentifier,
+    Real,
+)
 
 from core.transports.base import TransportClient
 from core.types import AttributeValueType, TransportProtocols
@@ -54,6 +68,7 @@ class BacnetTransportClient(TransportClient):
 
     async def close(self) -> None:
         self._known_devices = {}
+        self._application.close()
 
     async def _read_bacnet(
         self, device_instance: int, address: BacnetAddress
@@ -97,13 +112,83 @@ class BacnetTransportClient(TransportClient):
             return value_parser.parse(raw_value)
         return raw_value
 
+    async def _write_bacnet(
+        self, device_instance: int, address: BacnetAddress, value: AttributeValueType
+    ) -> None:
+        device_identifier = get_device_identifier(device_instance)
+        device_address = self._known_devices.get(device_identifier)
+        if not device_address:
+            msg = f"Bacnet device instance {device_instance} not found"
+            raise KeyError(msg)
+        obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
+        if isinstance(value, bool):
+            value = BinaryPV(value)
+        elif isinstance(value, int):
+            value = Integer(value)
+        elif isinstance(value, float):
+            value = Real(value)
+        elif isinstance(value, str):
+            value = CharacterString(value)
+        else:
+            msg = f"Unsupported value type: {type(value)}"
+            raise TypeError(msg)
+
+        request = WritePropertyRequest(
+            objectIdentifier=obj_id,
+            propertyIdentifier=address.property_name,
+            propertyValue=value,
+            priority=address.write_priority or self.config.default_write_priority,
+        )
+        request.pduDestination = device_address
+        response = await asyncio.wait_for(
+            self._application.request(request),
+            timeout=self.config.write_property_timeout,
+        )
+
+        if isinstance(response, SimpleAckPDU):
+            return
+
+        # BACnet Error APDU (e.g. invalid-data-type, not-writable, etc.)
+        if isinstance(response, Error):
+            msg = (
+                f"BACnet error on write-property to {obj_id} {address.property_name}: "
+                f"{response.errorClass}:{response.errorCode}"
+            )
+            raise RuntimeError(msg)  # noqa: TRY004
+
+        # Local device rejected the APDU (syntax, missing fields, etc.)
+        if isinstance(response, RejectPDU):
+            msg = (
+                f"BACnet reject on write-property to {obj_id} {address.property_name}: "
+                f"rejectReason={response.rejectReason}"
+            )
+            raise RuntimeError(msg)  # noqa: TRY004
+
+        # Abort (e.g. segmentation, resources, etc.)
+        if isinstance(response, AbortPDU):
+            msg = (
+                f"BACnet abort on write-property to {obj_id} {address.property_name}: "
+                f"abortReason={response.abortReason}, "
+                f"apduAbortReject={response.apduAbortReject}"
+            )
+            raise RuntimeError(msg)  # noqa: TRY004
+
+        msg = f"Unexpected response to WritePropertyRequest: {response!r}"
+        raise TypeError(msg)
+
     async def write(
         self,
         address: str | dict,
         value: AttributeValueType,
         *,
-        value_parser: ValueParser,
+        value_parser: ValueParser,  # noqa: ARG002
         context: dict,
     ) -> None:
         """Write a value to the transport."""
-        raise NotImplementedError
+        device_instance = context.get("device_instance")
+        if not device_instance:
+            msg = "Need a device_instance for bacnet"
+            raise ValueError(msg)
+        device_instance = int(device_instance)
+        bacnet_address = BacnetAddress.from_raw(address)
+        await self._write_bacnet(device_instance, bacnet_address, value)

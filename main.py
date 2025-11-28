@@ -85,7 +85,11 @@ async def read_all() -> None:
 async def write_attribute(
     driver_name: str, target_attribute: str, value: AttributeValueType
 ) -> None:
-    device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
+    try:
+        device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
+    except StopIteration as e:
+        msg = f"Device {driver_name} not found"
+        raise ValueError(msg) from e
     device = load_device(
         DRIVERS_DB / (device_data["driver"] + ".yaml"),
         device_data["device_config"],
@@ -110,3 +114,7 @@ if __name__ == "__main__":
     asyncio.run(write_attribute("agrid_thermostat_mqtt", "temperature_setpoint", 20))
     asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 20))
     asyncio.run(write_attribute("carel_thermostat", "state", False))
+    asyncio.run(write_attribute("breeze_bc106_4d_thermostat", "state", True))
+    asyncio.run(
+        write_attribute("breeze_bc106_4d_thermostat", "temperature_setpoint", 22)
+    )
