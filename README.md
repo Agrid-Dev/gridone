@@ -61,12 +61,12 @@ uv run ty check # type check
 uv run pytest # runs tests
 ```
 
-### Running with a proxy
+### Githooks (recommended)
 
-If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
-
+To run checks before pushing, setup the githook :
 ```sh
-proxychains4 uv run python main.py
+chmod +x .githooks/setup.sh
+bash .githooks/setup.sh
 ```
 
 ### Running with a proxy
