@@ -33,14 +33,6 @@ class DeviceData(TypedDict):
 DRIVERS_DB = Path(".db/drivers")
 DEVICES_DATA: list[DeviceData] = [
     {
-        "driver": "open_meteo",
-        "transport_config": {},
-        "device_config": {
-            "lattitude": "48.866667",
-            "longitude": "2.333",  # Paris
-        },
-    },
-    {
         "driver": "carel_thermostat",
         "transport_config": {"host": "10.125.0.11", "port": 4196},
         "device_config": {"device_id": 11},
@@ -63,58 +55,57 @@ DEVICES_DATA: list[DeviceData] = [
 ]
 
 
-async def read_all() -> None:
-    devices = {
-        d["driver"]: load_device(
-            DRIVERS_DB / (d["driver"] + ".yaml"),
-            d["device_config"],
-            d["transport_config"],
-        )
-        for d in DEVICES_DATA
-    }
-    print(f"Loaded {len(devices)} devices: {', '.join(devices.keys())}")
-    for i, device in enumerate(devices.values()):
-        print(f"💡 Device {i + 1}/{len(devices)} ({device.driver.name})")
-
-        async with device.driver.transport:
-            for attribute in device.attributes:
-                value = await device.read_attribute_value(attribute)
-                print(f"{attribute}: {value}")
-
-
-async def write_attribute(
-    driver_name: str, target_attribute: str, value: AttributeValueType
-) -> None:
+def get_device(driver_name: str) -> Device:
     try:
         device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
     except StopIteration as e:
         msg = f"Device {driver_name} not found"
         raise ValueError(msg) from e
-    device = load_device(
+    return load_device(
         DRIVERS_DB / (device_data["driver"] + ".yaml"),
         device_data["device_config"],
         device_data["transport_config"],
     )
-    print(f"Writing {value} -> {driver_name} / {target_attribute}")
+
+
+async def read_device(driver_name: str) -> None:
+    device = get_device(driver_name)
     async with device.driver.transport:
-        await device.write_attribute_value(target_attribute, value)
-        print("write seems to have succeeded, confirming...")
-        await asyncio.sleep(0.25)  # wait propagation
-        new_value = await device.read_attribute_value(target_attribute)
-        if new_value == value:
-            print("✅ Success")
-        else:
-            print(f"❌ Failed: {new_value} != {value}")
+        for attribute in device.attributes:
+            value = await device.read_attribute_value(attribute)
+            print(f"{attribute}: {value}")
 
 
-WRITABLE = ["agrid_thermostat_http", "carel_thermostat"]
+ALL_DRIVERS = [d["driver"] for d in DEVICES_DATA]
+
+
+async def read_all() -> None:
+    drivers_count = len(ALL_DRIVERS)
+    print(f"{drivers_count} devices to read")
+    for i, driver in enumerate(ALL_DRIVERS):
+        print(f"💡 Device {i + 1}/{drivers_count} ({driver})")
+        await read_device(driver)
+
+
+async def write_device(
+    driver_name: str, attribute_writes: dict[str, AttributeValueType]
+) -> None:
+    device = get_device(driver_name)
+    async with device.driver.transport:
+        for attribute_name, value in attribute_writes.items():
+            print(f"{driver_name}: {attribute_name} <- {value}")
+            await device.write_attribute_value(attribute_name, value)
+            print("write seems to have succeeded, confirming...")
+            await asyncio.sleep(0.25)  # wait propagation
+            new_value = await device.read_attribute_value(attribute_name)
+            if new_value == value:
+                print("✅ Success")
+            else:
+                print(f"❌ Failed: {new_value} != {value}")
+
+
 if __name__ == "__main__":
+    writes = {"state": False, "temperature_setpoint": 20}
+    for driver in ALL_DRIVERS:
+        asyncio.run(write_device(driver, writes))
     asyncio.run(read_all())
-    asyncio.run(write_attribute("agrid_thermostat_mqtt", "state", False))
-    asyncio.run(write_attribute("agrid_thermostat_mqtt", "temperature_setpoint", 20))
-    asyncio.run(write_attribute("carel_thermostat", "temperature_setpoint", 20))
-    asyncio.run(write_attribute("carel_thermostat", "state", False))
-    asyncio.run(write_attribute("breeze_bc106_4d_thermostat", "state", True))
-    asyncio.run(
-        write_attribute("breeze_bc106_4d_thermostat", "temperature_setpoint", 22)
-    )

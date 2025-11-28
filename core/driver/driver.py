@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from core.transports import TransportClient, get_transport_client
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
 from core.value_parsers import build_value_parser
 
-from .device_schema import DeviceSchema
-from .transports import TransportClient, get_transport_client
+from .driver_schema import DriverSchema
 
 if TYPE_CHECKING:
-    from .device_schema.attribute_schema import AttributeSchema
+    from .driver_schema.attribute_schema import AttributeSchema
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Driver:
     name: str
     env: dict
     transport: TransportClient
-    schema: DeviceSchema
+    schema: DriverSchema
 
     async def read_value(
         self,
@@ -33,7 +33,7 @@ class Driver:
         )
 
         return await self.transport.read(
-            address=attribute_schema.address,
+            address=attribute_schema.read,
             value_parser=value_parser,
             context=context,
         )
@@ -48,7 +48,7 @@ class Driver:
         attribute_schema: AttributeSchema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         ).render(context)
-        if attribute_schema.write_address is None:
+        if attribute_schema.write is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
         value_parser = build_value_parser(
@@ -56,7 +56,7 @@ class Driver:
             attribute_schema.value_parser.parser_raw,
         )
         await self.transport.write(
-            address=attribute_schema.write_address,
+            address=attribute_schema.write,
             value=value,
             context=context,
             value_parser=value_parser,
@@ -75,7 +75,7 @@ class Driver:
             transport_protocol,
             data["transport_config"],
         )
-        device_schema = DeviceSchema.from_dict(data)
+        device_schema = DriverSchema.from_dict(data)
         return cls(
             name=data.get("name", ""),
             env=driver_env,

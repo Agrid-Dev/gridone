@@ -3,7 +3,8 @@ from typing import TypedDict, TypeVar, Unpack
 
 DEFAULT_TEMPLATE_PATTERN = r"\$\{(\w+)\}"
 
-type TemplatingContext = dict[str, str | float | bool]
+type TemplatedValueType = str | int | float | bool
+type TemplatingContext = dict[str, TemplatedValueType]
 
 
 class RenderStrKwargs(TypedDict, total=False):
@@ -17,9 +18,19 @@ def render_str(
     *,
     template_pattern: str = DEFAULT_TEMPLATE_PATTERN,
     raise_for_missing_context: bool = False,
-) -> str:
+) -> TemplatedValueType:
     """Renders a template string using a data dictionary.
-    Matches field names to dictionary keys and replaces by values."""
+    Matches field names to dictionary keys and replaces by values.
+    If the template is only a placeholder, the returned value will keep the type of
+    the original matching value from the context, not necessarily a string."""
+
+    # Check if the template is just a placeholder
+    if re.fullmatch(template_pattern, template):
+        key = re.match(template_pattern, template).group(1)  # ty: ignore[possibly-missing-attribute]
+        if key not in context and raise_for_missing_context:
+            msg = f"Missing context for key: {key}"
+            raise ValueError(msg)
+        return context.get(key, template)
 
     def replacer(match: re.Match) -> str:
         key = match.group(1)
