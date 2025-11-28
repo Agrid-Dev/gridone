@@ -85,7 +85,11 @@ class MqttTransportClient(TransportClient):
         message_template = write_address.request.message
         message = render_struct(
             message_template,
-            {"value": json.dumps(value) if isinstance(message_template, str) else value},
+            {
+                "value": json.dumps(value)
+                if isinstance(message_template, str)
+                else value
+            },
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
