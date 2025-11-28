@@ -51,7 +51,7 @@ class BacnetAddress(BaseModel, TransportAddress):
             msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         groups = match.groups()
-        if len(groups) < 2:  # noqa: PLR2004
+        if len(groups) != 2:  # noqa: PLR2004
             msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         object_type = bacnet_object_type_from_raw(match.group(1))
