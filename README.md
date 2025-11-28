@@ -69,6 +69,39 @@ chmod +x .githooks/setup.sh
 bash .githooks/setup.sh
 ```
 
+## MQTT driver payloads
+
+Define MQTT `message` payloads as YAML structures rather than JSON strings; the transport will serialize dict payloads to JSON before publishing. Examples:
+
+```yaml
+address:
+  topic: "agrid/thermostat/command"
+  request:
+    topic: "${mac}"
+    message:
+      command: READ_DATA
+      data: Temperature
+```
+
+For nested payloads:
+
+```yaml
+message:
+  command: SET_CONFIG
+  data:
+    temperature:
+      target: 22
+      unit: celsius
+    mode: heating
+    schedule:
+      enabled: true
+      times:
+        - start: "06:00"
+          temp: 20
+        - start: "22:00"
+          temp: 18
+```
+
 ### Running with a proxy
 
 If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
