@@ -13,7 +13,7 @@ class DeviceConfigField:
     required: bool = True
 
 
-class DeviceSchema(BaseModel):
+class DriverSchema(BaseModel):
     name: str
     transport: TransportProtocols
     device_config_fields: list[DeviceConfigField]
@@ -38,7 +38,7 @@ class DeviceSchema(BaseModel):
     def from_dict(
         cls,
         data: dict[str, str],
-    ) -> "DeviceSchema":
+    ) -> "DriverSchema":
         attribute_schemas = [
             AttributeSchema.from_dict(sch)  # ty: ignore[invalid-argument-type]
             for sch in data["attributes"]

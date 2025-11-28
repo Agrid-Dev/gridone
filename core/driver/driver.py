@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from core.transports import TransportClient, get_transport_client
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
 from core.value_parsers import build_value_parser
 
-from .device_schema import DeviceSchema
-from .transports import TransportClient, get_transport_client
+from .driver_schema import DriverSchema
 
 if TYPE_CHECKING:
-    from .device_schema.attribute_schema import AttributeSchema
+    from .driver_schema.attribute_schema import AttributeSchema
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Driver:
     name: str
     env: dict
     transport: TransportClient
-    schema: DeviceSchema
+    schema: DriverSchema
 
     async def read_value(
         self,
@@ -75,7 +75,7 @@ class Driver:
             transport_protocol,
             data["transport_config"],
         )
-        device_schema = DeviceSchema.from_dict(data)
+        device_schema = DriverSchema.from_dict(data)
         return cls(
             name=data.get("name", ""),
             env=driver_env,

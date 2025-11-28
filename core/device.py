@@ -20,10 +20,10 @@ class Device:
             driver=driver,
             config=config,
             attributes={
-                a.attribute_name: Attribute.create(
-                    a.attribute_name,
+                a.name: Attribute.create(
+                    a.name,
                     a.data_type,
-                    {"read", "write"} if a.write_address is not None else {"read"},
+                    {"read", "write"} if a.write is not None else {"read"},
                 )
                 for a in driver.schema.attribute_schemas
             },
