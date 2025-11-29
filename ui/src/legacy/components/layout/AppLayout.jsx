@@ -13,12 +13,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LanguageSwitcher } from "@/components/language/LanguageSwitcher";
-import { useAuth } from "@/contexts/AuthContext";
+import { LanguageSwitcher } from "@/legacy/components/language/LanguageSwitcher";
+import { useAuth } from "@/legacy/contexts/AuthContext";
 import { useDeviceData } from "@/contexts/DeviceDataContext";
 import { useApiConfig } from "@/contexts/ApiConfigContext";
 import { useTranslation } from "@/contexts/LanguageContext";
-import { NotificationCenter } from "@/components/alerts/NotificationCenter";
+import { NotificationCenter } from "@/legacy/components/alerts/NotificationCenter";
 import Logo from "../../assets/logo.png";
 const NAV_ITEMS = [
   {

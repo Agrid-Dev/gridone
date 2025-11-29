@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
-import { useAlerts } from '@/contexts/AlertsContext'
+import { useAlerts } from '@/legacy/contexts/AlertsContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 const typeIcons = {

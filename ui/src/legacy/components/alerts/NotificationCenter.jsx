@@ -4,7 +4,7 @@ import { AlertCircle, Bell, Check, CheckCircle2, ShieldAlert } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useAlerts, ALERT_SEVERITIES, ALERT_STATES } from '@/contexts/AlertsContext'
+import { useAlerts, ALERT_SEVERITIES, ALERT_STATES } from '@/legacy/contexts/AlertsContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 import { cn } from '@/lib/utils'
 

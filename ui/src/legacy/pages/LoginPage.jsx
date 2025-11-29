@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LanguageSwitcher } from '@/components/language/LanguageSwitcher'
-import { useAuth } from '@/contexts/AuthContext'
+import { LanguageSwitcher } from '@/legacy/components/language/LanguageSwitcher'
+import { useAuth } from '@/legacy/contexts/AuthContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 export function LoginPage() {

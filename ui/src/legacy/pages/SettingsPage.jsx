@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { useApiConfig } from '@/contexts/ApiConfigContext'
 import { useDeviceData } from '@/contexts/DeviceDataContext'
-import { useAlerts } from '@/contexts/AlertsContext'
+import { useAlerts } from '@/legacy/contexts/AlertsContext'
 import { useTranslation } from '@/contexts/LanguageContext'
 
 export function SettingsPage() {
