@@ -55,11 +55,23 @@ DEVICES_DATA: list[DeviceData] = [
         "transport_config": {"host": "10.125.0.1"},
         "device_config": {"mac": "F0F5BD273F98"},
     },
-    # {
-    #     "driver": "breeze_bc106_4d_thermostat",
-    #     "transport_config": {"ip_with_mask": "10.125.0.1/24"},
-    #     "device_config": {"device_instance": 856402},
-    # },
+    {
+        "driver": "breeze_bc106_4d_thermostat",
+        "transport_config": {"ip_with_mask": "10.125.0.1/24"},
+        "device_config": {"device_instance": 856402},
+    },
+    {
+        "driver": "vrv_gateway_mqtt",
+        "transport_config": {"host": "127.0.0.1"},
+        "device_config": {
+            "read_id": "30523-042:27",
+            "vendor": "mitsubishi",
+            "model": "mcc",
+            "vendor_id": "05ef9a97-e2bd-4858-b174-1de10e3ef775",
+            "user": "h2712-fo1@accor.com",
+            "password": "Ibisclim2025++",
+        },
+    },
 ]
 
 

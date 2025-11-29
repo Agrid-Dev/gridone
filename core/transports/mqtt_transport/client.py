@@ -59,7 +59,9 @@ class MqttTransportClient(TransportClient):
                 async for message in self._client.messages:
                     if message.topic.matches(mqtt_address.topic):
                         try:
-                            return value_parser.parse(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
+                            return value_parser.parse(
+                                message.payload.decode()
+                            )  # ty: ignore[possibly-missing-attribute]
                         except ValueError:
                             continue  # Not the message we expect → keep listening
 
@@ -85,7 +87,11 @@ class MqttTransportClient(TransportClient):
         message_template = write_address.request.message
         message = render_struct(
             message_template,
-            {"value": json.dumps(value) if isinstance(message_template, str) else value},
+            {
+                "value": (
+                    json.dumps(value) if isinstance(message_template, str) else value
+                )
+            },
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
