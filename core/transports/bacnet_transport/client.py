@@ -22,7 +22,6 @@ from bacpypes3.primitivedata import (
 
 from core.transports.base import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.value_parsers import ValueParser
 
 from .application import make_local_application
 from .bacnet_address import BacnetAddress
@@ -36,8 +35,9 @@ def get_device_identifier(device_instance: int) -> ObjectIdentifier:
 type DevicesDict = dict[ObjectIdentifier, Address]
 
 
-class BacnetTransportClient(TransportClient):
+class BacnetTransportClient(TransportClient[BacnetAddress]):
     protocol = TransportProtocols.BACNET
+    address_builder = BacnetAddress
     config: BacnetTransportConfig
     _application: NormalApplication
     _known_devices: DevicesDict
@@ -92,16 +92,10 @@ class BacnetTransportClient(TransportClient):
             raise TypeError(msg)
         return response.propertyValue.cast_out(AnyAtomic).get_value()
 
-    async def read(
-        self, address: str | dict, value_parser: ValueParser, *, context: dict
-    ) -> AttributeValueType:
+    async def read(self, address: BacnetAddress) -> AttributeValueType:
         """Read a value from the transport."""
 
-        bacnet_address = BacnetAddress.from_raw(address, context)
-        raw_value = await self._read_bacnet(bacnet_address)
-        if value_parser:
-            return value_parser.parse(raw_value)
-        return raw_value
+        return await self._read_bacnet(address)
 
     async def _write_bacnet(
         self, address: BacnetAddress, value: AttributeValueType
@@ -169,12 +163,9 @@ class BacnetTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str | dict,
+        address: BacnetAddress,
         value: AttributeValueType,
-        *,
-        value_parser: ValueParser,  # noqa: ARG002
-        context: dict,
     ) -> None:
         """Write a value to the transport."""
-        bacnet_address = BacnetAddress.from_raw(address, context)
-        await self._write_bacnet(bacnet_address, value)
+
+        await self._write_bacnet(address, value)

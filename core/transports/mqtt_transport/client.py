@@ -6,7 +6,6 @@ import aiomqtt
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
-from core.value_parsers import ValueParser
 
 from .mqtt_address import MqttAddress
 from .transport_config import MqttTransportConfig
@@ -14,9 +13,10 @@ from .transport_config import MqttTransportConfig
 TIMEOUT = 10
 
 
-class MqttTransportClient(TransportClient):
+class MqttTransportClient(TransportClient[MqttAddress]):
     _client: aiomqtt.Client
     protocol = TransportProtocols.MQTT
+    address_builder = MqttAddress
     config: MqttTransportConfig
 
     def __init__(self, config: MqttTransportConfig) -> None:
@@ -37,32 +37,25 @@ class MqttTransportClient(TransportClient):
 
     async def read(
         self,
-        address: str | dict,
-        value_parser: ValueParser,
-        *,
-        context: dict,
+        address: MqttAddress,
     ) -> AttributeValueType:
-        mqtt_address = MqttAddress.from_raw(address, context)
-        await self._client.subscribe(mqtt_address.topic)
+        await self._client.subscribe(address.topic)
 
         payload = (
-            json.dumps(mqtt_address.request.message)
-            if isinstance(mqtt_address.request.message, dict)
-            else mqtt_address.request.message
+            json.dumps(address.request.message)
+            if isinstance(address.request.message, dict)
+            else address.request.message
         )
         await self._client.publish(
-            mqtt_address.request.topic,
+            address.request.topic,
             payload=payload,
         )
         try:
             # Wait for the first matching message within TIMEOUT
             async with asyncio.timeout(TIMEOUT):
                 async for message in self._client.messages:
-                    if message.topic.matches(mqtt_address.topic):
-                        try:
-                            return value_parser.parse(message.payload.decode())  # ty: ignore[possibly-missing-attribute]
-                        except ValueError:
-                            continue  # Not the message we expect → keep listening
+                    if message.topic.matches(address.topic):
+                        return message.payload.decode()  # ty: ignore[ possibly-missing-attribute]
 
         except TimeoutError as err:
             msg = "MQTT issue: no message received before timeout"
@@ -70,20 +63,12 @@ class MqttTransportClient(TransportClient):
         msg = "Unable to read value"
         raise ValueError(msg)
 
-    async def write(
-        self,
-        address: str | dict,
-        value: AttributeValueType,
-        *,
-        context: dict,
-        value_parser: ValueParser,  # noqa: ARG002
-    ) -> None:
+    async def write(self, address: MqttAddress, value: AttributeValueType) -> None:
         if self._client is None:
             msg = "MQTT transport is not connected"
             raise RuntimeError(msg)
 
-        write_address = MqttAddress.from_raw(address, context)
-        message_template = write_address.request.message
+        message_template = address.request.message
         message = render_struct(
             message_template,
             {
@@ -94,4 +79,4 @@ class MqttTransportClient(TransportClient):
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
-        await self._client.publish(write_address.request.topic, payload=payload)
+        await self._client.publish(address.request.topic, payload=payload)

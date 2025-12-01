@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from core.transports import TransportClient, get_transport_client
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
-from core.value_parsers import build_value_parser
+from core.value_parsers import ReversibleValueParser, build_value_parser
 
 from .driver_schema import DriverSchema
 
@@ -31,12 +31,9 @@ class Driver:
             attribute_schema.value_parser.parser_key,
             attribute_schema.value_parser.parser_raw,
         )
-
-        return await self.transport.read(
-            address=attribute_schema.read,
-            value_parser=value_parser,
-            context=context,
-        )
+        address = self.transport.build_address(attribute_schema.read, context)
+        raw_value = await self.transport.read(address)
+        return value_parser.parse(raw_value)
 
     async def write_value(
         self,
@@ -55,11 +52,15 @@ class Driver:
             attribute_schema.value_parser.parser_key,
             attribute_schema.value_parser.parser_raw,
         )
+        address = self.transport.build_address(attribute_schema.write, context)
+        value_to_write = (
+            value_parser.revert(value)
+            if isinstance(value_parser, ReversibleValueParser)
+            else value
+        )
         await self.transport.write(
-            address=attribute_schema.write,
-            value=value,
-            context=context,
-            value_parser=value_parser,
+            address=address,
+            value=value_to_write,  # ty: ignore[invalid-argument-type]
         )
 
     @classmethod

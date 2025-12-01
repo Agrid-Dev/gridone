@@ -3,7 +3,6 @@ from pymodbus.client import AsyncModbusTcpClient
 from core.transports import TransportClient
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.cast_as_bool import cast_as_bool
-from core.value_parsers import ReversibleValueParser, ValueParser
 
 from .modbus_address import (
     WRITABLE_MODBUS_ADDRESS_TYPES,
@@ -16,6 +15,7 @@ from .transport_config import ModbusTCPTransportConfig
 class ModbusTCPTransportClient(TransportClient):
     _client: AsyncModbusTcpClient
     protocol = TransportProtocols.MODBUS_TCP
+    address_builder = ModbusAddress
     config: ModbusTCPTransportConfig
 
     def __init__(self, config: ModbusTCPTransportConfig) -> None:
@@ -108,27 +108,13 @@ class ModbusTCPTransportClient(TransportClient):
 
     async def read(
         self,
-        address: str | dict,
-        value_parser: ValueParser,
-        *,
-        context: dict,
+        address: ModbusAddress,
     ) -> AttributeValueType:
-        modbus_address = ModbusAddress.from_raw(address, context)
-        raw_value = await self._read_modbus(modbus_address)
-        return value_parser.parse(raw_value)
+        return await self._read_modbus(address)
 
     async def write(
         self,
-        address: str | dict,
+        address: ModbusAddress,
         value: AttributeValueType,
-        *,
-        value_parser: ValueParser,
-        context: dict,
     ) -> None:
-        modbus_address = ModbusAddress.from_raw(address, context)
-
-        if isinstance(value_parser, ReversibleValueParser):
-            value_to_write = value_parser.revert(value)
-        else:
-            value_to_write = value
-        await self._write_modbus(modbus_address, value_to_write)  # ty: ignore[invalid-argument-type]
+        await self._write_modbus(address, value)  # ty: ignore[invalid-argument-type]
