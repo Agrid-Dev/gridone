@@ -33,6 +33,14 @@ class DeviceData(TypedDict):
 DRIVERS_DB = Path(".db/drivers")
 DEVICES_DATA: list[DeviceData] = [
     {
+        "driver": "vrv_gateway_mqtt",
+        "transport_config": {"host": "127.0.0.1"},
+        "device_config": {
+            "read_id": "30523-042:27",
+    "gateway_id": "b831c424a37e41fba308bf7119f95e47907214eeeae4bedfa08df6c2a28f448e",
+        },
+    },
+    {
         "driver": "open_meteo",
         "transport_config": {},
         "device_config": {
@@ -59,18 +67,6 @@ DEVICES_DATA: list[DeviceData] = [
         "driver": "breeze_bc106_4d_thermostat",
         "transport_config": {"ip_with_mask": "10.125.0.1/24"},
         "device_config": {"device_instance": 856402},
-    },
-    {
-        "driver": "vrv_gateway_mqtt",
-        "transport_config": {"host": "127.0.0.1"},
-        "device_config": {
-            "read_id": "30523-042:27",
-            "vendor": "mitsubishi",
-            "model": "mcc",
-            "vendor_id": "05ef9a97-e2bd-4858-b174-1de10e3ef775",
-            "user": "h2712-fo1@accor.com",
-            "password": "Ibisclim2025++",
-        },
     },
 ]
 

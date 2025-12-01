@@ -18,3 +18,4 @@ wheels/
 
 # test scripts
 bacnet.py
+ui/node_modules/
