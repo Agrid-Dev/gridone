@@ -20,6 +20,7 @@ class ModbusTCPTransportClient(TransportClient):
 
     def __init__(self, config: ModbusTCPTransportConfig) -> None:
         self._client = AsyncModbusTcpClient(host=config.host, port=config.port)
+        super().__init__()
 
     async def connect(self) -> None:
         await self._client.connect()

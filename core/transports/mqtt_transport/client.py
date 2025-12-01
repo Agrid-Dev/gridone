@@ -21,6 +21,7 @@ class MqttTransportClient(TransportClient):
 
     def __init__(self, config: MqttTransportConfig) -> None:
         self.config = config
+        super().__init__()
 
     async def connect(self) -> None:
         self._client = aiomqtt.Client(

@@ -4,11 +4,16 @@ from typing import ClassVar
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
+from .read_handler import ReadHandlerRegistry
 from .transport_address import RawTransportAddress
 
 
 class TransportClient(ABC):
     protocol: ClassVar[TransportProtocols]
+    _handlers_registry: ReadHandlerRegistry
+
+    def __init__(self) -> None:
+        self._handlers_registry = ReadHandlerRegistry()
 
     @abstractmethod
     async def connect(self) -> None:

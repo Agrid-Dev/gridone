@@ -25,6 +25,7 @@ class HTTPTransportClient(TransportClient):
     ) -> None:
         self._timeout = timeout
         self._client: httpx.AsyncClient | None = None
+        super().__init__()
 
     def _build_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(timeout=self._timeout)
