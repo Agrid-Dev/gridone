@@ -43,12 +43,12 @@ class HTTPTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser,
         *,
-        context: dict,  # noqa: ARG002
+        context: dict,
     ) -> AttributeValueType:
         if self._client is None:
             msg = "HTTP transport is not connected"
             raise RuntimeError(msg)
-        http_address = HttpAddress.from_raw(address)
+        http_address = HttpAddress.from_raw(address, context)
         data: dict[str, Any] | None = None
         content: str | bytes | None = None
         if http_address.body is None:
@@ -74,12 +74,12 @@ class HTTPTransportClient(TransportClient):
         value: AttributeValueType,
         *,
         value_parser: ValueParser,  # noqa: ARG002
-        context: dict,  # noqa: ARG002
+        context: dict,
     ) -> None:
         if self._client is None:
             msg = "HTTP transport is not connected"
             raise RuntimeError(msg)
-        http_address = HttpAddress.from_raw(address)
+        http_address = HttpAddress.from_raw(address, context)
         # Body is already rendered when coming from the driver; if the caller
         # wants to inject the value they can template it in the write_address.
         if http_address.body is None:

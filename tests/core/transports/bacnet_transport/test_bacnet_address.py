@@ -38,8 +38,7 @@ def test_bacnet_object_type_from_raw(raw: str, expected: BacnetObjectType) -> No
 
 
 ANALOG_INPUT_5_ADDRESS = BacnetAddress(
-    object_type=BacnetObjectType.ANALOG_INPUT,
-    object_instance=5,
+    object_type=BacnetObjectType.ANALOG_INPUT, object_instance=5, device_instance=8851
 )
 
 
@@ -69,12 +68,13 @@ ANALOG_INPUT_5_ADDRESS = BacnetAddress(
                 object_type=BacnetObjectType.ANALOG_INPUT,
                 object_instance=5,
                 write_priority=8,
+                device_instance=8851,
             ),
         ),
     ],
 )
 def test_bacnet_address_from_str(raw: str, expected: BacnetAddress) -> None:
-    assert BacnetAddress.from_str(raw) == expected
+    assert BacnetAddress.from_str(raw, {"device_instance": 8851}) == expected
 
 
 @pytest.mark.parametrize(
@@ -89,21 +89,51 @@ def test_bacnet_address_from_str(raw: str, expected: BacnetAddress) -> None:
                 object_type=BacnetObjectType.ANALOG_INPUT,
                 object_instance=5,
                 write_priority=8,
+                device_instance=8851,
             ),
         ),
     ],
 )
 def test_bacnet_address_from_dict(address_dict: dict, expected: BacnetAddress) -> None:
-    assert BacnetAddress.from_dict(address_dict) == expected
+    assert BacnetAddress.from_dict(address_dict, {"device_instance": 8851}) == expected
+
+
+def test_bacnet_address_raises_if_no_device_instance() -> None:
+    raw = {"object_type": "ANALOG_INPUT", "object_instance": 5}
+    with pytest.raises(ValidationError):
+        BacnetAddress.from_raw(raw)
+
+
+base = {"object_type": "ANALOG_INPUT", "object_instance": 5}
 
 
 @pytest.mark.parametrize(
     ("address_dict"),
     [
-        ({"object_type": "ANALOG_INPUT", "object_instance": 5, "write_priority": 2}),
-        ({"object_type": "ANALOG_INPUT", "object_instance": 5, "write_priority": 18}),
+        (
+            {
+                **base,
+                "write_priority": 2,
+            }
+        ),
+        (
+            {
+                **base,
+                "write_priority": 18,
+            }
+        ),
     ],
 )
 def test_bacnet_address_from_dict_invalid_priority(address_dict: dict) -> None:
     with pytest.raises(ValidationError):
-        BacnetAddress.from_dict(address_dict)
+        BacnetAddress.from_dict(address_dict, {"device_instance": 8851})
+
+
+def test_bacnet_address_id() -> None:
+    address = ANALOG_INPUT_5_ADDRESS.model_copy()
+    assert isinstance(address.id, str)
+    assert len(address.id) > 1
+    assert address.id.startswith("bacnet")
+    for value in address.model_dump().values():
+        if value is not None:
+            assert str(value) in address.id

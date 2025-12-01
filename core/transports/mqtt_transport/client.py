@@ -39,9 +39,9 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value_parser: ValueParser,
         *,
-        context: dict,  # noqa: ARG002
+        context: dict,
     ) -> AttributeValueType:
-        mqtt_address = MqttAddress.from_raw(address)
+        mqtt_address = MqttAddress.from_raw(address, context)
         await self._client.subscribe(mqtt_address.topic)
 
         payload = (
@@ -74,14 +74,14 @@ class MqttTransportClient(TransportClient):
         address: str | dict,
         value: AttributeValueType,
         *,
-        context: dict,  # noqa: ARG002
+        context: dict,
         value_parser: ValueParser,  # noqa: ARG002
     ) -> None:
         if self._client is None:
             msg = "MQTT transport is not connected"
             raise RuntimeError(msg)
 
-        write_address = MqttAddress.from_raw(address)
+        write_address = MqttAddress.from_raw(address, context)
         message_template = write_address.request.message
         message = render_struct(
             message_template,

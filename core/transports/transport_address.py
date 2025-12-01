@@ -16,15 +16,21 @@ class TransportAddress(ABC):
 
     @classmethod
     @abstractmethod
-    def from_str(cls, address_str: str) -> "TransportAddress":
+    def from_str(
+        cls, address_str: str, extra_context: dict | None = None
+    ) -> "TransportAddress":
         pass
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, address_dict: dict) -> "TransportAddress":
+    def from_dict(
+        cls, address_dict: dict, extra_context: dict | None = None
+    ) -> "TransportAddress":
         pass
 
     @classmethod
     @abstractmethod
-    def from_raw(cls, raw_address: RawTransportAddress) -> "TransportAddress":
+    def from_raw(
+        cls, raw_address: RawTransportAddress, extra_context: dict | None = None
+    ) -> "TransportAddress":
         pass

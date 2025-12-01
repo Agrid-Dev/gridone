@@ -33,6 +33,7 @@ bacnet_write_priority_regex = r"P(\d{1,2})"
 
 
 class BacnetAddress(BaseModel, TransportAddress):
+    device_instance: PositiveInt
     object_type: Annotated[
         BacnetObjectType, BeforeValidator(bacnet_object_type_from_raw)
     ]
@@ -42,14 +43,28 @@ class BacnetAddress(BaseModel, TransportAddress):
 
     @property
     def id(self) -> str:
-        raise NotImplementedError
+        result = (
+            f"bacnet-device{self.device_instance}"
+            f"@{self.object_type}:{self.object_instance}-{self.property_name}"
+        )
+        if self.write_priority is not None:
+            result += f"/wp{self.write_priority}"
+        return result
 
     @classmethod
-    def from_dict(cls, address_dict: dict) -> "BacnetAddress":
-        return cls(**address_dict)
+    def from_dict(
+        cls, address_dict: dict, extra_context: dict | None = None
+    ) -> "BacnetAddress":
+        combined_context = {**address_dict, **(extra_context or {})}
+        return cls(**combined_context)
 
     @classmethod
-    def from_str(cls, address_str: str) -> "BacnetAddress":
+    def from_str(
+        cls, address_str: str, extra_context: dict | None = None
+    ) -> "BacnetAddress":
+        if extra_context is None or not extra_context.get("device_instance"):
+            msg = "device_instance is required"
+            raise ValueError(msg)
         match = re.match(bacnet_object_regex, address_str.strip())
         if match is None:
             msg = f"Invalid Bacnet address format: {address_str}"
@@ -59,7 +74,7 @@ class BacnetAddress(BaseModel, TransportAddress):
             msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         object_type = bacnet_object_type_from_raw(match.group(1))
-        object_instance = int(match.group(2))
+        object_instance = match.group(2)
         write_priority_match = re.search(bacnet_write_priority_regex, address_str)
 
         write_priority = (
@@ -69,13 +84,16 @@ class BacnetAddress(BaseModel, TransportAddress):
             object_type=object_type,
             object_instance=object_instance,
             write_priority=write_priority,
+            device_instance=extra_context.get("device_instance"),
         )
 
     @classmethod
-    def from_raw(cls, raw_address: RawTransportAddress) -> "BacnetAddress":
+    def from_raw(
+        cls, raw_address: RawTransportAddress, extra_context: dict | None = None
+    ) -> "BacnetAddress":
         if isinstance(raw_address, str):
-            return cls.from_str(raw_address)
+            return cls.from_str(raw_address, extra_context)
         if isinstance(raw_address, dict):
-            return cls.from_dict(raw_address)
+            return cls.from_dict(raw_address, extra_context)
         msg = "Invalid raw address type"
         raise ValueError(msg)

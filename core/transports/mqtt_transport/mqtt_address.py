@@ -20,19 +20,26 @@ class MqttAddress(BaseModel, TransportAddress):
         return hash_model(self)
 
     @classmethod
-    def from_str(cls, address_str: str) -> "MqttAddress":
+    def from_str(
+        cls, address_str: str, extra_context: dict | None = None
+    ) -> "MqttAddress":
         msg = "Creating mqtt address from string is not supported."
         raise NotImplementedError(msg)
 
     @classmethod
-    def from_dict(cls, address_dict: dict) -> "MqttAddress":
-        return cls(**address_dict)
+    def from_dict(
+        cls, address_dict: dict, extra_context: dict | None = None
+    ) -> "MqttAddress":
+        combined_context = {**address_dict, **(extra_context or {})}
+        return cls(**combined_context)
 
     @classmethod
-    def from_raw(cls, raw_address: RawTransportAddress) -> "MqttAddress":
+    def from_raw(
+        cls, raw_address: RawTransportAddress, extra_context: dict | None = None
+    ) -> "MqttAddress":
         if isinstance(raw_address, str):
-            return cls.from_str(raw_address)
+            return cls.from_str(raw_address, extra_context)
         if isinstance(raw_address, dict):
-            return cls.from_dict(raw_address)
+            return cls.from_dict(raw_address, extra_context)
         msg = "Invalid raw address type"
         raise ValueError(msg)

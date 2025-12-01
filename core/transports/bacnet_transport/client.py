@@ -70,13 +70,11 @@ class BacnetTransportClient(TransportClient):
         self._known_devices = {}
         self._application.close()
 
-    async def _read_bacnet(
-        self, device_instance: int, address: BacnetAddress
-    ) -> AttributeValueType:
-        device_identifier = get_device_identifier(device_instance)
+    async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
+        device_identifier = get_device_identifier(address.device_instance)
         device_address = self._known_devices.get(device_identifier)
         if not device_address:
-            msg = f"Bacnet device instance {device_instance} not found"
+            msg = f"Bacnet device instance {address.device_instance} not found"
             raise KeyError(msg)
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         request = ReadPropertyRequest(
@@ -94,31 +92,23 @@ class BacnetTransportClient(TransportClient):
         return response.propertyValue.cast_out(AnyAtomic).get_value()
 
     async def read(
-        self,
-        address: str | dict,
-        value_parser: ValueParser,
-        *,
-        context: dict,
+        self, address: str | dict, value_parser: ValueParser, *, context: dict
     ) -> AttributeValueType:
         """Read a value from the transport."""
-        device_instance = context.get("device_instance")
-        if not device_instance:
-            msg = "Need a device_instance for bacnet"
-            raise ValueError(msg)
-        device_instance = int(device_instance)
-        bacnet_address = BacnetAddress.from_raw(address)
-        raw_value = await self._read_bacnet(device_instance, bacnet_address)
+
+        bacnet_address = BacnetAddress.from_raw(address, context)
+        raw_value = await self._read_bacnet(bacnet_address)
         if value_parser:
             return value_parser.parse(raw_value)
         return raw_value
 
     async def _write_bacnet(
-        self, device_instance: int, address: BacnetAddress, value: AttributeValueType
+        self, address: BacnetAddress, value: AttributeValueType
     ) -> None:
-        device_identifier = get_device_identifier(device_instance)
+        device_identifier = get_device_identifier(address.device_instance)
         device_address = self._known_devices.get(device_identifier)
         if not device_address:
-            msg = f"Bacnet device instance {device_instance} not found"
+            msg = f"Bacnet device instance {address.device_instance} not found"
             raise KeyError(msg)
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         if isinstance(value, bool):
@@ -185,10 +175,5 @@ class BacnetTransportClient(TransportClient):
         context: dict,
     ) -> None:
         """Write a value to the transport."""
-        device_instance = context.get("device_instance")
-        if not device_instance:
-            msg = "Need a device_instance for bacnet"
-            raise ValueError(msg)
-        device_instance = int(device_instance)
-        bacnet_address = BacnetAddress.from_raw(address)
-        await self._write_bacnet(device_instance, bacnet_address, value)
+        bacnet_address = BacnetAddress.from_raw(address, context)
+        await self._write_bacnet(bacnet_address, value)
