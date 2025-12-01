@@ -71,3 +71,17 @@ def test_modbus_address_from_dict(
     expected: ModbusAddress,
 ) -> None:
     assert ModbusAddress.from_dict(raw_address) == expected
+
+
+@pytest.mark.parametrize(
+    ("address", "expected"),
+    [
+        (ModbusAddress(type=ModbusAddressType.COIL, instance=2), "modbus@device:1/C:2"),
+        (
+            ModbusAddress(type=ModbusAddressType.COIL, instance=2, device_id=4),
+            "modbus@device:4/C:2",
+        ),
+    ],
+)
+def test_modbus_address_id(address: ModbusAddress, expected: str) -> None:
+    assert address.id == expected

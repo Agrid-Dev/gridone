@@ -40,6 +40,10 @@ class BacnetAddress(BaseModel, TransportAddress):
     property_name: str = DEFAULT_PROPERTY_NAME
     write_priority: BacnetWritePriority | None = None
 
+    @property
+    def id(self) -> str:
+        raise NotImplementedError
+
     @classmethod
     def from_dict(cls, address_dict: dict) -> "BacnetAddress":
         return cls(**address_dict)

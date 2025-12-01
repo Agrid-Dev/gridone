@@ -1,5 +1,8 @@
+from functools import cached_property
+
 from pydantic import BaseModel
 
+from core.transports.hash_model import hash_model
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
 
@@ -11,6 +14,10 @@ class MqttRequest(BaseModel):
 class MqttAddress(BaseModel, TransportAddress):
     topic: str
     request: MqttRequest
+
+    @cached_property
+    def id(self) -> str:
+        return hash_model(self)
 
     @classmethod
     def from_str(cls, address_str: str) -> "MqttAddress":

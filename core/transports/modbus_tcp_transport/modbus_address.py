@@ -27,6 +27,10 @@ class ModbusAddress(BaseModel, TransportAddress):
     instance: PositiveInt
     device_id: PositiveInt = 1
 
+    @property
+    def id(self) -> str:
+        return f"modbus@device:{self.device_id}/{self.type.value}:{self.instance}"
+
     @classmethod
     def from_str(cls, address_str: str) -> "ModbusAddress":
         trimmed_address = address_str.strip()

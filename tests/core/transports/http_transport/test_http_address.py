@@ -78,3 +78,15 @@ def test_parse_http_address_from_dict(raw_address: dict, expected: HttpAddress) 
 )
 def test_render_endpoint(endpoint, config, expected) -> None:  # noqa: ANN001
     assert render_endpoint(endpoint, config) == expected
+
+
+def test_http_address_id() -> None:
+    address = HttpAddress(
+        method="POST",
+        path="/show_data",
+        body={
+            "dataname": "Tsetpoint",  # with json body
+        },
+    )
+    assert isinstance(address.id, str)
+    assert len(address.id) > 1

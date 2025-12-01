@@ -1,7 +1,9 @@
+from functools import cached_property
 from typing import Literal, cast
 
 from pydantic import BaseModel
 
+from core.transports.hash_model import hash_model
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
 type HttpMethod = Literal["GET", "POST", "PUT", "DELETE", "PATCH"]
@@ -18,6 +20,10 @@ class HttpAddress(BaseModel, TransportAddress):
     method: HttpMethod
     path: str
     body: str | dict | None = None
+
+    @cached_property
+    def id(self) -> str:
+        return hash_model(self)
 
     @classmethod
     def from_str(cls, address_str: str) -> "HttpAddress":
