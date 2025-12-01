@@ -4,6 +4,7 @@ from typing import ClassVar
 from core.types import AttributeValueType, TransportProtocols
 from core.value_parsers import ValueParser
 
+from .errors import TransportConnectionError
 from .transport_address import RawTransportAddress
 
 
@@ -46,8 +47,12 @@ class TransportClient(ABC):
     # Default implementation for async context manager
     async def __aenter__(self) -> "TransportClient":
         """Support async context manager (async with)."""
-        await self.connect()
-        return self
+        try:
+            await self.connect()
+        except Exception as e:
+            raise TransportConnectionError from e
+        else:
+            return self
 
     async def __aexit__(
         self,
