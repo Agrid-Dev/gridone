@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,13 @@ class Driver:
     env: dict
     transport: TransportClient
     schema: DriverSchema
+
+    def attach_updater(
+        self,
+        attribute_name: str,
+        callback: Callable[[AttributeValueType], None],  # noqa: ARG002
+    ) -> None:
+        print(f"Attaching updater on {attribute_name}!")  # noqa: T201
 
     async def read_value(
         self,
