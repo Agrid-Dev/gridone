@@ -130,8 +130,9 @@ async def watch_device(driver_name: str) -> None:
 
 
 if __name__ == "__main__":
-    # writes = {"state": False, "temperature_setpoint": 20}
-    # for driver in ALL_DRIVERS:
-    #     asyncio.run(write_device(driver, writes))
-    # asyncio.run(read_all())
+    writes = {"state": False, "temperature_setpoint": 20}
+    for driver in ALL_DRIVERS:
+        if "http" not in driver:
+            asyncio.run(write_device(driver, writes))
+    asyncio.run(read_all())
     asyncio.run(watch_device("agrid_thermostat_mqtt"))
