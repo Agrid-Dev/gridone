@@ -104,8 +104,34 @@ async def write_device(
                 print(f"❌ Failed: {new_value} != {value}")
 
 
+async def watch_device(driver_name: str) -> None:
+    device = get_device(driver_name)
+    print(f"Watching device {device.id} - {driver_name}")
+    async with device.driver.transport:
+        print("Initializing current values...")
+        for attribute in device.attributes:
+            await device.read_attribute_value(attribute)
+
+        def stringify_device() -> str:
+            attributes_str = [
+                f"{attribute.name}:{attribute.current_value}"
+                for attribute in device.attributes.values()
+            ]
+            return " - ".join(attributes_str)
+
+        current = stringify_device()
+        print(current)
+        while True:
+            new = stringify_device()
+            if new != current:
+                print(new)
+                current = new
+            await asyncio.sleep(0.2)
+
+
 if __name__ == "__main__":
-    writes = {"state": False, "temperature_setpoint": 20}
-    for driver in ALL_DRIVERS:
-        asyncio.run(write_device(driver, writes))
-    asyncio.run(read_all())
+    # writes = {"state": False, "temperature_setpoint": 20}
+    # for driver in ALL_DRIVERS:
+    #     asyncio.run(write_device(driver, writes))
+    # asyncio.run(read_all())
+    asyncio.run(watch_device("agrid_thermostat_mqtt"))

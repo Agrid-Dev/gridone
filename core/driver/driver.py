@@ -22,9 +22,26 @@ class Driver:
     def attach_updater(
         self,
         attribute_name: str,
-        callback: Callable[[AttributeValueType], None],  # noqa: ARG002
+        device_config: DeviceConfig,
+        callback: Callable[[AttributeValueType], None],
     ) -> None:
-        print(f"Attaching updater on {attribute_name}!")  # noqa: T201
+        context = {**device_config, **self.env}
+        try:
+            attribute_schema = next(
+                a for a in self.schema.attribute_schemas if a.name == attribute_name
+            ).render(context)
+        except StopIteration as e:
+            msg = f"Attribute {attribute_name} is not supported"
+            raise ValueError(msg) from e
+        address = self.transport.build_address(attribute_schema.read, context)
+        value_parser = build_value_parser(
+            attribute_schema.value_parser.parser_key,
+            attribute_schema.value_parser.parser_raw,
+        )
+
+        self.transport.register_read_handler(
+            address, lambda v: callback(value_parser.parse(v))
+        )
 
     async def read_value(
         self,

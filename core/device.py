@@ -36,7 +36,7 @@ class Device:
             def updater(new_value: AttributeValueType, attribute=attribute) -> None:  # noqa: ANN001
                 return attribute.update_value(new_value)
 
-            self.driver.attach_updater(attribute.name, updater)
+            self.driver.attach_updater(attribute.name, self.config, updater)
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
