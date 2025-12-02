@@ -6,7 +6,7 @@ import aiomqtt
 
 from core.transports import TransportClient
 from core.transports.connected import connected
-from core.transports.read_handler import ReadHandler
+from core.transports.read_handler_registry import ReadHandler
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
 
@@ -23,16 +23,17 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     config: MqttTransportConfig
     _connection_lock: asyncio.Lock
     _is_connected: bool
-    _message_handlers: dict[str, list[ReadHandler]]
     _background_tasks: set
+    _message_handlers: dict[
+        str, set[str]
+    ]  # maps topics to handler ids from handlers_registry
 
     def __init__(self, config: MqttTransportConfig) -> None:
         self.config = config
-        self._message_handlers = defaultdict(list)
+        self._message_handlers = defaultdict(set)
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
-
         super().__init__()
 
     async def connect(self) -> None:
@@ -54,11 +55,12 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             task.cancel()
         self._background_tasks.clear()
 
-    def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> None:
-        self._message_handlers[address.topic].append(handler)
+    def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> str:
+        handler_id = super().register_read_handler(address, handler)
+        self._message_handlers[address.topic].add(handler_id)
         task = asyncio.create_task(self._subscribe(address.topic))
         self._background_tasks.add(task)
-        super().register_read_handler(address, handler)
+        return handler_id
 
     @connected
     async def _subscribe(self, topic: str) -> None:
@@ -69,14 +71,14 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         async for message in self._client.messages:
             for topic in self._message_handlers:
                 if message.topic.matches(topic):
-                    handlers = self._message_handlers.get(topic)
-                    if handlers:
-                        decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
-                        for handler in handlers:
-                            try:  # noqa: SIM105
-                                handler(decoded_payload)
-                            except Exception:  # noqa: BLE001, S110
-                                pass
+                    handler_ids = self._message_handlers[topic]
+                    decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
+                    for handler_id in handler_ids:
+                        try:
+                            handler = self._handlers_registry.get_by_id(handler_id)
+                            handler(decoded_payload)
+                        except Exception:  # noqa: BLE001, S110
+                            pass
 
     @connected
     async def read(
@@ -90,7 +92,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             nonlocal message
             message = message_received
 
-        self._message_handlers[address.topic].append(update_value)
+        handler_id = self.register_read_handler(address, update_value)
 
         payload = (
             json.dumps(address.request.message)
@@ -112,14 +114,13 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         except TimeoutError as err:
             msg = "MQTT issue: no message received before timeout"
             raise ValueError(msg) from err
+        finally:
+            self.unregister_read_handler(handler_id, address)
         msg = "Unable to read value"
         raise ValueError(msg)
 
+    @connected
     async def write(self, address: MqttAddress, value: AttributeValueType) -> None:
-        if self._client is None:
-            msg = "MQTT transport is not connected"
-            raise RuntimeError(msg)
-
         message_template = address.request.message
         message = render_struct(
             message_template,

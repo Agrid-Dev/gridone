@@ -3,7 +3,7 @@ from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
 
-from .read_handler import ReadHandler, ReadHandlerRegistry
+from .read_handler_registry import ReadHandler, ReadHandlerRegistry
 from .transport_address import RawTransportAddress, TransportAddress
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
@@ -24,8 +24,14 @@ class TransportClient[T_TransportAddress](ABC):
 
     def register_read_handler(
         self, address: T_TransportAddress, handler: ReadHandler
+    ) -> str:
+        return self._handlers_registry.register(address.id, handler)  # ty: ignore[unresolved-attribute]
+
+    def unregister_read_handler(
+        self, handler_id: str, address: T_TransportAddress | None = None
     ) -> None:
-        self._handlers_registry.add(address.id, handler)  # ty: ignore[unresolved-attribute]
+        address_id = address.id if address else None  # ty: ignore[unresolved-attribute]
+        self._handlers_registry.remove(handler_id, address_id)
 
     @abstractmethod
     async def connect(self) -> None:
