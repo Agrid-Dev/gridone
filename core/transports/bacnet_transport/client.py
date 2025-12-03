@@ -22,7 +22,6 @@ from bacpypes3.primitivedata import (
 
 from core.transports.base import TransportClient
 from core.types import AttributeValueType, TransportProtocols
-from core.value_parsers import ValueParser
 
 from .application import make_local_application
 from .bacnet_address import BacnetAddress
@@ -36,8 +35,9 @@ def get_device_identifier(device_instance: int) -> ObjectIdentifier:
 type DevicesDict = dict[ObjectIdentifier, Address]
 
 
-class BacnetTransportClient(TransportClient):
+class BacnetTransportClient(TransportClient[BacnetAddress]):
     protocol = TransportProtocols.BACNET
+    address_builder = BacnetAddress
     config: BacnetTransportConfig
     _application: NormalApplication
     _known_devices: DevicesDict
@@ -46,6 +46,7 @@ class BacnetTransportClient(TransportClient):
         self.config = config
         self._application = make_local_application(self.config)
         self._known_devices = {}
+        super().__init__()
 
     async def discover_devices(self) -> DevicesDict:
         i_ams = await asyncio.wait_for(
@@ -70,13 +71,11 @@ class BacnetTransportClient(TransportClient):
         self._known_devices = {}
         self._application.close()
 
-    async def _read_bacnet(
-        self, device_instance: int, address: BacnetAddress
-    ) -> AttributeValueType:
-        device_identifier = get_device_identifier(device_instance)
+    async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
+        device_identifier = get_device_identifier(address.device_instance)
         device_address = self._known_devices.get(device_identifier)
         if not device_address:
-            msg = f"Bacnet device instance {device_instance} not found"
+            msg = f"Bacnet device instance {address.device_instance} not found"
             raise KeyError(msg)
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         request = ReadPropertyRequest(
@@ -93,32 +92,18 @@ class BacnetTransportClient(TransportClient):
             raise TypeError(msg)
         return response.propertyValue.cast_out(AnyAtomic).get_value()
 
-    async def read(
-        self,
-        address: str | dict,
-        value_parser: ValueParser,
-        *,
-        context: dict,
-    ) -> AttributeValueType:
+    async def read(self, address: BacnetAddress) -> AttributeValueType:
         """Read a value from the transport."""
-        device_instance = context.get("device_instance")
-        if not device_instance:
-            msg = "Need a device_instance for bacnet"
-            raise ValueError(msg)
-        device_instance = int(device_instance)
-        bacnet_address = BacnetAddress.from_raw(address)
-        raw_value = await self._read_bacnet(device_instance, bacnet_address)
-        if value_parser:
-            return value_parser.parse(raw_value)
-        return raw_value
+
+        return await self._read_bacnet(address)
 
     async def _write_bacnet(
-        self, device_instance: int, address: BacnetAddress, value: AttributeValueType
+        self, address: BacnetAddress, value: AttributeValueType
     ) -> None:
-        device_identifier = get_device_identifier(device_instance)
+        device_identifier = get_device_identifier(address.device_instance)
         device_address = self._known_devices.get(device_identifier)
         if not device_address:
-            msg = f"Bacnet device instance {device_instance} not found"
+            msg = f"Bacnet device instance {address.device_instance} not found"
             raise KeyError(msg)
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         if isinstance(value, bool):
@@ -178,17 +163,9 @@ class BacnetTransportClient(TransportClient):
 
     async def write(
         self,
-        address: str | dict,
+        address: BacnetAddress,
         value: AttributeValueType,
-        *,
-        value_parser: ValueParser,  # noqa: ARG002
-        context: dict,
     ) -> None:
         """Write a value to the transport."""
-        device_instance = context.get("device_instance")
-        if not device_instance:
-            msg = "Need a device_instance for bacnet"
-            raise ValueError(msg)
-        device_instance = int(device_instance)
-        bacnet_address = BacnetAddress.from_raw(address)
-        await self._write_bacnet(device_instance, bacnet_address, value)
+
+        await self._write_bacnet(address, value)

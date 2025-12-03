@@ -25,10 +25,16 @@ instance_regex = r"^\d+$"
 class ModbusAddress(BaseModel, TransportAddress):
     type: ModbusAddressType
     instance: PositiveInt
-    device_id: PositiveInt = 1
+    device_id: PositiveInt
+
+    @property
+    def id(self) -> str:
+        return f"modbus@device:{self.device_id}/{self.type.value}:{self.instance}"
 
     @classmethod
-    def from_str(cls, address_str: str) -> "ModbusAddress":
+    def from_str(
+        cls, address_str: str, extra_context: dict | None = None
+    ) -> "ModbusAddress":
         trimmed_address = address_str.strip()
         match = re.fullmatch(address_type_regex, trimmed_address)
         if not match:
@@ -36,17 +42,30 @@ class ModbusAddress(BaseModel, TransportAddress):
             raise ValueError(msg)
         address_type = ModbusAddressType(match.group(1))
         instance = int(match.group(2))
-        return cls(type=address_type, instance=instance)
+        if extra_context is None or extra_context.get("device_id") is None:
+            msg = "device_id is required"
+            raise ValueError(msg)
+
+        return cls(
+            type=address_type,
+            instance=instance,
+            device_id=extra_context.get("device_id"),
+        )
 
     @classmethod
-    def from_dict(cls, address_dict: dict) -> "ModbusAddress":
-        return cls(**address_dict)
+    def from_dict(
+        cls, address_dict: dict, extra_context: dict | None = None
+    ) -> "ModbusAddress":
+        combined_context = {**address_dict, **(extra_context or {})}
+        return cls(**combined_context)
 
     @classmethod
-    def from_raw(cls, raw_address: RawTransportAddress) -> "ModbusAddress":
+    def from_raw(
+        cls, raw_address: RawTransportAddress, extra_context: dict | None = None
+    ) -> "ModbusAddress":
         if isinstance(raw_address, str):
-            return cls.from_str(raw_address)
+            return cls.from_str(raw_address, extra_context)
         if isinstance(raw_address, dict):
-            return cls.from_dict(raw_address)
+            return cls.from_dict(raw_address, extra_context)
         msg = "Invalid raw address type"
         raise ValueError(msg)

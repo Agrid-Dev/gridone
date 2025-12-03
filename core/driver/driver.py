@@ -1,9 +1,10 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from core.transports import TransportClient, get_transport_client
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
-from core.value_parsers import build_value_parser
+from core.value_parsers import ReversibleValueParser, build_value_parser
 
 from .driver_schema import DriverSchema
 
@@ -18,6 +19,30 @@ class Driver:
     transport: TransportClient
     schema: DriverSchema
 
+    def attach_updater(
+        self,
+        attribute_name: str,
+        device_config: DeviceConfig,
+        callback: Callable[[AttributeValueType], None],
+    ) -> None:
+        context = {**device_config, **self.env}
+        try:
+            attribute_schema = next(
+                a for a in self.schema.attribute_schemas if a.name == attribute_name
+            ).render(context)
+        except StopIteration as e:
+            msg = f"Attribute {attribute_name} is not supported"
+            raise ValueError(msg) from e
+        address = self.transport.build_address(attribute_schema.read, context)
+        value_parser = build_value_parser(
+            attribute_schema.value_parser.parser_key,
+            attribute_schema.value_parser.parser_raw,
+        )
+
+        self.transport.register_read_handler(
+            address, lambda v: callback(value_parser.parse(v))
+        )
+
     async def read_value(
         self,
         attribute_name: str,
@@ -31,12 +56,9 @@ class Driver:
             attribute_schema.value_parser.parser_key,
             attribute_schema.value_parser.parser_raw,
         )
-
-        return await self.transport.read(
-            address=attribute_schema.read,
-            value_parser=value_parser,
-            context=context,
-        )
+        address = self.transport.build_address(attribute_schema.read, context)
+        raw_value = await self.transport.read(address)
+        return value_parser.parse(raw_value)
 
     async def write_value(
         self,
@@ -55,11 +77,15 @@ class Driver:
             attribute_schema.value_parser.parser_key,
             attribute_schema.value_parser.parser_raw,
         )
+        address = self.transport.build_address(attribute_schema.write, context)
+        value_to_write = (
+            value_parser.revert(value)
+            if isinstance(value_parser, ReversibleValueParser)
+            else value
+        )
         await self.transport.write(
-            address=attribute_schema.write,
-            value=value,
-            context=context,
-            value_parser=value_parser,
+            address=address,
+            value=value_to_write,  # ty: ignore[invalid-argument-type]
         )
 
     @classmethod

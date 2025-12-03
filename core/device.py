@@ -29,6 +29,15 @@ class Device:
             },
         )
 
+    def __post_init__(self) -> None:
+        """Upon init, attach attribute updaters to the transport."""
+        for attribute in self.attributes.values():
+
+            def updater(new_value: AttributeValueType, attribute=attribute) -> None:  # noqa: ANN001
+                return attribute.update_value(new_value)
+
+            self.driver.attach_updater(attribute.name, self.config, updater)
+
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
             return self.attributes[attribute_name]
