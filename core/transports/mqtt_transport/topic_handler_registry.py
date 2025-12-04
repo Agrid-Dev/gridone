@@ -23,6 +23,7 @@ class TopicHandlerRegistry:
 
     def register(self, topic: str, handler_id: str) -> None:
         self._registry[topic].add(handler_id)
+        self._invalidate_cache(topic)
 
     def get_by_topic(self, topic: str) -> set[str]:
         """Returns what matches topic exactly (no recursive matching)."""

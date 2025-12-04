@@ -119,6 +119,22 @@ def test_invalidate_cache_on_unregister() -> None:
     assert "home/bathroom/temperature" in registry._cache
 
 
+def test_invalidate_cache_on_register() -> None:
+    registry = TopicHandlerRegistry()
+    registry.register("home/+/temperature", "h1")
+    registry.register("home/kitchen/temperature", "h2")
+    registry.register("home/bathroom/temperature", "h3")
+    registry.match_topic(Topic("home/kitchen/temperature"))
+    registry.match_topic(Topic("home/bathroom/temperature"))
+    assert len(registry._cache) == 2
+    registry.register("home/kitchen/temperature", "h4")
+    matched_topics = registry.match_topic(Topic("home/kitchen/temperature"))
+    assert "h1" in matched_topics
+    assert "h2" in matched_topics
+    assert "h4" in matched_topics  # would not be returned if hit cache
+    assert "h3" not in matched_topics
+
+
 def test_invalidate_cache_on_unregister_wildcard() -> None:
     registry = TopicHandlerRegistry()
     registry.register("home/+/temperature", "h1")
