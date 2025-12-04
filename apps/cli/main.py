@@ -7,6 +7,8 @@ from core.device import Device
 from core.driver import Driver
 from core.types import AttributeValueType
 
+from .repository import gridone_repository
+
 
 def load_driver(path: Path, transport_config: dict) -> Driver:
     with path.open("r") as f:
@@ -135,3 +137,6 @@ if __name__ == "__main__":
             asyncio.run(write_device(driver, writes))
     asyncio.run(read_all())
     asyncio.run(watch_device("agrid_thermostat_mqtt"))
+    print(gridone_repository.devices.list())
+    print(gridone_repository.drivers.list())
+    print(gridone_repository.transport_configs.list())

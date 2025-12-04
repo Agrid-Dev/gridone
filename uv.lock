@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 
 [manifest]
@@ -9,6 +9,7 @@ members = [
     "gridone",
     "gridone-api",
     "gridone-core",
+    "gridone-storage",
 ]
 
 [[package]]
@@ -99,6 +100,16 @@ wheels = [
 name = "cli"
 version = "0.1.0"
 source = { virtual = "apps/cli" }
+dependencies = [
+    { name = "gridone-storage" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "gridone-storage", editable = "packages/storage" },
+    { name = "typer", specifier = ">=0.20.0" },
+]
 
 [[package]]
 name = "click"
@@ -322,6 +333,11 @@ requires-dist = [
     { name = "python-jsonpath", specifier = ">=2.0.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]
+
+[[package]]
+name = "gridone-storage"
+version = "0.1.0"
+source = { editable = "packages/storage" }
 
 [[package]]
 name = "h11"
