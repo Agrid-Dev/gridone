@@ -18,3 +18,6 @@ wheels/
 
 # test scripts
 bacnet.py
+
+# OS
+.DS_Store

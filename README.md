@@ -2,46 +2,32 @@
 
 _Gridone_ is an open-source Building Management System (BMS) designed for extensibility and portability.
 
-Gridone is built by [AGRID](https://a-grid.com/) and welcomes all contributors.
+Gridone is built by [AGRID](https://a-grid.com/).
 
-## Project structure
+## Project layout
 
-```mermaid
-classDiagram
+Gridone is a monorepo including both packages and applications.
 
-class Device {
-    +id: str
-    +config: dict
-    +driver: Driver
-    +attributes: dict[str, Attribute]
-}
-
-class Driver {
-    +env: dict
-    +transport: TransportClient
-    +schema: DeviceSchema
-}
-
-class Attribute
-class TransportClient
-class DeviceSchema
-
-Device *-- Driver
-Device *-- Attribute : attributes (many)
-Driver *-- TransportClient
-Driver *-- DeviceSchema
+```
+├── apps
+│   └── cli
+├── packages
+│   └── core
+├── pyproject.toml
+├── README.md
+└── uv.lock
 ```
 
 ## Setup
 
 ### Installation
 
-This project is managed with [uv](https://docs.astral.sh/uv/). Run
+This project is managed with [uv](https://docs.astral.sh/uv/) using `workspaces`. Run
 
 ```sh
-uv sync
+uv sync --all-packages
 ```
-To create a virtual environment and install project dependencies.
+To create a virtual environment and install all project dependencies.
 
 ### Tooling
 
