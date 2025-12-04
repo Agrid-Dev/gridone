@@ -4,14 +4,20 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
+
 dependencies = [
-    "aiomqtt>=2.4.0",
-    "bacpypes3>=0.0.102",
-    "httpx>=0.28.1",
-    "pydantic>=2.12.4",
-    "pymodbus>=3.11.3",
-    "python-jsonpath>=2.0.1",
-    "pyyaml>=6.0.3",
+    "gridone-core",
+]
+
+[tool.uv.sources]
+gridone-core = { workspace = true }
+
+
+[tool.uv.workspace]
+# Globs or paths to your member projects
+members = [
+    "packages/*",
+    "apps/cli",
 ]
 
 [dependency-groups]
