@@ -11,6 +11,7 @@ dependencies = [
 
 [tool.uv.sources]
 gridone-core = { workspace = true }
+gridone-api = { workspace = true }
 
 
 [tool.uv.workspace]
@@ -18,6 +19,7 @@ gridone-core = { workspace = true }
 members = [
     "packages/*",
     "apps/cli",
+    "apps/api_server"
 ]
 
 [dependency-groups]

@@ -4,9 +4,8 @@ from typing import TypedDict
 
 import yaml
 from core.device import Device
-from core.types import AttributeValueType
-
 from core.driver import Driver
+from core.types import AttributeValueType
 
 
 def load_driver(path: Path, transport_config: dict) -> Driver:
