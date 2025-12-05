@@ -1,16 +1,16 @@
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+from pydantic import BaseModel
 
 from .types import DATA_TYPES, AttributeValueType, DataType, ReadWriteMode
 
 
-@dataclass(frozen=True)
-class Attribute:
+class Attribute(BaseModel):
     name: str
     data_type: DataType
     read_write_modes: set[ReadWriteMode]
     current_value: AttributeValueType | None
-    last_updated: datetime | None = field(default=None)
+    last_updated: datetime | None = None
 
     def ensure_type(
         self,

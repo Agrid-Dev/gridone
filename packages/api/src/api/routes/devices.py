@@ -1,24 +1,22 @@
-from fastapi import APIRouter, HTTPException
+from core.devices_manager import DevicesManager
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.schemas.device import Device
 
-router = APIRouter()
 
-# Mock database
-devices_db: dict[str, Device] = {
-    "my-device": Device(
-        id="my-device", driver="xb12", config={"device_instance": 5456}
-    ),
-    "my-device2": Device(
-        id="my-device2", driver="xb12", config={"device_instance": 88}
-    ),
-}
+def get_device_manager(request: Request) -> DevicesManager:
+    return request.app.state.device_manager
+
+
+router = APIRouter()
 
 
 @router.get("/")
 @router.get("")
-async def list_devices() -> list[Device]:
-    return list(devices_db.values())
+async def list_devices(
+    dm: DevicesManager = Depends(get_device_manager),
+) -> list[Device]:
+    return list(dm.devices.values())
 
 
 @router.get("/{device_id}")

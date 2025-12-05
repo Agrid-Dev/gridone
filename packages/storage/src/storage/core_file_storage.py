@@ -27,8 +27,8 @@ class CoreFileStorage:
             self._root_dir / "transport_configs"
         )
 
-    async def init_device_manager(self) -> DevicesManager:
-        return await DevicesManager.load_from_raw(
+    def init_device_manager(self) -> DevicesManager:
+        return DevicesManager.load_from_raw(
             devices_raw=self.devices.read_all(),
             drivers_raw=self.drivers.read_all(),
             transport_configs=self.transport_configs.read_all(),

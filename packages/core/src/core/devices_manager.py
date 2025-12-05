@@ -31,7 +31,7 @@ class DevicesManager:
         self.drivers = drivers
 
     @classmethod
-    async def load_from_raw(
+    def load_from_raw(
         cls,
         devices_raw: list[DeviceRaw],
         drivers_raw: list[DriverRaw],

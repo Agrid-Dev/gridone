@@ -1,3 +1,7 @@
-from api import create_app  # noqa: INP001
+from pathlib import Path
 
-app = create_app()
+from api import create_app
+
+DB_PATH = Path(__file__).parent / "../../.db"  # move to .env sometime :)
+
+app = create_app(db_path=DB_PATH)
