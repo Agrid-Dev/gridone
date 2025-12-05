@@ -44,9 +44,9 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         self.config = config
         self._message_handlers = TopicHandlerRegistry()
         self._notification_handlers: list[Callable[[dict[str, Any]], None]] = []
-        self._registered_devices: list["Device"] = []
-        self._devices_by_id: dict[str, "Device"] = {}
-        self._device_factory: Callable[[str, str | None], "Device"] | None = None
+        self._registered_devices: list[Device] = []
+        self._devices_by_id: dict[str, Device] = {}
+        self._device_factory: Callable[[str, str | None], Device] | None = None
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
@@ -110,15 +110,13 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         When notifications arrive with id and gateway_id, matching devices
         will be automatically registered for notifications if not already registered.
         """
-        # Identity check avoids dropping devices that compare equal but represent distinct instances.
         if any(
-            registered_device is device for registered_device in self._registered_devices
+            registered_device is device
+            for registered_device in self._registered_devices
         ):
             return
         self._registered_devices.append(device)
-        logger.info(
-            "Registered device %s for dynamic notification matching", device.id
-        )
+        logger.info("Registered device %s for dynamic notification matching", device.id)
         # Track device by its id if it has one
         device_id = device.config.get("id")
         if device_id is not None:
@@ -260,7 +258,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
                 notification_id,
                 notification_gateway_id,
             )
-            return device
         except Exception as e:  # noqa: BLE001
             logger.warning(
                 "Failed to create device from notification (id=%s): %s",
@@ -269,6 +266,8 @@ class MqttTransportClient(TransportClient[MqttAddress]):
                 exc_info=True,
             )
             return None
+        else:
+            return device  # type: ignore[return-value]
 
     def _try_register_device_for_notification(
         self,
@@ -302,7 +301,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         if id_matches:
             self._update_and_register_device(
                 device,
-                device_config,
                 notification_id,
                 notification_gateway_id,
                 device_gateway_id,
@@ -325,7 +323,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             self._devices_by_id[notification_id] = device
             self._update_and_register_device(
                 device,
-                device_config,
                 notification_id,
                 notification_gateway_id,
                 device_gateway_id,
@@ -354,7 +351,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             self._devices_by_id[notification_id] = device
             self._update_and_register_device(
                 device,
-                device_config,
                 notification_id,
                 notification_gateway_id,
                 device_gateway_id,
@@ -370,7 +366,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     def _update_and_register_device(
         self,
         device: "Device",
-        device_config: dict,
         notification_id: str | None,
         notification_gateway_id: str | None,
         device_gateway_id: str | None,
@@ -378,6 +373,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         config_updated: bool = False,
     ) -> None:
         """Update device config and register for notifications."""
+        device_config = device.config
         # Update gateway_id if provided and not set
         if notification_gateway_id is not None and device_gateway_id is None:
             device_config["gateway_id"] = notification_gateway_id
@@ -412,7 +408,9 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     async def _handle_incoming_messages(self) -> None:
         async for message in self._client.messages:
             try:
-                decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
+                decoded_payload = (
+                    message.payload.decode()
+                )  # ty: ignore[possibly-missing-attribute]
             except Exception:  # noqa: BLE001
                 logger.info(
                     "MQTT RECEIVED - Topic: %s, Payload: <binary or decode error>",
@@ -481,9 +479,9 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         message = render_struct(
             message_template,
             {
-                "value": json.dumps(value)
-                if isinstance(message_template, str)
-                else value
+                "value": (
+                    json.dumps(value) if isinstance(message_template, str) else value
+                )
             },
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
