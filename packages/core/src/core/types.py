@@ -28,4 +28,4 @@ class TransportProtocols(StrEnum):
     MQTT = "mqtt"
 
 
-type DeviceConfig = dict[str, str]
+type DeviceConfig = dict[str, str | int | float | bool]
