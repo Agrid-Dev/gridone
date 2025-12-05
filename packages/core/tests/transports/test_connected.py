@@ -1,4 +1,4 @@
-from asyncio import Lock
+import asyncio
 
 import pytest
 from core.transports.connected import connected
@@ -8,18 +8,24 @@ class MockTransportClient:
     """Minimal class implementing ConnectedProtocol for testing."""
 
     _is_connected: bool
-    _connection_lock: Lock
+    _connection_lock: asyncio.Lock
     _connect_count: int  # counts how many times _connect has run
 
     def __init__(self) -> None:
         self._is_connected = False
-        self._connection_lock = Lock()
+        self._connection_lock = asyncio.Lock()
         self._connect_count = 0
 
-    async def connect(self) -> None:
-        """Mock connect method."""
-        self._connect_count += 1
-        self._is_connected = True
+    async def connect(self):
+        """All transport clients using @connected should connect within a Lock
+        to avoid parallel connections."""
+        async with self._connection_lock:
+            if self._is_connected:
+                return
+
+            self._connect_count += 1
+            await asyncio.sleep(0.05)  # simulate slow connection
+            self._is_connected = True
 
     @connected
     async def read(self, address: str) -> str:
@@ -45,9 +51,12 @@ async def test_connected_decorator_runs_connect_only_once() -> None:
     client = MockTransportClient()
     assert not client._is_connected
 
-    for address in ["a", "b", "c"]:
-        read_result = await client.read(address)
-        assert read_result == address  # to check the function executed properly
+    results = await asyncio.gather(
+        client.read("a"),
+        client.read("b"),
+        client.read("c"),
+    )
 
+    assert results == ["a", "b", "c"]
     assert client._is_connected
     assert client._connect_count == 1

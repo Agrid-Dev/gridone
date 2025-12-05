@@ -40,7 +40,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         async with self._connection_lock:
             if not self._is_connected:
                 self._client = aiomqtt.Client(self.config.host, port=self.config.port)
-                await self._client.__aenter__()
+                await asyncio.wait_for(self._client.__aenter__(), timeout=TIMEOUT)
                 self._is_connected = True
                 self._background_tasks.add(
                     asyncio.create_task(self._handle_incoming_messages())

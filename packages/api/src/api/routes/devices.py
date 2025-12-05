@@ -1,7 +1,9 @@
 from core.devices_manager import DevicesManager
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from api.schemas.device import Device
+from api.schemas.device import DeviceBase
+
+router = APIRouter()
 
 
 def get_device_manager(request: Request) -> DevicesManager:
@@ -15,12 +17,15 @@ router = APIRouter()
 @router.get("")
 async def list_devices(
     dm: DevicesManager = Depends(get_device_manager),
-) -> list[Device]:
-    return list(dm.devices.values())
+) -> list[DeviceBase]:
+    return [DeviceBase.from_core(d) for d in dm.devices.values()]
 
 
 @router.get("/{device_id}")
-async def get_device(device_id: str) -> Device:
-    if device_id not in devices_db:
+async def get_device(
+    device_id: str,
+    dm: DevicesManager = Depends(get_device_manager),
+) -> DeviceBase:
+    if device_id not in dm.devices:
         raise HTTPException(status_code=404, detail="Device not found")
-    return devices_db[device_id]
+    return DeviceBase.from_core(dm.devices[device_id])
