@@ -1,10 +1,12 @@
 import asyncio
+import logging
 from pathlib import Path
 from typing import TypedDict
 
 import yaml
 from core.device import Device
 from core.driver import Driver
+from core.transports.mqtt_transport.client import MqttTransportClient
 from core.types import AttributeValueType
 
 
@@ -29,7 +31,7 @@ class DeviceData(TypedDict):
     device_config: dict
 
 
-DRIVERS_DB = Path(".db/drivers")
+DRIVERS_DB = Path("../../.db/drivers")
 DEVICES_DATA: list[DeviceData] = [
     {
         "driver": "carel_thermostat",
@@ -107,9 +109,47 @@ async def watch_device(driver_name: str) -> None:
     device = get_device(driver_name)
     print(f"Watching device {device.id} - {driver_name}")
     async with device.driver.transport:
+        # Register device factory for automatic device creation from notifications
+        if isinstance(device.driver.transport, MqttTransportClient):
+            # Get the base device data for the driver
+            device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
+            # Store reference to the shared transport
+            shared_transport = device.driver.transport
+
+            def device_factory(
+                notification_id: str, gateway_id: str | None
+            ) -> Device:
+                """Create a new device from a notification ID and gateway ID."""
+                # Create device config with id and gateway_id from notification
+                device_config: dict[str, str] = {
+                    **device_data["device_config"],  # Include original config
+                    "id": notification_id,
+                }
+                # Only add gateway_id if it's not None
+                if gateway_id is not None:
+                    device_config["gateway_id"] = gateway_id
+                # Load driver but reuse the shared transport instance
+                driver = load_driver(
+                    DRIVERS_DB / (device_data["driver"] + ".yaml"),
+                    device_data["transport_config"],
+                )
+                # Replace the transport with the shared one
+                driver.transport = shared_transport
+                # Create device with a unique name based on notification id
+                new_device = Device.from_driver(driver=driver, config=device_config)
+                new_device.id = f"{driver_name}-{notification_id}"
+                return new_device
+
+            device.driver.transport.register_device_factory(device_factory)
+            print("Registered device factory for automatic device creation")
+
         print("Initializing current values...")
         for attribute in device.attributes:
             await device.read_attribute_value(attribute)
+
+        # Register for notifications to automatically update attributes
+        device.register_for_notifications()
+        print("Registered for notifications - attributes will update automatically")
 
         def stringify_device() -> str:
             attributes_str = [
@@ -123,15 +163,21 @@ async def watch_device(driver_name: str) -> None:
         while True:
             new = stringify_device()
             if new != current:
-                print(new)
+                print(f"📢 Update: {new}")
                 current = new
             await asyncio.sleep(0.2)
 
 
 if __name__ == "__main__":
-    writes = {"state": False, "temperature_setpoint": 20}
-    for driver in ALL_DRIVERS:
-        if "http" not in driver:
-            asyncio.run(write_device(driver, writes))
-    asyncio.run(read_all())
+    # Configure logging to show MQTT messages
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+    # writes = {"state": False, "temperature_setpoint": 20}
+    # for driver in ALL_DRIVERS:
+    #     if "http" not in driver:
+    #         asyncio.run(write_device(driver, writes))
+    # asyncio.run(read_all())
     asyncio.run(watch_device("agrid_thermostat_mqtt"))
