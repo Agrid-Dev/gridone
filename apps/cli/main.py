@@ -2,27 +2,9 @@ import asyncio
 from pathlib import Path
 from typing import TypedDict
 
-import yaml
 from core.device import Device
-from core.driver import Driver
 from core.types import AttributeValueType
-
-from .repository import gridone_repository
-
-
-def load_driver(path: Path, transport_config: dict) -> Driver:
-    with path.open("r") as f:
-        schema_data = yaml.safe_load(f)
-        return Driver.from_dict({**schema_data, "transport_config": transport_config})
-
-
-def load_device(
-    driver_path: Path,
-    device_config: dict,
-    transport_config: dict,
-) -> Device:
-    driver = load_driver(driver_path, transport_config)
-    return Device.from_driver(driver=driver, config=device_config)
+from repository import gridone_repository  # ty: ignore[unresolved-import]
 
 
 class DeviceData(TypedDict):
@@ -56,21 +38,7 @@ DEVICES_DATA: list[DeviceData] = [
 ]
 
 
-def get_device(driver_name: str) -> Device:
-    try:
-        device_data = next(d for d in DEVICES_DATA if d["driver"] == driver_name)
-    except StopIteration as e:
-        msg = f"Device {driver_name} not found"
-        raise ValueError(msg) from e
-    return load_device(
-        DRIVERS_DB / (device_data["driver"] + ".yaml"),
-        device_data["device_config"],
-        device_data["transport_config"],
-    )
-
-
-async def read_device(driver_name: str) -> None:
-    device = get_device(driver_name)
+async def read_device(device: Device) -> None:
     async with device.driver.transport:
         for attribute in device.attributes:
             value = await device.read_attribute_value(attribute)
@@ -80,21 +48,12 @@ async def read_device(driver_name: str) -> None:
 ALL_DRIVERS = [d["driver"] for d in DEVICES_DATA]
 
 
-async def read_all() -> None:
-    drivers_count = len(ALL_DRIVERS)
-    print(f"{drivers_count} devices to read")
-    for i, driver in enumerate(ALL_DRIVERS):
-        print(f"💡 Device {i + 1}/{drivers_count} ({driver})")
-        await read_device(driver)
-
-
 async def write_device(
-    driver_name: str, attribute_writes: dict[str, AttributeValueType]
+    device: Device, attribute_writes: dict[str, AttributeValueType]
 ) -> None:
-    device = get_device(driver_name)
     async with device.driver.transport:
         for attribute_name, value in attribute_writes.items():
-            print(f"{driver_name}: {attribute_name} <- {value}")
+            print(f"{device.id}: {attribute_name} <- {value}")
             await device.write_attribute_value(attribute_name, value)
             print("write seems to have succeeded, confirming...")
             await asyncio.sleep(0.25)  # wait propagation
@@ -105,9 +64,8 @@ async def write_device(
                 print(f"❌ Failed: {new_value} != {value}")
 
 
-async def watch_device(driver_name: str) -> None:
-    device = get_device(driver_name)
-    print(f"Watching device {device.id} - {driver_name}")
+async def watch_device(device: Device) -> None:
+    print(f"Watching device {device.id} - {device.driver.name}")
     async with device.driver.transport:
         print("Initializing current values...")
         for attribute in device.attributes:
@@ -130,13 +88,10 @@ async def watch_device(driver_name: str) -> None:
             await asyncio.sleep(0.2)
 
 
+async def main() -> None:
+    await gridone_repository.init_device_manager()
+    print("Devices manager initiated")
+
+
 if __name__ == "__main__":
-    writes = {"state": False, "temperature_setpoint": 20}
-    for driver in ALL_DRIVERS:
-        if "http" not in driver:
-            asyncio.run(write_device(driver, writes))
-    asyncio.run(read_all())
-    asyncio.run(watch_device("agrid_thermostat_mqtt"))
-    print(gridone_repository.devices.list())
-    print(gridone_repository.drivers.list())
-    print(gridone_repository.transport_configs.list())
+    asyncio.run(main())

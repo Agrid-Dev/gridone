@@ -41,7 +41,7 @@ def seeded_storage() -> Generator[AnimalStorage]:
 
 def test_list_seeded_files(seeded_storage: AnimalStorage):
     """Test that `list()` returns the correct files after seeding."""
-    files = seeded_storage.list()
+    files = seeded_storage.list_all()
     assert "a1" in files
     assert "a2" in files
 

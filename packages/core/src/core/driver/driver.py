@@ -2,8 +2,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from core.transports import TransportClient, get_transport_client
-from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from core.transports import TransportClient
+from core.types import AttributeValueType, DeviceConfig
 from core.value_parsers import ReversibleValueParser, build_value_parser
 
 from .driver_schema import DriverSchema
@@ -89,22 +89,19 @@ class Driver:
         )
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Driver":
+    def from_dict(cls, data: dict, transport_client: TransportClient) -> "Driver":
         transport = data.get("transport")
-        if transport is None or transport not in TransportProtocols:
-            msg = f"Invalid or missing transport protocol: '{transport}'"
+        if transport is None or transport != transport_client.protocol:
+            msg = (
+                f"Expected a {transport} transport but got {transport_client.protocol}"
+            )
             raise ValueError(msg)
-        transport_protocol = TransportProtocols(transport)
         driver_env_raw = data.get("env", {})
         driver_env = driver_env_raw if isinstance(driver_env_raw, dict) else {}
-        transport_client = get_transport_client(
-            transport_protocol,
-            data["transport_config"],
-        )
-        device_schema = DriverSchema.from_dict(data)
+
         return cls(
             name=data.get("name", ""),
             env=driver_env,
             transport=transport_client,
-            schema=device_schema,
+            schema=DriverSchema.from_dict(data),
         )
