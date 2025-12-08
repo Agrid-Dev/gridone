@@ -1,3 +1,4 @@
+import logging
 from abc import ABC, abstractmethod
 from asyncio import Lock
 from typing import ClassVar, TypeVar
@@ -8,6 +9,9 @@ from .read_handler_registry import ReadHandler, ReadHandlerRegistry
 from .transport_address import RawTransportAddress, TransportAddress
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
+
+
+logger = logging.getLogger(__name__)
 
 
 class TransportClient[T_TransportAddress](ABC):
@@ -42,11 +46,13 @@ class TransportClient[T_TransportAddress](ABC):
     async def connect(self) -> None:
         """Establish a connection to the transport."""
         self._is_connected = True
+        logger.info("Transport client %s connected", self.protocol)
 
     @abstractmethod
     async def close(self) -> None:
         """Close the connection and release resources."""
         self._is_connected = False
+        logger.info("Transport client %s closed", self.protocol)
 
     @abstractmethod
     async def read(self, address: T_TransportAddress) -> AttributeValueType:

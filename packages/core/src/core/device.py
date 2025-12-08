@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 
 from core.types import AttributeValueType, DeviceConfig
 
 from .attribute import Attribute
 from .driver import Driver
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -66,12 +69,19 @@ class Device:
                 continue
             try:
                 value = await self.read_attribute_value(attr_name)
-                print(
-                    f"[Device {self.id}] successfully updated attribute {attr_name} to {value}"
+                logger.info(
+                    '[Device %s] read attribute "%s"= %s',
+                    self.id,
+                    attr_name,
+                    value,
                 )
-            except Exception as e:  # noqa: BLE001
-                # @TODO: replace with proper logging
-                print(f"[Device {self.id}] Failed to read {self.id}.{attr_name}: {e}")  # noqa: T201
+            except Exception as e:
+                logger.exception(
+                    "[Device %s] failed to read attribute %s",
+                    self.id,
+                    attr_name,
+                    exc_info=e,
+                )
 
     async def write_attribute_value(
         self,

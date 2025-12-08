@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from typing import TypedDict
 
 from .device import Device
 from .driver import Driver
 from .transports.factory import get_transport_client
 from .types import DeviceConfig, TransportProtocols
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceRaw(TypedDict):
@@ -40,7 +43,7 @@ class DevicesManager:
 
     async def start_polling(self) -> None:
         for device in self.devices.values():
-            print(f"Starting polling job for device {device.id}")
+            logger.info("Starting polling job for device %s", device.id)
             task = asyncio.create_task(self._device_poll_loop(device))
             self._background_tasks.add(task)
             task.add_done_callback(self._background_tasks.discard)
@@ -50,7 +53,7 @@ class DevicesManager:
         self._running = False
         tasks = list(self._background_tasks)
         for task in tasks:
-            print(f"Stopping task {task}")
+            logger.debug("Stopping task %s", task)
             task.cancel()
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
