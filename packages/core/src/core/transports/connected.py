@@ -1,4 +1,3 @@
-from asyncio import Lock
 from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import (
@@ -27,11 +26,6 @@ class ConnectedProtocol(Protocol):
         """Check if the client is connected."""
         ...
 
-    @property
-    def _connection_lock(self) -> Lock:
-        """Get the connection lock."""
-        ...
-
 
 def connected[**P, T_Return](
     func: Callable[P, Coroutine[Any, Any, T_Return]],
@@ -44,9 +38,7 @@ def connected[**P, T_Return](
         self: ConnectedProtocol, *args: P.args, **kwargs: P.kwargs
     ) -> T_Return:
         if not self._is_connected:
-            async with self._connection_lock:
-                if not self._is_connected:
-                    await self.connect()
+            await self.connect()
         return await func(self, *args, **kwargs)
 
     return wrapper

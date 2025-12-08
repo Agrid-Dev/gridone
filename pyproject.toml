@@ -11,6 +11,8 @@ dependencies = [
 
 [tool.uv.sources]
 gridone-core = { workspace = true }
+gridone-api = { workspace = true }
+gridone-storage = { workspace = true }
 
 
 [tool.uv.workspace]
@@ -18,6 +20,7 @@ gridone-core = { workspace = true }
 members = [
     "packages/*",
     "apps/cli",
+    "apps/api_server"
 ]
 
 [dependency-groups]
@@ -42,5 +45,6 @@ fixable = ["ALL"]
 
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101", "ANN401", "PLR2004"]
-"main.py" = ["T201", "FBT003", "ERA001"]
+"**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101", "ANN201","ANN401", "PLR2004"]
+"apps/cli/*.py" = ["T201", "FBT003", "ERA001"]
+"apps/*" = ["INP001"]
