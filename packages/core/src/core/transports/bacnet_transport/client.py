@@ -21,6 +21,7 @@ from bacpypes3.primitivedata import (
 )
 
 from core.transports.base import TransportClient
+from core.transports.connected import connected
 from core.types import AttributeValueType, TransportProtocols
 
 from .application import make_local_application
@@ -64,13 +65,18 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
         return discovered_devices
 
     async def connect(self) -> None:
-        discovered_devices = await self.discover_devices()
-        self._known_devices = discovered_devices
+        async with self._connection_lock:
+            discovered_devices = await self.discover_devices()
+            self._known_devices = discovered_devices
+            await super().connect()
 
     async def close(self) -> None:
-        self._known_devices = {}
-        self._application.close()
+        async with self._connection_lock:
+            self._known_devices = {}
+            self._application.close()
+            await super().close()
 
+    @connected
     async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
         device_identifier = get_device_identifier(address.device_instance)
         device_address = self._known_devices.get(device_identifier)
@@ -97,6 +103,7 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
 
         return await self._read_bacnet(address)
 
+    @connected
     async def _write_bacnet(
         self, address: BacnetAddress, value: AttributeValueType
     ) -> None:

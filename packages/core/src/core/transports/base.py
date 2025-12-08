@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from asyncio import Lock
 from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
@@ -13,9 +14,13 @@ class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     address_builder: ClassVar[type[T_TransportAddress]]
     _handlers_registry: ReadHandlerRegistry
+    _connection_lock: Lock
+    _is_connected: bool
 
     def __init__(self) -> None:
         self._handlers_registry = ReadHandlerRegistry()
+        self._connection_lock = Lock()
+        self._is_connected = False
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -36,12 +41,12 @@ class TransportClient[T_TransportAddress](ABC):
     @abstractmethod
     async def connect(self) -> None:
         """Establish a connection to the transport."""
-        raise NotImplementedError
+        self._is_connected = True
 
     @abstractmethod
     async def close(self) -> None:
         """Close the connection and release resources."""
-        raise NotImplementedError
+        self._is_connected = False
 
     @abstractmethod
     async def read(self, address: T_TransportAddress) -> AttributeValueType:
