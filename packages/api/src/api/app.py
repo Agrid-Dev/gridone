@@ -12,10 +12,12 @@ from api.settings import settings
 async def lifespan(app: FastAPI):
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     dm = gridone_repository.init_device_manager()
+    await dm.start_polling()
     app.state.device_manager = dm
     try:
         yield
     finally:
+        await dm.stop_polling()
         for driver in dm.drivers.values():
             await driver.transport.close()
 

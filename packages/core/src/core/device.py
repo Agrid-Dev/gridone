@@ -14,9 +14,11 @@ class Device:
     attributes: dict[str, Attribute]
 
     @classmethod
-    def from_driver(cls, driver: Driver, config: DeviceConfig) -> "Device":
+    def from_driver(
+        cls, driver: Driver, config: DeviceConfig, *, device_id: str
+    ) -> "Device":
         return cls(
-            id="my-device",  # TODO build ids  # noqa: FIX002, TD002, TD003, TD004
+            id=device_id,
             driver=driver,
             config=config,
             attributes={
@@ -63,10 +65,13 @@ class Device:
             if "read" not in attr.read_write_modes:
                 continue
             try:
-                await self.read_attribute_value(attr_name)
+                value = await self.read_attribute_value(attr_name)
+                print(
+                    f"[Device {self.id}] successfully updated attribute {attr_name} to {value}"
+                )
             except Exception as e:  # noqa: BLE001
                 # @TODO: replace with proper logging
-                print(f"[Device] Failed to read {self.id}.{attr_name}: {e}")  # noqa: T201
+                print(f"[Device {self.id}] Failed to read {self.id}.{attr_name}: {e}")  # noqa: T201
 
     async def write_attribute_value(
         self,
