@@ -7,7 +7,8 @@ authors = []
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.123.8",
-    "gridone-storage"
+    "gridone-storage",
+    "pydantic-settings>=2.12.0",
 ]
 
 [tool.uv]

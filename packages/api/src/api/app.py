@@ -1,18 +1,16 @@
 # app.py
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from storage import CoreFileStorage
 
 from api.routes import devices
-
-DB_PATH = Path(__file__).parent / "../../../../.db"
-gridone_repository = CoreFileStorage(DB_PATH)
+from api.settings import settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    gridone_repository = CoreFileStorage(settings.DB_PATH)
     dm = gridone_repository.init_device_manager()
     app.state.device_manager = dm
     try:
@@ -25,7 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-def create_app(*, db_path: str | Path) -> FastAPI:
+def create_app() -> FastAPI:
     app = FastAPI(title="Gridone API", lifespan=lifespan)
 
     app.include_router(devices.router, prefix="/devices", tags=["devices"])

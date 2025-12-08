@@ -4,6 +4,8 @@ A http server running the `gridone-api` package.
 
 ## Development
 
+To run in development, add a `.env` file with environment variables (`DB_PATH`).
+
 ```sh
 fastapi dev main.py
 # or

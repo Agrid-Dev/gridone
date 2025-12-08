@@ -3,8 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from api.schemas.device import DeviceBase
 
-router = APIRouter()
-
 
 def get_device_manager(request: Request) -> DevicesManager:
     return request.app.state.device_manager
@@ -14,7 +12,6 @@ router = APIRouter()
 
 
 @router.get("/")
-@router.get("")
 async def list_devices(
     dm: DevicesManager = Depends(get_device_manager),
 ) -> list[DeviceBase]:
