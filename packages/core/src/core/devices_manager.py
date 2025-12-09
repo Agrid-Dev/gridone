@@ -1,9 +1,13 @@
+import asyncio
+import logging
 from typing import TypedDict
 
 from .device import Device
 from .driver import Driver
 from .transports.factory import get_transport_client
 from .types import DeviceConfig, TransportProtocols
+
+logger = logging.getLogger(__name__)
 
 
 class DeviceRaw(TypedDict):
@@ -22,13 +26,46 @@ class TransportConfigRaw(TypedDict):
     name: str
 
 
+POLL_INTERVAL = 10
+
+
 class DevicesManager:
     devices: dict[str, Device]
     drivers: dict[str, Driver]
+    _background_tasks: set[asyncio.Task]
+    _running: bool
 
     def __init__(self, devices: dict[str, Device], drivers: dict[str, Driver]) -> None:
         self.devices = devices
         self.drivers = drivers
+        self._background_tasks = set()
+        self._running = False
+
+    async def start_polling(self) -> None:
+        for device in self.devices.values():
+            logger.info("Starting polling job for device %s", device.id)
+            task = asyncio.create_task(self._device_poll_loop(device))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+            self._running = True
+
+    async def stop_polling(self) -> None:
+        self._running = False
+        tasks = list(self._background_tasks)
+        for task in tasks:
+            logger.debug("Stopping task %s", task)
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        self._background_tasks.clear()
+
+    async def _device_poll_loop(self, device: Device) -> None:
+        try:
+            while self._running:
+                await device.update_attributes()
+                await asyncio.sleep(POLL_INTERVAL)
+        except asyncio.CancelledError:
+            return
 
     @classmethod
     def load_from_raw(
@@ -59,7 +96,9 @@ class DevicesManager:
             )
             driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
             drivers[driver.name] = driver
-            devices[d["id"]] = Device.from_driver(driver, d["config"])
+            devices[d["id"]] = Device.from_driver(
+                driver, d["config"], device_id=d["id"]
+            )
 
         return cls(devices, drivers)
 
@@ -74,4 +113,6 @@ class DevicesManager:
             transport_config or {},  # ty: ignore[invalid-argument-type]
         )
         driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
-        return Device.from_driver(driver, device_raw["config"])
+        return Device.from_driver(
+            driver, device_raw["config"], device_id=device_raw["id"]
+        )

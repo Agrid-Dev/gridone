@@ -21,8 +21,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
-    _connection_lock: asyncio.Lock
-    _is_connected: bool
     _background_tasks: set
     _message_handlers: (
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
@@ -41,19 +39,21 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             if not self._is_connected:
                 self._client = aiomqtt.Client(self.config.host, port=self.config.port)
                 await asyncio.wait_for(self._client.__aenter__(), timeout=TIMEOUT)
-                self._is_connected = True
                 self._background_tasks.add(
                     asyncio.create_task(self._handle_incoming_messages())
                 )
+                await super().connect()
 
     async def close(self) -> None:
         """Disconnect from the MQTT broker."""
-        if self._client:
-            await self._client.__aexit__(None, None, None)
-            self._is_connected = False
-        for task in self._background_tasks:
-            task.cancel()
-        self._background_tasks.clear()
+        async with self._connection_lock:
+            if self._client:
+                await self._client.__aexit__(None, None, None)
+                self._is_connected = False
+            for task in self._background_tasks:
+                task.cancel()
+            self._background_tasks.clear()
+            await super().close()
 
     def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> str:
         handler_id = super().register_read_handler(address, handler)

@@ -5,6 +5,7 @@ from typing import Any, cast
 import httpx
 
 from core.transports import TransportClient
+from core.transports.connected import connected
 from core.types import AttributeValueType, TransportProtocols
 
 from .http_address import HttpAddress
@@ -29,14 +30,18 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
         return httpx.AsyncClient(timeout=self._timeout)
 
     async def connect(self) -> None:
-        if self._client is None or self._client.is_closed:
-            self._client = self._build_client()
+        async with self._connection_lock:
+            if self._client is None or self._client.is_closed:
+                self._client = self._build_client()
+            await super().connect()
 
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        await super().close()
 
+    @connected
     async def read(
         self,
         address: HttpAddress,
@@ -60,6 +65,7 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
         )
         return response.json()
 
+    @connected
     async def write(
         self,
         address: HttpAddress,

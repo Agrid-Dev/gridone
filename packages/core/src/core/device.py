@@ -1,9 +1,12 @@
+import logging
 from dataclasses import dataclass
 
 from core.types import AttributeValueType, DeviceConfig
 
 from .attribute import Attribute
 from .driver import Driver
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -14,9 +17,11 @@ class Device:
     attributes: dict[str, Attribute]
 
     @classmethod
-    def from_driver(cls, driver: Driver, config: DeviceConfig) -> "Device":
+    def from_driver(
+        cls, driver: Driver, config: DeviceConfig, *, device_id: str
+    ) -> "Device":
         return cls(
-            id="my-device",  # TODO build ids  # noqa: FIX002, TD002, TD003, TD004
+            id=device_id,
             driver=driver,
             config=config,
             attributes={
@@ -63,10 +68,20 @@ class Device:
             if "read" not in attr.read_write_modes:
                 continue
             try:
-                await self.read_attribute_value(attr_name)
-            except Exception as e:  # noqa: BLE001
-                # @TODO: replace with proper logging
-                print(f"[Device] Failed to read {self.id}.{attr_name}: {e}")  # noqa: T201
+                value = await self.read_attribute_value(attr_name)
+                logger.info(
+                    '[Device %s] read attribute "%s"= %s',
+                    self.id,
+                    attr_name,
+                    value,
+                )
+            except Exception as e:
+                logger.exception(
+                    "[Device %s] failed to read attribute %s",
+                    self.id,
+                    attr_name,
+                    exc_info=e,
+                )
 
     async def write_attribute_value(
         self,

@@ -24,3 +24,6 @@ bacnet.py
 
 # Environment variables
 **/.env
+
+# Logs
+*.log

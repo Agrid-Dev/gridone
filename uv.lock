@@ -67,6 +67,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "fastapi", extra = ["standard"] },
+    { name = "rich" },
 ]
 
 [package.metadata]
@@ -76,7 +77,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "fastapi", extras = ["standard"], specifier = ">=0.123.8" }]
+dev = [
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.123.8" },
+    { name = "rich", specifier = ">=14.2.0" },
+]
 
 [[package]]
 name = "bacpypes3"
