@@ -24,7 +24,20 @@
     "attributes": "attributs",
     "driver": "Pilote",
     "device": "Appareil",
-    "recentlyUpdated": "Mis à jour récemment"
+    "recentlyUpdated": "Mis à jour récemment",
+    "lastUpdate": "Il y a",
+    "timeAgo": {
+      "future": "Dans le futur",
+      "justNow": "à l'instant",
+      "seconds_one": "{{count}} seconde",
+      "seconds_other": "{{count}} secondes",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    }
   },
   "app": {
     "title": "Gridone",
