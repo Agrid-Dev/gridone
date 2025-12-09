@@ -1,7 +1,6 @@
-from fastapi.middleware.cors import CORSMiddleware
-
 from api import create_app
-from logging_config import LOGGING_CONFIG  # ty: ignore[unresolved-import]
+from fastapi.middleware.cors import CORSMiddleware
+from logging_config import LOGGING_CONFIG  # type: ignore[unresolved-import]
 
 app = create_app(logging_dict_config=LOGGING_CONFIG)
 
