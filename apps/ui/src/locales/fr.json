@@ -25,10 +25,10 @@
     "driver": "Pilote",
     "device": "Appareil",
     "recentlyUpdated": "Mis à jour récemment",
-    "lastUpdate": "Il y a",
+    "lastUpdate": "Mis à jour il y a",
     "timeAgo": {
       "future": "Dans le futur",
-      "justNow": "à l'instant",
+      "justNow": "moins d'une minute",
       "seconds_one": "{{count}} seconde",
       "seconds_other": "{{count}} secondes",
       "minutes_one": "{{count}} minute",

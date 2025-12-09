@@ -47,29 +47,29 @@ export function DeviceCard({ device }: { device: Device }) {
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">
-      <Card className="h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+      <Card className="relative h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+        {lastUpdateTime && (
+          <span
+            className={`absolute top-2 right-2 inline-flex items-center gap-1 rounded-full ${statusColor.bg} px-2 py-0.5 text-[10px] font-medium ${statusColor.text} border ${statusColor.border} flex-shrink-0 whitespace-nowrap z-10`}
+          >
+            {isRecent && (
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
+              </span>
+            )}
+            {!isRecent && (
+              <span className={`inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
+            )}
+            {t("common.lastUpdate")} {formatTimeAgo(lastUpdateTime, t)}
+          </span>
+        )}
         <div className="flex items-center justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <p className="text-xs font-medium uppercase tracking-[0.1em] text-slate-500 truncate">
                 {device.driver}
               </p>
-              {lastUpdateTime && (
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full ${statusColor.bg} px-2 py-0.5 text-xs font-medium ${statusColor.text} border ${statusColor.border} flex-shrink-0 whitespace-nowrap`}
-                >
-                  {isRecent && (
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                      <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
-                    </span>
-                  )}
-                  {!isRecent && (
-                    <span className={`inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
-                  )}
-                  {t("common.lastUpdate")} {formatTimeAgo(lastUpdateTime, t)}
-                </span>
-              )}
             </div>
             <h2 className="mt-1 text-xl font-semibold text-slate-900 truncate">
               {device.id}

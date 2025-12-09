@@ -1,123 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  Device,
-  DeviceAttribute,
-  getDevice,
-  updateDeviceAttribute,
-} from "../api/devices";
 import { Button, Card, Input, Slider, Switch } from "../components/ui";
 import { formatAttributeValue } from "../lib/utils";
-
-const sliderPresets: Record<string, { min: number; max: number; step: number }> = {
-  temperature: { min: 12, max: 30, step: 0.5 },
-  temperature_setpoint: { min: 12, max: 30, step: 0.5 },
-  humidity: { min: 0, max: 100, step: 1 },
-  brightness: { min: 0, max: 100, step: 1 },
-  wind_speed: { min: 0, max: 100, step: 0.5 },
-  fan_speed: { min: 0, max: 6, step: 1 },
-};
-
-function getSliderRange(attributeName: string) {
-  return sliderPresets[attributeName] ?? { min: 0, max: 100, step: 1 };
-}
-
-type Feedback = { type: "success" | "error"; message: string };
+import { useDeviceDetails } from "../hooks/useDeviceDetails";
+import { getSliderRange } from "../utils/sliderPresets";
 
 export default function DeviceDetails() {
   const { t } = useTranslation();
   const { deviceId } = useParams<{ deviceId: string }>();
-  const [device, setDevice] = useState<Device | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState<
-    Record<string, string | number | boolean | null>
-  >({});
-  const [savingAttr, setSavingAttr] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-
-  const loadDevice = async () => {
-    if (!deviceId) {
-      setError(t("deviceDetails.missingDeviceId"));
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setError(null);
-      setFeedback(null);
-      const fetched = await getDevice(deviceId);
-      setDevice(fetched);
-      setDraft(
-        Object.fromEntries(
-          Object.entries(fetched.attributes).map(([name, attribute]) => [
-            name,
-            attribute.current_value,
-          ]),
-        ),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("deviceDetails.unableToLoad"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDevice();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deviceId]);
+  const {
+    device,
+    loading,
+    error,
+    draft,
+    savingAttr,
+    feedback,
+    handleDraftChange,
+    handleSave,
+  } = useDeviceDetails(deviceId);
 
   const attributes = useMemo(
     () => device?.attributes ?? {},
     [device],
   );
-
-  const handleDraftChange = (
-    name: string,
-    value: string | number | boolean | null,
-  ) => {
-    setDraft((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = async (name: string) => {
-    if (!device || savingAttr) return;
-    const attribute = device.attributes[name];
-    const value = draft[name];
-    if (!attribute) return;
-
-    setSavingAttr(name);
-    setFeedback(null);
-
-    try {
-      const parsedValue =
-        attribute.data_type === "bool"
-          ? Boolean(value)
-          : attribute.data_type === "int" || attribute.data_type === "float"
-          ? Number(value)
-          : value;
-      const updated = await updateDeviceAttribute(device.id, name, parsedValue);
-      setDevice(updated);
-      setDraft((prev) => ({
-        ...prev,
-        ...Object.fromEntries(
-          Object.entries(updated.attributes).map(([k, attr]) => [
-            k,
-            attr.current_value,
-          ]),
-        ),
-      }));
-      setFeedback({ type: "success", message: t("deviceDetails.updated", { name }) });
-    } catch (err) {
-      setFeedback({
-        type: "error",
-        message: err instanceof Error ? err.message : t("deviceDetails.updateFailed"),
-      });
-    } finally {
-      setSavingAttr(null);
-    }
-  };
 
   if (loading) {
     return (
