@@ -27,3 +27,6 @@ bacnet.py
 
 # Logs
 *.log
+
+apps/ui/node_modules/
+apps/ui/dist/

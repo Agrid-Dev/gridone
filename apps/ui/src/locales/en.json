@@ -1,0 +1,64 @@
+{
+  "common": {
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "update": "Update",
+    "updating": "Updating...",
+    "back": "Back",
+    "backToDevices": "← Back to devices",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "noData": "No data",
+    "min": "Min",
+    "max": "Max",
+    "currentValue": "Current value",
+    "state": "State",
+    "lastUpdated": "Last updated",
+    "tapForDetails": "Tap for details",
+    "noLiveMetrics": "No live metrics",
+    "noConfiguration": "No configuration",
+    "noConfigurationData": "No configuration data",
+    "readOnly": "Read only",
+    "editable": "Editable",
+    "attributes": "attrs",
+    "driver": "Driver",
+    "device": "Device",
+    "recentlyUpdated": "Recently updated",
+    "lastUpdate": "Updated",
+    "timeAgo": {
+      "future": "In the future",
+      "justNow": "just now",
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    }
+  },
+  "app": {
+    "title": "Gridone",
+    "subtitle": "Device control dashboard",
+    "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
+    "devices": "Devices"
+  },
+  "devices": {
+    "title": "Devices",
+    "subtitle": "Connected fleet",
+    "unableToLoad": "Unable to load devices",
+    "connectedFleet": "Connected fleet"
+  },
+  "deviceDetails": {
+    "title": "Device",
+    "attributes": "Attributes",
+    "attributesDescription": "Highlighting read-only vs editable states",
+    "missingDeviceId": "Missing device identifier",
+    "unableToLoad": "Unable to load device",
+    "updated": "{{name}} updated",
+    "updateFailed": "Update failed"
+  }
+}
+

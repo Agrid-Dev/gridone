@@ -1,0 +1,64 @@
+{
+  "common": {
+    "refresh": "Actualiser",
+    "refreshing": "Actualisation...",
+    "update": "Mettre à jour",
+    "updating": "Mise à jour...",
+    "back": "Retour",
+    "backToDevices": "← Retour aux appareils",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "noData": "Aucune donnée",
+    "min": "Min",
+    "max": "Max",
+    "currentValue": "Valeur actuelle",
+    "state": "État",
+    "lastUpdated": "Dernière mise à jour",
+    "tapForDetails": "Appuyer pour les détails",
+    "noLiveMetrics": "Aucune métrique en direct",
+    "noConfiguration": "Aucune configuration",
+    "noConfigurationData": "Aucune donnée de configuration",
+    "readOnly": "Lecture seule",
+    "editable": "Modifiable",
+    "attributes": "attributs",
+    "driver": "Pilote",
+    "device": "Appareil",
+    "recentlyUpdated": "Mis à jour récemment",
+    "lastUpdate": "Mis à jour il y a",
+    "timeAgo": {
+      "future": "Dans le futur",
+      "justNow": "moins d'une minute",
+      "seconds_one": "{{count}} seconde",
+      "seconds_other": "{{count}} secondes",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
+    }
+  },
+  "app": {
+    "title": "Gridone",
+    "subtitle": "Tableau de bord de contrôle des appareils",
+    "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
+    "devices": "Appareils"
+  },
+  "devices": {
+    "title": "Appareils",
+    "subtitle": "Flotte connectée",
+    "unableToLoad": "Impossible de charger les appareils",
+    "connectedFleet": "Flotte connectée"
+  },
+  "deviceDetails": {
+    "title": "Appareil",
+    "attributes": "Attributs",
+    "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
+    "missingDeviceId": "Identifiant d'appareil manquant",
+    "unableToLoad": "Impossible de charger l'appareil",
+    "updated": "{{name}} mis à jour",
+    "updateFailed": "Échec de la mise à jour"
+  }
+}
+
