@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { DeviceCard } from "../components/DeviceCard";
-import { Button } from "../components/ui";
-import { useDevicesList } from "../hooks/useDevicesList";
+import { DeviceCard } from "@/components/DeviceCard";
+import { Button } from "@/components/ui";
+import { useDevicesList } from "@/hooks/useDevicesList";
 
 export default function DevicesList() {
   const { t } = useTranslation();
