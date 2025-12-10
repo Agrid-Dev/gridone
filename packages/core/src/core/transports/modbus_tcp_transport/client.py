@@ -3,7 +3,7 @@ from pymodbus.client import AsyncModbusTcpClient
 from core.transports import TransportClient
 from core.transports.connected import connected
 from core.types import AttributeValueType, TransportProtocols
-from core.utils.cast_as_bool import cast_as_bool
+from core.utils.cast.bool import cast_as_bool
 
 from .modbus_address import (
     WRITABLE_MODBUS_ADDRESS_TYPES,

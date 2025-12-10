@@ -2,7 +2,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
-from .types import DATA_TYPES, AttributeValueType, DataType, ReadWriteMode
+from .types import AttributeValueType, DataType, ReadWriteMode
+from .utils.cast import cast
 
 
 class Attribute(BaseModel):
@@ -18,7 +19,7 @@ class Attribute(BaseModel):
     ) -> AttributeValueType:
         if raw_value is not None:
             try:
-                return DATA_TYPES[self.data_type](raw_value)
+                return cast(raw_value, self.data_type)
             except (ValueError, TypeError) as e:
                 msg = (
                     f"Value for attribute '{self.name}' must be of type "
