@@ -27,12 +27,11 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     )
 
     def __init__(self, config: MqttTransportConfig) -> None:
-        self.config = config
         self._message_handlers = TopicHandlerRegistry()
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
-        super().__init__()
+        super().__init__(config)
 
     async def connect(self) -> None:
         async with self._connection_lock:

@@ -7,6 +7,7 @@ from core.types import AttributeValueType, TransportProtocols
 
 from .read_handler_registry import ReadHandler, ReadHandlerRegistry
 from .transport_address import RawTransportAddress, TransportAddress
+from .transport_config import TransportConfig
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
 
@@ -21,10 +22,11 @@ class TransportClient[T_TransportAddress](ABC):
     _connection_lock: Lock
     _is_connected: bool
 
-    def __init__(self) -> None:
+    def __init__(self, config: TransportConfig) -> None:
         self._handlers_registry = ReadHandlerRegistry()
         self._connection_lock = Lock()
         self._is_connected = False
+        self.config = config
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -68,7 +70,6 @@ class TransportClient[T_TransportAddress](ABC):
         """Write a value to the transport."""
         ...
 
-    # Default implementation for async context manager
     async def __aenter__(self) -> "TransportClient[T_TransportAddress]":
         """Support async context manager (async with)."""
         await self.connect()

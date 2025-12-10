@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
@@ -10,24 +10,25 @@ from core.types import AttributeValueType, TransportProtocols
 
 from .http_address import HttpAddress
 
-REQUEST_TIMEOUT = 10.0  # s
+if TYPE_CHECKING:
+    from .transport_config import HttpTransportConfig
 
 
 class HTTPTransportClient(TransportClient[HttpAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = HttpAddress
+    config: HttpTransportConfig
 
     def __init__(
         self,
-        *,
-        timeout: float = REQUEST_TIMEOUT,
+        config: HttpTransportConfig,
     ) -> None:
-        self._timeout = timeout
+        self.config = config
         self._client: httpx.AsyncClient | None = None
-        super().__init__()
+        super().__init__(config)
 
     def _build_client(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(timeout=self._timeout)
+        return httpx.AsyncClient(timeout=self.config.request_timeout)
 
     async def connect(self) -> None:
         async with self._connection_lock:

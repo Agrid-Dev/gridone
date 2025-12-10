@@ -47,7 +47,7 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
         self.config = config
         self._application = make_local_application(self.config)
         self._known_devices = {}
-        super().__init__()
+        super().__init__(config)
 
     async def discover_devices(self) -> DevicesDict:
         i_ams = await asyncio.wait_for(

@@ -4,7 +4,7 @@ from typing import TypedDict
 
 from .device import Device
 from .driver import Driver
-from .transports.factory import get_transport_client
+from .transports import TransportClientRegistry
 from .types import DeviceConfig, TransportProtocols
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,7 @@ POLL_INTERVAL = 10
 class DevicesManager:
     devices: dict[str, Device]
     drivers: dict[str, Driver]
+    transport_registry: TransportClientRegistry
     _background_tasks: set[asyncio.Task]
     _running: bool
 
@@ -40,6 +41,7 @@ class DevicesManager:
         self.drivers = drivers
         self._background_tasks = set()
         self._running = False
+        self.transport_registry = TransportClientRegistry()
 
     async def start_polling(self) -> None:
         for device in self.devices.values():
@@ -80,8 +82,8 @@ class DevicesManager:
             t["name"]: t for t in transport_configs
         }
         drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
-        devices = {}
-        drivers = {}
+        dm = cls({}, {})
+
         for d in devices_raw:
             transport_config = (
                 transport_config_dict[d["transport_config"]]
@@ -90,17 +92,17 @@ class DevicesManager:
             )
 
             driver_raw = drivers_raw_dict[d["driver"]]
-            transport_client = get_transport_client(
+            transport_client = dm.transport_registry.get_transport(
                 TransportProtocols(driver_raw["transport"]),
                 transport_config,  # ty: ignore[invalid-argument-type]
             )
             driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
-            drivers[driver.name] = driver
-            devices[d["id"]] = Device.from_driver(
+            dm.drivers[driver.name] = driver
+            dm.devices[d["id"]] = Device.from_driver(
                 driver, d["config"], device_id=d["id"]
             )
 
-        return cls(devices, drivers)
+        return dm
 
     @staticmethod
     def build_device(
@@ -108,11 +110,10 @@ class DevicesManager:
         driver_raw: DriverRaw,
         transport_config: TransportConfigRaw | None,
     ) -> Device:
-        transport_client = get_transport_client(
-            TransportProtocols(driver_raw["transport"]),
-            transport_config or {},  # ty: ignore[invalid-argument-type]
+        transport_client = TransportClientRegistry().get_transport(
+            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
         )
-        driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
+        driver = Driver.from_dict(dict(driver_raw), transport_client)
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )

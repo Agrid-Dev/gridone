@@ -2,7 +2,9 @@ import ipaddress
 from typing import Annotated
 
 from bacpypes3.basetypes import Segmentation
-from pydantic import AfterValidator, BaseModel, PositiveFloat, PositiveInt
+from pydantic import AfterValidator, PositiveFloat, PositiveInt
+
+from core.transports.transport_config import TransportConfig
 
 from .bacnet_types import BacnetWritePriority
 
@@ -32,7 +34,7 @@ def is_valid_ip_with_mask(v: str) -> str:
     return v
 
 
-class BacnetTransportConfig(BaseModel):
+class BacnetTransportConfig(TransportConfig):
     ip_with_mask: Annotated[str, AfterValidator(is_valid_ip_with_mask)]
     local_device_instance: PositiveInt = DEFAULT_LOCAL_DEVICE_INSTANCE
     port: PositiveInt = DEFAULT_PORT

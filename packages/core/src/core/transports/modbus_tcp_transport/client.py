@@ -13,7 +13,7 @@ from .modbus_address import (
 from .transport_config import ModbusTCPTransportConfig
 
 
-class ModbusTCPTransportClient(TransportClient):
+class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
     _client: AsyncModbusTcpClient
     protocol = TransportProtocols.MODBUS_TCP
     address_builder = ModbusAddress
@@ -21,7 +21,7 @@ class ModbusTCPTransportClient(TransportClient):
 
     def __init__(self, config: ModbusTCPTransportConfig) -> None:
         self._client = AsyncModbusTcpClient(host=config.host, port=config.port)
-        super().__init__()
+        super().__init__(config)
 
     async def connect(self) -> None:
         async with self._connection_lock:
