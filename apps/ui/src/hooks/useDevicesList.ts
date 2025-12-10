@@ -1,43 +1,38 @@
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { Device, listDevices } from "../api/devices";
+import { useWebSocketContext } from "../contexts/WebSocketContext";
 
 export function useDevicesList() {
   const { t } = useTranslation();
-  const [devices, setDevices] = useState<Device[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
+  const { isConnected } = useWebSocketContext();
 
-  const fetchDevices = async () => {
-    try {
-      setError(null);
-      if (!loading) {
-        setRefreshing(true);
-      }
-      const list = await listDevices();
-      setDevices(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("devices.unableToLoad"));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const {
+    data,
+    isLoading,
+    error: queryError,
+    refetch,
+    isFetching,
+  } = useQuery<Device[]>({
+    queryKey: ["devices"],
+    queryFn: listDevices,
+    refetchInterval: isConnected ? false : 15000,
+    staleTime: 5000,
+  });
 
-  useEffect(() => {
-    fetchDevices();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : t("devices.unableToLoad")
+    : null;
 
   return {
-    devices,
-    loading,
+    devices: data ?? [],
+    loading: isLoading,
     error,
-    refreshing,
-    fetchDevices,
+    refreshing: isFetching && !isLoading,
+    fetchDevices: refetch,
   };
 }
-
 
 
