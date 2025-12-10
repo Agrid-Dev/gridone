@@ -11,3 +11,4 @@ export function getSliderRange(attributeName: string) {
   return sliderPresets[attributeName] ?? { min: 0, max: 100, step: 1 };
 }
 
+
