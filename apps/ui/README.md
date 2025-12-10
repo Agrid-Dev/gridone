@@ -1,6 +1,6 @@
 # Gridone UI
 
-React dashboard for inspecting and controlling Gridone devices. Built with Vite + TypeScript, TailwindCSS, and shadcn-inspired UI primitives.
+React dashboard for inspecting and controlling Gridone devices. Built with Vite + TypeScript, TailwindCSS, and [shadcn/ui](https://ui.shadcn.com/) components.
 
 ## Development
 
@@ -17,4 +17,4 @@ Set API endpoint via `.env`/`.env.local` using `VITE_API_BASE_URL`. Defaults to 
 - Device list view fetching `/devices/` and displaying metrics in responsive card grids.
 - Device detail view with per-attribute read-only indicators, switches, sliders, and inputs that emit `PATCH /devices/:id` requests to update values.
 - Loading, error, and success states around API interactions plus refresh control.
-- Custom `Card`, `Button`, `Input`, `Switch`, `Slider` primitives inspired by shadcn/ui for consistent spacing and typography.
+- UI components from [shadcn/ui](https://ui.shadcn.com/): `Card`, `Button`, `Input`, `Switch`, and `Slider` for consistent spacing and typography.

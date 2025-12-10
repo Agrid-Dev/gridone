@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Input, Slider, Switch } from "../components/ui";
-import { formatAttributeValue } from "../lib/utils";
-import { useDeviceDetails } from "../hooks/useDeviceDetails";
-import { getSliderRange } from "../utils/sliderPresets";
+import { Button, Card, CardHeader, CardContent, CardTitle, CardDescription, Input, Slider, Switch } from "@/components/ui";
+import { formatAttributeValue } from "@/lib/utils";
+import { useDeviceDetails } from "@/hooks/useDeviceDetails";
+import { getSliderRange } from "@/utils/sliderPresets";
 
 export default function DeviceDetails() {
   const { t } = useTranslation();
@@ -75,38 +75,38 @@ export default function DeviceDetails() {
         </div>
       )}
 
-      <Card className="space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.4em] text-slate-500">
-              {t("deviceDetails.title")}
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-              {device.id}
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">{t("common.driver")}: {device.driver}</p>
-          </div>
-          <Link
-            to="/"
-            className="text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-          >
-            {t("common.backToDevices")}
-          </Link>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Object.entries(device.config).map(([key, value]) => (
-            <div
-              key={key}
-              className="flex justify-between border-b border-slate-100 pb-2 text-sm"
-            >
-              <span className="font-medium text-slate-700">{key}</span>
-              <span className="text-slate-600">{String(value)}</span>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <CardDescription>{t("deviceDetails.title")}</CardDescription>
+              <CardTitle className="mt-1">{device.id}</CardTitle>
+              <p className="mt-1 text-sm text-muted-foreground">{t("common.driver")}: {device.driver}</p>
             </div>
-          ))}
-          {Object.keys(device.config).length === 0 && (
-            <p className="text-sm text-slate-500">{t("common.noConfigurationData")}</p>
-          )}
-        </div>
+            <Link
+              to="/"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {t("common.backToDevices")}
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {Object.entries(device.config).map(([key, value]) => (
+              <div
+                key={key}
+                className="flex justify-between border-b border-border pb-2 text-sm"
+              >
+                <span className="font-medium text-foreground">{key}</span>
+                <span className="text-muted-foreground">{String(value)}</span>
+              </div>
+            ))}
+            {Object.keys(device.config).length === 0 && (
+              <p className="text-sm text-muted-foreground">{t("common.noConfigurationData")}</p>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       <section className="space-y-4">
@@ -123,79 +123,83 @@ export default function DeviceDetails() {
             const sliderRange = getSliderRange(name);
 
             return (
-              <Card key={name} className="space-y-4 transition-shadow hover:shadow-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{name}</p>
-                    <p className="mt-0.5 text-xs font-medium uppercase tracking-[0.4em] text-slate-500">
-                      {attribute.data_type}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                      isEditable
-                        ? "bg-green-50 text-green-700 border border-green-200"
-                        : "bg-slate-50 text-slate-600 border border-slate-200"
-                    }`}
-                  >
-                    {isEditable ? t("common.editable") : t("common.readOnly")}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-sm">
-                  <span className="text-slate-600">{t("common.currentValue")}</span>
-                  <span className="font-medium text-slate-700">
-                    {formatAttributeValue(attribute.current_value)}
-                  </span>
-                </div>
-                {isEditable ? (
-                  <div className="space-y-3">
-                    {attribute.data_type === "bool" ? (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-slate-700">{t("common.state")}</span>
-                        <Switch
-                          checked={Boolean(currentValue)}
-                          onCheckedChange={(next) => handleDraftChange(name, next)}
-                        />
-                      </div>
-                    ) : attribute.data_type === "int" ||
-                      attribute.data_type === "float" ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-slate-500">
-                          <span>{t("common.min")} {sliderRange.min}</span>
-                          <span>{t("common.max")} {sliderRange.max}</span>
-                        </div>
-                        <Slider
-                          min={sliderRange.min}
-                          max={sliderRange.max}
-                          step={sliderRange.step}
-                          value={Number(currentValue ?? sliderRange.min)}
-                          onChange={(event) =>
-                            handleDraftChange(name, Number(event.target.value))
-                          }
-                        />
-                        <p className="text-sm font-medium text-slate-700">
-                          {currentValue ?? "—"}
-                        </p>
-                      </div>
-                    ) : (
-                      <Input
-                        value={currentValue ?? ""}
-                        onChange={(event) => handleDraftChange(name, event.target.value)}
-                      />
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => handleSave(name)}
-                      disabled={savingAttr === name}
+              <Card key={name} className="transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-base">{name}</CardTitle>
+                      <CardDescription className="mt-0.5">
+                        {attribute.data_type}
+                      </CardDescription>
+                    </div>
+                    <span
+                      className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                        isEditable
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : "bg-muted text-muted-foreground border border-border"
+                      }`}
                     >
-                      {savingAttr === name ? t("common.updating") : t("common.update")}
-                    </Button>
+                      {isEditable ? t("common.editable") : t("common.readOnly")}
+                    </span>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-600">
-                    {t("common.lastUpdated")}: {attribute.last_updated ?? "—"}
-                  </p>
-                )}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-2 text-sm">
+                    <span className="text-muted-foreground">{t("common.currentValue")}</span>
+                    <span className="font-medium text-foreground">
+                      {formatAttributeValue(attribute.current_value)}
+                    </span>
+                  </div>
+                  {isEditable ? (
+                    <div className="space-y-3">
+                      {attribute.data_type === "bool" ? (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-foreground">{t("common.state")}</span>
+                          <Switch
+                            checked={Boolean(currentValue)}
+                            onCheckedChange={(next) => handleDraftChange(name, next)}
+                          />
+                        </div>
+                      ) : attribute.data_type === "int" ||
+                        attribute.data_type === "float" ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{t("common.min")} {sliderRange.min}</span>
+                            <span>{t("common.max")} {sliderRange.max}</span>
+                          </div>
+                          <Slider
+                            min={sliderRange.min}
+                            max={sliderRange.max}
+                            step={sliderRange.step}
+                            value={[Number(currentValue ?? sliderRange.min)]}
+                            onValueChange={(values) =>
+                              handleDraftChange(name, values[0])
+                            }
+                          />
+                          <p className="text-sm font-medium text-foreground">
+                            {currentValue ?? "—"}
+                          </p>
+                        </div>
+                      ) : (
+                        <Input
+                          value={currentValue != null ? String(currentValue) : ""}
+                          onChange={(event) => handleDraftChange(name, event.target.value)}
+                        />
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => handleSave(name)}
+                        disabled={savingAttr === name}
+                      >
+                        {savingAttr === name ? t("common.updating") : t("common.update")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {t("common.lastUpdated")}: {attribute.last_updated ?? "—"}
+                    </p>
+                  )}
+                </CardContent>
               </Card>
             );
           })}

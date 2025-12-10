@@ -1,25 +1,80 @@
-import { InputHTMLAttributes } from "react";
-import { cn } from "../../lib/utils";
+import * as React from "react"
 
-export interface SliderProps extends InputHTMLAttributes<HTMLInputElement> {
-  min?: number;
-  max?: number;
-  step?: number;
+import { cn } from "@/lib/utils"
+
+export interface SliderProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+  value?: number[]
+  onValueChange?: (value: number[]) => void
+  min?: number
+  max?: number
+  step?: number
 }
 
-export function Slider({ className, ...props }: SliderProps) {
-  return (
-    <input
-      type="range"
-      className={cn(
-        "relative flex w-full touch-none select-none items-center",
-        "h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-200 transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
-        "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-slate-900 [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:transition-colors [&::-webkit-slider-thumb]:hover:bg-slate-800",
-        "[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-slate-900 [&::-moz-range-thumb]:shadow-sm [&::-moz-range-thumb]:transition-colors [&::-moz-range-thumb]:hover:bg-slate-800",
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
+  (
+    {
+      className,
+      value = [0],
+      onValueChange,
+      min = 0,
+      max = 100,
+      step = 1,
+      disabled,
+      ...props
+    },
+    ref
+  ) => {
+    const currentValue = value[0] ?? min
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newValue = Number(e.target.value)
+      if (onValueChange) {
+        onValueChange([newValue])
+      }
+    }
+
+    const percentage = ((currentValue - min) / (max - min)) * 100
+
+    return (
+      <div
+        className={cn(
+          "relative flex w-full touch-none select-none items-center",
+          className
+        )}
+      >
+        <div className="relative h-2 w-full grow overflow-hidden rounded-full bg-secondary">
+          <div
+            className="absolute h-full bg-primary transition-all"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue}
+          onChange={handleChange}
+          disabled={disabled}
+          className={cn(
+            "absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0",
+            disabled && "cursor-not-allowed"
+          )}
+          ref={ref}
+          {...props}
+        />
+        <div
+          className={cn(
+            "pointer-events-none absolute block h-5 w-5 -translate-x-1/2 rounded-full border-2 border-primary bg-background ring-offset-background transition-all",
+            disabled && "opacity-50"
+          )}
+          style={{ left: `${percentage}%` }}
+        />
+      </div>
+    )
+  }
+)
+Slider.displayName = "Slider"
+
+export { Slider }
