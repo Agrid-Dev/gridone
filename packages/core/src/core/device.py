@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -7,6 +8,10 @@ from .attribute import Attribute
 from .driver import Driver
 
 logger = logging.getLogger(__name__)
+
+
+class ConfirmationError(ValueError):
+    pass
 
 
 @dataclass
@@ -56,11 +61,11 @@ class Device:
     async def read_attribute_value(
         self,
         attribute_name: str,
-    ) -> AttributeValueType | None:
+    ) -> AttributeValueType:
         attribute = self.get_attribute(attribute_name)
         new_value = await self.driver.read_value(attribute_name, self.config)
         attribute.update_value(new_value)
-        return attribute.current_value
+        return attribute.current_value  # ty:ignore[invalid-return-type]
 
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
@@ -68,13 +73,7 @@ class Device:
             if "read" not in attr.read_write_modes:
                 continue
             try:
-                value = await self.read_attribute_value(attr_name)
-                logger.info(
-                    '[Device %s] read attribute "%s"= %s',
-                    self.id,
-                    attr_name,
-                    value,
-                )
+                await self.read_attribute_value(attr_name)
             except Exception as e:
                 logger.exception(
                     "[Device %s] failed to read attribute %s",
@@ -83,16 +82,50 @@ class Device:
                     exc_info=e,
                 )
 
-    async def write_attribute_value(
+    async def _confirm_attribute_value(
         self,
         attribute_name: str,
-        value: AttributeValueType,
-    ) -> AttributeValueType:
+        expected_value: AttributeValueType,
+        max_retries: int = 3,
+    ) -> None:
+        actual_value = self.get_attribute_value(attribute_name)
+        if actual_value == expected_value:
+            return
+        confirm_delay = 0.25
+        for _ in range(max_retries):
+            try:
+                await asyncio.sleep(confirm_delay)
+                actual_value = await self.read_attribute_value(attribute_name)
+                if actual_value == expected_value:
+                    return
+                confirm_delay *= 4
+            except Exception as e:
+                logger.exception(
+                    "[Device %s] failed to read attribute %s",
+                    self.id,
+                    attribute_name,
+                    exc_info=e,
+                )
+        msg = (
+            f"Failed to confirm attribute {attribute_name} value, "
+            f"expected {expected_value} got {actual_value}"
+        )
+        raise ConfirmationError(msg)
+
+    async def write_attribute_value(
+        self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
+    ) -> None:
         attribute = self.get_attribute(attribute_name)
         if "write" not in attribute.read_write_modes:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
         await self.driver.write_value(attribute_name, self.config, validated_value)
-        attribute.update_value(validated_value)
-        return attribute.current_value
+        logger.info(
+            "Wrote attribute '%s' with value '%s' to device '%s'",
+            attribute_name,
+            validated_value,
+            self.id,
+        )
+        if confirm:
+            await self._confirm_attribute_value(attribute_name, validated_value)
