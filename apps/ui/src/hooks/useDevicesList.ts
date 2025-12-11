@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Device, listDevices } from "../api/devices";
-import { useWebSocketContext } from "../contexts/WebSocketContext";
+import { useDeviceContext } from "../contexts/DeviceContext";
 
 export function useDevicesList() {
   const { t } = useTranslation();
-  const { isConnected } = useWebSocketContext();
+  const { isConnected } = useDeviceContext();
 
   const {
     data,
