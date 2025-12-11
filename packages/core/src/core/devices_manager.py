@@ -1,10 +1,8 @@
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable
 from typing import TypedDict
 
-from .attribute import Attribute
-from .device import Device
+from .device import AttributeListener, Device
 from .driver import Driver
 from .transports import TransportClientRegistry
 from .types import DeviceConfig, TransportProtocols
@@ -37,9 +35,7 @@ class DevicesManager:
     transport_registry: TransportClientRegistry
     _background_tasks: set[asyncio.Task]
     _running: bool
-    _attribute_listeners: list[
-        Callable[[Device, str, Attribute], Awaitable[None] | None]
-    ]
+    _attribute_listeners: list[AttributeListener]
 
     def __init__(self, devices: dict[str, Device], drivers: dict[str, Driver]) -> None:
         self.devices = devices
@@ -128,7 +124,7 @@ class DevicesManager:
 
     def add_device_attribute_listener(
         self,
-        callback: Callable[[Device, str, Attribute], Awaitable[None] | None],
+        callback: AttributeListener,
     ) -> None:
         """Attach a callback to every device for attribute updates."""
         self._attribute_listeners.append(callback)

@@ -1,8 +1,4 @@
 import asyncio
-<<<<<<< HEAD
-=======
-import inspect
->>>>>>> 0337f04 (feat: added socket manager in ui and back)
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -13,6 +9,8 @@ from .attribute import Attribute
 from .driver import Driver
 
 logger = logging.getLogger(__name__)
+
+AttributeListener = Callable[["Device", str, Attribute], Awaitable[None] | None]
 
 
 class ConfirmationError(ValueError):
@@ -25,9 +23,9 @@ class Device:
     config: DeviceConfig
     driver: Driver
     attributes: dict[str, Attribute]
-    _update_listeners: list[
-        Callable[["Device", str, Attribute], Awaitable[None] | None]
-    ] = field(default_factory=list, init=False, repr=False)
+    _update_listeners: set[AttributeListener] = field(
+        default_factory=set, init=False, repr=False
+    )
     _background_tasks: set[asyncio.Task[None]] = field(
         default_factory=set, init=False, repr=False
     )
@@ -57,7 +55,7 @@ class Device:
             def updater(
                 new_value: AttributeValueType | None, attribute: Attribute = attribute
             ) -> None:
-                return self._handle_attribute_update(attribute, new_value)
+                return self._update_attribute(attribute, new_value)
 
             self.driver.attach_updater(attribute.name, self.config, updater)
 
@@ -77,7 +75,7 @@ class Device:
     ) -> AttributeValueType:
         attribute = self.get_attribute(attribute_name)
         new_value = await self.driver.read_value(attribute_name, self.config)
-        self._handle_attribute_update(attribute, new_value)
+        self._update_attribute(attribute, new_value)
         return attribute.current_value
 
     async def update_attributes(self) -> None:
@@ -142,24 +140,24 @@ class Device:
         )
         if confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
-        self._handle_attribute_update(attribute, validated_value)
+        self._update_attribute(attribute, validated_value)
         return attribute.current_value
 
     def add_update_listener(
         self,
-        callback: Callable[["Device", str, Attribute], Awaitable[None] | None],
+        callback: AttributeListener,
     ) -> None:
-        self._update_listeners.append(callback)
+        self._update_listeners.add(callback)
 
-    def _handle_attribute_update(
+    def _update_attribute(
         self,
         attribute: Attribute,
         new_value: AttributeValueType | None,
     ) -> None:
-        attribute.update_value(new_value)
-        self._notify_attribute_update(attribute.name, attribute)
+        attribute._update_value(new_value)  # noqa: SLF001
+        self._execute_update_listeners(attribute.name, attribute)
 
-    def _notify_attribute_update(
+    def _execute_update_listeners(
         self, attribute_name: str, attribute: Attribute
     ) -> None:
         for callback in self._update_listeners:
