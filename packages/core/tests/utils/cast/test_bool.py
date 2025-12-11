@@ -1,5 +1,5 @@
 import pytest
-from core.utils.cast_as_bool import cast_as_bool
+from core.utils.cast.bool import cast_as_bool
 
 
 @pytest.mark.parametrize(
@@ -12,5 +12,5 @@ def test_cast_as_bool_valid_values(value, expected: bool) -> None:  # noqa: ANN0
 
 def test_cast_as_bool_invalid_values() -> None:
     for invalid_value in [2, -2, 4.0, "b"]:
-        with pytest.raises(ValueError, match="Invalid"):
+        with pytest.raises(TypeError):
             cast_as_bool(invalid_value)

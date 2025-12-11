@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from core.attribute import Attribute
 from core.device import Device as CoreDevice
+from core.types import AttributeValueType
 from pydantic import BaseModel
 
 
@@ -19,3 +20,7 @@ class DeviceBase(BaseModel):
             attributes=device.attributes,
             driver=device.driver.name,
         )
+
+
+class AttributeUpdate(BaseModel):
+    value: AttributeValueType
