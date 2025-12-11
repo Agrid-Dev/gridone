@@ -94,11 +94,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   renderCountRef.current += 1;
 
-  const queryClientChanged = prevQueryClientRef.current !== queryClient;
-  if (queryClientChanged) {
-    // queryClient reference changed
-  }
-  prevQueryClientRef.current = queryClient;
 
   const handleMessageRef = useRef<((message: WebSocketMessage) => void) | null>(
     null
