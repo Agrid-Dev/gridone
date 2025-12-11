@@ -11,16 +11,15 @@ from core.types import AttributeValueType
 
 class WebSocketMessage(BaseModel):
     type: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PingMessage(WebSocketMessage):
     type: Literal["ping"] = "ping"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PongMessage(WebSocketMessage):
     type: Literal["pong"] = "pong"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class DeviceUpdateMessage(WebSocketMessage):
@@ -28,7 +27,6 @@ class DeviceUpdateMessage(WebSocketMessage):
     device_id: str
     attribute: str
     value: AttributeValueType | None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class DeviceFullUpdateMessage(WebSocketMessage):

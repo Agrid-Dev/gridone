@@ -20,7 +20,7 @@ async def websocket_endpoint(
     manager: WebSocketManager = Depends(get_websocket_manager),
 ) -> None:
     connection_id = await manager.connect(websocket)
-    
+
     try:
         while True:
             try:

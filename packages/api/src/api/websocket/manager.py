@@ -17,22 +17,22 @@ class WebSocketManager:
     async def connect(self, websocket: WebSocket) -> str:
         """Accept a connection and register it."""
         connection_id = str(uuid4())
-        
+
         try:
             await websocket.accept()
         except Exception:
             raise
-        
+
         async with self._lock:
             self.active_connections[connection_id] = websocket
-        
+
         return connection_id
 
     async def disconnect(self, connection_id: str) -> None:
         """Remove a connection if it exists."""
         async with self._lock:
             websocket = self.active_connections.pop(connection_id, None)
-        
+
         if websocket:
             try:
                 await websocket.close()
@@ -45,7 +45,7 @@ class WebSocketManager:
             return
 
         payload = self._serialize(message)
-        
+
         stale_connections: list[str] = []
         async with self._lock:
             for connection_id, connection in self.active_connections.items():
