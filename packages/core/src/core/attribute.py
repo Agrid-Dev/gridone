@@ -32,7 +32,12 @@ class Attribute(BaseModel):
     def __post_init__(self) -> None:
         self.ensure_type(self.current_value)
 
-    def update_value(self, new_value: AttributeValueType) -> None:
+    def _update_value(self, new_value: AttributeValueType) -> None:
+        """
+        Update the attribute value and timestamp.
+        This method is private and should only be called from Device._update_attribute
+        to ensure that update listeners are properly executed.
+        """
         object.__setattr__(self, "current_value", self.ensure_type(new_value))
         object.__setattr__(self, "last_updated", datetime.now(UTC))
 
