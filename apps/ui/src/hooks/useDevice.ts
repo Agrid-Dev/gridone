@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { getDevice, Device } from "../api/devices";
-import { useWebSocketContext } from "../contexts/WebSocketContext";
+import { useDeviceContext } from "../contexts/DeviceContext";
 
 export function useDevice(deviceId: string | undefined) {
-  const { isConnected } = useWebSocketContext();
+  const { isConnected } = useDeviceContext();
   return useQuery<Device>({
     queryKey: ["device", deviceId],
     queryFn: () => {
