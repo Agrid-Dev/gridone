@@ -3,7 +3,7 @@ from typing import cast
 import jsonpath
 
 from core.types import AttributeValueType
-from core.value_parsers.value_parser import ValueParser
+from core.value_adapters.fn_adapter import FnAdapter
 
 
 def json_path_parser(data: dict, json_path: str) -> AttributeValueType:
@@ -14,11 +14,5 @@ def json_path_parser(data: dict, json_path: str) -> AttributeValueType:
     raise ValueError(msg)
 
 
-class JsonPathParser(ValueParser[dict]):
-    json_path: str
-
-    def __init__(self, raw: str) -> None:
-        self.json_path = raw
-
-    def parse(self, value: dict) -> AttributeValueType:
-        return json_path_parser(value, self.json_path)
+def json_path_adapter(path: str) -> FnAdapter[dict, AttributeValueType]:
+    return FnAdapter(decoder=lambda d: json_path_parser(d, path))

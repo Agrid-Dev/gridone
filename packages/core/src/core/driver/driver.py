@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from core.transports import TransportClient
 from core.types import AttributeValueType, DeviceConfig
-from core.value_parsers import ReversibleValueParser, build_value_parser
+from core.value_adapters import build_value_adapter
 
 from .driver_schema import DriverSchema
 
@@ -34,13 +34,10 @@ class Driver:
             msg = f"Attribute {attribute_name} is not supported"
             raise ValueError(msg) from e
         address = self.transport.build_address(attribute_schema.read, context)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        adapter = build_value_adapter(attribute_schema.value_adapter)
 
         self.transport.register_read_handler(
-            address, lambda v: callback(value_parser.parse(v))
+            address, lambda v: callback(adapter.decode(v))
         )
 
     async def read_value(
@@ -52,13 +49,10 @@ class Driver:
         attribute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         ).render(context)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        adapter = build_value_adapter(attribute_schema.value_adapter)
         address = self.transport.build_address(attribute_schema.read, context)
         raw_value = await self.transport.read(address)
-        return value_parser.parse(raw_value)
+        return adapter.decode(raw_value)
 
     async def write_value(
         self,
@@ -73,19 +67,11 @@ class Driver:
         if attribute_schema.write is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        adapter = build_value_adapter(attribute_schema.value_adapter)
         address = self.transport.build_address(attribute_schema.write, context)
-        value_to_write = (
-            value_parser.revert(value)
-            if isinstance(value_parser, ReversibleValueParser)
-            else value
-        )
         await self.transport.write(
             address=address,
-            value=value_to_write,  # ty: ignore[invalid-argument-type]
+            value=adapter.encode(value),
         )
 
     @classmethod

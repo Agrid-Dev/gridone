@@ -40,3 +40,10 @@ def test_invalid_timeout():
     for invalid_timeout in [MAX_TIMEOUT + 1, -1]:
         with pytest.raises(ValidationError):
             _ = UpdateStrategy(read_timeout=invalid_timeout)  # ty:ignore[missing-argument]
+
+
+def test_polling_disabled():
+    raw = {"polling": "disable", "timeout": "60s"}
+    update_strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
+    assert not update_strategy.polling_enabled
+    assert update_strategy.read_timeout == 60

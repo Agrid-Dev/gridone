@@ -1,6 +1,6 @@
 import pytest
 from core.types import AttributeValueType
-from core.value_parsers.registry.identity_parser import IdentityParser
+from core.value_adapters.registry.identity_adapter import identity_adapter
 
 
 @pytest.mark.parametrize(
@@ -8,6 +8,6 @@ from core.value_parsers.registry.identity_parser import IdentityParser
     [("abc"), (1), (1.0), (-1), (True), (False), (None)],
 )
 def test_identity_parser(value: AttributeValueType) -> None:
-    ip = IdentityParser("")
-    assert ip.parse(value) == value
-    assert ip.revert(value) == value
+    ip = identity_adapter("")
+    assert ip.decode(value) == value
+    assert ip.encode(value) == value
