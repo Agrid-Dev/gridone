@@ -5,24 +5,18 @@ from pydantic import BaseModel, model_validator
 from core.transports import RawTransportAddress
 from core.types import DataType
 from core.utils.templating.render import render_struct
-from core.value_parsers.factory import supported_value_parsers
-
-
-class ValueParserSchema(BaseModel):
-    parser_key: str
-    parser_raw: str | float
-
+from core.value_parsers.factory import ValueParserSchema, supported_value_parsers
 
 DEFAULT_VALUE_PARSER_SCHEMA = ValueParserSchema(parser_key="identity", parser_raw="")
 
 
-def get_value_parser_schema(attribute_schema_dict: dict) -> ValueParserSchema:
-    for key in supported_value_parsers:
-        if key in attribute_schema_dict:
-            return ValueParserSchema(
-                parser_key=key, parser_raw=attribute_schema_dict[key]
-            )
-    return DEFAULT_VALUE_PARSER_SCHEMA
+def get_value_parser_schemas(attribute_schema_dict: dict) -> list[ValueParserSchema]:
+    parsers = [
+        ValueParserSchema(parser_key=key, parser_raw=attribute_schema_dict[key])
+        for key in supported_value_parsers
+        if key in attribute_schema_dict
+    ]
+    return parsers if parsers else [DEFAULT_VALUE_PARSER_SCHEMA]
 
 
 class AttributeSchema(BaseModel):
@@ -30,7 +24,7 @@ class AttributeSchema(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
-    value_parser: ValueParserSchema
+    value_parser: list[ValueParserSchema]
 
     @model_validator(mode="before")
     @classmethod
@@ -47,7 +41,7 @@ class AttributeSchema(BaseModel):
 
     @classmethod
     def from_dict(cls, data: dict[str, str]) -> "AttributeSchema":
-        value_parser = get_value_parser_schema(data)
+        value_parser = get_value_parser_schemas(data)
         return cls(**{**data, "value_parser": value_parser})
 
     def render(

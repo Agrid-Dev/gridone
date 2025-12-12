@@ -2,7 +2,7 @@ from core.types import AttributeValueType
 from core.value_parsers.value_parser import ReversibleValueParser
 
 
-class IdentityParser(ReversibleValueParser[AttributeValueType]):
+class IdentityParser(ReversibleValueParser[AttributeValueType, AttributeValueType]):
     """Default value parser (no parsing, returns value as is)."""
 
     def __init__(self, raw: str) -> None:

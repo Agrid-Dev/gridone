@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+
 from .registry.identity_parser import IdentityParser
 from .registry.json_path_parser import JsonPathParser
 from .registry.json_pointer_parser import JsonPointerParser
@@ -14,7 +16,14 @@ value_parser_builders = {
 supported_value_parsers = list(value_parser_builders.keys())
 
 
-def build_value_parser(parser_key: str, parser_raw: str | float) -> ValueParser:
+class ValueParserSchema(BaseModel):
+    parser_key: str
+    parser_raw: str | float
+
+
+def build_value_parser(raw_parsers: list[ValueParserSchema]) -> ValueParser:
+    parser_key = raw_parsers[0].parser_key  # TODO
+    parser_raw = raw_parsers[0].parser_raw
     builder = value_parser_builders.get(parser_key)
     if not builder:
         msg = (

@@ -14,7 +14,7 @@ def json_path_parser(data: dict, json_path: str) -> AttributeValueType:
     raise ValueError(msg)
 
 
-class JsonPathParser(ValueParser[dict]):
+class JsonPathParser(ValueParser[dict, AttributeValueType]):
     json_path: str
 
     def __init__(self, raw: str) -> None:

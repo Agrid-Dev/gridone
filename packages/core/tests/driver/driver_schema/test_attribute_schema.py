@@ -17,8 +17,8 @@ def test_attribute_schema_from_dict() -> None:
     assert schema.name == "temperature"
     assert schema.data_type == DataType.FLOAT
     assert schema.value_parser is not None
-    assert schema.value_parser.parser_key == "json_pointer"
-    assert schema.value_parser.parser_raw == "/current_weather/temperature"
+    assert schema.value_parser[0].parser_key == "json_pointer"
+    assert schema.value_parser[0].parser_raw == "/current_weather/temperature"
     assert schema.read == data["read"]
     assert schema.write is None
 

@@ -34,10 +34,7 @@ class Driver:
             msg = f"Attribute {attribute_name} is not supported"
             raise ValueError(msg) from e
         address = self.transport.build_address(attribute_schema.read, context)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        value_parser = build_value_parser(attribute_schema.value_parser)
 
         self.transport.register_read_handler(
             address, lambda v: callback(value_parser.parse(v))
@@ -52,10 +49,7 @@ class Driver:
         attribute_schema = self.schema.get_attribute_schema(
             attribute_name=attribute_name,
         ).render(context)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        value_parser = build_value_parser(attribute_schema.value_parser)
         address = self.transport.build_address(attribute_schema.read, context)
         raw_value = await self.transport.read(address)
         return value_parser.parse(raw_value)
@@ -73,10 +67,7 @@ class Driver:
         if attribute_schema.write is None:
             msg = f"Attribute '{attribute_name}' is not writable"
             raise ValueError(msg)
-        value_parser = build_value_parser(
-            attribute_schema.value_parser.parser_key,
-            attribute_schema.value_parser.parser_raw,
-        )
+        value_parser = build_value_parser(attribute_schema.value_parser)
         address = self.transport.build_address(attribute_schema.write, context)
         value_to_write = (
             value_parser.revert(value)

@@ -15,7 +15,7 @@ def is_valid_json_pointer(json_pointer: str) -> tuple[bool, str | None]:
     return True, ""
 
 
-class JsonPointerParser(ValueParser[dict]):
+class JsonPointerParser(ValueParser[dict, AttributeValueType]):
     json_pointer: str
 
     def __init__(self, raw: str) -> None:

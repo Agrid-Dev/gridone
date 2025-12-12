@@ -2,7 +2,7 @@ from core.types import AttributeValueType
 from core.value_parsers.value_parser import ReversibleValueParser
 
 
-class ScaleParser(ReversibleValueParser[float]):
+class ScaleParser(ReversibleValueParser[float, float]):
     scale: float
 
     def __init__(self, raw: str) -> None:
