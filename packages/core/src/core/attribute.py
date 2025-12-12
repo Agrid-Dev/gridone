@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from .types import AttributeValueType, DataType, ReadWriteMode
 from .utils.cast import cast
@@ -30,8 +30,10 @@ class Attribute(BaseModel):
                 ) from e
         return raw_value
 
-    def __post_init__(self) -> None:
-        self.ensure_type(self.current_value)
+    @model_validator(mode="after")
+    def ensure_type_and_post_init(self) -> "Attribute":
+        self.current_value = self.ensure_type(self.current_value)
+        return self
 
     def update_value(self, new_value: AttributeValueType) -> None:
         object.__setattr__(self, "current_value", self.ensure_type(new_value))

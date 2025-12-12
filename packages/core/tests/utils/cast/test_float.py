@@ -2,7 +2,7 @@ import pytest
 from core.utils.cast.float import cast_as_float
 
 
-@pytest.mark.parametrize(("value", "expected"), [(2.0, 2.0), (2, 2.0)])
+@pytest.mark.parametrize(("value", "expected"), [(2.0, 2.0), (2, 2.0), ("2.0", 2.0)])
 def test_cast_as_float(value, expected: float) -> None:  # noqa: ANN001
     result = cast_as_float(value)
     assert isinstance(result, float)

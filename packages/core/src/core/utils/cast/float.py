@@ -1,3 +1,4 @@
+import contextlib
 from typing import Any
 
 
@@ -6,5 +7,8 @@ def cast_as_float(v: Any) -> float:  # noqa: ANN401
         return v
     if isinstance(v, int) and not isinstance(v, bool):
         return float(v)
+    if isinstance(v, str):
+        with contextlib.suppress(ValueError):
+            return float(v)
     msg = f"Cannot cast {v} (type {type(v)} as float"
     raise TypeError(msg)
