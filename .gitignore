@@ -30,6 +30,7 @@ bacnet.py
 
 # Coverage output
 .coverage
+coverage.*
 htmlcov
 
 apps/ui/node_modules/
