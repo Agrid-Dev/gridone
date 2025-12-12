@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.types import TransportProtocols
 
 from .attribute_schema import AttributeSchema
+from .update_strategy import UpdateStrategy
 
 
 @dataclass
@@ -16,6 +17,7 @@ class DeviceConfigField:
 class DriverSchema(BaseModel):
     name: str
     transport: TransportProtocols
+    update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config_fields: list[DeviceConfigField]
     attribute_schemas: list[AttributeSchema]
 
@@ -52,4 +54,5 @@ class DriverSchema(BaseModel):
             transport=TransportProtocols(data["transport"]),
             device_config_fields=device_config_fields,
             attribute_schemas=attribute_schemas,
+            update_strategy=data.get("update_strategy", {}),
         )
