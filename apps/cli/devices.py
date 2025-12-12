@@ -6,7 +6,7 @@ import asyncio
 
 import typer
 from core.devices_manager import DevicesManager
-from repository import gridone_repository  # ty: ignore[unresolved-import]
+from repository import gridone_repository
 from rich.console import Console
 from rich.table import Table
 
