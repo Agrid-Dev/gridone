@@ -45,11 +45,12 @@ class DevicesManager:
 
     async def start_polling(self) -> None:
         for device in self.devices.values():
-            logger.info("Starting polling job for device %s", device.id)
-            task = asyncio.create_task(self._device_poll_loop(device))
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
-            self._running = True
+            if device.driver.schema.update_strategy.polling_enabled:
+                logger.info("Starting polling job for device %s", device.id)
+                task = asyncio.create_task(self._device_poll_loop(device))
+                self._background_tasks.add(task)
+                task.add_done_callback(self._background_tasks.discard)
+                self._running = True
 
     async def stop_polling(self) -> None:
         self._running = False
@@ -62,10 +63,11 @@ class DevicesManager:
         self._background_tasks.clear()
 
     async def _device_poll_loop(self, device: Device) -> None:
+        poll_interval = device.driver.schema.update_strategy.polling_interval
         try:
             while self._running:
                 await device.update_attributes()
-                await asyncio.sleep(POLL_INTERVAL)
+                await asyncio.sleep(poll_interval)
         except asyncio.CancelledError:
             return
 
