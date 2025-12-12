@@ -1,9 +1,7 @@
 from typing import Any
 
 import pytest
-from core.value_parsers.registry.json_path_parser import (
-    json_path_parser,
-)
+from core.value_adapters.registry.json_path_adapter import json_path_adapter
 
 TEST_DATA = {
     "mac": "F0F5BD273F98",
@@ -68,9 +66,11 @@ TEST_DATA = {
     ],
 )
 def test_json_path_parser(data: dict, json_path: str, expected: Any) -> None:
-    assert json_path_parser(data, json_path) == expected
+    adapter = json_path_adapter(json_path)
+    assert adapter.decode(data) == expected
 
 
 def test_json_path_parser_raises_not_found() -> None:
+    adapter = json_path_adapter('$.data[?(@.name == "UNKNOWN")].value')
     with pytest.raises(ValueError, match="Could not find value"):
-        json_path_parser(TEST_DATA, '$.data[?(@.name == "UNKNOWN")].value')
+        adapter.decode(TEST_DATA)
