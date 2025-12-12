@@ -105,6 +105,7 @@ name = "cli"
 version = "0.1.0"
 source = { virtual = "apps/cli" }
 dependencies = [
+    { name = "gridone-core" },
     { name = "gridone-storage" },
     { name = "python-dotenv" },
     { name = "typer" },
@@ -112,6 +113,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "gridone-core", editable = "packages/core" },
     { name = "gridone-storage", editable = "packages/storage" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "typer", specifier = ">=0.20.0" },

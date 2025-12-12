@@ -5,8 +5,10 @@ Command group for devices.
 import asyncio
 
 import typer
+from core.devices_manager import DevicesManager
 from repository import gridone_repository  # ty: ignore[unresolved-import]
 from rich.console import Console
+from rich.table import Table
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
@@ -19,6 +21,16 @@ def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001
     if isinstance(value, float):
         return f"{value:.2f}"
     return str(value)
+
+
+def get_single_device_manager(device_id: str) -> DevicesManager:
+    device_raw = gridone_repository.devices.read(device_id)
+    driver_raw = gridone_repository.drivers.read(device_raw["driver"])
+    if device_raw.get("transport_config"):
+        transport_configs = [
+            gridone_repository.transport_configs.read(device_raw["transport_config"])
+        ]
+    return DevicesManager.load_from_raw([device_raw], [driver_raw], transport_configs)
 
 
 async def _read_device_async(device_id: str) -> None:
@@ -36,6 +48,24 @@ async def _read_device_async(device_id: str) -> None:
         for attribute in device.attributes:
             value = await device.read_attribute_value(attribute)
             console.print(f"{attribute}: {autoformat_value(value)}")
+
+
+@app.command("list")
+def list_all() -> None:
+    devices = gridone_repository.devices.read_all()
+    table = Table(title=f"Devices ({len(devices)})")
+    table.add_column("ID", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Driver", justify="left", style="magenta")
+    table.add_column("Transport Config", justify="left", style="green")
+
+    for device_raw in sorted(devices, key=lambda d: d["id"]):
+        table.add_row(
+            device_raw["id"],
+            device_raw["driver"],
+            device_raw.get("transport_config"),
+        )
+
+    console.print(table)
 
 
 @app.command()
@@ -96,11 +126,13 @@ def write(
 
 
 async def _watch_device(device_id: str) -> None:
-    device = gridone_repository.load_device(device_id)
+    dm = get_single_device_manager(device_id)
+    device = dm.devices[device_id]
     console.print(
         f"Watching device [bold blue]{device_id}[/bold blue] using driver"
         f" [bold blue]{device.driver.name}[/bold blue] (enter 'q' to quit)"
     )
+    await dm.start_polling()
 
     async with device.driver.transport:
         console.print("Initializing current values...")
@@ -125,6 +157,7 @@ async def _watch_device(device_id: str) -> None:
                 user_input = await asyncio.get_event_loop().run_in_executor(None, input)
                 if user_input.strip().lower() == "q":
                     console.print("👋 goodbye")
+                    dm.stop_polling()
                     stop_event.set()
                     return
                 await asyncio.sleep(0.1)
