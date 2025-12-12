@@ -1,6 +1,13 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from pydantic import AliasChoices, BaseModel, BeforeValidator, Field, PositiveInt
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    BeforeValidator,
+    Field,
+    PositiveInt,
+    model_validator,
+)
 
 from .parse_duration import parse_duration
 
@@ -31,3 +38,11 @@ class UpdateStrategy(BaseModel):
         validation_alias=AliasChoices("read_timeout", "timeout"),
         le=MAX_TIMEOUT,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_disabled_polling(cls, values: dict[str, Any]) -> dict[str, Any]:
+        if values.get("polling") == "disable":
+            values["polling_interval"] = DEFAULT_POLLING_INTERVAL
+            values["polling_enabled"] = False
+        return values
