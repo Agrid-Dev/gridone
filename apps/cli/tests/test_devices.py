@@ -2,7 +2,7 @@ import re
 from typing import Any
 
 import pytest
-from devices import app  # ty: ignore[unresolved-import]
+from cli.devices import app  # ty: ignore[unresolved-import]
 from storage.core_file_storage import CoreFileStorage
 from typer.testing import CliRunner
 

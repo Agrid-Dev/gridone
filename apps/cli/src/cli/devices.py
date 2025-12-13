@@ -6,10 +6,11 @@ import asyncio
 
 import typer
 from core.devices_manager import DevicesManager
-from repository import gridone_repository  # ty: ignore[unresolved-import]
 from rich.console import Console
 from rich.table import Table
 from storage.core_file_storage import CoreFileStorage
+
+from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
