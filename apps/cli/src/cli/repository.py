@@ -8,10 +8,7 @@ load_dotenv()
 
 
 def get_db_path() -> Path:
-    db_path = os.environ.get("DB_PATH")
-    if not db_path:
-        msg = "DB_PATH not found in .env file"
-        raise ValueError(msg)
+    db_path = os.environ.get("DB_PATH", ".db")
     return Path(db_path)
 
 

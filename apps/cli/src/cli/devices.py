@@ -5,12 +5,22 @@ Command group for devices.
 import asyncio
 
 import typer
-from repository import gridone_repository  # ty: ignore[unresolved-import]
+from core.devices_manager import DevicesManager
 from rich.console import Console
+from rich.table import Table
+from storage.core_file_storage import CoreFileStorage
+
+from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
 console = Console()
+
+
+@app.callback()
+def _init(ctx: typer.Context) -> None:
+    ctx.ensure_object(dict)
+    ctx.obj.setdefault("repository", gridone_repository)
 
 
 def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001
@@ -21,12 +31,24 @@ def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001
     return str(value)
 
 
-async def _read_device_async(device_id: str) -> None:
+def get_single_device_manager(
+    repository: CoreFileStorage, device_id: str
+) -> DevicesManager:
+    device_raw = repository.devices.read(device_id)
+    driver_raw = repository.drivers.read(device_raw["driver"])
+    if device_raw.get("transport_config"):
+        transport_configs = [
+            repository.transport_configs.read(device_raw["transport_config"])
+        ]
+    return DevicesManager.load_from_raw([device_raw], [driver_raw], transport_configs)
+
+
+async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
     """
     Async implementation that performs device manager initialization and
     reads attributes from the device using async drivers/transports.
     """
-    device = gridone_repository.load_device(device_id)
+    device = repository.load_device(device_id)
     console.print(
         f"Reading device [bold blue]{device_id}[/bold blue]"
         f" with driver [bold blue]{device.driver.name}[/bold blue]"
@@ -38,16 +60,36 @@ async def _read_device_async(device_id: str) -> None:
             console.print(f"{attribute}: {autoformat_value(value)}")
 
 
+@app.command("list")
+def list_all(ctx: typer.Context) -> None:
+    repository = ctx.obj["repository"]
+    devices = repository.devices.read_all()
+    print(f"Read {len(devices)} devices")
+    table = Table(title=f"Devices ({len(devices)})")
+    table.add_column("ID", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Driver", justify="left", style="magenta")
+    table.add_column("Transport Config", justify="left", style="green")
+
+    for device_raw in sorted(devices, key=lambda d: d["id"]):
+        table.add_row(
+            device_raw["id"],
+            device_raw["driver"],
+            device_raw.get("transport_config"),
+        )
+
+    console.print(table)
+
+
 @app.command()
-def read(device_id: str) -> None:
+def read(ctx: typer.Context, device_id: str) -> None:
     """
     Read all attributes from a device.
     """
-    # Run the async coroutine in a fresh event loop and block until complete.
-    asyncio.run(_read_device_async(device_id))
+    asyncio.run(_read_device_async(ctx.obj["repository"], device_id))
 
 
-async def _write_device_async(
+async def _write_device_async(  # noqa: PLR0913
+    repository: CoreFileStorage,
     device_id: str,
     attribute: str,
     value: float,
@@ -55,7 +97,7 @@ async def _write_device_async(
     confirm: bool = True,
     confirm_delay: float = 0.25,
 ) -> None:
-    device = gridone_repository.load_device(device_id)
+    device = repository.load_device(device_id)
     console.print(
         f"Writing value [bold red]{value}[/bold red] to device"
         f" [bold blue]{device_id}[/bold blue]"
@@ -78,7 +120,8 @@ async def _write_device_async(
 
 
 @app.command()
-def write(
+def write(  # noqa: PLR0913
+    ctx: typer.Context,
     device_id: str,
     attribute: str,
     value: float,
@@ -90,13 +133,20 @@ def write(
     For boolean values, use 0 or 1. String values are not supported yet."""
     asyncio.run(
         _write_device_async(
-            device_id, attribute, value, confirm=confirm, confirm_delay=confirm_delay
+            ctx.obj["repository"],
+            device_id,
+            attribute,
+            value,
+            confirm=confirm,
+            confirm_delay=confirm_delay,
         )
     )
 
 
-async def _watch_device(device_id: str) -> None:
-    device = gridone_repository.load_device(device_id)
+async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
+    dm = get_single_device_manager(repository, device_id)
+    await dm.start_polling()
+    device = dm.devices[device_id]
     console.print(
         f"Watching device [bold blue]{device_id}[/bold blue] using driver"
         f" [bold blue]{device.driver.name}[/bold blue] (enter 'q' to quit)"
@@ -125,6 +175,7 @@ async def _watch_device(device_id: str) -> None:
                 user_input = await asyncio.get_event_loop().run_in_executor(None, input)
                 if user_input.strip().lower() == "q":
                     console.print("👋 goodbye")
+                    await dm.stop_polling()
                     stop_event.set()
                     return
                 await asyncio.sleep(0.1)
@@ -146,6 +197,6 @@ async def _watch_device(device_id: str) -> None:
 
 
 @app.command()
-def watch(device_id: str) -> None:
+def watch(ctx: typer.Context, device_id: str) -> None:
     """Continuously monitor device attributes."""
-    asyncio.run(_watch_device(device_id))
+    asyncio.run(_watch_device(ctx.obj["repository"], device_id))
