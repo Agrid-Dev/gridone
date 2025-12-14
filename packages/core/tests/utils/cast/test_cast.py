@@ -14,7 +14,7 @@ from core.utils.cast import cast
         (1.4, DataType.INT, 1),
     ],
 )
-def test_cast(raw_value, data_type: DataType, expected: AttributeValueType) -> None:  # noqa: ANN001
+def test_cast(raw_value, data_type: DataType, expected: AttributeValueType) -> None:
     result = cast(raw_value, data_type)
     assert isinstance(result, type(expected))
     assert result == expected
