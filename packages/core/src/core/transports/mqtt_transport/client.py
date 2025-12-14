@@ -103,6 +103,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     ) -> AttributeValueType:
         message = None
         message_event = asyncio.Event()
+        await self._subscribe(address.topic)
 
         def update_value(message_received: str) -> None:
             nonlocal message

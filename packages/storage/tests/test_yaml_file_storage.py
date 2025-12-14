@@ -1,4 +1,4 @@
-from collections.abc import Generator  # noqa: INP001
+from collections.abc import Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TypedDict
