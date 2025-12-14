@@ -36,8 +36,10 @@ class Attribute(BaseModel):
         return self
 
     def update_value(self, new_value: AttributeValueType) -> None:
+        previous_value = self.current_value
         object.__setattr__(self, "current_value", self.ensure_type(new_value))
-        object.__setattr__(self, "last_updated", datetime.now(UTC))
+        if new_value != previous_value:
+            object.__setattr__(self, "last_updated", datetime.now(UTC))
 
     @classmethod
     def create(
