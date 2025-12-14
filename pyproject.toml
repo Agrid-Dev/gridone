@@ -47,7 +47,7 @@ fixable = ["ALL"]
 
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101", "ANN201","ANN401", "PLR2004", "EM101","INP001"]
+"**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101", "ANN201","ANN401", "PLR2004", "EM101","INP001", "ANN001"]
 "apps/cli/*.py" = ["T201", "FBT003", "ERA001"]
 "apps/*" = ["INP001"]
 

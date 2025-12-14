@@ -31,7 +31,7 @@ class MockHttpTransportClient(TransportClient[MockTransportAddress]):
     async def read(self, address: MockTransportAddress):
         raise NotImplementedError("This is a test")
 
-    async def write(self, address: MockTransportAddress, value) -> None:  # noqa: ANN001
+    async def write(self, address: MockTransportAddress, value) -> None:
         raise NotImplementedError("This is a test")
 
 
@@ -49,7 +49,7 @@ class MockMqttTransportClient(TransportClient[MockTransportAddress]):
     async def read(self, address: MockTransportAddress):
         raise NotImplementedError("This is a test")
 
-    async def write(self, address: MockTransportAddress, value) -> None:  # noqa: ANN001
+    async def write(self, address: MockTransportAddress, value) -> None:
         raise NotImplementedError("This is a test")
 
 

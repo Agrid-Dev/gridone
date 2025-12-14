@@ -19,7 +19,7 @@ def mock_aiomqtt_client():
         mock_client.__aenter__.return_value = mock_client
         mock_client_class.return_value = mock_client
 
-        async def mock_wait_for_coroutine(coroutine, timeout):  # noqa: ANN001, ANN202, ARG001, ASYNC109
+        async def mock_wait_for_coroutine(coroutine, timeout):  # noqa: ANN202, ARG001, ASYNC109
             return await coroutine
 
         mock_wait_for.side_effect = mock_wait_for_coroutine
@@ -81,7 +81,7 @@ def mqtt_address() -> MqttAddress:
 
 
 class AsyncIteratorMock:
-    def __init__(self, items) -> None:  # noqa: ANN001
+    def __init__(self, items) -> None:
         self._items = items
 
     def __aiter__(self):  # noqa: ANN204
@@ -96,7 +96,7 @@ class AsyncIteratorMock:
 
 
 @pytest.mark.asyncio
-async def test_handle_incoming_messages(mqtt_client, mock_aiomqtt_client, mqtt_address):  # noqa: ANN001
+async def test_handle_incoming_messages(mqtt_client, mock_aiomqtt_client, mqtt_address):
     # Mock a message
     mock_message = AsyncMock()
     mock_message.topic = Topic("test/topic")

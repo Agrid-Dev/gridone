@@ -14,7 +14,7 @@ from core.transports.http_transport.http_address import (
         ),
     ],
 )
-def test_parse_http_address_from_string(address, method, endpoint) -> None:  # noqa: ANN001
+def test_parse_http_address_from_string(address, method, endpoint) -> None:
     result = HttpAddress.from_raw(address)
     assert result.method == method
     assert result.path == endpoint
