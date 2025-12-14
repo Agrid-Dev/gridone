@@ -7,9 +7,11 @@ import asyncio
 import typer
 from core.devices_manager import DevicesManager
 from rich.console import Console
+from rich.live import Live
 from rich.table import Table
 from storage.core_file_storage import CoreFileStorage
 
+from cli.formatters import autoformat_value, device_to_table
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
@@ -21,14 +23,6 @@ console = Console()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
     ctx.obj.setdefault("repository", gridone_repository)
-
-
-def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001
-    if isinstance(value, int):
-        return f"{value}"
-    if isinstance(value, float):
-        return f"{value:.2f}"
-    return str(value)
 
 
 def get_single_device_manager(
@@ -88,14 +82,11 @@ def read(ctx: typer.Context, device_id: str) -> None:
     asyncio.run(_read_device_async(ctx.obj["repository"], device_id))
 
 
-async def _write_device_async(  # noqa: PLR0913
+async def _write_device_async(
     repository: CoreFileStorage,
     device_id: str,
     attribute: str,
     value: float,
-    *,
-    confirm: bool = True,
-    confirm_delay: float = 0.25,
 ) -> None:
     device = repository.load_device(device_id)
     console.print(
@@ -105,29 +96,15 @@ async def _write_device_async(  # noqa: PLR0913
     )
     async with device.driver.transport:
         await device.write_attribute_value(attribute, value)
-        if confirm:
-            await asyncio.sleep(confirm_delay)
-            confirm_value = await device.read_attribute_value(attribute)
-            if confirm_value == type(confirm_value)(value):
-                console.print(
-                    f"[bold green]Confirmed[/bold green] ({attribute}={confirm_value})"
-                )
-            else:
-                msg = f"Write failed: {attribute} {confirm_value}!={value}"
-                raise ValueError(msg)
-        else:
-            console.print("[bold green]Successfully sent[/bold green] (no confirm)")
+        console.print("[bold green]Attrubute updated[/bold green]")
 
 
 @app.command()
-def write(  # noqa: PLR0913
+def write(
     ctx: typer.Context,
     device_id: str,
     attribute: str,
     value: float,
-    *,
-    confirm: bool = True,
-    confirm_delay: float = 0.25,
 ) -> None:
     """Update a device attribute.
     For boolean values, use 0 or 1. String values are not supported yet."""
@@ -137,8 +114,6 @@ def write(  # noqa: PLR0913
             device_id,
             attribute,
             value,
-            confirm=confirm,
-            confirm_delay=confirm_delay,
         )
     )
 
@@ -148,52 +123,28 @@ async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
     await dm.start_polling()
     device = dm.devices[device_id]
     console.print(
-        f"Watching device [bold blue]{device_id}[/bold blue] using driver"
-        f" [bold blue]{device.driver.name}[/bold blue] (enter 'q' to quit)"
+        f"Watching device [bold blue]{device_id}[/bold blue] using driver "
+        f"[bold blue]{device.driver.name}[/bold blue] (press Ctrl+C to quit)"
     )
 
-    async with device.driver.transport:
-        console.print("Initializing current values...")
-        for attribute in device.attributes:
-            await device.read_attribute_value(attribute)
+    try:
+        async with device.driver.transport:
+            # Read initial values
+            for attribute in device.attributes:
+                await device.read_attribute_value(attribute)
 
-        def stringify_device() -> str:
-            attributes_str = [
-                f"{attribute.name}: {autoformat_value(attribute.current_value)}"
-                for attribute in device.attributes.values()
-            ]
-            return " - ".join(attributes_str)
-
-        current = stringify_device()
-        console.print(current)
-
-        # Create an event to signal when to stop
-        stop_event = asyncio.Event()
-
-        async def _input_listener() -> None:
-            while not stop_event.is_set():
-                user_input = await asyncio.get_event_loop().run_in_executor(None, input)
-                if user_input.strip().lower() == "q":
-                    console.print("👋 goodbye")
-                    await dm.stop_polling()
-                    stop_event.set()
-                    return
-                await asyncio.sleep(0.1)
-
-        async def _attribute_watcher() -> None:
-            nonlocal current
-            while not stop_event.is_set():
-                new = stringify_device()
-                if new != current:
-                    console.print(new)
-                    current = new
-                await asyncio.sleep(0.2)
-
-        # Run both coroutines concurrently
-        await asyncio.gather(
-            _input_listener(),
-            _attribute_watcher(),
-        )
+            current = None
+            with Live(auto_refresh=False) as live:
+                while True:  # Loop until KeyboardInterrupt
+                    new = device_to_table(device)
+                    if new != current:
+                        live.update(new)
+                        live.refresh()
+                        current = new
+                    await asyncio.sleep(0.2)
+    except KeyboardInterrupt:
+        await dm.stop_polling()
+        console.print("\n👋 Goodbye")
 
 
 @app.command()
