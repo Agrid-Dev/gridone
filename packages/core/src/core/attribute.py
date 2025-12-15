@@ -12,6 +12,7 @@ class Attribute(BaseModel):
     read_write_modes: set[ReadWriteMode]
     current_value: AttributeValueType | None
     last_updated: datetime | None = None
+    last_changed: datetime | None = None
 
     def ensure_type(
         self,
@@ -43,8 +44,9 @@ class Attribute(BaseModel):
         """
         previous_value = self.current_value
         object.__setattr__(self, "current_value", self.ensure_type(new_value))
+        object.__setattr__(self, "last_updated", datetime.now(UTC))
         if new_value != previous_value:
-            object.__setattr__(self, "last_updated", datetime.now(UTC))
+            object.__setattr__(self, "last_changed", datetime.now(UTC))
 
     @classmethod
     def create(

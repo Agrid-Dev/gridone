@@ -27,7 +27,7 @@ def device_to_table(device: Device) -> Table:
     table.add_column("Value")
     for attribute in device.attributes.values():
         value = autoformat_value(attribute.current_value)
-        if is_recent(attribute.last_updated):
+        if is_recent(attribute.last_changed):
             table.add_row(attribute.name, f"[bold yellow]{value}[/bold yellow]")
         else:
             table.add_row(attribute.name, value)
