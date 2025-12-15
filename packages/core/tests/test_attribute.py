@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -43,3 +44,40 @@ def test_ensure_type_invalid_value(data_type: DataType, raw_value: Any):
             current_value=raw_value,
             last_updated=None,
         )
+
+
+@pytest.fixture
+def float_attribute() -> Attribute:
+    return Attribute(
+        name="temperature",
+        data_type=DataType.FLOAT,
+        read_write_modes={"read", "write"},
+        current_value=20,
+        last_updated=None,
+        last_changed=None,
+    )
+
+
+def test_update_value_same(float_attribute) -> None:
+    previous_value = float_attribute.current_value
+    float_attribute._update_value(previous_value)
+    assert float_attribute.current_value == previous_value
+    assert (
+        abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())
+        <= 0.005
+    )
+    assert float_attribute.last_changed is None
+
+
+def test_update_value_different(float_attribute) -> None:
+    new_value = float_attribute.current_value + 2
+    float_attribute._update_value(new_value)
+    assert float_attribute.current_value == new_value
+    assert (
+        abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())
+        <= 0.005
+    )
+    assert (
+        abs(float_attribute.last_changed.timestamp() - datetime.now(UTC).timestamp())
+        <= 0.005
+    )
