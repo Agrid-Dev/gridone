@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import TypedDict
 
-from .device import Device
+from .device import AttributeListener, Device
 from .driver import Driver
 from .transports import TransportClientRegistry
 from .types import DeviceConfig, TransportProtocols
@@ -35,6 +35,7 @@ class DevicesManager:
     transport_registry: TransportClientRegistry
     _background_tasks: set[asyncio.Task]
     _running: bool
+    _attribute_listeners: list[AttributeListener]
 
     def __init__(self, devices: dict[str, Device], drivers: dict[str, Driver]) -> None:
         self.devices = devices
@@ -42,6 +43,7 @@ class DevicesManager:
         self._background_tasks = set()
         self._running = False
         self.transport_registry = TransportClientRegistry()
+        self._attribute_listeners = []
 
     async def start_polling(self) -> None:
         for device in self.devices.values():
@@ -100,9 +102,9 @@ class DevicesManager:
             )
             driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
             dm.drivers[driver.name] = driver
-            dm.devices[d["id"]] = Device.from_driver(
-                driver, d["config"], device_id=d["id"]
-            )
+            device = Device.from_driver(driver, d["config"], device_id=d["id"])
+            dm._attach_listeners(device)
+            dm.devices[d["id"]] = device
 
         return dm
 
@@ -119,3 +121,16 @@ class DevicesManager:
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )
+
+    def add_device_attribute_listener(
+        self,
+        callback: AttributeListener,
+    ) -> None:
+        """Attach a callback to every device for attribute updates."""
+        self._attribute_listeners.append(callback)
+        for device in self.devices.values():
+            device.add_update_listener(callback)
+
+    def _attach_listeners(self, device: Device) -> None:
+        for listener in self._attribute_listeners:
+            device.add_update_listener(listener)

@@ -1,6 +1,8 @@
 import asyncio
+import inspect
 import logging
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 
 from core.types import AttributeValueType, DeviceConfig
 
@@ -8,6 +10,8 @@ from .attribute import Attribute
 from .driver import Driver
 
 logger = logging.getLogger(__name__)
+
+AttributeListener = Callable[["Device", str, Attribute], Awaitable[None] | None]
 
 
 class ConfirmationError(ValueError):
@@ -20,6 +24,12 @@ class Device:
     config: DeviceConfig
     driver: Driver
     attributes: dict[str, Attribute]
+    _update_listeners: set[AttributeListener] = field(
+        default_factory=set, init=False, repr=False
+    )
+    _background_tasks: set[asyncio.Task[None]] = field(
+        default_factory=set, init=False, repr=False
+    )
 
     @classmethod
     def from_driver(
@@ -43,8 +53,10 @@ class Device:
         """Upon init, attach attribute updaters to the transport."""
         for attribute in self.attributes.values():
 
-            def updater(new_value: AttributeValueType, attribute=attribute) -> None:  # noqa: ANN001
-                return attribute.update_value(new_value)
+            def updater(
+                new_value: AttributeValueType | None, attribute: Attribute = attribute
+            ) -> None:
+                return self._update_attribute(attribute, new_value)
 
             self.driver.attach_updater(attribute.name, self.config, updater)
 
@@ -64,8 +76,8 @@ class Device:
     ) -> AttributeValueType:
         attribute = self.get_attribute(attribute_name)
         new_value = await self.driver.read_value(attribute_name, self.config)
-        attribute.update_value(new_value)
-        return attribute.current_value  # ty:ignore[invalid-return-type]
+        self._update_attribute(attribute, new_value)
+        return attribute.current_value
 
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
@@ -129,3 +141,34 @@ class Device:
         )
         if confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
+        self._update_attribute(attribute, validated_value)
+        return attribute.current_value
+
+    def add_update_listener(
+        self,
+        callback: AttributeListener,
+    ) -> None:
+        self._update_listeners.add(callback)
+
+    def _update_attribute(
+        self,
+        attribute: Attribute,
+        new_value: AttributeValueType | None,
+    ) -> None:
+        attribute._update_value(new_value)  # noqa: SLF001
+        self._execute_update_listeners(attribute.name, attribute)
+
+    def _execute_update_listeners(
+        self, attribute_name: str, attribute: Attribute
+    ) -> None:
+        for callback in self._update_listeners:
+            try:
+                result = callback(self, attribute_name, attribute)
+                if inspect.isawaitable(result):
+                    task = asyncio.create_task(result)
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._background_tasks.discard)
+            except Exception:
+                logger.exception(
+                    "Device listener failed for %s.%s", self.id, attribute_name
+                )
