@@ -9,7 +9,9 @@ from core.value_adapters.factory import ValueAdapterSpec, supported_value_adapte
 class DiscoveryListenSchema(BaseModel):
     """Schema for discovery listen configuration."""
 
-    topic: str = Field(description="MQTT topic pattern to listen for discovery messages")
+    topic: str = Field(
+        description="MQTT topic pattern to listen for discovery messages"
+    )
     request: RawTransportAddress | None = Field(
         default=None, description="Optional request configuration for active discovery"
     )
@@ -18,13 +20,20 @@ class DiscoveryListenSchema(BaseModel):
 class DiscoverySchema(BaseModel):
     """Schema for device discovery configuration."""
 
-    listen: DiscoveryListenSchema = Field(description="Configuration for listening to discovery messages")
+    listen: DiscoveryListenSchema = Field(
+        description="Configuration for listening to discovery messages"
+    )
     parsers: dict[str, dict[str, Any]] = Field(
-        description="Parsers to extract fields from discovery messages. "
-        "Each key is a parser name, value is parser config (e.g., {'json_pointer': '/payload/id'})"
+        description=(
+            "Parsers to extract fields from discovery messages. "
+            "Each key is a parser name, value is parser config "
+            "(e.g., {'json_pointer': '/payload/id'})"
+        )
     )
 
-    def _get_value_adapter_specs(self, parser_config: dict[str, Any]) -> list[ValueAdapterSpec]:
+    def _get_value_adapter_specs(
+        self, parser_config: dict[str, Any]
+    ) -> list[ValueAdapterSpec]:
         """Extract value adapter specs from parser config dict."""
         return [
             ValueAdapterSpec(adapter=key, argument=parser_config[key])
@@ -38,10 +47,12 @@ class DiscoverySchema(BaseModel):
         for parser_name, parser_config in self.parsers.items():
             if not isinstance(parser_config, dict):
                 msg = f"Parser config for '{parser_name}' must be a dictionary"
-                raise ValueError(msg)
+                raise TypeError(msg)
             adapter_specs = self._get_value_adapter_specs(parser_config)
             if not adapter_specs:
-                msg = f"No valid value adapter found in parser config for '{parser_name}'"
+                msg = (
+                    f"No valid value adapter found in parser config for '{parser_name}'"
+                )
                 raise ValueError(msg)
         return self
 
@@ -61,4 +72,3 @@ class DiscoverySchema(BaseModel):
     def from_dict(cls, data: dict[str, Any]) -> "DiscoverySchema":
         """Create DiscoverySchema from dictionary."""
         return cls(**data)
-

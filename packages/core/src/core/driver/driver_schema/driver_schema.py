@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -22,7 +23,8 @@ class DriverSchema(BaseModel):
     device_config_fields: list[DeviceConfigField]
     attribute_schemas: list[AttributeSchema]
     discovery: DiscoverySchema | None = Field(
-        default=None, description="Optional discovery configuration for automatic device detection"
+        default=None,
+        description="Optional discovery configuration for automatic device detection",
     )
 
     def get_attribute_schema(
@@ -43,7 +45,7 @@ class DriverSchema(BaseModel):
     @classmethod
     def from_dict(
         cls,
-        data: dict[str, str],
+        data: dict[str, Any],
     ) -> "DriverSchema":
         attribute_schemas = [
             AttributeSchema.from_dict(sch)  # ty: ignore[invalid-argument-type]

@@ -291,6 +291,18 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await dm.stop_polling()
+        # Stop discovery handlers before closing websockets and transports
+        for driver in dm.drivers.values():
+            if driver._discovery_handler_id is not None:
+                try:
+                    driver.stop_discovery()
+                except Exception as e:
+                    logger.error(
+                        "Error stopping discovery for driver '%s': %s",
+                        driver.name,
+                        e,
+                        exc_info=True,
+                    )
         await websocket_manager.close_all()
         for driver in dm.drivers.values():
             await driver.transport.close()

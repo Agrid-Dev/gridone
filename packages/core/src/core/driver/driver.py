@@ -128,12 +128,10 @@ class Driver:
         def discovery_handler(message: str) -> None:
             try:
                 self._handle_discovery_message(message, context)
-            except Exception as e:  # noqa: BLE001
-                logger.error(
-                    "Error handling discovery message for driver '%s': %s",
+            except Exception:
+                logger.exception(
+                    "Error handling discovery message for driver '%s'",
                     self.name,
-                    e,
-                    exc_info=True,
                 )
 
         # Register handler
@@ -148,9 +146,7 @@ class Driver:
 
     def set_discovery_callback(
         self,
-        callback: Callable[
-            [str, DeviceConfig, dict[str, AttributeValueType]], None
-        ],
+        callback: Callable[[str, DeviceConfig, dict[str, AttributeValueType]], None],
     ) -> None:
         """Set a callback to be called when a device is discovered.
 
@@ -224,7 +220,7 @@ class Driver:
 
         # Extract device information using configured parsers
         discovered_fields: dict[str, AttributeValueType] = {}
-        for parser_name in self.schema.discovery.parsers.keys():
+        for parser_name in self.schema.discovery.parsers:
             try:
                 # Get the value adapter spec for this parser
                 adapter_spec = self.schema.discovery.get_parser_adapter(parser_name)
@@ -252,10 +248,10 @@ class Driver:
             return
 
         device_id = discovered_fields["device_id"]
-        
+
         # Extract attributes from discovery message payload
         discovered_attributes = self._extract_attributes_from_message(message_data)
-        
+
         # Check if attributes match the driver's attribute schemas
         if not self._attributes_match(discovered_attributes):
             logger.debug(
@@ -286,12 +282,13 @@ class Driver:
         # Call discovery callback if set
         if self._discovery_callback:
             try:
-                self._discovery_callback(device_id, device_config, discovered_attributes)
-            except Exception as e:  # noqa: BLE001
+                self._discovery_callback(
+                    device_id, device_config, discovered_attributes
+                )
+            except Exception:
                 logger.exception(
-                    "Error in discovery callback for device '%s': %s",
+                    "Error in discovery callback for device '%s'",
                     device_id,
-                    e,
                 )
 
     def _extract_attributes_from_message(
@@ -355,9 +352,7 @@ class Driver:
             return False
 
         # Get attribute names from driver schema
-        driver_attribute_names = {
-            attr.name for attr in self.schema.attribute_schemas
-        }
+        driver_attribute_names = {attr.name for attr in self.schema.attribute_schemas}
 
         # Check if at least one discovered attribute matches a driver attribute
         discovered_attribute_names = set(discovered_attributes.keys())
@@ -410,8 +405,7 @@ class Driver:
             elif config_field.required:
                 # Required field not found
                 logger.warning(
-                    "Required device_config field '%s' not found in discovery "
-                    "message",
+                    "Required device_config field '%s' not found in discovery message",
                     field_name,
                 )
                 return None

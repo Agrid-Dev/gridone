@@ -145,9 +145,7 @@ class DevicesManager:
         transport_config_dict: dict[str, TransportConfigRaw] = {
             t["name"]: t for t in transport_configs
         }
-        drivers_raw_dict: dict[str, DriverRaw] = {
-            d["name"]: d for d in drivers_raw
-        }
+        drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
 
         # Get transport config
         transport_config = (
@@ -167,9 +165,7 @@ class DevicesManager:
 
         # Get or create driver (reuse if already exists)
         if device_raw["driver"] not in self.drivers:
-            driver = Driver.from_dict(
-                driver_raw, transport_client
-            )  # ty: ignore[invalid-argument-type]
+            driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
             self.drivers[driver.name] = driver
         else:
             driver = self.drivers[device_raw["driver"]]

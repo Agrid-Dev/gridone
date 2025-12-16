@@ -11,8 +11,9 @@ from rich.live import Live
 from rich.table import Table
 from storage.core_file_storage import CoreFileStorage
 
-from cli.formatters import autoformat_value, device_to_table
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
+
+from .formatters import autoformat_value, device_to_table
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
