@@ -24,6 +24,9 @@ class Driver:
     transport: TransportClient
     schema: DriverSchema
     _discovery_handler_id: str | None = field(default=None, init=False, repr=False)
+    _discovery_callback: (
+        Callable[[str, DeviceConfig, dict[str, AttributeValueType]], None] | None
+    ) = field(default=None, init=False, repr=False)
 
     def attach_updater(
         self,
@@ -87,7 +90,7 @@ class Driver:
             device_config: Optional device configuration for templating discovery topic.
                           If None, uses only driver env for templating.
         """
-        print("starting discovery")
+        logger.debug("Starting discovery for driver '%s'", self.name)
         if self.schema.discovery is None:
             msg = f"Driver '{self.name}' does not have discovery configuration"
             raise ValueError(msg)
@@ -143,6 +146,21 @@ class Driver:
             rendered_topic,
         )
 
+    def set_discovery_callback(
+        self,
+        callback: Callable[
+            [str, DeviceConfig, dict[str, AttributeValueType]], None
+        ],
+    ) -> None:
+        """Set a callback to be called when a device is discovered.
+
+        Args:
+            callback: Function called with (device_id, device_config,
+                     discovered_attributes) when a device is discovered and
+                     its attributes match the driver.
+        """
+        self._discovery_callback = callback
+
     def stop_discovery(self) -> None:
         """Stop listening for device discovery messages."""
         if self._discovery_handler_id is None:
@@ -182,14 +200,14 @@ class Driver:
         self._discovery_handler_id = None
         logger.info("Stopped discovery for driver '%s'", self.name)
 
-    def _handle_discovery_message(self, message: str, context: dict) -> None:
+    def _handle_discovery_message(self, message: str, context: dict) -> None:  # noqa: ARG002
         """Handle an incoming discovery message.
 
         Args:
             message: Raw message string (expected to be JSON)
             context: Context dictionary for templating
         """
-        print(f"Handling discovery message: {message}")
+        logger.debug("Handling discovery message: %s", message)
         if self.schema.discovery is None:
             return
 
@@ -206,7 +224,7 @@ class Driver:
 
         # Extract device information using configured parsers
         discovered_fields: dict[str, AttributeValueType] = {}
-        for parser_name, parser_config in self.schema.discovery.parsers.items():
+        for parser_name in self.schema.discovery.parsers.keys():
             try:
                 # Get the value adapter spec for this parser
                 adapter_spec = self.schema.discovery.get_parser_adapter(parser_name)
@@ -224,7 +242,7 @@ class Driver:
                 )
                 # Continue with other parsers even if one fails
                 continue
-
+        logger.debug("Discovered fields: %s", discovered_fields)
         # Validate that we have at least a device_id
         if "device_id" not in discovered_fields:
             logger.warning(
@@ -233,14 +251,172 @@ class Driver:
             )
             return
 
-        # Log discovered device
         device_id = discovered_fields["device_id"]
-        print(
-            "Discovered device for driver '%s': device_id=%s, fields=%s",
+        
+        # Extract attributes from discovery message payload
+        discovered_attributes = self._extract_attributes_from_message(message_data)
+        
+        # Check if attributes match the driver's attribute schemas
+        if not self._attributes_match(discovered_attributes):
+            logger.debug(
+                "Discovered device '%s' attributes do not match driver '%s' attributes",
+                device_id,
+                self.name,
+            )
+            return
+
+        # Extract device_config fields from discovery message
+        device_config = self._extract_device_config(message_data, discovered_fields)
+        if device_config is None:
+            logger.warning(
+                "Failed to extract device_config for discovered device '%s'",
+                device_id,
+            )
+            return
+
+        # Log discovered device
+        logger.info(
+            "Discovered device for driver '%s': device_id=%s, config=%s, attributes=%s",
             self.name,
             device_id,
-            discovered_fields,
+            device_config,
+            discovered_attributes,
         )
+
+        # Call discovery callback if set
+        if self._discovery_callback:
+            try:
+                self._discovery_callback(device_id, device_config, discovered_attributes)
+            except Exception as e:  # noqa: BLE001
+                logger.exception(
+                    "Error in discovery callback for device '%s': %s",
+                    device_id,
+                    e,
+                )
+
+    def _extract_attributes_from_message(
+        self, message_data: dict
+    ) -> dict[str, AttributeValueType]:
+        """Extract attribute values from discovery message.
+
+        Uses driver's attribute schemas to extract values from discovery
+        message payload.
+
+        Args:
+            message_data: Parsed JSON message data
+
+        Returns:
+            Dictionary mapping attribute names to their values from message
+        """
+        discovered_attributes: dict[str, AttributeValueType] = {}
+
+        for attribute_schema in self.schema.attribute_schemas:
+            # Find json_pointer adapter in the attribute's value_adapter list
+            json_pointer_spec = None
+            for adapter_spec in attribute_schema.value_adapter:
+                if adapter_spec.adapter == "json_pointer":
+                    json_pointer_spec = adapter_spec
+                    break
+
+            if json_pointer_spec is None:
+                # Skip attributes without json_pointer adapter
+                continue
+
+            try:
+                # Build adapter and extract value from message
+                adapter = build_value_adapter([json_pointer_spec])
+                value = adapter.decode(message_data)
+                # Only include non-None values
+                if value is not None:
+                    discovered_attributes[attribute_schema.name] = value
+            except Exception:  # noqa: BLE001
+                # Attribute not present in message, skip it
+                logger.debug(
+                    "Attribute '%s' not found in discovery message",
+                    attribute_schema.name,
+                )
+                continue
+
+        return discovered_attributes
+
+    def _attributes_match(
+        self, discovered_attributes: dict[str, AttributeValueType]
+    ) -> bool:
+        """Check if discovered attributes match driver's attribute schemas.
+
+        Args:
+            discovered_attributes: Dictionary of discovered attribute values
+
+        Returns:
+            True if at least one attribute matches, False otherwise
+        """
+        # Check if we found any attributes that match the driver's schema
+        if not discovered_attributes:
+            return False
+
+        # Get attribute names from driver schema
+        driver_attribute_names = {
+            attr.name for attr in self.schema.attribute_schemas
+        }
+
+        # Check if at least one discovered attribute matches a driver attribute
+        discovered_attribute_names = set(discovered_attributes.keys())
+        matching_attributes = driver_attribute_names & discovered_attribute_names
+
+        if not matching_attributes:
+            return False
+
+        logger.debug(
+            "Found %d matching attributes: %s",
+            len(matching_attributes),
+            matching_attributes,
+        )
+        return True
+
+    def _extract_device_config(
+        self, message_data: dict, discovered_fields: dict[str, AttributeValueType]
+    ) -> DeviceConfig | None:
+        """Extract device_config fields from discovery message.
+
+        Args:
+            message_data: Parsed JSON message data
+            discovered_fields: Fields extracted by discovery parsers
+
+        Returns:
+            DeviceConfig dictionary or None if extraction fails
+        """
+        device_config: DeviceConfig = {}
+
+        # Extract device_config fields defined in driver schema
+        for config_field in self.schema.device_config_fields:
+            field_name = config_field.name
+
+            # Try to extract from discovered_fields first (from parsers)
+            if field_name in discovered_fields:
+                device_config[field_name] = discovered_fields[field_name]
+                continue
+
+            # Try common field names in the message
+            # For vrv_gateway: vendor_id comes from /id, gateway_id from
+            # /gateway_id
+            if field_name == "vendor_id" and "id" in message_data:
+                device_config[field_name] = message_data["id"]
+            elif field_name == "gateway_id" and "gateway_id" in message_data:
+                device_config[field_name] = message_data["gateway_id"]
+            elif field_name in message_data:
+                device_config[field_name] = message_data[field_name]
+            elif field_name in message_data.get("payload", {}):
+                device_config[field_name] = message_data["payload"][field_name]
+            elif config_field.required:
+                # Required field not found
+                logger.warning(
+                    "Required device_config field '%s' not found in discovery "
+                    "message",
+                    field_name,
+                )
+                return None
+
+        return device_config
 
     @classmethod
     def from_dict(cls, data: dict, transport_client: TransportClient) -> "Driver":

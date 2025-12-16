@@ -122,6 +122,78 @@ class DevicesManager:
             driver, device_raw["config"], device_id=device_raw["id"]
         )
 
+    def add_device(
+        self,
+        device_raw: DeviceRaw,
+        drivers_raw: list[DriverRaw],
+        transport_configs: list[TransportConfigRaw],
+    ) -> Device:
+        """Add a new device to the manager dynamically.
+
+        Args:
+            device_raw: Raw device data from storage
+            drivers_raw: List of all driver raw data (to find the device's driver)
+            transport_configs: List of all transport configs
+
+        Returns:
+            The newly created Device instance
+        """
+        # Build transport config dict
+        transport_config_dict: dict[str, TransportConfigRaw] = {
+            t["name"]: t for t in transport_configs
+        }
+        drivers_raw_dict: dict[str, DriverRaw] = {
+            d["name"]: d for d in drivers_raw
+        }
+
+        # Get transport config
+        transport_config = (
+            transport_config_dict[device_raw["transport_config"]]
+            if device_raw.get("transport_config")
+            else {}
+        )
+
+        # Get driver raw data
+        driver_raw = drivers_raw_dict[device_raw["driver"]]
+
+        # Get or create transport client
+        transport_client = self.transport_registry.get_transport(
+            TransportProtocols(driver_raw["transport"]),
+            transport_config,  # ty: ignore[invalid-argument-type]
+        )
+
+        # Get or create driver (reuse if already exists)
+        if device_raw["driver"] not in self.drivers:
+            driver = Driver.from_dict(
+                driver_raw, transport_client
+            )  # ty: ignore[invalid-argument-type]
+            self.drivers[driver.name] = driver
+        else:
+            driver = self.drivers[device_raw["driver"]]
+
+        # Create device
+        device = Device.from_driver(
+            driver, device_raw["config"], device_id=device_raw["id"]
+        )
+
+        # Attach existing listeners
+        self._attach_listeners(device)
+
+        # Add to devices dict
+        self.devices[device.id] = device
+
+        # Start polling if enabled and polling is running
+        if self._running and device.driver.schema.update_strategy.polling_enabled:
+            logger.info(
+                "Starting polling job for newly discovered device %s", device.id
+            )
+            task = asyncio.create_task(self._device_poll_loop(device))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+
+        logger.info("Successfully loaded and registered device '%s'", device.id)
+        return device
+
     def add_device_attribute_listener(
         self,
         callback: AttributeListener,
