@@ -25,6 +25,10 @@ async def lifespan(app: FastAPI):
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     dm = gridone_repository.init_device_manager()
     app.state.device_manager = dm
+    
+    # Dictionary to store per-device locks for atomic check-and-write operations
+    device_locks: dict[str, asyncio.Lock] = {}
+    app.state.device_locks = device_locks
 
     def broadcast_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
@@ -43,7 +47,6 @@ async def lifespan(app: FastAPI):
     
     # Start discovery for drivers that have discovery configured
     for driver_name, driver in dm.drivers.items():
-        print(f"Driver: {driver_name} discovery: {driver.schema.discovery}")
         if driver.schema.discovery:
             # Find a device using this driver to get the config (needed for templating)
             device_with_driver = next(
@@ -77,80 +80,108 @@ async def lifespan(app: FastAPI):
                 
                 # Create discovery callback that captures driver_name and transport_config_name
                 def make_discovery_callback(drv_name: str, t_config_name: str):
+                    async def save_discovered_device_async(
+                        device_id: str,
+                        device_config: dict,
+                        discovered_attributes: dict,
+                    ) -> None:
+                        """Save a discovered device to storage and load it (async, lock-protected)."""
+                        # Get or create lock for this device_id (atomic operation)
+                        lock = device_locks.setdefault(device_id, asyncio.Lock())
+                        
+                        # Acquire lock before check-and-write operation
+                        async with lock:
+                            # Create device raw data
+                            device_raw = {
+                                "id": device_id,
+                                "driver": drv_name,
+                                "transport_config": t_config_name,
+                                "config": device_config,
+                            }
+
+                            # Check if device already exists (atomic with write)
+                            try:
+                                gridone_repository.devices.read(device_id)
+                                logger.info(
+                                    "Device '%s' already exists, skipping discovery save",
+                                    device_id,
+                                )
+                                return
+                            except Exception:
+                                # Device doesn't exist, save it
+                                pass
+
+                            # Save device to storage
+                            try:
+                                gridone_repository.devices.write(device_id, device_raw)
+                                logger.info(
+                                    "Saved discovered device '%s' (driver: %s, "
+                                    "transport_config: %s)",
+                                    device_id,
+                                    drv_name,
+                                    t_config_name,
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    "Failed to save discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
+
+                            # Load and register the device in the running system
+                            try:
+                                # Get all drivers and transport configs for the add_device method
+                                drivers_raw = gridone_repository.drivers.read_all()
+                                transport_configs = (
+                                    gridone_repository.transport_configs.read_all()
+                                )
+
+                                # Add device to the running DevicesManager with initial attributes
+                                dm.add_device(
+                                    device_raw,
+                                    drivers_raw,
+                                    transport_configs,
+                                    initial_attributes=discovered_attributes,
+                                )
+
+                                logger.info(
+                                    "Successfully loaded and registered discovered device '%s' "
+                                    "with %d initial attributes",
+                                    device_id,
+                                    len(discovered_attributes),
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    "Failed to load discovered device '%s' into "
+                                    "DevicesManager: %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                    
                     def save_discovered_device(
                         device_id: str,
                         device_config: dict,
                         discovered_attributes: dict,
                     ) -> None:
-                        """Save a discovered device to storage and load it."""
-                        # Create device raw data
-                        device_raw = {
-                            "id": device_id,
-                            "driver": drv_name,
-                            "transport_config": t_config_name,
-                            "config": device_config,
-                        }
-
-                        # Check if device already exists
+                        """Save a discovered device to storage and load it (sync wrapper)."""
+                        # Schedule the async function to run
                         try:
-                            gridone_repository.devices.read(device_id)
-                            logger.info(
-                                "Device '%s' already exists, skipping discovery save",
-                                device_id,
+                            loop = asyncio.get_running_loop()
+                            # If we're in an event loop, schedule the coroutine
+                            loop.create_task(
+                                save_discovered_device_async(
+                                    device_id, device_config, discovered_attributes
+                                )
                             )
-                            return
-                        except Exception:
-                            # Device doesn't exist, save it
-                            pass
-
-                        # Save device to storage
-                        try:
-                            gridone_repository.devices.write(device_id, device_raw)
-                            logger.info(
-                                "Saved discovered device '%s' (driver: %s, "
-                                "transport_config: %s)",
-                                device_id,
-                                drv_name,
-                                t_config_name,
-                            )
-                        except Exception as e:
-                            logger.error(
-                                "Failed to save discovered device '%s': %s",
-                                device_id,
-                                e,
-                                exc_info=True,
-                            )
-                            return
-
-                        # Load and register the device in the running system
-                        try:
-                            # Get all drivers and transport configs for the add_device method
-                            drivers_raw = gridone_repository.drivers.read_all()
-                            transport_configs = (
-                                gridone_repository.transport_configs.read_all()
-                            )
-
-                            # Add device to the running DevicesManager with initial attributes
-                            dm.add_device(
-                                device_raw,
-                                drivers_raw,
-                                transport_configs,
-                                initial_attributes=discovered_attributes,
-                            )
-
-                            logger.info(
-                                "Successfully loaded and registered discovered device '%s' "
-                                "with %d initial attributes",
-                                device_id,
-                                len(discovered_attributes),
-                            )
-                        except Exception as e:
-                            logger.error(
-                                "Failed to load discovered device '%s' into "
-                                "DevicesManager: %s",
-                                device_id,
-                                e,
-                                exc_info=True,
+                        except RuntimeError:
+                            # No event loop running, create a new one
+                            asyncio.run(
+                                save_discovered_device_async(
+                                    device_id, device_config, discovered_attributes
+                                )
                             )
 
                     return save_discovered_device
