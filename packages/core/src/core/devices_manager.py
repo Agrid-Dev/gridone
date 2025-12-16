@@ -5,7 +5,7 @@ from typing import TypedDict
 from .device import AttributeListener, Device
 from .driver import Driver
 from .transports import TransportClientRegistry
-from .types import DeviceConfig, TransportProtocols
+from .types import AttributeValueType, DeviceConfig, TransportProtocols
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +127,7 @@ class DevicesManager:
         device_raw: DeviceRaw,
         drivers_raw: list[DriverRaw],
         transport_configs: list[TransportConfigRaw],
+        initial_attributes: dict[str, AttributeValueType] | None = None,
     ) -> Device:
         """Add a new device to the manager dynamically.
 
@@ -134,6 +135,8 @@ class DevicesManager:
             device_raw: Raw device data from storage
             drivers_raw: List of all driver raw data (to find the device's driver)
             transport_configs: List of all transport configs
+            initial_attributes: Optional dictionary of attribute values to initialize
+                               the device with (e.g., from discovery message)
 
         Returns:
             The newly created Device instance
@@ -176,8 +179,34 @@ class DevicesManager:
             driver, device_raw["config"], device_id=device_raw["id"]
         )
 
-        # Attach existing listeners
+        # Attach existing listeners first (so they receive initial value updates)
         self._attach_listeners(device)
+
+        # Initialize attributes with discovered values if provided
+        if initial_attributes:
+            for attr_name, attr_value in initial_attributes.items():
+                if attr_name in device.attributes:
+                    try:
+                        # Use _update_attribute to properly set value and trigger
+                        # listeners. This ensures WebSocket broadcasts and other
+                        # listeners are notified
+                        device._update_attribute(  # noqa: SLF001
+                            device.attributes[attr_name], attr_value
+                        )
+                        logger.debug(
+                            "Initialized attribute '%s' with value '%s' for "
+                            "device '%s'",
+                            attr_name,
+                            attr_value,
+                            device.id,
+                        )
+                    except (ValueError, TypeError) as e:
+                        logger.warning(
+                            "Failed to initialize attribute '%s' for device '%s': %s",
+                            attr_name,
+                            device.id,
+                            e,
+                        )
 
         # Add to devices dict
         self.devices[device.id] = device

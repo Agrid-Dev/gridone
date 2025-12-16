@@ -130,12 +130,19 @@ async def lifespan(app: FastAPI):
                                 gridone_repository.transport_configs.read_all()
                             )
 
-                            # Add device to the running DevicesManager
-                            dm.add_device(device_raw, drivers_raw, transport_configs)
+                            # Add device to the running DevicesManager with initial attributes
+                            dm.add_device(
+                                device_raw,
+                                drivers_raw,
+                                transport_configs,
+                                initial_attributes=discovered_attributes,
+                            )
 
                             logger.info(
-                                "Successfully loaded and registered discovered device '%s'",
+                                "Successfully loaded and registered discovered device '%s' "
+                                "with %d initial attributes",
                                 device_id,
+                                len(discovered_attributes),
                             )
                         except Exception as e:
                             logger.error(
