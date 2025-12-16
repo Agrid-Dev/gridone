@@ -87,6 +87,7 @@ class Driver:
             device_config: Optional device configuration for templating discovery topic.
                           If None, uses only driver env for templating.
         """
+        print("starting discovery")
         if self.schema.discovery is None:
             msg = f"Driver '{self.name}' does not have discovery configuration"
             raise ValueError(msg)
@@ -112,7 +113,10 @@ class Driver:
         discovery_address = self.transport.build_address(
             {
                 "topic": rendered_topic,
-                "request": {"topic": "", "message": ""},  # Dummy request for listening only
+                "request": {
+                    "topic": "",
+                    "message": "",
+                },  # Dummy request for listening only
             },
             context,
         )
@@ -163,7 +167,10 @@ class Driver:
         discovery_address = self.transport.build_address(
             {
                 "topic": rendered_topic,
-                "request": {"topic": "", "message": ""},  # Dummy request for listening only
+                "request": {
+                    "topic": "",
+                    "message": "",
+                },  # Dummy request for listening only
             },
             context,
         )
@@ -182,6 +189,7 @@ class Driver:
             message: Raw message string (expected to be JSON)
             context: Context dictionary for templating
         """
+        print(f"Handling discovery message: {message}")
         if self.schema.discovery is None:
             return
 
@@ -227,7 +235,7 @@ class Driver:
 
         # Log discovered device
         device_id = discovered_fields["device_id"]
-        logger.info(
+        print(
             "Discovered device for driver '%s': device_id=%s, fields=%s",
             self.name,
             device_id,
