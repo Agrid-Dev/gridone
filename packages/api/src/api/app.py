@@ -4,6 +4,7 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
+import yaml
 from core.attribute import Attribute
 from core.device import Device
 from fastapi import FastAPI
@@ -17,6 +18,7 @@ from api.websocket.schemas import DeviceUpdateMessage
 
 logger = logging.getLogger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     websocket_manager = WebSocketManager()
@@ -25,7 +27,7 @@ async def lifespan(app: FastAPI):
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     dm = gridone_repository.init_device_manager()
     app.state.device_manager = dm
-    
+
     # Dictionary to store per-device locks for atomic check-and-write operations
     device_locks: dict[str, asyncio.Lock] = {}
     app.state.device_locks = device_locks
@@ -42,42 +44,59 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(websocket_manager.broadcast(message))
 
     await asyncio.gather(*[d.init_listeners() for d in dm.devices.values()])
-        
+
     dm.add_device_attribute_listener(broadcast_attribute_update)
-    
+
     # Start discovery for drivers that have discovery configured
     for driver_name, driver in dm.drivers.items():
         if driver.schema.discovery:
             # Find a device using this driver to get the config (needed for templating)
             device_with_driver = next(
-                (d for d in dm.devices.values() if d.driver.name == driver_name),
-                None
+                (d for d in dm.devices.values() if d.driver.name == driver_name), None
             )
             if device_with_driver:
                 # Get transport_config from existing device
                 try:
-                    existing_device_raw = gridone_repository.devices.read(device_with_driver.id)
+                    existing_device_raw = gridone_repository.devices.read(
+                        device_with_driver.id
+                    )
                     transport_config_name = existing_device_raw.get("transport_config")
-                except Exception as e:
+                except FileNotFoundError:
                     logger.warning(
-                        "Could not read transport_config from existing device: %s",
-                        e,
+                        "Device file not found for '%s', cannot read transport_config",
+                        device_with_driver.id,
                     )
                     transport_config_name = None
-                
+                except yaml.YAMLError as e:
+                    logger.warning(
+                        "YAML parsing error when reading device '%s': %s",
+                        device_with_driver.id,
+                        e,
+                        exc_info=True,
+                    )
+                    transport_config_name = None
+                except Exception as e:
+                    logger.warning(
+                        "Unexpected error reading transport_config from device '%s': %s",
+                        device_with_driver.id,
+                        e,
+                        exc_info=True,
+                    )
+                    transport_config_name = None
+
                 # Fallback: use first available transport_config
                 if not transport_config_name:
                     transport_configs = gridone_repository.transport_configs.read_all()
                     if transport_configs:
                         transport_config_name = transport_configs[0].get("name")
-                
+
                 if not transport_config_name:
                     logger.warning(
                         "Could not determine transport_config for driver '%s', skipping discovery",
                         driver_name,
                     )
                     continue
-                
+
                 # Create discovery callback that captures driver_name and transport_config_name
                 def make_discovery_callback(drv_name: str, t_config_name: str):
                     async def save_discovered_device_async(
@@ -88,7 +107,7 @@ async def lifespan(app: FastAPI):
                         """Save a discovered device to storage and load it (async, lock-protected)."""
                         # Get or create lock for this device_id (atomic operation)
                         lock = device_locks.setdefault(device_id, asyncio.Lock())
-                        
+
                         # Acquire lock before check-and-write operation
                         async with lock:
                             # Create device raw data
@@ -107,9 +126,18 @@ async def lifespan(app: FastAPI):
                                     device_id,
                                 )
                                 return
-                            except Exception:
+                            except FileNotFoundError:
                                 # Device doesn't exist, save it
                                 pass
+                            except Exception as e:
+                                # Unexpected error reading device, log and skip
+                                logger.warning(
+                                    "Unexpected error checking if device '%s' exists: %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
 
                             # Save device to storage
                             try:
@@ -121,9 +149,41 @@ async def lifespan(app: FastAPI):
                                     drv_name,
                                     t_config_name,
                                 )
+                            except FileNotFoundError as e:
+                                logger.error(
+                                    "Directory not found when saving discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
+                            except PermissionError as e:
+                                logger.error(
+                                    "Permission denied when saving discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
+                            except yaml.YAMLError as e:
+                                logger.error(
+                                    "YAML serialization error when saving discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
+                            except OSError as e:
+                                logger.error(
+                                    "OS error when saving discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                                return
                             except Exception as e:
                                 logger.error(
-                                    "Failed to save discovered device '%s': %s",
+                                    "Unexpected error saving discovered device '%s': %s",
                                     device_id,
                                     e,
                                     exc_info=True,
@@ -152,15 +212,36 @@ async def lifespan(app: FastAPI):
                                     device_id,
                                     len(discovered_attributes),
                                 )
+                            except KeyError as e:
+                                logger.error(
+                                    "Missing required configuration when loading discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                            except FileNotFoundError as e:
+                                logger.error(
+                                    "File not found when loading discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
+                            except yaml.YAMLError as e:
+                                logger.error(
+                                    "YAML parsing error when loading discovered device '%s': %s",
+                                    device_id,
+                                    e,
+                                    exc_info=True,
+                                )
                             except Exception as e:
                                 logger.error(
-                                    "Failed to load discovered device '%s' into "
+                                    "Unexpected error loading discovered device '%s' into "
                                     "DevicesManager: %s",
                                     device_id,
                                     e,
                                     exc_info=True,
                                 )
-                    
+
                     def save_discovered_device(
                         device_id: str,
                         device_config: dict,
@@ -185,21 +266,26 @@ async def lifespan(app: FastAPI):
                             )
 
                     return save_discovered_device
-                
+
                 # Set discovery callback
                 driver.set_discovery_callback(
                     make_discovery_callback(driver_name, transport_config_name)
                 )
-                
+
                 try:
                     driver.start_discovery(device_with_driver.config)
                 except Exception as e:
-                    logger.error(f"Failed to start discovery for driver '{driver_name}': {e}", exc_info=True)
+                    logger.error(
+                        "Failed to start discovery for driver '%s': %s",
+                        driver_name,
+                        e,
+                        exc_info=True,
+                    )
             else:
-                logger.warning(f"No device found for driver '{driver_name}', cannot start discovery")
-    
+                logger.warning(
+                    f"No device found for driver '{driver_name}', cannot start discovery"
+                )
 
-    
     await dm.start_polling()
     try:
         yield
