@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from core.types import TransportProtocols
 
 from .attribute_schema import AttributeSchema
+from .discovery_schema import DiscoverySchema
 from .update_strategy import UpdateStrategy
 
 
@@ -20,6 +21,9 @@ class DriverSchema(BaseModel):
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config_fields: list[DeviceConfigField]
     attribute_schemas: list[AttributeSchema]
+    discovery: DiscoverySchema | None = Field(
+        default=None, description="Optional discovery configuration for automatic device detection"
+    )
 
     def get_attribute_schema(
         self,
@@ -49,10 +53,14 @@ class DriverSchema(BaseModel):
             DeviceConfigField(**dfc)  # ty: ignore[invalid-argument-type]
             for dfc in data.get("device_config", {})
         ]
+        discovery = None
+        if "discovery" in data:
+            discovery = DiscoverySchema.from_dict(data["discovery"])
         return cls(
             name=data["name"],
             transport=TransportProtocols(data["transport"]),
             device_config_fields=device_config_fields,
             attribute_schemas=attribute_schemas,
             update_strategy=data.get("update_strategy", {}),
+            discovery=discovery,
         )
