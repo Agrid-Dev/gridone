@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
@@ -91,3 +92,21 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
             content=content,
         )
         response.raise_for_status()
+
+    def listen(
+        self,
+        topic_or_address: str | HttpAddress,
+        handler: Callable[[str], None],
+    ) -> str:
+        """HTTP transport does not support passive listening."""
+        msg = "HTTP transport does not support passive listening (listen)"
+        raise NotImplementedError(msg)
+
+    def unlisten(
+        self,
+        handler_id: str,
+        topic_or_address: str | HttpAddress | None = None,
+    ) -> None:
+        """HTTP transport does not support passive listening."""
+        msg = "HTTP transport does not support passive listening (unlisten)"
+        raise NotImplementedError(msg)

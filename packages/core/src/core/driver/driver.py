@@ -27,6 +27,9 @@ class Driver:
     _discovery_callback: (
         Callable[[str, DeviceConfig, dict[str, AttributeValueType]], None] | None
     ) = field(default=None, init=False, repr=False)
+    _discovery_device_config: DeviceConfig | None = field(
+        default=None, init=False, repr=False
+    )
 
     def attach_updater(
         self,
@@ -102,26 +105,15 @@ class Driver:
         # Build context for templating
         context = {**(device_config or {}), **self.env}
 
+        # Store device_config for use when stopping discovery
+        self._discovery_device_config = device_config
+
         # Render discovery listen configuration
         discovery_listen = self.schema.discovery.listen
         rendered_topic = render_struct(
             discovery_listen.topic,
             context,
             raise_for_missing_context=True,
-        )
-
-        # Build MQTT address for discovery topic
-        # MQTT addresses require both topic and request, but for passive discovery
-        # we only listen, so we provide a minimal request structure
-        discovery_address = self.transport.build_address(
-            {
-                "topic": rendered_topic,
-                "request": {
-                    "topic": "",
-                    "message": "",
-                },  # Dummy request for listening only
-            },
-            context,
         )
 
         # Create discovery handler
@@ -134,9 +126,9 @@ class Driver:
                     self.name,
                 )
 
-        # Register handler
-        self._discovery_handler_id = self.transport.register_read_handler(
-            discovery_address, discovery_handler
+        # Subscribe to topic for passive listening
+        self._discovery_handler_id = self.transport.listen(
+            rendered_topic, discovery_handler
         )
         logger.info(
             "Started discovery for driver '%s' on topic '%s'",
@@ -166,10 +158,10 @@ class Driver:
         if self.schema.discovery is None:
             return
 
-        # Build context for templating
-        context = {**self.env}
+        # Build context for templating using stored device_config
+        context = {**(self._discovery_device_config or {}), **self.env}
 
-        # Render discovery listen configuration to get the address
+        # Render discovery listen configuration to get the topic
         discovery_listen = self.schema.discovery.listen
         rendered_topic = render_struct(
             discovery_listen.topic,
@@ -177,23 +169,10 @@ class Driver:
             raise_for_missing_context=True,
         )
 
-        # Build MQTT address for discovery topic
-        discovery_address = self.transport.build_address(
-            {
-                "topic": rendered_topic,
-                "request": {
-                    "topic": "",
-                    "message": "",
-                },  # Dummy request for listening only
-            },
-            context,
-        )
-
-        # Unregister handler
-        self.transport.unregister_read_handler(
-            self._discovery_handler_id, discovery_address
-        )
+        # Unsubscribe from topic
+        self.transport.unlisten(self._discovery_handler_id, rendered_topic)
         self._discovery_handler_id = None
+        self._discovery_device_config = None
         logger.info("Stopped discovery for driver '%s'", self.name)
 
     def _handle_discovery_message(self, message: str, context: dict) -> None:  # noqa: ARG002
@@ -392,13 +371,7 @@ class Driver:
                 continue
 
             # Try common field names in the message
-            # For vrv_gateway: vendor_id comes from /id, gateway_id from
-            # /gateway_id
-            if field_name == "vendor_id" and "id" in message_data:
-                device_config[field_name] = message_data["id"]
-            elif field_name == "gateway_id" and "gateway_id" in message_data:
-                device_config[field_name] = message_data["gateway_id"]
-            elif field_name in message_data:
+            if field_name in message_data:
                 device_config[field_name] = message_data[field_name]
             elif field_name in message_data.get("payload", {}):
                 device_config[field_name] = message_data["payload"][field_name]
