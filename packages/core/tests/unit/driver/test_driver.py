@@ -28,19 +28,25 @@ class MockTransportAddress(TransportAddress):
 
     @classmethod
     def from_str(
-        cls, address_str: str, extra_context: dict | None = None
+        cls,
+        address_str: str,
+        extra_context: dict | None = None,  # noqa: ARG003
     ) -> "MockTransportAddress":
         return cls(address_str)
 
     @classmethod
     def from_dict(
-        cls, address_dict: dict, extra_context: dict | None = None
+        cls,
+        address_dict: dict,
+        extra_context: dict | None = None,  # noqa: ARG003
     ) -> "MockTransportAddress":
         return cls(str(address_dict))
 
     @classmethod
     def from_raw(
-        cls, raw_address: str | dict, extra_context: dict | None = None
+        cls,
+        raw_address: str | dict,
+        extra_context: dict | None = None,  # noqa: ARG003
     ) -> "MockTransportAddress":
         if isinstance(raw_address, str):
             return cls(raw_address)
@@ -71,9 +77,7 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
     async def write(self, address: MockTransportAddress, value):
         pass
 
-    def register_read_handler(
-        self, address: MockTransportAddress, handler: Callable
-    ):
+    def register_read_handler(self, address: MockTransportAddress, handler: Callable):
         self._read_handlers[address.address] = handler
 
     def listen(
@@ -259,9 +263,7 @@ class TestDriverWriteValue:
 
 
 class TestDriverDiscovery:
-    def test_start_discovery_success(
-        self, mock_transport, driver_with_discovery
-    ):
+    def test_start_discovery_success(self, mock_transport, driver_with_discovery):
         driver = Driver(
             name="test_driver",
             env={},
@@ -313,9 +315,7 @@ class TestDriverDiscovery:
 
         assert driver._discovery_device_config == device_config
 
-    def test_stop_discovery_success(
-        self, mock_transport, driver_with_discovery
-    ):
+    def test_stop_discovery_success(self, mock_transport, driver_with_discovery):
         driver = Driver(
             name="test_driver",
             env={},
@@ -348,9 +348,7 @@ class TestDriverDiscovery:
     def test_set_discovery_callback(self, driver):
         callback_called = False
 
-        def callback(
-            _device_id, _device_config, _attributes
-        ) -> None:
+        def callback(_device_id, _device_config, _attributes) -> None:
             nonlocal callback_called
             callback_called = True
 
@@ -425,9 +423,7 @@ class TestDriverHandleDiscoveryMessage:
             schema=driver_with_discovery,
         )
 
-        message = json.dumps(
-            {"device_id": "device123", "other_field": "value"}
-        )
+        message = json.dumps({"device_id": "device123", "other_field": "value"})
         driver._handle_discovery_message(message, {})
 
         assert "attributes do not match" in caplog.text or not caplog.text
@@ -553,9 +549,7 @@ class TestDriverExtractDeviceConfig:
         message_data = {}
         discovered_fields = {"device_id": "device123", "location": "room1"}
 
-        device_config = driver._extract_device_config(
-            message_data, discovered_fields
-        )
+        device_config = driver._extract_device_config(message_data, discovered_fields)
 
         assert device_config is not None
         assert device_config["device_id"] == "device123"
@@ -574,9 +568,7 @@ class TestDriverExtractDeviceConfig:
         message_data = {"device_id": "device123", "location": "room1"}
         discovered_fields = {}
 
-        device_config = driver._extract_device_config(
-            message_data, discovered_fields
-        )
+        device_config = driver._extract_device_config(message_data, discovered_fields)
 
         assert device_config is not None
         assert device_config["device_id"] == "device123"
@@ -594,9 +586,7 @@ class TestDriverExtractDeviceConfig:
         message_data = {"payload": {"device_id": "device123"}}
         discovered_fields = {}
 
-        device_config = driver._extract_device_config(
-            message_data, discovered_fields
-        )
+        device_config = driver._extract_device_config(message_data, discovered_fields)
 
         assert device_config is not None
         assert device_config["device_id"] == "device123"
@@ -614,14 +604,10 @@ class TestDriverExtractDeviceConfig:
         message_data = {}
         discovered_fields = {}
 
-        device_config = driver._extract_device_config(
-            message_data, discovered_fields
-        )
+        device_config = driver._extract_device_config(message_data, discovered_fields)
 
         assert device_config is None
-        assert (
-            "Required device_config field 'device_id' not found" in caplog.text
-        )
+        assert "Required device_config field 'device_id' not found" in caplog.text
 
 
 class TestDriverFromDict:
@@ -693,4 +679,3 @@ class TestDriverFromDict:
         # DriverSchema.from_dict requires "name" field, so this should fail
         with pytest.raises(KeyError):
             Driver.from_dict(data, mock_transport)
-
