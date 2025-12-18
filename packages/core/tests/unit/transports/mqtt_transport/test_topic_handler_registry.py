@@ -27,6 +27,13 @@ def test_register() -> None:
     assert "handler1" in handlers
 
 
+def test_list_topics() -> None:
+    registry = TopicHandlerRegistry()
+    registry.register("topicA", "handler1")
+    registry.register("topicB", "handler2")
+    assert registry.list_topics() == ["topicA", "topicB"]
+
+
 def test_register_with_wildcard() -> None:
     registry = TopicHandlerRegistry()
     registry.register("sensors/#", "handler1")

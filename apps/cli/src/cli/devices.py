@@ -129,6 +129,7 @@ async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
 
     try:
         async with device.driver.transport:
+            await device.init_listeners()
             # Read initial values
             for attribute in device.attributes:
                 await device.read_attribute_value(attribute)

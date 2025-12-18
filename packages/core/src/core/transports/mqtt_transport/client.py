@@ -54,11 +54,14 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             self._background_tasks.clear()
             await super().close()
 
+    @connected
+    async def init_listeners(self) -> None:
+        for topic in self._message_handlers.list_topics():
+            await asyncio.wait_for(self._client.subscribe(topic), timeout=TIMEOUT)
+
     def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> str:
         handler_id = super().register_read_handler(address, handler)
         self._message_handlers.register(address.topic, handler_id)
-        task = asyncio.create_task(self._subscribe(address.topic))
-        self._background_tasks.add(task)
         return handler_id
 
     def unregister_read_handler(
@@ -119,8 +122,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             else address.request.message
         )
         await self._client.publish(
-            address.request.topic,
-            payload=payload,
+            address.request.topic, payload=payload, timeout=TIMEOUT
         )
         try:
             async with asyncio.timeout(TIMEOUT):
@@ -148,4 +150,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
-        await self._client.publish(address.request.topic, payload=payload)
+        await self._client.publish(
+            address.request.topic, payload=payload, timeout=TIMEOUT
+        )

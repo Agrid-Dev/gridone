@@ -83,3 +83,8 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         """Ensure the client is closed when exiting the context."""
         await self.close()
+
+
+class PushTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
+    @abstractmethod
+    async def init_listeners(self) -> None: ...
