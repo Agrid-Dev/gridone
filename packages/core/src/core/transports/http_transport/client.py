@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
@@ -12,6 +11,8 @@ from core.types import AttributeValueType, TransportProtocols
 from .http_address import HttpAddress
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .transport_config import HttpTransportConfig
 
 

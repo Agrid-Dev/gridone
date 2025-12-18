@@ -60,7 +60,8 @@ class TransportClient[T_TransportAddress](ABC):
             topic_or_address: Topic string (for transports like MQTT) or
                             transport address. For transports that don't support
                             passive listening, this will raise NotImplementedError.
-            handler: Callback function that receives the message/topic content as a string.
+            handler: Callback function that receives the message/topic content
+                as a string.
 
         Returns:
             Handler ID that can be used to unsubscribe via unlisten().
