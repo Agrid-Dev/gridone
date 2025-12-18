@@ -75,8 +75,6 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
         if self._client is None:
             msg = "HTTP transport is not connected"
             raise RuntimeError(msg)
-        # Body is already rendered when coming from the driver; if the caller
-        # wants to inject the value they can template it in the write_address.
         if address.body is None:
             data = {"value": value}
             content = None
@@ -89,7 +87,7 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
         response = await self._client.request(
             address.method,
             address.path,
-            data=data,
+            json=data,
             content=content,
         )
         response.raise_for_status()
