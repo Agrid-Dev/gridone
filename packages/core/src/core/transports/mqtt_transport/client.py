@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+from collections.abc import Callable
 
 import aiomqtt
 
@@ -14,6 +16,8 @@ from .topic_handler_registry import TopicHandlerRegistry
 from .transport_config import MqttTransportConfig
 
 TIMEOUT = 10
+
+logger = logging.getLogger(__name__)
 
 
 class MqttTransportClient(TransportClient[MqttAddress]):
@@ -77,6 +81,75 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             )
 
         return super().unregister_read_handler(handler_id, address)
+
+    def listen(
+        self,
+        topic_or_address: str | MqttAddress,
+        handler: Callable[[str], None],
+    ) -> str:
+        """Subscribe to an MQTT topic for passive listening.
+
+        Args:
+            topic_or_address: Topic string or MqttAddress. If MqttAddress is provided,
+                            only the topic field is used.
+            handler: Callback function that receives the message payload as a string.
+
+        Returns:
+            Handler ID that can be used to unsubscribe via unlisten().
+        """
+        # Extract topic string from topic_or_address
+        if isinstance(topic_or_address, MqttAddress):
+            topic = topic_or_address.topic
+        else:
+            topic = topic_or_address
+
+        # Register handler in the handlers registry using topic as address_id
+        handler_id = self._handlers_registry.register(topic, handler)
+
+        # Register in topic handler registry for message routing
+        self._message_handlers.register(topic, handler_id)
+
+        # Subscribe to the topic asynchronously
+        task = asyncio.create_task(self._subscribe(topic))
+        self._background_tasks.add(task)
+
+        logger.debug("Subscribed to MQTT topic '%s' for passive listening", topic)
+        return handler_id
+
+    def unlisten(
+        self,
+        handler_id: str,
+        topic_or_address: str | MqttAddress | None = None,
+    ) -> None:
+        """Unsubscribe from an MQTT topic and remove the handler.
+
+        Args:
+            handler_id: The handler ID returned by listen().
+            topic_or_address: Optional topic string or MqttAddress. If None, the handler
+                           will be looked up and removed.
+        """
+        # Extract topic string if provided
+        topic = None
+        if topic_or_address is not None:
+            if isinstance(topic_or_address, MqttAddress):
+                topic = topic_or_address.topic
+            else:
+                topic = topic_or_address
+
+        # Unregister from topic handler registry
+        self._message_handlers.unregister(handler_id, topic)
+
+        # Unregister from handlers registry
+        self._handlers_registry.remove(handler_id, topic)
+
+        # Unsubscribe if no other handlers on this topic
+        if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
+            asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
+                lambda task: task.exception()  # Silently consume the exception
+            )
+            logger.debug("Unsubscribed from MQTT topic '%s'", topic)
+        else:
+            logger.debug("Removed handler from MQTT topic '%s'", topic or "unknown")
 
     @connected
     async def _subscribe(self, topic: str) -> None:

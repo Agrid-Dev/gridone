@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Callable
 
 from bacpypes3.apdu import (
     AbortPDU,
@@ -176,3 +177,21 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
         """Write a value to the transport."""
 
         await self._write_bacnet(address, value)
+
+    def listen(
+        self,
+        topic_or_address: str | BacnetAddress,
+        handler: Callable[[str], None],
+    ) -> str:
+        """BACnet transport does not support passive listening."""
+        msg = "BACnet transport does not support passive listening (listen)"
+        raise NotImplementedError(msg)
+
+    def unlisten(
+        self,
+        handler_id: str,
+        topic_or_address: str | BacnetAddress | None = None,
+    ) -> None:
+        """BACnet transport does not support passive listening."""
+        msg = "BACnet transport does not support passive listening (unlisten)"
+        raise NotImplementedError(msg)
