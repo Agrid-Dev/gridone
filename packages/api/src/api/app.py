@@ -3,9 +3,9 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from fastapi import FastAPI
 from core.attribute import Attribute
 from core.device import Device
+from fastapi import FastAPI
 from storage import CoreFileStorage
 
 from api.routes import devices
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
         )
         asyncio.create_task(websocket_manager.broadcast(message))
 
+    await asyncio.gather(*[d.init_listeners() for d in dm.devices.values()])
     dm.add_device_attribute_listener(broadcast_attribute_update)
     await dm.start_polling()
     try:

@@ -4,6 +4,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from core.transports import PushTransportClient
 from core.types import AttributeValueType, DeviceConfig
 
 from .attribute import Attribute
@@ -59,6 +60,10 @@ class Device:
                 return self._update_attribute(attribute, new_value)
 
             self.driver.attach_updater(attribute.name, self.config, updater)
+
+    async def init_listeners(self) -> None:
+        if isinstance(self.driver.transport, PushTransportClient):
+            await self.driver.transport.init_listeners()
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:

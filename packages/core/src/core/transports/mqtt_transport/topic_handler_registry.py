@@ -25,6 +25,9 @@ class TopicHandlerRegistry:
         self._registry[topic].add(handler_id)
         self._invalidate_cache(topic)
 
+    def list_topics(self) -> list[str]:
+        return list(self._registry.keys())
+
     def get_by_topic(self, topic: str) -> set[str]:
         """Returns what matches topic exactly (no recursive matching)."""
         if topic in self._registry:

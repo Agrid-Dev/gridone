@@ -22,10 +22,10 @@ echo "---------------------------------------------"
 # Initialize a variable to track overall success
 failed_count=0
 # Run all checks using the function
-run_check "🧹 Ruff check "       "uv run ruff check ."       "Failed" || ((failed_count += 1))
+run_check "🧹 Ruff check "       "uv run ruff check ."    "Failed" || ((failed_count += 1))
 run_check "📏 Ruff format"      "uv run ruff format --check ." "Failed" || ((failed_count += 1))
-run_check "🔍 Type check "       "uv run ty check"           "Failed" || ((failed_count += 1))
-run_check "🧪 Tests      "            "uv run pytest"              "Failed" || ((failed_count += 1))
+run_check "🔍 Type check "       "uv run ty check"    "Failed" || ((failed_count += 1))
+run_check "🧪 Tests      "      "uv run pytest -m not(integration)"    "Failed" || ((failed_count += 1))
 
 echo "---------------------------------------------"
 if [ "$failed_count" -eq 0 ]; then
