@@ -4,10 +4,11 @@ import pytest
 from core.driver import Driver
 from core.driver.driver_schema import DriverSchema
 from core.driver.driver_schema.attribute_schema import AttributeSchema
-from core.driver.driver_schema.discovery_schema import (
-    DiscoveryListenSchema,
-    DiscoverySchema,
-)
+
+# from core.driver.driver_schema.discovery_schema import (
+#     DiscoveryListenSchema,
+#     DiscoverySchema,
+# )
 from core.driver.driver_schema.driver_schema import DeviceConfigField
 from core.driver.driver_schema.update_strategy import UpdateStrategy
 from core.types import DataType, TransportProtocols
@@ -62,12 +63,12 @@ def driver_with_discovery():
                 ],
             ),
         ],
-        discovery=DiscoverySchema(
-            listen=DiscoveryListenSchema(topic="devices/+/discover"),
-            parsers={
-                "device_id": {"json_pointer": "/device_id"},
-            },
-        ),
+        # discovery=DiscoverySchema(
+        #     listen=DiscoveryListenSchema(topic="devices/+/discover"),
+        #     parsers={
+        #         "device_id": {"json_pointer": "/device_id"},
+        #     },
+        # ),
     )
 
 

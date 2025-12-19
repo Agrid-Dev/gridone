@@ -109,20 +109,32 @@ class DevicesManager:
         return dm
 
     @staticmethod
+    def build_transport(
+        driver_raw: DriverRaw, transport_config: TransportConfigRaw | None
+    ) -> Driver:
+        transport_client = TransportClientRegistry().get_transport(
+            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
+        )
+        return Driver.from_dict(driver_raw, transport_client)
+
+    @staticmethod
     def build_device(
         device_raw: DeviceRaw,
         driver_raw: DriverRaw,
         transport_config: TransportConfigRaw | None,
     ) -> Device:
-        transport_client = TransportClientRegistry().get_transport(
-            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
-        )
-        driver = Driver.from_dict(dict(driver_raw), transport_client)
+        driver = DevicesManager.build_driver(driver_raw, transport_config)
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )
 
-    def add_device(
+    def add_device(self, device: Device) -> None:
+        if device.id in self.devices:
+            msg = f"Device with id {device.id} already exists"
+            raise ValueError(msg)
+        self.devices[device.id] = device
+
+    def add_device_from_raw(
         self,
         device_raw: DeviceRaw,
         drivers_raw: list[DriverRaw],
