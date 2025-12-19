@@ -4,7 +4,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-type ReadHandler = Callable[[Any], None]
+type ReadHandler = Callable[[Any], None]  # argument is the raw response from transport
 
 
 def generate_id() -> str:

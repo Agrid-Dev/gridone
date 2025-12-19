@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 from pymodbus.client import AsyncModbusTcpClient
 
 from core.transports import TransportClient
@@ -127,21 +125,3 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
         value: AttributeValueType,
     ) -> None:
         await self._write_modbus(address, value)  # ty: ignore[invalid-argument-type]
-
-    def listen(
-        self,
-        topic_or_address: str | ModbusAddress,
-        handler: Callable[[str], None],
-    ) -> str:
-        """Modbus TCP transport does not support passive listening."""
-        msg = "Modbus TCP transport does not support passive listening (listen)"
-        raise NotImplementedError(msg)
-
-    def unlisten(
-        self,
-        handler_id: str,
-        topic_or_address: str | ModbusAddress | None = None,
-    ) -> None:
-        """Modbus TCP transport does not support passive listening."""
-        msg = "Modbus TCP transport does not support passive listening (unlisten)"
-        raise NotImplementedError(msg)

@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Lock
-from collections.abc import Callable
 from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
@@ -19,7 +18,6 @@ logger = logging.getLogger(__name__)
 class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     address_builder: ClassVar[type[T_TransportAddress]]
-    _handlers_registry: ReadHandlerRegistry
     _connection_lock: Lock
     _is_connected: bool
 
@@ -33,58 +31,6 @@ class TransportClient[T_TransportAddress](ABC):
         self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> T_TransportAddress:
         return self.address_builder.from_raw(raw_address, extra_context=context)  # ty: ignore[unresolved-attribute]
-
-    def register_read_handler(
-        self, address: T_TransportAddress, handler: ReadHandler
-    ) -> str:
-        return self._handlers_registry.register(address.id, handler)  # ty: ignore[unresolved-attribute]
-
-    def unregister_read_handler(
-        self, handler_id: str, address: T_TransportAddress | None = None
-    ) -> None:
-        address_id = address.id if address else None  # ty: ignore[unresolved-attribute]
-        self._handlers_registry.remove(handler_id, address_id)
-
-    @abstractmethod
-    def listen(
-        self,
-        topic_or_address: str | T_TransportAddress,
-        handler: Callable[[str], None],
-    ) -> str:
-        """Subscribe to a topic or address for passive listening.
-
-        This method is for passive listening (e.g., discovery) and is distinct
-        from register_read_handler() which is for request/response patterns.
-
-        Args:
-            topic_or_address: Topic string (for transports like MQTT) or
-                            transport address. For transports that don't support
-                            passive listening, this will raise NotImplementedError.
-            handler: Callback function that receives the message/topic content
-                as a string.
-
-        Returns:
-            Handler ID that can be used to unsubscribe via unlisten().
-
-        Raises:
-            NotImplementedError: If the transport does not support passive listening.
-        """
-        ...
-
-    @abstractmethod
-    def unlisten(
-        self,
-        handler_id: str,
-        topic_or_address: str | T_TransportAddress | None = None,
-    ) -> None:
-        """Unsubscribe from a topic or address and remove the handler.
-
-        Args:
-            handler_id: The handler ID returned by listen().
-            topic_or_address: Optional topic string or transport address.
-                           If None, the handler will be looked up and removed.
-        """
-        ...
 
     @abstractmethod
     async def connect(self) -> None:
@@ -129,4 +75,14 @@ class TransportClient[T_TransportAddress](ABC):
 
 class PushTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
     @abstractmethod
-    async def init_listeners(self) -> None: ...
+    async def register_listener(
+        self, address: T_TransportAddress, handler: ReadHandler
+    ) -> str:
+        """Register a listener on an address
+        with a handler when receiving data on the address."""
+
+    @abstractmethod
+    async def unregister_listener(
+        self, handler_id: str, address: T_TransportAddress | None = None
+    ) -> None:
+        """Unregister handler on an address by handler_id."""

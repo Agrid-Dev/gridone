@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from core.transports import TransportClient
+from core.transports import PushTransportClient, TransportClient
 from core.types import AttributeValueType, DeviceConfig
 from core.utils.templating.render import render_struct
 from core.value_adapters import build_value_adapter
@@ -31,26 +31,28 @@ class Driver:
         default=None, init=False, repr=False
     )
 
-    def attach_updater(
+    async def attach_update_listener(
         self,
         attribute_name: str,
         device_config: DeviceConfig,
         callback: Callable[[AttributeValueType], None],
-    ) -> None:
-        context = {**device_config, **self.env}
-        try:
-            attribute_schema = next(
-                a for a in self.schema.attribute_schemas if a.name == attribute_name
-            ).render(context)
-        except StopIteration as e:
-            msg = f"Attribute {attribute_name} is not supported"
-            raise ValueError(msg) from e
-        address = self.transport.build_address(attribute_schema.read, context)
-        adapter = build_value_adapter(attribute_schema.value_adapter)
-
-        self.transport.register_read_handler(
-            address, lambda v: callback(adapter.decode(v))
-        )
+    ) -> str:
+        if isinstance(self.transport, PushTransportClient):
+            context = {**device_config, **self.env}
+            try:
+                attribute_schema = next(
+                    a for a in self.schema.attribute_schemas if a.name == attribute_name
+                ).render(context)
+            except StopIteration as e:
+                msg = f"Attribute {attribute_name} is not supported"
+                raise ValueError(msg) from e
+            address = self.transport.build_address(attribute_schema.read, context)
+            adapter = build_value_adapter(attribute_schema.value_adapter)
+            return await self.transport.register_listener(
+                address, lambda v: callback(adapter.decode(v))
+            )
+        msg = "Only push transports support listeners"
+        raise NotImplementedError(msg)
 
     async def read_value(
         self,

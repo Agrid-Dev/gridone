@@ -1,13 +1,12 @@
 import asyncio
 import json
 import logging
-from collections.abc import Callable
 
 import aiomqtt
 
-from core.transports import TransportClient
+from core.transports import PushTransportClient
 from core.transports.connected import connected
-from core.transports.read_handler_registry import ReadHandler
+from core.transports.read_handler_registry import ReadHandler, ReadHandlerRegistry
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
 
@@ -20,11 +19,12 @@ TIMEOUT = 10
 logger = logging.getLogger(__name__)
 
 
-class MqttTransportClient(TransportClient[MqttAddress]):
+class MqttTransportClient(PushTransportClient[MqttAddress]):
     _client: aiomqtt.Client
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
+    _handlers_registry: ReadHandlerRegistry
     _background_tasks: set
     _message_handlers: (
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
@@ -35,6 +35,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
+        self._handlers_registry = ReadHandlerRegistry()
         super().__init__(config)
 
     async def connect(self) -> None:
@@ -58,17 +59,15 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             self._background_tasks.clear()
             await super().close()
 
-    @connected
-    async def init_listeners(self) -> None:
-        for topic in self._message_handlers.list_topics():
-            await asyncio.wait_for(self._client.subscribe(topic), timeout=TIMEOUT)
-
-    def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> str:
-        handler_id = super().register_read_handler(address, handler)
+    async def register_listener(
+        self, address: MqttAddress, handler: ReadHandler
+    ) -> str:
+        handler_id = self._handlers_registry.register(address.id, handler)
+        await self._subscribe(address.topic)
         self._message_handlers.register(address.topic, handler_id)
         return handler_id
 
-    def unregister_read_handler(
+    async def unregister_listener(
         self, handler_id: str, address: MqttAddress | None = None
     ) -> None:
         # unregister from _message handler
@@ -79,77 +78,6 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
                 lambda task: task.exception()  # Silently consume the exception
             )
-
-        return super().unregister_read_handler(handler_id, address)
-
-    def listen(
-        self,
-        topic_or_address: str | MqttAddress,
-        handler: Callable[[str], None],
-    ) -> str:
-        """Subscribe to an MQTT topic for passive listening.
-
-        Args:
-            topic_or_address: Topic string or MqttAddress. If MqttAddress is provided,
-                            only the topic field is used.
-            handler: Callback function that receives the message payload as a string.
-
-        Returns:
-            Handler ID that can be used to unsubscribe via unlisten().
-        """
-        # Extract topic string from topic_or_address
-        if isinstance(topic_or_address, MqttAddress):
-            topic = topic_or_address.topic
-        else:
-            topic = topic_or_address
-
-        # Register handler in the handlers registry using topic as address_id
-        handler_id = self._handlers_registry.register(topic, handler)
-
-        # Register in topic handler registry for message routing
-        self._message_handlers.register(topic, handler_id)
-
-        # Subscribe to the topic asynchronously
-        task = asyncio.create_task(self._subscribe(topic))
-        self._background_tasks.add(task)
-
-        logger.debug("Subscribed to MQTT topic '%s' for passive listening", topic)
-        return handler_id
-
-    def unlisten(
-        self,
-        handler_id: str,
-        topic_or_address: str | MqttAddress | None = None,
-    ) -> None:
-        """Unsubscribe from an MQTT topic and remove the handler.
-
-        Args:
-            handler_id: The handler ID returned by listen().
-            topic_or_address: Optional topic string or MqttAddress. If None, the handler
-                           will be looked up and removed.
-        """
-        # Extract topic string if provided
-        topic = None
-        if topic_or_address is not None:
-            if isinstance(topic_or_address, MqttAddress):
-                topic = topic_or_address.topic
-            else:
-                topic = topic_or_address
-
-        # Unregister from topic handler registry
-        self._message_handlers.unregister(handler_id, topic)
-
-        # Unregister from handlers registry
-        self._handlers_registry.remove(handler_id, topic)
-
-        # Unsubscribe if no other handlers on this topic
-        if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
-            asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
-                lambda task: task.exception()  # Silently consume the exception
-            )
-            logger.debug("Unsubscribed from MQTT topic '%s'", topic)
-        else:
-            logger.debug("Removed handler from MQTT topic '%s'", topic or "unknown")
 
     @connected
     async def _subscribe(self, topic: str) -> None:
@@ -187,7 +115,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        handler_id = self.register_read_handler(address, update_value)
+        handler_id = await self.register_listener(address, update_value)
 
         payload = (
             json.dumps(address.request.message)
@@ -206,7 +134,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             msg = "MQTT issue: no message received before timeout"
             raise TimeoutError(msg) from err
         finally:
-            self.unregister_read_handler(handler_id, address)
+            await self.unregister_listener(handler_id, address)
         msg = "Unable to read value"
         raise ValueError(msg)
 

@@ -104,7 +104,7 @@ async def test_handle_incoming_messages(mqtt_client, mock_aiomqtt_client, mqtt_a
 
     # Register a handler
     handler = Mock()
-    mqtt_client.register_read_handler(mqtt_address, handler)
+    await mqtt_client.register_listener(mqtt_address, handler)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
     await mqtt_client._handle_incoming_messages()

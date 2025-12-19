@@ -82,30 +82,6 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
     async def write(self, address: MockTransportAddress, value):
         pass
 
-    def register_read_handler(self, address: MockTransportAddress, handler: Callable):
-        self._read_handlers[address.address] = handler
-
-    def listen(
-        self, topic_or_address: str | MockTransportAddress, handler: Callable
-    ) -> str:
-        topic = (
-            topic_or_address
-            if isinstance(topic_or_address, str)
-            else topic_or_address.address
-        )
-        handler_id = f"handler_{self._handler_counter}"
-        self._handler_counter += 1
-        self._listen_handlers[handler_id] = (topic, handler)
-        return handler_id
-
-    def unlisten(
-        self,
-        handler_id: str,
-        _topic_or_address: str | MockTransportAddress | None = None,
-    ) -> None:
-        if handler_id in self._listen_handlers:
-            del self._listen_handlers[handler_id]
-
     async def connect(self):
         self._is_connected = True
 
