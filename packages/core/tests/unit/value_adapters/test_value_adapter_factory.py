@@ -64,5 +64,5 @@ def test_spec_from_raw(raw: dict[str, str]):
     ("raw"), [({}), ({"json_pointer": "/path/to/value", "extra": "not permitted"})]
 )
 def test_spec_from_raw_invalid_input(raw: dict) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         spec_from_raw(raw)

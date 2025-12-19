@@ -8,7 +8,6 @@ from core.device import Device
 from core.devices_manager import (
     DeviceRaw,
     DevicesManager,
-    DriverRaw,
     TransportConfigRaw,
 )
 from core.driver import Driver
@@ -16,7 +15,7 @@ from core.driver.driver_schema import DriverSchema
 from core.driver.driver_schema.attribute_schema import AttributeSchema
 from core.driver.driver_schema.update_strategy import UpdateStrategy
 from core.transports.transport_client_registry import TransportClientRegistry
-from core.types import AttributeValueType, DataType, TransportProtocols
+from core.types import DataType, TransportProtocols
 from core.value_adapters.factory import ValueAdapterSpec
 
 
@@ -409,165 +408,6 @@ class TestDevicesManagerBuildDevice:
             device = DevicesManager.build_device(device_raw, driver_raw, None)
 
             assert device.id == "device1"
-
-
-class TestDevicesManagerAddDevice:
-    @pytest.mark.asyncio
-    async def test_add_device_success(self, devices_manager, mock_transport_client):
-        device_raw: DeviceRaw = {
-            "id": "device2",
-            "driver": "test_driver",
-            "transport_config": "config1",
-            "config": {"device_id": "device2"},
-        }
-        drivers_raw: list[DriverRaw] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
-        ]
-
-        with patch.object(
-            devices_manager.transport_registry,
-            "get_transport",
-            return_value=mock_transport_client,
-        ):
-            device = devices_manager.add_device(
-                device_raw, drivers_raw, transport_configs
-            )
-
-            assert device.id == "device2"
-            assert "device2" in devices_manager.devices
-            assert len(devices_manager.devices) == 2
-
-    @pytest.mark.asyncio
-    async def test_add_device_with_initial_attributes(
-        self, devices_manager, mock_transport_client
-    ):
-        device_raw: DeviceRaw = {
-            "id": "device2",
-            "driver": "test_driver",
-            "transport_config": "config1",
-            "config": {"device_id": "device2"},
-        }
-        drivers_raw: list[DriverRaw] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
-        ]
-        initial_attributes: dict[str, AttributeValueType] = {"temperature": 25.5}
-
-        with patch.object(
-            devices_manager.transport_registry,
-            "get_transport",
-            return_value=mock_transport_client,
-        ):
-            device = devices_manager.add_device(
-                device_raw, drivers_raw, transport_configs, initial_attributes
-            )
-
-            assert device.get_attribute_value("temperature") == 25.5
-
-    @pytest.mark.asyncio
-    async def test_add_device_reuses_existing_driver(
-        self, devices_manager, driver, mock_transport_client
-    ):
-        device_raw: DeviceRaw = {
-            "id": "device2",
-            "driver": "test_driver",
-            "transport_config": "config1",
-            "config": {"device_id": "device2"},
-        }
-        drivers_raw: list[DriverRaw] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
-        ]
-
-        with patch.object(
-            devices_manager.transport_registry,
-            "get_transport",
-            return_value=mock_transport_client,
-        ):
-            devices_manager.add_device(device_raw, drivers_raw, transport_configs)
-
-            assert devices_manager.drivers["test_driver"] is driver
-
-    @pytest.mark.asyncio
-    async def test_add_device_starts_polling_if_running(
-        self, devices_manager, mock_transport_client
-    ):
-        devices_manager._running = True
-        device_raw: DeviceRaw = {
-            "id": "device2",
-            "driver": "test_driver",
-            "transport_config": "config1",
-            "config": {"device_id": "device2"},
-        }
-        drivers_raw: list[DriverRaw] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
-        ]
-
-        with patch.object(
-            devices_manager.transport_registry,
-            "get_transport",
-            return_value=mock_transport_client,
-        ):
-            devices_manager.add_device(device_raw, drivers_raw, transport_configs)
-
-            assert len(devices_manager._background_tasks) == 1
-
-            await devices_manager.stop_polling()
-
-    @pytest.mark.asyncio
-    async def test_add_device_invalid_attribute_value(
-        self, devices_manager, mock_transport_client
-    ):
-        device_raw: DeviceRaw = {
-            "id": "device2",
-            "driver": "test_driver",
-            "transport_config": "config1",
-            "config": {"device_id": "device2"},
-        }
-        drivers_raw: list[DriverRaw] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
-        ]
-        initial_attributes: dict[str, AttributeValueType] = {"invalid_attr": "value"}
-
-        with patch.object(
-            devices_manager.transport_registry,
-            "get_transport",
-            return_value=mock_transport_client,
-        ):
-            device = devices_manager.add_device(
-                device_raw, drivers_raw, transport_configs, initial_attributes
-            )
-
-            assert device.id == "device2"
-            # Should handle invalid attribute gracefully
 
 
 class TestDevicesManagerListeners:

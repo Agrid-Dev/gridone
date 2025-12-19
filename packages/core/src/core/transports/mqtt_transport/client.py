@@ -59,19 +59,16 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             self._background_tasks.clear()
             await super().close()
 
-    async def register_listener(
-        self, address: MqttAddress, callback: ListenerCallback
-    ) -> str:
-        listener_id = self._handlers_registry.register(address.id, callback)
-        await self._subscribe(address.topic)
-        self._message_handlers.register(address.topic, listener_id)
+    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+        listener_id = self._handlers_registry.register(topic, callback)
+        await self._subscribe(topic)
+        self._message_handlers.register(topic, listener_id)
         return listener_id
 
     async def unregister_listener(
-        self, handler_id: str, address: MqttAddress | None = None
+        self, handler_id: str, topic: str | None = None
     ) -> None:
         # unregister from _message handler
-        topic = address.topic if address else None
         self._message_handlers.unregister(handler_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
             # no other handlers on this topic, unsubscribe
@@ -115,7 +112,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        listener_id = await self.register_listener(address, update_value)
+        listener_id = await self.register_listener(address.topic, update_value)
 
         payload = (
             json.dumps(address.request.message)
@@ -134,7 +131,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             msg = "MQTT issue: no message received before timeout"
             raise TimeoutError(msg) from err
         finally:
-            await self.unregister_listener(listener_id, address)
+            await self.unregister_listener(listener_id, address.topic)
         msg = "Unable to read value"
         raise ValueError(msg)
 

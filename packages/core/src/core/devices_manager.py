@@ -109,7 +109,7 @@ class DevicesManager:
         return dm
 
     @staticmethod
-    def build_transport(
+    def build_driver(
         driver_raw: DriverRaw, transport_config: TransportConfigRaw | None
     ) -> Driver:
         transport_client = TransportClientRegistry().get_transport(

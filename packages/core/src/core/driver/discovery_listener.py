@@ -18,7 +18,7 @@ class DiscoveryListener(BaseModel):
     """Schema for device discovery configuration."""
 
     _adapters: dict[str, FnAdapter] = {}
-
+    topic: str
     field_getters: list[DeviceConfigFieldGetter]
 
     @model_validator(mode="after")

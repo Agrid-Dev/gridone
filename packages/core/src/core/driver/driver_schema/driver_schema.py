@@ -21,7 +21,7 @@ class DriverSchema(BaseModel):
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config_fields: list[DeviceConfigField]
     attribute_schemas: list[AttributeSchema]
-    discovery: dict | None
+    discovery: dict | None = None
 
     def get_attribute_schema(
         self,

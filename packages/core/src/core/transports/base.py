@@ -6,7 +6,11 @@ from typing import ClassVar, TypeVar
 from core.types import AttributeValueType, TransportProtocols
 
 from .listener_registry import ListenerCallback, ListenerRegistry
-from .transport_address import RawTransportAddress, TransportAddress
+from .transport_address import (
+    PushTransportAddress,
+    RawTransportAddress,
+    TransportAddress,
+)
 from .transport_config import TransportConfig
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
@@ -73,16 +77,19 @@ class TransportClient[T_TransportAddress](ABC):
         await self.close()
 
 
-class PushTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
+T_PushTransportAddress = TypeVar("T_PushTransportAddress", bound=PushTransportAddress)
+
+
+class PushTransportClient[T_PushTransportAddress](
+    TransportClient[T_PushTransportAddress]
+):
     @abstractmethod
-    async def register_listener(
-        self, address: T_TransportAddress, handler: ListenerCallback
-    ) -> str:
+    async def register_listener(self, topic: str, handler: ListenerCallback) -> str:
         """Register a listener on an address
         with a handler when receiving data on the address."""
 
     @abstractmethod
     async def unregister_listener(
-        self, handler_id: str, address: T_TransportAddress | None = None
+        self, handler_id: str, topic: str | None = None
     ) -> None:
         """Unregister handler on an address by handler_id."""
