@@ -129,7 +129,7 @@ class Driver:
                 )
 
         # Subscribe to topic for passive listening
-        self._discovery_handler_id = self.transport.listen(
+        self._discovery_handler_id = self.transport.register_listener(
             rendered_topic, discovery_handler
         )
         logger.info(
@@ -153,6 +153,8 @@ class Driver:
 
     def stop_discovery(self) -> None:
         """Stop listening for device discovery messages."""
+        if not isinstance(self.transport, PushTransportClient):
+            return
         if self._discovery_handler_id is None:
             logger.warning("Discovery not started for driver '%s'", self.name)
             return
@@ -172,7 +174,7 @@ class Driver:
         )
 
         # Unsubscribe from topic
-        self.transport.unlisten(self._discovery_handler_id, rendered_topic)
+        self.transport.unregister_listener(self._discovery_handler_id, rendered_topic)
         self._discovery_handler_id = None
         self._discovery_device_config = None
         logger.info("Stopped discovery for driver '%s'", self.name)

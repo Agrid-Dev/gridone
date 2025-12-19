@@ -5,7 +5,7 @@ from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
 
-from .read_handler_registry import ReadHandler, ReadHandlerRegistry
+from .listener_registry import ListenerCallback, ListenerRegistry
 from .transport_address import RawTransportAddress, TransportAddress
 from .transport_config import TransportConfig
 
@@ -22,7 +22,7 @@ class TransportClient[T_TransportAddress](ABC):
     _is_connected: bool
 
     def __init__(self, config: TransportConfig) -> None:
-        self._handlers_registry = ReadHandlerRegistry()
+        self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
         self._is_connected = False
         self.config = config
@@ -76,7 +76,7 @@ class TransportClient[T_TransportAddress](ABC):
 class PushTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
     @abstractmethod
     async def register_listener(
-        self, address: T_TransportAddress, handler: ReadHandler
+        self, address: T_TransportAddress, handler: ListenerCallback
     ) -> str:
         """Register a listener on an address
         with a handler when receiving data on the address."""

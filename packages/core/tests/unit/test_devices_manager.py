@@ -1,6 +1,5 @@
 import asyncio
 import contextlib
-from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,82 +15,9 @@ from core.driver import Driver
 from core.driver.driver_schema import DriverSchema
 from core.driver.driver_schema.attribute_schema import AttributeSchema
 from core.driver.driver_schema.update_strategy import UpdateStrategy
-from core.transports import TransportClient
-from core.transports.transport_address import TransportAddress
 from core.transports.transport_client_registry import TransportClientRegistry
 from core.types import AttributeValueType, DataType, TransportProtocols
 from core.value_adapters.factory import ValueAdapterSpec
-
-
-class MockTransportAddress(TransportAddress):
-    def __init__(self, address: str) -> None:
-        self.address = address
-
-    @property
-    def id(self) -> str:
-        return self.address
-
-    @classmethod
-    def from_str(
-        cls,
-        address_str: str,
-        extra_context: dict | None = None,  # noqa: ARG003
-    ) -> "MockTransportAddress":
-        return cls(address_str)
-
-    @classmethod
-    def from_dict(
-        cls,
-        address_dict: dict,
-        extra_context: dict | None = None,  # noqa: ARG003
-    ) -> "MockTransportAddress":
-        return cls(str(address_dict))
-
-    @classmethod
-    def from_raw(
-        cls,
-        raw_address: str | dict,
-        extra_context: dict | None = None,  # noqa: ARG003
-    ) -> "MockTransportAddress":
-        if isinstance(raw_address, str):
-            return cls(raw_address)
-        return cls(str(raw_address))
-
-
-class MockTransportClient(TransportClient[MockTransportAddress]):
-    protocol = TransportProtocols.HTTP
-    address_builder = MockTransportAddress
-
-    def __init__(self) -> None:
-        self._read_handlers: dict[str, Callable] = {}
-        self._listen_handlers: dict[str, tuple[str, Callable]] = {}
-        self._handler_counter = 0
-        self._is_connected = False
-
-    def build_address(self, raw_address, context):
-        if isinstance(raw_address, str):
-            return MockTransportAddress(raw_address.format(**context))
-        return MockTransportAddress(str(raw_address))
-
-    async def read(self, address: MockTransportAddress):
-        handler = self._read_handlers.get(address.address)
-        if handler:
-            return handler()
-        return "default_value"
-
-    async def write(self, address: MockTransportAddress, value):
-        pass
-
-    async def connect(self):
-        self._is_connected = True
-
-    async def close(self):
-        self._is_connected = False
-
-
-@pytest.fixture
-def mock_transport():
-    return MockTransportClient()
 
 
 @pytest.fixture
@@ -135,11 +61,11 @@ def driver_without_polling():
 
 
 @pytest.fixture
-def driver(mock_transport, simple_driver_schema):
+def driver(mock_transport_client, simple_driver_schema):
     return Driver(
         name="test_driver",
         env={},
-        transport=mock_transport,
+        transport=mock_transport_client,
         schema=simple_driver_schema,
     )
 
@@ -181,12 +107,12 @@ class TestDevicesManagerPolling:
 
     @pytest.mark.asyncio
     async def test_start_polling_without_polling_enabled(
-        self, mock_transport, driver_without_polling
+        self, mock_transport_client, driver_without_polling
     ):
         driver_no_poll = Driver(
             name="test_driver_no_poll",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=driver_without_polling,
         )
         device_no_poll = Device.from_driver(
@@ -205,18 +131,18 @@ class TestDevicesManagerPolling:
 
     @pytest.mark.asyncio
     async def test_start_polling_multiple_devices(
-        self, mock_transport, simple_driver_schema
+        self, mock_transport_client, simple_driver_schema
     ):
         driver1 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         driver2 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         device1 = Device.from_driver(
@@ -253,10 +179,12 @@ class TestDevicesManagerPolling:
         assert devices_manager._running is False
 
     @pytest.mark.asyncio
-    async def test_device_poll_loop(self, devices_manager, device, mock_transport):
+    async def test_device_poll_loop(
+        self, devices_manager, device, mock_transport_client
+    ):
         devices_manager.devices = {"device1": device}
         devices_manager._running = True
-        mock_transport.read = AsyncMock(return_value="25.5")
+        mock_transport_client.read = AsyncMock(return_value="25.5")
 
         task = asyncio.create_task(devices_manager._device_poll_loop(device))
         devices_manager._background_tasks.add(task)
@@ -267,7 +195,7 @@ class TestDevicesManagerPolling:
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
-        assert mock_transport.read.called
+        assert mock_transport_client.read.called
 
     @pytest.mark.asyncio
     async def test_device_poll_loop_cancelled(self, devices_manager, device):
@@ -284,7 +212,7 @@ class TestDevicesManagerPolling:
 
 class TestDevicesManagerLoadFromRaw:
     @pytest.mark.asyncio
-    async def test_load_from_raw_success(self, mock_transport):
+    async def test_load_from_raw_success(self, mock_transport_client):
         devices_raw: list[DeviceRaw] = [
             {
                 "id": "device1",
@@ -315,7 +243,7 @@ class TestDevicesManagerLoadFromRaw:
             "core.devices_manager.TransportClientRegistry"
         ) as mock_registry_class:
             mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport
+            mock_registry.get_transport.return_value = mock_transport_client
             mock_registry_class.return_value = mock_registry
 
             manager = DevicesManager.load_from_raw(
@@ -328,7 +256,7 @@ class TestDevicesManagerLoadFromRaw:
             assert "test_driver" in manager.drivers
 
     @pytest.mark.asyncio
-    async def test_load_from_raw_multiple_devices(self, mock_transport):
+    async def test_load_from_raw_multiple_devices(self, mock_transport_client):
         devices_raw: list[DeviceRaw] = [
             {
                 "id": "device1",
@@ -365,7 +293,7 @@ class TestDevicesManagerLoadFromRaw:
             "core.devices_manager.TransportClientRegistry"
         ) as mock_registry_class:
             mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport
+            mock_registry.get_transport.return_value = mock_transport_client
             mock_registry_class.return_value = mock_registry
 
             manager = DevicesManager.load_from_raw(
@@ -376,7 +304,7 @@ class TestDevicesManagerLoadFromRaw:
             assert len(manager.drivers) == 1
 
     @pytest.mark.asyncio
-    async def test_load_from_raw_no_transport_config(self, mock_transport):
+    async def test_load_from_raw_no_transport_config(self, mock_transport_client):
         devices_raw: list[DeviceRaw] = [
             {
                 "id": "device1",
@@ -405,7 +333,7 @@ class TestDevicesManagerLoadFromRaw:
             "core.devices_manager.TransportClientRegistry"
         ) as mock_registry_class:
             mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport
+            mock_registry.get_transport.return_value = mock_transport_client
             mock_registry_class.return_value = mock_registry
 
             manager = DevicesManager.load_from_raw(
@@ -416,7 +344,7 @@ class TestDevicesManagerLoadFromRaw:
 
 
 class TestDevicesManagerBuildDevice:
-    def test_build_device_success(self, mock_transport):
+    def test_build_device_success(self, mock_transport_client):
         device_raw: DeviceRaw = {
             "id": "device1",
             "driver": "test_driver",
@@ -441,7 +369,7 @@ class TestDevicesManagerBuildDevice:
             "core.devices_manager.TransportClientRegistry"
         ) as mock_registry_class:
             mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport
+            mock_registry.get_transport.return_value = mock_transport_client
             mock_registry_class.return_value = mock_registry
 
             device = DevicesManager.build_device(
@@ -451,7 +379,7 @@ class TestDevicesManagerBuildDevice:
             assert device.id == "device1"
             assert device.driver.name == "test_driver"
 
-    def test_build_device_no_transport_config(self, mock_transport):
+    def test_build_device_no_transport_config(self, mock_transport_client):
         device_raw: DeviceRaw = {
             "id": "device1",
             "driver": "test_driver",
@@ -475,7 +403,7 @@ class TestDevicesManagerBuildDevice:
             "core.devices_manager.TransportClientRegistry"
         ) as mock_registry_class:
             mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport
+            mock_registry.get_transport.return_value = mock_transport_client
             mock_registry_class.return_value = mock_registry
 
             device = DevicesManager.build_device(device_raw, driver_raw, None)
@@ -485,7 +413,7 @@ class TestDevicesManagerBuildDevice:
 
 class TestDevicesManagerAddDevice:
     @pytest.mark.asyncio
-    async def test_add_device_success(self, devices_manager, mock_transport):
+    async def test_add_device_success(self, devices_manager, mock_transport_client):
         device_raw: DeviceRaw = {
             "id": "device2",
             "driver": "test_driver",
@@ -505,7 +433,7 @@ class TestDevicesManagerAddDevice:
         with patch.object(
             devices_manager.transport_registry,
             "get_transport",
-            return_value=mock_transport,
+            return_value=mock_transport_client,
         ):
             device = devices_manager.add_device(
                 device_raw, drivers_raw, transport_configs
@@ -517,7 +445,7 @@ class TestDevicesManagerAddDevice:
 
     @pytest.mark.asyncio
     async def test_add_device_with_initial_attributes(
-        self, devices_manager, mock_transport
+        self, devices_manager, mock_transport_client
     ):
         device_raw: DeviceRaw = {
             "id": "device2",
@@ -539,7 +467,7 @@ class TestDevicesManagerAddDevice:
         with patch.object(
             devices_manager.transport_registry,
             "get_transport",
-            return_value=mock_transport,
+            return_value=mock_transport_client,
         ):
             device = devices_manager.add_device(
                 device_raw, drivers_raw, transport_configs, initial_attributes
@@ -549,7 +477,7 @@ class TestDevicesManagerAddDevice:
 
     @pytest.mark.asyncio
     async def test_add_device_reuses_existing_driver(
-        self, devices_manager, driver, mock_transport
+        self, devices_manager, driver, mock_transport_client
     ):
         device_raw: DeviceRaw = {
             "id": "device2",
@@ -570,7 +498,7 @@ class TestDevicesManagerAddDevice:
         with patch.object(
             devices_manager.transport_registry,
             "get_transport",
-            return_value=mock_transport,
+            return_value=mock_transport_client,
         ):
             devices_manager.add_device(device_raw, drivers_raw, transport_configs)
 
@@ -578,7 +506,7 @@ class TestDevicesManagerAddDevice:
 
     @pytest.mark.asyncio
     async def test_add_device_starts_polling_if_running(
-        self, devices_manager, mock_transport
+        self, devices_manager, mock_transport_client
     ):
         devices_manager._running = True
         device_raw: DeviceRaw = {
@@ -600,7 +528,7 @@ class TestDevicesManagerAddDevice:
         with patch.object(
             devices_manager.transport_registry,
             "get_transport",
-            return_value=mock_transport,
+            return_value=mock_transport_client,
         ):
             devices_manager.add_device(device_raw, drivers_raw, transport_configs)
 
@@ -610,7 +538,7 @@ class TestDevicesManagerAddDevice:
 
     @pytest.mark.asyncio
     async def test_add_device_invalid_attribute_value(
-        self, devices_manager, mock_transport
+        self, devices_manager, mock_transport_client
     ):
         device_raw: DeviceRaw = {
             "id": "device2",
@@ -632,7 +560,7 @@ class TestDevicesManagerAddDevice:
         with patch.object(
             devices_manager.transport_registry,
             "get_transport",
-            return_value=mock_transport,
+            return_value=mock_transport_client,
         ):
             device = devices_manager.add_device(
                 device_raw, drivers_raw, transport_configs, initial_attributes
@@ -656,18 +584,18 @@ class TestDevicesManagerListeners:
         assert callback in device._update_listeners
 
     def test_add_device_attribute_listener_multiple_devices(
-        self, devices_manager, mock_transport, simple_driver_schema
+        self, devices_manager, mock_transport_client, simple_driver_schema
     ):
         driver1 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         driver2 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         device1 = Device.from_driver(
@@ -690,7 +618,7 @@ class TestDevicesManagerListeners:
         assert callback in device2._update_listeners
 
     def test_attach_listeners(
-        self, devices_manager, mock_transport, simple_driver_schema
+        self, devices_manager, mock_transport_client, simple_driver_schema
     ):
         callback_called = False
 
@@ -703,7 +631,7 @@ class TestDevicesManagerListeners:
         new_driver = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport,
+            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         new_device = Device.from_driver(

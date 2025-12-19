@@ -6,7 +6,7 @@ import aiomqtt
 
 from core.transports import PushTransportClient
 from core.transports.connected import connected
-from core.transports.read_handler_registry import ReadHandler, ReadHandlerRegistry
+from core.transports.listener_registry import ListenerCallback, ListenerRegistry
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
 
@@ -24,7 +24,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
-    _handlers_registry: ReadHandlerRegistry
+    _handlers_registry: ListenerRegistry
     _background_tasks: set
     _message_handlers: (
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
@@ -35,7 +35,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
-        self._handlers_registry = ReadHandlerRegistry()
+        self._handlers_registry = ListenerRegistry()
         super().__init__(config)
 
     async def connect(self) -> None:
@@ -60,12 +60,12 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             await super().close()
 
     async def register_listener(
-        self, address: MqttAddress, handler: ReadHandler
+        self, address: MqttAddress, callback: ListenerCallback
     ) -> str:
-        handler_id = self._handlers_registry.register(address.id, handler)
+        listener_id = self._handlers_registry.register(address.id, callback)
         await self._subscribe(address.topic)
-        self._message_handlers.register(address.topic, handler_id)
-        return handler_id
+        self._message_handlers.register(address.topic, listener_id)
+        return listener_id
 
     async def unregister_listener(
         self, handler_id: str, address: MqttAddress | None = None
@@ -115,7 +115,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        handler_id = await self.register_listener(address, update_value)
+        listener_id = await self.register_listener(address, update_value)
 
         payload = (
             json.dumps(address.request.message)
@@ -134,7 +134,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             msg = "MQTT issue: no message received before timeout"
             raise TimeoutError(msg) from err
         finally:
-            await self.unregister_listener(handler_id, address)
+            await self.unregister_listener(listener_id, address)
         msg = "Unable to read value"
         raise ValueError(msg)
 

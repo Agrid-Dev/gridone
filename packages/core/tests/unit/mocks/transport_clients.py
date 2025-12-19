@@ -6,7 +6,7 @@ from core.transports import (
     TransportAddress,
     TransportClient,
 )
-from core.transports.read_handler_registry import ReadHandler, ReadHandlerRegistry
+from core.transports.listener_registry import ListenerCallback, ListenerRegistry
 from core.types import AttributeValueType, TransportProtocols
 
 if TYPE_CHECKING:
@@ -53,20 +53,17 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
     address_builder = MockTransportAddress
 
     def __init__(self) -> None:
-        self._read_handlers: dict[str, Callable] = {}
         self._listen_handlers: dict[str, tuple[str, Callable]] = {}
-        self._handler_counter = 0
         self._is_connected = False
 
-    def build_address(self, raw_address: RawTransportAddress, context: dict):
+    def build_address(
+        self, raw_address: RawTransportAddress, context: dict
+    ) -> MockTransportAddress:
         if isinstance(raw_address, str):
             return MockTransportAddress(raw_address.format(**context))
         return MockTransportAddress(str(raw_address))
 
-    async def read(self, address: MockTransportAddress):  # noqa: ANN201
-        handler = self._read_handlers.get(address.address)
-        if handler:
-            return handler()
+    async def read(self, address: MockTransportAddress):  # noqa: ANN201, ARG002
         return "default_value"
 
     async def write(
@@ -82,19 +79,19 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
 
 
 class MockPushTransportClient(PushTransportClient, MockTransportClient):
-    _listener_registry: ReadHandlerRegistry
+    _listener_registry: ListenerRegistry
 
     def __init__(self) -> None:
-        self._listener_registry = ReadHandlerRegistry()
+        self._listener_registry = ListenerRegistry()
 
     async def register_listener(
-        self, address: MockTransportAddress, handler: ReadHandler
+        self, address: MockTransportAddress, callback: ListenerCallback
     ) -> str:
-        return self._listener_registry.register(address.id, handler)
+        return self._listener_registry.register(address.id, callback)
 
     async def unregister_listener(
-        self, handler_id: str, address: MockTransportAddress | None = None
+        self, listener_id: str, address: MockTransportAddress | None = None
     ) -> None:
-        """Unregister handler on an address by handler_id."""
+        """Unregister callback on an address by callback_id."""
         address_id = address.id if address else None
-        return self._listener_registry.remove(handler_id, address_id)
+        return self._listener_registry.remove(listener_id, address_id)
