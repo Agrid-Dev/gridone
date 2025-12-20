@@ -44,7 +44,7 @@ class Driver:
             address = self.transport.build_address(attribute_schema.read, context)
             adapter = build_value_adapter(attribute_schema.value_adapter)
             return await self.transport.register_listener(
-                address, lambda v: callback(adapter.decode(v))
+                address.topic, lambda v: callback(adapter.decode(v))
             )
         msg = "Only push transports support listeners"
         raise NotImplementedError(msg)
@@ -113,7 +113,7 @@ class Driver:
         def callback(payload: Any) -> None:  # noqa: ANN401
             nonlocal seen
             device_config: DeviceConfig = discovery_listener.parse(payload)
-            config_hash = hashlib.sha256(device_config)
+            config_hash = hashlib.sha256(str(device_config).encode("utf-8")).hexdigest()
             if config_hash in seen:
                 return
             parsed_attributes = {}
@@ -124,6 +124,7 @@ class Driver:
                     parsed_attributes[attribute_schema.name] = adapter.decode(payload)
 
             on_discover(device_config, parsed_attributes)
+            seen.add(config_hash)
 
         listener_id = await self.transport.register_listener(
             discovery_listener.topic, callback
