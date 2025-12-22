@@ -84,12 +84,12 @@ class PushTransportClient[T_PushTransportAddress](
     TransportClient[T_PushTransportAddress]
 ):
     @abstractmethod
-    async def register_listener(self, topic: str, handler: ListenerCallback) -> str:
+    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
         """Register a listener on an address
         with a handler when receiving data on the address."""
 
     @abstractmethod
     async def unregister_listener(
-        self, handler_id: str, topic: str | None = None
+        self, callback_id: str, topic: str | None = None
     ) -> None:
         """Unregister handler on an address by handler_id."""

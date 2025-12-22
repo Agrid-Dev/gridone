@@ -63,13 +63,14 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         listener_id = self._handlers_registry.register(topic, callback)
         await self._subscribe(topic)
         self._message_handlers.register(topic, listener_id)
+        logger.debug("New listener registered on topic %s", topic)
         return listener_id
 
     async def unregister_listener(
-        self, handler_id: str, topic: str | None = None
+        self, callback_id: str, topic: str | None = None
     ) -> None:
         # unregister from _message handler
-        self._message_handlers.unregister(handler_id, topic)
+        self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
             # no other handlers on this topic, unsubscribe
             asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
@@ -87,12 +88,17 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     @connected
     async def _handle_incoming_messages(self) -> None:
         async for message in self._client.messages:
-            handler_ids = self._message_handlers.match_topic(message.topic)
-            if handler_ids:
+            callback_ids = self._message_handlers.match_topic(message.topic)
+            logger.debug(
+                "Handling new message on topic %s %s callbacks found",
+                message.topic,
+                len(callback_ids),
+            )
+            if callback_ids:
                 decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
-                for handler_id in handler_ids:
+                for callback_id in callback_ids:
                     try:
-                        handler = self._handlers_registry.get_by_id(handler_id)
+                        handler = self._handlers_registry.get_by_id(callback_id)
                         handler(decoded_payload)
                     except Exception:  # noqa: BLE001, S110
                         pass

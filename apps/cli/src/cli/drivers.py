@@ -1,7 +1,10 @@
+import asyncio
 from typing import TYPE_CHECKING, Annotated
 
 import typer
 from core.devices_manager import DevicesManager
+from core.driver import Driver
+from core.types import AttributeValueType, DeviceConfig
 from rich.console import Console
 
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
@@ -28,6 +31,27 @@ def list_all(ctx: typer.Context) -> None:
         console.print(driver["name"])
 
 
+def on_discover_device(
+    device_config: DeviceConfig, attributes: dict[str, AttributeValueType]
+) -> None:
+    message = "New device discovered !\n"
+    for k, v in device_config.items():
+        message += f"  \\[config] {k}: {v}\n"
+    for k, v in attributes.items():
+        message += f"  \\[attribute] {k}: {v}\n"
+    console.print(message)
+
+
+async def _run_discovery(driver: Driver) -> None:
+    task = asyncio.create_task(driver.discover(on_discover_device, timeout=600))
+    try:
+        console.print(f"Listening for new devices on driver {driver.name}...\n\n")
+        await asyncio.Future()
+    except KeyboardInterrupt:
+        console.print("\nExit")
+        task.cancel()
+
+
 @app.command()
 def discover(
     ctx: typer.Context,
@@ -51,5 +75,4 @@ def discover(
         console.print(f"[bold red]Not found: {driver_id}[/bold red]")
         raise typer.Exit(1) from e
     driver = DevicesManager.build_driver(driver_raw, transport_config_raw)
-
-    console.print(driver)
+    asyncio.run(_run_discovery(driver))
