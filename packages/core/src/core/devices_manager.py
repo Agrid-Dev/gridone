@@ -5,7 +5,7 @@ from typing import TypedDict
 from .device import AttributeListener, Device
 from .driver import Driver
 from .transports import TransportClientRegistry
-from .types import AttributeValueType, DeviceConfig, TransportProtocols
+from .types import DeviceConfig, TransportProtocols
 
 logger = logging.getLogger(__name__)
 
@@ -133,93 +133,6 @@ class DevicesManager:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self.devices[device.id] = device
-
-    def add_device_from_raw(
-        self,
-        device_raw: DeviceRaw,
-        drivers_raw: list[DriverRaw],
-        transport_configs: list[TransportConfigRaw],
-        initial_attributes: dict[str, AttributeValueType] | None = None,
-    ) -> Device:
-        """Add a new device to the manager dynamically.
-
-        Args:
-            device_raw: Raw device data from storage
-            drivers_raw: List of all driver raw data (to find the device's driver)
-            transport_configs: List of all transport configs
-            initial_attributes: Optional dictionary of attribute values to initialize
-                               the device with (e.g., from discovery message)
-
-        Returns:
-            The newly created Device instance
-        """
-        # Build transport config dict
-        transport_config_dict: dict[str, TransportConfigRaw] = {
-            t["name"]: t for t in transport_configs
-        }
-        drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
-
-        # Get transport config
-        transport_config = (
-            transport_config_dict[device_raw["transport_config"]]
-            if device_raw.get("transport_config")
-            else {}
-        )
-
-        # Get driver raw data
-        driver_raw = drivers_raw_dict[device_raw["driver"]]
-
-        # Get or create transport client
-        transport_client = self.transport_registry.get_transport(
-            TransportProtocols(driver_raw["transport"]),
-            transport_config,  # ty: ignore[invalid-argument-type]
-        )
-
-        # Get or create driver (reuse if already exists)
-        if device_raw["driver"] not in self.drivers:
-            driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
-            self.drivers[driver.name] = driver
-        else:
-            driver = self.drivers[device_raw["driver"]]
-
-        # Create device
-        device = Device.from_driver(
-            driver, device_raw["config"], device_id=device_raw["id"]
-        )
-
-        # Attach existing listeners first (so they receive initial value updates)
-        self._attach_listeners(device)
-
-        # Initialize attributes with discovered values if provided
-        if initial_attributes:
-            for attr_name, attr_value in initial_attributes.items():
-                if attr_name in device.attributes:
-                    try:
-                        # Use _update_attribute to properly set value and trigger
-                        # listeners. This ensures WebSocket broadcasts and other
-                        # listeners are notified
-                        device._update_attribute(  # noqa: SLF001
-                            device.attributes[attr_name], attr_value
-                        )
-                        logger.debug(
-                            "Initialized attribute '%s' with value '%s' for "
-                            "device '%s'",
-                            attr_name,
-                            attr_value,
-                            device.id,
-                        )
-                    except (ValueError, TypeError) as e:
-                        logger.warning(
-                            "Failed to initialize attribute '%s' for device '%s': %s",
-                            attr_name,
-                            device.id,
-                            e,
-                        )
-
-        # Add to devices dict
-        self.devices[device.id] = device
-
-        # Start polling if enabled and polling is running
         if self._running and device.driver.schema.update_strategy.polling_enabled:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
@@ -229,7 +142,6 @@ class DevicesManager:
             task.add_done_callback(self._background_tasks.discard)
 
         logger.info("Successfully loaded and registered device '%s'", device.id)
-        return device
 
     def add_device_attribute_listener(
         self,
