@@ -103,11 +103,11 @@ async def test_handle_incoming_messages(mqtt_client, mock_aiomqtt_client, mqtt_a
     mock_message.payload = b'{"value": 42}'
 
     # Register a handler
-    handler = Mock()
-    mqtt_client.register_read_handler(mqtt_address, handler)
+    callback = Mock()
+    await mqtt_client.register_listener(mqtt_address.topic, callback)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
     await mqtt_client._handle_incoming_messages()
 
-    # Verify the handler was called
-    handler.assert_called_once_with('{"value": 42}')
+    # Verify the callback was called
+    callback.assert_called_once_with('{"value": 42}')

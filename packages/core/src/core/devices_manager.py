@@ -109,18 +109,39 @@ class DevicesManager:
         return dm
 
     @staticmethod
+    def build_driver(
+        driver_raw: DriverRaw, transport_config: TransportConfigRaw | None
+    ) -> Driver:
+        transport_client = TransportClientRegistry().get_transport(
+            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
+        )
+        return Driver.from_dict(driver_raw, transport_client)
+
+    @staticmethod
     def build_device(
         device_raw: DeviceRaw,
         driver_raw: DriverRaw,
         transport_config: TransportConfigRaw | None,
     ) -> Device:
-        transport_client = TransportClientRegistry().get_transport(
-            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
-        )
-        driver = Driver.from_dict(dict(driver_raw), transport_client)
+        driver = DevicesManager.build_driver(driver_raw, transport_config)
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )
+
+    def add_device(self, device: Device) -> None:
+        if device.id in self.devices:
+            msg = f"Device with id {device.id} already exists"
+            raise ValueError(msg)
+        self.devices[device.id] = device
+        if self._running and device.driver.schema.update_strategy.polling_enabled:
+            logger.info(
+                "Starting polling job for newly discovered device %s", device.id
+            )
+            task = asyncio.create_task(self._device_poll_loop(device))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+
+        logger.info("Successfully loaded and registered device '%s'", device.id)
 
     def add_device_attribute_listener(
         self,

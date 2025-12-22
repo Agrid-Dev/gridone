@@ -50,8 +50,10 @@ class Device:
             },
         )
 
-    def __post_init__(self) -> None:
+    async def init_listeners(self) -> None:
         """Upon init, attach attribute updaters to the transport."""
+        if not isinstance(self.driver.transport, PushTransportClient):
+            return
         for attribute in self.attributes.values():
 
             def updater(
@@ -59,11 +61,9 @@ class Device:
             ) -> None:
                 return self._update_attribute(attribute, new_value)
 
-            self.driver.attach_updater(attribute.name, self.config, updater)
-
-    async def init_listeners(self) -> None:
-        if isinstance(self.driver.transport, PushTransportClient):
-            await self.driver.transport.init_listeners()
+            await self.driver.attach_update_listener(
+                attribute.name, self.config, updater
+            )
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:

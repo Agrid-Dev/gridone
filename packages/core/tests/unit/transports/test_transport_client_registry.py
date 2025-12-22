@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import pytest
 from core.transports import TransportClient
 from core.transports.transport_address import TransportAddress
@@ -34,6 +36,20 @@ class MockHttpTransportClient(TransportClient[MockTransportAddress]):
     async def write(self, address: MockTransportAddress, value) -> None:
         raise NotImplementedError("This is a test")
 
+    def listen(
+        self,
+        topic_or_address: str | MockTransportAddress,
+        handler: Callable[[str], None],
+    ) -> str:
+        raise NotImplementedError("This is a test")
+
+    def unlisten(
+        self,
+        handler_id: str,
+        topic_or_address: str | MockTransportAddress | None = None,
+    ) -> None:
+        raise NotImplementedError("This is a test")
+
 
 class MockMqttTransportClient(TransportClient[MockTransportAddress]):
     address_builder = MockTransportAddress
@@ -50,6 +66,20 @@ class MockMqttTransportClient(TransportClient[MockTransportAddress]):
         raise NotImplementedError("This is a test")
 
     async def write(self, address: MockTransportAddress, value) -> None:
+        raise NotImplementedError("This is a test")
+
+    def listen(
+        self,
+        topic_or_address: str | MockTransportAddress,
+        handler: Callable[[str], None],
+    ) -> str:
+        raise NotImplementedError("This is a test")
+
+    def unlisten(
+        self,
+        handler_id: str,
+        topic_or_address: str | MockTransportAddress | None = None,
+    ) -> None:
         raise NotImplementedError("This is a test")
 
 

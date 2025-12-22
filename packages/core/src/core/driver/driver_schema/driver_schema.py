@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -20,6 +21,7 @@ class DriverSchema(BaseModel):
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config_fields: list[DeviceConfigField]
     attribute_schemas: list[AttributeSchema]
+    discovery: dict | None = None
 
     def get_attribute_schema(
         self,
@@ -39,7 +41,7 @@ class DriverSchema(BaseModel):
     @classmethod
     def from_dict(
         cls,
-        data: dict[str, str],
+        data: dict[str, Any],
     ) -> "DriverSchema":
         attribute_schemas = [
             AttributeSchema.from_dict(sch)  # ty: ignore[invalid-argument-type]
@@ -49,10 +51,12 @@ class DriverSchema(BaseModel):
             DeviceConfigField(**dfc)  # ty: ignore[invalid-argument-type]
             for dfc in data.get("device_config", {})
         ]
+
         return cls(
             name=data["name"],
             transport=TransportProtocols(data["transport"]),
             device_config_fields=device_config_fields,
             attribute_schemas=attribute_schemas,
             update_strategy=data.get("update_strategy", {}),
+            discovery=data.get("discovery"),
         )

@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from typing import Annotated
+
+from pydantic import BaseModel, BeforeValidator
 
 from .fn_adapter import FnAdapter
 from .registry.bool_format_adapter import bool_format_adapter
@@ -19,9 +21,25 @@ supported_value_adapters = list(value_adapter_builders.keys())
 RawArg = str | float
 
 
+def is_supported(adapter: str) -> str:
+    if adapter in supported_value_adapters:
+        return adapter
+    supported = ", ".join(supported_value_adapters)
+    msg = f"Adapter '{adapter} not supported. Supported adapters: {supported}"
+    raise ValueError(msg)
+
+
 class ValueAdapterSpec(BaseModel):
-    adapter: str
+    adapter: Annotated[str, BeforeValidator(is_supported)]
     argument: RawArg
+
+
+def spec_from_raw(raw: dict[str, str]) -> ValueAdapterSpec:
+    if len(raw) != 1:
+        msg = "One adapter spec exactly needs to be defined"
+        raise ValueError(msg)
+    adpater, argument = next(iter(raw.items()))
+    return ValueAdapterSpec(adapter=adpater, argument=argument)
 
 
 def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:

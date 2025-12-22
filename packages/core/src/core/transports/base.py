@@ -5,8 +5,12 @@ from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
 
-from .read_handler_registry import ReadHandler, ReadHandlerRegistry
-from .transport_address import RawTransportAddress, TransportAddress
+from .listener_registry import ListenerCallback, ListenerRegistry
+from .transport_address import (
+    PushTransportAddress,
+    RawTransportAddress,
+    TransportAddress,
+)
 from .transport_config import TransportConfig
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
@@ -18,12 +22,11 @@ logger = logging.getLogger(__name__)
 class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     address_builder: ClassVar[type[T_TransportAddress]]
-    _handlers_registry: ReadHandlerRegistry
     _connection_lock: Lock
     _is_connected: bool
 
     def __init__(self, config: TransportConfig) -> None:
-        self._handlers_registry = ReadHandlerRegistry()
+        self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
         self._is_connected = False
         self.config = config
@@ -32,17 +35,6 @@ class TransportClient[T_TransportAddress](ABC):
         self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> T_TransportAddress:
         return self.address_builder.from_raw(raw_address, extra_context=context)  # ty: ignore[unresolved-attribute]
-
-    def register_read_handler(
-        self, address: T_TransportAddress, handler: ReadHandler
-    ) -> str:
-        return self._handlers_registry.register(address.id, handler)  # ty: ignore[unresolved-attribute]
-
-    def unregister_read_handler(
-        self, handler_id: str, address: T_TransportAddress | None = None
-    ) -> None:
-        address_id = address.id if address else None  # ty: ignore[unresolved-attribute]
-        self._handlers_registry.remove(handler_id, address_id)
 
     @abstractmethod
     async def connect(self) -> None:
@@ -85,6 +77,19 @@ class TransportClient[T_TransportAddress](ABC):
         await self.close()
 
 
-class PushTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
+T_PushTransportAddress = TypeVar("T_PushTransportAddress", bound=PushTransportAddress)
+
+
+class PushTransportClient[T_PushTransportAddress](
+    TransportClient[T_PushTransportAddress]
+):
     @abstractmethod
-    async def init_listeners(self) -> None: ...
+    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+        """Register a listener on an address
+        with a handler when receiving data on the address."""
+
+    @abstractmethod
+    async def unregister_listener(
+        self, callback_id: str, topic: str | None = None
+    ) -> None:
+        """Unregister handler on an address by handler_id."""

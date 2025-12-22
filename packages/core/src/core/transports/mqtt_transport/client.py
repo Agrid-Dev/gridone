@@ -1,11 +1,12 @@
 import asyncio
 import json
+import logging
 
 import aiomqtt
 
-from core.transports import TransportClient
+from core.transports import PushTransportClient
 from core.transports.connected import connected
-from core.transports.read_handler_registry import ReadHandler
+from core.transports.listener_registry import ListenerCallback, ListenerRegistry
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
 
@@ -15,12 +16,15 @@ from .transport_config import MqttTransportConfig
 
 TIMEOUT = 10
 
+logger = logging.getLogger(__name__)
 
-class MqttTransportClient(TransportClient[MqttAddress]):
+
+class MqttTransportClient(PushTransportClient[MqttAddress]):
     _client: aiomqtt.Client
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
+    _handlers_registry: ListenerRegistry
     _background_tasks: set
     _message_handlers: (
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
@@ -31,6 +35,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
+        self._handlers_registry = ListenerRegistry()
         super().__init__(config)
 
     async def connect(self) -> None:
@@ -54,29 +59,23 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             self._background_tasks.clear()
             await super().close()
 
-    @connected
-    async def init_listeners(self) -> None:
-        for topic in self._message_handlers.list_topics():
-            await asyncio.wait_for(self._client.subscribe(topic), timeout=TIMEOUT)
+    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+        listener_id = self._handlers_registry.register(topic, callback)
+        await self._subscribe(topic)
+        self._message_handlers.register(topic, listener_id)
+        logger.debug("New listener registered on topic %s", topic)
+        return listener_id
 
-    def register_read_handler(self, address: MqttAddress, handler: ReadHandler) -> str:
-        handler_id = super().register_read_handler(address, handler)
-        self._message_handlers.register(address.topic, handler_id)
-        return handler_id
-
-    def unregister_read_handler(
-        self, handler_id: str, address: MqttAddress | None = None
+    async def unregister_listener(
+        self, callback_id: str, topic: str | None = None
     ) -> None:
         # unregister from _message handler
-        topic = address.topic if address else None
-        self._message_handlers.unregister(handler_id, topic)
+        self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
             # no other handlers on this topic, unsubscribe
             asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
                 lambda task: task.exception()  # Silently consume the exception
             )
-
-        return super().unregister_read_handler(handler_id, address)
 
     @connected
     async def _subscribe(self, topic: str) -> None:
@@ -89,12 +88,17 @@ class MqttTransportClient(TransportClient[MqttAddress]):
     @connected
     async def _handle_incoming_messages(self) -> None:
         async for message in self._client.messages:
-            handler_ids = self._message_handlers.match_topic(message.topic)
-            if handler_ids:
+            callback_ids = self._message_handlers.match_topic(message.topic)
+            logger.debug(
+                "Handling new message on topic %s %s callbacks found",
+                message.topic,
+                len(callback_ids),
+            )
+            if callback_ids:
                 decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
-                for handler_id in handler_ids:
+                for callback_id in callback_ids:
                     try:
-                        handler = self._handlers_registry.get_by_id(handler_id)
+                        handler = self._handlers_registry.get_by_id(callback_id)
                         handler(decoded_payload)
                     except Exception:  # noqa: BLE001, S110
                         pass
@@ -114,7 +118,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        handler_id = self.register_read_handler(address, update_value)
+        listener_id = await self.register_listener(address.topic, update_value)
 
         payload = (
             json.dumps(address.request.message)
@@ -133,7 +137,7 @@ class MqttTransportClient(TransportClient[MqttAddress]):
             msg = "MQTT issue: no message received before timeout"
             raise TimeoutError(msg) from err
         finally:
-            self.unregister_read_handler(handler_id, address)
+            await self.unregister_listener(listener_id, address.topic)
         msg = "Unable to read value"
         raise ValueError(msg)
 

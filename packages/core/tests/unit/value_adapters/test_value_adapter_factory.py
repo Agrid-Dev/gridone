@@ -1,7 +1,11 @@
 from typing import Any
 
 import pytest
-from core.value_adapters.factory import ValueAdapterSpec, build_value_adapter
+from core.value_adapters.factory import (
+    ValueAdapterSpec,
+    build_value_adapter,
+    spec_from_raw,
+)
 
 
 @pytest.mark.parametrize(
@@ -45,5 +49,20 @@ def test_build_value_adapter(
 
 
 def test_build_value_adapter_invalid_adapter():
-    with pytest.raises(ValueError):  # noqa: PT011
+    with pytest.raises(ValueError, match="not supported"):
         build_value_adapter([ValueAdapterSpec(adapter="unknown", argument="arg")])
+
+
+@pytest.mark.parametrize(("raw"), [({"json_pointer": "/path/to/value"})])
+def test_spec_from_raw(raw: dict[str, str]):
+    spec = spec_from_raw(raw)
+    assert spec.adapter == next(iter(raw.keys()))
+    assert spec.argument == next(iter(raw.values()))
+
+
+@pytest.mark.parametrize(
+    ("raw"), [({}), ({"json_pointer": "/path/to/value", "extra": "not permitted"})]
+)
+def test_spec_from_raw_invalid_input(raw: dict) -> None:
+    with pytest.raises(ValueError):  # noqa: PT011
+        spec_from_raw(raw)
