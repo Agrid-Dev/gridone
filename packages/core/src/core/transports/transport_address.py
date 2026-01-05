@@ -34,3 +34,7 @@ class TransportAddress(ABC):
         cls, raw_address: RawTransportAddress, extra_context: dict | None = None
     ) -> "TransportAddress":
         pass
+
+
+class PushTransportAddress(TransportAddress):
+    topic: str

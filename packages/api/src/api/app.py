@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -14,6 +15,8 @@ from api.settings import settings
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,6 +26,10 @@ async def lifespan(app: FastAPI):
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     dm = gridone_repository.init_device_manager()
     app.state.device_manager = dm
+
+    # Dictionary to store per-device locks for atomic check-and-write operations
+    device_locks: dict[str, asyncio.Lock] = {}
+    app.state.device_locks = device_locks
 
     def broadcast_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
@@ -36,7 +43,9 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(websocket_manager.broadcast(message))
 
     await asyncio.gather(*[d.init_listeners() for d in dm.devices.values()])
+
     dm.add_device_attribute_listener(broadcast_attribute_update)
+
     await dm.start_polling()
     try:
         yield
