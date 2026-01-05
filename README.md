@@ -1,18 +1,23 @@
-# GRIDONE (WiP 🏗️)
+# GRIDONE
 
 _Gridone_ is an open-source Building Management System (BMS) designed for extensibility and portability.
 
-Gridone is built by [AGRID](https://a-grid.com/).
+Gridone is built by [AGRID](https://a-grid.com/) and under development 🏗️ (unstable).
 
 ## Project layout
 
 Gridone is a monorepo including both packages and applications.
 
 ```
+.
 ├── apps
-│   └── cli
+│   ├── api_server
+│   ├── cli
+│   └── ui
 ├── packages
-│   └── core
+│   ├── api
+│   ├── core
+│   └── storage
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
@@ -44,7 +49,9 @@ uv run ruff check # linting
 uv run ruff format # formatting
 uv run ruff format --check # format check
 uv run ty check # type check
-uv run pytest # runs tests
+uv run pytest # runs all tests
+uv run pytest -m "not integration" # run unit tests
+uv run pytest -m integration # run integration tests
 ```
 
 ### Githooks (recommended)
@@ -55,39 +62,6 @@ chmod +x .githooks/setup.sh
 bash .githooks/setup.sh
 ```
 
-## MQTT driver payloads
-
-Define MQTT `message` payloads as YAML structures rather than JSON strings; the transport will serialize dict payloads to JSON before publishing. Examples:
-
-```yaml
-address:
-  topic: "agrid/thermostat/command"
-  request:
-    topic: "${mac}"
-    message:
-      command: READ_DATA
-      data: Temperature
-```
-
-For nested payloads:
-
-```yaml
-message:
-  command: SET_CONFIG
-  data:
-    temperature:
-      target: 22
-      unit: celsius
-    mode: heating
-    schedule:
-      enabled: true
-      times:
-        - start: "06:00"
-          temp: 20
-        - start: "22:00"
-          temp: 18
-```
-
 ### Running with a proxy
 
 If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
@@ -95,3 +69,7 @@ If you need to route network calls through a proxy (for example when testing fro
 ```sh
 proxychains4 uv run python main.py
 ```
+
+## Applications
+
+Gridone can be executed as a [cli](apps/cli/README.md) or a fastapi [http server](apps/api_server/README.md).
