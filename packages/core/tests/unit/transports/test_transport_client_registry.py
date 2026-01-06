@@ -1,7 +1,11 @@
 import pytest
 from core.transports import TransportClient
 from core.transports.base_transport_config import BaseTransportConfig
-from core.transports.factory import HttpTransportConfig, MqttTransportConfig, Transport
+from core.transports.transport import (
+    HttpTransportConfig,
+    MqttTransportConfig,
+    Transport,
+)
 from core.transports.transport_address import TransportAddress
 from core.transports.transport_client_registry import TransportClientRegistry
 from core.types import TransportProtocols

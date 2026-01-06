@@ -1,20 +1,15 @@
 import asyncio
 import contextlib
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from core.device import Device
-from core.devices_manager import (
-    DeviceRaw,
-    DevicesManager,
-    TransportConfigRaw,
-)
+from core.devices_manager import DeviceRaw, DevicesManager, TransportRaw
 from core.driver import Driver
 from core.driver.driver_schema import DriverSchema
 from core.driver.driver_schema.attribute_schema import AttributeSchema
 from core.driver.driver_schema.update_strategy import UpdateStrategy
-from core.transports.transport_client_registry import TransportClientRegistry
 from core.types import DataType, TransportProtocols
 from core.value_adapters.factory import ValueAdapterSpec
 
@@ -75,23 +70,24 @@ def device(driver):
 
 
 @pytest.fixture
-def devices_manager(device, driver):
+def devices_manager(mock_transport_client, device, driver):
     return DevicesManager(
         devices={"device1": device},
         drivers={"test_driver": driver},
+        transports={"t1": mock_transport_client},
     )
 
 
 class TestDevicesManagerInit:
     def test_init(self):
-        manager = DevicesManager(devices={}, drivers={})
+        manager = DevicesManager(devices={}, drivers={}, transports={})
 
         assert manager.devices == {}
         assert manager.drivers == {}
+        assert manager.transports == {}
         assert manager._background_tasks == set()
         assert manager._running is False
         assert manager._attribute_listeners == []
-        assert isinstance(manager.transport_registry, TransportClientRegistry)
 
 
 class TestDevicesManagerPolling:
@@ -120,6 +116,7 @@ class TestDevicesManagerPolling:
         manager = DevicesManager(
             devices={"device1": device_no_poll},
             drivers={"test_driver_no_poll": driver_no_poll},
+            transports={"t1": mock_transport_client},
         )
 
         await manager.start_polling()
@@ -153,6 +150,7 @@ class TestDevicesManagerPolling:
         manager = DevicesManager(
             devices={"device1": device1, "device2": device2},
             drivers={"test_driver": driver1},
+            transports={"t1": mock_transport_client},
         )
 
         await manager.start_polling()
@@ -211,12 +209,12 @@ class TestDevicesManagerPolling:
 
 class TestDevicesManagerLoadFromRaw:
     @pytest.mark.asyncio
-    async def test_load_from_raw_success(self, mock_transport_client):
+    async def test_load_from_raw_success(self):
         devices_raw: list[DeviceRaw] = [
             {
                 "id": "device1",
                 "driver": "test_driver",
-                "transport_config": "config1",
+                "transport_id": "t1",
                 "config": {"device_id": "device1"},
             },
         ]
@@ -234,39 +232,30 @@ class TestDevicesManagerLoadFromRaw:
                 ],
             },
         ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
+        transports_raw: list[TransportRaw] = [
+            {"id": "t1", "protocol": "http", "config": {}}
         ]
 
-        with patch(
-            "core.devices_manager.TransportClientRegistry"
-        ) as mock_registry_class:
-            mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport_client
-            mock_registry_class.return_value = mock_registry
+        manager = DevicesManager.load_from_raw(devices_raw, drivers_raw, transports_raw)
 
-            manager = DevicesManager.load_from_raw(
-                devices_raw, drivers_raw, transport_configs
-            )
-
-            assert len(manager.devices) == 1
-            assert "device1" in manager.devices
-            assert len(manager.drivers) == 1
-            assert "test_driver" in manager.drivers
+        assert len(manager.devices) == 1
+        assert "device1" in manager.devices
+        assert len(manager.drivers) == 1
+        assert "test_driver" in manager.drivers
 
     @pytest.mark.asyncio
-    async def test_load_from_raw_multiple_devices(self, mock_transport_client):
+    async def test_load_from_raw_multiple_devices(self):
         devices_raw: list[DeviceRaw] = [
             {
                 "id": "device1",
                 "driver": "test_driver",
-                "transport_config": "config1",
+                "transport_id": "t1",
                 "config": {"device_id": "device1"},
             },
             {
                 "id": "device2",
                 "driver": "test_driver",
-                "transport_config": "config1",
+                "transport_id": "t1",
                 "config": {"device_id": "device2"},
             },
         ]
@@ -284,70 +273,22 @@ class TestDevicesManagerLoadFromRaw:
                 ],
             },
         ]
-        transport_configs: list[TransportConfigRaw] = [
-            {"name": "config1"},
+        transports_raw: list[TransportRaw] = [
+            {"id": "t1", "protocol": "http", "config": {}}
         ]
 
-        with patch(
-            "core.devices_manager.TransportClientRegistry"
-        ) as mock_registry_class:
-            mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport_client
-            mock_registry_class.return_value = mock_registry
+        manager = DevicesManager.load_from_raw(devices_raw, drivers_raw, transports_raw)
 
-            manager = DevicesManager.load_from_raw(
-                devices_raw, drivers_raw, transport_configs
-            )
-
-            assert len(manager.devices) == 2
-            assert len(manager.drivers) == 1
-
-    @pytest.mark.asyncio
-    async def test_load_from_raw_no_transport_config(self, mock_transport_client):
-        devices_raw: list[DeviceRaw] = [
-            {
-                "id": "device1",
-                "driver": "test_driver",
-                "transport_config": "",
-                "config": {"device_id": "device1"},
-            },
-        ]
-        drivers_raw: list[dict[str, Any]] = [
-            {
-                "name": "test_driver",
-                "transport": "http",
-                "device_config": [],
-                "attributes": [
-                    {
-                        "name": "temperature",
-                        "data_type": "float",
-                        "read": "GET /temperature",
-                    },
-                ],
-            },
-        ]
-        transport_configs: list[TransportConfigRaw] = []
-
-        with patch(
-            "core.devices_manager.TransportClientRegistry"
-        ) as mock_registry_class:
-            mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport_client
-            mock_registry_class.return_value = mock_registry
-
-            manager = DevicesManager.load_from_raw(
-                devices_raw, drivers_raw, transport_configs
-            )
-
-            assert len(manager.devices) == 1
+        assert len(manager.devices) == 2
+        assert len(manager.drivers) == 1
 
 
 class TestDevicesManagerBuildDevice:
-    def test_build_device_success(self, mock_transport_client):
+    def test_build_device_success(self):
         device_raw: DeviceRaw = {
             "id": "device1",
             "driver": "test_driver",
-            "transport_config": "config1",
+            "transport_id": "t1",
             "config": {"device_id": "device1"},
         }
         driver_raw: dict[str, Any] = {
@@ -362,52 +303,12 @@ class TestDevicesManagerBuildDevice:
                 },
             ],
         }
-        transport_config: TransportConfigRaw = {"name": "config1"}
+        transports_raw: TransportRaw = {"id": "t1", "protocol": "http", "config": {}}
 
-        with patch(
-            "core.devices_manager.TransportClientRegistry"
-        ) as mock_registry_class:
-            mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport_client
-            mock_registry_class.return_value = mock_registry
+        device = DevicesManager.build_device(device_raw, driver_raw, transports_raw)
 
-            device = DevicesManager.build_device(
-                device_raw, driver_raw, transport_config
-            )
-
-            assert device.id == "device1"
-            assert device.driver.name == "test_driver"
-
-    def test_build_device_no_transport_config(self, mock_transport_client):
-        device_raw: DeviceRaw = {
-            "id": "device1",
-            "driver": "test_driver",
-            "transport_config": "",
-            "config": {"device_id": "device1"},
-        }
-        driver_raw: dict[str, Any] = {
-            "name": "test_driver",
-            "transport": "http",
-            "device_config": [],
-            "attributes": [
-                {
-                    "name": "temperature",
-                    "data_type": "float",
-                    "read": "GET /temperature",
-                },
-            ],
-        }
-
-        with patch(
-            "core.devices_manager.TransportClientRegistry"
-        ) as mock_registry_class:
-            mock_registry = MagicMock()
-            mock_registry.get_transport.return_value = mock_transport_client
-            mock_registry_class.return_value = mock_registry
-
-            device = DevicesManager.build_device(device_raw, driver_raw, None)
-
-            assert device.id == "device1"
+        assert device.id == "device1"
+        assert device.driver.name == "test_driver"
 
 
 class TestDevicesManagerListeners:

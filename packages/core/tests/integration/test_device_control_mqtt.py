@@ -4,6 +4,7 @@ import pytest
 import yaml
 from core.device import Device
 from core.devices_manager import DevicesManager
+from core.types import TransportProtocols
 
 fixture_path = Path(__file__).parent / "fixtures" / "thermockat_mqtt_driver.yaml"
 with fixture_path.open("r") as file:
@@ -16,11 +17,15 @@ def mqtt_device() -> Device:
         {
             "id": "test-thermocktat",
             "driver": "thermocktat_mqtt",
-            "transport_config": "mqtt_broker",
+            "transport_id": "t1",
             "config": {"device_id": "test-thermocktat"},
         },
         thermocktat_mqtt_driver,
-        transport_config={"name": "mqtt_broker", "host": "127.0.0.1"},  # ty:ignore[invalid-argument-type, invalid-key]
+        transport={
+            "id": "t1",
+            "protocol": TransportProtocols.MQTT,
+            "config": {"name": "mqtt_broker", "host": "127.0.0.1"},
+        },
     )
 
 

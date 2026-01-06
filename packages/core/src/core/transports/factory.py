@@ -1,42 +1,22 @@
 from collections.abc import Callable
-from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import TypeAdapter
 
 from core.types import TransportProtocols
 
-from .bacnet_transport import BacnetTransportClient, BacnetTransportConfig
+from .bacnet_transport import BacnetTransportClient
 from .base import TransportClient
 from .base_transport_config import BaseTransportConfig
-from .http_transport import HTTPTransportClient, HttpTransportConfig
-from .modbus_tcp_transport import ModbusTCPTransportClient, ModbusTCPTransportConfig
-from .mqtt_transport import MqttTransportClient, MqttTransportConfig
-
-
-class HttpTransport(BaseModel):
-    protocol: Literal[TransportProtocols.HTTP]
-    config: HttpTransportConfig
-
-
-class MqttTransport(BaseModel):
-    protocol: Literal[TransportProtocols.MQTT]
-    config: MqttTransportConfig
-
-
-class ModbusTcpTransport(BaseModel):
-    protocol: Literal[TransportProtocols.MODBUS_TCP]
-    config: ModbusTCPTransportConfig
-
-
-class BacnetTransport(BaseModel):
-    protocol: Literal[TransportProtocols.BACNET]
-    config: BacnetTransportConfig
-
-
-Transport = Annotated[
-    HttpTransport | MqttTransport | ModbusTcpTransport | BacnetTransport,
-    Field(discriminator="protocol"),
-]
+from .http_transport import HTTPTransportClient
+from .modbus_tcp_transport import ModbusTCPTransportClient
+from .mqtt_transport import MqttTransportClient
+from .transport import (
+    BacnetTransport,
+    HttpTransport,
+    ModbusTcpTransport,
+    MqttTransport,
+    Transport,
+)
 
 
 def parse_transport(raw: dict) -> Transport:

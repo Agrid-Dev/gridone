@@ -4,6 +4,7 @@ import pytest
 import yaml
 from core.device import Device
 from core.devices_manager import DevicesManager
+from core.types import TransportProtocols
 
 from .conftest import DEVICE_ID, HTTP_PORT
 
@@ -18,11 +19,11 @@ def device() -> Device:
         {
             "id": DEVICE_ID,
             "driver": "thermocktat_http",
-            "transport_config": "",
+            "transport_id": "t1",
             "config": {"ip": f"http://localhost:{HTTP_PORT}"},
         },
         thermocktat_http_driver,
-        transport_config=None,
+        transport={"id": "t1", "protocol": TransportProtocols.HTTP, "config": {}},
     )
 
 

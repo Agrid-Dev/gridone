@@ -4,8 +4,8 @@ from typing import TypedDict
 
 from .device import AttributeListener, Device
 from .driver import Driver
-from .transports import TransportClientRegistry
-from .types import DeviceConfig, TransportProtocols
+from .transports import Transport, TransportClient, TransportDTO, make_transport_client
+from .types import DeviceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class DeviceRaw(TypedDict):
     id: str
     driver: str
-    transport_config: str
+    transport_id: str
     config: DeviceConfig
 
 
@@ -22,8 +22,10 @@ class DriverRaw(TypedDict):
     transport: str
 
 
-class TransportConfigRaw(TypedDict):
-    name: str
+class TransportRaw(TypedDict):
+    id: str
+    protocol: str
+    config: dict
 
 
 POLL_INTERVAL = 10
@@ -32,17 +34,22 @@ POLL_INTERVAL = 10
 class DevicesManager:
     devices: dict[str, Device]
     drivers: dict[str, Driver]
-    transport_registry: TransportClientRegistry
+    transports: dict[str, TransportClient]
     _background_tasks: set[asyncio.Task]
     _running: bool
     _attribute_listeners: list[AttributeListener]
 
-    def __init__(self, devices: dict[str, Device], drivers: dict[str, Driver]) -> None:
+    def __init__(
+        self,
+        devices: dict[str, Device],
+        drivers: dict[str, Driver],
+        transports: dict[str, Transport],
+    ) -> None:
         self.devices = devices
         self.drivers = drivers
+        self.transports = transports
         self._background_tasks = set()
         self._running = False
-        self.transport_registry = TransportClientRegistry()
         self._attribute_listeners = []
 
     async def start_polling(self) -> None:
@@ -78,28 +85,20 @@ class DevicesManager:
         cls,
         devices_raw: list[DeviceRaw],
         drivers_raw: list[DriverRaw],
-        transport_configs: list[TransportConfigRaw],
+        transports: list[TransportRaw],
     ) -> "DevicesManager":
         """Must be called within an async context because of some client
         instanciations (to be improved)."""
-        transport_config_dict: dict[str, TransportConfigRaw] = {
-            t["name"]: t for t in transport_configs
+        transports: dict[str, TransportClient] = {
+            t["id"]: make_transport_client(TransportDTO.model_validate(t).transport)
+            for t in transports
         }
         drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
-        dm = cls({}, {})
+        dm = cls({}, {}, transports)
 
         for d in devices_raw:
-            transport_config = (
-                transport_config_dict[d["transport_config"]]
-                if d.get("transport_config")
-                else {}
-            )
-
+            transport_client = dm.transports[d["transport_id"]]
             driver_raw = drivers_raw_dict[d["driver"]]
-            transport_client = dm.transport_registry.get_transport(
-                TransportProtocols(driver_raw["transport"]),
-                transport_config,  # ty: ignore[invalid-argument-type]
-            )
             driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
             dm.drivers[driver.name] = driver
             device = Device.from_driver(driver, d["config"], device_id=d["id"])
@@ -109,21 +108,17 @@ class DevicesManager:
         return dm
 
     @staticmethod
-    def build_driver(
-        driver_raw: DriverRaw, transport_config: TransportConfigRaw | None
-    ) -> Driver:
-        transport_client = TransportClientRegistry().get_transport(
-            TransportProtocols(driver_raw["transport"]), dict(transport_config or {})
-        )
+    def build_driver(driver_raw: DriverRaw, transport: Transport) -> Driver:
+        transport_client = make_transport_client(transport)
         return Driver.from_dict(driver_raw, transport_client)
 
     @staticmethod
     def build_device(
-        device_raw: DeviceRaw,
-        driver_raw: DriverRaw,
-        transport_config: TransportConfigRaw | None,
+        device_raw: DeviceRaw, driver_raw: DriverRaw, transport: TransportRaw
     ) -> Device:
-        driver = DevicesManager.build_driver(driver_raw, transport_config)
+        driver = DevicesManager.build_driver(
+            driver_raw, TransportDTO.model_validate(transport).transport
+        )
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )
