@@ -1,10 +1,9 @@
-from collections.abc import Callable
-
 import pytest
 from core.transports import TransportClient
+from core.transports.base_transport_config import BaseTransportConfig
+from core.transports.factory import HttpTransportConfig, MqttTransportConfig, Transport
 from core.transports.transport_address import TransportAddress
 from core.transports.transport_client_registry import TransportClientRegistry
-from core.transports.transport_config import TransportConfig
 from core.types import TransportProtocols
 
 ## Mock data structures and functions
@@ -14,7 +13,7 @@ class MockTransportAddress(TransportAddress):
     address_id: int
 
 
-class MockTransportConfig(TransportConfig):
+class MockTransportConfig(BaseTransportConfig):
     ip: str
     port: int
 
@@ -22,7 +21,7 @@ class MockTransportConfig(TransportConfig):
 class MockHttpTransportClient(TransportClient[MockTransportAddress]):
     address_builder = MockTransportAddress
     protocol = TransportProtocols.HTTP
-    config: MockTransportConfig
+    config: HttpTransportConfig
 
     async def connect(self) -> None:
         await super().connect()
@@ -34,27 +33,13 @@ class MockHttpTransportClient(TransportClient[MockTransportAddress]):
         raise NotImplementedError("This is a test")
 
     async def write(self, address: MockTransportAddress, value) -> None:
-        raise NotImplementedError("This is a test")
-
-    def listen(
-        self,
-        topic_or_address: str | MockTransportAddress,
-        handler: Callable[[str], None],
-    ) -> str:
-        raise NotImplementedError("This is a test")
-
-    def unlisten(
-        self,
-        handler_id: str,
-        topic_or_address: str | MockTransportAddress | None = None,
-    ) -> None:
         raise NotImplementedError("This is a test")
 
 
 class MockMqttTransportClient(TransportClient[MockTransportAddress]):
     address_builder = MockTransportAddress
     protocol = TransportProtocols.MQTT
-    config: MockTransportConfig
+    config: MqttTransportConfig
 
     async def connect(self) -> None:
         await super().connect()
@@ -68,36 +53,13 @@ class MockMqttTransportClient(TransportClient[MockTransportAddress]):
     async def write(self, address: MockTransportAddress, value) -> None:
         raise NotImplementedError("This is a test")
 
-    def listen(
-        self,
-        topic_or_address: str | MockTransportAddress,
-        handler: Callable[[str], None],
-    ) -> str:
-        raise NotImplementedError("This is a test")
 
-    def unlisten(
-        self,
-        handler_id: str,
-        topic_or_address: str | MockTransportAddress | None = None,
-    ) -> None:
-        raise NotImplementedError("This is a test")
-
-
-def mock_transport_config_factory(
-    protocol: TransportProtocols,  # noqa: ARG001
-    raw_config: dict,
-) -> TransportConfig:
-    return MockTransportConfig(**raw_config)
-
-
-def mock_transport_client_factory(
-    protocol: TransportProtocols, transport_config: TransportConfig
-):
-    if protocol == TransportProtocols.HTTP:
-        return MockHttpTransportClient(transport_config)
-    if protocol == TransportProtocols.MQTT:
-        return MockMqttTransportClient(transport_config)
-    msg = f"Protocol: {protocol} not supported in this test"
+def mock_transport_client_factory(transport: Transport):
+    if transport.protocol == TransportProtocols.HTTP:
+        return MockHttpTransportClient(transport.config)
+    if transport.protocol == TransportProtocols.MQTT:
+        return MockMqttTransportClient(transport.config)
+    msg = f"Protocol: {transport.protocol} not supported in this test"
     raise ValueError(msg)
 
 
@@ -107,22 +69,18 @@ def mock_transport_client_factory(
 @pytest.fixture
 def registry() -> TransportClientRegistry:
     return TransportClientRegistry(
-        config_factory=mock_transport_config_factory,
         client_factory=mock_transport_client_factory,
     )
 
 
 def test_get_transport_client_once(registry: TransportClientRegistry):
-    transport = registry.get_transport(
-        TransportProtocols.HTTP, {"ip": "127.0.0.1", "port": 3001}
-    )
+    transport = registry.get_transport(TransportProtocols.HTTP, {"request_timeout": 20})
     assert transport.protocol == TransportProtocols.HTTP
-    assert transport.config.ip == "127.0.0.1"  # ty:ignore[possibly-missing-attribute]
-    assert transport.config.port == 3001  # ty:ignore[possibly-missing-attribute]
+    assert transport.config.request_timeout == 20  # ty:ignore[possibly-missing-attribute]
 
 
 def test_get_transport_client_twice(registry: TransportClientRegistry):
-    raw_config = {"ip": "127.0.0.1", "port": 3001}
+    raw_config = {"request_timeout": 20}
     transport_1 = registry.get_transport(TransportProtocols.HTTP, raw_config)
     transport_2 = registry.get_transport(TransportProtocols.HTTP, raw_config)
     assert transport_2 is transport_1
@@ -131,10 +89,10 @@ def test_get_transport_client_twice(registry: TransportClientRegistry):
 
 def test_get_transport_client_several_configs(registry: TransportClientRegistry):
     transport_1 = registry.get_transport(
-        TransportProtocols.HTTP, {"ip": "127.0.0.1", "port": 3001}
+        TransportProtocols.HTTP, {"request_timeout": 20}
     )
     transport_2 = registry.get_transport(
-        TransportProtocols.HTTP, {"ip": "127.0.0.1", "port": 3002}
+        TransportProtocols.HTTP, {"request_timeout": 30}
     )
     assert transport_2 is not transport_1
     assert len(registry) == 2
@@ -142,10 +100,10 @@ def test_get_transport_client_several_configs(registry: TransportClientRegistry)
 
 def test_get_transport_client_several_protocols(registry: TransportClientRegistry):
     transport_1 = registry.get_transport(
-        TransportProtocols.HTTP, {"ip": "127.0.0.1", "port": 3001}
+        TransportProtocols.HTTP, {"request_timeout": 20}
     )
     transport_2 = registry.get_transport(
-        TransportProtocols.MQTT, {"ip": "127.0.0.1", "port": 3001}
+        TransportProtocols.MQTT, {"host": "127.0.0.1", "port": 3001}
     )
     assert transport_2 is not transport_1
     assert len(registry) == 2
@@ -153,9 +111,14 @@ def test_get_transport_client_several_protocols(registry: TransportClientRegistr
 
 @pytest.mark.asyncio
 async def test_clears_on_close(registry: TransportClientRegistry):
-    for protocol in [TransportProtocols.HTTP, TransportProtocols.MQTT]:
-        for port in range(3000, 3005):
-            registry.get_transport(protocol, {"ip": "127.0.0.1", "port": port})
+    for i in range(5):
+        registry.get_transport(
+            TransportProtocols.HTTP, {"request_timeout": 10 * (i + 1)}
+        )
+    for port in range(3000, 3005):
+        registry.get_transport(
+            TransportProtocols.MQTT, {"host": "127.0.0.1", "port": port}
+        )
 
     assert len(registry) == 2 * 5
     await registry.close()
@@ -165,7 +128,7 @@ async def test_clears_on_close(registry: TransportClientRegistry):
 @pytest.mark.asyncio
 async def test_closes_transport_on_close(registry: TransportClientRegistry):
     transport = registry.get_transport(
-        TransportProtocols.HTTP, {"ip": "127.0.0.1", "port": 3000}
+        TransportProtocols.MQTT, {"host": "127.0.0.1", "port": 3000}
     )
     await registry.close()
     assert not transport._is_connected

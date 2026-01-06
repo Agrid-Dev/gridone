@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 
-class TransportConfig(BaseModel):
+class BaseTransportConfig(BaseModel):
     pass

@@ -1,10 +1,10 @@
 from pydantic import PositiveInt
 
-from core.transports.transport_config import TransportConfig
+from core.transports.base_transport_config import BaseTransportConfig
 
 MQTT_DEFAULT_PORT = 1883
 
 
-class MqttTransportConfig(TransportConfig):
+class MqttTransportConfig(BaseTransportConfig):
     host: str
     port: PositiveInt = MQTT_DEFAULT_PORT

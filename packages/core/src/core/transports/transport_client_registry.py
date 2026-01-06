@@ -2,41 +2,35 @@ from core.types import TransportProtocols
 
 from .base import TransportClient
 from .factory import (
+    Transport,
     TransportClientFactory,
-    TransportConfigFactory,
     make_transport_client,
-    make_transport_config,
+    parse_transport,
 )
 from .hash_model import hash_model
-from .transport_config import TransportConfig
 
 type TransportKey = tuple[TransportProtocols, str]
 
 
-def make_transport_key(
-    protocol: TransportProtocols, config: TransportConfig
-) -> TransportKey:
-    config_key = hash_model(config)
-    return (protocol, config_key)
+def make_transport_key(transport: Transport) -> TransportKey:
+    config_key = hash_model(transport.config)
+    return (transport.protocol, config_key)
 
 
 class TransportClientRegistry:
-    _transports: dict[tuple[TransportProtocols, str], TransportClient]
-    _make_transport_config: TransportConfigFactory
+    _clients: dict[tuple[TransportProtocols, str], TransportClient]
     _make_transport_client: TransportClientFactory
 
     def __init__(
         self,
         *,
-        config_factory: TransportConfigFactory = make_transport_config,
         client_factory: TransportClientFactory = make_transport_client,
     ) -> None:
-        self._transports = {}
-        self._make_transport_config = config_factory
+        self._clients = {}
         self._make_transport_client = client_factory
 
     def __len__(self) -> int:
-        return len(self._transports)
+        return len(self._clients)
 
     def get_transport(
         self, protocol: TransportProtocols, raw_config: dict
@@ -45,14 +39,14 @@ class TransportClientRegistry:
         Returns a transport client for the given protocol and config.
         If an existing one matches, it will be returned, otherwise a new one created.
         """
-        config = self._make_transport_config(protocol, raw_config)
-        key = make_transport_key(protocol, config)
-        if key not in self._transports:
-            self._transports[key] = self._make_transport_client(protocol, config)
-        return self._transports[key]
+        transport = parse_transport({"protocol": protocol, "config": raw_config})
+        key = make_transport_key(transport)
+        if key not in self._clients:
+            self._clients[key] = self._make_transport_client(transport)
+        return self._clients[key]
 
     async def close(self) -> None:
         """Close and delete all transport clients."""
-        for transport in self._transports.values():
-            await transport.close()
-        self._transports.clear()
+        for client in self._clients.values():
+            await client.close()
+        self._clients.clear()

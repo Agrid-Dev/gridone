@@ -5,13 +5,13 @@ from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
 
+from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
     TransportAddress,
 )
-from .transport_config import TransportConfig
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
 
@@ -25,7 +25,7 @@ class TransportClient[T_TransportAddress](ABC):
     _connection_lock: Lock
     _is_connected: bool
 
-    def __init__(self, config: TransportConfig) -> None:
+    def __init__(self, config: BaseTransportConfig) -> None:
         self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
         self._is_connected = False
