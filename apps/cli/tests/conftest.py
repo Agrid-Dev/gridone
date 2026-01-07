@@ -8,6 +8,7 @@ from storage import CoreFileStorage
 TEST_DEVICE = {
     "id": "test_device",
     "driver": "test_driver",
+    "transport_id": "http_transport",
     "config": {"lattitude": 48.866667, "longitude": 2.333333},
 }
 
@@ -33,16 +34,19 @@ TEST_DRIVER = {
     ],
 }
 
+TEST_TRANSPORT = {"id": "http_transport", "protocol": "http", "config": {}}
+
 
 @pytest.fixture
 def mock_core_file_storage() -> Generator[CoreFileStorage]:
     with TemporaryDirectory() as temp_dir:
         (Path(temp_dir) / "devices").mkdir()
         (Path(temp_dir) / "drivers").mkdir()
-        (Path(temp_dir) / "transport_configs").mkdir()
+        (Path(temp_dir) / "transports").mkdir()
         core_file_storage = CoreFileStorage(Path(temp_dir))
         core_file_storage.devices.write(TEST_DEVICE["id"], TEST_DEVICE)  # ty:ignore[invalid-argument-type]
         core_file_storage.drivers.write(TEST_DRIVER["name"], TEST_DRIVER)  # ty:ignore[invalid-argument-type]
+        core_file_storage.transports.write(TEST_TRANSPORT["id"], TEST_TRANSPORT)  # ty:ignore[invalid-argument-type]
 
         yield core_file_storage
 

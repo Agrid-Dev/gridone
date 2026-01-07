@@ -58,7 +58,10 @@ class TransportDTO(BaseModel):
 
         # Raw shape -> nested shape
         if "protocol" in data and "config" in data:
-            raw_transport = {"protocol": data["protocol"], "config": data["config"]}
+            raw_transport = {
+                "protocol": data["protocol"],
+                "config": {} if data.get("config") is None else data["config"],
+            }
             # Validate the discriminated union explicitly
             transport = TypeAdapter(Transport).validate_python(raw_transport)
 

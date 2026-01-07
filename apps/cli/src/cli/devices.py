@@ -31,11 +31,9 @@ def get_single_device_manager(
 ) -> DevicesManager:
     device_raw = repository.devices.read(device_id)
     driver_raw = repository.drivers.read(device_raw["driver"])
-    if device_raw.get("transport_config"):
-        transport_configs = [
-            repository.transport_configs.read(device_raw["transport_config"])
-        ]
-    return DevicesManager.load_from_raw([device_raw], [driver_raw], transport_configs)
+
+    transports = [repository.transports.read(device_raw["transport_id"])]
+    return DevicesManager.load_from_raw([device_raw], [driver_raw], transports)
 
 
 async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
@@ -63,13 +61,13 @@ def list_all(ctx: typer.Context) -> None:
     table = Table(title=f"Devices ({len(devices)})")
     table.add_column("ID", justify="left", style="cyan", no_wrap=True)
     table.add_column("Driver", justify="left", style="magenta")
-    table.add_column("Transport Config", justify="left", style="green")
+    table.add_column("Transport", justify="left", style="green")
 
     for device_raw in sorted(devices, key=lambda d: d["id"]):
         table.add_row(
             device_raw["id"],
             device_raw["driver"],
-            device_raw.get("transport_config"),
+            device_raw["transport_id"],
         )
 
     console.print(table)
@@ -97,7 +95,7 @@ async def _write_device_async(
     )
     async with device.driver.transport:
         await device.write_attribute_value(attribute, value)
-        console.print("[bold green]Attrubute updated[/bold green]")
+        console.print("[bold green]Attribute updated[/bold green]")
 
 
 @app.command()
