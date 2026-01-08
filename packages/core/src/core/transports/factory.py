@@ -11,10 +11,6 @@ from .http_transport import HTTPTransportClient
 from .modbus_tcp_transport import ModbusTCPTransportClient
 from .mqtt_transport import MqttTransportClient
 from .transport import (
-    BacnetTransport,
-    HttpTransport,
-    ModbusTcpTransport,
-    MqttTransport,
     Transport,
 )
 
@@ -30,14 +26,14 @@ type TransportClientFactory = Callable[[Transport], TransportClient]
 
 
 def make_transport_client(transport: Transport) -> TransportClient:
-    match transport:
-        case HttpTransport():
-            return HTTPTransportClient(transport.config)
-        case MqttTransport():
-            return MqttTransportClient(transport.config)
-        case ModbusTcpTransport():
-            return ModbusTCPTransportClient(transport.config)
-        case BacnetTransport():
-            return BacnetTransportClient(transport.config)
-    msg = "Could not match transport"
+    match transport.protocol:
+        case TransportProtocols.HTTP:
+            return HTTPTransportClient(transport.config)  # ty:ignore[invalid-argument-type]
+        case TransportProtocols.MQTT:
+            return MqttTransportClient(transport.config)  # ty:ignore[invalid-argument-type]
+        case TransportProtocols.MODBUS_TCP:
+            return ModbusTCPTransportClient(transport.config)  # ty:ignore[invalid-argument-type]
+        case TransportProtocols.BACNET:
+            return BacnetTransportClient(transport.config)  # ty:ignore[invalid-argument-type]
+    msg = f"Invalid protocol: {transport.protocol}"
     raise ValueError(msg)

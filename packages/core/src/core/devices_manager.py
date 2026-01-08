@@ -47,7 +47,10 @@ class DevicesManager:
     ) -> None:
         self.devices = devices
         self.drivers = drivers
-        self.transports = transports
+        self.transports = {
+            transport_id: make_transport_client(t)
+            for transport_id, t in transports.items()
+        }
         self._background_tasks = set()
         self._running = False
         self._attribute_listeners = []
