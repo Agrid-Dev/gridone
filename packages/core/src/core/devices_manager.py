@@ -4,8 +4,9 @@ from typing import TypedDict
 
 from .device import AttributeListener, Device
 from .driver import Driver
-from .transports import Transport, TransportClient, TransportDTO, make_transport_client
-from .types import DeviceConfig
+from .transports import TransportClient, TransportMetadata, make_transport_client
+from .transports.factory import make_transport_config
+from .types import DeviceConfig, TransportProtocols
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ class DeviceRaw(TypedDict):
 class DriverRaw(TypedDict):
     name: str
     transport: str
+    device_config: list[dict]
+    attributes: list[dict]
 
 
 class TransportRaw(TypedDict):
@@ -43,14 +46,11 @@ class DevicesManager:
         self,
         devices: dict[str, Device],
         drivers: dict[str, Driver],
-        transports: dict[str, Transport],
+        transports: dict[str, TransportClient],
     ) -> None:
         self.devices = devices
         self.drivers = drivers
-        self.transports = {
-            transport_id: make_transport_client(t)
-            for transport_id, t in transports.items()
-        }
+        self.transports = transports
         self._background_tasks = set()
         self._running = False
         self._attribute_listeners = []
@@ -93,7 +93,11 @@ class DevicesManager:
         """Must be called within an async context because of some client
         instanciations (to be improved)."""
         transports: dict[str, TransportClient] = {
-            t["id"]: make_transport_client(TransportDTO.model_validate(t).transport)
+            t["id"]: make_transport_client(
+                TransportProtocols(t["protocol"]),
+                make_transport_config(TransportProtocols(t["protocol"]), t["config"]),
+                TransportMetadata(id=t["id"], name=t["id"]),
+            )
             for t in transports
         }
         drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
@@ -111,17 +115,20 @@ class DevicesManager:
         return dm
 
     @staticmethod
-    def build_driver(driver_raw: DriverRaw, transport: Transport) -> Driver:
-        transport_client = make_transport_client(transport)
-        return Driver.from_dict(driver_raw, transport_client)
+    def build_driver(driver_raw: DriverRaw, transport: TransportRaw) -> Driver:
+        protocol = TransportProtocols(transport["protocol"])
+        transport_client = make_transport_client(
+            protocol,
+            make_transport_config(protocol, transport["config"]),
+            TransportMetadata(id=transport["id"], name=transport["id"]),
+        )
+        return Driver.from_dict(driver_raw, transport_client)  # ty:ignore[invalid-argument-type]
 
     @staticmethod
     def build_device(
         device_raw: DeviceRaw, driver_raw: DriverRaw, transport: TransportRaw
     ) -> Device:
-        driver = DevicesManager.build_driver(
-            driver_raw, TransportDTO.model_validate(transport).transport
-        )
+        driver = DevicesManager.build_driver(driver_raw, transport)
         return Device.from_driver(
             driver, device_raw["config"], device_id=device_raw["id"]
         )

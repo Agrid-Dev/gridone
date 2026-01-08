@@ -11,6 +11,7 @@ dependencies = [
 
 [tool.uv.sources]
 gridone-core = { workspace = true }
+gridone-dto = { workspace = true }
 gridone-api = { workspace = true }
 gridone-storage = { workspace = true }
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from core.device import Device
-from core.devices_manager import DeviceRaw, DevicesManager, TransportRaw
+from core.devices_manager import DeviceRaw, DevicesManager, DriverRaw, TransportRaw
 from core.driver import Driver
 from core.driver.driver_schema import DriverSchema
 from core.driver.driver_schema.attribute_schema import AttributeSchema
@@ -218,7 +218,7 @@ class TestDevicesManagerLoadFromRaw:
                 "config": {"device_id": "device1"},
             },
         ]
-        drivers_raw: list[dict[str, Any]] = [
+        drivers_raw: list[DriverRaw] = [
             {
                 "name": "test_driver",
                 "transport": "http",
@@ -259,7 +259,7 @@ class TestDevicesManagerLoadFromRaw:
                 "config": {"device_id": "device2"},
             },
         ]
-        drivers_raw: list[dict[str, Any]] = [
+        drivers_raw: list[DriverRaw] = [
             {
                 "name": "test_driver",
                 "transport": "http",
