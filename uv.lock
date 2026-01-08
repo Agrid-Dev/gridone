@@ -451,6 +451,7 @@ source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "gridone-storage" },
+    { name = "httpx" },
     { name = "pydantic-settings" },
 ]
 
@@ -458,6 +459,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
     { name = "gridone-storage", editable = "packages/storage" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
 ]
 
