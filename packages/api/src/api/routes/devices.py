@@ -6,7 +6,7 @@ from core.types import AttributeValueType
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from api.get_device_manager import get_device_manager
+from api.dependencies import get_device_manager
 from api.schemas.device import AttributeUpdate, DeviceBase
 
 logger = logging.getLogger(__name__)

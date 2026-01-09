@@ -1,14 +1,13 @@
 import pytest
+from api.dependencies import get_device_manager, get_repository
+from api.routes.transports import router
 from core.devices_manager import DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.get_device_manager import get_device_manager
-from api.routes.transports import router
-
 
 @pytest.fixture
-def client(mock_transports) -> TestClient:
+def client(mock_transports, mock_repository) -> TestClient:
     app = FastAPI()
     app.include_router(router)
 
@@ -16,34 +15,98 @@ def client(mock_transports) -> TestClient:
         return DevicesManager(devices={}, drivers={}, transports=mock_transports)
 
     app.dependency_overrides[get_device_manager] = get_mock_devices_manager
-
+    app.dependency_overrides[get_repository] = lambda: mock_repository
     return TestClient(app)
 
 
 def assert_valid_transport(transport: dict) -> None:
-    assert transport["id"]
-    assert transport["name"]
-    assert transport["protocol"]
-    assert transport["config"]
+    for key in ("id", "name", "protocol", "config"):
+        assert key in transport, f"Missing key '{key}' in transport: {transport}"
+    assert isinstance(transport["id"], str)
+    assert isinstance(transport["name"], str)
+    assert isinstance(transport["protocol"], str)  # or TransportProtocols if you map it
+    assert isinstance(transport["config"], dict), "config should be a JSON object"
 
 
-def test_list_clients(client):
-    response = client.get("/")
-    assert response.status_code == 200
-    transports = response.json()
-    assert len(transports) == 2
-    for transport in transports:
+class TestListTransports:
+    def test_list_clients(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+
+        transports = response.json()
+        assert len(transports) == 2
+        for transport in transports:
+            assert_valid_transport(transport)
+
+
+class TestGetTransport:
+    @pytest.mark.parametrize("transport_id", ["my-http", "my-mqtt"])
+    def test_get_transport_ok(self, client: TestClient, transport_id: str):
+        response = client.get(f"/{transport_id}")
+        assert response.status_code == 200
+        transport = response.json()
         assert_valid_transport(transport)
 
-
-@pytest.mark.parametrize(("transport_id"), [("my-http"), ("my-mqtt")])
-def test_get_transport(client, transport_id):
-    response = client.get(f"/{transport_id}")
-    assert response.status_code == 200
-    transport = response.json()
-    assert_valid_transport(transport)
+    def test_get_transport_not_found(self, client: TestClient):
+        response = client.get("/unknown")
+        assert response.status_code == 404
 
 
-def test_get_transport_not_found(client):
-    response = client.get("/unknown")
-    assert response.status_code == 404
+class TestCreateTransport:
+    def _valid_payload(self, protocol: str) -> dict:
+        # Very small factory to avoid repeating payloads
+        if protocol == "http":
+            return {
+                "name": "My HTTP",
+                "protocol": "http",
+                "config": {},
+            }
+        if protocol == "mqtt":
+            return {
+                "name": "My MQTT",
+                "protocol": "mqtt",
+                "config": {
+                    "host": "localhost",
+                    "port": 1883,
+                },
+            }
+        msg = f"Unknown test protocol: {protocol}"
+        raise ValueError(msg)
+
+    @pytest.mark.parametrize("protocol", ["http", "mqtt"])
+    def test_create_transport_ok(self, client: TestClient, protocol: str):
+        payload = self._valid_payload(protocol)
+        response = client.post("/", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert_valid_transport(data)
+        assert data["protocol"] == protocol
+
+    def test_create_transport_invalid_config(self, client: TestClient):
+        payload = {
+            "name": "Invalid",
+            "protocol": "mqtt",
+            "config": {"something": "wrong"},
+        }
+        response = client.post("/", json=payload)
+        assert response.status_code == 422
+
+    def test_create_transport_unsupported_protocol(self, client: TestClient):
+        payload = {
+            "name": "Bad",
+            "protocol": "unknown",
+            "config": {},
+        }
+        response = client.post("/", json=payload)
+        assert response.status_code in (400, 422)
+
+    def test_create_transport_persistence(self, client: TestClient):
+        payload = {
+            "name": "My HTTP",
+            "protocol": "http",
+            "config": {},
+        }
+        write_response = client.post("/", json=payload).json()
+        transport_id = write_response["id"]
+        read_response = client.get(f"/{transport_id}")
+        assert read_response.status_code == 200
