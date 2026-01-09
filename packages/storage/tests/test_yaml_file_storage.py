@@ -62,3 +62,10 @@ def test_delete_animal(seeded_storage: AnimalStorage):
     seeded_storage.delete("a1")
     with pytest.raises(FileNotFoundError):
         seeded_storage.read("a1")
+
+
+def test_create_root_dir_if_not_existing():
+    with TemporaryDirectory() as temp_dir:
+        target = Path(temp_dir) / "subdir"
+        _ = YamlFileStorage(target)
+        assert target.is_dir()

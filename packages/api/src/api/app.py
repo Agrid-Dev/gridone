@@ -25,6 +25,7 @@ async def lifespan(app: FastAPI):
     app.state.websocket_manager = websocket_manager
 
     gridone_repository = CoreFileStorage(settings.DB_PATH)
+    app.state.repository = gridone_repository
     dm = gridone_repository.init_device_manager()
     app.state.device_manager = dm
 

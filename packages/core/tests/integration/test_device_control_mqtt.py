@@ -24,7 +24,7 @@ def mqtt_device() -> Device:
         transport={
             "id": "t1",
             "protocol": TransportProtocols.MQTT,
-            "config": {"name": "mqtt_broker", "host": "127.0.0.1"},
+            "config": {"host": "127.0.0.1"},
         },
     )
 
