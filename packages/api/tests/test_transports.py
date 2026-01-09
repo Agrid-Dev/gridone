@@ -5,6 +5,7 @@ from core.devices_manager import DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from core.types import TransportProtocols
 
 
 @pytest.fixture
@@ -30,7 +31,7 @@ def assert_valid_transport(transport: dict) -> None:
         assert key in transport, f"Missing key '{key}' in transport: {transport}"
     assert isinstance(transport["id"], str)
     assert isinstance(transport["name"], str)
-    assert isinstance(transport["protocol"], str)  # or TransportProtocols if you map it
+    assert isinstance(transport["protocol"], str)
     assert isinstance(transport["config"], dict), "config should be a JSON object"
 
 
@@ -198,4 +199,13 @@ class TestDeleteTransport:
     @pytest.mark.skip
     @pytest.mark.asyncio
     async def test_delete_transport_in_use(self, async_client):
-        """TODO : test conflict when deleting transport used by device"""
+        """@TODO : test conflict when deleting transport used by device"""
+
+
+class TestGetTransportSchemas:
+    def test_get_transport_schemas(self, client):
+        response = client.get("/schemas/")
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == len(TransportProtocols)
+        assert data["mqtt"]["properties"]["port"]["type"] == "integer"
