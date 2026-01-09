@@ -1,7 +1,7 @@
 from pydantic import PositiveInt
 
-from core.transports.transport_config import TransportConfig
+from core.transports.base_transport_config import BaseTransportConfig
 
 
-class HttpTransportConfig(TransportConfig):
+class HttpTransportConfig(BaseTransportConfig):
     request_timeout: PositiveInt = 10

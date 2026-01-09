@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 from core.transports import (
+    BaseTransportConfig,
     PushTransportAddress,
     PushTransportClient,
     RawTransportAddress,
@@ -8,12 +9,14 @@ from core.transports import (
     TransportClient,
 )
 from core.transports.listener_registry import ListenerCallback, ListenerRegistry
-from core.transports.transport_config import TransportConfig
+from core.transports.transport_metadata import TransportMetadata
 from core.types import AttributeValueType, TransportProtocols
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+mock_metadata = TransportMetadata(id="my-transport", name="My Transport")
 
 
 class MockTransportAddress(TransportAddress):
@@ -122,7 +125,7 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
 
     def __init__(self) -> None:
         self._listener_registry = ListenerRegistry()
-        super().__init__(TransportConfig())
+        super().__init__(mock_metadata, BaseTransportConfig())
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict

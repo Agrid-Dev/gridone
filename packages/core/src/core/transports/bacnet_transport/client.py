@@ -22,6 +22,7 @@ from bacpypes3.primitivedata import (
 
 from core.transports.base import TransportClient
 from core.transports.connected import connected
+from core.transports.transport_metadata import TransportMetadata
 from core.types import AttributeValueType, TransportProtocols
 
 from .application import make_local_application
@@ -43,13 +44,27 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
     _application: NormalApplication
     _known_devices: DevicesDict
 
-    def __init__(self, config: BacnetTransportConfig) -> None:
+    def __init__(
+        self, metadata: TransportMetadata, config: BacnetTransportConfig
+    ) -> None:
         self.config = config
-        self._application = make_local_application(self.config)
         self._known_devices = {}
-        super().__init__(config)
+        super().__init__(metadata, config)
 
-    async def discover_devices(self) -> DevicesDict:
+    async def connect(self) -> None:
+        self._application = make_local_application(self.config)
+        async with self._connection_lock:
+            discovered_devices = await self._discover_devices()
+            self._known_devices = discovered_devices
+            await super().connect()
+
+    async def close(self) -> None:
+        async with self._connection_lock:
+            self._known_devices = {}
+            self._application.close()
+            await super().close()
+
+    async def _discover_devices(self) -> DevicesDict:
         i_ams = await asyncio.wait_for(
             self._application.who_is(),
             timeout=self.config.discovery_timeout,
@@ -63,18 +78,6 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
             except Exception:  # noqa: S110,BLE001
                 pass
         return discovered_devices
-
-    async def connect(self) -> None:
-        async with self._connection_lock:
-            discovered_devices = await self.discover_devices()
-            self._known_devices = discovered_devices
-            await super().connect()
-
-    async def close(self) -> None:
-        async with self._connection_lock:
-            self._known_devices = {}
-            self._application.close()
-            await super().close()
 
     @connected
     async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:

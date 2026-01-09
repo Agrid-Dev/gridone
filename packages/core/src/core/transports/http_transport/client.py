@@ -11,6 +11,8 @@ from core.types import AttributeValueType, TransportProtocols
 from .http_address import HttpAddress
 
 if TYPE_CHECKING:
+    from core.transports.transport_metadata import TransportMetadata
+
     from .transport_config import HttpTransportConfig
 
 
@@ -21,11 +23,12 @@ class HTTPTransportClient(TransportClient[HttpAddress]):
 
     def __init__(
         self,
+        metadata: TransportMetadata,
         config: HttpTransportConfig,
     ) -> None:
         self.config = config
         self._client: httpx.AsyncClient | None = None
-        super().__init__(config)
+        super().__init__(metadata, config)
 
     def _build_client(self) -> httpx.AsyncClient:
         return httpx.AsyncClient(timeout=self.config.request_timeout)

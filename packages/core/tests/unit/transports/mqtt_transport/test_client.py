@@ -7,6 +7,7 @@ from core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from core.transports.transport_metadata import TransportMetadata
 
 
 @pytest.fixture
@@ -32,8 +33,17 @@ def mock_config():
 
 
 @pytest.fixture
-def mqtt_client(mock_config: MqttTransportConfig, mock_aiomqtt_client: AsyncMock):  # noqa: ARG001
-    return MqttTransportClient(mock_config)
+def mock_metadata():
+    return TransportMetadata(id="mqtt1", name="My MQTT broker")
+
+
+@pytest.fixture
+def mqtt_client(
+    mock_metadata,
+    mock_config: MqttTransportConfig,
+    mock_aiomqtt_client: AsyncMock,  # noqa: ARG001
+):
+    return MqttTransportClient(mock_metadata, mock_config)
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ import aiomqtt
 from core.transports import PushTransportClient
 from core.transports.connected import connected
 from core.transports.listener_registry import ListenerCallback, ListenerRegistry
+from core.transports.transport_metadata import TransportMetadata
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.templating.render import render_struct
 
@@ -30,13 +31,15 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
     )
 
-    def __init__(self, config: MqttTransportConfig) -> None:
+    def __init__(
+        self, metadata: TransportMetadata, config: MqttTransportConfig
+    ) -> None:
         self._message_handlers = TopicHandlerRegistry()
         self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._is_connected = False
         self._handlers_registry = ListenerRegistry()
-        super().__init__(config)
+        super().__init__(metadata, config)
 
     async def connect(self) -> None:
         async with self._connection_lock:

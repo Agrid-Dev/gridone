@@ -2,6 +2,7 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from core.transports import TransportClient
 from core.transports.connected import connected
+from core.transports.transport_metadata import TransportMetadata
 from core.types import AttributeValueType, TransportProtocols
 from core.utils.cast.bool import cast_as_bool
 
@@ -19,19 +20,24 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
     address_builder = ModbusAddress
     config: ModbusTCPTransportConfig
 
-    def __init__(self, config: ModbusTCPTransportConfig) -> None:
-        self._client = AsyncModbusTcpClient(host=config.host, port=config.port)
-        super().__init__(config)
+    def __init__(
+        self, metadata: TransportMetadata, config: ModbusTCPTransportConfig
+    ) -> None:
+        super().__init__(metadata, config)
 
     async def connect(self) -> None:
+        self._client = AsyncModbusTcpClient(
+            host=self.config.host, port=self.config.port
+        )
         async with self._connection_lock:
             await self._client.connect()
             await super().connect()
 
     async def close(self) -> None:
-        async with self._connection_lock:
-            self._client.close()
-            await super().close()
+        if self._is_connected:
+            async with self._connection_lock:
+                self._client.close()
+                await super().close()
 
     @connected
     async def _read_modbus(self, modbus_address: ModbusAddress) -> bool | int:

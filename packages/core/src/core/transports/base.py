@@ -5,13 +5,14 @@ from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
 
+from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
     TransportAddress,
 )
-from .transport_config import TransportConfig
+from .transport_metadata import TransportMetadata
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
 
@@ -21,15 +22,20 @@ logger = logging.getLogger(__name__)
 
 class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
+    config: BaseTransportConfig
+    metadata: TransportMetadata
     address_builder: ClassVar[type[T_TransportAddress]]
     _connection_lock: Lock
     _is_connected: bool
 
-    def __init__(self, config: TransportConfig) -> None:
+    def __init__(
+        self, metadata: TransportMetadata, config: BaseTransportConfig
+    ) -> None:
         self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
         self._is_connected = False
         self.config = config
+        self.metadata = metadata
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None

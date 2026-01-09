@@ -1,11 +1,12 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 
 [manifest]
 members = [
     "api-server",
     "cli",
+    "dto",
     "gridone",
     "gridone-api",
     "gridone-core",
@@ -266,6 +267,21 @@ wheels = [
 ]
 
 [[package]]
+name = "dto"
+version = "0.1.0"
+source = { editable = "packages/dto" }
+dependencies = [
+    { name = "gridone-core" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "gridone-core", editable = "packages/core" },
+    { name = "pydantic", specifier = ">=2.12.4" },
+]
+
+[[package]]
 name = "email-validator"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -435,6 +451,7 @@ source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "gridone-storage" },
+    { name = "httpx" },
     { name = "pydantic-settings" },
 ]
 
@@ -442,6 +459,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
     { name = "gridone-storage", editable = "packages/storage" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
 ]
 

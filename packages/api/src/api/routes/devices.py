@@ -3,16 +3,13 @@ import logging
 from core.device import ConfirmationError
 from core.devices_manager import DevicesManager
 from core.types import AttributeValueType
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from api.get_device_manager import get_device_manager
 from api.schemas.device import AttributeUpdate, DeviceBase
 
 logger = logging.getLogger(__name__)
-
-
-def get_device_manager(request: Request) -> DevicesManager:
-    return request.app.state.device_manager
 
 
 router = APIRouter()
