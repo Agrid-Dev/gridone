@@ -28,13 +28,13 @@ def invalid_transport_config() -> UnknownTransportConfig:
 
 def test_invalid_transport_config_raises(mock_metadata, invalid_transport_config):
     for protocol in TransportProtocols:
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(TypeError):
             make_transport_client(protocol, invalid_transport_config, mock_metadata)
 
 
 def test_mismatched_transport_config_raises(mock_metadata):
     config = HttpTransportConfig()
-    with pytest.raises(ValueError):  # noqa: PT011
+    with pytest.raises(TypeError):
         make_transport_client(TransportProtocols.MQTT, config, mock_metadata)
 
 

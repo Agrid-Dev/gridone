@@ -2,15 +2,13 @@ from typing import Annotated, Literal
 
 from core.transports import TransportClient, TransportMetadata, make_transport_client
 from core.transports.bacnet_transport import (
-    BacnetTransportClient,
     BacnetTransportConfig,
 )
-from core.transports.http_transport import HTTPTransportClient, HttpTransportConfig
+from core.transports.http_transport import HttpTransportConfig
 from core.transports.modbus_tcp_transport import (
-    ModbusTCPTransportClient,
     ModbusTCPTransportConfig,
 )
-from core.transports.mqtt_transport import MqttTransportClient, MqttTransportConfig
+from core.transports.mqtt_transport import MqttTransportConfig
 from core.types import TransportProtocols
 from pydantic import BaseModel, Field
 
@@ -57,34 +55,24 @@ def dto_to_core(dto: TransportDTO) -> TransportClient:
     )
 
 
+DTO_BY_PROTOCOL = {
+    TransportProtocols.HTTP: HttpTransportDTO,
+    TransportProtocols.MQTT: MqttTransportDTO,
+    TransportProtocols.MODBUS_TCP: ModbusTcpTransportDTO,
+    TransportProtocols.BACNET: BacnetTransportDTO,
+}
+
+
 def core_to_dto(client: TransportClient) -> TransportDTO:
-    if isinstance(client, HTTPTransportClient):
-        return HttpTransportDTO(
-            id=client.metadata.id,
-            name=client.metadata.name,
-            protocol=client.protocol,
-            config=client.config,
+    dto_class = DTO_BY_PROTOCOL.get(client.protocol)
+    if not dto_class:
+        msg = (
+            "Transport client did not match any supported client, cannot convert to dto"
         )
-    if isinstance(client, MqttTransportClient):
-        return MqttTransportDTO(
-            id=client.metadata.id,
-            name=client.metadata.name,
-            protocol=client.protocol,
-            config=client.config,
-        )
-    if isinstance(client, ModbusTCPTransportClient):
-        return ModbusTcpTransportDTO(
-            id=client.metadata.id,
-            name=client.metadata.name,
-            protocol=client.protocol,
-            config=client.config,
-        )
-    if isinstance(client, BacnetTransportClient):
-        return BacnetTransportDTO(
-            id=client.metadata.id,
-            name=client.metadata.name,
-            protocol=client.protocol,
-            config=client.config,
-        )
-    msg = "Transport client did not match any supported client, cannot convert to dto"
-    raise ValueError(msg)
+        raise ValueError(msg)
+    return dto_class(
+        id=client.metadata.id,
+        name=client.metadata.name,
+        protocol=client.protocol,
+        config=client.config,
+    )

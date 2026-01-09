@@ -31,35 +31,27 @@ def make_transport_config(
     return builder.model_validate(raw_config or {})
 
 
+TRANSPORTS_BY_PROTOCOL: dict[
+    TransportProtocols, tuple[type[TransportClient], type[BaseTransportConfig]]
+] = {
+    TransportProtocols.HTTP: (HTTPTransportClient, HttpTransportConfig),
+    TransportProtocols.MQTT: (MqttTransportClient, MqttTransportConfig),
+    TransportProtocols.MODBUS_TCP: (ModbusTCPTransportClient, ModbusTCPTransportConfig),
+    TransportProtocols.BACNET: (BacnetTransportClient, BacnetTransportConfig),
+}
+
+
 def make_transport_client(
     protocol: TransportProtocols,
     config: BaseTransportConfig,
     metadata: TransportMetadata,
 ) -> TransportClient:
-    if protocol == TransportProtocols.HTTP:
-        if not isinstance(config, HttpTransportConfig):
-            msg = f"{protocol} requires HttpTransportConfig but have {type(config)}"
-            raise ValueError(msg)
-        return HTTPTransportClient(metadata, config)
-    if protocol == TransportProtocols.MQTT:
-        if not isinstance(config, MqttTransportConfig):
-            msg = f"{protocol} requires MqttTransportConfig but have {type(config)}"
-            raise ValueError(msg)
-        return MqttTransportClient(metadata, config)
-
-    if protocol == TransportProtocols.MODBUS_TCP:
-        if not isinstance(config, ModbusTCPTransportConfig):
-            msg = (
-                f"{protocol} requires ModbusTCPTransportConfig but have {type(config)}"
-            )
-            raise ValueError(msg)
-        return ModbusTCPTransportClient(metadata, config)
-
-    if protocol == TransportProtocols.BACNET:
-        if not isinstance(config, BacnetTransportConfig):
-            msg = f"{protocol} requires BacnetTransportConfig but have {type(config)}"
-            raise ValueError(msg)
-        return BacnetTransportClient(metadata, config)
-
-    msg = f"Invalid protocol: {protocol}"
-    raise ValueError(msg)
+    builders = TRANSPORTS_BY_PROTOCOL.get(protocol)
+    if not builders:
+        msg = f"Protocol: {protocol} is not supported"
+        raise ValueError(msg)
+    client_class, config_class = builders
+    if not isinstance(config, config_class):
+        msg = f"Protocol {protocol} needs a config of type {config_class.__name__}"
+        raise TypeError(msg)
+    return client_class(metadata, config)
