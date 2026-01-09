@@ -108,7 +108,6 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
 class TransportCreateDTO(BaseModel):
     name: str
     protocol: TransportProtocols
-    # After validation this will *always* be a BaseTransportConfig subclass instance
     config: BaseTransportConfig
 
     @field_validator("config", mode="before")
@@ -140,3 +139,8 @@ class TransportCreateDTO(BaseModel):
             f"got {type(v).__name__}"
         )
         raise TypeError(msg)
+
+
+class TransportUpdateDTO(BaseModel):
+    name: str | None = None
+    config: dict | None = None

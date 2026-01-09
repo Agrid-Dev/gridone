@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from asyncio import Lock
+from asyncio import Lock, Task, create_task
 from typing import ClassVar, TypeVar
 
 from core.types import AttributeValueType, TransportProtocols
@@ -27,6 +27,7 @@ class TransportClient[T_TransportAddress](ABC):
     address_builder: ClassVar[type[T_TransportAddress]]
     _connection_lock: Lock
     _is_connected: bool
+    _background_tasks: set[Task]
 
     def __init__(
         self, metadata: TransportMetadata, config: BaseTransportConfig
@@ -36,6 +37,7 @@ class TransportClient[T_TransportAddress](ABC):
         self._is_connected = False
         self.config = config
         self.metadata = metadata
+        self._background_tasks = set()
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -81,6 +83,22 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         """Ensure the client is closed when exiting the context."""
         await self.close()
+
+    def schedule_reconnect(self) -> None:
+        async def reconnect() -> None:
+            await self.close()
+            await self.connect()
+
+        task = create_task(reconnect())
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+    def update_config(
+        self, config: BaseTransportConfig, *, reconnect: bool = True
+    ) -> None:
+        self.config = config
+        if reconnect:
+            self.schedule_reconnect()
 
 
 T_PushTransportAddress = TypeVar("T_PushTransportAddress", bound=PushTransportAddress)

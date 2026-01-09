@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class MqttTransportClient(PushTransportClient[MqttAddress]):
-    _client: aiomqtt.Client
+    _client_instance: aiomqtt.Client | None = None
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
@@ -42,10 +42,12 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
+        self._client_instance = aiomqtt.Client(self.config.host, port=self.config.port)
         async with self._connection_lock:
             if not self._is_connected:
-                self._client = aiomqtt.Client(self.config.host, port=self.config.port)
-                await asyncio.wait_for(self._client.__aenter__(), timeout=TIMEOUT)
+                await asyncio.wait_for(
+                    self._client_instance.__aenter__(), timeout=TIMEOUT
+                )
                 self._background_tasks.add(
                     asyncio.create_task(self._handle_incoming_messages())
                 )
@@ -54,13 +56,20 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     async def close(self) -> None:
         """Disconnect from the MQTT broker."""
         async with self._connection_lock:
-            if self._client:
-                await self._client.__aexit__(None, None, None)
+            if self._client_instance:
+                await self._client_instance.__aexit__(None, None, None)
                 self._is_connected = False
             for task in self._background_tasks:
                 task.cancel()
             self._background_tasks.clear()
             await super().close()
+
+    @property
+    def _client(self) -> aiomqtt.Client:
+        if not self._client_instance:
+            msg = "Accessing mqtt client when undefined"
+            raise ValueError(msg)
+        return self._client_instance
 
     async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
         listener_id = self._handlers_registry.register(topic, callback)
