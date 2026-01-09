@@ -14,6 +14,7 @@ class YamlFileStorage[T]:
 
     def __init__(self, root_path: Path | str) -> None:
         self._root_path = Path(root_path)
+        self._root_path.mkdir(parents=True, exist_ok=True)
 
     def _get_file_path(self, name: str) -> Path:
         return self._root_path / (name + self._file_extension)
