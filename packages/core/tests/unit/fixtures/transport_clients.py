@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, Any
 
+import pytest
 from core.transports import (
     BaseTransportConfig,
     PushTransportAddress,
@@ -63,10 +64,10 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
         self._is_connected = False
 
     def build_address(
-        self, raw_address: RawTransportAddress, context: dict
+        self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> MockTransportAddress:
         if isinstance(raw_address, str):
-            return MockTransportAddress(raw_address.format(**context))
+            return MockTransportAddress(raw_address.format(**(context or {})))
         return MockTransportAddress(str(raw_address))
 
     async def read(self, address: MockTransportAddress):  # noqa: ANN201, ARG002
@@ -128,7 +129,7 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
         super().__init__(mock_metadata, BaseTransportConfig())
 
     def build_address(
-        self, raw_address: RawTransportAddress, context: dict
+        self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> MockPushTransportAddress:
         return MockPushTransportAddress.from_raw(raw_address, context)
 
@@ -150,12 +151,27 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
         return self._listener_registry.register(topic, callback)
 
     async def unregister_listener(
-        self, listener_id: str, topic: str | None = None
+        self, callback_id: str, topic: str | None = None
     ) -> None:
         """Unregister callback on an address by callback_id."""
-        return self._listener_registry.remove(listener_id, topic)
+        return self._listener_registry.remove(callback_id, topic)
 
     async def simulate_event(self, topic: str, payload: Any) -> None:  # noqa: ANN401
         listeners = self._listener_registry.get_by_address_id(topic)
         for callback in listeners:
             callback(payload)
+
+
+@pytest.fixture
+def mock_transport_client() -> MockTransportClient:
+    return MockTransportClient()
+
+
+@pytest.fixture
+def mock_push_transport_client() -> MockPushTransportClient:
+    return MockPushTransportClient()
+
+
+@pytest.fixture
+def mock_transport_metadata() -> TransportMetadata:
+    return TransportMetadata(id="my-transport", name="My Transport")

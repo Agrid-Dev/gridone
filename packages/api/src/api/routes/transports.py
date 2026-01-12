@@ -4,13 +4,13 @@ from typing import Annotated
 from core import TransportClient
 from core.devices_manager import DevicesManager
 from dto.transport import (
+    CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
     build_dto,
     core_to_dto,
     dto_to_core,
-    CONFIG_CLASS_BY_PROTOCOL,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
@@ -109,7 +109,7 @@ async def delete_transport(
 ) -> None:
     client = _get_client(dm, transport_id)
     for device in dm.devices.values():
-        if device.driver.transport.metadata.id == transport_id:
+        if device.transport.metadata.id == transport_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Transport {transport_id} is in use by device {device.id}",

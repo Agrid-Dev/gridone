@@ -106,31 +106,33 @@ class DevicesManager:
         for d in devices_raw:
             transport_client = dm.transports[d["transport_id"]]
             driver_raw = drivers_raw_dict[d["driver"]]
-            driver = Driver.from_dict(driver_raw, transport_client)  # ty: ignore[invalid-argument-type]
+            driver = Driver.from_dict(driver_raw)  # ty:ignore[invalid-argument-type]
             dm.drivers[driver.name] = driver
-            device = Device.from_driver(driver, d["config"], device_id=d["id"])
+            device = Device.from_driver(
+                driver, transport_client, d["config"], device_id=d["id"]
+            )
             dm._attach_listeners(device)
             dm.devices[d["id"]] = device
 
         return dm
 
     @staticmethod
-    def build_driver(driver_raw: DriverRaw, transport: TransportRaw) -> Driver:
+    def build_driver(driver_raw: DriverRaw) -> Driver:
+        return Driver.from_dict(driver_raw)  # ty:ignore[invalid-argument-type]
+
+    @staticmethod
+    def build_device(
+        device_raw: DeviceRaw, driver_raw: DriverRaw, transport: TransportRaw
+    ) -> Device:
+        driver = DevicesManager.build_driver(driver_raw)
         protocol = TransportProtocols(transport["protocol"])
         transport_client = make_transport_client(
             protocol,
             make_transport_config(protocol, transport["config"]),
             TransportMetadata(id=transport["id"], name=transport["id"]),
         )
-        return Driver.from_dict(driver_raw, transport_client)  # ty:ignore[invalid-argument-type]
-
-    @staticmethod
-    def build_device(
-        device_raw: DeviceRaw, driver_raw: DriverRaw, transport: TransportRaw
-    ) -> Device:
-        driver = DevicesManager.build_driver(driver_raw, transport)
         return Device.from_driver(
-            driver, device_raw["config"], device_id=device_raw["id"]
+            driver, transport_client, device_raw["config"], device_id=device_raw["id"]
         )
 
     def add_device(self, device: Device) -> None:

@@ -26,16 +26,20 @@ def invalid_transport_config() -> UnknownTransportConfig:
     return UnknownTransportConfig(name="zitoune")
 
 
-def test_invalid_transport_config_raises(mock_metadata, invalid_transport_config):
+def test_invalid_transport_config_raises(
+    mock_transport_metadata, invalid_transport_config
+):
     for protocol in TransportProtocols:
         with pytest.raises(TypeError):
-            make_transport_client(protocol, invalid_transport_config, mock_metadata)
+            make_transport_client(
+                protocol, invalid_transport_config, mock_transport_metadata
+            )
 
 
-def test_mismatched_transport_config_raises(mock_metadata):
+def test_mismatched_transport_config_raises(mock_transport_metadata):
     config = HttpTransportConfig()
     with pytest.raises(TypeError):
-        make_transport_client(TransportProtocols.MQTT, config, mock_metadata)
+        make_transport_client(TransportProtocols.MQTT, config, mock_transport_metadata)
 
 
 @pytest.mark.parametrize(
@@ -62,10 +66,10 @@ def test_mismatched_transport_config_raises(mock_metadata):
     ),
 )
 def test_make_transport_client(
-    mock_metadata,
+    mock_transport_metadata,
     protocol: TransportProtocols,
     config: BaseTransportConfig,
     expected_class: type[TransportClient],
 ):
-    client = make_transport_client(protocol, config, mock_metadata)
+    client = make_transport_client(protocol, config, mock_transport_metadata)
     assert isinstance(client, expected_class)
