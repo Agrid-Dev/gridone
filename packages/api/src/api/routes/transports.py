@@ -10,6 +10,7 @@ from dto.transport import (
     build_dto,
     core_to_dto,
     dto_to_core,
+    CONFIG_CLASS_BY_PROTOCOL,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
@@ -116,3 +117,11 @@ async def delete_transport(
     await client.close()
     del dm.transports[transport_id]
     repository.transports.delete(transport_id)
+
+
+@router.get("/schemas/")
+def get_transport_schemas() -> dict[str, dict]:
+    return {
+        protocol: config_class.model_json_schema()
+        for protocol, config_class in CONFIG_CLASS_BY_PROTOCOL.items()
+    }
