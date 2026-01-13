@@ -55,18 +55,19 @@ def driver_without_polling():
 
 
 @pytest.fixture
-def driver(mock_transport_client, simple_driver_schema):
+def driver(simple_driver_schema):
     return Driver(
         name="test_driver",
         env={},
-        transport=mock_transport_client,
         schema=simple_driver_schema,
     )
 
 
 @pytest.fixture
-def device(driver):
-    return Device.from_driver(driver, {"device_id": "device1"}, device_id="device1")
+def device(driver, mock_transport_client):
+    return Device.from_driver(
+        driver, mock_transport_client, {"device_id": "device1"}, device_id="device1"
+    )
 
 
 @pytest.fixture
@@ -107,11 +108,13 @@ class TestDevicesManagerPolling:
         driver_no_poll = Driver(
             name="test_driver_no_poll",
             env={},
-            transport=mock_transport_client,
             schema=driver_without_polling,
         )
         device_no_poll = Device.from_driver(
-            driver_no_poll, {"device_id": "device1"}, device_id="device1"
+            driver_no_poll,
+            mock_transport_client,
+            {"device_id": "device1"},
+            device_id="device1",
         )
         manager = DevicesManager(
             devices={"device1": device_no_poll},
@@ -132,20 +135,24 @@ class TestDevicesManagerPolling:
         driver1 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         driver2 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         device1 = Device.from_driver(
-            driver1, {"device_id": "device1"}, device_id="device1"
+            driver1,
+            mock_transport_client,
+            {"device_id": "device1"},
+            device_id="device1",
         )
         device2 = Device.from_driver(
-            driver2, {"device_id": "device2"}, device_id="device2"
+            driver2,
+            mock_transport_client,
+            {"device_id": "device2"},
+            device_id="device2",
         )
         manager = DevicesManager(
             devices={"device1": device1, "device2": device2},
@@ -330,20 +337,24 @@ class TestDevicesManagerListeners:
         driver1 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         driver2 = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         device1 = Device.from_driver(
-            driver1, {"device_id": "device1"}, device_id="device1"
+            driver1,
+            mock_transport_client,
+            {"device_id": "device1"},
+            device_id="device1",
         )
         device2 = Device.from_driver(
-            driver2, {"device_id": "device2"}, device_id="device2"
+            driver2,
+            mock_transport_client,
+            {"device_id": "device2"},
+            device_id="device2",
         )
         devices_manager.devices = {"device1": device1, "device2": device2}
 
@@ -372,11 +383,13 @@ class TestDevicesManagerListeners:
         new_driver = Driver(
             name="test_driver",
             env={},
-            transport=mock_transport_client,
             schema=simple_driver_schema,
         )
         new_device = Device.from_driver(
-            new_driver, {"device_id": "device2"}, device_id="device2"
+            new_driver,
+            mock_transport_client,
+            {"device_id": "device2"},
+            device_id="device2",
         )
 
         devices_manager._attach_listeners(new_device)

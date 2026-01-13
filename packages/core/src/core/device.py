@@ -4,8 +4,9 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
-from core.transports import PushTransportClient
+from core.transports import PushTransportClient, TransportClient
 from core.types import AttributeValueType, DeviceConfig
+from core.value_adapters import build_value_adapter
 
 from .attribute import Attribute
 from .driver import Driver
@@ -24,6 +25,7 @@ class Device:
     id: str
     config: DeviceConfig
     driver: Driver
+    transport: TransportClient
     attributes: dict[str, Attribute]
     _update_listeners: set[AttributeListener] = field(
         default_factory=set, init=False, repr=False
@@ -32,13 +34,27 @@ class Device:
         default_factory=set, init=False, repr=False
     )
 
+    def __post_init__(self) -> None:
+        if self.driver.schema.transport != self.transport.protocol:
+            msg = (
+                f"Protocol mismatch: cannot use {self.driver.schema.transport} driver"
+                f" with {self.transport.protocol} transport"
+            )
+            raise TypeError(msg)
+
     @classmethod
     def from_driver(
-        cls, driver: Driver, config: DeviceConfig, *, device_id: str
+        cls,
+        driver: Driver,
+        transport: TransportClient,
+        config: DeviceConfig,
+        *,
+        device_id: str,
     ) -> "Device":
         return cls(
             id=device_id,
             driver=driver,
+            transport=transport,
             config=config,
             attributes={
                 a.name: Attribute.create(
@@ -52,17 +68,27 @@ class Device:
 
     async def init_listeners(self) -> None:
         """Upon init, attach attribute updaters to the transport."""
-        if not isinstance(self.driver.transport, PushTransportClient):
+        if not isinstance(self.transport, PushTransportClient):
             return
+        context = {
+            **self.driver.env,
+            **self.config,
+        }
         for attribute in self.attributes.values():
+            attribute_schema = self.driver.schema.get_attribute_schema(
+                attribute_name=attribute.name
+            )
+            adapter = build_value_adapter(attribute_schema.value_adapter)
 
             def updater(
                 new_value: AttributeValueType | None, attribute: Attribute = attribute
             ) -> None:
                 return self._update_attribute(attribute, new_value)
 
-            await self.driver.attach_update_listener(
-                attribute.name, self.config, updater
+            address = self.transport.build_address(attribute_schema.read, context)
+            await self.transport.register_listener(
+                address.topic,
+                lambda v: updater(adapter.decode(v)),  # noqa: B023
             )
 
     def get_attribute(self, attribute_name: str) -> Attribute:
@@ -80,9 +106,19 @@ class Device:
         attribute_name: str,
     ) -> AttributeValueType:
         attribute = self.get_attribute(attribute_name)
-        new_value = await self.driver.read_value(attribute_name, self.config)
-        self._update_attribute(attribute, new_value)
-        return attribute.current_value
+        context = {
+            **self.driver.env,
+            **self.config,
+        }
+        schema = self.driver.schema.get_attribute_schema(
+            attribute_name=attribute.name
+        ).render(context)
+        address = self.transport.build_address(schema.read, context)
+        raw_value = await self.transport.read(address)
+        adapter = build_value_adapter(schema.value_adapter)
+        decoded_value = adapter.decode(raw_value)
+        self._update_attribute(attribute, decoded_value)
+        return attribute.current_value  # ty:ignore[invalid-return-type]
 
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
@@ -131,13 +167,26 @@ class Device:
 
     async def write_attribute_value(
         self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
-    ) -> None:
+    ) -> AttributeValueType | None:
         attribute = self.get_attribute(attribute_name)
         if "write" not in attribute.read_write_modes:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
-        await self.driver.write_value(attribute_name, self.config, validated_value)
+        context = {**self.driver.env, **self.config, "value": value}
+        schema = self.driver.schema.get_attribute_schema(
+            attribute_name=attribute.name
+        ).render(context)
+        adapter = build_value_adapter(schema.value_adapter)
+        if schema.write is None:
+            msg = (
+                f"Driver '{self.driver.name}' has no write address"
+                " for attribute'{attribute_name}'"
+            )
+            raise PermissionError(msg)
+        address = self.transport.build_address(schema.write, context)
+        encoded_value = adapter.encode(value)
+        await self.transport.write(address, encoded_value)
         logger.info(
             "Wrote attribute '%s' with value '%s' to device '%s'",
             attribute_name,
@@ -160,7 +209,7 @@ class Device:
         attribute: Attribute,
         new_value: AttributeValueType | None,
     ) -> None:
-        attribute._update_value(new_value)  # noqa: SLF001
+        attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
         self._execute_update_listeners(attribute.name, attribute)
 
     def _execute_update_listeners(

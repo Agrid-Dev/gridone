@@ -47,7 +47,7 @@ async def _read_device_async(repository: CoreFileStorage, device_id: str) -> Non
         f" with driver [bold blue]{device.driver.name}[/bold blue]"
     )
     # Use the async transport context manager inside the coroutine
-    async with device.driver.transport:
+    async with device.transport:
         for attribute in device.attributes:
             value = await device.read_attribute_value(attribute)
             console.print(f"{attribute}: {autoformat_value(value)}")
@@ -93,7 +93,7 @@ async def _write_device_async(
         f" [bold blue]{device_id}[/bold blue]"
         f" with driver [bold blue]{device.driver.name}[/bold blue]"
     )
-    async with device.driver.transport:
+    async with device.transport:
         await device.write_attribute_value(attribute, value)
         console.print("[bold green]Attribute updated[/bold green]")
 
@@ -127,7 +127,7 @@ async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
     )
 
     try:
-        async with device.driver.transport:
+        async with device.transport:
             await device.init_listeners()
             # Read initial values
             for attribute in device.attributes:
