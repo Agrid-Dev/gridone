@@ -12,7 +12,7 @@ class AttributeDriverDTO(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
-    value_adapter: Annotated[list[ValueAdapterSpec], Field(default_factory=list)]
+    value_adapters: Annotated[list[ValueAdapterSpec], Field(default_factory=list)]
 
     @model_validator(mode="before")
     @classmethod
@@ -30,11 +30,13 @@ class AttributeDriverDTO(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def parse_value_adapter_specs(cls, data: dict) -> dict:
-        value_adapter = []
+        if data.get("value_adapters"):
+            return data
+        value_adapters = []
         for key, val in data.items():
             if key in supported_value_adapters:
-                value_adapter.append({"adapter": key, "argument": val})
-        data["value_adapter"] = value_adapter
+                value_adapters.append({"adapter": key, "argument": val})
+        data["value_adapters"] = value_adapters
         return data
 
 
@@ -44,5 +46,5 @@ def dto_to_core(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
         data_type=attribute_driver.data_type,
         read=attribute_driver.read,
         write=attribute_driver.write,
-        value_adapter=attribute_driver.value_adapter_specs,
+        value_adapters=attribute_driver.value_adapter_specs,
     )

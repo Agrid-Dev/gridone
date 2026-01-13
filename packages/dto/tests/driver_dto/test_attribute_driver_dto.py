@@ -16,9 +16,9 @@ def test_attribute_schema_from_dict() -> None:
     attribute_dto = AttributeDriverDTO.model_validate(data)
     assert attribute_dto.name == "temperature"
     assert attribute_dto.data_type == DataType.FLOAT
-    assert attribute_dto.value_adapter is not None
-    assert attribute_dto.value_adapter[0].adapter == "json_pointer"
-    assert attribute_dto.value_adapter[0].argument == "/current_weather/temperature"
+    assert attribute_dto.value_adapters is not None
+    assert attribute_dto.value_adapters[0].adapter == "json_pointer"
+    assert attribute_dto.value_adapters[0].argument == "/current_weather/temperature"
     assert attribute_dto.read == data["read"]
     assert attribute_dto.write is None
 

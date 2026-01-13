@@ -3,7 +3,7 @@ from core.transports import TransportMetadata
 from core.transports.http_transport import HTTPTransportClient, HttpTransportConfig
 from core.transports.mqtt_transport import MqttTransportClient, MqttTransportConfig
 from core.types import TransportProtocols
-from dto.transport import MqttTransportDTO, core_to_dto, dto_to_core
+from dto.transport_dto import MqttTransportDTO, core_to_dto, dto_to_core
 
 
 @pytest.fixture
