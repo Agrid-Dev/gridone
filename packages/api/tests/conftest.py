@@ -8,7 +8,7 @@ from core.transports.mqtt_transport import MqttTransportClient, MqttTransportCon
 from core.types import DataType, TransportProtocols
 from core.value_adapters import ValueAdapterSpec
 from dto.driver_dto import core_to_dto as driver_to_dto
-from dto.transport import core_to_dto as transport_to_dto
+from dto.transport_dto import core_to_dto as transport_to_dto
 from storage import CoreFileStorage
 
 

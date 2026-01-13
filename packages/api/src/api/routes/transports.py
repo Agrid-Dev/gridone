@@ -3,7 +3,7 @@ from typing import Annotated
 
 from core import TransportClient
 from core.devices_manager import DevicesManager
-from dto.transport import (
+from dto.transport_dto import (
     CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,
     TransportDTO,
