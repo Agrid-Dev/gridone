@@ -9,7 +9,7 @@ from core.device import Device
 from fastapi import FastAPI
 from storage import CoreFileStorage
 
-from api.routes import devices, transports
+from api.routes import devices, drivers, transports
 from api.routes import websocket as websocket_routes
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
@@ -65,6 +65,7 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
 
     app.include_router(devices.router, prefix="/devices", tags=["devices"])
     app.include_router(transports.router, prefix="/transports", tags=["transports"])
+    app.include_router(drivers.router, prefix="/drivers", tags=["drivers"])
     app.include_router(websocket_routes.router, tags=["websocket"])
 
     return app
