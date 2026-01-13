@@ -55,7 +55,7 @@ class TestDriverDiscover:
 class TestDriverFromDict:
     def test_from_dict_success(self):
         data = {
-            "name": "test_driver",
+            "id": "test_driver",
             "transport": "http",
             "device_config": [],
             "attributes": [
@@ -69,12 +69,12 @@ class TestDriverFromDict:
 
         driver = Driver.from_dict(data)
 
-        assert driver.name == "test_driver"
-        assert len(driver.schema.attribute_schemas) == 1
+        assert driver.metadata.id == "test_driver"
+        assert len(driver.attributes) == 1
 
     def test_from_dict_with_env(self):
         data = {
-            "name": "test_driver",
+            "id": "test_driver",
             "transport": "http",
             "env": {"key": "value"},
             "device_config": [],
@@ -87,7 +87,7 @@ class TestDriverFromDict:
 
     def test_from_dict_empty_env(self):
         data = {
-            "name": "test_driver",
+            "id": "test_driver",
             "transport": "http",
             "env": None,
             "device_config": [],

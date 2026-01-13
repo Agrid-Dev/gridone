@@ -1,4 +1,4 @@
-name: thermocktat_mqtt
+id: thermocktat_mqtt
 transport: mqtt
 
 device_config:

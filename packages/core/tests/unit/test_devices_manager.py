@@ -1,66 +1,11 @@
 import asyncio
 import contextlib
-from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 from core.device import Device
 from core.devices_manager import DeviceRaw, DevicesManager, DriverRaw, TransportRaw
-from core.driver import Driver
-from core.driver.driver_schema import DriverSchema
-from core.driver.driver_schema.attribute_schema import AttributeSchema
-from core.driver.driver_schema.update_strategy import UpdateStrategy
-from core.types import DataType, TransportProtocols
-from core.value_adapters.factory import ValueAdapterSpec
-
-
-@pytest.fixture
-def simple_driver_schema():
-    return DriverSchema(
-        name="test_driver",
-        transport=TransportProtocols.HTTP,
-        update_strategy=UpdateStrategy(polling_enabled=True, polling_interval=1),
-        device_config_fields=[],
-        attribute_schemas=[
-            AttributeSchema(
-                name="temperature",
-                data_type=DataType.FLOAT,
-                read="GET /temperature",
-                write=None,
-                value_adapter=[ValueAdapterSpec(adapter="identity", argument="")],
-            ),
-        ],
-        discovery=None,
-    )
-
-
-@pytest.fixture
-def driver_without_polling():
-    return DriverSchema(
-        name="test_driver_no_poll",
-        transport=TransportProtocols.HTTP,
-        update_strategy=UpdateStrategy(polling_enabled=False),
-        device_config_fields=[],
-        attribute_schemas=[
-            AttributeSchema(
-                name="temperature",
-                data_type=DataType.FLOAT,
-                read="GET /temperature",
-                write=None,
-                value_adapter=[ValueAdapterSpec(adapter="identity", argument="")],
-            ),
-        ],
-        discovery=None,
-    )
-
-
-@pytest.fixture
-def driver(simple_driver_schema):
-    return Driver(
-        name="test_driver",
-        env={},
-        schema=simple_driver_schema,
-    )
+from core.driver import Driver, UpdateStrategy
 
 
 @pytest.fixture
@@ -103,22 +48,21 @@ class TestDevicesManagerPolling:
 
     @pytest.mark.asyncio
     async def test_start_polling_without_polling_enabled(
-        self, mock_transport_client, driver_without_polling
+        self,
+        mock_transport_client,
+        driver: Driver,
     ):
-        driver_no_poll = Driver(
-            name="test_driver_no_poll",
-            env={},
-            schema=driver_without_polling,
-        )
+        driver.update_strategy = UpdateStrategy(polling_enabled=False)
+
         device_no_poll = Device.from_driver(
-            driver_no_poll,
+            driver,
             mock_transport_client,
             {"device_id": "device1"},
             device_id="device1",
         )
         manager = DevicesManager(
             devices={"device1": device_no_poll},
-            drivers={"test_driver_no_poll": driver_no_poll},
+            drivers={driver.metadata.id: driver},
             transports={"t1": mock_transport_client},
         )
 
@@ -129,34 +73,22 @@ class TestDevicesManagerPolling:
         assert len(manager._background_tasks) == 0
 
     @pytest.mark.asyncio
-    async def test_start_polling_multiple_devices(
-        self, mock_transport_client, simple_driver_schema
-    ):
-        driver1 = Driver(
-            name="test_driver",
-            env={},
-            schema=simple_driver_schema,
-        )
-        driver2 = Driver(
-            name="test_driver",
-            env={},
-            schema=simple_driver_schema,
-        )
+    async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
         device1 = Device.from_driver(
-            driver1,
+            driver,
             mock_transport_client,
             {"device_id": "device1"},
             device_id="device1",
         )
         device2 = Device.from_driver(
-            driver2,
+            driver,
             mock_transport_client,
             {"device_id": "device2"},
             device_id="device2",
         )
         manager = DevicesManager(
             devices={"device1": device1, "device2": device2},
-            drivers={"test_driver": driver1},
+            drivers={"test_driver": driver},
             transports={"t1": mock_transport_client},
         )
 
@@ -227,7 +159,7 @@ class TestDevicesManagerLoadFromRaw:
         ]
         drivers_raw: list[DriverRaw] = [
             {
-                "name": "test_driver",
+                "id": "test_driver",
                 "transport": "http",
                 "device_config": [],
                 "attributes": [
@@ -268,7 +200,7 @@ class TestDevicesManagerLoadFromRaw:
         ]
         drivers_raw: list[DriverRaw] = [
             {
-                "name": "test_driver",
+                "id": "test_driver",
                 "transport": "http",
                 "device_config": [],
                 "attributes": [
@@ -298,8 +230,8 @@ class TestDevicesManagerBuildDevice:
             "transport_id": "t1",
             "config": {"device_id": "device1"},
         }
-        driver_raw: dict[str, Any] = {
-            "name": "test_driver",
+        driver_raw: DriverRaw = {
+            "id": "test_driver",
             "transport": "http",
             "device_config": [],
             "attributes": [
@@ -315,7 +247,7 @@ class TestDevicesManagerBuildDevice:
         device = DevicesManager.build_device(device_raw, driver_raw, transports_raw)
 
         assert device.id == "device1"
-        assert device.driver.name == "test_driver"
+        assert device.driver.metadata.id == "test_driver"
 
 
 class TestDevicesManagerListeners:
@@ -332,26 +264,16 @@ class TestDevicesManagerListeners:
         assert callback in device._update_listeners
 
     def test_add_device_attribute_listener_multiple_devices(
-        self, devices_manager, mock_transport_client, simple_driver_schema
+        self, devices_manager, mock_transport_client, driver
     ):
-        driver1 = Driver(
-            name="test_driver",
-            env={},
-            schema=simple_driver_schema,
-        )
-        driver2 = Driver(
-            name="test_driver",
-            env={},
-            schema=simple_driver_schema,
-        )
         device1 = Device.from_driver(
-            driver1,
+            driver,
             mock_transport_client,
             {"device_id": "device1"},
             device_id="device1",
         )
         device2 = Device.from_driver(
-            driver2,
+            driver,
             mock_transport_client,
             {"device_id": "device2"},
             device_id="device2",
@@ -369,9 +291,7 @@ class TestDevicesManagerListeners:
         assert callback in device1._update_listeners
         assert callback in device2._update_listeners
 
-    def test_attach_listeners(
-        self, devices_manager, mock_transport_client, simple_driver_schema
-    ):
+    def test_attach_listeners(self, devices_manager, mock_transport_client, driver):
         callback_called = False
 
         def callback(_device_obj, _attribute_name, _attribute) -> None:
@@ -380,13 +300,8 @@ class TestDevicesManagerListeners:
 
         devices_manager.add_device_attribute_listener(callback)
 
-        new_driver = Driver(
-            name="test_driver",
-            env={},
-            schema=simple_driver_schema,
-        )
         new_device = Device.from_driver(
-            new_driver,
+            driver,
             mock_transport_client,
             {"device_id": "device2"},
             device_id="device2",

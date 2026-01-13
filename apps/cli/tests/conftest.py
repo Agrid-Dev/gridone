@@ -13,7 +13,7 @@ TEST_DEVICE = {
 }
 
 TEST_DRIVER = {
-    "name": "test_driver",
+    "id": "test_driver",
     "transport": "http",
     "device_config": [{"name": "lattitude"}, {"name": "longitude"}],
     "update_strategy": {"polling": "15min", "timeout": "5s"},
@@ -45,7 +45,7 @@ def mock_core_file_storage() -> Generator[CoreFileStorage]:
         (Path(temp_dir) / "transports").mkdir()
         core_file_storage = CoreFileStorage(Path(temp_dir))
         core_file_storage.devices.write(TEST_DEVICE["id"], TEST_DEVICE)  # ty:ignore[invalid-argument-type]
-        core_file_storage.drivers.write(TEST_DRIVER["name"], TEST_DRIVER)  # ty:ignore[invalid-argument-type]
+        core_file_storage.drivers.write(TEST_DRIVER["id"], TEST_DRIVER)  # ty:ignore[invalid-argument-type]
         core_file_storage.transports.write(TEST_TRANSPORT["id"], TEST_TRANSPORT)  # ty:ignore[invalid-argument-type]
 
         yield core_file_storage

@@ -1,4 +1,4 @@
-name: thermocktat_http
+id: thermocktat_http
 transport: http
 
 device_config:
