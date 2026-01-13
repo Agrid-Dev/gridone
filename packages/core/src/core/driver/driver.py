@@ -7,20 +7,30 @@ from dataclasses import dataclass
 from typing import Any
 
 from core.transports import PushTransportClient
-from core.types import AttributeValueType, DeviceConfig
-from core.value_adapters import build_value_adapter
+from core.types import AttributeValueType, DeviceConfig, TransportProtocols
 
+from .attribute_driver import AttributeDriver
+from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
-from .driver_schema import DriverSchema
+from .driver_metadata import DriverMetadata
+from .update_strategy import UpdateStrategy
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Driver:
-    name: str
+    metadata: DriverMetadata
+    transport: TransportProtocols
     env: dict
-    schema: DriverSchema
+    device_config_required: list[DeviceConfigField]
+    update_strategy: UpdateStrategy
+    attributes: dict[str, AttributeDriver]
+    discovery_schema: dict | None = None
+
+    @property
+    def name(self) -> str:
+        return self.metadata.name
 
     async def discover(
         self,
@@ -38,9 +48,9 @@ class Driver:
         """
 
         seen: set[str] = set()
-        logger.debug("Starting discovery for driver '%s'", self.name)
-        if self.schema.discovery is None:
-            msg = f"Driver '{self.name}' does not have discovery configuration"
+        logger.debug("Starting discovery for driver '%s'", self.metadata.id)
+        if self.discovery_schema is None:
+            msg = f"Driver '{self.metadata.id}' does not have discovery configuration"
             raise ValueError(msg)
 
         if not isinstance(transport, PushTransportClient):
@@ -48,8 +58,7 @@ class Driver:
             raise TypeError(msg)
 
         # Render discovery listen configuration
-        discovery_schema = self.schema.discovery
-        discovery_listener = DiscoveryListener.from_dict(discovery_schema)
+        discovery_listener = DiscoveryListener.from_dict(self.discovery_schema)
 
         def callback(payload: Any) -> None:  # noqa: ANN401
             nonlocal seen
@@ -59,10 +68,10 @@ class Driver:
                 return
             parsed_attributes = {}
             # try to parse attributes initial values if some are in the payload
-            for attribute_schema in self.schema.attribute_schemas:
-                adapter = build_value_adapter(attribute_schema.value_adapter)
+            for attribute_driver in self.attributes.values():
+                adapter = attribute_driver.value_adapter
                 with contextlib.suppress(Exception):
-                    parsed_attributes[attribute_schema.name] = adapter.decode(payload)
+                    parsed_attributes[attribute_driver.name] = adapter.decode(payload)
 
             on_discover(device_config, parsed_attributes)
             seen.add(config_hash)
@@ -80,14 +89,26 @@ class Driver:
             )
         finally:
             await transport.unregister_listener(listener_id, discovery_listener.topic)
-            logger.debug("Discovery listener unregistered for driver '%s'", self.name)
+            logger.debug(
+                "Discovery listener unregistered for driver '%s'", self.metadata.id
+            )
 
     @classmethod
     def from_dict(cls, data: dict) -> "Driver":
-        driver_env_raw = data.get("env", {})
-        driver_env = driver_env_raw if isinstance(driver_env_raw, dict) else {}
+        """@deprecated
+        (instanciation from exchange/storage models to be moved in dto)"""
+        env = data.get("env")
         return cls(
-            name=data.get("name", ""),
-            env=driver_env,
-            schema=DriverSchema.from_dict(data),
+            metadata=DriverMetadata(id=data["id"]),
+            transport=TransportProtocols(data["transport"]),
+            env=env or {},
+            device_config_required=[
+                DeviceConfigField(**field) for field in data.get("device_config", [])
+            ],
+            update_strategy=UpdateStrategy.model_validate(
+                data.get("update_strategy", {})
+            ),
+            attributes={
+                a["name"]: AttributeDriver.from_dict(a) for a in data["attributes"]
+            },
         )

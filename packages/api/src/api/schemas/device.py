@@ -18,7 +18,7 @@ class DeviceBase(BaseModel):
             id=device.id,
             config=device.config,
             attributes=device.attributes,
-            driver=device.driver.name,
+            driver=device.driver.metadata.id,
         )
 
 

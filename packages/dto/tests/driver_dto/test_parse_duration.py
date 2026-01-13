@@ -1,5 +1,5 @@
 import pytest
-from core.driver.driver_schema.parse_duration import parse_duration
+from core.driver.parse_duration import parse_duration
 
 
 @pytest.mark.parametrize(

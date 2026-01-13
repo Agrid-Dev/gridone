@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from core.transports import PushTransportClient, TransportClient
 from core.types import AttributeValueType, DeviceConfig
-from core.value_adapters import build_value_adapter
+from core.utils.templating.render import render_struct
 
 from .attribute import Attribute
 from .driver import Driver
@@ -35,9 +35,9 @@ class Device:
     )
 
     def __post_init__(self) -> None:
-        if self.driver.schema.transport != self.transport.protocol:
+        if self.driver.transport != self.transport.protocol:
             msg = (
-                f"Protocol mismatch: cannot use {self.driver.schema.transport} driver"
+                f"Protocol mismatch: cannot use {self.driver.transport} driver"
                 f" with {self.transport.protocol} transport"
             )
             raise TypeError(msg)
@@ -62,7 +62,7 @@ class Device:
                     a.data_type,
                     {"read", "write"} if a.write is not None else {"read"},
                 )
-                for a in driver.schema.attribute_schemas
+                for a in driver.attributes.values()
             },
         )
 
@@ -75,17 +75,18 @@ class Device:
             **self.config,
         }
         for attribute in self.attributes.values():
-            attribute_schema = self.driver.schema.get_attribute_schema(
-                attribute_name=attribute.name
-            )
-            adapter = build_value_adapter(attribute_schema.value_adapter)
+            attribute_driver = self.driver.attributes[attribute.name]
+
+            adapter = attribute_driver.value_adapter
 
             def updater(
                 new_value: AttributeValueType | None, attribute: Attribute = attribute
             ) -> None:
                 return self._update_attribute(attribute, new_value)
 
-            address = self.transport.build_address(attribute_schema.read, context)
+            address = self.transport.build_address(
+                render_struct(attribute_driver.read, context), context
+            )
             await self.transport.register_listener(
                 address.topic,
                 lambda v: updater(adapter.decode(v)),  # noqa: B023
@@ -110,12 +111,12 @@ class Device:
             **self.driver.env,
             **self.config,
         }
-        schema = self.driver.schema.get_attribute_schema(
-            attribute_name=attribute.name
-        ).render(context)
-        address = self.transport.build_address(schema.read, context)
+        attribute_driver = self.driver.attributes[attribute.name]
+        address = self.transport.build_address(
+            render_struct(attribute_driver.read, context), context
+        )
         raw_value = await self.transport.read(address)
-        adapter = build_value_adapter(schema.value_adapter)
+        adapter = attribute_driver.value_adapter
         decoded_value = adapter.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
@@ -174,17 +175,17 @@ class Device:
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
         context = {**self.driver.env, **self.config, "value": value}
-        schema = self.driver.schema.get_attribute_schema(
-            attribute_name=attribute.name
-        ).render(context)
-        adapter = build_value_adapter(schema.value_adapter)
-        if schema.write is None:
+        attribute_driver = self.driver.attributes[attribute.name]
+        adapter = attribute_driver.value_adapter
+        if attribute_driver.write is None:
             msg = (
-                f"Driver '{self.driver.name}' has no write address"
+                f"Driver '{self.driver.metadata.id}' has no write address"
                 " for attribute'{attribute_name}'"
             )
             raise PermissionError(msg)
-        address = self.transport.build_address(schema.write, context)
+        address = self.transport.build_address(
+            render_struct(attribute_driver.write, context), context
+        )
         encoded_value = adapter.encode(value)
         await self.transport.write(address, encoded_value)
         logger.info(

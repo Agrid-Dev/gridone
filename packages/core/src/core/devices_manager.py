@@ -19,7 +19,7 @@ class DeviceRaw(TypedDict):
 
 
 class DriverRaw(TypedDict):
-    name: str
+    id: str
     transport: str
     device_config: list[dict]
     attributes: list[dict]
@@ -57,7 +57,7 @@ class DevicesManager:
 
     async def start_polling(self) -> None:
         for device in self.devices.values():
-            if device.driver.schema.update_strategy.polling_enabled:
+            if device.driver.update_strategy.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
                 task = asyncio.create_task(self._device_poll_loop(device))
                 self._background_tasks.add(task)
@@ -75,7 +75,7 @@ class DevicesManager:
         self._background_tasks.clear()
 
     async def _device_poll_loop(self, device: Device) -> None:
-        poll_interval = device.driver.schema.update_strategy.polling_interval
+        poll_interval = device.driver.update_strategy.polling_interval
         try:
             while self._running:
                 await device.update_attributes()
@@ -100,14 +100,14 @@ class DevicesManager:
             )
             for t in transports
         }
-        drivers_raw_dict: dict[str, DriverRaw] = {d["name"]: d for d in drivers_raw}
+        drivers_raw_dict: dict[str, DriverRaw] = {d["id"]: d for d in drivers_raw}
         dm = cls({}, {}, transports)
 
         for d in devices_raw:
             transport_client = dm.transports[d["transport_id"]]
             driver_raw = drivers_raw_dict[d["driver"]]
             driver = Driver.from_dict(driver_raw)  # ty:ignore[invalid-argument-type]
-            dm.drivers[driver.name] = driver
+            dm.drivers[driver.metadata.id] = driver
             device = Device.from_driver(
                 driver, transport_client, d["config"], device_id=d["id"]
             )
@@ -140,7 +140,7 @@ class DevicesManager:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self.devices[device.id] = device
-        if self._running and device.driver.schema.update_strategy.polling_enabled:
+        if self._running and device.driver.update_strategy.polling_enabled:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
             )

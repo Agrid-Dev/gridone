@@ -34,7 +34,7 @@ def list_all(ctx: typer.Context) -> None:
     repository: CoreFileStorage = ctx.obj["repository"]
     drivers = repository.drivers.read_all()
     for driver in drivers:
-        console.print(driver["name"])
+        console.print(driver["id"])
 
 
 def on_discover_device(
@@ -87,7 +87,7 @@ def discover(
         raise typer.Exit(1) from e
     driver = DevicesManager.build_driver(driver_raw)
     protocol = TransportProtocols(transport_raw["protocol"])
-    assert protocol == driver.schema.transport, "Driver and transport protocol mismatch"  # noqa: S101
+    assert protocol == driver.transport, "Driver and transport protocol mismatch"  # noqa: S101
     transport_client = make_transport_client(
         protocol,
         make_transport_config(protocol, transport_raw["config"]),
