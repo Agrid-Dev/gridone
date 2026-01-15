@@ -1,3 +1,3 @@
-from .driver_dto import DriverDTO, core_to_dto
+from .driver_dto import DriverDTO, core_to_dto, dto_to_core
 
-__all__ = ["DriverDTO", "core_to_dto"]
+__all__ = ["DriverDTO", "core_to_dto", "dto_to_core"]

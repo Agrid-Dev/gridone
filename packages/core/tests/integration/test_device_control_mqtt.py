@@ -2,30 +2,52 @@ from pathlib import Path
 
 import pytest
 import yaml
+from core import Driver
 from core.device import Device
-from core.devices_manager import DevicesManager
+from core.devices_manager import DeviceRaw, DevicesManager
+from core.transports import (
+    TransportClient,
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
 from core.types import TransportProtocols
-
-fixture_path = Path(__file__).parent / "fixtures" / "thermockat_mqtt_driver.yaml"
-with fixture_path.open("r") as file:
-    thermocktat_mqtt_driver = yaml.safe_load(file)
+from dto.driver_dto import DriverDTO, dto_to_core
 
 
 @pytest.fixture
-def mqtt_device() -> Device:
+def thermocktat_mqtt_driver() -> Driver:
+    fixture_path = Path(__file__).parent / "fixtures" / "thermockat_mqtt_driver.yaml"
+    with fixture_path.open("r") as file:
+        driver_data = yaml.safe_load(file)
+    dto = DriverDTO.model_validate(driver_data)
+    return dto_to_core(dto)
+
+
+@pytest.fixture
+def mqtt_transport() -> TransportClient:
+    return make_transport_client(
+        TransportProtocols.MQTT,
+        make_transport_config(
+            TransportProtocols.MQTT, {"host": "localhost", "port": 1883}
+        ),
+        TransportMetadata(id="my-transport", name="my-transport"),
+    )
+
+
+@pytest.fixture
+def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> Device:
     return DevicesManager.build_device(
-        {
-            "id": "test-thermocktat",
-            "driver": "thermocktat_mqtt",
-            "transport_id": "t1",
-            "config": {"device_id": "test-thermocktat"},
-        },
+        DeviceRaw.model_validate(
+            {
+                "id": "test-thermocktat",
+                "driver": "thermocktat_mqtt",
+                "transport_id": "my-transport",
+                "config": {"device_id": "test-thermocktat"},
+            }
+        ),
         thermocktat_mqtt_driver,
-        transport={
-            "id": "t1",
-            "protocol": TransportProtocols.MQTT,
-            "config": {"host": "127.0.0.1"},
-        },
+        mqtt_transport,
     )
 
 

@@ -2,19 +2,31 @@ from pathlib import Path
 
 import pytest
 import yaml
+from core import Driver
 from core.device import Device
 from core.devices_manager import DevicesManager
+from core.transports import (
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
 from core.types import TransportProtocols
+from dto.driver_dto import DriverDTO, dto_to_core
 
 from .conftest import DEVICE_ID, HTTP_PORT
 
-fixture_path = Path(__file__).parent / "fixtures" / "thermockat_http_driver.yaml"
-with fixture_path.open("r") as file:
-    thermocktat_http_driver = yaml.safe_load(file)
+
+@pytest.fixture
+def thermocktat_http_driver() -> Driver:
+    fixture_path = Path(__file__).parent / "fixtures" / "thermockat_http_driver.yaml"
+    with fixture_path.open("r") as file:
+        driver_data = yaml.safe_load(file)
+    dto = DriverDTO.model_validate(driver_data)
+    return dto_to_core(dto)
 
 
 @pytest.fixture
-def device() -> Device:
+def device(thermocktat_http_driver) -> Device:
     return DevicesManager.build_device(
         {
             "id": DEVICE_ID,
@@ -23,7 +35,11 @@ def device() -> Device:
             "config": {"ip": f"http://localhost:{HTTP_PORT}"},
         },
         thermocktat_http_driver,
-        transport={"id": "t1", "protocol": TransportProtocols.HTTP, "config": {}},
+        make_transport_client(
+            TransportProtocols.HTTP,
+            make_transport_config(TransportProtocols.HTTP, None),
+            TransportMetadata(id="my-transport", name="my-transport"),
+        ),
     )
 
 

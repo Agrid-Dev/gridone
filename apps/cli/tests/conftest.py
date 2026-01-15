@@ -3,38 +3,51 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from core.devices_manager import DeviceRaw
+from core.types import TransportProtocols
+from dto.driver_dto import DriverDTO
+from dto.transport_dto import build_dto
 from storage import CoreFileStorage
 
-TEST_DEVICE = {
-    "id": "test_device",
-    "driver": "test_driver",
-    "transport_id": "http_transport",
-    "config": {"lattitude": 48.866667, "longitude": 2.333333},
-}
+TEST_DEVICE = DeviceRaw.model_validate(
+    {
+        "id": "test_device",
+        "driver": "test_driver",
+        "transport_id": "http_transport",
+        "config": {"lattitude": 48.866667, "longitude": 2.333333},
+    }
+)
 
-TEST_DRIVER = {
-    "id": "test_driver",
-    "transport": "http",
-    "device_config": [{"name": "lattitude"}, {"name": "longitude"}],
-    "update_strategy": {"polling": "15min", "timeout": "5s"},
-    "env": {"base_url": "https://api.open-meteo.com/v1/forecast"},
-    "attributes": [
-        {
-            "name": "temperature",
-            "data_type": "float",
-            "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
-            "json_pointer": "/current_weather/temperature",
-        },
-        {
-            "name": "wind_speed",
-            "data_type": "float",
-            "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
-            "json_pointer": "/current_weather/windspeed",
-        },
-    ],
-}
+TEST_DRIVER = DriverDTO.model_validate(
+    {
+        "id": "test_driver",
+        "transport": "http",
+        "device_config": [{"name": "lattitude"}, {"name": "longitude"}],
+        "update_strategy": {"polling": "15min", "timeout": "5s"},
+        "env": {"base_url": "https://api.open-meteo.com/v1/forecast"},
+        "attributes": [
+            {
+                "name": "temperature",
+                "data_type": "float",
+                "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
+                "json_pointer": "/current_weather/temperature",
+            },
+            {
+                "name": "wind_speed",
+                "data_type": "float",
+                "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
+                "json_pointer": "/current_weather/windspeed",
+            },
+        ],
+    }
+)
 
-TEST_TRANSPORT = {"id": "http_transport", "protocol": "http", "config": {}}
+TEST_TRANSPORT = build_dto(
+    transport_id="http_transport",
+    name="my transport",
+    protocol=TransportProtocols.HTTP,
+    config={},
+)
 
 
 @pytest.fixture
@@ -44,9 +57,9 @@ def mock_core_file_storage() -> Generator[CoreFileStorage]:
         (Path(temp_dir) / "drivers").mkdir()
         (Path(temp_dir) / "transports").mkdir()
         core_file_storage = CoreFileStorage(Path(temp_dir))
-        core_file_storage.devices.write(TEST_DEVICE["id"], TEST_DEVICE)  # ty:ignore[invalid-argument-type]
-        core_file_storage.drivers.write(TEST_DRIVER["id"], TEST_DRIVER)  # ty:ignore[invalid-argument-type]
-        core_file_storage.transports.write(TEST_TRANSPORT["id"], TEST_TRANSPORT)  # ty:ignore[invalid-argument-type]
+        core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)  # ty:ignore[invalid-argument-type]
+        core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)  # ty:ignore[invalid-argument-type]
+        core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)  # ty:ignore[invalid-argument-type]
 
         yield core_file_storage
 

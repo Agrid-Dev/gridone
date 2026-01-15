@@ -40,11 +40,21 @@ class AttributeDriverDTO(BaseModel):
         return data
 
 
-def dto_to_core(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
+def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
     return AttributeDriverDTO(
         name=attribute_driver.name,
         data_type=attribute_driver.data_type,
         read=attribute_driver.read,
         write=attribute_driver.write,
         value_adapters=attribute_driver.value_adapter_specs,
+    )
+
+
+def dto_to_core(dto: AttributeDriverDTO) -> AttributeDriver:
+    return AttributeDriver(
+        name=dto.name,
+        data_type=dto.data_type,
+        read=dto.read,
+        write=dto.write,
+        value_adapter_specs=dto.value_adapters,
     )

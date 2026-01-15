@@ -58,6 +58,7 @@ class MockTransportAddress(TransportAddress):
 class MockTransportClient(TransportClient[MockTransportAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = MockTransportAddress
+    metadata = mock_metadata
 
     def __init__(self) -> None:
         self._listen_handlers: dict[str, tuple[str, Callable]] = {}
