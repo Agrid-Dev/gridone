@@ -1,34 +1,21 @@
 import asyncio
 import logging
-from typing import TypedDict
+
+from pydantic import BaseModel
 
 from .device import AttributeListener, Device
 from .driver import Driver
-from .transports import TransportClient, TransportMetadata, make_transport_client
-from .transports.factory import make_transport_config
-from .types import DeviceConfig, TransportProtocols
+from .transports import TransportClient
+from .types import DeviceConfig
 
 logger = logging.getLogger(__name__)
 
 
-class DeviceRaw(TypedDict):
+class DeviceRaw(BaseModel):
     id: str
     driver: str
     transport_id: str
     config: DeviceConfig
-
-
-class DriverRaw(TypedDict):
-    id: str
-    transport: str
-    device_config: list[dict]
-    attributes: list[dict]
-
-
-class TransportRaw(TypedDict):
-    id: str
-    protocol: str
-    config: dict
 
 
 POLL_INTERVAL = 10
@@ -87,52 +74,42 @@ class DevicesManager:
     def load_from_raw(
         cls,
         devices_raw: list[DeviceRaw],
-        drivers_raw: list[DriverRaw],
-        transports: list[TransportRaw],
+        drivers: list[Driver],
+        transports: list[TransportClient],
     ) -> "DevicesManager":
         """Must be called within an async context because of some client
         instanciations (to be improved)."""
-        transports: dict[str, TransportClient] = {
-            t["id"]: make_transport_client(
-                TransportProtocols(t["protocol"]),
-                make_transport_config(TransportProtocols(t["protocol"]), t["config"]),
-                TransportMetadata(id=t["id"], name=t["id"]),
-            )
-            for t in transports
-        }
-        drivers_raw_dict: dict[str, DriverRaw] = {d["id"]: d for d in drivers_raw}
-        dm = cls({}, {}, transports)
+        transports: dict[str, TransportClient] = {t.metadata.id: t for t in transports}
+        drivers: dict[str, Driver] = {d.metadata.id: d for d in drivers}
+        dm = cls({}, drivers, transports)
 
         for d in devices_raw:
-            transport_client = dm.transports[d["transport_id"]]
-            driver_raw = drivers_raw_dict[d["driver"]]
-            driver = Driver.from_dict(driver_raw)  # ty:ignore[invalid-argument-type]
-            dm.drivers[driver.metadata.id] = driver
+            try:
+                transport_client = dm.transports[d.transport_id]
+            except KeyError:
+                msg = f"Missing transport {d.transport_id} for device {d.id}"
+                logger.exception(msg)
+            try:
+                driver = dm.drivers[d.driver]
+            except KeyError:
+                msg = f"Missing driver {d.driver} for device {d.id}"
+                logger.exception(msg)
             device = Device.from_driver(
-                driver, transport_client, d["config"], device_id=d["id"]
+                driver, transport_client, d.config, device_id=d.id
             )
             dm._attach_listeners(device)
-            dm.devices[d["id"]] = device
+            dm.devices[d.id] = device
 
         return dm
 
     @staticmethod
-    def build_driver(driver_raw: DriverRaw) -> Driver:
-        return Driver.from_dict(driver_raw)  # ty:ignore[invalid-argument-type]
-
-    @staticmethod
     def build_device(
-        device_raw: DeviceRaw, driver_raw: DriverRaw, transport: TransportRaw
+        device_raw: DeviceRaw | dict, driver: Driver, transport: TransportClient
     ) -> Device:
-        driver = DevicesManager.build_driver(driver_raw)
-        protocol = TransportProtocols(transport["protocol"])
-        transport_client = make_transport_client(
-            protocol,
-            make_transport_config(protocol, transport["config"]),
-            TransportMetadata(id=transport["id"], name=transport["id"]),
-        )
+        if isinstance(device_raw, dict):
+            device_raw = DeviceRaw(**device_raw)
         return Device.from_driver(
-            driver, transport_client, device_raw["config"], device_id=device_raw["id"]
+            driver, transport, device_raw.config, device_id=device_raw.id
         )
 
     def add_device(self, device: Device) -> None:

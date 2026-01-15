@@ -69,7 +69,7 @@ def create_transport(
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )
-    repository.transports.write(dto.id, dto.model_dump(mode="json"))
+    repository.transports.write(dto.id, dto)
     return dto
 
 
@@ -94,7 +94,7 @@ async def update_transport(  # noqa: PLR0913
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.errors()
         ) from e
-    repository.transports.write(dto.id, dto.model_dump(mode="json"))
+    repository.transports.write(dto.id, dto)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 
 [manifest]
@@ -492,6 +492,12 @@ requires-dist = [
 name = "gridone-storage"
 version = "0.1.0"
 source = { editable = "packages/storage" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.12.4" }]
 
 [[package]]
 name = "h11"

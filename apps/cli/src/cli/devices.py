@@ -6,6 +6,8 @@ import asyncio
 
 import typer
 from core.devices_manager import DevicesManager
+from dto.driver_dto import dto_to_core as driver_dto_to_core
+from dto.transport_dto import dto_to_core as transport_dto_to_core
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
@@ -30,10 +32,12 @@ def get_single_device_manager(
     repository: CoreFileStorage, device_id: str
 ) -> DevicesManager:
     device_raw = repository.devices.read(device_id)
-    driver_raw = repository.drivers.read(device_raw["driver"])
+    driver_dto = repository.drivers.read(device_raw.driver)
+    driver = driver_dto_to_core(driver_dto)
 
-    transports = [repository.transports.read(device_raw["transport_id"])]
-    return DevicesManager.load_from_raw([device_raw], [driver_raw], transports)
+    transport_dto = repository.transports.read(device_raw.transport_id)
+    transport_client = transport_dto_to_core(transport_dto)
+    return DevicesManager.load_from_raw([device_raw], [driver], [transport_client])
 
 
 async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
@@ -63,11 +67,11 @@ def list_all(ctx: typer.Context) -> None:
     table.add_column("Driver", justify="left", style="magenta")
     table.add_column("Transport", justify="left", style="green")
 
-    for device_raw in sorted(devices, key=lambda d: d["id"]):
+    for device_raw in sorted(devices, key=lambda d: d.id):
         table.add_row(
-            device_raw["id"],
-            device_raw["driver"],
-            device_raw["transport_id"],
+            device_raw.id,
+            device_raw.driver,
+            device_raw.transport_id,
         )
 
     console.print(table)

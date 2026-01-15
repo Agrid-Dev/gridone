@@ -2,15 +2,13 @@ import asyncio
 from typing import TYPE_CHECKING, Annotated
 
 import typer
-from core.devices_manager import DevicesManager
 from core.driver import Driver
 from core.transports import (
     PushTransportClient,
-    TransportMetadata,
-    make_transport_client,
-    make_transport_config,
 )
 from core.types import AttributeValueType, DeviceConfig, TransportProtocols
+from dto.driver_dto import dto_to_core as driver_dto_to_core
+from dto.transport_dto import dto_to_core as transport_dto_to_core
 from rich.console import Console
 
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
@@ -34,7 +32,7 @@ def list_all(ctx: typer.Context) -> None:
     repository: CoreFileStorage = ctx.obj["repository"]
     drivers = repository.drivers.read_all()
     for driver in drivers:
-        console.print(driver["id"])
+        console.print(driver.id)
 
 
 def on_discover_device(
@@ -85,12 +83,8 @@ def discover(
     except FileNotFoundError as e:
         console.print(f"[bold red]Transport not found: {transport_id}[/bold red]")
         raise typer.Exit(1) from e
-    driver = DevicesManager.build_driver(driver_raw)
+    driver = driver_dto_to_core(driver_raw)
     protocol = TransportProtocols(transport_raw["protocol"])
     assert protocol == driver.transport, "Driver and transport protocol mismatch"  # noqa: S101
-    transport_client = make_transport_client(
-        protocol,
-        make_transport_config(protocol, transport_raw["config"]),
-        TransportMetadata(id=transport_raw["id"], name=transport_raw["id"]),
-    )
+    transport_client = transport_dto_to_core(transport_raw)
     asyncio.run(_run_discovery(driver, transport_client))  # ty:ignore[invalid-argument-type]

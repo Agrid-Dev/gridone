@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from core.device import Device
-from core.devices_manager import DeviceRaw, DevicesManager, DriverRaw, TransportRaw
+from core.devices_manager import DeviceRaw, DevicesManager
 from core.driver import Driver, UpdateStrategy
 
 
@@ -148,34 +148,21 @@ class TestDevicesManagerPolling:
 
 class TestDevicesManagerLoadFromRaw:
     @pytest.mark.asyncio
-    async def test_load_from_raw_success(self):
+    async def test_load_from_raw_success(self, driver, mock_transport_client):
         devices_raw: list[DeviceRaw] = [
-            {
-                "id": "device1",
-                "driver": "test_driver",
-                "transport_id": "t1",
-                "config": {"device_id": "device1"},
-            },
-        ]
-        drivers_raw: list[DriverRaw] = [
-            {
-                "id": "test_driver",
-                "transport": "http",
-                "device_config": [],
-                "attributes": [
-                    {
-                        "name": "temperature",
-                        "data_type": "float",
-                        "read": "GET /temperature",
-                    },
-                ],
-            },
-        ]
-        transports_raw: list[TransportRaw] = [
-            {"id": "t1", "protocol": "http", "config": {}}
+            DeviceRaw.model_validate(
+                {
+                    "id": "device1",
+                    "driver": "test_driver",
+                    "transport_id": "my-transport",
+                    "config": {"device_id": "device1"},
+                }
+            ),
         ]
 
-        manager = DevicesManager.load_from_raw(devices_raw, drivers_raw, transports_raw)
+        manager = DevicesManager.load_from_raw(
+            devices_raw, [driver], [mock_transport_client]
+        )
 
         assert len(manager.devices) == 1
         assert "device1" in manager.devices
@@ -183,68 +170,46 @@ class TestDevicesManagerLoadFromRaw:
         assert "test_driver" in manager.drivers
 
     @pytest.mark.asyncio
-    async def test_load_from_raw_multiple_devices(self):
+    async def test_load_from_raw_multiple_devices(self, driver, mock_transport_client):
         devices_raw: list[DeviceRaw] = [
-            {
-                "id": "device1",
-                "driver": "test_driver",
-                "transport_id": "t1",
-                "config": {"device_id": "device1"},
-            },
-            {
-                "id": "device2",
-                "driver": "test_driver",
-                "transport_id": "t1",
-                "config": {"device_id": "device2"},
-            },
-        ]
-        drivers_raw: list[DriverRaw] = [
-            {
-                "id": "test_driver",
-                "transport": "http",
-                "device_config": [],
-                "attributes": [
-                    {
-                        "name": "temperature",
-                        "data_type": "float",
-                        "read": "GET /temperature",
-                    },
-                ],
-            },
-        ]
-        transports_raw: list[TransportRaw] = [
-            {"id": "t1", "protocol": "http", "config": {}}
+            DeviceRaw.model_validate(
+                {
+                    "id": "device1",
+                    "driver": "test_driver",
+                    "transport_id": "my-transport",
+                    "config": {"device_id": "device1"},
+                }
+            ),
+            DeviceRaw.model_validate(
+                {
+                    "id": "device2",
+                    "driver": "test_driver",
+                    "transport_id": "my-transport",
+                    "config": {"device_id": "device2"},
+                }
+            ),
         ]
 
-        manager = DevicesManager.load_from_raw(devices_raw, drivers_raw, transports_raw)
+        manager = DevicesManager.load_from_raw(
+            devices_raw, [driver], [mock_transport_client]
+        )
 
         assert len(manager.devices) == 2
         assert len(manager.drivers) == 1
 
 
 class TestDevicesManagerBuildDevice:
-    def test_build_device_success(self):
-        device_raw: DeviceRaw = {
-            "id": "device1",
-            "driver": "test_driver",
-            "transport_id": "t1",
-            "config": {"device_id": "device1"},
-        }
-        driver_raw: DriverRaw = {
-            "id": "test_driver",
-            "transport": "http",
-            "device_config": [],
-            "attributes": [
-                {
-                    "name": "temperature",
-                    "data_type": "float",
-                    "read": "GET /temperature",
-                },
-            ],
-        }
-        transports_raw: TransportRaw = {"id": "t1", "protocol": "http", "config": {}}
+    def test_build_device_success(self, driver, mock_transport_client):
+        device_raw: DeviceRaw = DeviceRaw.model_validate(
+            {
+                "id": "device1",
+                "driver": "test_driver",
+                "transport_id": "t1",
+                "config": {"device_id": "device1"},
+            }
+        )
 
-        device = DevicesManager.build_device(device_raw, driver_raw, transports_raw)
+        device = DevicesManager.build_device(device_raw, driver, mock_transport_client)
 
         assert device.id == "device1"
         assert device.driver.metadata.id == "test_driver"

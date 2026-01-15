@@ -68,7 +68,7 @@ def mock_repository(
 ) -> CoreFileStorage:
     cfs = CoreFileStorage(tmp_path)
     for transport_id, tc in mock_transports.items():
-        cfs.transports.write(transport_id, transport_to_dto(tc).model_dump(mode="json"))
+        cfs.transports.write(transport_id, transport_to_dto(tc))
     for driver_id, driver in mock_drivers.items():
-        cfs.drivers.write(driver_id, driver_to_dto(driver).model_dump(mode="json"))
+        cfs.drivers.write(driver_id, driver_to_dto(driver))
     return cfs

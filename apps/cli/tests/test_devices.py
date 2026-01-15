@@ -22,8 +22,9 @@ def test_read_device(
     mock_core_file_storage: CoreFileStorage,
     open_meteo_server: Any,
 ) -> None:
-    patched_driver = TEST_DRIVER.copy()
-    patched_driver["env"]["base_url"] = open_meteo_server.url_for("") + "/v1/forecast"  # ty:ignore[invalid-assignment]
+    patched_driver = TEST_DRIVER.model_copy(
+        update={"env": {"base_url": open_meteo_server.url_for("") + "/v1/forecast"}}
+    )
     monkeypatch.setattr(
         mock_core_file_storage.drivers,
         "read",
