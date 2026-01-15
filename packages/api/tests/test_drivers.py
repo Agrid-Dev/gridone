@@ -117,3 +117,20 @@ class TestCreateDriver:
         del payload["transport"]
         response = client.post("/", json=payload)
         assert response.status_code == 422
+
+
+class TestDeleteDriver:
+    def test_delete_ok(self, client: TestClient):
+        driver_id = "test_driver"
+        response = client.delete(f"/{driver_id}")
+        assert response.status_code == 204
+
+    def test_delete_not_found(self, client: TestClient):
+        driver_id = "unknown"
+        response = client.delete(f"/{driver_id}")
+        assert response.status_code == 404
+
+    @pytest.mark.skip
+    def test_delete_used_by_device(self, client: TestClient):
+        """@TODO: test conflict is driver used by a device"""
+        pass
