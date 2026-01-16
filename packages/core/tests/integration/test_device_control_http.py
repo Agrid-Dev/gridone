@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 from core import Driver
-from core.device import Device
-from core.devices_manager import DevicesManager
+from core.device import Device, DeviceBase
 from core.transports import (
     TransportMetadata,
     make_transport_client,
@@ -27,19 +26,18 @@ def thermocktat_http_driver() -> Driver:
 
 @pytest.fixture
 def device(thermocktat_http_driver) -> Device:
-    return DevicesManager.build_device(
-        {
-            "id": DEVICE_ID,
-            "driver": "thermocktat_http",
-            "transport_id": "t1",
-            "config": {"ip": f"http://localhost:{HTTP_PORT}"},
-        },
-        thermocktat_http_driver,
-        make_transport_client(
-            TransportProtocols.HTTP,
-            make_transport_config(TransportProtocols.HTTP, None),
-            TransportMetadata(id="my-transport", name="my-transport"),
-        ),
+    base = DeviceBase(
+        id=DEVICE_ID,
+        name="My thermocktat",
+        config={"ip": f"http://localhost:{HTTP_PORT}"},
+    )
+    http_transport = make_transport_client(
+        TransportProtocols.HTTP,
+        make_transport_config(TransportProtocols.HTTP, None),
+        TransportMetadata(id="my-transport", name="my-transport"),
+    )
+    return Device.from_base(
+        base, transport=http_transport, driver=thermocktat_http_driver
     )
 
 

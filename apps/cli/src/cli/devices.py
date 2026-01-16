@@ -6,8 +6,7 @@ import asyncio
 
 import typer
 from core.devices_manager import DevicesManager
-from dto.driver_dto import dto_to_core as driver_dto_to_core
-from dto.transport_dto import dto_to_core as transport_dto_to_core
+from dto.init_devices_manager import init_devices_manager
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
@@ -31,13 +30,10 @@ def _init(ctx: typer.Context) -> None:
 def get_single_device_manager(
     repository: CoreFileStorage, device_id: str
 ) -> DevicesManager:
-    device_raw = repository.devices.read(device_id)
-    driver_dto = repository.drivers.read(device_raw.driver)
-    driver = driver_dto_to_core(driver_dto)
-
-    transport_dto = repository.transports.read(device_raw.transport_id)
-    transport_client = transport_dto_to_core(transport_dto)
-    return DevicesManager.load_from_raw([device_raw], [driver], [transport_client])
+    device_dto = repository.devices.read(device_id)
+    driver_dto = repository.drivers.read(device_dto.driver_id)
+    transport_dto = repository.transports.read(device_dto.transport_id)
+    return init_devices_manager([device_dto], [driver_dto], [transport_dto])
 
 
 async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
@@ -45,7 +41,7 @@ async def _read_device_async(repository: CoreFileStorage, device_id: str) -> Non
     Async implementation that performs device manager initialization and
     reads attributes from the device using async drivers/transports.
     """
-    device = repository.load_device(device_id)
+    device = get_single_device_manager(repository, device_id).devices[device_id]
     console.print(
         f"Reading device [bold blue]{device_id}[/bold blue]"
         f" with driver [bold blue]{device.driver.name}[/bold blue]"
@@ -70,7 +66,7 @@ def list_all(ctx: typer.Context) -> None:
     for device_raw in sorted(devices, key=lambda d: d.id):
         table.add_row(
             device_raw.id,
-            device_raw.driver,
+            device_raw.driver_id,
             device_raw.transport_id,
         )
 
@@ -91,7 +87,7 @@ async def _write_device_async(
     attribute: str,
     value: float,
 ) -> None:
-    device = repository.load_device(device_id)
+    device = get_single_device_manager(repository, device_id).devices[device_id]
     console.print(
         f"Writing value [bold red]{value}[/bold red] to device"
         f" [bold blue]{device_id}[/bold blue]"

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from core.attribute import Attribute
 from core.device import Device
+from dto.init_devices_manager import init_devices_manager
 from fastapi import FastAPI
 from storage import CoreFileStorage
 
@@ -26,7 +27,11 @@ async def lifespan(app: FastAPI):
 
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     app.state.repository = gridone_repository
-    dm = gridone_repository.init_device_manager()
+    dm = init_devices_manager(
+        devices=gridone_repository.devices.read_all(),
+        drivers=gridone_repository.drivers.read_all(),
+        transports=gridone_repository.transports.read_all(),
+    )
     app.state.device_manager = dm
 
     # Dictionary to store per-device locks for atomic check-and-write operations

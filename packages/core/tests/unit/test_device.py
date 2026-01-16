@@ -1,15 +1,23 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from core.device import Device
+from core import Driver, TransportClient
+from core.device import Device, DeviceBase
 
 from .fixtures.transport_clients import MockTransportAddress
 
 
 @pytest.fixture
 def device(mock_transport_client, driver) -> Device:
-    return Device.from_driver(
-        driver, mock_transport_client, {"some_id": "abcd"}, device_id="d1"
+    base = DeviceBase(
+        id="d1",
+        name="My pull device",
+        config={"some_id": "abcd"},
+    )
+    return Device.from_base(
+        base,
+        driver=driver,
+        transport=mock_transport_client,
     )
 
 
@@ -17,26 +25,43 @@ def device(mock_transport_client, driver) -> Device:
 def device_w_push_transport(
     mock_push_transport_client, driver_w_push_transport
 ) -> Device:
-    return Device.from_driver(
-        driver_w_push_transport,
-        mock_push_transport_client,
-        {"some_id": "abcd"},
-        device_id="d2",
+    base = DeviceBase(id="d2", name="My push device", config={"some_id": "abcd"})
+    return Device.from_base(
+        base,
+        driver=driver_w_push_transport,
+        transport=mock_push_transport_client,
     )
 
 
 class TestDeviceCreation:
-    def test_build_from_driver(self, device: Device):
-        assert device.id == "d1"
-        assert len(device.attributes) == 5
-
-    def test_build_from_driver_protocol_mismatch(
+    def test_build_protocol_mismatch(
         self, driver_w_push_transport, mock_transport_client
     ):
         with pytest.raises(TypeError):
-            Device.from_driver(
-                driver_w_push_transport, mock_transport_client, {}, device_id="dd"
+            _ = Device(
+                id="some_id",
+                name="name",
+                config={},
+                driver=driver_w_push_transport,
+                transport=mock_transport_client,
+                attributes={},
             )
+
+    def test_build_from_raw_raw(
+        self, driver: Driver, mock_transport_client: TransportClient
+    ):
+        base = DeviceBase(
+            id="d1",
+            name="my device",
+            config={},
+        )
+        device = Device.from_base(
+            base,
+            transport=mock_transport_client,
+            driver=driver,
+        )
+        assert device.id == "d1"
+        assert len(device.attributes) == len(driver.attributes)
 
 
 class TestDeviceRead:
