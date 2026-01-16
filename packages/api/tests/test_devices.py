@@ -89,3 +89,16 @@ class TestCreateDevice:
         del create_payload["config"]["some_id"]  # misses a field required by driver
         response = client.post("/", json=create_payload)
         assert response.status_code == 422
+
+
+class TestDeleteDevice:
+    def test_delete_device_ok(self, client: TestClient, mock_devices):
+        device_ids = list(mock_devices.keys())
+        assert len(device_ids) >= 1, "Require at least one device to test deletion"
+        for device_id in device_ids:
+            response = client.delete(f"/{device_id}")
+            assert response.status_code == 204
+
+    def test_delete_device_not_found(self, client: TestClient):
+        response = client.delete("/unknown")
+        assert response.status_code == 404

@@ -77,6 +77,18 @@ def create_device(
     return dto
 
 
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_device(
+    device_id: str,
+    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    repository: Annotated[CoreFileStorage, Depends(get_repository)],
+):
+    _get_device(dm, device_id)
+    del dm.devices[device_id]
+    repository.devices.delete(device_id)
+    return
+
+
 @router.post("/{device_id}/attributes/{attribute_name}")
 async def update_attribute(
     device_id: str,
@@ -89,7 +101,7 @@ async def update_attribute(
     if attribute_name not in device.attributes:
         raise HTTPException(
             status_code=404,
-            detail=f"No attribute '{attribute_name}' found for device {device_id}",
+            detail=f"No attribute '{attribute_name}' found",
         )
     logger.info("Setting  %s / %s to %s", device_id, attribute_name, update.value)
     try:
