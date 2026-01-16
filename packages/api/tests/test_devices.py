@@ -91,6 +91,35 @@ class TestCreateDevice:
         assert response.status_code == 422
 
 
+@pytest.fixture
+def device_id(mock_devices) -> str:
+    """Returns the first id of mock devices (dm fixtures)."""
+    return next(iter(mock_devices.keys()))
+
+
+class TestUpdateDevice:
+    def test_update_device_name(self, client: TestClient, device_id: str):
+        new_name = "New name"
+        response = client.patch(f"/{device_id}", json={"name": new_name})
+        assert response.status_code == 200
+        read_response = client.get(f"/{device_id}")
+        updated_device = read_response.json()
+        assert updated_device["name"] == new_name
+
+    def test_update_device_config_ok(self, client: TestClient, device_id: str):
+        new_config = {"some_id": "def"}
+        response = client.patch(f"/{device_id}", json={"config": new_config})
+        assert response.status_code == 200
+        read_response = client.get(f"/{device_id}")
+        updated_device = read_response.json()
+        assert updated_device["config"] == new_config
+
+    def test_update_device_config_invalid(self, client: TestClient, device_id: str):
+        new_config = {"other": 99}
+        response = client.patch(f"/{device_id}", json={"config": new_config})
+        assert response.status_code == 422
+
+
 class TestDeleteDevice:
     def test_delete_device_ok(self, client: TestClient, mock_devices):
         device_ids = list(mock_devices.keys())
