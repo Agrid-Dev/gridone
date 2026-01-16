@@ -3,16 +3,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from core.devices_manager import DeviceRaw
 from core.types import TransportProtocols
+from dto.device_dto import DeviceDTO
 from dto.driver_dto import DriverDTO
 from dto.transport_dto import build_dto
 from storage import CoreFileStorage
 
-TEST_DEVICE = DeviceRaw.model_validate(
+TEST_DEVICE = DeviceDTO.model_validate(
     {
         "id": "test_device",
-        "driver": "test_driver",
+        "name": "My test device",
+        "driver_id": "test_driver",
         "transport_id": "http_transport",
         "config": {"lattitude": 48.866667, "longitude": 2.333333},
     }
@@ -57,9 +58,9 @@ def mock_core_file_storage() -> Generator[CoreFileStorage]:
         (Path(temp_dir) / "drivers").mkdir()
         (Path(temp_dir) / "transports").mkdir()
         core_file_storage = CoreFileStorage(Path(temp_dir))
-        core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)  # ty:ignore[invalid-argument-type]
-        core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)  # ty:ignore[invalid-argument-type]
-        core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)  # ty:ignore[invalid-argument-type]
+        core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
+        core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)
+        core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
 
         yield core_file_storage
 

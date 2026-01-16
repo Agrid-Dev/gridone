@@ -3,10 +3,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
-
-from api.schemas.device import DeviceBase
 from core.types import AttributeValueType
+from dto.device_dto import DeviceDTO
+from pydantic import BaseModel, Field
 
 
 class WebSocketMessage(BaseModel):
@@ -31,12 +30,12 @@ class DeviceUpdateMessage(WebSocketMessage):
 
 class DeviceFullUpdateMessage(WebSocketMessage):
     type: Literal["device_full_update"] = "device_full_update"
-    device: DeviceBase
+    device: DeviceDTO
 
 
 class DeviceListUpdateMessage(WebSocketMessage):
     type: Literal["device_list_update"] = "device_list_update"
-    devices: list[DeviceBase]
+    devices: list[DeviceDTO]
 
 
 class ErrorMessage(WebSocketMessage):

@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 from core import Driver
-from core.device import Device
-from core.devices_manager import DeviceRaw, DevicesManager
+from core.device import Device, DeviceBase
 from core.transports import (
     TransportClient,
     TransportMetadata,
@@ -37,17 +36,13 @@ def mqtt_transport() -> TransportClient:
 
 @pytest.fixture
 def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> Device:
-    return DevicesManager.build_device(
-        DeviceRaw.model_validate(
-            {
-                "id": "test-thermocktat",
-                "driver": "thermocktat_mqtt",
-                "transport_id": "my-transport",
-                "config": {"device_id": "test-thermocktat"},
-            }
-        ),
-        thermocktat_mqtt_driver,
-        mqtt_transport,
+    base = DeviceBase(
+        id="thermocktat-1",
+        name="Thermocktat 1",
+        config={"device_id": "test-thermocktat"},
+    )
+    return Device.from_base(
+        base, transport=mqtt_transport, driver=thermocktat_mqtt_driver
     )
 
 

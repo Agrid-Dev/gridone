@@ -21,9 +21,14 @@ class ConfirmationError(ValueError):
 
 
 @dataclass
-class Device:
+class DeviceBase:
     id: str
+    name: str
     config: DeviceConfig
+
+
+@dataclass
+class Device(DeviceBase):
     driver: Driver
     transport: TransportClient
     attributes: dict[str, Attribute]
@@ -43,19 +48,15 @@ class Device:
             raise TypeError(msg)
 
     @classmethod
-    def from_driver(
-        cls,
-        driver: Driver,
-        transport: TransportClient,
-        config: DeviceConfig,
-        *,
-        device_id: str,
+    def from_base(
+        cls, base: DeviceBase, *, transport: TransportClient, driver: Driver
     ) -> "Device":
         return cls(
-            id=device_id,
+            id=base.id,
+            name=base.name,
+            config=base.config,
             driver=driver,
             transport=transport,
-            config=config,
             attributes={
                 a.name: Attribute.create(
                     a.name,
