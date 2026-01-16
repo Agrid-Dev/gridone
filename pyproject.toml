@@ -59,6 +59,7 @@ source = [
     "apps/cli",
     "packages/api/src",
     "packages/core/src",
+    "packages/dto/src",
     "packages/storage/src",
 ]
 omit = [

@@ -5,19 +5,22 @@ from core.device import DeviceBase
 from pydantic import BaseModel, Field
 
 
-class DeviceDTO(BaseModel):
-    id: str
+class DeviceCreateDTO(BaseModel):
     name: Annotated[str, Field(default_factory=lambda: "")]
     config: dict
     driver_id: str
     transport_id: str
+
+
+class DeviceDTO(DeviceCreateDTO):
+    id: str
     attributes: dict[str, Attribute] = Field(default_factory=dict)
 
 
 def core_to_dto(device: Device) -> DeviceDTO:
     return DeviceDTO(
         id=device.id,
-        name=device.id,
+        name=device.name,
         config=device.config,
         driver_id=device.driver.metadata.id,
         transport_id=device.transport.metadata.id,
