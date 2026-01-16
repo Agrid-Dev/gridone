@@ -91,6 +91,66 @@ class TestCreateDevice:
         assert response.status_code == 422
 
 
+@pytest.fixture
+def device_id(mock_devices) -> str:
+    """Returns the first id of mock devices (dm fixtures)."""
+    return next(iter(mock_devices.keys()))
+
+
+class TestUpdateDevice:
+    def test_update_device_name(self, client: TestClient, device_id: str):
+        new_name = "New name"
+        response = client.patch(f"/{device_id}", json={"name": new_name})
+        assert response.status_code == 200
+        read_response = client.get(f"/{device_id}")
+        updated_device = read_response.json()
+        assert updated_device["name"] == new_name
+
+    def test_update_device_config_ok(self, client: TestClient, device_id: str):
+        new_config = {"some_id": "def"}
+        response = client.patch(f"/{device_id}", json={"config": new_config})
+        assert response.status_code == 200
+        read_response = client.get(f"/{device_id}")
+        updated_device = read_response.json()
+        assert updated_device["config"] == new_config
+
+    def test_update_device_config_invalid(self, client: TestClient, device_id: str):
+        new_config = {"other": 99}
+        response = client.patch(f"/{device_id}", json={"config": new_config})
+        assert response.status_code == 422
+
+    def test_update_device_driver_not_found(self, client: TestClient, device_id: str):
+        response = client.patch(f"/{device_id}", json={"driver_id": "unknown"})
+        assert response.status_code == 404
+
+    def test_update_device_transport_not_found(
+        self, client: TestClient, device_id: str
+    ):
+        response = client.patch(f"/{device_id}", json={"transport_id": "unknown"})
+        assert response.status_code == 404
+
+    def test_update_device_driver_protocol_mismatch(
+        self, client: TestClient, device_id: str
+    ):
+        response = client.patch(f"/{device_id}", json={"driver_id": "test_push_driver"})
+        assert response.status_code == 422
+
+    def test_update_atomic(self, client: TestClient, device_id: str):
+        """Update is all or nothing"""
+        previous = client.get(f"/{device_id}").json()
+        update_response = client.patch(
+            f"/{device_id}",
+            json={
+                "name": "my new name",
+                "config": {"some_id": "bcd"},
+                "transport_id": "unknown",
+            },
+        )
+        assert update_response.status_code == 404
+        current = client.get(f"/{device_id}").json()
+        assert current == previous
+
+
 class TestDeleteDevice:
     def test_delete_device_ok(self, client: TestClient, mock_devices):
         device_ids = list(mock_devices.keys())

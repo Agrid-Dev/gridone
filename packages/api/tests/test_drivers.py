@@ -31,7 +31,7 @@ class TestListDrivers:
         response = client.get("/")
         assert response.status_code == 200
         drivers = response.json()
-        assert len(drivers) == 1
+        assert len(drivers) == 2
 
 
 class TestGetDriver:
