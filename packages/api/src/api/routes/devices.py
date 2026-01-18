@@ -3,8 +3,9 @@ from typing import Annotated
 
 from core.device import ConfirmationError, Device, DeviceBase
 from core.devices_manager import DevicesManager
+from core.driver import DeviceConfigField
 from core.types import AttributeValueType
-from dto.device_dto import DeviceCreateDTO, DeviceDTO, core_to_dto
+from dto.device_dto import DeviceCreateDTO, DeviceDTO, DeviceUpdateDTO, core_to_dto
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from storage import CoreFileStorage
@@ -46,6 +47,17 @@ def get_device(
     return core_to_dto(_get_device(dm, device_id))
 
 
+def _validate_device_config(
+    device_config: dict, driver_fields: list[DeviceConfigField]
+) -> None:
+    for field in driver_fields:
+        if field.required and field.name not in device_config:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Field {field.name} is required in device config",
+            )
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_device(
     dto: DeviceCreateDTO,
@@ -62,17 +74,52 @@ def create_device(
         driver = dm.drivers[dto.driver_id]
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Driver {dto.driver_id} not found")
-    for field in driver.device_config_required:
-        if field.required and field.name not in dto.config:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Field {field.name} is required in device config",
-            )
+    _validate_device_config(dto.config, driver.device_config_required)
     device_id = gen_id()
     base = DeviceBase(id=device_id, name=dto.name, config=dto.config)
     device = Device.from_base(base, driver=driver, transport=transport)
     dm.add_device(device)
     dto = core_to_dto(device)
+    repository.devices.write(device_id, dto)
+    return dto
+
+
+@router.patch("/{device_id}")
+def update_device(
+    device_id: str,
+    payload: DeviceUpdateDTO,
+    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    repository: Annotated[CoreFileStorage, Depends(get_repository)],
+) -> DeviceDTO:
+    device = _get_device(dm, device_id)
+    transport = device.transport
+    if payload.transport_id is not None:
+        try:
+            transport = dm.transports[payload.transport_id]
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Transport not found")
+    driver = device.driver
+    if payload.driver_id is not None:
+        try:
+            driver = dm.drivers[payload.driver_id]
+        except KeyError:
+            raise HTTPException(status_code=404, detail="Transport not found")
+    if transport.protocol != driver.transport:
+        raise HTTPException(
+            status_code=422, detail="Transport and driver protocols do not match"
+        )
+    if payload.config is not None:
+        _validate_device_config(payload.config, driver.device_config_required)
+    updated_device = Device(
+        id=device.id,
+        name=payload.name if payload.name is not None else device.name,
+        config=payload.config if payload.config is not None else device.config,
+        driver=driver,
+        transport=transport,
+        attributes=device.attributes,
+    )
+    dm.devices[device_id] = updated_device
+    dto = core_to_dto(updated_device)
     repository.devices.write(device_id, dto)
     return dto
 
@@ -89,7 +136,7 @@ def delete_device(
     return
 
 
-@router.post("/{device_id}/attributes/{attribute_name}")
+@router.post("/{device_id}/{attribute_name}")
 async def update_attribute(
     device_id: str,
     attribute_name: str,
@@ -116,20 +163,3 @@ async def update_attribute(
         raise HTTPException(status_code=409, detail=str(e))
     logger.info("Written")
     return
-
-
-@router.patch("/{device_id}")
-async def update_device(
-    device_id: str,
-    payload: UpdateAttributeBody,
-    dm: DevicesManager = Depends(get_device_manager),
-) -> DeviceDTO:
-    device = _get_device(dm, device_id)
-    try:
-        await device.write_attribute_value(payload.attribute, payload.value)
-    except PermissionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    except (KeyError, TypeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    return core_to_dto(device)

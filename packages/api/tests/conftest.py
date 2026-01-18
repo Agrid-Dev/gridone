@@ -58,15 +58,25 @@ def attributes() -> list[AttributeDriver]:
 
 @pytest.fixture
 def mock_drivers(attributes: list[AttributeDriver]) -> dict[str, Driver]:
-    driver = Driver(
-        metadata=DriverMetadata(id="test_driver"),
-        env={"base_url": "http://example.com"},
-        transport=TransportProtocols.HTTP,
-        device_config_required=[DeviceConfigField(name="some_id")],
-        update_strategy=UpdateStrategy(),
-        attributes={attribute.name: attribute for attribute in attributes},
-    )
-    return {driver.metadata.id: driver}
+    drivers = [
+        Driver(
+            metadata=DriverMetadata(id="test_driver"),
+            env={"base_url": "http://example.com"},
+            transport=TransportProtocols.HTTP,
+            device_config_required=[DeviceConfigField(name="some_id")],
+            update_strategy=UpdateStrategy(),
+            attributes={attribute.name: attribute for attribute in attributes},
+        ),
+        Driver(
+            metadata=DriverMetadata(id="test_push_driver"),
+            env={"host": "localhost"},
+            transport=TransportProtocols.MQTT,
+            device_config_required=[DeviceConfigField(name="some_id")],
+            update_strategy=UpdateStrategy(polling_enabled=False),
+            attributes={},
+        ),
+    ]
+    return {driver.metadata.id: driver for driver in drivers}
 
 
 @pytest.fixture
