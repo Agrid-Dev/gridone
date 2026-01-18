@@ -136,7 +136,7 @@ def delete_device(
     return
 
 
-@router.post("/{device_id}/attributes/{attribute_name}")
+@router.post("/{device_id}/{attribute_name}")
 async def update_attribute(
     device_id: str,
     attribute_name: str,

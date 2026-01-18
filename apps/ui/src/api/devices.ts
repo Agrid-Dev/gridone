@@ -38,9 +38,13 @@ export async function updateDeviceAttribute(
   attributeName: string,
   value: string | number | boolean | null,
 ): Promise<Device> {
-  return request<Device>(`/devices/${encodeURIComponent(deviceId)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ attribute: attributeName, value }),
-  });
+  await request<Device>(
+    `/devices/${encodeURIComponent(deviceId)}/${encodeURIComponent(attributeName)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    },
+  );
+  return getDevice(deviceId);
 }
