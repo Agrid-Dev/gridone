@@ -59,7 +59,7 @@ def _validate_device_config(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_device(
+async def create_device(
     dto: DeviceCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     repository: Annotated[CoreFileStorage, Depends(get_repository)],
@@ -85,7 +85,7 @@ def create_device(
 
 
 @router.patch("/{device_id}")
-def update_device(
+async def update_device(
     device_id: str,
     payload: DeviceUpdateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
