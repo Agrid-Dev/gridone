@@ -12,6 +12,7 @@ from .transport_address import (
     RawTransportAddress,
     TransportAddress,
 )
+from .transport_connection_state import TransportConnectionState
 from .transport_metadata import TransportMetadata
 
 T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
@@ -24,9 +25,9 @@ class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     config: BaseTransportConfig
     metadata: TransportMetadata
+    connection_state: TransportConnectionState
     address_builder: ClassVar[type[T_TransportAddress]]
     _connection_lock: Lock
-    _is_connected: bool
     _background_tasks: set[Task]
 
     def __init__(
@@ -34,10 +35,14 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
-        self._is_connected = False
+        self.connection_state = TransportConnectionState.idle()
         self.config = config
         self.metadata = metadata
         self._background_tasks = set()
+
+    @property
+    def id(self) -> str:
+        return self.metadata.id
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -47,13 +52,15 @@ class TransportClient[T_TransportAddress](ABC):
     @abstractmethod
     async def connect(self) -> None:
         """Establish a connection to the transport."""
-        self._is_connected = True
-        logger.info("Transport client %s connected", self.protocol)
+        self.connection_state = TransportConnectionState.connected()
+        logger.info(
+            "Transport client %d (%s) connected", self.metadata.id, self.protocol
+        )
 
     @abstractmethod
     async def close(self) -> None:
         """Close the connection and release resources."""
-        self._is_connected = False
+        self.connection_state = TransportConnectionState.closed()
         logger.info("Transport client %s closed", self.protocol)
 
     @abstractmethod
