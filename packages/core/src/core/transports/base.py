@@ -54,7 +54,7 @@ class TransportClient[T_TransportAddress](ABC):
         """Establish a connection to the transport."""
         self.connection_state = TransportConnectionState.connected()
         logger.info(
-            "Transport client %d (%s) connected", self.metadata.id, self.protocol
+            "Transport client %s (%s) connected", self.metadata.id, self.protocol
         )
 
     @abstractmethod
