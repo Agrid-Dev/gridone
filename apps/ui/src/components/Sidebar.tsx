@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 
@@ -32,6 +32,18 @@ export function Sidebar() {
           >
             {t("app.devices")}
           </NavLink>
+          <NavLink
+            to="/transports"
+            className={({ isActive }) =>
+              `block rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-slate-900 text-slate-50"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`
+            }
+          >
+            {t("app.transports")}
+          </NavLink>
         </nav>
 
         {/* Footer with Language Switcher */}
@@ -42,7 +54,3 @@ export function Sidebar() {
     </aside>
   );
 }
-
-
-
-

@@ -1,11 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { DeviceProvider } from "./contexts/DeviceContext";
-import './index.css';
-import './i18n';
+import "./index.css";
+import "./i18n";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,5 +25,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </BrowserRouter>
       </DeviceProvider>
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

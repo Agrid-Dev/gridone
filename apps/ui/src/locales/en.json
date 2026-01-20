@@ -19,6 +19,10 @@
     "noLiveMetrics": "No live metrics",
     "noConfiguration": "No configuration",
     "noConfigurationData": "No configuration data",
+    "optional": "Optional",
+    "true": "True",
+    "false": "False",
+    "cancel": "Cancel",
     "readOnly": "Read only",
     "editable": "Editable",
     "attributes": "attrs",
@@ -43,7 +47,8 @@
     "title": "Gridone",
     "subtitle": "Device control dashboard",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
-    "devices": "Devices"
+    "devices": "Devices",
+    "transports": "Transports"
   },
   "devices": {
     "title": "Devices",
@@ -59,6 +64,56 @@
     "unableToLoad": "Unable to load device",
     "updated": "{{name}} updated",
     "updateFailed": "Update failed"
+  },
+  "transports": {
+    "title": "Transports",
+    "subtitle": "Integration channels",
+    "createTitle": "Create transport",
+    "editTitle": "Edit transport",
+    "createSubtitle": "Configure a new connection",
+    "editSubtitle": "Update transport settings",
+    "fields": {
+      "name": "Name",
+      "protocol": "Protocol",
+      "protocolDisabled": "A transport's protocol cannot be modified after creation.",
+      "configuration": "Configuration",
+      "configurationHint": "Adjust protocol-specific settings below.",
+      "schemaUnavailable": "No schema is available for this protocol yet."
+    },
+    "protocols": {
+      "mqtt": "MQTT",
+      "http": "HTTP",
+      "modbus_tcp": "Modbus TCP",
+      "bacnet": "BACnet"
+    },
+    "validation": {
+      "required": "This field is required.",
+      "integer": "Enter a whole number.",
+      "number": "Enter a valid number."
+    },
+    "saving": "Saving...",
+    "createAction": "Create transport",
+    "updateAction": "Update transport",
+    "editAction": "Edit",
+    "deleteAction": "Delete",
+    "deletingAction": "Deleting...",
+    "state": "State",
+    "empty": "No transports created yet.",
+    "unableToLoad": "Unable to load transports",
+    "unableToLoadSchemas": "Unable to load transport schemas",
+    "saveFailed": "Unable to save transport",
+    "createSuccess": "Transport created successfully.",
+    "updateSuccess": "Transport updated successfully.",
+    "deleteFailed": "Unable to delete transport",
+    "deleteConfirm": "Delete transport \"{{name}}\"?",
+    "status": {
+      "connected": "Connected",
+      "connecting": "Connecting",
+      "connection_error": "Connection error",
+      "idle": "Idle",
+      "closing": "Closing",
+      "closed": "Closed",
+      "unknown": "Unknown"
+    }
   }
 }
-
