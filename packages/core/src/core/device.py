@@ -128,7 +128,14 @@ class Device(DeviceBase):
             if "read" not in attr.read_write_modes:
                 continue
             try:
-                await self.read_attribute_value(attr_name)
+                value = await self.read_attribute_value(attr_name)
+                logger.debug(
+                    "[Device %s] Read attribute %s with value %s",
+                    self.id,
+                    attr_name,
+                    value,
+                )
+
             except Exception as e:
                 logger.exception(
                     "[Device %s] failed to read attribute %s",

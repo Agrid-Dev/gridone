@@ -51,9 +51,9 @@ async def test_connect_success(
     mqtt_client: MqttTransportClient,
     mock_aiomqtt_client: AsyncMock,
 ):
-    assert mqtt_client._is_connected is False
+    assert mqtt_client.connection_state.is_connected is False
     await mqtt_client.connect()
-    assert mqtt_client._is_connected is True
+    assert mqtt_client.connection_state.is_connected is True
     mock_aiomqtt_client.__aenter__.assert_awaited_once()
     assert len(mqtt_client._background_tasks) == 1  # _handle_incoming_messages task
 
@@ -63,7 +63,7 @@ async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: Asyn
     await mqtt_client.connect()
     await mqtt_client.close()
     mock_aiomqtt_client.__aexit__.assert_awaited_once()
-    assert mqtt_client._is_connected is False
+    assert mqtt_client.connection_state.is_connected is False
     assert len(mqtt_client._background_tasks) == 0
 
 

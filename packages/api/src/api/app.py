@@ -34,10 +34,6 @@ async def lifespan(app: FastAPI):
     )
     app.state.device_manager = dm
 
-    # Dictionary to store per-device locks for atomic check-and-write operations
-    device_locks: dict[str, asyncio.Lock] = {}
-    app.state.device_locks = device_locks
-
     def broadcast_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
     ) -> None:
@@ -49,10 +45,15 @@ async def lifespan(app: FastAPI):
         )
         asyncio.create_task(websocket_manager.broadcast(message))
 
-    await asyncio.gather(*[d.init_listeners() for d in dm.devices.values()])
-
     dm.add_device_attribute_listener(broadcast_attribute_update)
 
+    for device_id, device in dm.devices.items():
+        try:
+            await device.init_listeners()
+        except Exception as e:
+            logger.exception(
+                "Failed to initialize listeners for device %s", device_id, exc_info=e
+            )
     await dm.start_polling()
     try:
         yield

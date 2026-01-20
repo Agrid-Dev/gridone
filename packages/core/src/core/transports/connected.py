@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import (
@@ -7,24 +8,27 @@ from typing import (
     TypeVar,
 )
 
-# Define a type variable for the return type of the decorated method
+from .transport_connection_state import TransportConnectionState
+
+logger = logging.getLogger(__name__)
+
 T_Return = TypeVar("T_Return")
 
-# Define a parameter spec to preserve the signature of the decorated method
 P = ParamSpec("P")
 
 
 class ConnectedProtocol(Protocol):
     """Protocol for classes that use the @connected decorator."""
 
+    connection_state: TransportConnectionState
+
     async def connect(self) -> None:
-        """Connect to the MQTT broker."""
+        """Connection method implementation."""
         ...
 
     @property
-    def _is_connected(self) -> bool:
-        """Check if the client is connected."""
-        ...
+    def id(self) -> str:
+        """Returns the id of the client (for logging mainly)."""
 
 
 def connected[**P, T_Return](
@@ -37,8 +41,16 @@ def connected[**P, T_Return](
     async def wrapper(
         self: ConnectedProtocol, *args: P.args, **kwargs: P.kwargs
     ) -> T_Return:
-        if not self._is_connected:
-            await self.connect()
-        return await func(self, *args, **kwargs)
+        if not self.connection_state.is_connected:
+            try:
+                await self.connect()
+            except Exception as e:
+                logger.exception(
+                    "Connection attempt for transport %s failed", self.id, exc_info=e
+                )
+                self.connection_state = TransportConnectionState.connection_error(
+                    str(e)
+                )
+        return await func(self, *args, **kwargs)  # ty:ignore[invalid-argument-type]
 
-    return wrapper
+    return wrapper  # ty:ignore[invalid-return-type]

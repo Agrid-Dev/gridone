@@ -3,6 +3,7 @@ from core import Device
 from core.devices_manager import DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_device_manager, get_repository
 from api.routes.devices import router
@@ -59,9 +60,18 @@ def create_payload() -> dict:
     }
 
 
+@pytest.fixture
+def async_client(app):
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
 class TestCreateDevice:
-    def test_create_device_ok(self, client: TestClient, create_payload: dict):
-        response = client.post("/", json=create_payload)
+    @pytest.mark.asyncio
+    async def test_create_device_ok(
+        self, async_client: AsyncClient, create_payload: dict
+    ):
+        async with async_client as ac:
+            response = await ac.post("/", json=create_payload)
         assert response.status_code == 201
         result = response.json()
         assert "id" in result
@@ -69,25 +79,31 @@ class TestCreateDevice:
         assert result["name"] == create_payload["name"]
         assert result["config"] == create_payload["config"]
 
-    def test_create_device_invalid_transport(
-        self, client: TestClient, create_payload: dict
+    @pytest.mark.asyncio
+    async def test_create_device_invalid_transport(
+        self, async_client: AsyncClient, create_payload: dict
     ):
         create_payload["transport_id"] = "unknown_transport"
-        response = client.post("/", json=create_payload)
+        async with async_client as ac:
+            response = await ac.post("/", json=create_payload)
         assert response.status_code == 404
 
-    def test_create_device_invalid_driver(
-        self, client: TestClient, create_payload: dict
+    @pytest.mark.asyncio
+    async def test_create_device_invalid_driver(
+        self, async_client: AsyncClient, create_payload: dict
     ):
         create_payload["driver_id"] = "unknown_transport"
-        response = client.post("/", json=create_payload)
+        async with async_client as ac:
+            response = await ac.post("/", json=create_payload)
         assert response.status_code == 404
 
-    def test_create_device_missing_config(
-        self, client: TestClient, create_payload: dict
+    @pytest.mark.asyncio
+    async def test_create_device_missing_config(
+        self, async_client: AsyncClient, create_payload: dict
     ):
         del create_payload["config"]["some_id"]  # misses a field required by driver
-        response = client.post("/", json=create_payload)
+        async with async_client as ac:
+            response = await ac.post("/", json=create_payload)
         assert response.status_code == 422
 
 

@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 from core.transports import (
     BaseTransportConfig,
     TransportClient,
+    TransportConnectionState,
     TransportMetadata,
     make_transport_client,
 )
@@ -22,6 +23,7 @@ from pydantic import BaseModel, Field, ValidationInfo, field_validator
 class TransportBaseDTO(BaseModel):
     id: str
     name: str
+    connection_state: TransportConnectionState
 
 
 class HttpTransportDTO(TransportBaseDTO):
@@ -68,12 +70,15 @@ DTO_BY_PROTOCOL = {
     TransportProtocols.BACNET: BacnetTransportDTO,
 }
 
+DEFAULT_CONNECTION_STATE = TransportConnectionState.idle()
+
 
 def build_dto(
     transport_id: str,
     name: str,
     protocol: TransportProtocols,
     config: BaseTransportConfig | dict,
+    connection_state: TransportConnectionState = DEFAULT_CONNECTION_STATE,
 ) -> TransportDTO:
     dto_class = DTO_BY_PROTOCOL.get(protocol)
     if not dto_class:
@@ -88,12 +93,17 @@ def build_dto(
         name=name,
         protocol=protocol,
         config=config,
+        connection_state=connection_state,
     )
 
 
 def core_to_dto(client: TransportClient) -> TransportDTO:
     return build_dto(
-        client.metadata.id, client.metadata.name, client.protocol, client.config
+        client.metadata.id,
+        client.metadata.name,
+        client.protocol,
+        client.config,
+        client.connection_state,
     )
 
 
