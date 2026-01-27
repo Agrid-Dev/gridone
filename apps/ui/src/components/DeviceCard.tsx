@@ -8,7 +8,7 @@ import {
   formatTimeAgo,
   getUpdateStatusColor,
 } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 const metricOrder = [
   "temperature",
@@ -28,22 +28,23 @@ export function DeviceCard({ device }: { device: Device }) {
   const { t } = useTranslation();
   const metrics = selectMetrics(device.attributes);
   const lastUpdateTime = getLastUpdateTime(device.attributes);
-  
+
   // Force re-render every minute to update the time display
   const [, setNow] = useState(Date.now());
-  
+
   useEffect(() => {
     if (!lastUpdateTime) return;
-    
+
     const interval = setInterval(() => {
       setNow(Date.now());
     }, 60000); // Update every minute
-    
+
     return () => clearInterval(interval);
   }, [lastUpdateTime]);
-  
+
   const statusColor = getUpdateStatusColor(lastUpdateTime);
-  const isRecent = lastUpdateTime && Date.now() - lastUpdateTime < 5 * 60 * 1000;
+  const isRecent =
+    lastUpdateTime && Date.now() - lastUpdateTime < 5 * 60 * 1000;
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">
@@ -56,11 +57,15 @@ export function DeviceCard({ device }: { device: Device }) {
               {isRecent && (
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                  <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
+                  <span
+                    className={`relative inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}
+                  ></span>
                 </span>
               )}
               {!isRecent && (
-                <span className={`inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}></span>
+                <span
+                  className={`inline-flex h-1.5 w-1.5 rounded-full ${statusColor.dot}`}
+                ></span>
               )}
               {t("common.lastUpdate")} {formatTimeAgo(lastUpdateTime, t)}
             </span>

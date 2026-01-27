@@ -19,6 +19,10 @@
     "noLiveMetrics": "Aucune métrique en direct",
     "noConfiguration": "Aucune configuration",
     "noConfigurationData": "Aucune donnée de configuration",
+    "optional": "Optionnel",
+    "true": "Vrai",
+    "false": "Faux",
+    "cancel": "Annuler",
     "readOnly": "Lecture seule",
     "editable": "Modifiable",
     "attributes": "attributs",
@@ -43,7 +47,8 @@
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
-    "devices": "Appareils"
+    "devices": "Appareils",
+    "transports": "Transports"
   },
   "devices": {
     "title": "Appareils",
@@ -59,6 +64,56 @@
     "unableToLoad": "Impossible de charger l'appareil",
     "updated": "{{name}} mis à jour",
     "updateFailed": "Échec de la mise à jour"
+  },
+  "transports": {
+    "title": "Transports",
+    "subtitle": "Canaux d'intégration",
+    "createTitle": "Créer un transport",
+    "editTitle": "Modifier le transport",
+    "createSubtitle": "Configurer une nouvelle connexion",
+    "editSubtitle": "Mettre à jour les paramètres du transport",
+    "fields": {
+      "name": "Nom",
+      "protocol": "Protocole",
+      "protocolDisabled": "Le protocole d'un transport ne peut être modifié après création.",
+      "configuration": "Configuration",
+      "configurationHint": "Ajustez les paramètres spécifiques au protocole ci-dessous.",
+      "schemaUnavailable": "Aucun schéma n'est disponible pour ce protocole."
+    },
+    "protocols": {
+      "mqtt": "MQTT",
+      "http": "HTTP",
+      "modbus_tcp": "Modbus TCP",
+      "bacnet": "BACnet"
+    },
+    "validation": {
+      "required": "Ce champ est requis.",
+      "integer": "Entrez un nombre entier.",
+      "number": "Entrez un nombre valide."
+    },
+    "saving": "Enregistrement...",
+    "createAction": "Créer un transport",
+    "updateAction": "Mettre à jour",
+    "editAction": "Modifier",
+    "deleteAction": "Supprimer",
+    "deletingAction": "Suppression...",
+    "state": "État",
+    "empty": "Aucun transport pour le moment.",
+    "unableToLoad": "Impossible de charger les transports",
+    "unableToLoadSchemas": "Impossible de charger les schémas de transport",
+    "saveFailed": "Impossible d'enregistrer le transport",
+    "createSuccess": "Transport créé avec succès.",
+    "updateSuccess": "Transport mis à jour avec succès.",
+    "deleteFailed": "Impossible de supprimer le transport",
+    "deleteConfirm": "Supprimer le transport « {{name}} » ?",
+    "status": {
+      "connected": "Connecté",
+      "connecting": "Connexion...",
+      "connection_error": "Erreur de connexion",
+      "idle": "Inactif",
+      "closing": "Fermeture",
+      "closed": "Fermé",
+      "unknown": "Inconnu"
+    }
   }
 }
-

@@ -1,7 +1,17 @@
 import { useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Button, Card, CardHeader, CardContent, CardTitle, CardDescription, Input, Slider, Switch } from "@/components/ui";
+import {
+  Button,
+  Card,
+  CardHeader,
+  CardContent,
+  CardTitle,
+  CardDescription,
+  Input,
+  Slider,
+  Switch,
+} from "@/components/ui";
 import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getSliderRange } from "@/utils/sliderPresets";
@@ -20,10 +30,7 @@ export default function DeviceDetails() {
     handleSave,
   } = useDeviceDetails(deviceId);
 
-  const attributes = useMemo(
-    () => device?.attributes ?? {},
-    [device],
-  );
+  const attributes = useMemo(() => device?.attributes ?? {}, [device]);
 
   if (loading) {
     return (
@@ -81,7 +88,9 @@ export default function DeviceDetails() {
             <div>
               <CardDescription>{t("deviceDetails.title")}</CardDescription>
               <CardTitle className="mt-1">{device.id}</CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">{t("common.driver")}: {device.driver}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("common.driver")}: {device.driver}
+              </p>
             </div>
             <Link
               to="/"
@@ -103,7 +112,9 @@ export default function DeviceDetails() {
               </div>
             ))}
             {Object.keys(device.config).length === 0 && (
-              <p className="text-sm text-muted-foreground">{t("common.noConfigurationData")}</p>
+              <p className="text-sm text-muted-foreground">
+                {t("common.noConfigurationData")}
+              </p>
             )}
           </div>
         </CardContent>
@@ -111,7 +122,9 @@ export default function DeviceDetails() {
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-slate-900">{t("deviceDetails.attributes")}</h3>
+          <h3 className="text-xl font-semibold text-slate-900">
+            {t("deviceDetails.attributes")}
+          </h3>
           <p className="text-sm text-slate-600">
             {t("deviceDetails.attributesDescription")}
           </p>
@@ -145,7 +158,9 @@ export default function DeviceDetails() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between border-b border-border pb-2 text-sm">
-                    <span className="text-muted-foreground">{t("common.currentValue")}</span>
+                    <span className="text-muted-foreground">
+                      {t("common.currentValue")}
+                    </span>
                     <span className="font-medium text-foreground">
                       {formatAttributeValue(attribute.current_value)}
                     </span>
@@ -154,18 +169,26 @@ export default function DeviceDetails() {
                     <div className="space-y-3">
                       {attribute.data_type === "bool" ? (
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-foreground">{t("common.state")}</span>
+                          <span className="text-sm font-medium text-foreground">
+                            {t("common.state")}
+                          </span>
                           <Switch
                             checked={Boolean(currentValue)}
-                            onCheckedChange={(next) => handleDraftChange(name, next)}
+                            onCheckedChange={(next) =>
+                              handleDraftChange(name, next)
+                            }
                           />
                         </div>
                       ) : attribute.data_type === "int" ||
                         attribute.data_type === "float" ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{t("common.min")} {sliderRange.min}</span>
-                            <span>{t("common.max")} {sliderRange.max}</span>
+                            <span>
+                              {t("common.min")} {sliderRange.min}
+                            </span>
+                            <span>
+                              {t("common.max")} {sliderRange.max}
+                            </span>
                           </div>
                           <Slider
                             min={sliderRange.min}
@@ -182,8 +205,12 @@ export default function DeviceDetails() {
                         </div>
                       ) : (
                         <Input
-                          value={currentValue != null ? String(currentValue) : ""}
-                          onChange={(event) => handleDraftChange(name, event.target.value)}
+                          value={
+                            currentValue != null ? String(currentValue) : ""
+                          }
+                          onChange={(event) =>
+                            handleDraftChange(name, event.target.value)
+                          }
                         />
                       )}
                       <Button
@@ -191,7 +218,9 @@ export default function DeviceDetails() {
                         onClick={() => handleSave(name)}
                         disabled={savingAttr === name}
                       >
-                        {savingAttr === name ? t("common.updating") : t("common.update")}
+                        {savingAttr === name
+                          ? t("common.updating")
+                          : t("common.update")}
                       </Button>
                     </div>
                   ) : (
