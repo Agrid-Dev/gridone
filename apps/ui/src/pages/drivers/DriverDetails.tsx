@@ -11,12 +11,12 @@ import {
   TypographyH3,
   TypographyP,
   TypographySmall,
-  // Typograp hyP,
 } from "@/components/ui/typography";
 import { Card, CardContent } from "@/components/ui";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
+import { ErrorBoundary } from "react-error-boundary";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -125,18 +125,19 @@ const DriverDetailsWrapper: FC = () => {
     return <h1>loading</h1>;
   }
   if (!driverId) {
-    return <ErrorFallback title="Need a driver ID" />;
+    return <ErrorFallback />;
   }
   const driver = query.data.find((d) => d.id == driverId);
   if (!driver) {
     return (
-      <NotFoundFallback
-        title={t("errors.notFound")}
-        message={t("drivers.notFoundDetails", { driverId })}
-      />
+      <NotFoundFallback message={t("drivers.notFoundDetails", { driverId })} />
     );
   }
-  return <DriverDetails driver={driver} />;
+  return (
+    <ErrorBoundary fallback={<ErrorFallback />}>
+      <DriverDetails driver={driver} />
+    </ErrorBoundary>
+  );
 };
 
 export default DriverDetailsWrapper;
