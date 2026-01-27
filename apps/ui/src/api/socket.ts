@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
-import { API_BASE_URL, Device } from "@/api/devices";
+import { Device } from "@/api/devices";
+import { API_BASE_URL } from "./request";
 
 export type DeviceUpdateMessage = {
   type: "device_update";
@@ -31,11 +32,11 @@ export type WebSocketMessage =
   | Record<string, unknown>;
 
 export function buildWebSocketUrl(): string {
-  const env = import.meta.env as { VITE_WS_BASE_URL?: string; VITE_API_BASE_URL?: string };
-  const base =
-    env.VITE_WS_BASE_URL ??
-    env.VITE_API_BASE_URL ??
-    API_BASE_URL;
+  const env = import.meta.env as {
+    VITE_WS_BASE_URL?: string;
+    VITE_API_BASE_URL?: string;
+  };
+  const base = env.VITE_WS_BASE_URL ?? env.VITE_API_BASE_URL ?? API_BASE_URL;
 
   try {
     const url = new URL(base);
@@ -52,7 +53,7 @@ export function applyDeviceUpdate(
   device: Device,
   attribute: string,
   value: string | number | boolean | null,
-  timestamp?: string | null
+  timestamp?: string | null,
 ): Device {
   const existingAttribute = device.attributes[attribute];
   if (!existingAttribute) {
@@ -87,9 +88,9 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
                 current,
                 updateMessage.attribute,
                 updateMessage.value,
-                updateMessage.timestamp
+                updateMessage.timestamp,
               )
-            : current
+            : current,
       );
 
       queryClient.setQueryData<Device[] | undefined>(["devices"], (current) =>
@@ -99,31 +100,35 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
                 device,
                 updateMessage.attribute,
                 updateMessage.value,
-                updateMessage.timestamp
+                updateMessage.timestamp,
               )
-            : device
-        )
+            : device,
+        ),
       );
       return;
     }
 
     if (message.type === "device_full_update") {
       const fullUpdateMessage = message as DeviceFullUpdateMessage;
-      queryClient.setQueryData(["device", fullUpdateMessage.device.id], fullUpdateMessage.device);
-      queryClient.setQueryData<Device[] | undefined>(
-        ["devices"],
-        (current) => {
-          if (!current) {
-            return [fullUpdateMessage.device];
-          }
-          const exists = current.some((d) => d.id === fullUpdateMessage.device.id);
-          return exists
-            ? current.map((d) =>
-                d.id === fullUpdateMessage.device.id ? fullUpdateMessage.device : d
-              )
-            : [...current, fullUpdateMessage.device];
-        }
+      queryClient.setQueryData(
+        ["device", fullUpdateMessage.device.id],
+        fullUpdateMessage.device,
       );
+      queryClient.setQueryData<Device[] | undefined>(["devices"], (current) => {
+        if (!current) {
+          return [fullUpdateMessage.device];
+        }
+        const exists = current.some(
+          (d) => d.id === fullUpdateMessage.device.id,
+        );
+        return exists
+          ? current.map((d) =>
+              d.id === fullUpdateMessage.device.id
+                ? fullUpdateMessage.device
+                : d,
+            )
+          : [...current, fullUpdateMessage.device];
+      });
       return;
     }
 

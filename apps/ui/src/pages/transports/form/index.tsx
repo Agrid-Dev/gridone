@@ -17,6 +17,8 @@ import { Button } from "@/components/ui";
 import { transportProtocols } from "@/api/transports";
 import { useTranslation } from "react-i18next";
 import { toLabel } from "@/lib/textFormat";
+import { ErrorBoundary } from "react-error-boundary";
+import { ErrorFallback } from "@/components/fallbacks/Error";
 
 interface TransportFormProps {
   configSchemas: TransportSchemas;
@@ -130,13 +132,18 @@ const TransportForm: FC<TransportFormProps> = ({
 
 const TransportFormWrapper: FC<{ transport?: Transport }> = ({ transport }) => {
   const { isLoading, configSchemas } = useTransportConfigSchemas();
+  const { t } = useTranslation();
   if (isLoading) {
     return <p>Loading</p>;
   }
   if (!configSchemas) {
     return <h1>Oh no error</h1>;
   }
-  return <TransportForm transport={transport} configSchemas={configSchemas} />;
+  return (
+    <ErrorBoundary fallback={<ErrorFallback title={t("errors.default")} />}>
+      <TransportForm transport={transport} configSchemas={configSchemas} />
+    </ErrorBoundary>
+  );
 };
 
 export default TransportFormWrapper;

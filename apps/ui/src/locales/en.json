@@ -5,6 +5,7 @@
     "update": "Update",
     "updating": "Updating...",
     "back": "Back",
+    "home": "Home",
     "backToDevices": "← Back to devices",
     "loading": "Loading...",
     "error": "Error",
@@ -30,6 +31,7 @@
     "device": "Device",
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
+    "notFound": "Not found",
     "timeAgo": {
       "future": "In the future",
       "justNow": "just now",
@@ -42,6 +44,11 @@
       "days_one": "{{count}} day",
       "days_other": "{{count}} days"
     }
+  },
+  "errors": {
+    "notFound": "Not found",
+    "loadError": "An error occurred loading this resource.",
+    "default": "Error"
   },
   "app": {
     "title": "Gridone",
@@ -72,6 +79,7 @@
     "editTitle": "Edit transport",
     "createSubtitle": "Configure a new connection",
     "editSubtitle": "Update transport settings",
+    "notFoundDetails": "No transport found for id \"{{transportId}}\"",
     "fields": {
       "name": "Name",
       "protocol": "Protocol",
