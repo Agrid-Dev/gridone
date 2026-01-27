@@ -6,6 +6,7 @@ import {
   getTransport,
   type Transport,
 } from "@/api/transports";
+import { isNotFound } from "@/api/apiError";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -27,6 +28,8 @@ import {
 } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
 import { TrashIcon } from "lucide-react";
+import { NotFoundFallback } from "@/components/fallbacks/NotFound";
+import { ErrorFallback } from "@/components/fallbacks/Error";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -63,12 +66,6 @@ export default function TransportDetails() {
     },
   });
 
-  const loadError = error
-    ? error instanceof Error
-      ? error.message
-      : t("transports.unableToLoad")
-    : null;
-
   const deleteError = deleteMutation.error
     ? deleteMutation.error instanceof Error
       ? deleteMutation.error.message
@@ -104,30 +101,22 @@ export default function TransportDetails() {
       </section>
     );
   }
-
-  if (loadError) {
+  if (error && !isNotFound(error)) {
     return (
-      <section className="space-y-4">
-        <Alert variant="destructive">
-          <AlertTitle>
-            {t("transports.unableToLoadTitle", {
-              defaultValue: t("common.error"),
-            })}
-          </AlertTitle>
-          <AlertDescription>{loadError}</AlertDescription>
-        </Alert>
-        <Link
-          to="/transports"
-          className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-        >
-          {t("transports.backToList")}
-        </Link>
-      </section>
+      <ErrorFallback
+        title={t("errors.default")}
+        message={t("errors.loadError", { transportId })}
+      />
     );
   }
 
   if (!transport) {
-    return null;
+    return (
+      <NotFoundFallback
+        title={t("errors.notFound")}
+        message={t("transports.notFoundDetails", { transportId })}
+      />
+    );
   }
 
   const status = transport.connection_state?.status ?? "unknown";

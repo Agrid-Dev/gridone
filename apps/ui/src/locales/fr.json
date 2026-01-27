@@ -5,6 +5,7 @@
     "update": "Mettre à jour",
     "updating": "Mise à jour...",
     "back": "Retour",
+    "home": "Accueil",
     "backToDevices": "← Retour aux appareils",
     "loading": "Chargement...",
     "error": "Erreur",
@@ -43,6 +44,11 @@
       "days_other": "{{count}} jours"
     }
   },
+  "errors": {
+    "notFound": "Cette ressource n'existe pas",
+    "loadError": "Une erreur s'est produite lors du chargement de cette ressource.",
+    "default": "Une erreur s'est produite"
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
@@ -72,6 +78,7 @@
     "editTitle": "Modifier le transport",
     "createSubtitle": "Configurer une nouvelle connexion",
     "editSubtitle": "Mettre à jour les paramètres du transport",
+    "notFoundDetails": "Aucun transport trouvé pour l'id \"{{transportId}}\"",
     "fields": {
       "name": "Nom",
       "protocol": "Protocole",

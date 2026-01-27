@@ -1,3 +1,5 @@
+import { request } from "./request";
+
 export type DeviceAttribute = {
   name: string;
   data_type: "int" | "float" | "bool" | "string" | string;
@@ -12,18 +14,6 @@ export type Device = {
   config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
 };
-
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-
-async function request<T>(relativeUrl: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || response.statusText);
-  }
-  return response.json();
-}
 
 export function listDevices(): Promise<Device[]> {
   return request<Device[]>("/devices/");
