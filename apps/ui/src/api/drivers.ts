@@ -1,4 +1,5 @@
 import { TransportProtocol } from "./transports";
+import { request } from "./request";
 
 type DriverUpdateStrategy = Record<string, boolean | number>;
 
@@ -12,6 +13,7 @@ type AttributeDataType = "str" | "float" | "int" | "bool";
 type DriverAttribute = {
   name: string;
   dataType: AttributeDataType;
+  valueAdapters: ValueAdapterSpec[];
 };
 
 export type Driver = {
@@ -27,3 +29,7 @@ export type Driver = {
   }[];
   attributes: DriverAttribute[];
 };
+
+export function getDrivers(): Promise<Driver[]> {
+  return request<Driver[]>(`/drivers/`, undefined, { camelCase: true });
+}

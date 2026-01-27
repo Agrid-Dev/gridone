@@ -7,7 +7,6 @@ export default function DevicesList() {
   const { t } = useTranslation();
   const { devices, loading, error, refreshing, fetchDevices } =
     useDevicesList();
-  console.log(devices);
 
   return (
     <section className="space-y-6">

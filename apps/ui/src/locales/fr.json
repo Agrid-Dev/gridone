@@ -123,5 +123,10 @@
       "closed": "Fermé",
       "unknown": "Inconnu"
     }
+  },
+  "drivers": {
+    "title": "Drivers",
+    "attribute_one": "attribut",
+    "attribute_other": "attributs"
   }
 }

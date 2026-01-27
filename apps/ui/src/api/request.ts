@@ -10,6 +10,7 @@ type RequestOptions = {
 
 export async function request<T>(
   relativeUrl: string,
+  // eslint-disable-next-line no-undef
   init?: RequestInit,
   options?: RequestOptions,
 ): Promise<T> {
