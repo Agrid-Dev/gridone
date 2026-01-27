@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - apps/cli/**
+      - packages/**
   workflow_dispatch:
 jobs:
   quality:

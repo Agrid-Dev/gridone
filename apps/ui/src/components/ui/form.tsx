@@ -19,7 +19,7 @@ type FormFieldContextValue<
 };
 
 const FormFieldContext = React.createContext<FormFieldContextValue | undefined>(
-  undefined
+  undefined,
 );
 
 const FormField = <
@@ -38,19 +38,20 @@ type FormItemContextValue = {
 };
 
 const FormItemContext = React.createContext<FormItemContextValue | undefined>(
-  undefined
+  undefined,
 );
 
-const FormItem = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => {
-    const id = React.useId();
-    return (
-      <FormItemContext.Provider value={{ id }}>
-        <div ref={ref} className={cn("space-y-2", className)} {...props} />
-      </FormItemContext.Provider>
-    );
-  }
-);
+const FormItem = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => {
+  const id = React.useId();
+  return (
+    <FormItemContext.Provider value={{ id }}>
+      <div ref={ref} className={cn("space-y-2", className)} {...props} />
+    </FormItemContext.Provider>
+  );
+});
 FormItem.displayName = "FormItem";
 
 const useFormField = () => {
@@ -59,7 +60,9 @@ const useFormField = () => {
   const { getFieldState, formState } = useFormContext();
 
   if (!fieldContext || !itemContext) {
-    throw new Error("useFormField must be used within <FormField> and <FormItem>");
+    throw new Error(
+      "useFormField must be used within <FormField> and <FormItem>",
+    );
   }
 
   const fieldState = getFieldState(fieldContext.name, formState);
@@ -115,4 +118,11 @@ const FormMessage = React.forwardRef<
 });
 FormMessage.displayName = "FormMessage";
 
-export { Form, FormField, FormItem, FormDescription, FormMessage, useFormField };
+export {
+  Form,
+  FormField,
+  FormItem,
+  FormDescription,
+  FormMessage,
+  useFormField,
+};

@@ -31,9 +31,16 @@
 
   body {
     @apply bg-slate-50 text-slate-900;
-    font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont,
+    font-family:
+      "Inter",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
       sans-serif;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 
   #root {

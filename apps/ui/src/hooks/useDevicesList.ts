@@ -34,5 +34,3 @@ export function useDevicesList() {
     fetchDevices: refetch,
   };
 }
-
-

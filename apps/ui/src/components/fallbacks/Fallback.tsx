@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { Button } from "@/components/ui/button";
 import { TypographyH2 } from "../ui/typography";
 import { Home, ArrowLeft } from "lucide-react";

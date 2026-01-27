@@ -63,7 +63,7 @@ export const useTransportForm = (
   currentTransport?: Transport,
 ) => {
   const { createMutation, updateMutation } = useTransportFormQueries();
-  const isCreate = !Boolean(currentTransport);
+  const isCreate = !currentTransport;
   const baseSchema = z.object({
     name: z.string().min(1),
     protocol: z.enum(transportProtocols),

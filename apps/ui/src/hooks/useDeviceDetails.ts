@@ -9,8 +9,12 @@ export type Feedback = { type: "success" | "error"; message: string };
 export function useDeviceDetails(deviceId: string | undefined) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data: device, isLoading: loading, error: queryError } = useDevice(deviceId);
-  
+  const {
+    data: device,
+    isLoading: loading,
+    error: queryError,
+  } = useDevice(deviceId);
+
   const [draft, setDraft] = useState<
     Record<string, string | number | boolean | null>
   >({});
@@ -58,13 +62,13 @@ export function useDeviceDetails(deviceId: string | undefined) {
         attribute.data_type === "bool"
           ? Boolean(value)
           : attribute.data_type === "int" || attribute.data_type === "float"
-          ? Number(value)
-          : value;
+            ? Number(value)
+            : value;
       const updated = await updateDeviceAttribute(device.id, name, parsedValue);
-      
+
       // Update the query cache with the new device data
       queryClient.setQueryData(["device", deviceId], updated);
-      
+
       // Update draft with new values
       setDraft((prev) => ({
         ...prev,
@@ -75,11 +79,15 @@ export function useDeviceDetails(deviceId: string | undefined) {
           ]),
         ),
       }));
-      setFeedback({ type: "success", message: t("deviceDetails.updated", { name }) });
+      setFeedback({
+        type: "success",
+        message: t("deviceDetails.updated", { name }),
+      });
     } catch (err) {
       setFeedback({
         type: "error",
-        message: err instanceof Error ? err.message : t("deviceDetails.updateFailed"),
+        message:
+          err instanceof Error ? err.message : t("deviceDetails.updateFailed"),
       });
     } finally {
       setSavingAttr(null);
@@ -97,4 +105,3 @@ export function useDeviceDetails(deviceId: string | undefined) {
     handleSave,
   };
 }
-

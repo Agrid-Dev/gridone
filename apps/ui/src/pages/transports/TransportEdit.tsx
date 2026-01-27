@@ -1,14 +1,7 @@
-import { Link, useLocation, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import {
-  getTransport,
-  getTransportSchemas,
-  updateTransport,
-  type TransportUpdatePayload,
-  type Transport,
-} from "@/api/transports";
+import { useQuery } from "@tanstack/react-query";
+import { getTransport, type Transport } from "@/api/transports";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import TransportForm from "./form";
@@ -16,16 +9,8 @@ import TransportForm from "./form";
 export default function TransportEdit() {
   const { t } = useTranslation();
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const queryClient = useQueryClient();
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const {
-    data: transport,
-    isLoading,
-    error,
-  } = useQuery<Transport>({
+  const { data: transport, isLoading } = useQuery<Transport>({
     queryKey: ["transports", transportId],
     queryFn: () => getTransport(transportId ?? ""),
     enabled: !!transportId,

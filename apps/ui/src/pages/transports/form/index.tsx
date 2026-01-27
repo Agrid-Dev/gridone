@@ -1,5 +1,5 @@
 import { Transport, TransportSchemas } from "@/api/transports";
-import { FC } from "react";
+import React, { FC } from "react";
 import {
   useTransportForm,
   useTransportConfigSchemas,

@@ -23,10 +23,9 @@ const DeviceContext = createContext<DeviceContextValue | null>(null);
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
-  const handleMessage = useCallback(
-    createDeviceMessageHandler(queryClient),
-    [queryClient]
-  );
+  const handleMessage = useCallback(createDeviceMessageHandler(queryClient), [
+    queryClient,
+  ]);
 
   const websocketUrl = useMemo(() => buildWebSocketUrl(), []);
 
@@ -40,22 +39,18 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       status,
       isConnected,
     }),
-    [status, isConnected]
+    [status, isConnected],
   );
 
   return (
-    <DeviceContext.Provider value={value}>
-      {children}
-    </DeviceContext.Provider>
+    <DeviceContext.Provider value={value}>{children}</DeviceContext.Provider>
   );
 }
 
 export function useDeviceContext(): DeviceContextValue {
   const ctx = useContext(DeviceContext);
   if (!ctx) {
-    throw new Error(
-      "useDeviceContext must be used within a DeviceProvider"
-    );
+    throw new Error("useDeviceContext must be used within a DeviceProvider");
   }
   return ctx;
 }
