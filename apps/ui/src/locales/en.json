@@ -55,6 +55,7 @@
     "subtitle": "Device control dashboard",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
     "devices": "Devices",
+    "drivers": "Drivers",
     "transports": "Transports"
   },
   "devices": {

@@ -65,7 +65,7 @@ export function applyDeviceUpdate(
     [attribute]: {
       ...existingAttribute,
       current_value: value,
-      last_updated: timestamp ?? new Date().toISOString(),
+      lastUpdated: timestamp ?? new Date().toISOString(),
     },
   };
 

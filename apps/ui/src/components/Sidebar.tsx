@@ -18,32 +18,22 @@ export function Sidebar() {
           </h1>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 p-4">
-          <NavLink
-            to="/"
-            className={({ isActive }) =>
-              `block rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-slate-900 text-slate-50"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`
-            }
-          >
-            {t("app.devices")}
-          </NavLink>
-          <NavLink
-            to="/transports"
-            className={({ isActive }) =>
-              `block rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-slate-900 text-slate-50"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-              }`
-            }
-          >
-            {t("app.transports")}
-          </NavLink>
+          {["devices", "drivers", "transports"].map((route) => (
+            <NavLink
+              key={route}
+              to={`/${route}`}
+              className={({ isActive }) =>
+                `block rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-slate-900 text-slate-50"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              {t(`app.${route}`)}
+            </NavLink>
+          ))}
         </nav>
 
         {/* Footer with Language Switcher */}

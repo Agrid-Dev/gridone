@@ -1,4 +1,5 @@
 import { request, API_BASE_URL } from "./request";
+import snakecaseKeys from "snakecase-keys";
 
 export const transportProtocols = [
   "mqtt",
@@ -25,7 +26,7 @@ export type Transport = {
   name: string;
   protocol: TransportProtocol;
   config: Record<string, unknown>;
-  connection_state: TransportConnectionState;
+  connectionState: TransportConnectionState;
 };
 
 export type JsonSchemaProperty = {
@@ -74,7 +75,7 @@ export function getTransportSchemas(): Promise<TransportSchemas> {
 }
 
 export function listTransports(): Promise<Transport[]> {
-  return request<Transport[]>("/transports/");
+  return request<Transport[]>("/transports/", undefined, { camelCase: true });
 }
 
 export function getTransport(transportId: string): Promise<Transport> {
@@ -87,7 +88,7 @@ export function createTransport(
   return request<Transport>("/transports/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
   });
 }
 
@@ -98,6 +99,6 @@ export function updateTransport(
   return request<Transport>(`/transports/${encodeURIComponent(transportId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
   });
 }

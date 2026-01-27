@@ -26,7 +26,7 @@ const statusStyles: Record<string, string> = {
 
 function TransportCard({ transport }: { transport: Transport }) {
   const { t } = useTranslation();
-  const status = transport.connection_state?.status ?? "unknown";
+  const status = transport.connectionState?.status ?? "unknown";
   const statusLabel = t(`transports.status.${status}`, {
     defaultValue: status.replace(/_/g, " "),
   });

@@ -54,6 +54,7 @@
     "subtitle": "Tableau de bord de contrôle des appareils",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
     "devices": "Appareils",
+    "drivers": "Drivers",
     "transports": "Transports"
   },
   "devices": {

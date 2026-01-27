@@ -2,6 +2,7 @@ import { Route, Routes, Navigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import Devices from "./pages/devices";
 import Transports from "./pages/transports";
+import Drivers from "./pages/drivers";
 import { Sidebar } from "./components/Sidebar";
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
             <Route index element={<Navigate to="/devices" replace />} />
             <Route path="/devices/*" element={<Devices />} />
             <Route path="/transports/*" element={<Transports />} />
+            <Route path="/drivers/*" element={<Drivers />} />
           </Routes>
         </div>
       </main>

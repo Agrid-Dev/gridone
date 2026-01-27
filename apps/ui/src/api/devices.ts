@@ -2,25 +2,30 @@ import { request } from "./request";
 
 export type DeviceAttribute = {
   name: string;
-  data_type: "int" | "float" | "bool" | "string" | string;
-  read_write_modes: Array<"read" | "write" | string>;
-  current_value: string | number | boolean | null;
-  last_updated: string | null;
+  dataType: "int" | "float" | "bool" | "string" | string;
+  readWriteModes: Array<"read" | "write" | string>;
+  currentValue: string | number | boolean | null;
+  lastUpdated: string | null;
 };
 
 export type Device = {
   id: string;
-  driver: string;
+  driverId: string;
+  transportId: string;
   config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
 };
 
 export function listDevices(): Promise<Device[]> {
-  return request<Device[]>("/devices/");
+  return request<Device[]>("/devices/", undefined, { camelCase: true });
 }
 
 export function getDevice(deviceId: string): Promise<Device> {
-  return request<Device>(`/devices/${encodeURIComponent(deviceId)}`);
+  return request<Device>(
+    `/devices/${encodeURIComponent(deviceId)}`,
+    undefined,
+    { camelCase: true },
+  );
 }
 
 export async function updateDeviceAttribute(
