@@ -6,10 +6,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest",
+    "test": "vitest run",
     "test:watch": "vitest watch",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "format": "prettier .",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
