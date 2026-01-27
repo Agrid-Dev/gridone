@@ -62,9 +62,7 @@ export function TypographyBlockquote({
   children: React.ReactNode;
 }) {
   return (
-    <blockquote className="mt-6 border-l-2 pl-6 italic">
-      {children}
-    </blockquote>
+    <blockquote className="mt-6 border-l-2 pl-6 italic">{children}</blockquote>
   );
 }
 
@@ -102,11 +100,7 @@ export function TypographyMuted({
 }
 
 // Uppercase "eyebrow" label like section / card overlines
-export function TypographyEyebrow({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export function TypographyEyebrow({ children }: { children: React.ReactNode }) {
   return (
     <p className="text-xs font-medium uppercase tracking-[0.3em] text-slate-500">
       {children}

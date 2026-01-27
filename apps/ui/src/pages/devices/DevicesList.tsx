@@ -5,7 +5,8 @@ import { useDevicesList } from "@/hooks/useDevicesList";
 
 export default function DevicesList() {
   const { t } = useTranslation();
-  const { devices, loading, error, refreshing, fetchDevices } = useDevicesList();
+  const { devices, loading, error, refreshing, fetchDevices } =
+    useDevicesList();
 
   return (
     <section className="space-y-6">
