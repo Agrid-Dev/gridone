@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export type WebSocketStatus = "idle" | "connecting" | "open" | "closed" | "error";
+export type WebSocketStatus =
+  | "idle"
+  | "connecting"
+  | "open"
+  | "closed"
+  | "error";
 
 type UseWebSocketOptions<TMessage> = {
   url: string;
@@ -30,7 +35,6 @@ export function useWebSocket<TMessage = unknown>({
   const reconnectAttempts = useRef(0);
   const onMessageRef = useRef(onMessage);
   const effectRunCountRef = useRef(0);
-  const componentIdRef = useRef(Math.random().toString(36).substring(7));
 
   onMessageRef.current = onMessage;
 
@@ -47,7 +51,7 @@ export function useWebSocket<TMessage = unknown>({
     socketRef.current = null;
     setStatus("closed");
   }, []);
-  
+
   const prevDisconnectRef = disconnectRef.current;
   disconnectRef.current = disconnect;
   if (prevDisconnectRef && prevDisconnectRef !== disconnect) {
@@ -60,16 +64,20 @@ export function useWebSocket<TMessage = unknown>({
 
   useEffect(() => {
     effectRunCountRef.current += 1;
-    const runId = effectRunCountRef.current;
-    
-    const urlChanged = prevUrlRef.current !== null && prevUrlRef.current !== url;
-    const enabledChanged = prevEnabledRef.current !== undefined && prevEnabledRef.current !== enabled;
-    const disconnectChanged = prevDisconnectInEffectRef.current !== null && prevDisconnectInEffectRef.current !== disconnect;
-    
+
+    const urlChanged =
+      prevUrlRef.current !== null && prevUrlRef.current !== url;
+    const enabledChanged =
+      prevEnabledRef.current !== undefined &&
+      prevEnabledRef.current !== enabled;
+    const disconnectChanged =
+      prevDisconnectInEffectRef.current !== null &&
+      prevDisconnectInEffectRef.current !== disconnect;
+
     if (urlChanged || enabledChanged || disconnectChanged) {
       // Dependencies changed
     }
-    
+
     prevUrlRef.current = url;
     prevEnabledRef.current = enabled;
     prevDisconnectInEffectRef.current = disconnect;
@@ -84,8 +92,6 @@ export function useWebSocket<TMessage = unknown>({
     let shouldReconnect = true;
 
     const connect = () => {
-      const attempt = reconnectAttempts.current;
-      
       setStatus("connecting");
       const socket = new WebSocket(url);
       socketRef.current = socket;
@@ -101,12 +107,12 @@ export function useWebSocket<TMessage = unknown>({
         onMessageRef.current?.(parsed);
       };
 
-      socket.onerror = (error) => {
+      socket.onerror = () => {
         setStatus("error");
         socket.close();
       };
 
-      socket.onclose = (event) => {
+      socket.onclose = () => {
         setStatus("closed");
         socketRef.current = null;
         if (!shouldReconnect) {

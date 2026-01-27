@@ -7,6 +7,7 @@ console.log(import.meta.env);
 
 export async function request<T>(
   relativeUrl: string,
+  // eslint-disable-next-line no-undef
   init?: RequestInit,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);

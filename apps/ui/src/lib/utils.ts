@@ -18,7 +18,9 @@ export function formatAttributeValue(value: unknown | null): string {
   return String(value);
 }
 
-export function getLastUpdateTime(attributes: Record<string, { last_updated?: string | null }>): number | null {
+export function getLastUpdateTime(
+  attributes: Record<string, { last_updated?: string | null }>,
+): number | null {
   let lastUpdate: number | null = null;
 
   for (const attribute of Object.values(attributes)) {
@@ -33,7 +35,10 @@ export function getLastUpdateTime(attributes: Record<string, { last_updated?: st
   return lastUpdate;
 }
 
-export function formatTimeAgo(timestamp: number, t: (key: string, options?: any) => string): string {
+export function formatTimeAgo(
+  timestamp: number,
+  t: (key: string, options?: unknown) => string,
+): string {
   const now = Date.now();
   const diffMs = now - timestamp;
 
