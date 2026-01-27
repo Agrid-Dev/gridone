@@ -16,6 +16,7 @@ export default defineConfig([
     rules: {
       "react/react-in-jsx-scope": "off",
       "no-unused-vars": "off", // handled by tseslint
+      "no-console": "warn",
     },
   },
   eslintConfigPrettier,

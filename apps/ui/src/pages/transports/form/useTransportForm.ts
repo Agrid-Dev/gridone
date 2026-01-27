@@ -62,7 +62,6 @@ export const useTransportForm = (
   configSchemas: TransportSchemas,
   currentTransport?: Transport,
 ) => {
-  console.log(configSchemas);
   const { createMutation, updateMutation } = useTransportFormQueries();
   const isCreate = !currentTransport;
   const baseSchema = z.object({

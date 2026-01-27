@@ -29,7 +29,6 @@ export default function DeviceDetails() {
     handleDraftChange,
     handleSave,
   } = useDeviceDetails(deviceId);
-  console.log(device);
   const attributes = useMemo(() => device?.attributes ?? {}, [device]);
 
   if (loading) {
