@@ -21,4 +21,12 @@ describe("text to Label format", () => {
   it("Trims multiple spaces", () => {
     expect(toLabel("hello    world   ")).toBe("Hello World");
   });
+
+  it("Formats from camelCase", () => {
+    expect(toLabel("helloWorld")).toBe("Hello World");
+  });
+
+  it("Keeps consecutive upper case", () => {
+    expect(toLabel("systemHVAC")).toBe("System HVAC");
+  });
 });

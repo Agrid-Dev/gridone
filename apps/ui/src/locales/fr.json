@@ -126,7 +126,18 @@
   },
   "drivers": {
     "title": "Drivers",
+    "list": "Liste des drivers disponibles ({{count}})",
     "attribute_one": "attribut",
-    "attribute_other": "attributs"
+    "attribute_other": "attributs",
+    "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
+    "fields": {
+      "vendor": "Fabricant",
+      "model": "Modèle",
+      "version": "Version",
+      "protocol": "Protocole",
+      "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
+      "updateStrategy": "Stratégie de mise à jour",
+      "deviceConfig": "Configuration des appareils"
+    }
   }
 }

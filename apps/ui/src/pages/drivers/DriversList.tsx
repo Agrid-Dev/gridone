@@ -2,7 +2,11 @@ import React, { FC } from "react";
 import { useDrivers } from "./useDrivers";
 import { Driver } from "@/api/drivers";
 import { Card, CardContent, CardHeader } from "@/components/ui";
-import { TypographyH3, TypographyH2 } from "@/components/ui/typography";
+import {
+  TypographyH3,
+  TypographyH2,
+  TypographyEyebrow,
+} from "@/components/ui/typography";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
@@ -28,13 +32,21 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   );
 };
 
-const DriversListContainer: FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+const DriversListContainer: FC<{
+  driversCount: number;
+  children: React.ReactNode;
+}> = ({ driversCount, children }) => {
   const { t } = useTranslation();
   return (
     <>
-      <TypographyH2>{t("drivers.title")}</TypographyH2>
+      <div>
+        <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
+        <div className="mt-1">
+          <TypographyH2>
+            {t("drivers.list", { count: driversCount })}
+          </TypographyH2>
+        </div>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
     </>
   );
@@ -42,7 +54,7 @@ const DriversListContainer: FC<{ children: React.ReactNode }> = ({
 
 const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
   return (
-    <DriversListContainer>
+    <DriversListContainer driversCount={drivers.length}>
       {drivers.map((driver) => (
         <DriverCard key={driver.id} driver={driver} />
       ))}
@@ -51,7 +63,7 @@ const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
 };
 
 const DriversListLoader: FC = () => (
-  <DriversListContainer>
+  <DriversListContainer driversCount={0}>
     {Array.from({ length: 6 }).map((_, index) => (
       <Skeleton key={index} className="h-40" />
     ))}

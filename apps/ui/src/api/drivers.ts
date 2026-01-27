@@ -10,10 +10,14 @@ type ValueAdapterSpec = {
 
 type AttributeDataType = "str" | "float" | "int" | "bool";
 
-type DriverAttribute = {
+type Address = Record<string, unknown>;
+
+export type DriverAttribute = {
   name: string;
   dataType: AttributeDataType;
   valueAdapters: ValueAdapterSpec[];
+  read?: Address;
+  write?: Address;
 };
 
 export type Driver = {
