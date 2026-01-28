@@ -1,4 +1,4 @@
-import { getDrivers, Driver } from "@/api/drivers";
+import { getDrivers, Driver, deleteDriver } from "@/api/drivers";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { createDriver, DriverCreatePayload } from "@/api/drivers";
 import { useNavigate } from "react-router";
@@ -14,6 +14,10 @@ export const useDrivers = () => {
     queryFn: getDrivers,
     initialData: [],
   });
+  const handleApiError = (err: ApiError) => {
+    const errorMessage = `${t("errors.default")}: ${err.details || err.message}`;
+    toast.error(errorMessage);
+  };
   const createMutation = useMutation({
     mutationFn: (payload: DriverCreatePayload) => createDriver(payload),
     onSuccess: async (result: Driver) => {
@@ -21,12 +25,19 @@ export const useDrivers = () => {
       navigate(`../${result.id}`);
       toast.success(t("drivers.feedback.created", { driverId: result.id }));
     },
-    onError: (err: ApiError) => {
-      const errorMessage = `${t("errors.default")}: ${err.details || err.message}`;
-      toast.error(errorMessage);
-    },
+    onError: handleApiError,
   });
   const handleCreate = async (payload: DriverCreatePayload) =>
     createMutation.mutateAsync(payload);
-  return { driversListQuery, createMutation, handleCreate };
+  const deleteMutation = useMutation({
+    mutationFn: (driverId: string) => deleteDriver(driverId),
+    onSuccess: () => {
+      toast.success(t("drivers.feedback.deleted"));
+      navigate("..");
+    },
+    onError: handleApiError,
+  });
+  const handleDelete = async (driverId: string) =>
+    deleteMutation.mutateAsync(driverId);
+  return { driversListQuery, createMutation, handleCreate, handleDelete };
 };

@@ -133,7 +133,6 @@
   "drivers": {
     "title": "Drivers",
     "list": "List of available drivers ({{count}})",
-    "new": "New driver",
     "attribute_one": "attribute",
     "attribute_other": "attributes",
     "notFoundDetails": "No driver found for id \"{{driverId}}\"",
@@ -146,8 +145,15 @@
       "updateStrategy": "Update strategy",
       "deviceConfig": "Device configuration"
     },
+    "actions": {
+      "create": "New driver",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete this driver?",
+      "deleteConfirmDetails": "Driver will be permanently deleted."
+    },
     "feedback": {
-      "created": "Driver {{driverId}} created"
+      "created": "Driver {{driverId}} created",
+      "deleted": "Driver deleted"
     }
   }
 }

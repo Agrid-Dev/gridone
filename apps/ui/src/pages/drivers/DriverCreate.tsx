@@ -11,7 +11,7 @@ const DriverCreate: FC = () => {
       <div className="mb-4">
         <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
         <div className="mt-1">
-          <TypographyH2>{t("drivers.new")}</TypographyH2>
+          <TypographyH2>{t("drivers.actions.create")}</TypographyH2>
         </div>
       </div>
       <DriverForm onSubmit={handleCreate} />

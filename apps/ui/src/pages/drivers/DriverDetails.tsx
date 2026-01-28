@@ -48,7 +48,10 @@ const DriverAttributeItem: FC<{ attribute: DriverAttribute }> = ({
   );
 };
 
-const DriverDetails: FC<{ driver: Driver }> = ({ driver }) => {
+const DriverDetails: FC<{
+  driver: Driver;
+  onDelete: (driverId: string) => Promise<void>;
+}> = ({ driver, onDelete }) => {
   const { t } = useTranslation();
   return (
     <div>
@@ -64,13 +67,13 @@ const DriverDetails: FC<{ driver: Driver }> = ({ driver }) => {
         <ConfirmButton
           variant="destructive"
           onConfirm={() => {
-            console.log("deleted");
+            onDelete(driver.id);
           }}
-          confirmTitle="Are you sure?"
-          confirmDetails="This will permanently delete the driver."
+          confirmTitle={t("drivers.actions.deleteConfirmTitle")}
+          confirmDetails={t("drivers.actions.deleteConfirmDetails")}
           icon={<Trash />}
         >
-          Delete it
+          {t("drivers.actions.delete")}
         </ConfirmButton>
       </div>
       <Card className="mt-4 py-4">
@@ -135,7 +138,7 @@ const DriverDetails: FC<{ driver: Driver }> = ({ driver }) => {
 };
 
 const DriverDetailsWrapper: FC = () => {
-  const { driversListQuery: query } = useDrivers();
+  const { driversListQuery: query, handleDelete } = useDrivers();
   const { driverId } = useParams();
   const { t } = useTranslation();
   if (query.isLoading) {
@@ -152,7 +155,7 @@ const DriverDetailsWrapper: FC = () => {
   }
   return (
     <ErrorBoundary fallback={<ErrorFallback />}>
-      <DriverDetails driver={driver} />
+      <DriverDetails driver={driver} onDelete={handleDelete} />
     </ErrorBoundary>
   );
 };

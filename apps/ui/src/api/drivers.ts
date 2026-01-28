@@ -47,3 +47,8 @@ export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
     body: JSON.stringify(payload),
   });
 }
+export async function deleteDriver(driverId: string): Promise<void> {
+  return request<void>(`/drivers/${driverId}`, {
+    method: "DELETE",
+  });
+}

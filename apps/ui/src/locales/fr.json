@@ -132,7 +132,6 @@
   "drivers": {
     "title": "Drivers",
     "list": "Liste des drivers disponibles ({{count}})",
-    "new": "Nouveau driver",
     "attribute_one": "attribut",
     "attribute_other": "attributs",
     "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
@@ -145,8 +144,15 @@
       "updateStrategy": "Stratégie de mise à jour",
       "deviceConfig": "Configuration des appareils"
     },
+    "actions": {
+      "create": "Nouveau driver",
+      "delete": "Supprimer",
+      "deleteConfirmTitle": "Supprimer ce driver ?",
+      "deleteConfirmDetails": "Cette action ne peut pas être annulée."
+    },
     "feedback": {
-      "created": "Driver {{driverId}} créé"
+      "created": "Driver {{driverId}} créé",
+      "deleted": "Driver supprimé"
     }
   }
 }

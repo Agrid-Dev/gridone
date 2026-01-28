@@ -54,7 +54,7 @@ const DriversListContainer: FC<{
         <Button asChild variant="outline">
           <Link to="new">
             <Plus />
-            {t("drivers.new")}
+            {t("drivers.actions.create")}
           </Link>
         </Button>
       </div>
