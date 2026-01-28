@@ -11,6 +11,7 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -47,7 +48,13 @@ const DriversListContainer: FC<{
           </TypographyH2>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+      {driversCount > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {children}
+        </div>
+      ) : (
+        <div>{children}</div>
+      )}
     </>
   );
 };
@@ -55,9 +62,11 @@ const DriversListContainer: FC<{
 const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
   return (
     <DriversListContainer driversCount={drivers.length}>
-      {drivers.map((driver) => (
-        <DriverCard key={driver.id} driver={driver} />
-      ))}
+      {drivers.length ? (
+        drivers.map((driver) => <DriverCard key={driver.id} driver={driver} />)
+      ) : (
+        <ResourceEmpty resourceName="driver" />
+      )}
     </DriversListContainer>
   );
 };

@@ -50,6 +50,11 @@
     "loadError": "An error occurred loading this resource.",
     "default": "Error"
   },
+  "empty": {
+    "title": "No {{resourceName}} yet",
+    "details": "You haven't created any {{resourceName}} yet. Get started by creating your first {{resourceName}}.",
+    "new": "Create a {{resourceName}}"
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Device control dashboard",
