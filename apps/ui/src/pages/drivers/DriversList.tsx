@@ -51,7 +51,7 @@ const DriversListContainer: FC<{
             </TypographyH2>
           </div>
         </div>
-        <Button asChild>
+        <Button asChild variant="outline">
           <Link to="new">
             <Plus />
             {t("drivers.new")}
