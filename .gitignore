@@ -26,6 +26,7 @@ bacnet.py
 **/.env
 
 # Logs
+*.log
 *.log.*
 
 # Coverage output

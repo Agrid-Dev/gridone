@@ -55,6 +55,7 @@
     "subtitle": "Device control dashboard",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
     "devices": "Devices",
+    "drivers": "Drivers",
     "transports": "Transports"
   },
   "devices": {
@@ -122,6 +123,22 @@
       "closing": "Closing",
       "closed": "Closed",
       "unknown": "Unknown"
+    }
+  },
+  "drivers": {
+    "title": "Drivers",
+    "list": "List of available drivers ({{count}})",
+    "attribute_one": "attribute",
+    "attribute_other": "attributes",
+    "notFoundDetails": "No driver found for id \"{{driverId}}\"",
+    "fields": {
+      "vendor": "Vendor",
+      "model": "Model",
+      "version": "Version",
+      "protocol": "Protocol",
+      "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
+      "updateStrategy": "Update strategy",
+      "deviceConfig": "Device configuration"
     }
   }
 }

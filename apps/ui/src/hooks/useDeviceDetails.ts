@@ -59,9 +59,9 @@ export function useDeviceDetails(deviceId: string | undefined) {
 
     try {
       const parsedValue =
-        attribute.data_type === "bool"
+        attribute.dataType === "bool"
           ? Boolean(value)
-          : attribute.data_type === "int" || attribute.data_type === "float"
+          : attribute.dataType === "int" || attribute.dataType === "float"
             ? Number(value)
             : value;
       const updated = await updateDeviceAttribute(device.id, name, parsedValue);

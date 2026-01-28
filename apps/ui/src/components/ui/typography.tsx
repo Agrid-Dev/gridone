@@ -12,7 +12,7 @@ export function TypographyH1({ children }: { children: React.ReactNode }) {
 // Section/page subtitles like "Transports" subtitle
 export function TypographyH2({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="scroll-m-20 text-2xl font-semibold text-slate-900">
+    <h2 className="scroll-m-20 text-2xl font-semibold text-inherit">
       {children}
     </h2>
   );

@@ -47,7 +47,7 @@ export function InputController<
   const { field, fieldState } = useController(controllerProps);
 
   const id = field.name;
-  const parsedType = type === "integer" ? "number" : "type";
+  const parsedType = type === "integer" ? "number" : type;
 
   const inputValue =
     type === "number" ? (field.value ?? "") : (field.value ?? "");

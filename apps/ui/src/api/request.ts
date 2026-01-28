@@ -1,14 +1,18 @@
 import { ApiError } from "./apiError";
+import camelcaseKeys from "camelcase-keys";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
-console.log(import.meta.env);
+type RequestOptions = {
+  camelCase?: boolean;
+};
 
 export async function request<T>(
   relativeUrl: string,
   // eslint-disable-next-line no-undef
   init?: RequestInit,
+  options?: RequestOptions,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);
   if (!response.ok) {
@@ -19,5 +23,12 @@ export async function request<T>(
       text || response.statusText,
     );
   }
-  return response.json();
+  const data = await response.json();
+
+  return options?.camelCase
+    ? (camelcaseKeys(data, {
+        deep: true,
+        preserveConsecutiveUppercase: true,
+      }) as T)
+    : data;
 }

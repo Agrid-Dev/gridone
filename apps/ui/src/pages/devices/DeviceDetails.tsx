@@ -29,7 +29,6 @@ export default function DeviceDetails() {
     handleDraftChange,
     handleSave,
   } = useDeviceDetails(deviceId);
-
   const attributes = useMemo(() => device?.attributes ?? {}, [device]);
 
   if (loading) {
@@ -131,7 +130,7 @@ export default function DeviceDetails() {
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {Object.entries(attributes).map(([name, attribute]) => {
-            const isEditable = attribute.read_write_modes.includes("write");
+            const isEditable = attribute.readWriteModes.includes("write");
             const currentValue = draft[name];
             const sliderRange = getSliderRange(name);
 
@@ -142,7 +141,7 @@ export default function DeviceDetails() {
                     <div>
                       <CardTitle className="text-base">{name}</CardTitle>
                       <CardDescription className="mt-0.5">
-                        {attribute.data_type}
+                        {attribute.dataType}
                       </CardDescription>
                     </div>
                     <span
@@ -167,7 +166,7 @@ export default function DeviceDetails() {
                   </div>
                   {isEditable ? (
                     <div className="space-y-3">
-                      {attribute.data_type === "bool" ? (
+                      {attribute.dataType === "bool" ? (
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-foreground">
                             {t("common.state")}
@@ -179,8 +178,8 @@ export default function DeviceDetails() {
                             }
                           />
                         </div>
-                      ) : attribute.data_type === "int" ||
-                        attribute.data_type === "float" ? (
+                      ) : attribute.dataType === "int" ||
+                        attribute.dataType === "float" ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>
