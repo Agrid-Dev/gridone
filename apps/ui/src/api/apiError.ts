@@ -2,7 +2,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
-    public details: unknown,
+    public details: string,
   ) {
     super(`HTTP ${status}: ${statusText}`);
     this.name = "ApiError";

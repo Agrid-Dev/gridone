@@ -50,6 +50,11 @@
     "loadError": "An error occurred loading this resource.",
     "default": "Error"
   },
+  "empty": {
+    "title": "No {{resourceName}} yet",
+    "details": "You haven't created any {{resourceName}} yet. Get started by creating your first {{resourceName}}.",
+    "new": "Create a {{resourceName}}"
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Device control dashboard",
@@ -139,6 +144,16 @@
       "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
       "updateStrategy": "Update strategy",
       "deviceConfig": "Device configuration"
+    },
+    "actions": {
+      "create": "New driver",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete this driver?",
+      "deleteConfirmDetails": "Driver will be permanently deleted."
+    },
+    "feedback": {
+      "created": "Driver {{driverId}} created",
+      "deleted": "Driver deleted"
     }
   }
 }

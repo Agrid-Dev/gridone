@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { DeviceCard } from "@/components/DeviceCard";
 import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 
 export default function DevicesList() {
   const { t } = useTranslation();
@@ -43,12 +44,14 @@ export default function DevicesList() {
             />
           ))}
         </div>
-      ) : (
+      ) : devices.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {devices.map((device) => (
             <DeviceCard key={device.id} device={device} />
           ))}
         </div>
+      ) : (
+        <ResourceEmpty resourceName={t("common.device").toLowerCase()} />
       )}
     </section>
   );

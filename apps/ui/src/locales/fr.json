@@ -49,6 +49,11 @@
     "loadError": "Une erreur s'est produite lors du chargement de cette ressource.",
     "default": "Une erreur s'est produite"
   },
+  "empty": {
+    "title": "Aucun {{resourceName}} pour le moment",
+    "details": "Vous n'avez pas encore créé de {{resourceName}}. Commencez par créer votre premier {{resourceName}}.",
+    "new": "Créer un {{resourceName}}"
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
@@ -138,6 +143,16 @@
       "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
       "updateStrategy": "Stratégie de mise à jour",
       "deviceConfig": "Configuration des appareils"
+    },
+    "actions": {
+      "create": "Nouveau driver",
+      "delete": "Supprimer",
+      "deleteConfirmTitle": "Supprimer ce driver ?",
+      "deleteConfirmDetails": "Cette action ne peut pas être annulée."
+    },
+    "feedback": {
+      "created": "Driver {{driverId}} créé",
+      "deleted": "Driver supprimé"
     }
   }
 }

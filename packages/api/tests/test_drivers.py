@@ -118,6 +118,10 @@ class TestCreateDriver:
         response = client.post("/", json=payload)
         assert response.status_code == 422
 
+    def test_create_from_yaml_payload(self, client: TestClient, yaml_driver: str):
+        response = client.post("/", json={"yaml": yaml_driver})
+        assert response.status_code == 201
+
 
 class TestDeleteDriver:
     def test_delete_ok(self, client: TestClient):

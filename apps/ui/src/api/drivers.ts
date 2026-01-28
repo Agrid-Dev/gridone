@@ -35,5 +35,20 @@ export type Driver = {
 };
 
 export function getDrivers(): Promise<Driver[]> {
-  return request<Driver[]>(`/drivers/`, undefined, { camelCase: true });
+  return request<Driver[]>("/drivers/", undefined, { camelCase: true });
+}
+
+export type DriverCreatePayload = { yaml: string };
+
+export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
+  return request<Driver>("/drivers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+export async function deleteDriver(driverId: string): Promise<void> {
+  return request<void>(`/drivers/${driverId}`, {
+    method: "DELETE",
+  });
 }
