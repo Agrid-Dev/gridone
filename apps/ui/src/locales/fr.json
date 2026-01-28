@@ -132,6 +132,7 @@
   "drivers": {
     "title": "Drivers",
     "list": "Liste des drivers disponibles ({{count}})",
+    "new": "Nouveau driver",
     "attribute_one": "attribut",
     "attribute_other": "attributs",
     "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",

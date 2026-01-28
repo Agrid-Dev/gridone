@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { Button } from "@/components/ui";
+import { Plus } from "lucide-react";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -40,13 +42,21 @@ const DriversListContainer: FC<{
   const { t } = useTranslation();
   return (
     <>
-      <div>
-        <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-        <div className="mt-1">
-          <TypographyH2>
-            {t("drivers.list", { count: driversCount })}
-          </TypographyH2>
+      <div className="flex justify-between items-end">
+        <div>
+          <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
+          <div className="mt-1">
+            <TypographyH2>
+              {t("drivers.list", { count: driversCount })}
+            </TypographyH2>
+          </div>
         </div>
+        <Button asChild>
+          <Link to="new">
+            <Plus />
+            {t("drivers.new")}
+          </Link>
+        </Button>
       </div>
       {driversCount > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
