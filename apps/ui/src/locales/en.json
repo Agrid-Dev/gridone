@@ -145,6 +145,9 @@
       "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
       "updateStrategy": "Update strategy",
       "deviceConfig": "Device configuration"
+    },
+    "feedback": {
+      "created": "Driver {{driverId}} created"
     }
   }
 }

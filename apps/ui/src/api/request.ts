@@ -16,11 +16,11 @@ export async function request<T>(
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);
   if (!response.ok) {
-    const text = await response.text();
+    const data = await response.json();
     throw new ApiError(
       response.status,
       response.statusText,
-      text || response.statusText,
+      data?.detail || response.statusText,
     );
   }
   const data = await response.json();
