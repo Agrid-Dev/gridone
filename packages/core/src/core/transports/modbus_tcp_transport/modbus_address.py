@@ -1,7 +1,7 @@
 import re
 from enum import StrEnum
 
-from pydantic import BaseModel, PositiveInt
+from pydantic import BaseModel, NonNegativeInt
 
 from core.transports.transport_address import RawTransportAddress, TransportAddress
 
@@ -24,8 +24,8 @@ instance_regex = r"^\d+$"
 
 class ModbusAddress(BaseModel, TransportAddress):
     type: ModbusAddressType
-    instance: PositiveInt
-    device_id: PositiveInt
+    instance: NonNegativeInt
+    device_id: NonNegativeInt
 
     @property
     def id(self) -> str:
