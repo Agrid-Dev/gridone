@@ -27,7 +27,7 @@
     "readOnly": "Lecture seule",
     "editable": "Modifiable",
     "attributes": "attributs",
-    "driver": "Pilote",
+    "driver": "Driver",
     "device": "Appareil",
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
@@ -72,7 +72,7 @@
       "description": "Ajoutez les détails pour un nouvel appareil."
     },
     "fields": {
-      "driver": "Pilote",
+      "driver": "Driver",
       "driverPlaceholder": "Sélectionnez un pilote",
       "transport": "Transport",
       "transportPlaceholder": "Sélectionnez un transport",
