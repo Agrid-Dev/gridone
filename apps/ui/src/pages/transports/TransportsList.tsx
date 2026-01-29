@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/typography";
 import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -162,9 +163,7 @@ export default function TransportsList() {
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-          {t("transports.empty")}
-        </div>
+        <ResourceEmpty resourceName="transport" />
       )}
     </section>
   );

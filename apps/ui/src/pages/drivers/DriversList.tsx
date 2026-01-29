@@ -11,6 +11,9 @@ import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { Button } from "@/components/ui";
+import { Plus } from "lucide-react";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -39,15 +42,29 @@ const DriversListContainer: FC<{
   const { t } = useTranslation();
   return (
     <>
-      <div>
-        <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-        <div className="mt-1">
-          <TypographyH2>
-            {t("drivers.list", { count: driversCount })}
-          </TypographyH2>
+      <div className="flex justify-between items-end">
+        <div>
+          <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
+          <div className="mt-1">
+            <TypographyH2>
+              {t("drivers.list", { count: driversCount })}
+            </TypographyH2>
+          </div>
         </div>
+        <Button asChild variant="outline">
+          <Link to="new">
+            <Plus />
+            {t("drivers.actions.create")}
+          </Link>
+        </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{children}</div>
+      {driversCount > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {children}
+        </div>
+      ) : (
+        <div>{children}</div>
+      )}
     </>
   );
 };
@@ -55,9 +72,11 @@ const DriversListContainer: FC<{
 const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
   return (
     <DriversListContainer driversCount={drivers.length}>
-      {drivers.map((driver) => (
-        <DriverCard key={driver.id} driver={driver} />
-      ))}
+      {drivers.length ? (
+        drivers.map((driver) => <DriverCard key={driver.id} driver={driver} />)
+      ) : (
+        <ResourceEmpty resourceName="driver" />
+      )}
     </DriversListContainer>
   );
 };

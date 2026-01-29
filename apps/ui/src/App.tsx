@@ -4,6 +4,7 @@ import Devices from "./pages/devices";
 import Transports from "./pages/transports";
 import Drivers from "./pages/drivers";
 import { Sidebar } from "./components/Sidebar";
+import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
   const { t } = useTranslation();
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/transports/*" element={<Transports />} />
             <Route path="/drivers/*" element={<Drivers />} />
           </Routes>
+          <Toaster />
         </div>
       </main>
     </div>

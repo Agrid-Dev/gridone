@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
 import { ErrorBoundary } from "react-error-boundary";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { Trash } from "lucide-react";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -46,15 +48,33 @@ const DriverAttributeItem: FC<{ attribute: DriverAttribute }> = ({
   );
 };
 
-const DriverDetails: FC<{ driver: Driver }> = ({ driver }) => {
+const DriverDetails: FC<{
+  driver: Driver;
+  onDelete: (driverId: string) => Promise<void>;
+}> = ({ driver, onDelete }) => {
   const { t } = useTranslation();
   return (
     <div>
-      <Link to="..">
-        <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-      </Link>
-      <div className="mt-1">
-        <TypographyH2>{driver.id}</TypographyH2>
+      <div className="flex justify-between items-end">
+        <div>
+          <Link to="..">
+            <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
+          </Link>
+          <div className="mt-1">
+            <TypographyH2>{driver.id}</TypographyH2>
+          </div>
+        </div>
+        <ConfirmButton
+          variant="destructive"
+          onConfirm={() => {
+            onDelete(driver.id);
+          }}
+          confirmTitle={t("drivers.actions.deleteConfirmTitle")}
+          confirmDetails={t("drivers.actions.deleteConfirmDetails")}
+          icon={<Trash />}
+        >
+          {t("drivers.actions.delete")}
+        </ConfirmButton>
       </div>
       <Card className="mt-4 py-4">
         <CardContent>
@@ -118,7 +138,7 @@ const DriverDetails: FC<{ driver: Driver }> = ({ driver }) => {
 };
 
 const DriverDetailsWrapper: FC = () => {
-  const { driversListQuery: query } = useDrivers();
+  const { driversListQuery: query, handleDelete } = useDrivers();
   const { driverId } = useParams();
   const { t } = useTranslation();
   if (query.isLoading) {
@@ -135,7 +155,7 @@ const DriverDetailsWrapper: FC = () => {
   }
   return (
     <ErrorBoundary fallback={<ErrorFallback />}>
-      <DriverDetails driver={driver} />
+      <DriverDetails driver={driver} onDelete={handleDelete} />
     </ErrorBoundary>
   );
 };

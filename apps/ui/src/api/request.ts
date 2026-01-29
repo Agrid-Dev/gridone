@@ -15,15 +15,16 @@ export async function request<T>(
   options?: RequestOptions,
 ): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);
+
+  const data = response.status === 204 ? null : await response.json();
+
   if (!response.ok) {
-    const text = await response.text();
     throw new ApiError(
       response.status,
       response.statusText,
-      text || response.statusText,
+      data?.detail || response.statusText,
     );
   }
-  const data = await response.json();
 
   return options?.camelCase
     ? (camelcaseKeys(data, {

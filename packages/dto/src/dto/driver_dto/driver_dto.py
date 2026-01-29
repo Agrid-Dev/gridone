@@ -1,5 +1,6 @@
 from typing import Annotated
 
+import yaml as pyyaml
 from core.driver import DeviceConfigField, Driver, DriverMetadata, UpdateStrategy
 from core.types import TransportProtocols
 from pydantic import BaseModel, Field
@@ -20,6 +21,15 @@ class DriverDTO(BaseModel):
     device_config: list[DeviceConfigField]
     attributes: list[AttributeDriverDTO]
     discovery: dict | None = None
+
+    @classmethod
+    def from_yaml(cls, yaml: str) -> "DriverDTO":
+        data = pyyaml.safe_load(yaml)
+        return cls.model_validate(data)
+
+
+class DriverYamlDTO(BaseModel):
+    yaml: str
 
 
 def core_to_dto(driver: Driver) -> DriverDTO:

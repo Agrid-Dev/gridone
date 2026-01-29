@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from core.devices_manager import DevicesManager
-from dto.driver_dto import DriverDTO, core_to_dto, dto_to_core
+from dto.driver_dto import DriverDTO, DriverYamlDTO, core_to_dto, dto_to_core
 from fastapi import APIRouter, Depends, HTTPException, status
 from storage import CoreFileStorage
 
@@ -32,10 +32,13 @@ def get_driver(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_driver(
-    driver_dto: DriverDTO,
+    payload: DriverDTO | DriverYamlDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> DriverDTO:
+    driver_dto = (
+        payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
+    )
     if driver_dto.id in dm.drivers:
         raise HTTPException(
             status_code=409, detail=f"Driver {driver_dto.id} already exists"
