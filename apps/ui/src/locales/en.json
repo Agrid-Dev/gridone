@@ -67,7 +67,11 @@
     "title": "Devices",
     "subtitle": "Connected fleet",
     "unableToLoad": "Unable to load devices",
-    "connectedFleet": "Connected fleet"
+    "connectedFleet": "Connected fleet",
+    "create": {
+      "title": "Create Device",
+      "description": "Add the details for a new device."
+    }
   },
   "deviceDetails": {
     "title": "Device",

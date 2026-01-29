@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DeviceCard } from "@/components/DeviceCard";
 import { Button } from "@/components/ui";
@@ -20,13 +21,18 @@ export default function DevicesList() {
             {t("devices.subtitle")}
           </h2>
         </div>
-        <Button
-          variant="outline"
-          onClick={fetchDevices}
-          disabled={loading || refreshing}
-        >
-          {refreshing ? t("common.refreshing") : t("common.refresh")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild>
+            <Link to="/devices/new">{t("devices.create.title")}</Link>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={fetchDevices}
+            disabled={loading || refreshing}
+          >
+            {refreshing ? t("common.refreshing") : t("common.refresh")}
+          </Button>
+        </div>
       </div>
 
       {error && (
