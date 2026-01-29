@@ -75,7 +75,7 @@ export function DeviceCard({ device }: { device: Device }) {
               {device.driver}
             </p>
             <h2 className="mt-1 text-xl font-semibold text-card-foreground truncate">
-              {device.id}
+              {device.name ? device.name : device.id}
             </h2>
           </div>
         </CardHeader>

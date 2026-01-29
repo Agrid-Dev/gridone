@@ -70,7 +70,19 @@
     "create": {
       "title": "Ajouter un nouvel appareil",
       "description": "Ajoutez les détails pour un nouvel appareil."
-    }
+    },
+    "fields": {
+      "driver": "Pilote",
+      "driverPlaceholder": "Sélectionnez un pilote",
+      "transport": "Transport",
+      "transportPlaceholder": "Sélectionnez un transport",
+      "transportDisabled": "Sélectionnez d'abord un pilote",
+      "name": "Nom"
+    },
+    "actions": {
+      "create": "Créer l'appareil"
+    },
+    "saving": "Enregistrement..."
   },
   "deviceDetails": {
     "title": "Appareil",

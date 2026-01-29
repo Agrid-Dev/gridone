@@ -1,3 +1,4 @@
+import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
 
 export type DeviceAttribute = {
@@ -10,10 +11,18 @@ export type DeviceAttribute = {
 
 export type Device = {
   id: string;
+  name: string;
   driverId: string;
   transportId: string;
   config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
+};
+
+export type DeviceCreatePayload = {
+  name: string;
+  driverId: string;
+  transportId: string;
+  config: Record<string, unknown>;
 };
 
 export function listDevices(): Promise<Device[]> {
@@ -24,6 +33,18 @@ export function getDevice(deviceId: string): Promise<Device> {
   return request<Device>(
     `/devices/${encodeURIComponent(deviceId)}`,
     undefined,
+    { camelCase: true },
+  );
+}
+
+export function createDevice(payload: DeviceCreatePayload): Promise<Device> {
+  return request<Device>(
+    "/devices/",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
+    },
     { camelCase: true },
   );
 }
