@@ -130,7 +130,7 @@ export const useDeviceForm = () => {
   const createMutation = useMutation({
     mutationFn: (payload: DeviceCreatePayload) => createDevice(payload),
     onSuccess: (device: Device) => {
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.refetchQueries({ queryKey: ["devices"] });
       navigate(`../${device.id}`, { relative: "path" });
     },
   });

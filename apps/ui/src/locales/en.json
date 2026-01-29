@@ -29,6 +29,7 @@
     "attributes": "attrs",
     "driver": "Driver",
     "device": "Device",
+    "transport": "Transport",
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",
@@ -96,6 +97,7 @@
   },
   "transports": {
     "title": "Transports",
+    "listTitle": "List of available transports ({{count}})",
     "subtitle": "Integration channels",
     "createTitle": "Create transport",
     "editTitle": "Edit transport",

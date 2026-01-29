@@ -8,28 +8,15 @@ import {
 } from "@/api/transports";
 import { isNotFound } from "@/api/apiError";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  TypographyEyebrow,
-  TypographyH2,
-  TypographyP,
-} from "@/components/ui/typography";
+import { TypographyEyebrow, TypographyP } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
-import { TrashIcon } from "lucide-react";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
+import { ResourceHeader } from "@/components/ResourceHeader";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { Trash } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -123,9 +110,6 @@ export default function TransportDetails() {
   const statusLabel = t(`transports.status.${status}`, {
     defaultValue: status.replace(/_/g, " "),
   });
-  const protocolLabel = t(`transports.protocols.${transport.protocol}`, {
-    defaultValue: transport.protocol,
-  });
 
   return (
     <section className="space-y-6">
@@ -139,55 +123,34 @@ export default function TransportDetails() {
           <AlertDescription>{deleteError}</AlertDescription>
         </Alert>
       )}
-
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <TypographyEyebrow>{t("transports.title")}</TypographyEyebrow>
-          <div className="mt-1">
-            <TypographyH2>{transport.name}</TypographyH2>
-          </div>
-          <TypographyP>{protocolLabel}</TypographyP>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={deleteMutation.isPending}>
-                <TrashIcon className="mr-2 h-4 w-4" />
-                {deleteMutation.isPending
-                  ? t("transports.deletingAction")
-                  : t("transports.deleteAction")}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("transports.deleteDialog.title", {
-                    defaultValue: t("transports.deleteAction"),
-                  })}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("transports.deleteConfirm", { name: transport.name })}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => deleteMutation.mutate()}
-                  disabled={deleteMutation.isPending}
-                >
-                  {t("transports.deleteAction")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          <Button variant="outline" asChild>
-            <Link to={`/transports/${transportId}/edit`}>
-              {t("transports.editAction")}
-            </Link>
-          </Button>
-        </div>
-      </div>
-
+      <ResourceHeader
+        resourceName={t("transports.title")}
+        title={transport.name || transport.id}
+        actions={
+          <>
+            <ConfirmButton
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onConfirm={() => {
+                deleteMutation.mutate();
+              }}
+              confirmTitle={t("transports.deleteAction")}
+              confirmDetails={t("transports.deleteConfirm", {
+                name: transport.name,
+              })}
+              icon={<Trash />}
+            >
+              {t("drivers.actions.delete")}
+            </ConfirmButton>
+            <Button variant="outline" asChild>
+              <Link to={`/transports/${transportId}/edit`}>
+                {t("transports.editAction")}
+              </Link>
+            </Button>
+          </>
+        }
+        resourceNameLinksBack
+      />
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
         <span
           className={cn(

@@ -15,6 +15,7 @@ import {
 import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getSliderRange } from "@/utils/sliderPresets";
+import { ResourceHeader } from "@/components/ResourceHeader";
 
 export default function DeviceDetails() {
   const { t } = useTranslation();
@@ -69,6 +70,11 @@ export default function DeviceDetails() {
 
   return (
     <section className="space-y-6">
+      <ResourceHeader
+        resourceName={t("devices.title")}
+        title={device?.name || ""}
+        resourceNameLinksBack
+      />
       {feedback && (
         <div
           className={`rounded-lg border p-4 text-sm transition-colors ${
@@ -85,18 +91,26 @@ export default function DeviceDetails() {
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <CardDescription>{t("deviceDetails.title")}</CardDescription>
-              <CardTitle className="mt-1">{device.id}</CardTitle>
+              <CardTitle className="mt-1">{device.name || deviceId}</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.driver")}: {device.driverId}
+                {t("common.driver")}:&nbsp;
+                <Link
+                  to={`/drivers/${device.driverId}`}
+                  className="underline text-primary"
+                >
+                  {device.driverId}
+                </Link>
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("common.transport")}:&nbsp;
+                <Link
+                  to={`/transports/${device.transportId}`}
+                  className="underline text-primary"
+                >
+                  {device.driverId}
+                </Link>
               </p>
             </div>
-            <Link
-              to="/"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("common.backToDevices")}
-            </Link>
           </div>
         </CardHeader>
         <CardContent>

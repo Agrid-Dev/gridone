@@ -1,12 +1,13 @@
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { getTransport, type Transport } from "@/api/transports";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import TransportForm from "./form";
+import { ResourceHeader } from "@/components/ResourceHeader";
 
-export default function TransportEdit() {
+function TransportEdit() {
   const { t } = useTranslation();
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
 
@@ -27,12 +28,6 @@ export default function TransportEdit() {
           </AlertTitle>
           <AlertDescription>{t("transports.unableToLoad")}</AlertDescription>
         </Alert>
-        <Link
-          to="/transports"
-          className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-        >
-          {t("transports.backToList")}
-        </Link>
       </section>
     );
   }
@@ -50,15 +45,19 @@ export default function TransportEdit() {
     return null;
   }
 
+  return <TransportForm transport={transport} />;
+}
+
+export default function TransportEditWrapper() {
+  const { t } = useTranslation();
   return (
     <section className="space-y-6">
-      <Link
-        to="/transports"
-        className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-      >
-        {t("common.back")}
-      </Link>
-      <TransportForm transport={transport} />
+      <ResourceHeader
+        resourceName={t("transports.title")}
+        title={t("transports.editTitle")}
+        resourceNameLinksBack
+      />
+      <TransportEdit />
     </section>
   );
 }

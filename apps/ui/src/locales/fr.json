@@ -29,6 +29,7 @@
     "attributes": "attributs",
     "driver": "Driver",
     "device": "Appareil",
+    "transport": "Transport",
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
     "timeAgo": {
@@ -96,6 +97,7 @@
   "transports": {
     "title": "Transports",
     "subtitle": "Canaux d'intégration",
+    "listTitle": "Liste des transports ({{count}})",
     "createTitle": "Créer un transport",
     "editTitle": "Modifier le transport",
     "createSubtitle": "Configurer une nouvelle connexion",

@@ -4,6 +4,7 @@ import { DeviceCard } from "@/components/DeviceCard";
 import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { ResourceHeader } from "@/components/ResourceHeader";
 
 export default function DevicesList() {
   const { t } = useTranslation();
@@ -12,28 +13,24 @@ export default function DevicesList() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.4em] text-slate-500">
-            {t("devices.title")}
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-900">
-            {t("devices.subtitle")}
-          </h2>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => fetchDevices()}
-            disabled={loading || refreshing}
-          >
-            {refreshing ? t("common.refreshing") : t("common.refresh")}
-          </Button>
-          <Button asChild>
-            <Link to="/devices/new">{t("devices.create.title")}</Link>
-          </Button>
-        </div>
-      </div>
+      <ResourceHeader
+        title={t("devices.subtitle")}
+        resourceName={t("devices.title")}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => fetchDevices()}
+              disabled={loading || refreshing}
+            >
+              {refreshing ? t("common.refreshing") : t("common.refresh")}
+            </Button>
+            <Button asChild>
+              <Link to="/devices/new">{t("devices.create.title")}</Link>
+            </Button>
+          </>
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">

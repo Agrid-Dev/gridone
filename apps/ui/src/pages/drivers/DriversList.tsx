@@ -2,11 +2,7 @@ import React, { FC } from "react";
 import { useDrivers } from "./useDrivers";
 import { Driver } from "@/api/drivers";
 import { Card, CardContent, CardHeader } from "@/components/ui";
-import {
-  TypographyH3,
-  TypographyH2,
-  TypographyEyebrow,
-} from "@/components/ui/typography";
+import { TypographyH3 } from "@/components/ui/typography";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
@@ -14,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Button } from "@/components/ui";
 import { Plus } from "lucide-react";
+import { ResourceHeader } from "@/components/ResourceHeader";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -42,22 +39,18 @@ const DriversListContainer: FC<{
   const { t } = useTranslation();
   return (
     <>
-      <div className="flex justify-between items-end">
-        <div>
-          <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-          <div className="mt-1">
-            <TypographyH2>
-              {t("drivers.list", { count: driversCount })}
-            </TypographyH2>
-          </div>
-        </div>
-        <Button asChild variant="outline">
-          <Link to="new">
-            <Plus />
-            {t("drivers.actions.create")}
-          </Link>
-        </Button>
-      </div>
+      <ResourceHeader
+        resourceName={t("drivers.title")}
+        title={t("drivers.list", { count: driversCount })}
+        actions={
+          <Button asChild variant="outline">
+            <Link to="new">
+              <Plus />
+              {t("drivers.actions.create")}
+            </Link>
+          </Button>
+        }
+      />
       {driversCount > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {children}
