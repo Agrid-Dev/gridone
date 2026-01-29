@@ -23,7 +23,9 @@ export const useTransports = () => {
     onSuccess: async (result: Transport) => {
       await transportsListQuery.refetch();
       navigate(`../${result.id}`);
-      toast.success(t("transports.feedback.created", { transportId: result.id }));
+      toast.success(
+        t("transports.feedback.created", { transportId: result.id }),
+      );
     },
     onError: handleApiError,
   });
