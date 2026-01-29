@@ -88,7 +88,7 @@ export default function DeviceDetails() {
               <CardDescription>{t("deviceDetails.title")}</CardDescription>
               <CardTitle className="mt-1">{device.id}</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.driver")}: {device.driver}
+                {t("common.driver")}: {device.driverId}
               </p>
             </div>
             <Link
@@ -161,7 +161,7 @@ export default function DeviceDetails() {
                       {t("common.currentValue")}
                     </span>
                     <span className="font-medium text-foreground">
-                      {formatAttributeValue(attribute.current_value)}
+                      {formatAttributeValue(attribute.currentValue)}
                     </span>
                   </div>
                   {isEditable ? (
@@ -224,7 +224,7 @@ export default function DeviceDetails() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      {t("common.lastUpdated")}: {attribute.last_updated ?? "—"}
+                      {t("common.lastUpdated")}: {attribute.lastUpdated ?? "—"}
                     </p>
                   )}
                 </CardContent>

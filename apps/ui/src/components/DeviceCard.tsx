@@ -21,7 +21,7 @@ const metricOrder = [
 function selectMetrics(attributes: Record<string, DeviceAttribute>) {
   return metricOrder
     .map((key) => ({ key, value: attributes[key] }))
-    .filter(({ value }) => value && value.current_value !== null);
+    .filter(({ value }) => value && value.currentValue !== null);
 }
 
 export function DeviceCard({ device }: { device: Device }) {
@@ -95,8 +95,7 @@ export function DeviceCard({ device }: { device: Device }) {
                 key={metric.key}
                 className="rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-muted-foreground break-words max-w-full"
               >
-                {metric.key}:{" "}
-                {formatAttributeValue(metric.value?.current_value)}
+                {metric.key}: {formatAttributeValue(metric.value?.currentValue)}
               </span>
             ))
           ) : (

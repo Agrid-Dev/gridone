@@ -54,8 +54,13 @@ export async function updateDeviceAttribute(
   attributeName: string,
   value: string | number | boolean | null,
 ): Promise<Device> {
+  const snakecaseAttribute = Object.keys(
+    snakecaseKeys({
+      [attributeName]: value,
+    }),
+  )[0];
   await request<Device>(
-    `/devices/${encodeURIComponent(deviceId)}/${encodeURIComponent(attributeName)}`,
+    `/devices/${encodeURIComponent(deviceId)}/${encodeURIComponent(snakecaseAttribute)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

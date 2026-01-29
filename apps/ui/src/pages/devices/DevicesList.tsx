@@ -22,15 +22,15 @@ export default function DevicesList() {
           </h2>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild>
-            <Link to="/devices/new">{t("devices.create.title")}</Link>
-          </Button>
           <Button
             variant="outline"
-            onClick={fetchDevices}
+            onClick={() => fetchDevices()}
             disabled={loading || refreshing}
           >
             {refreshing ? t("common.refreshing") : t("common.refresh")}
+          </Button>
+          <Button asChild>
+            <Link to="/devices/new">{t("devices.create.title")}</Link>
           </Button>
         </div>
       </div>

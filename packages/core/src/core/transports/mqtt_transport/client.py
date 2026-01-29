@@ -84,9 +84,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
             # no other handlers on this topic, unsubscribe
-            asyncio.create_task(self._unsubscribe(topic)).add_done_callback(
-                lambda task: task.exception()  # Silently consume the exception
-            )
+            asyncio.create_task(self._unsubscribe(topic))  # noqa: RUF006
 
     @connected
     async def _subscribe(self, topic: str) -> None:
