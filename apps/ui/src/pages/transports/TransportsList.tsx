@@ -14,6 +14,7 @@ import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Plus, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -109,10 +110,14 @@ export default function TransportsList() {
               onClick={() => refetch()}
               disabled={isLoading || isFetching}
             >
+              <RefreshCw />
               {isFetching ? t("common.refreshing") : t("common.refresh")}
             </Button>
             <Button asChild>
-              <Link to="/transports/new">{t("transports.createAction")}</Link>
+              <Link to="/transports/new">
+                <Plus />
+                {t("transports.createAction")}
+              </Link>
             </Button>
           </>
         }

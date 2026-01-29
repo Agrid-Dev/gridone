@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Plus, RefreshCw } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
@@ -23,10 +24,14 @@ export default function DevicesList() {
               onClick={() => fetchDevices()}
               disabled={loading || refreshing}
             >
+              <RefreshCw />
               {refreshing ? t("common.refreshing") : t("common.refresh")}
             </Button>
             <Button asChild>
-              <Link to="/devices/new">{t("devices.create.title")}</Link>
+              <Link to="/devices/new">
+                <Plus />
+                {t("devices.create.title")}
+              </Link>
             </Button>
           </>
         }

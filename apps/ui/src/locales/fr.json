@@ -69,8 +69,11 @@
     "unableToLoad": "Impossible de charger les appareils",
     "connectedFleet": "Flotte connectée",
     "create": {
-      "title": "Ajouter un nouvel appareil",
+      "title": "Ajouter un appareil",
       "description": "Ajoutez les détails pour un nouvel appareil."
+    },
+    "edit": {
+      "title": "Modifier l’appareil"
     },
     "fields": {
       "driver": "Driver",
@@ -81,7 +84,15 @@
       "name": "Nom"
     },
     "actions": {
-      "create": "Créer l'appareil"
+      "create": "Créer l'appareil",
+      "delete": "Supprimer",
+      "update": "Mettre à jour",
+      "deleteDialogTitle": "Confirmer la suppression",
+      "deleteDialogContent": "Supprimer l'appareil {{name}} ? Cette action est irréversible.",
+      "edit": "Modifier"
+    },
+    "feedback": {
+      "deleted": "Appareil supprimé"
     },
     "saving": "Enregistrement..."
   },

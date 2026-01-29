@@ -43,7 +43,7 @@ const DriversListContainer: FC<{
         resourceName={t("drivers.title")}
         title={t("drivers.list", { count: driversCount })}
         actions={
-          <Button asChild variant="outline">
+          <Button asChild>
             <Link to="new">
               <Plus />
               {t("drivers.actions.create")}

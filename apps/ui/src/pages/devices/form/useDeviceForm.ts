@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
   createDevice,
+  updateDevice,
   type Device,
   type DeviceCreatePayload,
 } from "@/api/devices";
@@ -11,6 +12,7 @@ import { useDrivers } from "@/pages/drivers/useDrivers";
 import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
 import { useTranslation } from "react-i18next";
+import snakecaseKeys from "snakecase-keys";
 
 type BaseFormData = {
   name: string;
@@ -20,9 +22,10 @@ type BaseFormData = {
 
 type ConfigFormData = Record<string, string>;
 
-export const useDeviceForm = () => {
+export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isCreate = device === undefined;
   const { t } = useTranslation();
   const { driversListQuery: driversQuery } = useDrivers();
   const { transportsListQuery: transportsQuery } = useTransports();
@@ -30,15 +33,18 @@ export const useDeviceForm = () => {
   // Form instances
   const baseFormMethods = useForm<BaseFormData>({
     defaultValues: {
-      name: "",
-      driverId: "",
-      transportId: "",
+      name: device?.name || "",
+      driverId: device?.driverId || "",
+      transportId: device?.transportId || "",
     },
     mode: "onChange",
   });
 
   const configFormMethods = useForm<ConfigFormData>({
     mode: "onChange",
+    defaultValues: device?.config
+      ? (snakecaseKeys(device.config) as ConfigFormData)
+      : undefined,
   });
 
   // Data from queries
@@ -57,7 +63,7 @@ export const useDeviceForm = () => {
   // Reset config form and transport when driver changes
   useEffect(() => {
     configFormMethods.reset();
-    baseFormMethods.setValue("transportId", "", {
+    baseFormMethods.setValue("transportId", device?.transportId || "", {
       shouldDirty: true,
       shouldValidate: true,
     });
@@ -134,6 +140,14 @@ export const useDeviceForm = () => {
       navigate(`../${device.id}`, { relative: "path" });
     },
   });
+  const updateMutation = useMutation({
+    mutationFn: (updatePayload: Partial<Device> & { deviceId: string }) =>
+      updateDevice(updatePayload.deviceId, updatePayload),
+    onSuccess: (device: Device) => {
+      queryClient.refetchQueries({ queryKey: ["devices", device.id] });
+      navigate(`..`, { relative: "path" });
+    },
+  });
 
   // Form submission handler
   const handleSubmit = async () => {
@@ -144,12 +158,19 @@ export const useDeviceForm = () => {
 
     if (!baseValid || !configValid) return;
 
-    const payload = {
-      ...baseFormMethods.getValues(),
-      config: configFormMethods.getValues(),
-    };
-
-    await createMutation.mutateAsync(payload);
+    if (!isCreate && device) {
+      // update
+      await updateMutation.mutateAsync({
+        ...baseFormMethods.getValues(),
+        config: configFormMethods.getValues(),
+        deviceId: device.id,
+      });
+    } else {
+      await createMutation.mutateAsync({
+        ...baseFormMethods.getValues(),
+        config: configFormMethods.getValues(),
+      });
+    }
   };
 
   // Cancel handler
@@ -158,10 +179,19 @@ export const useDeviceForm = () => {
   };
 
   // Calculate submit disabled state
-  const submitDisabled =
-    !(
-      baseFormMethods.formState.isValid && configFormMethods.formState.isValid
-    ) || createMutation.isPending;
+  const isSubmitDisabled = (): boolean => {
+    if (isCreate) {
+      return (
+        !(
+          baseFormMethods.formState.isValid &&
+          configFormMethods.formState.isValid
+        ) || createMutation.isPending
+      );
+    }
+    return !(
+      baseFormMethods.formState.isDirty || configFormMethods.formState.isDirty
+    );
+  };
 
   return {
     // Form methods
@@ -187,6 +217,6 @@ export const useDeviceForm = () => {
     handleCancel,
 
     // Computed states
-    submitDisabled,
+    submitDisabled: isSubmitDisabled(),
   };
 };
