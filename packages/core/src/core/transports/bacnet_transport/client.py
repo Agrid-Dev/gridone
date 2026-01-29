@@ -61,7 +61,8 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
     async def close(self) -> None:
         async with self._connection_lock:
             self._known_devices = {}
-            self._application.close()
+            if hasattr(self, "_application") and self._application:
+                self._application.close()
             await super().close()
 
     async def _discover_devices(self) -> DevicesDict:
