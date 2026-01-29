@@ -28,7 +28,7 @@ export function useDeviceDetails(deviceId: string | undefined) {
         Object.fromEntries(
           Object.entries(device.attributes).map(([name, attribute]) => [
             name,
-            attribute.current_value,
+            attribute.currentValue,
           ]),
         ),
       );
@@ -75,7 +75,7 @@ export function useDeviceDetails(deviceId: string | undefined) {
         ...Object.fromEntries(
           Object.entries(updated.attributes).map(([k, attr]) => [
             k,
-            attr.current_value,
+            attr.currentValue,
           ]),
         ),
       }));

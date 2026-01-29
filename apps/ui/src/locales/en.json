@@ -67,7 +67,23 @@
     "title": "Devices",
     "subtitle": "Connected fleet",
     "unableToLoad": "Unable to load devices",
-    "connectedFleet": "Connected fleet"
+    "connectedFleet": "Connected fleet",
+    "create": {
+      "title": "Create Device",
+      "description": "Add the details for a new device."
+    },
+    "fields": {
+      "driver": "Driver",
+      "driverPlaceholder": "Select a driver",
+      "transport": "Transport",
+      "transportPlaceholder": "Select a transport",
+      "transportDisabled": "Select a driver first",
+      "name": "Name"
+    },
+    "actions": {
+      "create": "Create device"
+    },
+    "saving": "Saving..."
   },
   "deviceDetails": {
     "title": "Device",

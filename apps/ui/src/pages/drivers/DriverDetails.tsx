@@ -40,10 +40,16 @@ const DriverAttributeItem: FC<{ attribute: DriverAttribute }> = ({
     .map((key) => key[0].toUpperCase())
     .join("/");
   return (
-    <li className="flex gap-2 align-baseline justify-start py-1">
-      <TypographyP>{toLabel(attribute.name)}</TypographyP>
-      <Badge variant="secondary">{attribute.dataType}</Badge>
-      <Badge variant="outline">{readWriteSupportLabel}</Badge>
+    <li className="flex gap-2 align-center justify-start pb-1">
+      <div className="w-52">
+        <TypographyP>{toLabel(attribute.name)}</TypographyP>
+      </div>
+      <div className="w-12">
+        <Badge variant="secondary">{attribute.dataType}</Badge>
+      </div>
+      <div className="w-12">
+        <Badge variant="outline">{readWriteSupportLabel}</Badge>
+      </div>
     </li>
   );
 };
