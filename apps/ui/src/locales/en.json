@@ -29,6 +29,7 @@
     "attributes": "attrs",
     "driver": "Driver",
     "device": "Device",
+    "transport": "Transport",
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",
@@ -72,6 +73,9 @@
       "title": "Create Device",
       "description": "Add the details for a new device."
     },
+    "edit": {
+      "title": "Edit device"
+    },
     "fields": {
       "driver": "Driver",
       "driverPlaceholder": "Select a driver",
@@ -81,7 +85,15 @@
       "name": "Name"
     },
     "actions": {
-      "create": "Create device"
+      "create": "Create device",
+      "delete": "Delete",
+      "update": "Update",
+      "deleteDialogTitle": "Confirm deletion",
+      "deleteDialogContent": "Delete device {{name}} ? This action cannot be undone.",
+      "edit": "Edit"
+    },
+    "feedback": {
+      "deleted": "Device deleted"
     },
     "saving": "Saving..."
   },
@@ -96,6 +108,7 @@
   },
   "transports": {
     "title": "Transports",
+    "listTitle": "List of available transports ({{count}})",
     "subtitle": "Integration channels",
     "createTitle": "Create transport",
     "editTitle": "Edit transport",

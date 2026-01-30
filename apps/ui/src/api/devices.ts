@@ -49,6 +49,21 @@ export function createDevice(payload: DeviceCreatePayload): Promise<Device> {
   );
 }
 
+export function updateDevice(
+  deviceId: string,
+  payload: Partial<Device>,
+): Promise<Device> {
+  return request<Device>(
+    `/devices/${deviceId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
+    },
+    { camelCase: true },
+  );
+}
+
 export async function updateDeviceAttribute(
   deviceId: string,
   attributeName: string,
@@ -68,4 +83,10 @@ export async function updateDeviceAttribute(
     },
   );
   return getDevice(deviceId);
+}
+
+export async function deleteDevice(deviceId: string): Promise<void> {
+  return request<void>(`/devices/${deviceId}`, {
+    method: "DELETE",
+  });
 }

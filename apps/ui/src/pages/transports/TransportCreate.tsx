@@ -1,6 +1,5 @@
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-
+import { ResourceHeader } from "@/components/ResourceHeader";
 import TransportForm from "./form";
 
 export default function TransportCreate() {
@@ -8,13 +7,11 @@ export default function TransportCreate() {
 
   return (
     <section className="space-y-6">
-      <Link
-        to="/transports"
-        className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-      >
-        {t("common.back")}
-      </Link>
-
+      <ResourceHeader
+        resourceName={t("transports.title")}
+        title={t("transports.createTitle")}
+        resourceNameLinksBack
+      />
       <TransportForm />
     </section>
   );

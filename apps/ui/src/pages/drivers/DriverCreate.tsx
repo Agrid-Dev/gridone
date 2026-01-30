@@ -1,19 +1,19 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { TypographyEyebrow, TypographyH2 } from "@/components/ui/typography";
 import DriverForm from "./DriverForm";
 import { useDrivers } from "./useDrivers";
+import { ResourceHeader } from "@/components/ResourceHeader";
+
 const DriverCreate: FC = () => {
   const { t } = useTranslation();
   const { handleCreate } = useDrivers();
   return (
     <div>
-      <div className="mb-4">
-        <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-        <div className="mt-1">
-          <TypographyH2>{t("drivers.actions.create")}</TypographyH2>
-        </div>
-      </div>
+      <ResourceHeader
+        resourceName={t("drivers.title")}
+        title={t("drivers.actions.create")}
+        resourceNameLinksBack
+      />
       <DriverForm onSubmit={handleCreate} />
     </div>
   );

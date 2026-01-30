@@ -4,13 +4,7 @@ import {
   useTransportForm,
   useTransportConfigSchemas,
 } from "./useTransportForm";
-import { TypographyH3, TypographyEyebrow } from "@/components/ui/typography";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui";
@@ -48,19 +42,7 @@ const TransportForm: FC<TransportFormProps> = ({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="space-y-1">
-          <TypographyEyebrow>
-            {isCreate ? t("transports.createTitle") : t("transports.editTitle")}
-          </TypographyEyebrow>
-          <TypographyH3>
-            {isCreate
-              ? t("transports.createSubtitle")
-              : t("transports.editSubtitle")}
-          </TypographyH3>
-        </div>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="py-8">
         <form
           onSubmit={onSubmit}
           id="transport-form"

@@ -1,13 +1,11 @@
 import React, { FC } from "react";
 import { useDrivers } from "./useDrivers";
-import { useParams, Link } from "react-router";
+import { useParams } from "react-router";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { useTranslation } from "react-i18next";
 import { type Driver, type DriverAttribute } from "@/api/drivers";
 import {
-  TypographyH2,
-  TypographyEyebrow,
   TypographyH3,
   TypographyP,
   TypographySmall,
@@ -19,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { ErrorBoundary } from "react-error-boundary";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Trash } from "lucide-react";
+import { ResourceHeader } from "@/components/ResourceHeader";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -61,28 +60,25 @@ const DriverDetails: FC<{
   const { t } = useTranslation();
   return (
     <div>
-      <div className="flex justify-between items-end">
-        <div>
-          <Link to="..">
-            <TypographyEyebrow>{t("drivers.title")}</TypographyEyebrow>
-          </Link>
-          <div className="mt-1">
-            <TypographyH2>{driver.id}</TypographyH2>
-          </div>
-        </div>
-        <ConfirmButton
-          variant="destructive"
-          onConfirm={() => {
-            onDelete(driver.id);
-          }}
-          confirmTitle={t("drivers.actions.deleteConfirmTitle")}
-          confirmDetails={t("drivers.actions.deleteConfirmDetails")}
-          icon={<Trash />}
-        >
-          {t("drivers.actions.delete")}
-        </ConfirmButton>
-      </div>
-      <Card className="mt-4 py-4">
+      <ResourceHeader
+        resourceName={t("drivers.title")}
+        title={driver.id}
+        actions={
+          <ConfirmButton
+            variant="destructive"
+            onConfirm={() => {
+              onDelete(driver.id);
+            }}
+            confirmTitle={t("drivers.actions.deleteConfirmTitle")}
+            confirmDetails={t("drivers.actions.deleteConfirmDetails")}
+            icon={<Trash />}
+          >
+            {t("drivers.actions.delete")}
+          </ConfirmButton>
+        }
+        resourceNameLinksBack
+      />
+      <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>
           <div className="flex justify-start gap-16 my-4">

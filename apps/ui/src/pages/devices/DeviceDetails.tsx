@@ -14,7 +14,14 @@ import {
 } from "@/components/ui";
 import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
+import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { getSliderRange } from "@/utils/sliderPresets";
+import { ResourceHeader } from "@/components/ResourceHeader";
+import { ConfirmButton } from "@/components/ConfirmButton";
+import { Trash } from "lucide-react";
+import { toLabel } from "@/lib/textFormat";
+import { NotFoundFallback } from "@/components/fallbacks/NotFound";
+import { ErrorFallback } from "@/components/fallbacks/Error";
 
 export default function DeviceDetails() {
   const { t } = useTranslation();
@@ -30,6 +37,7 @@ export default function DeviceDetails() {
     handleSave,
   } = useDeviceDetails(deviceId);
   const attributes = useMemo(() => device?.attributes ?? {}, [device]);
+  const { handleDelete, isDeleting } = useDeleteDevice();
 
   if (loading) {
     return (
@@ -47,28 +55,40 @@ export default function DeviceDetails() {
     );
   }
 
-  if (error) {
-    return (
-      <section className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-        <Link
-          to="/"
-          className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
-        >
-          {t("common.backToDevices")}
-        </Link>
-      </section>
-    );
-  }
-
   if (!device) {
-    return null;
+    return <NotFoundFallback />;
+  }
+  if (error || !deviceId) {
+    return <ErrorFallback />;
   }
 
   return (
     <section className="space-y-6">
+      <ResourceHeader
+        resourceName={t("devices.title")}
+        title={device.name || device.id || ""}
+        actions={
+          <>
+            <ConfirmButton
+              variant="destructive"
+              onConfirm={() => handleDelete(deviceId)}
+              confirmTitle={t("devices.actions.deleteDialogTitle")}
+              confirmDetails={t("devices.actions.deleteDialogContent", {
+                name: device.name || deviceId,
+              })}
+              icon={<Trash />}
+              disabled={isDeleting}
+            >
+              {t("devices.actions.delete")}
+            </ConfirmButton>
+
+            <Button asChild variant="outline">
+              <Link to="edit">{t("devices.actions.edit")}</Link>
+            </Button>
+          </>
+        }
+        resourceNameLinksBack
+      />
       {feedback && (
         <div
           className={`rounded-lg border p-4 text-sm transition-colors ${
@@ -85,18 +105,26 @@ export default function DeviceDetails() {
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <CardDescription>{t("deviceDetails.title")}</CardDescription>
-              <CardTitle className="mt-1">{device.id}</CardTitle>
+              <CardTitle className="mt-1">{device.name || deviceId}</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.driver")}: {device.driverId}
+                {t("common.driver")}:&nbsp;
+                <Link
+                  to={`/drivers/${device.driverId}`}
+                  className="underline text-primary"
+                >
+                  {device.driverId}
+                </Link>
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("common.transport")}:&nbsp;
+                <Link
+                  to={`/transports/${device.transportId}`}
+                  className="underline text-primary"
+                >
+                  {device.driverId}
+                </Link>
               </p>
             </div>
-            <Link
-              to="/"
-              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {t("common.backToDevices")}
-            </Link>
           </div>
         </CardHeader>
         <CardContent>
@@ -137,9 +165,11 @@ export default function DeviceDetails() {
             return (
               <Card key={name} className="transition-shadow hover:shadow-md">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-base">{name}</CardTitle>
+                      <CardTitle className="text-base">
+                        {toLabel(name)}
+                      </CardTitle>
                       <CardDescription className="mt-0.5">
                         {attribute.dataType}
                       </CardDescription>

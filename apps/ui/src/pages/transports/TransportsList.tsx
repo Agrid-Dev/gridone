@@ -7,13 +7,14 @@ import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TypographyEyebrow,
-  TypographyH2,
   TypographyH3,
   TypographyP,
 } from "@/components/ui/typography";
 import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { ResourceHeader } from "@/components/ResourceHeader";
+import { Plus, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -55,9 +56,6 @@ function TransportCard({ transport }: { transport: Transport }) {
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <TypographyEyebrow>{protocolLabel}</TypographyEyebrow>
-              <div className="mt-1 truncate">
-                <TypographyH3>{transport.name}</TypographyH3>
-              </div>
             </div>
             <span
               className={cn(
@@ -68,12 +66,10 @@ function TransportCard({ transport }: { transport: Transport }) {
               {statusLabel}
             </span>
           </div>
-          <TypographyP>{configSummary}</TypographyP>
+          <TypographyH3>{transport.name}</TypographyH3>
         </CardHeader>
-        <CardContent className="mt-auto">
-          <p className="text-xs font-medium text-slate-500">
-            {t("transports.editAction")}
-          </p>
+        <CardContent>
+          <TypographyP>{configSummary}</TypographyP>
         </CardContent>
       </Card>
     </Link>
@@ -104,26 +100,28 @@ export default function TransportsList() {
 
   return (
     <section className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <TypographyEyebrow>{t("transports.title")}</TypographyEyebrow>
-          <div className="mt-1">
-            <TypographyH2>{t("transports.subtitle")}</TypographyH2>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => refetch()}
-            disabled={isLoading || isFetching}
-          >
-            {isFetching ? t("common.refreshing") : t("common.refresh")}
-          </Button>
-          <Button asChild>
-            <Link to="/transports/new">{t("transports.createAction")}</Link>
-          </Button>
-        </div>
-      </div>
+      <ResourceHeader
+        resourceName={t("transports.title")}
+        title={t("transports.listTitle", { count: transports.length })}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading || isFetching}
+            >
+              <RefreshCw />
+              {isFetching ? t("common.refreshing") : t("common.refresh")}
+            </Button>
+            <Button asChild>
+              <Link to="/transports/new">
+                <Plus />
+                {t("transports.createAction")}
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
       {listError && (
         <Alert variant="destructive">

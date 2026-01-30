@@ -2,17 +2,16 @@ import React from "react";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
-import { TypographyEyebrow, TypographyH3 } from "@/components/ui/typography";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
+import { Device } from "@/api/devices";
 
-const DeviceForm = () => {
+type DeviceFormProps = {
+  device?: Device;
+};
+
+const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
   const {
     baseFormMethods,
     configFormMethods,
@@ -27,7 +26,7 @@ const DeviceForm = () => {
     handleSubmit,
     handleCancel,
     submitDisabled,
-  } = useDeviceForm();
+  } = useDeviceForm(device);
 
   const { t } = useTranslation();
 
@@ -38,13 +37,7 @@ const DeviceForm = () => {
 
   return (
     <Card>
-      <CardHeader>
-        <div className="space-y-1">
-          <TypographyEyebrow>{t("devices.create.title")}</TypographyEyebrow>
-          <TypographyH3>{t("devices.create.description")}</TypographyH3>
-        </div>
-      </CardHeader>
-      <CardContent>
+      <CardContent className="my-8">
         <form
           id="device-form"
           onSubmit={onSubmit}
@@ -115,7 +108,11 @@ const DeviceForm = () => {
           {t("common.cancel")}
         </Button>
         <Button type="submit" form="device-form" disabled={submitDisabled}>
-          {isPending ? t("devices.saving") : t("devices.actions.create")}
+          {isPending
+            ? t("devices.saving")
+            : device
+              ? t("devices.actions.update")
+              : t("devices.actions.create")}
         </Button>
       </CardFooter>
     </Card>
