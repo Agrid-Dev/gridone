@@ -39,7 +39,7 @@ class TestGetDriver:
         driver_id = "test_driver"
         response = client.get(f"/{driver_id}")
         assert response.status_code == 200
-        driver = response.json()
+        driver = response.json()["data"]
         assert driver["id"] == driver_id
         assert driver["transport"] == TransportProtocols.HTTP
 
@@ -104,7 +104,8 @@ class TestCreateDriver:
         assert response.status_code == 201
         post_create_get_response = client.get(f"/{driver_id}")
         assert post_create_get_response.status_code == 200
-        assert post_create_get_response.json()["id"] == driver_id
+        driver = response.json()["data"]
+        assert driver["id"] == driver_id
 
     def test_rejects_if_exists(self, client: TestClient, valid_create_payload: dict):
         payload = valid_create_payload.copy()

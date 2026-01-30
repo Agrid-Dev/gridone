@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Literal
 
 from .device import AttributeListener, Device
 from .driver import Driver
@@ -93,3 +94,16 @@ class DevicesManager:
     def _attach_listeners(self, device: Device) -> None:
         for listener in self._attribute_listeners:
             device.add_update_listener(listener)
+
+    def can_delete(self, model: Literal["driver", "transport"], model_id: str) -> bool:
+        if model == "driver":
+            return not any(
+                device.driver.metadata.id == model_id
+                for device in self.devices.values()
+            )
+        if model == "transport":
+            return not any(
+                device.transport.metadata.id == model_id
+                for device in self.devices.values()
+            )
+        return True
