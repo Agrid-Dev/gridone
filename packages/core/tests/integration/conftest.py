@@ -1,3 +1,4 @@
+import contextlib
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -6,6 +7,7 @@ from typing import Literal
 import docker
 import pytest
 import yaml
+from docker.errors import NotFound
 
 thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.2.4"
 mosquitto_image = "eclipse-mosquitto:2.0"
@@ -72,7 +74,8 @@ def thermocktat_container_http() -> Generator[str]:
         yield f"http://localhost:{HTTP_PORT}"
     finally:
         if container is not None:
-            container.stop()
+            with contextlib.suppress(NotFound):
+                container.stop()
         Path(config_path).unlink()
 
 
@@ -101,7 +104,8 @@ def thermocktat_container_mqtt() -> Generator[str]:
         yield config["device_id"]
     finally:
         if container is not None:
-            container.stop()
+            with contextlib.suppress(NotFound):
+                container.stop()
         Path(config_path).unlink()
 
 
@@ -128,5 +132,6 @@ def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
         yield ("localhost", MODBUS_PORT)
     finally:
         if container is not None:
-            container.stop()
+            with contextlib.suppress(NotFound):
+                container.stop()
         Path(config_path).unlink()
