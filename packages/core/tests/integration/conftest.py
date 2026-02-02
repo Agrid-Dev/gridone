@@ -7,7 +7,7 @@ import docker
 import pytest
 import yaml
 
-thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.2.1"
+thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.2.4"
 mosquitto_image = "eclipse-mosquitto:2.0"
 
 thermocktat_initial_state = {
@@ -20,9 +20,10 @@ thermocktat_initial_state = {
     "fan_speed": "auto",
 }
 
-type ControllerKey = Literal["http", "mqtt"]
+type ControllerKey = Literal["http", "mqtt", "modbus"]
 
 HTTP_PORT = 8081
+MODBUS_PORT = 1502
 DEVICE_ID = "test-thermocktat"
 
 
@@ -35,6 +36,12 @@ def build_config(controller: ControllerKey) -> dict:
             "qos": 0,
             "retain_snapshot": True,
             "publish_interval": "1s",
+        },
+        "modbus": {
+            "enabled": True,
+            "addr": f"0.0.0.0:{MODBUS_PORT}",
+            "unit_id": 4,
+            "sync_interval": "1s",
         },
     }
     return {
@@ -92,6 +99,33 @@ def thermocktat_container_mqtt() -> Generator[str]:
             extra_hosts={"host.docker.internal": "host-gateway"},
         )
         yield config["device_id"]
+    finally:
+        if container is not None:
+            container.stop()
+        Path(config_path).unlink()
+
+
+@pytest.fixture(scope="module")
+def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
+    """Start a thermocktat container with Modbus TCP enabled.
+    Yields (host, port) for connecting to the modbus server.
+    """
+    client = docker.from_env()
+    config = build_config("modbus")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config, f)
+        config_path = f.name
+    container = None
+    try:
+        container = client.containers.run(
+            thermocktat_image,
+            command="-config /config.yaml",
+            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
+            ports={"1502/tcp": MODBUS_PORT},
+            detach=True,
+            remove=True,
+        )
+        yield ("localhost", MODBUS_PORT)
     finally:
         if container is not None:
             container.stop()
