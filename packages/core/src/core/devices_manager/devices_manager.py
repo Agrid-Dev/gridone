@@ -14,7 +14,8 @@ class DevicesManager:
     devices: dict[str, Device]
     drivers: dict[str, Driver]
     transports: dict[str, TransportClient]
-    _tasks_registry: TasksRegistry
+    _polling_tasks: TasksRegistry
+    _discovery_tasks: TasksRegistry
     _running: bool
     _attribute_listeners: list[AttributeListener]
 
@@ -29,7 +30,8 @@ class DevicesManager:
         self.devices = devices
         self.drivers = drivers
         self.transports = transports
-        self._tasks_registry = TasksRegistry()
+        self._polling_tasks = TasksRegistry()
+        self._discovery_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
         if self._attribute_listeners:
@@ -40,14 +42,14 @@ class DevicesManager:
         for device in self.devices.values():
             if device.driver.update_strategy.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
-                self._tasks_registry.add(
+                self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
         self._running = True
 
     async def stop_polling(self) -> None:
         self._running = False
-        await self._tasks_registry.shutdown()
+        await self._polling_tasks.shutdown()
 
     async def _device_poll_loop(self, device: Device) -> None:
         poll_interval = device.driver.update_strategy.polling_interval
@@ -67,9 +69,7 @@ class DevicesManager:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
             )
-            self._tasks_registry.add(
-                ("poll", device.id), self._device_poll_loop(device)
-            )
+            self._polling_tasks.add(("poll", device.id), self._device_poll_loop(device))
 
         logger.info("Successfully loaded and registered device '%s'", device.id)
 
@@ -89,4 +89,4 @@ class DevicesManager:
 
     @property
     def task_count(self) -> int:
-        return len(self._tasks_registry)
+        return len(self._polling_tasks) + len(self._discovery_tasks)

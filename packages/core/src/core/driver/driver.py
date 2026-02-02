@@ -32,6 +32,12 @@ class Driver:
     def name(self) -> str:
         return self.metadata.name
 
+    @property
+    def discovery_listener(self) -> DiscoveryListener | None:
+        if self.discovery_schema:
+            return DiscoveryListener.from_dict(self.discovery_schema)
+        return None
+
     async def discover(
         self,
         transport: PushTransportClient,
