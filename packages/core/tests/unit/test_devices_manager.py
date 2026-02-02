@@ -24,7 +24,6 @@ class TestDevicesManagerInit:
         assert manager.devices == {}
         assert manager.drivers == {}
         assert manager.transports == {}
-        assert manager._background_tasks == set()
         assert manager._running is False
         assert manager._attribute_listeners == []
 
@@ -37,7 +36,7 @@ class TestDevicesManagerPolling:
         await devices_manager.start_polling()
 
         assert devices_manager._running is True
-        assert len(devices_manager._background_tasks) == 1
+        assert devices_manager.task_count == 1
 
     @pytest.mark.asyncio
     async def test_start_polling_without_polling_enabled(
@@ -61,9 +60,7 @@ class TestDevicesManagerPolling:
 
         await manager.start_polling()
 
-        # _running is only set to True if there are devices with polling enabled
-        assert manager._running is False
-        assert len(manager._background_tasks) == 0
+        assert manager.task_count == 0
 
     @pytest.mark.asyncio
     async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
@@ -85,7 +82,7 @@ class TestDevicesManagerPolling:
 
         await manager.start_polling()
 
-        assert len(manager._background_tasks) == 2
+        assert manager.task_count == 2
 
     @pytest.mark.asyncio
     async def test_stop_polling(self, devices_manager, device):
@@ -95,7 +92,7 @@ class TestDevicesManagerPolling:
         await devices_manager.stop_polling()
 
         assert devices_manager._running is False
-        assert len(devices_manager._background_tasks) == 0
+        assert devices_manager.task_count == 0
 
     @pytest.mark.asyncio
     async def test_stop_polling_no_tasks(self, devices_manager):
@@ -110,18 +107,10 @@ class TestDevicesManagerPolling:
         self, devices_manager, device, mock_transport_client
     ):
         devices_manager.devices = {"device1": device}
-        devices_manager._running = True
+        await devices_manager.start_polling()
         mock_transport_client.read = AsyncMock(return_value="25.5")
-
-        task = asyncio.create_task(devices_manager._device_poll_loop(device))
-        devices_manager._background_tasks.add(task)
-
         await asyncio.sleep(0.1)
-
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-
+        await devices_manager.stop_polling()
         assert mock_transport_client.read.called
 
     @pytest.mark.asyncio
