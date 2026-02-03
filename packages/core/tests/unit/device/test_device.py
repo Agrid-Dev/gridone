@@ -4,7 +4,7 @@ import pytest
 from core import Driver, TransportClient
 from core.device import Device, DeviceBase
 
-from .fixtures.transport_clients import MockTransportAddress
+from ..fixtures.transport_clients import MockTransportAddress
 
 
 @pytest.fixture

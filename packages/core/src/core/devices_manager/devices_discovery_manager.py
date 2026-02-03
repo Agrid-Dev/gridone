@@ -2,6 +2,7 @@ import hashlib
 from collections.abc import Callable
 from typing import Any
 
+from core.device import Device, DeviceBase
 from core.driver import DiscoveryListener, Driver
 from core.transports import PushTransportClient, TransportClient
 from core.types import DeviceConfig
@@ -11,11 +12,12 @@ def _hash_config(device_config: DeviceConfig) -> str:
     return hashlib.sha256(str(device_config).encode("utf-8")).hexdigest()
 
 
-type DiscoveryCallback = Callable[[DeviceConfig], None]
+type DiscoveryCallback = Callable[[Device], None]
 
 
 class DiscoveryHandler:
     discovery_listener: DiscoveryListener
+    driver: Driver
     transport: PushTransportClient
     on_discover: DiscoveryCallback
     _transport_listener_id: str | None
@@ -34,6 +36,7 @@ class DiscoveryHandler:
         if not discovery_listener:
             msg = f"Driver {driver.metadata.id} does not support discovery"
             raise TypeError(msg)
+        self.driver = driver
         self.discovery_listener = discovery_listener
         self.on_discover = on_discover
         self._transport_listener_id = None
@@ -47,7 +50,11 @@ class DiscoveryHandler:
             config_hash = _hash_config(device_config)
             if config_hash in seen:
                 return
-            self.on_discover(device_config)
+            device_base = DeviceBase(id=Device.gen_id(), name="", config=device_config)
+            device = Device.from_base(
+                device_base, transport=self.transport, driver=self.driver
+            )
+            self.on_discover(device)
             seen.add(config_hash)
 
         self._transport_listener_id = await self.transport.register_listener(

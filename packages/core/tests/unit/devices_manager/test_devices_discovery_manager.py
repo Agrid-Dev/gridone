@@ -4,13 +4,17 @@ from core.devices_manager.devices_discovery_manager import DevicesDiscoveryManag
 
 
 class FnCallSpy:
-    calls: int
+    call_args: list[Device]
 
     def __init__(self) -> None:
-        self.calls = 0
+        self.call_args = []
 
-    def call(self, device: Device):  # noqa: ARG002
-        self.calls += 1
+    def call(self, device: Device):
+        self.call_args.append(device)
+
+    @property
+    def call_count(self) -> int:
+        return len(self.call_args)
 
 
 @pytest.fixture
@@ -52,7 +56,7 @@ async def test_fires_callback_on_discover(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
-    assert on_discover_spy.calls == 1
+    assert on_discover_spy.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -69,7 +73,7 @@ async def test_fires_only_once_for_same_payload(
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22 + i}},
         )
 
-    assert on_discover_spy.calls == 1
+    assert on_discover_spy.call_count == 1
 
 
 @pytest.mark.asyncio
@@ -94,4 +98,23 @@ async def test_callback_not_fired_after_unregister(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
-    assert on_discover_spy.calls == 0
+    assert on_discover_spy.call_count == 0
+
+
+@pytest.mark.asyncio
+async def tests_callback_called_with_actual_device(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy
+):
+    ddm = DevicesDiscoveryManager()
+    await ddm.register_discovery(
+        driver_w_push_transport, mock_push_transport_client, on_discover_spy.call
+    )
+    await mock_push_transport_client.simulate_event(
+        "/xx",
+        {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+    )
+    assert on_discover_spy.call_count == 1
+    device = on_discover_spy.call_args[0]
+    assert isinstance(device, Device)
+    assert isinstance(device.id, str)
+    assert device.config == {"vendor_id": "abc", "gateway_id": "gtw"}
