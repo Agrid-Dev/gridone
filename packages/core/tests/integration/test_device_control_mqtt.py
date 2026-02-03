@@ -1,37 +1,5 @@
-from pathlib import Path
-
 import pytest
-import yaml
-from core import Driver
 from core.device import Device, DeviceBase
-from core.transports import (
-    TransportClient,
-    TransportMetadata,
-    make_transport_client,
-    make_transport_config,
-)
-from core.types import TransportProtocols
-from dto.driver_dto import DriverDTO, dto_to_core
-
-
-@pytest.fixture
-def thermocktat_mqtt_driver() -> Driver:
-    fixture_path = Path(__file__).parent / "fixtures" / "thermockat_mqtt_driver.yaml"
-    with fixture_path.open("r") as file:
-        driver_data = yaml.safe_load(file)
-    dto = DriverDTO.model_validate(driver_data)
-    return dto_to_core(dto)
-
-
-@pytest.fixture
-def mqtt_transport() -> TransportClient:
-    return make_transport_client(
-        TransportProtocols.MQTT,
-        make_transport_config(
-            TransportProtocols.MQTT, {"host": "localhost", "port": 1883}
-        ),
-        TransportMetadata(id="my-transport", name="my-transport"),
-    )
 
 
 @pytest.fixture
