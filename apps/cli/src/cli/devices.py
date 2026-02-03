@@ -3,6 +3,7 @@ Command group for devices.
 """
 
 import asyncio
+from typing import Annotated
 
 import typer
 from core.devices_manager import DevicesManager
@@ -151,3 +152,62 @@ async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
 def watch(ctx: typer.Context, device_id: str) -> None:
     """Continuously monitor device attributes."""
     asyncio.run(_watch_device(ctx.obj["repository"], device_id))
+
+
+async def _discover(
+    repository: CoreFileStorage, driver_id: str, transport_id: str
+) -> None:
+    dm = init_devices_manager(
+        repository.devices.read_all(),
+        repository.drivers.read_all(),
+        repository.transports.read_all(),
+    )
+    if driver_id not in dm.drivers:
+        msg = f"Driver {driver_id} does not exist"
+        raise ValueError(msg)
+    if transport_id not in dm.transports:
+        msg = f"Transport {transport_id} does not exist"
+        raise ValueError(msg)
+    device_ids = {d.id for d in dm.devices.values()}
+    await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+
+    console.print("Starting device discovery (press Ctrl+C to quit)")
+
+    await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+    try:
+        with Live(auto_refresh=False):
+            while True:
+                new_device_ids = {d.id for d in dm.devices.values()} - device_ids
+                if new_device_ids:
+                    for new_device_id in new_device_ids:
+                        device = dm.devices[new_device_id]
+                        console.print(
+                            "New device discovered: "
+                            f"[bold green]{device.id}[/bold green]"
+                            f" with config {device.config}"
+                        )
+                    device_ids.update(new_device_ids)
+                await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        console.print("\n👋 Discovery stopped")
+
+
+@app.command(help="Listen for new devices for a driver on a push transport client.")
+def discover(
+    ctx: typer.Context,
+    driver_id: Annotated[
+        str,
+        typer.Option(
+            "-d", "--driver_id", help="Id of the driver. Driver must support discovery."
+        ),
+    ],
+    transport_id: Annotated[
+        str,
+        typer.Option(
+            "-t",
+            "--transport_id",
+            help="Id of the transport to listen on. Must be a push transport.",
+        ),
+    ],
+) -> None:
+    asyncio.run(_discover(ctx.obj["repository"], driver_id, transport_id))
