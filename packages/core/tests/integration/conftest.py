@@ -34,7 +34,7 @@ def build_config(controller: ControllerKey) -> dict:
         "http": {"enabled": True, "addr": ":8080"},
         "mqtt": {
             "enabled": True,
-            "broker_url": "tcp://host.docker.internal:1883",
+            "addr": "tcp://host.docker.internal:1883",
             "qos": 0,
             "retain_snapshot": True,
             "publish_interval": "1s",
