@@ -33,6 +33,10 @@ class Driver:
         return self.metadata.name
 
     @property
+    def id(self) -> str:
+        return self.metadata.id
+
+    @property
     def discovery_listener(self) -> DiscoveryListener | None:
         if self.discovery_schema:
             return DiscoveryListener.from_dict(self.discovery_schema)

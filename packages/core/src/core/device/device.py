@@ -235,3 +235,13 @@ class Device(DeviceBase):
     def gen_id() -> str:
         """Generate an id for a new device"""
         return str(uuid.uuid4())[:8]
+
+    def __eq__(self, other: "Device") -> bool:
+        return (
+            (self.transport.id == other.transport.id)
+            & (self.driver.metadata.id == other.driver.metadata.id)
+            & (self.config == other.config)
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.transport.id, self.driver.metadata.id, self.config))

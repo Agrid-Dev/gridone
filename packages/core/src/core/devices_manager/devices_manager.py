@@ -5,6 +5,7 @@ from core.device import AttributeListener, Device
 from core.driver import Driver
 from core.transports import TransportClient
 
+from .devices_discovery_manager import DevicesDiscoveryManager
 from .tasks_registry import TasksRegistry
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ class DevicesManager:
     drivers: dict[str, Driver]
     transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
-    _discovery_tasks: TasksRegistry
+    _discovery_manager: DevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
 
@@ -31,7 +32,7 @@ class DevicesManager:
         self.drivers = drivers
         self.transports = transports
         self._polling_tasks = TasksRegistry()
-        self._discovery_tasks = TasksRegistry()
+        self._discovery_manager = DevicesDiscoveryManager()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
         if self._attribute_listeners:
@@ -88,5 +89,26 @@ class DevicesManager:
             device.add_update_listener(listener)
 
     @property
-    def task_count(self) -> int:
-        return len(self._polling_tasks) + len(self._discovery_tasks)
+    def poll_count(self) -> int:
+        return len(self._polling_tasks)
+
+    async def register_discovery(self, *, driver_id: str, transport_id: str) -> None:
+        try:
+            driver = self.drivers[driver_id]
+            transport = self.transports[transport_id]
+        except KeyError as ke:
+            msg = f"Driver or transport not found: {ke}"
+            raise ValueError(msg) from ke
+
+        def device_exists(device: Device) -> bool:
+            return any(d == device for d in self.devices.values())
+
+        def on_discover(device: Device) -> None:
+            logger.info("Discovered device %s", device.id)
+            if not device_exists(device):
+                self.add_device(device)
+
+        await self._discovery_manager.register_discovery(driver, transport, on_discover)
+
+    async def unregister_discovery(self, *, driver_id: str, transport_id: str) -> None:
+        await self._discovery_manager.unregister_discovery(driver_id, transport_id)

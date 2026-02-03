@@ -158,3 +158,46 @@ class TestDevicesListeners:
             "/xx/temperature", {"payload": {"temperature": 25}}
         )
         assert device_w_push_transport.attributes["temperature"].current_value == 25
+
+
+class TestDeviceEquality:
+    def test_device_equals_to_itself(self, device: Device):
+        assert device == device  # noqa: PLR0124
+
+    def test_device_equals_same_configs(self, mock_transport_client, driver):
+        base_1 = DeviceBase(
+            id="xxx",
+            name="My device",
+            config={"some_id": "abcd"},
+        )
+        base_2 = DeviceBase(
+            id="xxx",
+            name="My device",
+            config={"some_id": "abcd"},
+        )
+        device_1 = Device.from_base(
+            base_1, driver=driver, transport=mock_transport_client
+        )
+        device_2 = Device.from_base(
+            base_2, driver=driver, transport=mock_transport_client
+        )
+        assert device_1 == device_2
+
+    def test_device_not_equals_different_configs(self, mock_transport_client, driver):
+        base_1 = DeviceBase(
+            id="xxx",
+            name="My device",
+            config={"some_id": "abcd"},
+        )
+        base_2 = DeviceBase(
+            id="xxx",
+            name="My device",
+            config={"some_id": "xyz"},
+        )
+        device_1 = Device.from_base(
+            base_1, driver=driver, transport=mock_transport_client
+        )
+        device_2 = Device.from_base(
+            base_2, driver=driver, transport=mock_transport_client
+        )
+        assert device_1 != device_2

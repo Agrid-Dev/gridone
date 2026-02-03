@@ -36,7 +36,7 @@ class TestDevicesManagerPolling:
         await devices_manager.start_polling()
 
         assert devices_manager._running is True
-        assert devices_manager.task_count == 1
+        assert devices_manager.poll_count == 1
 
     @pytest.mark.asyncio
     async def test_start_polling_without_polling_enabled(
@@ -60,7 +60,7 @@ class TestDevicesManagerPolling:
 
         await manager.start_polling()
 
-        assert manager.task_count == 0
+        assert manager.poll_count == 0
 
     @pytest.mark.asyncio
     async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
@@ -82,7 +82,7 @@ class TestDevicesManagerPolling:
 
         await manager.start_polling()
 
-        assert manager.task_count == 2
+        assert manager.poll_count == 2
 
     @pytest.mark.asyncio
     async def test_stop_polling(self, devices_manager, device):
@@ -92,7 +92,7 @@ class TestDevicesManagerPolling:
         await devices_manager.stop_polling()
 
         assert devices_manager._running is False
-        assert devices_manager.task_count == 0
+        assert devices_manager.poll_count == 0
 
     @pytest.mark.asyncio
     async def test_stop_polling_no_tasks(self, devices_manager):
@@ -152,3 +152,80 @@ class TestDevicesManagerListeners:
         device._update_attribute(device.attributes["temperature_setpoint"], 22)
 
         assert callback_called
+
+
+class TestDevicesManagerDiscovery:
+    @pytest.mark.asyncio
+    async def test_devices_manager_adds_device_on_discovery(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        assert len(dm.devices) == 1
+        device = dm.devices[next(iter(dm.devices.keys()))]
+        assert device.config["vendor_id"] == "abc"
+        assert device.config["gateway_id"] == "gtw"
+        # add only once
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        assert len(dm.devices) == 1
+
+    @pytest.mark.asyncio
+    async def test_devices_manager_does_not_add_existing_device_on_discovery(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        config = {
+            "vendor_id": "abc",
+            "gateway_id": "gtw",
+        }
+        device = Device.from_base(
+            DeviceBase(id="xyz", name="My device", config=config),
+            driver=driver_w_push_transport,
+            transport=mock_push_transport_client,
+        )
+        dm = DevicesManager(
+            devices={device.id: device},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        assert len(dm.devices) == 1
+        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        assert len(dm.devices) == 1
+
+    @pytest.mark.asyncio
+    async def test_devices_manager_does_not_add_device_if_discovery_unregistered(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+
+        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+        await dm.unregister_discovery(driver_id=driver_id, transport_id=transport_id)
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        assert len(dm.devices) == 0
