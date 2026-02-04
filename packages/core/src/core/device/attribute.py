@@ -2,8 +2,8 @@ from datetime import UTC, datetime
 
 from pydantic import BaseModel, model_validator
 
-from .types import AttributeValueType, DataType, ReadWriteMode
-from .utils.cast import cast
+from core.types import AttributeValueType, DataType, ReadWriteMode
+from core.utils.cast import cast
 
 
 class Attribute(BaseModel):

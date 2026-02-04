@@ -1,21 +1,22 @@
 import asyncio
 import logging
 
-from .device import AttributeListener, Device
-from .driver import Driver
-from .transports import TransportClient
+from core.device import AttributeListener, Device
+from core.driver import Driver
+from core.transports import TransportClient
+
+from .devices_discovery_manager import DevicesDiscoveryManager
+from .tasks_registry import TasksRegistry
 
 logger = logging.getLogger(__name__)
-
-
-POLL_INTERVAL = 10
 
 
 class DevicesManager:
     devices: dict[str, Device]
     drivers: dict[str, Driver]
     transports: dict[str, TransportClient]
-    _background_tasks: set[asyncio.Task]
+    _polling_tasks: TasksRegistry
+    _discovery_manager: DevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
 
@@ -30,7 +31,8 @@ class DevicesManager:
         self.devices = devices
         self.drivers = drivers
         self.transports = transports
-        self._background_tasks = set()
+        self._polling_tasks = TasksRegistry()
+        self._discovery_manager = DevicesDiscoveryManager()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
         if self._attribute_listeners:
@@ -41,20 +43,14 @@ class DevicesManager:
         for device in self.devices.values():
             if device.driver.update_strategy.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
-                task = asyncio.create_task(self._device_poll_loop(device))
-                self._background_tasks.add(task)
-                task.add_done_callback(self._background_tasks.discard)
-                self._running = True
+                self._polling_tasks.add(
+                    ("poll", device.id), self._device_poll_loop(device)
+                )
+        self._running = True
 
     async def stop_polling(self) -> None:
         self._running = False
-        tasks = list(self._background_tasks)
-        for task in tasks:
-            logger.debug("Stopping task %s", task)
-            task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        self._background_tasks.clear()
+        await self._polling_tasks.shutdown()
 
     async def _device_poll_loop(self, device: Device) -> None:
         poll_interval = device.driver.update_strategy.polling_interval
@@ -74,9 +70,7 @@ class DevicesManager:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
             )
-            task = asyncio.create_task(self._device_poll_loop(device))
-            self._background_tasks.add(task)
-            task.add_done_callback(self._background_tasks.discard)
+            self._polling_tasks.add(("poll", device.id), self._device_poll_loop(device))
 
         logger.info("Successfully loaded and registered device '%s'", device.id)
 
@@ -93,3 +87,28 @@ class DevicesManager:
     def _attach_listeners(self, device: Device) -> None:
         for listener in self._attribute_listeners:
             device.add_update_listener(listener)
+
+    @property
+    def poll_count(self) -> int:
+        return len(self._polling_tasks)
+
+    async def register_discovery(self, *, driver_id: str, transport_id: str) -> None:
+        try:
+            driver = self.drivers[driver_id]
+            transport = self.transports[transport_id]
+        except KeyError as ke:
+            msg = f"Driver or transport not found: {ke}"
+            raise ValueError(msg) from ke
+
+        def device_exists(device: Device) -> bool:
+            return any(d == device for d in self.devices.values())
+
+        def on_discover(device: Device) -> None:
+            logger.info("Discovered device %s", device.id)
+            if not device_exists(device):
+                self.add_device(device)
+
+        await self._discovery_manager.register_discovery(driver, transport, on_discover)
+
+    async def unregister_discovery(self, *, driver_id: str, transport_id: str) -> None:
+        await self._discovery_manager.unregister_discovery(driver_id, transport_id)

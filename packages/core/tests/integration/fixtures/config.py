@@ -1,0 +1,4 @@
+MQTT_PORT = 1883
+HTTP_PORT = 8081
+MODBUS_PORT = 1502
+TMK_DEVICE_ID = "test-thermocktat"

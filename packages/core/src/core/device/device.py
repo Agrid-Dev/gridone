@@ -1,15 +1,17 @@
 import asyncio
 import inspect
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from core.driver import Driver
 from core.transports import PushTransportClient, TransportClient
-from core.types import AttributeValueType, DeviceConfig
+from core.types import AttributeValueType
 from core.utils.templating.render import render_struct
 
 from .attribute import Attribute
-from .driver import Driver
+from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +20,6 @@ AttributeListener = Callable[["Device", str, Attribute], Awaitable[None] | None]
 
 class ConfirmationError(ValueError):
     pass
-
-
-@dataclass
-class DeviceBase:
-    id: str
-    name: str
-    config: DeviceConfig
 
 
 @dataclass
@@ -235,3 +230,18 @@ class Device(DeviceBase):
                 logger.exception(
                     "Device listener failed for %s.%s", self.id, attribute_name
                 )
+
+    @staticmethod
+    def gen_id() -> str:
+        """Generate an id for a new device"""
+        return str(uuid.uuid4())[:8]
+
+    def __eq__(self, other: "Device") -> bool:
+        return (
+            (self.transport.id == other.transport.id)
+            & (self.driver.metadata.id == other.driver.metadata.id)
+            & (self.config == other.config)
+        )
+
+    def __hash__(self) -> int:
+        return hash((self.transport.id, self.driver.metadata.id, self.config))

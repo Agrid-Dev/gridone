@@ -1,8 +1,4 @@
-from pathlib import Path
-
 import pytest
-import yaml
-from core import Driver
 from core.device import Device, DeviceBase
 from core.transports import (
     TransportMetadata,
@@ -10,25 +6,15 @@ from core.transports import (
     make_transport_config,
 )
 from core.types import TransportProtocols
-from dto.driver_dto import DriverDTO, dto_to_core
 
-from .conftest import DEVICE_ID
-
-
-@pytest.fixture
-def thermocktat_modbus_driver() -> Driver:
-    fixture_path = Path(__file__).parent / "fixtures" / "thermocktat_modbus_driver.yaml"
-    with fixture_path.open("r") as file:
-        driver_data = yaml.safe_load(file)
-    dto = DriverDTO.model_validate(driver_data)
-    return dto_to_core(dto)
+from .fixtures.config import TMK_DEVICE_ID
 
 
 @pytest.fixture
 def device(thermocktat_container_modbus, thermocktat_modbus_driver) -> Device:
     host, port = thermocktat_container_modbus
     base = DeviceBase(
-        id=DEVICE_ID,
+        id=TMK_DEVICE_ID,
         name="My thermocktat",
         config={"device_id": 4},
     )

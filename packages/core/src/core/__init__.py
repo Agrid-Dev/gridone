@@ -1,5 +1,4 @@
-from .attribute import Attribute
-from .device import Device
+from .device import Attribute, Device
 from .driver import Driver
 from .transports import TransportClient
 

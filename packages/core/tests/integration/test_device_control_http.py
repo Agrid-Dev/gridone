@@ -1,41 +1,17 @@
-from pathlib import Path
-
 import pytest
-import yaml
-from core import Driver
 from core.device import Device, DeviceBase
-from core.transports import (
-    TransportMetadata,
-    make_transport_client,
-    make_transport_config,
-)
-from core.types import TransportProtocols
-from dto.driver_dto import DriverDTO, dto_to_core
 
-from .conftest import DEVICE_ID, HTTP_PORT
+from .fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
 
 @pytest.fixture
-def thermocktat_http_driver() -> Driver:
-    fixture_path = Path(__file__).parent / "fixtures" / "thermockat_http_driver.yaml"
-    with fixture_path.open("r") as file:
-        driver_data = yaml.safe_load(file)
-    dto = DriverDTO.model_validate(driver_data)
-    return dto_to_core(dto)
-
-
-@pytest.fixture
-def device(thermocktat_http_driver) -> Device:
+def device(thermocktat_http_driver, http_transport) -> Device:
     base = DeviceBase(
-        id=DEVICE_ID,
+        id=TMK_DEVICE_ID,
         name="My thermocktat",
         config={"ip": f"http://localhost:{HTTP_PORT}"},
     )
-    http_transport = make_transport_client(
-        TransportProtocols.HTTP,
-        make_transport_config(TransportProtocols.HTTP, None),
-        TransportMetadata(id="my-transport", name="my-transport"),
-    )
+
     return Device.from_base(
         base, transport=http_transport, driver=thermocktat_http_driver
     )
