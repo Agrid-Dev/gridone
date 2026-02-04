@@ -5,7 +5,7 @@ from core.device import AttributeListener, Device
 from core.driver import Driver
 from core.transports import TransportClient
 
-from .devices_discovery_manager import DevicesDiscoveryManager
+from .devices_discovery_manager import DevicesDiscoveryManager, DiscoveryConfig
 from .tasks_registry import TasksRegistry
 
 logger = logging.getLogger(__name__)
@@ -112,3 +112,10 @@ class DevicesManager:
 
     async def unregister_discovery(self, *, driver_id: str, transport_id: str) -> None:
         await self._discovery_manager.unregister_discovery(driver_id, transport_id)
+
+    def list_discoveries(
+        self, *, driver_id: str | None = None, transport_id: str | None = None
+    ) -> list[DiscoveryConfig]:
+        return self._discovery_manager.list(
+            driver_id=driver_id, transport_id=transport_id
+        )

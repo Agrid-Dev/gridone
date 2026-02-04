@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_device_manager, get_repository
-from api.routes.devices import router
+from api.routes.devices_router import router
 
 
 @pytest.fixture

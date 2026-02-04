@@ -1,6 +1,6 @@
 import hashlib
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypedDict
 
 from core.device import Device, DeviceBase
 from core.driver import DiscoveryListener, Driver
@@ -70,6 +70,11 @@ class DiscoveryHandler:
         )
 
 
+class DiscoveryConfig(TypedDict):
+    driver_id: str
+    transport_id: str
+
+
 class DevicesDiscoveryManager:
     """Discovery manager handles registering listeners
     to Push transport clients to discover new devices.
@@ -86,6 +91,10 @@ class DevicesDiscoveryManager:
 
     def _build_key(self, driver_id: str, transport_id: str) -> tuple[str, str]:
         return (driver_id, transport_id)
+
+    def _unpack_key(self, key: tuple[str, str]) -> DiscoveryConfig:
+        driver_id, transport_id = key
+        return {"driver_id": driver_id, "transport_id": transport_id}
 
     async def register_discovery(
         self,
@@ -105,3 +114,15 @@ class DevicesDiscoveryManager:
         job = self._registry[(driver_id, transport_id)]
         await job.stop()
         del self._registry[key]
+
+    def list(
+        self, *, driver_id: str | None = None, transport_id: str | None = None
+    ) -> list[DiscoveryConfig]:
+        unpacked_keys = [self._unpack_key(key) for key in self._registry]
+
+        def matches_filters(d: DiscoveryConfig) -> bool:
+            return (driver_id is None or d["driver_id"] == driver_id) and (
+                transport_id is None or d["transport_id"] == transport_id
+            )
+
+        return [d for d in unpacked_keys if matches_filters(d)]
