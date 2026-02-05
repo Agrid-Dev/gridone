@@ -122,3 +122,23 @@ export function createTransportDiscovery(
     { camelCase: true },
   );
 }
+
+export function listTransportDiscoveries(
+  transportId: string,
+): Promise<DiscoveryHandler[]> {
+  return request<DiscoveryHandler[]>(
+    `/transports/${encodeURIComponent(transportId)}/discovery/`,
+    undefined,
+    { camelCase: true },
+  );
+}
+
+export function deleteTransportDiscovery(
+  transportId: string,
+  driverId: string,
+): Promise<void> {
+  return request<void>(
+    `/transports/${encodeURIComponent(transportId)}/discovery/${encodeURIComponent(driverId)}`,
+    { method: "DELETE" },
+  );
+}

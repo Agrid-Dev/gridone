@@ -149,6 +149,11 @@
     "deleteFailed": "Impossible de supprimer le transport",
     "deleteConfirm": "Supprimer le transport « {{name}} » ?",
     "discovery": {
+      "title": "Découverte",
+      "description": "Activez ou désactivez la découverte par driver pour ce transport.",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "loadError": "Impossible de charger l’état de la découverte",
       "action": "Chercher les appareils",
       "inProgress": "Recherche en cours...",
       "noDriver": "Aucun driver compatible avec la recherche pour ce transport",

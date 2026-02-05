@@ -1,38 +1,33 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { getDrivers, type Driver } from "@/api/drivers";
 import { isApiError } from "@/api/apiError";
-import { createTransportDiscovery, type Transport } from "@/api/transports";
-import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import {
+  createTransportDiscovery,
+  deleteTransportDiscovery,
+  listTransportDiscoveries,
+  type DiscoveryHandler,
+  type Transport,
+} from "@/api/transports";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 
 type TransportDiscoveryButtonProps = {
   transport: Transport;
   className?: string;
+};
+
+type DiscoveryMutationContext = {
+  previous?: DiscoveryHandler[];
 };
 
 export function TransportDiscoveryButton({
@@ -40,15 +35,24 @@ export function TransportDiscoveryButton({
   className,
 }: TransportDiscoveryButtonProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
-  const [discoverySuccessful, setDiscoverySuccessful] = useState(false);
+  const queryClient = useQueryClient();
+  const [pendingDriverId, setPendingDriverId] = useState<string | null>(null);
+
+  const discoveryQueryKey = useMemo(
+    () => ["transports", transport.id, "discoveries"] as const,
+    [transport.id],
+  );
 
   const driversQuery = useQuery<Driver[]>({
     queryKey: ["drivers"],
     queryFn: getDrivers,
     initialData: [],
+  });
+
+  const discoveriesQuery = useQuery<DiscoveryHandler[]>({
+    queryKey: discoveryQueryKey,
+    queryFn: () => listTransportDiscoveries(transport.id),
+    enabled: !!transport.id,
   });
 
   const eligibleDrivers = useMemo(() => {
@@ -64,173 +68,157 @@ export function TransportDiscoveryButton({
       .sort((a, b) => a.id.localeCompare(b.id));
   }, [driversQuery.data, transport.protocol]);
 
-  const discoveryMutation = useMutation({
+  const activeDriverIds = useMemo(
+    () => new Set((discoveriesQuery.data ?? []).map((d) => d.driverId)),
+    [discoveriesQuery.data],
+  );
+
+  const startDiscoveryMutation = useMutation<
+    DiscoveryHandler,
+    unknown,
+    string,
+    DiscoveryMutationContext
+  >({
     mutationFn: (driverId: string) =>
       createTransportDiscovery(transport.id, driverId),
-    onSuccess: () => {
-      setDiscoverySuccessful(true);
+    onMutate: async (driverId) => {
+      setPendingDriverId(driverId);
+      await queryClient.cancelQueries({ queryKey: discoveryQueryKey });
+      const previous = queryClient.getQueryData<DiscoveryHandler[]>(
+        discoveryQueryKey,
+      );
+      const next = previous?.some((d) => d.driverId === driverId)
+        ? previous
+        : [
+            ...(previous ?? []),
+            { driverId, transportId: transport.id },
+          ];
+      queryClient.setQueryData(discoveryQueryKey, next);
+      return { previous };
     },
-    onError: (error) => {
+    onError: (error, _driverId, context) => {
       const message = isApiError(error)
         ? `${t("errors.default")}: ${error.details || error.message}`
         : error instanceof Error
           ? error.message
           : t("transports.discovery.failed");
       toast.error(message);
-      setIsModalOpen(false);
+      queryClient.setQueryData(discoveryQueryKey, context?.previous ?? []);
+    },
+    onSettled: () => {
+      setPendingDriverId(null);
+      queryClient.invalidateQueries({ queryKey: discoveryQueryKey });
     },
   });
 
-  const handleOpenModal = () => {
-    if (eligibleDrivers.length === 0) {
-      toast.error(t("transports.discovery.noDriver"));
+  const stopDiscoveryMutation = useMutation<
+    void,
+    unknown,
+    string,
+    DiscoveryMutationContext
+  >({
+    mutationFn: (driverId: string) =>
+      deleteTransportDiscovery(transport.id, driverId),
+    onMutate: async (driverId) => {
+      setPendingDriverId(driverId);
+      await queryClient.cancelQueries({ queryKey: discoveryQueryKey });
+      const previous = queryClient.getQueryData<DiscoveryHandler[]>(
+        discoveryQueryKey,
+      );
+      const next = (previous ?? []).filter((d) => d.driverId !== driverId);
+      queryClient.setQueryData(discoveryQueryKey, next);
+      return { previous };
+    },
+    onError: (error, _driverId, context) => {
+      const message = isApiError(error)
+        ? `${t("errors.default")}: ${error.details || error.message}`
+        : error instanceof Error
+          ? error.message
+          : t("transports.discovery.failed");
+      toast.error(message);
+      queryClient.setQueryData(discoveryQueryKey, context?.previous ?? []);
+    },
+    onSettled: () => {
+      setPendingDriverId(null);
+      queryClient.invalidateQueries({ queryKey: discoveryQueryKey });
+    },
+  });
+
+  const isLoading = driversQuery.isLoading || discoveriesQuery.isLoading;
+  const loadError = driversQuery.error ?? discoveriesQuery.error;
+  const loadErrorMessage = loadError
+    ? isApiError(loadError)
+      ? loadError.details || loadError.message
+      : loadError instanceof Error
+        ? loadError.message
+        : t("transports.discovery.loadError")
+    : null;
+
+  const handleToggle = (driverId: string, next: boolean) => {
+    if (next) {
+      startDiscoveryMutation.mutate(driverId);
       return;
     }
-    setSelectedDriverId(eligibleDrivers[0]?.id ?? null);
-    setDiscoverySuccessful(false);
-    setIsModalOpen(true);
+    stopDiscoveryMutation.mutate(driverId);
   };
-
-  const handleStartDiscovery = () => {
-    if (!selectedDriverId) {
-      toast.error(t("transports.discovery.noDriverSelected"));
-      return;
-    }
-    discoveryMutation.mutate(selectedDriverId);
-  };
-
-  const isDisabled = eligibleDrivers.length === 0;
 
   return (
-    <>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span className={className}>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                disabled={isDisabled}
-                onClick={handleOpenModal}
-              >
-                <Search />
-                {t("transports.discovery.action")}
-              </Button>
-            </span>
-          </TooltipTrigger>
-          {isDisabled && (
-            <TooltipContent>
-              <p>{t("transports.discovery.noDriver")}</p>
-            </TooltipContent>
-          )}
-        </Tooltip>
-      </TooltipProvider>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle>{t("transports.discovery.title")}</CardTitle>
+        <CardDescription>{t("transports.discovery.description")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">
+            {t("common.loading")}
+          </p>
+        ) : loadErrorMessage ? (
+          <p className="text-sm text-destructive">{loadErrorMessage}</p>
+        ) : eligibleDrivers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("transports.discovery.noDriver")}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {eligibleDrivers.map((driver) => {
+              const isActive = activeDriverIds.has(driver.id);
+              const isPending =
+                pendingDriverId === driver.id &&
+                (startDiscoveryMutation.isPending ||
+                  stopDiscoveryMutation.isPending);
 
-      <Dialog
-        open={isModalOpen}
-        onOpenChange={(open) => {
-          setIsModalOpen(open);
-          if (!open) {
-            setSelectedDriverId(null);
-            setDiscoverySuccessful(false);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {discoverySuccessful
-                ? t("transports.discovery.modalTitleSuccess")
-                : t("transports.discovery.modalTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {discoverySuccessful
-                ? t("transports.discovery.modalDescriptionSuccess", {
-                    transportName: transport.name || transport.id,
-                    driverId: selectedDriverId ?? "",
-                  })
-                : t("transports.discovery.modalDescription", {
-                    transportName: transport.name || transport.id,
-                  })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {!discoverySuccessful && (
-            <div className="space-y-2">
-              <label htmlFor="driver-select" className="text-sm font-medium">
-                {t("transports.discovery.selectDriver")}
-              </label>
-              <Select
-                value={selectedDriverId ?? undefined}
-                onValueChange={setSelectedDriverId}
-                disabled={discoveryMutation.isPending}
-              >
-                <SelectTrigger id="driver-select">
-                  <SelectValue
-                    placeholder={t("transports.discovery.selectDriverPlaceholder")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {eligibleDrivers.map((driver) => (
-                    <SelectItem key={driver.id} value={driver.id}>
+              return (
+                <div
+                  key={driver.id}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+                >
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium text-foreground">
                       {driver.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <DialogFooter>
-            {discoverySuccessful ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  {t("transports.discovery.stay")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    navigate("/devices");
-                  }}
-                >
-                  {t("transports.discovery.viewDevices")}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={discoveryMutation.isPending}
-                >
-                  {t("common.cancel")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleStartDiscovery}
-                  disabled={!selectedDriverId || discoveryMutation.isPending}
-                >
-                  {discoveryMutation.isPending ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      {t("transports.discovery.inProgress")}
-                    </>
-                  ) : (
-                    t("transports.discovery.start")
-                  )}
-                </Button>
-              </>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {isActive
+                        ? t("transports.discovery.active")
+                        : t("transports.discovery.inactive")}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isPending && (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={(next) => handleToggle(driver.id, next)}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

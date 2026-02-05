@@ -150,6 +150,11 @@
     "deleteFailed": "Unable to delete transport",
     "deleteConfirm": "Delete transport \"{{name}}\"?",
     "discovery": {
+      "title": "Discovery",
+      "description": "Enable or disable discovery per driver for this transport.",
+      "active": "Active",
+      "inactive": "Inactive",
+      "loadError": "Unable to load discovery status",
       "action": "Discover devices",
       "inProgress": "Discovering...",
       "noDriver": "No discovery-capable driver for this transport",

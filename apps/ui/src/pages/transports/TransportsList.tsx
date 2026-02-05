@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, Card, CardContent, CardFooter, CardHeader } from "@/components/ui";
+import { Button, Card, CardContent, CardHeader } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TypographyEyebrow,
@@ -14,7 +14,6 @@ import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { TransportDiscoveryButton } from "@/components/TransportDiscoveryButton";
 import { Plus, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
@@ -77,9 +76,6 @@ function TransportCard({ transport }: TransportCardProps) {
           <TypographyP>{configSummary}</TypographyP>
         </CardContent>
       </Link>
-      <CardFooter className="mt-auto justify-end">
-        <TransportDiscoveryButton transport={transport} />
-      </CardFooter>
     </Card>
   );
 }
