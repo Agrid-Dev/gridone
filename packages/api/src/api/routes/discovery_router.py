@@ -13,6 +13,7 @@ class DiscoveryHandlerCreateDTO(BaseModel):
 
 class DiscoveryHandlerDTO(DiscoveryHandlerCreateDTO):
     transport_id: str
+    enabled: bool
 
 
 router = APIRouter()
@@ -28,9 +29,19 @@ def list_discoveries(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> list[DiscoveryHandlerDTO]:
+    if transport_id not in dm.transports:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transport not found"
+        )
     return [
-        DiscoveryHandlerDTO.model_validate(d)
-        for d in dm.discovery_manager.list(transport_id=transport_id)
+        DiscoveryHandlerDTO(
+            driver_id=driver_id,
+            transport_id=transport_id,
+            enabled=dm.discovery_manager.has(driver_id, transport_id),
+        )
+        for driver_id, driver in dm.drivers.items()
+        if driver.transport == dm.transports[transport_id].protocol
+        and driver.discovery_schema is not None
     ]
 
 
@@ -56,7 +67,9 @@ async def create_discovery(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(te)
         )
-    return DiscoveryHandlerDTO(driver_id=payload.driver_id, transport_id=transport_id)
+    return DiscoveryHandlerDTO(
+        driver_id=payload.driver_id, transport_id=transport_id, enabled=True
+    )
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
