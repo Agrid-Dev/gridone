@@ -166,7 +166,9 @@ class TestDevicesManagerDiscovery:
             drivers={driver_id: driver_w_push_transport},
             transports={transport_id: mock_push_transport_client},
         )
-        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
         await mock_push_transport_client.simulate_event(
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
@@ -203,7 +205,9 @@ class TestDevicesManagerDiscovery:
             transports={transport_id: mock_push_transport_client},
         )
         assert len(dm.devices) == 1
-        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
         await mock_push_transport_client.simulate_event(
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
@@ -222,8 +226,12 @@ class TestDevicesManagerDiscovery:
             transports={transport_id: mock_push_transport_client},
         )
 
-        await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
-        await dm.unregister_discovery(driver_id=driver_id, transport_id=transport_id)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+        await dm.discovery_manager.unregister(
+            driver_id=driver_id, transport_id=transport_id
+        )
         await mock_push_transport_client.simulate_event(
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},

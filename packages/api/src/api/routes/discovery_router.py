@@ -30,7 +30,7 @@ def list_discoveries(
 ) -> list[DiscoveryHandlerDTO]:
     return [
         DiscoveryHandlerDTO.model_validate(d)
-        for d in dm.list_discoveries(transport_id=transport_id)
+        for d in dm.discovery_manager.list(transport_id=transport_id)
     ]
 
 
@@ -49,7 +49,7 @@ async def create_discovery(
             status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found"
         )
     try:
-        await dm.register_discovery(
+        await dm.discovery_manager.register(
             driver_id=payload.driver_id, transport_id=transport_id
         )
     except TypeError as te:
@@ -66,7 +66,9 @@ async def delete_discovery(
     driver_id: str,
 ):
     try:
-        await dm.unregister_discovery(driver_id=driver_id, transport_id=transport_id)
+        await dm.discovery_manager.unregister(
+            driver_id=driver_id, transport_id=transport_id
+        )
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found"
