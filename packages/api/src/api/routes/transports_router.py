@@ -18,7 +18,13 @@ from storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 
+from .discovery_router import router as discovery_router
+
 router = APIRouter()
+
+router.include_router(
+    discovery_router, prefix="/{transport_id}/discovery", tags=["discovery"]
+)
 
 
 def _get_client(dm: DevicesManager, transport_id: str) -> TransportClient:

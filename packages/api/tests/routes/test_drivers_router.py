@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_device_manager, get_repository
-from api.routes.drivers import router
+from api.routes.drivers_router import router
 
 
 @pytest.fixture

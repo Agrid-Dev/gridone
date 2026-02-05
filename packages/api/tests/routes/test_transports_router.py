@@ -1,11 +1,12 @@
 import pytest
-from api.dependencies import get_device_manager, get_repository
-from api.routes.transports import router
 from core.devices_manager import DevicesManager
+from core.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from core.types import TransportProtocols
+
+from api.dependencies import get_device_manager, get_repository
+from api.routes.transports_router import router
 
 
 @pytest.fixture

@@ -9,7 +9,7 @@ from dto.init_devices_manager import init_devices_manager
 from fastapi import FastAPI
 from storage import CoreFileStorage
 
-from api.routes import devices, drivers, transports
+from api.routes import devices_router, drivers_router, transports_router
 from api.routes import websocket as websocket_routes
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
@@ -68,9 +68,9 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         logging.config.dictConfig(logging_dict_config)
     app = FastAPI(title="Gridone API", lifespan=lifespan)
 
-    app.include_router(devices.router, prefix="/devices", tags=["devices"])
-    app.include_router(transports.router, prefix="/transports", tags=["transports"])
-    app.include_router(drivers.router, prefix="/drivers", tags=["drivers"])
+    app.include_router(devices_router, prefix="/devices", tags=["devices"])
+    app.include_router(transports_router, prefix="/transports", tags=["transports"])
+    app.include_router(drivers_router, prefix="/drivers", tags=["drivers"])
     app.include_router(websocket_routes.router, tags=["websocket"])
 
     return app

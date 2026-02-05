@@ -33,6 +33,9 @@ def mock_transports() -> dict[str, TransportClient]:
         config=MqttTransportConfig(host="localhost"),
     )
 
+    async def mqtt_connect_stub():
+        pass
+
     return {tc.metadata.id: tc for tc in [http_transport, mqtt_transport]}
 
 
@@ -74,6 +77,12 @@ def mock_drivers(attributes: list[AttributeDriver]) -> dict[str, Driver]:
             device_config_required=[DeviceConfigField(name="some_id")],
             update_strategy=UpdateStrategy(polling_enabled=False),
             attributes={},
+            discovery_schema={
+                "topic": "thermocktat/#",
+                "field_getters": [
+                    {"name": "device_id", "adapters": [{"json_pointer": "/device_id"}]}
+                ],
+            },
         ),
     ]
     return {driver.metadata.id: driver for driver in drivers}
