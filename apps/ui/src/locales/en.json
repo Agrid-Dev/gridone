@@ -149,6 +149,22 @@
     "updateSuccess": "Transport updated successfully.",
     "deleteFailed": "Unable to delete transport",
     "deleteConfirm": "Delete transport \"{{name}}\"?",
+    "discovery": {
+      "action": "Discover devices",
+      "inProgress": "Discovering...",
+      "noDriver": "No discovery-capable driver for this transport",
+      "noDriverSelected": "Please select a driver",
+      "failed": "Discovery failed",
+      "modalTitle": "Start device discovery",
+      "modalDescription": "Select a driver to discover devices on {{transportName}}.",
+      "modalTitleSuccess": "Discovery started",
+      "modalDescriptionSuccess": "Discovery has started for {{transportName}} (driver: {{driverId}}). You can now go to the devices list.",
+      "selectDriver": "Driver",
+      "selectDriverPlaceholder": "Select a driver",
+      "start": "Start discovery",
+      "viewDevices": "Go to devices",
+      "stay": "Stay on transports"
+    },
     "status": {
       "connected": "Connected",
       "connecting": "Connecting",

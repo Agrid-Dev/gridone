@@ -32,6 +32,7 @@ export type Driver = {
     required: boolean;
   }[];
   attributes: DriverAttribute[];
+  discovery?: Record<string, unknown> | null;
 };
 
 export function getDrivers(): Promise<Driver[]> {

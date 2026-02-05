@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button, Card, CardContent, CardHeader } from "@/components/ui";
+import { Button, Card, CardContent, CardFooter, CardHeader } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TypographyEyebrow,
@@ -14,6 +14,7 @@ import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { TransportDiscoveryButton } from "@/components/TransportDiscoveryButton";
 import { Plus, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
@@ -26,7 +27,11 @@ const statusStyles: Record<string, string> = {
   unknown: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
-function TransportCard({ transport }: { transport: Transport }) {
+type TransportCardProps = {
+  transport: Transport;
+};
+
+function TransportCard({ transport }: TransportCardProps) {
   const { t } = useTranslation();
   const status = transport.connectionState?.status ?? "unknown";
   const statusLabel = t(`transports.status.${status}`, {
@@ -47,11 +52,11 @@ function TransportCard({ transport }: { transport: Transport }) {
   }, [transport.config, t]);
 
   return (
-    <Link
-      to={`/transports/${transport.id}`}
-      className="block h-full no-underline"
-    >
-      <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
+    <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
+      <Link
+        to={`/transports/${transport.id}`}
+        className="block no-underline"
+      >
         <CardHeader className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -68,11 +73,14 @@ function TransportCard({ transport }: { transport: Transport }) {
           </div>
           <TypographyH3>{transport.name}</TypographyH3>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <TypographyP>{configSummary}</TypographyP>
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+      <CardFooter className="mt-auto justify-end">
+        <TransportDiscoveryButton transport={transport} />
+      </CardFooter>
+    </Card>
   );
 }
 

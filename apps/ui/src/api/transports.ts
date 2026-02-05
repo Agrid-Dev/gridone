@@ -56,6 +56,11 @@ export type TransportCreatePayload = {
 
 export type TransportUpdatePayload = Omit<TransportCreatePayload, "protocol">;
 
+export type DiscoveryHandler = {
+  driverId: string;
+  transportId: string;
+};
+
 export async function deleteTransport(transportId: string): Promise<void> {
   const response = await fetch(
     `${API_BASE_URL}/transports/${encodeURIComponent(transportId)}`,
@@ -101,4 +106,19 @@ export function updateTransport(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
   });
+}
+
+export function createTransportDiscovery(
+  transportId: string,
+  driverId: string,
+): Promise<DiscoveryHandler> {
+  return request<DiscoveryHandler>(
+    `/transports/${encodeURIComponent(transportId)}/discovery/`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snakecaseKeys({ driverId })),
+    },
+    { camelCase: true },
+  );
 }
