@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import logging
 from collections.abc import Callable
@@ -6,7 +7,7 @@ from typing import Any
 from core.device import Device, DeviceBase
 from core.driver import DiscoveryListener, Driver
 from core.transports import PushTransportClient, TransportClient
-from core.types import DeviceConfig
+from core.types import AttributeValueType, DeviceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,16 @@ class DiscoveryHandler:
         self.on_discover = on_discover
         self._transport_listener_id = None
 
+    def try_parsing_attributes(self, payload: Any) -> dict[str, AttributeValueType]:  # noqa: ANN401
+        attributes = {}
+
+        for attribute_name, attribute_driver in self.driver.attributes.items():
+            with contextlib.suppress(Exception):
+                value = attribute_driver.value_adapter.decode(payload)
+                if value is not None:
+                    attributes[attribute_name] = value
+        return attributes
+
     async def start(self) -> None:
         seen: set[str] = set()
 
@@ -54,9 +65,14 @@ class DiscoveryHandler:
             if config_hash in seen:
                 return
             device_base = DeviceBase(id=Device.gen_id(), name="", config=device_config)
+            initial_attribute_values = self.try_parsing_attributes(payload)
             device = Device.from_base(
-                device_base, transport=self.transport, driver=self.driver
+                device_base,
+                transport=self.transport,
+                driver=self.driver,
+                initial_values=initial_attribute_values,
             )
+
             self.on_discover(device)
             seen.add(config_hash)
 

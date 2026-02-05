@@ -54,11 +54,12 @@ class Attribute(BaseModel):
         name: str,
         data_type: DataType,
         read_write_modes: set[ReadWriteMode],
+        value: AttributeValueType | None = None,
     ) -> "Attribute":
         return cls(
             name=name,
             data_type=data_type,
             read_write_modes=read_write_modes,
-            current_value=None,
-            last_updated=None,
+            current_value=value,
+            last_updated=datetime.now(UTC) if value is not None else None,
         )

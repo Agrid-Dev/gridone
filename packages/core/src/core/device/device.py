@@ -44,7 +44,12 @@ class Device(DeviceBase):
 
     @classmethod
     def from_base(
-        cls, base: DeviceBase, *, transport: TransportClient, driver: Driver
+        cls,
+        base: DeviceBase,
+        *,
+        transport: TransportClient,
+        driver: Driver,
+        initial_values: dict[str, AttributeValueType] | None = None,
     ) -> "Device":
         return cls(
             id=base.id,
@@ -57,6 +62,7 @@ class Device(DeviceBase):
                     a.name,
                     a.data_type,
                     {"read", "write"} if a.write is not None else {"read"},
+                    (initial_values or {}).get(a.name),
                 )
                 for a in driver.attributes.values()
             },

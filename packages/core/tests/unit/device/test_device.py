@@ -63,6 +63,20 @@ class TestDeviceCreation:
         assert device.id == "d1"
         assert len(device.attributes) == len(driver.attributes)
 
+    def test_initialize_attributes(self, driver, mock_transport_client):
+        base = DeviceBase(
+            id="d1",
+            name="My pull device",
+            config={"some_id": "abcd"},
+        )
+        device = Device.from_base(
+            base,
+            driver=driver,
+            transport=mock_transport_client,
+            initial_values={"temperature": 20},
+        )
+        assert device.get_attribute_value("temperature") == 20
+
 
 class TestDeviceRead:
     @pytest.mark.asyncio

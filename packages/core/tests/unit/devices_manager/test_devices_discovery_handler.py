@@ -105,3 +105,21 @@ async def tests_callback_called_with_actual_device(
     assert isinstance(device, Device)
     assert isinstance(device.id, str)
     assert device.config == {"vendor_id": "abc", "gateway_id": "gtw"}
+
+
+@pytest.mark.asyncio
+async def tests_initializes_attributes_if_present_in_payload(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy
+):
+    dh = DiscoveryHandler(
+        driver_w_push_transport, mock_push_transport_client, on_discover_spy.call
+    )
+    await dh.start()
+    await mock_push_transport_client.simulate_event(
+        "/xx",
+        {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+    )
+    assert on_discover_spy.call_count == 1
+    device: Device = on_discover_spy.call_args[0]
+    assert isinstance(device, Device)
+    assert device.get_attribute_value("temperature") == 22
