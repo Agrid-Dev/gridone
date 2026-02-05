@@ -59,6 +59,7 @@ export type TransportUpdatePayload = Omit<TransportCreatePayload, "protocol">;
 export type DiscoveryHandler = {
   driverId: string;
   transportId: string;
+  enabled: boolean;
 };
 
 export async function deleteTransport(transportId: string): Promise<void> {

@@ -168,7 +168,8 @@
       "selectDriverPlaceholder": "Select a driver",
       "start": "Start discovery",
       "viewDevices": "Go to devices",
-      "stay": "Stay on transports"
+      "stay": "Stay on transports",
+      "protocolNotSupported": "This protocol does not support automatic device discovery."
     },
     "status": {
       "connected": "Connected",

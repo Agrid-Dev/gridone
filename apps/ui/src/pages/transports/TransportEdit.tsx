@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import TransportForm from "./form";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { TransportDiscoveryButton } from "@/components/TransportDiscoveryButton";
+import TransportDiscoveryButton from "@/components/TransportDiscoveryButton";
 
 function TransportEdit() {
   const { t } = useTranslation();

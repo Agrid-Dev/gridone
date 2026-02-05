@@ -1,9 +1,8 @@
-import { useMemo, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { getDrivers, type Driver } from "@/api/drivers";
 import { isApiError } from "@/api/apiError";
 import {
   createTransportDiscovery,
@@ -20,19 +19,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { TypographyP } from "./ui/typography";
 
 type TransportDiscoveryButtonProps = {
   transport: Transport;
-  className?: string;
 };
 
 type DiscoveryMutationContext = {
   previous?: DiscoveryHandler[];
 };
 
-export function TransportDiscoveryButton({
+function TransportDiscoveryButton({
   transport,
-  className,
 }: TransportDiscoveryButtonProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -43,35 +41,11 @@ export function TransportDiscoveryButton({
     [transport.id],
   );
 
-  const driversQuery = useQuery<Driver[]>({
-    queryKey: ["drivers"],
-    queryFn: getDrivers,
-    initialData: [],
-  });
-
   const discoveriesQuery = useQuery<DiscoveryHandler[]>({
     queryKey: discoveryQueryKey,
     queryFn: () => listTransportDiscoveries(transport.id),
     enabled: !!transport.id,
   });
-
-  const eligibleDrivers = useMemo(() => {
-    const drivers = driversQuery.data ?? [];
-    const hasDiscoveryField = drivers.some(
-      (driver) => typeof driver.discovery !== "undefined",
-    );
-    const filtered = hasDiscoveryField
-      ? drivers.filter((driver) => Boolean(driver.discovery))
-      : drivers;
-    return filtered
-      .filter((driver) => driver.transport === transport.protocol)
-      .sort((a, b) => a.id.localeCompare(b.id));
-  }, [driversQuery.data, transport.protocol]);
-
-  const activeDriverIds = useMemo(
-    () => new Set((discoveriesQuery.data ?? []).map((d) => d.driverId)),
-    [discoveriesQuery.data],
-  );
 
   const startDiscoveryMutation = useMutation<
     DiscoveryHandler,
@@ -84,15 +58,11 @@ export function TransportDiscoveryButton({
     onMutate: async (driverId) => {
       setPendingDriverId(driverId);
       await queryClient.cancelQueries({ queryKey: discoveryQueryKey });
-      const previous = queryClient.getQueryData<DiscoveryHandler[]>(
-        discoveryQueryKey,
-      );
+      const previous =
+        queryClient.getQueryData<DiscoveryHandler[]>(discoveryQueryKey);
       const next = previous?.some((d) => d.driverId === driverId)
         ? previous
-        : [
-            ...(previous ?? []),
-            { driverId, transportId: transport.id },
-          ];
+        : [...(previous ?? []), { driverId, transportId: transport.id }];
       queryClient.setQueryData(discoveryQueryKey, next);
       return { previous };
     },
@@ -122,9 +92,8 @@ export function TransportDiscoveryButton({
     onMutate: async (driverId) => {
       setPendingDriverId(driverId);
       await queryClient.cancelQueries({ queryKey: discoveryQueryKey });
-      const previous = queryClient.getQueryData<DiscoveryHandler[]>(
-        discoveryQueryKey,
-      );
+      const previous =
+        queryClient.getQueryData<DiscoveryHandler[]>(discoveryQueryKey);
       const next = (previous ?? []).filter((d) => d.driverId !== driverId);
       queryClient.setQueryData(discoveryQueryKey, next);
       return { previous };
@@ -144,8 +113,8 @@ export function TransportDiscoveryButton({
     },
   });
 
-  const isLoading = driversQuery.isLoading || discoveriesQuery.isLoading;
-  const loadError = driversQuery.error ?? discoveriesQuery.error;
+  const isLoading = discoveriesQuery.isLoading;
+  const loadError = discoveriesQuery.error;
   const loadErrorMessage = loadError
     ? isApiError(loadError)
       ? loadError.details || loadError.message
@@ -161,64 +130,95 @@ export function TransportDiscoveryButton({
     }
     stopDiscoveryMutation.mutate(driverId);
   };
+  const discoveryHandlers = discoveriesQuery.data;
+  if (!discoveryHandlers) {
+    return null;
+  }
 
+  return (
+    <>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : loadErrorMessage ? (
+        <p className="text-sm text-destructive">{loadErrorMessage}</p>
+      ) : discoveryHandlers.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {t("transports.discovery.noDriver")}
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {discoveryHandlers.map((handler) => {
+            const isActive = handler.enabled;
+            const isPending =
+              pendingDriverId === handler.driverId &&
+              (startDiscoveryMutation.isPending ||
+                stopDiscoveryMutation.isPending);
+
+            return (
+              <div
+                key={handler.driverId}
+                className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {handler.driverId}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isActive
+                      ? t("transports.discovery.active")
+                      : t("transports.discovery.inactive")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isPending && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={(next) =>
+                      handleToggle(handler.driverId, next)
+                    }
+                    disabled={isPending}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+const DiscoveryNotSupported: FC = () => {
+  const { t } = useTranslation();
+  return (
+    <TypographyP>{t("transports.discovery.protocolNotSupported")}</TypographyP>
+  );
+};
+
+const TransportDiscoverButtonWrapper: FC<
+  TransportDiscoveryButtonProps & { className?: string }
+> = ({ transport, className }) => {
+  const { t } = useTranslation();
+  const supportsDiscovery = transport.protocol === "mqtt";
   return (
     <Card className={className}>
       <CardHeader>
         <CardTitle>{t("transports.discovery.title")}</CardTitle>
-        <CardDescription>{t("transports.discovery.description")}</CardDescription>
+        <CardDescription>
+          {t("transports.discovery.description")}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">
-            {t("common.loading")}
-          </p>
-        ) : loadErrorMessage ? (
-          <p className="text-sm text-destructive">{loadErrorMessage}</p>
-        ) : eligibleDrivers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t("transports.discovery.noDriver")}
-          </p>
+        {supportsDiscovery ? (
+          <TransportDiscoveryButton transport={transport} />
         ) : (
-          <div className="space-y-3">
-            {eligibleDrivers.map((driver) => {
-              const isActive = activeDriverIds.has(driver.id);
-              const isPending =
-                pendingDriverId === driver.id &&
-                (startDiscoveryMutation.isPending ||
-                  stopDiscoveryMutation.isPending);
-
-              return (
-                <div
-                  key={driver.id}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2"
-                >
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium text-foreground">
-                      {driver.id}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {isActive
-                        ? t("transports.discovery.active")
-                        : t("transports.discovery.inactive")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isPending && (
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                    <Switch
-                      checked={isActive}
-                      onCheckedChange={(next) => handleToggle(driver.id, next)}
-                      disabled={isPending}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DiscoveryNotSupported />
         )}
       </CardContent>
     </Card>
   );
-}
+};
+
+export default TransportDiscoverButtonWrapper;

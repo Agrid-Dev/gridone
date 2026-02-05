@@ -167,7 +167,8 @@
       "selectDriverPlaceholder": "Sélectionnez un driver",
       "start": "Démarrer la recherche",
       "viewDevices": "Aller aux appareils",
-      "stay": "Rester sur les transports"
+      "stay": "Rester sur les transports",
+      "protocolNotSupported": "Ce protocole ne supporte pas la découverte automatique d'appareils."
     },
     "status": {
       "connected": "Connecté",

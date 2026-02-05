@@ -52,10 +52,7 @@ function TransportCard({ transport }: TransportCardProps) {
 
   return (
     <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
-      <Link
-        to={`/transports/${transport.id}`}
-        className="block no-underline"
-      >
+      <Link to={`/transports/${transport.id}`} className="block no-underline">
         <CardHeader className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
