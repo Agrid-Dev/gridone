@@ -169,11 +169,11 @@ async def _discover(
         msg = f"Transport {transport_id} does not exist"
         raise ValueError(msg)
     device_ids = {d.id for d in dm.devices.values()}
-    await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
 
     console.print("Starting device discovery (press Ctrl+C to quit)")
 
-    await dm.register_discovery(driver_id=driver_id, transport_id=transport_id)
+    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
     try:
         with Live(auto_refresh=False):
             while True:

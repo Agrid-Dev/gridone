@@ -36,44 +36,35 @@ def async_client(app):
 
 
 class TestListDiscoveries:
-    def test_list_discoveries_empty(self, client: TestClient, app: FastAPI):
-        app.dependency_overrides[get_transport_id] = lambda: "my-transport"
+    def test_list_discoveries_transport_not_found(
+        self, client: TestClient, app: FastAPI
+    ):
+        app.dependency_overrides[get_transport_id] = lambda: "unknown-transport"
+        response = client.get("/")
+        assert response.status_code == 404
+
+    def test_list_discoveries_disabled(self, client: TestClient, app: FastAPI):
+        app.dependency_overrides[get_transport_id] = lambda: "my-mqtt"
         response = client.get("/")
         assert response.status_code == 200
-        assert response.json() == []
+        result = response.json()
+        assert len(result) == 1
+        assert not result[0]["enabled"]
 
-    def test_list_discoveries(
+    def test_list_discoveries_enabled(
         self, devices_manager: DevicesManager, client: TestClient, app: FastAPI
     ):
-        app.dependency_overrides[get_transport_id] = lambda: "transport_1"
+        app.dependency_overrides[get_transport_id] = lambda: "my-mqtt"
         dm_list = [
-            {"driver_id": "driver_1", "transport_id": "transport_1"},
-            {"driver_id": "driver_2", "transport_id": "transport_1"},
+            {"driver_id": "test_push_driver", "transport_id": "my-mqtt"},
         ]
 
-        devices_manager.list_discoveries = MagicMock(return_value=dm_list)  # type: ignore[invalid-assignment]
+        devices_manager.discovery_manager.list = MagicMock(return_value=dm_list)  # type: ignore[invalid-assignment]
+        devices_manager.discovery_manager.has = MagicMock(return_value=True)  # type: ignore[invalid-assignment]
         response = client.get("/")
         assert response.status_code == 200
-        assert response.json() == dm_list
-
-    def test_list_discoveries_only_include_current_transport(
-        self, devices_manager: DevicesManager, client: TestClient, app: FastAPI
-    ):
-        transport_id = "transport_1"
-        app.dependency_overrides[get_transport_id] = lambda: transport_id
-        dm_list = [
-            {"driver_id": "driver_1", "transport_id": transport_id},
-            {"driver_id": "driver_2", "transport_id": transport_id},
-            {"driver_id": "driver_1", "transport_id": "other"},
-            {"driver_id": "driver_2", "transport_id": "other"},
-        ]
-
-        spy = MagicMock(return_value=dm_list)
-        devices_manager.list_discoveries = spy  # type: ignore[invalid-assignment]
-        response = client.get("/")
-        spy.assert_called_with(transport_id=transport_id)
-
-        assert response.status_code == 200
+        result = response.json()
+        assert result[0]["enabled"]
 
 
 class TestCreateDiscovery:
@@ -84,7 +75,7 @@ class TestCreateDiscovery:
         app.dependency_overrides[get_transport_id] = lambda: "my-mqtt"
         response = await async_client.post("/", json={"driver_id": "unknown"})
         assert response.status_code == 404
-        assert len(devices_manager.list_discoveries()) == 0
+        assert len(devices_manager.discovery_manager.list()) == 0
 
     @pytest.mark.asyncio
     async def test_create_fails_transport_not_found(
@@ -93,7 +84,7 @@ class TestCreateDiscovery:
         app.dependency_overrides[get_transport_id] = lambda: "unknown"
         response = await async_client.post("/", json={"driver_id": "test_push_driver"})
         assert response.status_code == 404
-        assert len(devices_manager.list_discoveries()) == 0
+        assert len(devices_manager.discovery_manager.list()) == 0
 
     @pytest.mark.asyncio
     async def test_create_fails_not_a_push_transport(
@@ -102,7 +93,7 @@ class TestCreateDiscovery:
         app.dependency_overrides[get_transport_id] = lambda: "my-http"
         response = await async_client.post("/", json={"driver_id": "test_push_driver"})
         assert response.status_code == 422
-        assert len(devices_manager.list_discoveries()) == 0
+        assert len(devices_manager.discovery_manager.list()) == 0
 
     @pytest.mark.asyncio
     async def test_create_fails_driver_does_not_support_discovery(
@@ -111,7 +102,7 @@ class TestCreateDiscovery:
         app.dependency_overrides[get_transport_id] = lambda: "my-mqtt"
         response = await async_client.post("/", json={"driver_id": "test_driver"})
         assert response.status_code == 422
-        assert len(devices_manager.list_discoveries()) == 0
+        assert len(devices_manager.discovery_manager.list()) == 0
 
     @pytest.mark.asyncio
     async def test_create_success(
@@ -124,11 +115,11 @@ class TestCreateDiscovery:
         async def mock_register_discovery(driver_id, transport_id):
             return {"driver_id": driver_id, "transport_id": transport_id}
 
-        devices_manager.register_discovery = MagicMock(  # ty: ignore[invalid-assignment]
+        devices_manager.discovery_manager.register = MagicMock(  # ty: ignore[invalid-assignment]
             side_effect=mock_register_discovery
         )
         response = await async_client.post("/", json={"driver_id": driver_id})
-        devices_manager.register_discovery.assert_called_with(  # ty: ignore[unresolved-attribute]
+        devices_manager.discovery_manager.register.assert_called_with(  # ty: ignore[unresolved-attribute]
             driver_id=driver_id, transport_id=transport_id
         )
         assert response.status_code == 201
@@ -156,11 +147,11 @@ class TestDeleteDiscovery:
         async def mock_unregister_discovery(driver_id, transport_id):
             return None
 
-        devices_manager.unregister_discovery = MagicMock(  # ty: ignore[invalid-assignment]
+        devices_manager.discovery_manager.unregister = MagicMock(  # ty: ignore[invalid-assignment]
             side_effect=mock_unregister_discovery
         )
         response = await async_client.delete(f"/{driver_id}")
         assert response.status_code == 204
-        devices_manager.unregister_discovery.assert_called_with(  # ty: ignore[unresolved-attribute]
+        devices_manager.discovery_manager.unregister.assert_called_with(  # ty: ignore[unresolved-attribute]
             driver_id=driver_id, transport_id=transport_id
         )

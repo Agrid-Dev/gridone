@@ -1,11 +1,14 @@
 import hashlib
+import logging
 from collections.abc import Callable
-from typing import Any, TypedDict
+from typing import Any
 
 from core.device import Device, DeviceBase
 from core.driver import DiscoveryListener, Driver
 from core.transports import PushTransportClient, TransportClient
 from core.types import DeviceConfig
+
+logger = logging.getLogger(__name__)
 
 
 def _hash_config(device_config: DeviceConfig) -> str:
@@ -68,61 +71,3 @@ class DiscoveryHandler:
         await self.transport.unregister_listener(
             self._transport_listener_id, self.discovery_listener.topic
         )
-
-
-class DiscoveryConfig(TypedDict):
-    driver_id: str
-    transport_id: str
-
-
-class DevicesDiscoveryManager:
-    """Discovery manager handles registering listeners
-    to Push transport clients to discover new devices.
-    When discovering a new device, it fires a callback supplied
-    by its client (devices manager).
-    Only one discovery is supported per driver/transport pair."""
-
-    _registry: dict[
-        tuple[str, str], DiscoveryHandler
-    ]  # keys: (driver_id, transport_id)
-
-    def __init__(self) -> None:
-        self._registry = {}
-
-    def _build_key(self, driver_id: str, transport_id: str) -> tuple[str, str]:
-        return (driver_id, transport_id)
-
-    def _unpack_key(self, key: tuple[str, str]) -> DiscoveryConfig:
-        driver_id, transport_id = key
-        return {"driver_id": driver_id, "transport_id": transport_id}
-
-    async def register_discovery(
-        self,
-        driver: Driver,
-        transport: TransportClient,
-        on_discover: DiscoveryCallback,
-    ) -> None:
-        """Registers a new DiscoveryHandler for the driver/transport pair.
-        Only one discovery is supported per driver/transport pair."""
-        job = DiscoveryHandler(driver, transport, on_discover)
-        await job.start()
-        key = self._build_key(driver.metadata.id, transport.id)
-        self._registry[key] = job
-
-    async def unregister_discovery(self, driver_id: str, transport_id: str) -> None:
-        key = self._build_key(driver_id, transport_id)
-        job = self._registry[(driver_id, transport_id)]
-        await job.stop()
-        del self._registry[key]
-
-    def list(
-        self, *, driver_id: str | None = None, transport_id: str | None = None
-    ) -> list[DiscoveryConfig]:
-        unpacked_keys = [self._unpack_key(key) for key in self._registry]
-
-        def matches_filters(d: DiscoveryConfig) -> bool:
-            return (driver_id is None or d["driver_id"] == driver_id) and (
-                transport_id is None or d["transport_id"] == transport_id
-            )
-
-        return [d for d in unpacked_keys if matches_filters(d)]
