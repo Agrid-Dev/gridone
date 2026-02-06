@@ -10,3 +10,9 @@ export {
 export { Input } from "./input";
 export { Switch } from "./switch";
 export { Slider } from "./slider";
+export {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "./tooltip";

@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import TransportForm from "./form";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import TransportDiscoveryButton from "@/components/TransportDiscoveryButton";
 
 function TransportEdit() {
   const { t } = useTranslation();
@@ -45,7 +46,12 @@ function TransportEdit() {
     return null;
   }
 
-  return <TransportForm transport={transport} />;
+  return (
+    <>
+      <TransportForm transport={transport} />
+      <TransportDiscoveryButton transport={transport} />
+    </>
+  );
 }
 
 export default function TransportEditWrapper() {

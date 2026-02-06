@@ -26,7 +26,11 @@ const statusStyles: Record<string, string> = {
   unknown: "bg-slate-100 text-slate-600 border-slate-200",
 };
 
-function TransportCard({ transport }: { transport: Transport }) {
+type TransportCardProps = {
+  transport: Transport;
+};
+
+function TransportCard({ transport }: TransportCardProps) {
   const { t } = useTranslation();
   const status = transport.connectionState?.status ?? "unknown";
   const statusLabel = t(`transports.status.${status}`, {
@@ -47,11 +51,8 @@ function TransportCard({ transport }: { transport: Transport }) {
   }, [transport.config, t]);
 
   return (
-    <Link
-      to={`/transports/${transport.id}`}
-      className="block h-full no-underline"
-    >
-      <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
+    <Card className="flex h-full flex-col transition-shadow hover:shadow-md">
+      <Link to={`/transports/${transport.id}`} className="block no-underline">
         <CardHeader className="space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -68,11 +69,11 @@ function TransportCard({ transport }: { transport: Transport }) {
           </div>
           <TypographyH3>{transport.name}</TypographyH3>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1">
           <TypographyP>{configSummary}</TypographyP>
         </CardContent>
-      </Card>
-    </Link>
+      </Link>
+    </Card>
   );
 }
 
