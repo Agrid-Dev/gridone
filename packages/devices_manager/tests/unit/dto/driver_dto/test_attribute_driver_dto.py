@@ -1,9 +1,9 @@
 import pytest
-from devices_manager.types import DataType
-from dto.driver_dto.attribute_driver_dto import (
+from devices_manager.dto.driver_dto.attribute_driver_dto import (
     AttributeDriverDTO,
     RawTransportAddress,
 )
+from devices_manager.types import DataType
 
 
 def test_attribute_schema_from_dict() -> None:

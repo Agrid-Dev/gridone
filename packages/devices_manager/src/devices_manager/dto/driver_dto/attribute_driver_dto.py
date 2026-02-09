@@ -1,5 +1,7 @@
 from typing import Annotated, Any
 
+from pydantic import BaseModel, Field, model_validator
+
 from devices_manager.driver import AttributeDriver
 from devices_manager.transports import RawTransportAddress
 from devices_manager.types import DataType
@@ -7,7 +9,6 @@ from devices_manager.value_adapters.factory import (
     ValueAdapterSpec,
     supported_value_adapters,
 )
-from pydantic import BaseModel, Field, model_validator
 
 
 class AttributeDriverDTO(BaseModel):

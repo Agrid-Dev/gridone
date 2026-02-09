@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from devices_manager.types import AttributeValueType
-from dto.device_dto import DeviceDTO
+from devices_manager.dto.device_dto import DeviceDTO
 from pydantic import BaseModel, Field
 
 

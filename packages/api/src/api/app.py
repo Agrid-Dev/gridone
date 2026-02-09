@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from devices_manager.device import Attribute, Device
-from dto.init_devices_manager import init_devices_manager
+from devices_manager.dto.init_devices_manager import init_devices_manager
 from fastapi import FastAPI
 from storage import CoreFileStorage
 

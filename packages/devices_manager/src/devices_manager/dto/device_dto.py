@@ -1,8 +1,9 @@
 from typing import Annotated
 
+from pydantic import BaseModel, Field
+
 from devices_manager import Attribute, Device
 from devices_manager.device import DeviceBase
-from pydantic import BaseModel, Field
 
 
 class DeviceCreateDTO(BaseModel):

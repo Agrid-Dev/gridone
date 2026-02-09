@@ -1,7 +1,12 @@
 from typing import Annotated
 
 from devices_manager.devices_manager import DevicesManager
-from dto.driver_dto import DriverDTO, DriverYamlDTO, core_to_dto, dto_to_core
+from devices_manager.dto.driver_dto import (
+    DriverDTO,
+    DriverYamlDTO,
+    core_to_dto,
+    dto_to_core,
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 from storage import CoreFileStorage
 

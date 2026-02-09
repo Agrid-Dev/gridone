@@ -5,7 +5,12 @@ from devices_manager.device import ConfirmationError, Device, DeviceBase
 from devices_manager.devices_manager import DevicesManager
 from devices_manager.driver import DeviceConfigField
 from devices_manager.types import AttributeValueType
-from dto.device_dto import DeviceCreateDTO, DeviceDTO, DeviceUpdateDTO, core_to_dto
+from devices_manager.dto.device_dto import (
+    DeviceCreateDTO,
+    DeviceDTO,
+    DeviceUpdateDTO,
+    core_to_dto,
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from storage import CoreFileStorage

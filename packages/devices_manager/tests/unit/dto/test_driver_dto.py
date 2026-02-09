@@ -1,5 +1,5 @@
 import pytest
-from dto.driver_dto import DriverDTO
+from devices_manager.dto.driver_dto import DriverDTO
 
 
 @pytest.fixture

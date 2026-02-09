@@ -1,5 +1,7 @@
 from typing import Annotated, Literal
 
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
+
 from devices_manager.transports import (
     BaseTransportConfig,
     TransportClient,
@@ -17,7 +19,6 @@ from devices_manager.transports.modbus_tcp_transport import (
 )
 from devices_manager.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import TransportProtocols
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class TransportBaseDTO(BaseModel):

@@ -3,10 +3,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+from devices_manager.dto.device_dto import DeviceDTO
+from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto.transport_dto import build_dto
 from devices_manager.types import TransportProtocols
-from dto.device_dto import DeviceDTO
-from dto.driver_dto import DriverDTO
-from dto.transport_dto import build_dto
 from storage import CoreFileStorage
 
 TEST_DEVICE = DeviceDTO.model_validate(

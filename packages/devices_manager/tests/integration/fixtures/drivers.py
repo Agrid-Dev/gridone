@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 import yaml
 from devices_manager.driver import Driver
-from dto.driver_dto import DriverDTO, dto_to_core
+from devices_manager.dto.driver_dto import DriverDTO, dto_to_core
 
 
 @pytest.fixture

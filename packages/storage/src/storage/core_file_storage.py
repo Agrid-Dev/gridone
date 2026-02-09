@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from dto.device_dto import DeviceDTO
-from dto.driver_dto import DriverDTO
-from dto.transport_dto import TransportDTO
-from dto.transport_dto import build_dto as build_transport_dto
+from devices_manager.dto.device_dto import DeviceDTO
+from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto.transport_dto import TransportDTO
+from devices_manager.dto.transport_dto import build_dto as build_transport_dto
 
 from .yaml_file_storage import YamlFileStorage
 

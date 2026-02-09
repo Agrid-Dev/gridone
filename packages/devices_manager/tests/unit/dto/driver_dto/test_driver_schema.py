@@ -3,8 +3,8 @@ from devices_manager.driver.update_strategy import (
     DEFAULT_POLLING_INTERVAL,
     DEFAULT_READ_TIMEOUT,
 )
+from devices_manager.dto.driver_dto import DriverDTO
 from devices_manager.types import TransportProtocols
-from dto.driver_dto import DriverDTO
 
 
 @pytest.fixture

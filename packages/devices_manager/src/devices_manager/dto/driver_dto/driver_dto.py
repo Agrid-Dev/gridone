@@ -1,6 +1,8 @@
 from typing import Annotated
 
 import yaml as pyyaml
+from pydantic import BaseModel, Field
+
 from devices_manager.driver import (
     DeviceConfigField,
     Driver,
@@ -8,7 +10,6 @@ from devices_manager.driver import (
     UpdateStrategy,
 )
 from devices_manager.types import TransportProtocols
-from pydantic import BaseModel, Field
 
 from .attribute_driver_dto import AttributeDriverDTO
 from .attribute_driver_dto import core_to_dto as attribute_core_to_dto

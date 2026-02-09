@@ -21,9 +21,9 @@ from devices_manager.transports.mqtt_transport import (
 )
 from devices_manager.types import DataType, TransportProtocols
 from devices_manager.value_adapters import ValueAdapterSpec
-from dto.device_dto import core_to_dto as device_to_dto
-from dto.driver_dto import core_to_dto as driver_to_dto
-from dto.transport_dto import core_to_dto as transport_to_dto
+from devices_manager.dto.device_dto import core_to_dto as device_to_dto
+from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
+from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
 from storage import CoreFileStorage
 
 

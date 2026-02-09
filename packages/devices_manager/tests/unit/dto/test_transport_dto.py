@@ -1,4 +1,5 @@
 import pytest
+from devices_manager.dto.transport_dto import MqttTransportDTO, core_to_dto, dto_to_core
 from devices_manager.transports import TransportConnectionState, TransportMetadata
 from devices_manager.transports.http_transport import (
     HTTPTransportClient,
@@ -9,7 +10,6 @@ from devices_manager.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.types import TransportProtocols
-from dto.transport_dto import MqttTransportDTO, core_to_dto, dto_to_core
 
 
 @pytest.fixture
