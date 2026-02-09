@@ -13,7 +13,7 @@ from devices_manager.dto.device_dto import (
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 from api.schemas.device import AttributeUpdate

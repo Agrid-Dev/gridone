@@ -14,7 +14,7 @@ from devices_manager.dto.transport_dto import (
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 

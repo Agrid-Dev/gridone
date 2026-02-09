@@ -8,10 +8,10 @@ from typing import Annotated
 import typer
 from devices_manager.devices_manager import DevicesManager
 from devices_manager.dto.init_devices_manager import init_devices_manager
+from devices_manager.storage.core_file_storage import CoreFileStorage
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
-from storage.core_file_storage import CoreFileStorage
 
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
 

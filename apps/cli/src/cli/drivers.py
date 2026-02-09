@@ -6,7 +6,7 @@ from rich.console import Console
 from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
 
 if TYPE_CHECKING:
-    from storage import CoreFileStorage
+    from devices_manager.storage import CoreFileStorage
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 

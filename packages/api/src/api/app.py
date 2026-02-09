@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from devices_manager.device import Attribute, Device
 from devices_manager.dto.init_devices_manager import init_devices_manager
 from fastapi import FastAPI
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 from api.routes import devices_router, drivers_router, transports_router
 from api.routes import websocket as websocket_routes

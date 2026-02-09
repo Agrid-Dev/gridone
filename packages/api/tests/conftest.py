@@ -24,7 +24,7 @@ from devices_manager.value_adapters import ValueAdapterSpec
 from devices_manager.dto.device_dto import core_to_dto as device_to_dto
 from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
 from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 
 @pytest.fixture

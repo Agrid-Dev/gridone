@@ -9,7 +9,6 @@ members = [
     "gridone",
     "gridone-api",
     "gridone-devices-manager",
-    "gridone-storage",
 ]
 
 [[package]]
@@ -147,7 +146,6 @@ version = "0.1.0"
 source = { editable = "apps/cli" }
 dependencies = [
     { name = "gridone-devices-manager" },
-    { name = "gridone-storage" },
     { name = "python-dotenv" },
     { name = "typer" },
 ]
@@ -155,7 +153,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "gridone-devices-manager", editable = "packages/devices_manager" },
-    { name = "gridone-storage", editable = "packages/storage" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "typer", specifier = ">=0.20.0" },
 ]
@@ -434,7 +431,6 @@ version = "0.1.0"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
-    { name = "gridone-storage" },
     { name = "httpx" },
     { name = "pydantic-settings" },
 ]
@@ -442,7 +438,6 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
-    { name = "gridone-storage", editable = "packages/storage" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
 ]
@@ -471,17 +466,6 @@ requires-dist = [
     { name = "python-jsonpath", specifier = ">=2.0.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]
-
-[[package]]
-name = "gridone-storage"
-version = "0.1.0"
-source = { editable = "packages/storage" }
-dependencies = [
-    { name = "pydantic" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.12.4" }]
 
 [[package]]
 name = "h11"

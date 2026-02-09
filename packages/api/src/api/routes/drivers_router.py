@@ -8,7 +8,7 @@ from devices_manager.dto.driver_dto import (
     dto_to_core,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 

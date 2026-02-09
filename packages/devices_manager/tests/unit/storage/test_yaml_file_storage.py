@@ -4,8 +4,8 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import yaml
+from devices_manager.storage import YamlFileStorage
 from pydantic import BaseModel
-from storage import YamlFileStorage
 
 
 class Animal(BaseModel):
