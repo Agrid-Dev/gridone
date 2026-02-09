@@ -1,9 +1,12 @@
 from typing import Annotated, Any
 
-from core.driver import AttributeDriver
-from core.transports import RawTransportAddress
-from core.types import DataType
-from core.value_adapters.factory import ValueAdapterSpec, supported_value_adapters
+from devices_manager.driver import AttributeDriver
+from devices_manager.transports import RawTransportAddress
+from devices_manager.types import DataType
+from devices_manager.value_adapters.factory import (
+    ValueAdapterSpec,
+    supported_value_adapters,
+)
 from pydantic import BaseModel, Field, model_validator
 
 

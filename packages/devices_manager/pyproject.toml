@@ -1,0 +1,33 @@
+[project]
+name = "gridone-devices-manager"
+version = "0.1.0"
+description = "Core package for controlling actual devices, with drivers and transports management."
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "aiomqtt>=2.4.0",
+    "bacpypes3>=0.0.102",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.4",
+    "pymodbus>=3.11.3",
+    "python-jsonpath>=2.0.1",
+    "pyyaml>=6.0.3",
+]
+
+[tool.uv]
+workspaces=true
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "devices_manager"
+module-root = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+markers = [
+    "integration: mark a test as an integration test",
+]

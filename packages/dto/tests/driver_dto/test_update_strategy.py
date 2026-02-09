@@ -1,5 +1,5 @@
 import pytest
-from core.driver.update_strategy import (
+from devices_manager.driver.update_strategy import (
     DEFAULT_POLLING_INTERVAL,
     DEFAULT_READ_TIMEOUT,
     MAX_TIMEOUT,

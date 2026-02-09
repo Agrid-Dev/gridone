@@ -1,7 +1,7 @@
 from typing import Annotated
 
-from core import Attribute, Device
-from core.device import DeviceBase
+from devices_manager import Attribute, Device
+from devices_manager.device import DeviceBase
 from pydantic import BaseModel, Field
 
 

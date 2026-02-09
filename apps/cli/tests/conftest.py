@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from core.types import TransportProtocols
+from devices_manager.types import TransportProtocols
 from dto.device_dto import DeviceDTO
 from dto.driver_dto import DriverDTO
 from dto.transport_dto import build_dto

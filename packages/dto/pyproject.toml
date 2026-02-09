@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "gridone-core",
+    "gridone-devices-manager",
     "pydantic>=2.12.4",
 ]
 

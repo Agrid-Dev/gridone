@@ -1,8 +1,8 @@
 import uuid
 from typing import Annotated
 
-from core import TransportClient
-from core.devices_manager import DevicesManager
+from devices_manager import TransportClient
+from devices_manager.devices_manager import DevicesManager
 from dto.transport_dto import (
     CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,

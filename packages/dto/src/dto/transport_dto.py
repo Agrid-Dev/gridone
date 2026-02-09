@@ -1,22 +1,22 @@
 from typing import Annotated, Literal
 
-from core.transports import (
+from devices_manager.transports import (
     BaseTransportConfig,
     TransportClient,
     TransportConnectionState,
     TransportMetadata,
     make_transport_client,
 )
-from core.transports.bacnet_transport import (
+from devices_manager.transports.bacnet_transport import (
     BacnetTransportConfig,
 )
-from core.transports.factory import make_transport_config
-from core.transports.http_transport import HttpTransportConfig
-from core.transports.modbus_tcp_transport import (
+from devices_manager.transports.factory import make_transport_config
+from devices_manager.transports.http_transport import HttpTransportConfig
+from devices_manager.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
-from core.transports.mqtt_transport import MqttTransportConfig
-from core.types import TransportProtocols
+from devices_manager.transports.mqtt_transport import MqttTransportConfig
+from devices_manager.types import TransportProtocols
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 

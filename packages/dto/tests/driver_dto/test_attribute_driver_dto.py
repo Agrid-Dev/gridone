@@ -1,5 +1,5 @@
 import pytest
-from core.types import DataType
+from devices_manager.types import DataType
 from dto.driver_dto.attribute_driver_dto import (
     AttributeDriverDTO,
     RawTransportAddress,

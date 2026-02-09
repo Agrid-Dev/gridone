@@ -9,7 +9,7 @@ members = [
     "dto",
     "gridone",
     "gridone-api",
-    "gridone-core",
+    "gridone-devices-manager",
     "gridone-storage",
 ]
 
@@ -147,7 +147,7 @@ name = "cli"
 version = "0.1.0"
 source = { editable = "apps/cli" }
 dependencies = [
-    { name = "gridone-core" },
+    { name = "gridone-devices-manager" },
     { name = "gridone-storage" },
     { name = "python-dotenv" },
     { name = "typer" },
@@ -155,7 +155,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gridone-core", editable = "packages/core" },
+    { name = "gridone-devices-manager", editable = "packages/devices_manager" },
     { name = "gridone-storage", editable = "packages/storage" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "typer", specifier = ">=0.20.0" },
@@ -271,13 +271,13 @@ name = "dto"
 version = "0.1.0"
 source = { editable = "packages/dto" }
 dependencies = [
-    { name = "gridone-core" },
+    { name = "gridone-devices-manager" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "gridone-core", editable = "packages/core" },
+    { name = "gridone-devices-manager", editable = "packages/devices_manager" },
     { name = "pydantic", specifier = ">=2.12.4" },
 ]
 
@@ -416,7 +416,7 @@ name = "gridone"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "gridone-core" },
+    { name = "gridone-devices-manager" },
 ]
 
 [package.dev-dependencies]
@@ -431,7 +431,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "gridone-core", editable = "packages/core" }]
+requires-dist = [{ name = "gridone-devices-manager", editable = "packages/devices_manager" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -464,9 +464,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "gridone-core"
+name = "gridone-devices-manager"
 version = "0.1.0"
-source = { editable = "packages/core" }
+source = { editable = "packages/devices_manager" }
 dependencies = [
     { name = "aiomqtt" },
     { name = "bacpypes3" },
