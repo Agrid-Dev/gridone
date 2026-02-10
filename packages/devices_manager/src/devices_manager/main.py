@@ -23,6 +23,7 @@ from .dto import (
     TransportDTO,
     TransportUpdateDTO,
     device_dto_to_base,
+    driver_core_to_dto,
     driver_dto_to_core,
     transport_core_to_dto,
     transport_dto_to_core,
@@ -187,6 +188,9 @@ class DevicesManager:
             transports=repository.transports.read_all(),
         )
 
+    def list_drivers(self) -> list[DriverDTO]:
+        return [driver_core_to_dto(driver) for driver in self.drivers.values()]
+
     def list_transports(self) -> list[TransportDTO]:
         return [transport_core_to_dto(t) for t in self.transports.values()]
 
@@ -235,3 +239,19 @@ class DevicesManager:
         if update.config is not None:
             transport.update_config(update.config)
         return transport_core_to_dto(transport)
+
+    def get_driver(self, driver_id: str) -> DriverDTO:
+        try:
+            return driver_core_to_dto(self.drivers[driver_id])
+        except KeyError as e:
+            msg = f"Driver {driver_id} not found"
+            raise NotFoundError(msg) from e
+
+    def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+        if driver_dto.id in self.drivers:
+            msg = f"Driver {driver_dto.id} already exists"
+            raise ValueError(msg)
+        driver = driver_dto_to_core(driver_dto)
+        self.drivers[driver_dto.id] = driver
+        return driver_core_to_dto(driver)
+

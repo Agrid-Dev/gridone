@@ -6,7 +6,13 @@ import pytest
 from devices_manager import DevicesManager
 from devices_manager.core.device import Device, DeviceBase
 from devices_manager.core.driver import Driver, UpdateStrategy
-from devices_manager.dto import TransportBaseDTO, TransportCreateDTO, TransportUpdateDTO
+from devices_manager.dto import (
+    DriverDTO,
+    TransportBaseDTO,
+    TransportCreateDTO,
+    TransportUpdateDTO,
+    driver_core_to_dto,
+)
 from devices_manager.errors import ForbiddenError, NotFoundError
 from devices_manager.types import TransportProtocols
 
@@ -346,3 +352,40 @@ class TestDevicesManagerUpdateTransport:
         )
         assert updated_transport.config.model_dump() == new_config
         assert dm.get_transport(transport_id).config.model_dump() == new_config
+
+
+class TestDevicesManagerDrivers:
+    def test_list_drivers(self, devices_manager):
+        drivers = devices_manager.list_drivers()
+        assert isinstance(drivers, list)
+        assert all(isinstance(d, DriverDTO) for d in drivers)
+        assert {d.id for d in drivers} == set(devices_manager.drivers.keys())
+
+    def test_get_driver_existing(self, devices_manager):
+        driver_id = next(iter(devices_manager.drivers.keys()))
+        driver_dto = devices_manager.get_driver(driver_id)
+        assert isinstance(driver_dto, DriverDTO)
+        assert driver_dto.id == driver_id
+
+    def test_get_driver_non_existing(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            devices_manager.get_driver("non-existing-driver-id")
+
+    def test_add_driver(self, driver):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        driver_dto = driver_core_to_dto(driver)
+
+        created = dm.add_driver(driver_dto)
+
+        assert isinstance(created, DriverDTO)
+        assert created.id == driver_dto.id
+        assert created.id in dm.drivers
+
+    def test_add_driver_conflict(self, driver):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        driver_dto = driver_core_to_dto(driver)
+
+        dm.add_driver(driver_dto)
+
+        with pytest.raises(ValueError):
+            dm.add_driver(driver_dto)

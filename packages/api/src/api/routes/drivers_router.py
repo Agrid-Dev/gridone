@@ -1,12 +1,8 @@
 from typing import Annotated
 
 from devices_manager import DevicesManager
-from devices_manager.dto import (
-    DriverDTO,
-    DriverYamlDTO,
-    driver_core_to_dto,
-    driver_dto_to_core,
-)
+from devices_manager.dto import DriverDTO, DriverYamlDTO
+from devices_manager.errors import NotFoundError
 from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -19,7 +15,7 @@ router = APIRouter()
 def list_drivers(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> list[DriverDTO]:
-    return [driver_core_to_dto(tc) for tc in dm.drivers.values()]
+    return dm.list_drivers()
 
 
 @router.get("/{driver_id}")
@@ -28,11 +24,9 @@ def get_driver(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DriverDTO:
     try:
-        return driver_core_to_dto(dm.drivers[driver_id])
-    except KeyError as ke:
-        raise HTTPException(
-            status_code=404, detail=f"Driver {driver_id} not found"
-        ) from ke
+        return dm.get_driver(driver_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -44,14 +38,12 @@ def create_driver(
     driver_dto = (
         payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
     )
-    if driver_dto.id in dm.drivers:
-        raise HTTPException(
-            status_code=409, detail=f"Driver {driver_dto.id} already exists"
-        )
-    driver = driver_dto_to_core(driver_dto)
-    dm.drivers[driver_dto.id] = driver
-    repository.drivers.write(driver_dto.id, driver_dto)
-    return driver_dto
+    try:
+        created_driver = dm.add_driver(driver_dto)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    repository.drivers.write(created_driver.id, created_driver)
+    return created_driver
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
