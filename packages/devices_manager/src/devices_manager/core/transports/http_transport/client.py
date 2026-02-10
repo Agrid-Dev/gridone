@@ -9,17 +9,17 @@ from devices_manager.core.transports.connected import connected
 from devices_manager.types import AttributeValueType, TransportProtocols
 
 from .http_address import HttpAddress
+from .transport_config import HttpTransportConfig
 
 if TYPE_CHECKING:
     from devices_manager.core.transports.transport_metadata import TransportMetadata
-
-    from .transport_config import HttpTransportConfig
 
 
 class HTTPTransportClient(TransportClient[HttpAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = HttpAddress
     config: HttpTransportConfig
+    _config_builder = HttpTransportConfig
 
     def __init__(
         self,

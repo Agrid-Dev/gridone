@@ -6,6 +6,9 @@ import pytest
 from devices_manager import DevicesManager
 from devices_manager.core.device import Device, DeviceBase
 from devices_manager.core.driver import Driver, UpdateStrategy
+from devices_manager.dto import TransportBaseDTO, TransportCreateDTO, TransportUpdateDTO
+from devices_manager.errors import ForbiddenError, NotFoundError
+from devices_manager.types import TransportProtocols
 
 
 @pytest.fixture
@@ -13,7 +16,7 @@ def devices_manager(mock_transport_client, device, driver):
     return DevicesManager(
         devices={"device1": device},
         drivers={"test_driver": driver},
-        transports={"t1": mock_transport_client},
+        transports={mock_transport_client.id: mock_transport_client},
     )
 
 
@@ -237,3 +240,109 @@ class TestDevicesManagerDiscovery:
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
         assert len(dm.devices) == 0
+
+
+class TestDevicesManagerListTransports:
+    def test_list_transports(self, devices_manager):
+        transports = devices_manager.list_transports()
+        assert isinstance(transports, list)
+        assert all(isinstance(t, TransportBaseDTO) for t in transports)
+
+
+class TestDevicesManagerGetTransport:
+    def test_get_transport_existing(self, devices_manager, mock_transport_client):
+        transport = devices_manager.get_transport(mock_transport_client.id)
+        assert isinstance(transport, TransportBaseDTO)
+        assert transport.id == mock_transport_client.id
+
+    def test_get_transport_non_existing(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            devices_manager.get_transport("non-existing-id")
+
+
+class TestDevicesManagerAddTransport:
+    def test_add_transport(self, devices_manager):
+        transport_data = TransportCreateDTO(
+            name="New Transport",
+            protocol=TransportProtocols.HTTP,
+            config={},  # ty: ignore[invalid-argument-type]
+        )
+        new_transport = devices_manager.add_transport(transport_data)
+        assert new_transport.name == transport_data.name
+        assert new_transport.protocol == transport_data.protocol
+        assert new_transport.config == transport_data.config
+        assert new_transport.id in devices_manager.transports
+
+
+class TestDevicesManagerDeleteTransport:
+    @pytest.mark.asyncio
+    async def test_delete_transport(self, mock_push_transport_client):
+        dm = DevicesManager(
+            devices={},
+            drivers={},
+            transports={mock_push_transport_client.id: mock_push_transport_client},
+        )
+        transport_id = mock_push_transport_client.id
+        await dm.delete_transport(transport_id)
+        assert transport_id not in dm.transports
+
+    @pytest.mark.asyncio
+    async def test_delete_non_existing_transport(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            await devices_manager.delete_transport("non-existing-id")
+
+    @pytest.mark.asyncio
+    async def test_delete_transport_in_use(self, devices_manager, device):
+        device = next(iter(devices_manager.devices.values()))
+        transport_id = device.transport.id
+        with pytest.raises(ForbiddenError):
+            await devices_manager.delete_transport(transport_id)
+
+
+class TestDevicesManagerUpdateTransport:
+    @pytest.mark.asyncio
+    async def test_update_non_existing_transport(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            await devices_manager.update_transport(
+                "non-existing-id", TransportUpdateDTO(name="x", config={"a": 2})
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_empty_payload(self, mock_transport_client):
+        dm = DevicesManager(
+            devices={},
+            drivers={},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        transport_id = mock_transport_client.id
+
+        updated_transport = await dm.update_transport(
+            transport_id, TransportUpdateDTO()
+        )
+        assert updated_transport.name == mock_transport_client.metadata.name
+        assert updated_transport.config == mock_transport_client.config
+
+    @pytest.mark.asyncio
+    async def test_update_transport_name(self, devices_manager, mock_transport_client):
+        transport_id = mock_transport_client.id
+        new_name = "Updated Transport Name"
+        updated_transport = await devices_manager.update_transport(
+            transport_id, TransportUpdateDTO(name=new_name)
+        )
+        assert updated_transport.name == new_name
+        assert devices_manager.get_transport(transport_id).name == new_name
+
+    @pytest.mark.asyncio
+    async def test_update_transport_config_ok(self, mock_transport_client):
+        dm = DevicesManager(
+            devices={},
+            drivers={},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        transport_id = mock_transport_client.id
+        new_config = {"request_timeout": 5}
+        updated_transport = await dm.update_transport(
+            transport_id, TransportUpdateDTO(config=new_config)
+        )
+        assert updated_transport.config.model_dump() == new_config
+        assert dm.get_transport(transport_id).config.model_dump() == new_config

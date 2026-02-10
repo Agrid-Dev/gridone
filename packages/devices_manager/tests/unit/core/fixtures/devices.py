@@ -1,6 +1,5 @@
 import pytest
-from devices_manager import Driver, TransportClient
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core import Device, DeviceBase, Driver, TransportClient
 
 
 @pytest.fixture

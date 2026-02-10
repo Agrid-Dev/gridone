@@ -39,6 +39,7 @@ type DevicesDict = dict[ObjectIdentifier, Address]
 
 class BacnetTransportClient(TransportClient[BacnetAddress]):
     protocol = TransportProtocols.BACNET
+    _config_builder = BacnetTransportConfig
     address_builder = BacnetAddress
     config: BacnetTransportConfig
     _application: NormalApplication

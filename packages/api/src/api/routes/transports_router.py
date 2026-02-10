@@ -1,16 +1,14 @@
 import uuid
 from typing import Annotated
 
-from devices_manager import DevicesManager, TransportClient
+from devices_manager import DevicesManager
 from devices_manager.dto import (
     TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
-    build_transport_dto,
-    transport_core_to_dto,
-    transport_dto_to_core,
 )
+from devices_manager.errors import NotFoundError, ForbiddenError
 from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
@@ -26,10 +24,10 @@ router.include_router(
 )
 
 
-def _get_client(dm: DevicesManager, transport_id: str) -> TransportClient:
+def _get_client(dm: DevicesManager, transport_id: str) -> TransportDTO:
     try:
-        return dm.transports[transport_id]
-    except KeyError as e:
+        return dm.get_transport(transport_id)
+    except NotFoundError as e:
         raise HTTPException(
             status_code=404, detail=f"Transport {transport_id} not found"
         ) from e
@@ -39,15 +37,14 @@ def _get_client(dm: DevicesManager, transport_id: str) -> TransportClient:
 def list_transports(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> list[TransportDTO]:
-    return [transport_core_to_dto(tc) for tc in dm.transports.values()]
+    return dm.list_transports()
 
 
 @router.get("/{transport_id}", name="get_transport")
 def get_transport(
     transport_id: str, dm: Annotated[DevicesManager, Depends(get_device_manager)]
 ) -> TransportDTO:
-    tc = _get_client(dm, transport_id)
-    return transport_core_to_dto(tc)
+    return _get_client(dm, transport_id)
 
 
 def gen_id() -> str:
@@ -64,13 +61,7 @@ def create_transport(
     response: Response,
 ) -> TransportDTO:
     transport_id = gen_id()
-    dto = build_transport_dto(
-        transport_id, payload.name or transport_id, payload.protocol, payload.config
-    )
-
-    tc = transport_dto_to_core(dto)
-    dm.transports[tc.metadata.id] = tc
-
+    dto = dm.add_transport(payload)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )
@@ -87,23 +78,22 @@ async def update_transport(  # noqa: PLR0913
     request: Request,
     response: Response,
 ) -> TransportDTO:
-    client = _get_client(dm, transport_id)
     try:
-        if update_payload.name:
-            client.metadata.name = update_payload.name
-        if update_payload.config:
-            new_config = client.config.model_copy(update=update_payload.config)
-            client.update_config(new_config)
-        dto = transport_core_to_dto(client)
+        transport = await dm.update_transport(transport_id, update_payload)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transport {transport_id} not found",
+        ) from e
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.errors()
         ) from e
-    repository.transports.write(dto.id, dto)
+    repository.transports.write(transport.id, transport)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )
-    return dto
+    return transport
 
 
 @router.delete("/{transport_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -112,16 +102,15 @@ async def delete_transport(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> None:
-    client = _get_client(dm, transport_id)
-    for device in dm.devices.values():
-        if device.transport.metadata.id == transport_id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Transport {transport_id} is in use by device {device.id}",
-            )
-    await client.close()
-    del dm.transports[transport_id]
-    repository.transports.delete(transport_id)
+    try:
+        await dm.delete_transport(transport_id)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transport {transport_id} not found",
+        ) from e
+    except ForbiddenError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.get("/schemas/")

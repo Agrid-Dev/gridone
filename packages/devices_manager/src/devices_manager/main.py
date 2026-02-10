@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from pathlib import Path
 
 from .core.device import AttributeListener, Device
@@ -9,18 +10,32 @@ from .core.discovery_manager import (
 )
 from .core.driver import Driver
 from .core.tasks_registry import TasksRegistry
-from .core.transports import TransportClient
+from .core.transports import (
+    TransportClient,
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
 from .dto import (
     DeviceDTO,
     DriverDTO,
+    TransportCreateDTO,
     TransportDTO,
+    TransportUpdateDTO,
     device_dto_to_base,
     driver_dto_to_core,
+    transport_core_to_dto,
     transport_dto_to_core,
 )
+from .errors import ForbiddenError, NotFoundError
 from .storage.core_file_storage import CoreFileStorage
 
 logger = logging.getLogger(__name__)
+
+
+def gen_id() -> str:
+    """Generate an id for a new device"""
+    return str(uuid.uuid4())[:8]
 
 
 class DevicesManager:
@@ -171,3 +186,52 @@ class DevicesManager:
             drivers=repository.drivers.read_all(),
             transports=repository.transports.read_all(),
         )
+
+    def list_transports(self) -> list[TransportDTO]:
+        return [transport_core_to_dto(t) for t in self.transports.values()]
+
+    def get_transport(self, transport_id: str) -> TransportClient:
+        try:
+            return transport_core_to_dto(self.transports[transport_id])
+        except KeyError as e:
+            msg = f"Transport {transport_id} not found"
+            raise NotFoundError(msg) from e
+
+    def add_transport(self, transport: TransportCreateDTO) -> TransportDTO:
+        config = make_transport_config(
+            transport.protocol, transport.config.model_dump()
+        )
+        metadata = TransportMetadata(id=gen_id(), name=transport.name)
+        client = make_transport_client(transport.protocol, config, metadata)
+        self.transports[metadata.id] = client
+        return transport_core_to_dto(client)
+
+    def _assert_transport_not_used(self, transport_id: str) -> None:
+        device = next(
+            (d for d in self.devices.values() if d.transport.id == transport_id), None
+        )
+        if device is not None:
+            msg = f"Transport {transport_id} is still used by device {device.id}"
+            raise ForbiddenError(msg)
+
+    async def delete_transport(self, transport_id: str) -> None:
+        self._assert_transport_not_used(transport_id)
+        try:
+            transport = self.transports.pop(transport_id)
+            await transport.close()
+        except KeyError as e:
+            msg = f"Transport {transport_id} not found"
+            raise NotFoundError(msg) from e
+
+    async def update_transport(
+        self, transport_id: str, update: TransportUpdateDTO
+    ) -> TransportDTO:
+        transport = self.transports.get(transport_id)
+        if transport is None:
+            msg = f"Transport {transport_id} not found"
+            raise NotFoundError(msg)
+        if update.name is not None:
+            transport.metadata.name = update.name
+        if update.config is not None:
+            transport.update_config(update.config)
+        return transport_core_to_dto(transport)
