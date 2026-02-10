@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.driver.discovery_listener import DiscoveryListener
+from devices_manager.core.driver.discovery_listener import DiscoveryListener
 
 
 @pytest.fixture

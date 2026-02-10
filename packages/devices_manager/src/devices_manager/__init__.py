@@ -1,6 +1,6 @@
-from .device import Attribute, Device
-from .driver import Driver
-from .transports import TransportClient
+from .core.device import Attribute, Device
+from .core.driver import Driver
+from .core.transports import TransportClient
 
 __all__ = [
     "Attribute",

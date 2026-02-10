@@ -1,4 +1,4 @@
-from devices_manager.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
 times_two = FnAdapter[float, float](decoder=lambda x: x * 2, encoder=lambda x: x / 2)
 square = FnAdapter[float, float](decoder=lambda x: x**2, encoder=lambda x: x**0.5)

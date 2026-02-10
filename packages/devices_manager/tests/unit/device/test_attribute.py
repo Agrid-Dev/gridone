@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from devices_manager.device.attribute import Attribute
+from devices_manager.core.device.attribute import Attribute
 from devices_manager.types import DataType
 
 

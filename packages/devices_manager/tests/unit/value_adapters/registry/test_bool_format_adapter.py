@@ -1,8 +1,8 @@
 from typing import Any
 
 import pytest
-from devices_manager.value_adapters.fn_adapter import FnAdapter
-from devices_manager.value_adapters.registry.bool_format_adapter import (
+from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.value_adapters.registry.bool_format_adapter import (
     SUPPORTED_FORMAT,
     bool_format_adapter,
 )

@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.transports.bacnet_transport.transport_config import (
+from devices_manager.core.transports.bacnet_transport.transport_config import (
     is_valid_ip_with_mask,
 )
 

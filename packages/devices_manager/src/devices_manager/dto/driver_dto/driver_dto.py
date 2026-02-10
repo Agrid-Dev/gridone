@@ -3,7 +3,7 @@ from typing import Annotated
 import yaml as pyyaml
 from pydantic import BaseModel, Field
 
-from devices_manager.driver import (
+from devices_manager.core.driver import (
     DeviceConfigField,
     Driver,
     DriverMetadata,

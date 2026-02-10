@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from devices_manager.transports import (
+from devices_manager.core.transports import (
     BaseTransportConfig,
     PushTransportAddress,
     PushTransportClient,
@@ -9,11 +9,11 @@ from devices_manager.transports import (
     TransportAddress,
     TransportClient,
 )
-from devices_manager.transports.listener_registry import (
+from devices_manager.core.transports.listener_registry import (
     ListenerCallback,
     ListenerRegistry,
 )
-from devices_manager.transports.transport_metadata import TransportMetadata
+from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols
 from pydantic import BaseModel
 

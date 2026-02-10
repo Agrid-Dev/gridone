@@ -2,12 +2,12 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aiomqtt import Topic
-from devices_manager.transports.mqtt_transport import (
+from devices_manager.core.transports.mqtt_transport import (
     MqttAddress,
     MqttTransportClient,
     MqttTransportConfig,
 )
-from devices_manager.transports.transport_metadata import TransportMetadata
+from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 
 @pytest.fixture

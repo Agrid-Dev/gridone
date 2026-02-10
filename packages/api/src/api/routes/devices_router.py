@@ -1,9 +1,9 @@
 import logging
 from typing import Annotated
 
-from devices_manager.device import ConfirmationError, Device, DeviceBase
-from devices_manager.devices_manager import DevicesManager
-from devices_manager.driver import DeviceConfigField
+from devices_manager.core.device import ConfirmationError, Device, DeviceBase
+from devices_manager.core.devices_manager import DevicesManager
+from devices_manager.core.driver import DeviceConfigField
 from devices_manager.types import AttributeValueType
 from devices_manager.dto.device_dto import (
     DeviceCreateDTO,

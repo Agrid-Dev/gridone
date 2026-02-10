@@ -1,4 +1,4 @@
-from devices_manager.transports.hash_model import hash_model
+from devices_manager.core.transports.hash_model import hash_model
 from pydantic import BaseModel
 
 

@@ -6,7 +6,7 @@ import asyncio
 from typing import Annotated
 
 import typer
-from devices_manager.devices_manager import DevicesManager
+from devices_manager.core.devices_manager import DevicesManager
 from devices_manager.dto.init_devices_manager import init_devices_manager
 from devices_manager.storage.core_file_storage import CoreFileStorage
 from rich.console import Console

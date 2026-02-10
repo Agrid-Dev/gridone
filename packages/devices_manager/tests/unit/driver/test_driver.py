@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.driver import Driver
+from devices_manager.core.driver import Driver
 
 
 class TestDriverFromDict:

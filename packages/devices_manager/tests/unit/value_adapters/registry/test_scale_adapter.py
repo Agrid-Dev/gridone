@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.value_adapters.registry.scale_adapter import scale_adapter
+from devices_manager.core.value_adapters.registry.scale_adapter import scale_adapter
 
 
 @pytest.mark.parametrize(

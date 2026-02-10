@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from devices_manager import Attribute, Device
-from devices_manager.device import DeviceBase
+from devices_manager.core.device import DeviceBase
 
 
 class DeviceCreateDTO(BaseModel):

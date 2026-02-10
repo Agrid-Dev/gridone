@@ -1,7 +1,7 @@
 import logging
 
-from devices_manager.device import Device
-from devices_manager.devices_manager import DevicesManager
+from devices_manager.core.device import Device
+from devices_manager.core.devices_manager import DevicesManager
 
 from .device_dto import DeviceDTO
 from .device_dto import dto_to_base as device_dto_to_base

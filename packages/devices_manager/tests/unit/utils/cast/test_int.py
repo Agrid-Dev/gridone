@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.utils.cast.int import cast_as_int
+from devices_manager.core.utils.cast.int import cast_as_int
 
 
 @pytest.mark.parametrize(

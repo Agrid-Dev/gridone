@@ -1,7 +1,7 @@
 import asyncio
 
 import pytest
-from devices_manager.devices_manager.tasks_registry import TasksRegistry
+from devices_manager.core.devices_manager.tasks_registry import TasksRegistry
 
 
 @pytest.mark.asyncio

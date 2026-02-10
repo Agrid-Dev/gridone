@@ -1,11 +1,11 @@
 import pytest
-from devices_manager.device import Device
-from devices_manager.devices_manager.devices_discovery_manager import (
+from devices_manager.core.device import Device
+from devices_manager.core.devices_manager.devices_discovery_manager import (
     DevicesDiscoveryManager,
     DiscoveryContext,
 )
-from devices_manager.driver import Driver
-from devices_manager.transports import TransportClient
+from devices_manager.core.driver import Driver
+from devices_manager.core.transports import TransportClient
 
 
 class FnCallSpy:

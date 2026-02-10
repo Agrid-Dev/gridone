@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.device import Device, DeviceBase
+from devices_manager.core.device import Device, DeviceBase
 
 
 @pytest.fixture

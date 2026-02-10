@@ -1,22 +1,22 @@
 import pytest
-from devices_manager.transports import (
+from devices_manager.core.transports import (
     BaseTransportConfig,
     TransportClient,
     make_transport_client,
 )
-from devices_manager.transports.bacnet_transport import (
+from devices_manager.core.transports.bacnet_transport import (
     BacnetTransportClient,
     BacnetTransportConfig,
 )
-from devices_manager.transports.http_transport import (
+from devices_manager.core.transports.http_transport import (
     HTTPTransportClient,
     HttpTransportConfig,
 )
-from devices_manager.transports.modbus_tcp_transport import (
+from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportClient,
     ModbusTCPTransportConfig,
 )
-from devices_manager.transports.mqtt_transport import (
+from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )

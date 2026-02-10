@@ -1,12 +1,12 @@
 import pytest
-from devices_manager.driver import (
+from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
     DriverMetadata,
     UpdateStrategy,
 )
+from devices_manager.core.value_adapters.factory import ValueAdapterSpec
 from devices_manager.types import DataType, TransportProtocols
-from devices_manager.value_adapters.factory import ValueAdapterSpec
 
 
 @pytest.fixture

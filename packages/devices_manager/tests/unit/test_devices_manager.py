@@ -3,9 +3,9 @@ import contextlib
 from unittest.mock import AsyncMock
 
 import pytest
-from devices_manager.device import Device, DeviceBase
-from devices_manager.devices_manager import DevicesManager
-from devices_manager.driver import Driver, UpdateStrategy
+from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.devices_manager import DevicesManager
+from devices_manager.core.driver import Driver, UpdateStrategy
 
 
 @pytest.fixture

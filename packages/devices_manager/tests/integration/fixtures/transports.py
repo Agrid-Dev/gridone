@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.transports import (
+from devices_manager.core.transports import (
     TransportClient,
     TransportMetadata,
     make_transport_client,

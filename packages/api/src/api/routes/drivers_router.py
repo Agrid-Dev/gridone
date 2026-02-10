@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from devices_manager.devices_manager import DevicesManager
+from devices_manager.core.devices_manager import DevicesManager
 from devices_manager.dto.driver_dto import (
     DriverDTO,
     DriverYamlDTO,

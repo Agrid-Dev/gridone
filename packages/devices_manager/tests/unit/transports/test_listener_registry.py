@@ -1,7 +1,7 @@
 from typing import Any
 
 import pytest
-from devices_manager.transports.listener_registry import ListenerRegistry
+from devices_manager.core.transports.listener_registry import ListenerRegistry
 
 
 def mock_callback(value: Any) -> None:

@@ -1,6 +1,6 @@
 import pytest
+from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType
-from devices_manager.utils.cast import cast
 
 
 @pytest.mark.parametrize(

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from devices_manager.driver import Driver
+from devices_manager.core.driver import Driver
 from devices_manager.dto.driver_dto import DriverDTO, dto_to_core
 
 

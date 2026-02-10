@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.utils.cast.str import cast_as_str
+from devices_manager.core.utils.cast.str import cast_as_str
 
 
 @pytest.mark.parametrize(("value", "expected"), [("abc", "abc"), ("", ""), (1, "1")])

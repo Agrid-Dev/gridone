@@ -1,6 +1,6 @@
 import pytest
-from devices_manager.device import Device, DeviceBase
-from devices_manager.transports import (
+from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
     make_transport_config,

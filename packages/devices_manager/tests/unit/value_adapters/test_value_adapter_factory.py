@@ -1,7 +1,7 @@
 from typing import Any
 
 import pytest
-from devices_manager.value_adapters.factory import (
+from devices_manager.core.value_adapters.factory import (
     ValueAdapterSpec,
     build_value_adapter,
     spec_from_raw,

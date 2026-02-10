@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.transports.bacnet_transport.bacnet_address import (
+from devices_manager.core.transports.bacnet_transport.bacnet_address import (
     BacnetAddress,
     BacnetObjectType,
     bacnet_object_type_from_raw,

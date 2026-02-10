@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.transports.transport_connection_state import (
+from devices_manager.core.transports.transport_connection_state import (
     ConnectionStatus,
     TransportConnectionState,
 )

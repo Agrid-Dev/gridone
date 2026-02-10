@@ -1,4 +1,4 @@
-from devices_manager.transports.mqtt_transport.mqtt_address import (
+from devices_manager.core.transports.mqtt_transport.mqtt_address import (
     MqttAddress,
     MqttRequest,
 )

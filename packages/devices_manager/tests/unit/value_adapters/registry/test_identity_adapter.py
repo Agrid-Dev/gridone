@@ -1,6 +1,8 @@
 import pytest
+from devices_manager.core.value_adapters.registry.identity_adapter import (
+    identity_adapter,
+)
 from devices_manager.types import AttributeValueType
-from devices_manager.value_adapters.registry.identity_adapter import identity_adapter
 
 
 @pytest.mark.parametrize(

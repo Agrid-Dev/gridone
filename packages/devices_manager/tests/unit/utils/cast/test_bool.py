@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.utils.cast.bool import cast_as_bool
+from devices_manager.core.utils.cast.bool import cast_as_bool
 
 
 @pytest.mark.parametrize(
