@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 
+from pydantic import BaseModel, model_validator
+
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
-from pydantic import BaseModel, model_validator
 
 
 class Attribute(BaseModel):

@@ -1,11 +1,12 @@
 from typing import Any
 
+from pydantic import BaseModel, model_validator
+
 from devices_manager.core.value_adapters import FnAdapter
 from devices_manager.core.value_adapters.factory import (
     build_value_adapter,
     spec_from_raw,
 )
-from pydantic import BaseModel, model_validator
 
 
 class DeviceConfigFieldGetter(BaseModel):

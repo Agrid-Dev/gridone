@@ -6,8 +6,7 @@ import asyncio
 from typing import Annotated
 
 import typer
-from devices_manager.core.devices_manager import DevicesManager
-from devices_manager.dto.init_devices_manager import init_devices_manager
+from devices_manager import DevicesManager
 from devices_manager.storage.core_file_storage import CoreFileStorage
 from rich.console import Console
 from rich.live import Live
@@ -34,7 +33,7 @@ def get_single_device_manager(
     device_dto = repository.devices.read(device_id)
     driver_dto = repository.drivers.read(device_dto.driver_id)
     transport_dto = repository.transports.read(device_dto.transport_id)
-    return init_devices_manager([device_dto], [driver_dto], [transport_dto])
+    return DevicesManager.from_dto([device_dto], [driver_dto], [transport_dto])
 
 
 async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
@@ -157,7 +156,7 @@ def watch(ctx: typer.Context, device_id: str) -> None:
 async def _discover(
     repository: CoreFileStorage, driver_id: str, transport_id: str
 ) -> None:
-    dm = init_devices_manager(
+    dm = DevicesManager.from_dto(
         repository.devices.read_all(),
         repository.drivers.read_all(),
         repository.transports.read_all(),

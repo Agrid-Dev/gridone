@@ -1,7 +1,8 @@
 from typing import Annotated
 
-from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 from pydantic import Field, PositiveInt
+
+from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
 MODBUS_TCP_DEFAULT_PORT = 502
 

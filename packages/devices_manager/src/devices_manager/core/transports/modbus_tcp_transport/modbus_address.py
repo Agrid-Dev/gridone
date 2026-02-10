@@ -1,11 +1,12 @@
 import re
 from enum import StrEnum
 
+from pydantic import BaseModel, NonNegativeInt
+
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
     TransportAddress,
 )
-from pydantic import BaseModel, NonNegativeInt
 
 
 class ModbusAddressType(StrEnum):

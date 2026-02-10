@@ -1,6 +1,7 @@
+from jsonpath import pointer
+
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 from devices_manager.types import AttributeValueType
-from jsonpath import pointer
 
 
 def json_pointer_adapter(json_pointer: str) -> FnAdapter[dict, AttributeValueType]:

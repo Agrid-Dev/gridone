@@ -1,15 +1,24 @@
 import asyncio
 import logging
+from pathlib import Path
 
-from devices_manager.core.device import AttributeListener, Device
-from devices_manager.core.driver import Driver
-from devices_manager.core.transports import TransportClient
-
-from .devices_discovery_manager import (
+from .core.device import AttributeListener, Device
+from .core.discovery_manager import (
     DevicesDiscoveryManager,
     DiscoveryContext,
 )
-from .tasks_registry import TasksRegistry
+from .core.driver import Driver
+from .core.tasks_registry import TasksRegistry
+from .core.transports import TransportClient
+from .dto import (
+    DeviceDTO,
+    DriverDTO,
+    TransportDTO,
+    device_dto_to_base,
+    driver_dto_to_core,
+    transport_dto_to_core,
+)
+from .storage.core_file_storage import CoreFileStorage
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +116,58 @@ class DevicesManager:
             )
             self._discovery_manager = DevicesDiscoveryManager(context=discovery_context)
         return self._discovery_manager
+
+    @classmethod
+    def from_dto(
+        cls,
+        devices: list[DeviceDTO],
+        drivers: list[DriverDTO],
+        transports: list[TransportDTO],
+    ) -> "DevicesManager":
+        dm = cls(
+            devices={},
+            drivers={},
+            transports={},
+        )
+        for t in transports:
+            try:
+                dm.transports[t.id] = transport_dto_to_core(t)
+            except Exception:
+                logger.exception("Failed to init transport %s", t.id)
+        for d in drivers:
+            try:
+                dm.drivers[d.id] = driver_dto_to_core(d)
+            except Exception:
+                logger.exception("Failed to init driver %s", d.id)
+        for d in devices:
+            try:
+                driver = dm.drivers[d.driver_id]
+            except KeyError:
+                logger.exception(
+                    "Cannot create device %s: missing driver %", d.id, d.driver_id
+                )
+                continue
+            try:
+                transport = dm.transports[d.transport_id]
+            except KeyError:
+                logger.exception(
+                    "Cannot create device %s: missing transport %", d.id, d.transport_id
+                )
+                continue
+            logger.info("Adding device %s", d.id)
+            try:
+                base = device_dto_to_base(d)
+                device = Device.from_base(base, transport=transport, driver=driver)
+                dm.add_device(device)
+            except Exception:
+                logger.exception("Failed to init device %s", d.id)
+        return dm
+
+    @classmethod
+    def from_storage(cls, db_path: str | Path) -> "DevicesManager":
+        repository = CoreFileStorage(db_path)
+        return cls.from_dto(
+            devices=repository.devices.read_all(),
+            drivers=repository.drivers.read_all(),
+            transports=repository.transports.read_all(),
+        )

@@ -1,4 +1,4 @@
-from devices_manager.core.devices_manager import DevicesManager
+from devices_manager import DevicesManager
 from fastapi import Request
 from devices_manager.storage import CoreFileStorage
 

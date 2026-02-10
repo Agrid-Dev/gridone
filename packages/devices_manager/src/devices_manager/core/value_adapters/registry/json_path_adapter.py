@@ -1,6 +1,7 @@
 from typing import cast
 
 import jsonpath
+
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 from devices_manager.types import AttributeValueType
 

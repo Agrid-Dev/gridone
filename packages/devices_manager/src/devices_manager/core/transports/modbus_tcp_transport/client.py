@@ -1,9 +1,10 @@
+from pymodbus.client import AsyncModbusTcpClient
+
 from devices_manager.core.transports import TransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.cast.bool import cast_as_bool
 from devices_manager.types import AttributeValueType, TransportProtocols
-from pymodbus.client import AsyncModbusTcpClient
 
 from .modbus_address import (
     WRITABLE_MODBUS_ADDRESS_TYPES,

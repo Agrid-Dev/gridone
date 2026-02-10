@@ -3,9 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-from devices_manager.dto.device_dto import DeviceDTO
-from devices_manager.dto.driver_dto import DriverDTO
-from devices_manager.dto.transport_dto import build_dto
+from devices_manager.dto import DeviceDTO, DriverDTO, build_transport_dto
 from devices_manager.storage import CoreFileStorage
 from devices_manager.types import TransportProtocols
 
@@ -43,7 +41,7 @@ TEST_DRIVER = DriverDTO.model_validate(
     }
 )
 
-TEST_TRANSPORT = build_dto(
+TEST_TRANSPORT = build_transport_dto(
     transport_id="http_transport",
     name="my transport",
     protocol=TransportProtocols.HTTP,

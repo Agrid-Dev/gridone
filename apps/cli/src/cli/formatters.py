@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from devices_manager.core.device import Device
+from devices_manager import Device
 from rich.table import Table
 
 

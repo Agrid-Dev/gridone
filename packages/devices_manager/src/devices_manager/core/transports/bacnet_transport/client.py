@@ -19,6 +19,7 @@ from bacpypes3.primitivedata import (
     ObjectIdentifier,
     Real,
 )
+
 from devices_manager.core.transports.base import TransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_metadata import TransportMetadata

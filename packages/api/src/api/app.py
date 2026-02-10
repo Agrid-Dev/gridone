@@ -4,10 +4,9 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from devices_manager.core.device import Attribute, Device
-from devices_manager.dto.init_devices_manager import init_devices_manager
-from fastapi import FastAPI
+from devices_manager import Attribute, Device, DevicesManager
 from devices_manager.storage import CoreFileStorage
+from fastapi import FastAPI
 
 from api.routes import devices_router, drivers_router, transports_router
 from api.routes import websocket as websocket_routes
@@ -26,11 +25,7 @@ async def lifespan(app: FastAPI):
 
     gridone_repository = CoreFileStorage(settings.DB_PATH)
     app.state.repository = gridone_repository
-    dm = init_devices_manager(
-        devices=gridone_repository.devices.read_all(),
-        drivers=gridone_repository.drivers.read_all(),
-        transports=gridone_repository.transports.read_all(),
-    )
+    dm = DevicesManager.from_storage(settings.DB_PATH)
     app.state.device_manager = dm
 
     def broadcast_attribute_update(

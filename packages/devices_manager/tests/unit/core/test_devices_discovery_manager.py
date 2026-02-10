@@ -1,6 +1,6 @@
 import pytest
 from devices_manager.core.device import Device
-from devices_manager.core.devices_manager.devices_discovery_manager import (
+from devices_manager.core.discovery_manager import (
     DevicesDiscoveryManager,
     DiscoveryContext,
 )

@@ -1,5 +1,6 @@
-from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 from pydantic import ConfigDict, PositiveInt
+
+from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
 MQTT_DEFAULT_PORT = 1883
 

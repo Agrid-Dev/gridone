@@ -1,11 +1,12 @@
 import re
 from typing import Annotated
 
+from pydantic import BaseModel, BeforeValidator, PositiveInt
+
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
     TransportAddress,
 )
-from pydantic import BaseModel, BeforeValidator, PositiveInt
 
 from .bacnet_types import BacnetObjectType, BacnetWritePriority
 

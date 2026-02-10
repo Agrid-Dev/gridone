@@ -3,6 +3,7 @@ import json
 import logging
 
 import aiomqtt
+
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.listener_registry import (

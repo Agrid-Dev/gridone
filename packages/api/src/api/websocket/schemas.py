@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+from devices_manager.dto import DeviceDTO
 from devices_manager.types import AttributeValueType
-from devices_manager.dto.device_dto import DeviceDTO
 from pydantic import BaseModel, Field
 
 

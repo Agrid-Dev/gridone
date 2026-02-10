@@ -1,12 +1,13 @@
 from functools import cached_property
 from typing import Literal, cast
 
+from pydantic import BaseModel
+
 from devices_manager.core.transports.hash_model import hash_model
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
     TransportAddress,
 )
-from pydantic import BaseModel
 
 type HttpMethod = Literal["GET", "POST", "PUT", "DELETE", "PATCH"]
 HTTP_METHODS: set[HttpMethod] = {

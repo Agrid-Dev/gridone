@@ -1,8 +1,7 @@
 from pathlib import Path
 
 import pytest
-from devices_manager import Device
-from devices_manager.core.device import DeviceBase
+from devices_manager import Device, DeviceBase
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
@@ -19,12 +18,12 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
-from devices_manager.types import DataType, TransportProtocols
 from devices_manager.core.value_adapters import ValueAdapterSpec
 from devices_manager.dto.device_dto import core_to_dto as device_to_dto
 from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
 from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
 from devices_manager.storage import CoreFileStorage
+from devices_manager.types import DataType, TransportProtocols
 
 
 @pytest.fixture

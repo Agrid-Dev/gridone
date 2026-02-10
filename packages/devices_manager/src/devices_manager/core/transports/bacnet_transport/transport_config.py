@@ -2,8 +2,9 @@ import ipaddress
 from typing import Annotated
 
 from bacpypes3.basetypes import Segmentation
-from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 from pydantic import AfterValidator, PositiveFloat, PositiveInt
+
+from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
 from .bacnet_types import BacnetWritePriority
 
