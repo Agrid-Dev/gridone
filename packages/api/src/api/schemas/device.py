@@ -1,4 +1,4 @@
-from core.types import AttributeValueType
+from devices_manager.types import AttributeValueType
 from pydantic import BaseModel
 
 

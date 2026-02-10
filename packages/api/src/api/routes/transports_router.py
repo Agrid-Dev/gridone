@@ -1,20 +1,19 @@
 import uuid
 from typing import Annotated
 
-from core import TransportClient
-from core.devices_manager import DevicesManager
-from dto.transport_dto import (
-    CONFIG_CLASS_BY_PROTOCOL,
+from devices_manager import DevicesManager, TransportClient
+from devices_manager.dto import (
+    TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
-    build_dto,
-    core_to_dto,
-    dto_to_core,
+    build_transport_dto,
+    transport_core_to_dto,
+    transport_dto_to_core,
 )
+from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
-from storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 
@@ -40,7 +39,7 @@ def _get_client(dm: DevicesManager, transport_id: str) -> TransportClient:
 def list_transports(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> list[TransportDTO]:
-    return [core_to_dto(tc) for tc in dm.transports.values()]
+    return [transport_core_to_dto(tc) for tc in dm.transports.values()]
 
 
 @router.get("/{transport_id}", name="get_transport")
@@ -48,7 +47,7 @@ def get_transport(
     transport_id: str, dm: Annotated[DevicesManager, Depends(get_device_manager)]
 ) -> TransportDTO:
     tc = _get_client(dm, transport_id)
-    return core_to_dto(tc)
+    return transport_core_to_dto(tc)
 
 
 def gen_id() -> str:
@@ -65,11 +64,11 @@ def create_transport(
     response: Response,
 ) -> TransportDTO:
     transport_id = gen_id()
-    dto = build_dto(
+    dto = build_transport_dto(
         transport_id, payload.name or transport_id, payload.protocol, payload.config
     )
 
-    tc = dto_to_core(dto)
+    tc = transport_dto_to_core(dto)
     dm.transports[tc.metadata.id] = tc
 
     response.headers["Location"] = str(
@@ -95,7 +94,7 @@ async def update_transport(  # noqa: PLR0913
         if update_payload.config:
             new_config = client.config.model_copy(update=update_payload.config)
             client.update_config(new_config)
-        dto = core_to_dto(client)
+        dto = transport_core_to_dto(client)
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.errors()
@@ -129,5 +128,5 @@ async def delete_transport(
 def get_transport_schemas() -> dict[str, dict]:
     return {
         protocol: config_class.model_json_schema()
-        for protocol, config_class in CONFIG_CLASS_BY_PROTOCOL.items()
+        for protocol, config_class in TRANSPORT_CONFIG_CLASS_BY_PROTOCOL.items()
     }

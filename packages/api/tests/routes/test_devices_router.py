@@ -1,6 +1,6 @@
 import pytest
-from core import Device
-from core.devices_manager import DevicesManager
+from devices_manager import Device
+from devices_manager import DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient

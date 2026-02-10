@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from core.devices_manager import DevicesManager
+from devices_manager import DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient

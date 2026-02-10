@@ -1,14 +1,19 @@
 import logging
 from typing import Annotated
 
-from core.device import ConfirmationError, Device, DeviceBase
-from core.devices_manager import DevicesManager
-from core.driver import DeviceConfigField
-from core.types import AttributeValueType
-from dto.device_dto import DeviceCreateDTO, DeviceDTO, DeviceUpdateDTO, core_to_dto
+from devices_manager.core.device import ConfirmationError, Device, DeviceBase
+from devices_manager import DevicesManager
+from devices_manager.core.driver import DeviceConfigField
+from devices_manager.types import AttributeValueType
+from devices_manager.dto.device_dto import (
+    DeviceCreateDTO,
+    DeviceDTO,
+    DeviceUpdateDTO,
+    core_to_dto,
+)
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 from api.schemas.device import AttributeUpdate

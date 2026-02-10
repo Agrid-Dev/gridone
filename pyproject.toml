@@ -6,14 +6,14 @@ readme = "README.md"
 requires-python = ">=3.13"
 
 dependencies = [
-    "gridone-core",
+    "gridone-devices-manager",
 ]
 
 [tool.uv.sources]
-gridone-core = { workspace = true }
+gridone-devices-manager = { workspace = true }
 gridone-dto = { workspace = true }
 gridone-api = { workspace = true }
-gridone-storage = { workspace = true }
+
 
 
 [tool.uv.workspace]
@@ -58,9 +58,7 @@ source = [
     "apps/api_server",
     "apps/cli",
     "packages/api/src",
-    "packages/core/src",
-    "packages/dto/src",
-    "packages/storage/src",
+    "packages/devices-manager/src",
 ]
 omit = [
     "*/tests/*",

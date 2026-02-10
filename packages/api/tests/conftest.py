@@ -1,24 +1,29 @@
 from pathlib import Path
 
 import pytest
-from core import Device
-from core.device import DeviceBase
-from core.driver import (
+from devices_manager import Device, DeviceBase
+from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
     Driver,
     DriverMetadata,
     UpdateStrategy,
 )
-from core.transports import TransportClient, TransportMetadata
-from core.transports.http_transport import HTTPTransportClient, HttpTransportConfig
-from core.transports.mqtt_transport import MqttTransportClient, MqttTransportConfig
-from core.types import DataType, TransportProtocols
-from core.value_adapters import ValueAdapterSpec
-from dto.device_dto import core_to_dto as device_to_dto
-from dto.driver_dto import core_to_dto as driver_to_dto
-from dto.transport_dto import core_to_dto as transport_to_dto
-from storage import CoreFileStorage
+from devices_manager.core.transports import TransportClient, TransportMetadata
+from devices_manager.core.transports.http_transport import (
+    HTTPTransportClient,
+    HttpTransportConfig,
+)
+from devices_manager.core.transports.mqtt_transport import (
+    MqttTransportClient,
+    MqttTransportConfig,
+)
+from devices_manager.core.value_adapters import ValueAdapterSpec
+from devices_manager.dto.device_dto import core_to_dto as device_to_dto
+from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
+from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
+from devices_manager.storage import CoreFileStorage
+from devices_manager.types import DataType, TransportProtocols
 
 
 @pytest.fixture

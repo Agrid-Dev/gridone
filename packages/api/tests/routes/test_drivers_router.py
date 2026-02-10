@@ -1,6 +1,6 @@
 import pytest
-from core.devices_manager import DevicesManager
-from core.types import TransportProtocols
+from devices_manager import DevicesManager
+from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

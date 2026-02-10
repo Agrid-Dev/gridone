@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 from cli.devices import app  # ty: ignore[unresolved-import]
-from storage.core_file_storage import CoreFileStorage
+from devices_manager.storage import CoreFileStorage
 from typer.testing import CliRunner
 
 from .conftest import TEST_DRIVER

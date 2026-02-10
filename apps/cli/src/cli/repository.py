@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 
+from devices_manager.storage import CoreFileStorage
 from dotenv import load_dotenv
-from storage import CoreFileStorage
 
 load_dotenv()
 

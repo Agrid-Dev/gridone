@@ -1,9 +1,14 @@
 from typing import Annotated
 
-from core.devices_manager import DevicesManager
-from dto.driver_dto import DriverDTO, DriverYamlDTO, core_to_dto, dto_to_core
+from devices_manager import DevicesManager
+from devices_manager.dto import (
+    DriverDTO,
+    DriverYamlDTO,
+    driver_core_to_dto,
+    driver_dto_to_core,
+)
+from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, status
-from storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 
@@ -14,7 +19,7 @@ router = APIRouter()
 def list_drivers(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> list[DriverDTO]:
-    return [core_to_dto(tc) for tc in dm.drivers.values()]
+    return [driver_core_to_dto(tc) for tc in dm.drivers.values()]
 
 
 @router.get("/{driver_id}")
@@ -23,7 +28,7 @@ def get_driver(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DriverDTO:
     try:
-        return core_to_dto(dm.drivers[driver_id])
+        return driver_core_to_dto(dm.drivers[driver_id])
     except KeyError as ke:
         raise HTTPException(
             status_code=404, detail=f"Driver {driver_id} not found"
@@ -43,7 +48,7 @@ def create_driver(
         raise HTTPException(
             status_code=409, detail=f"Driver {driver_dto.id} already exists"
         )
-    driver = dto_to_core(driver_dto)
+    driver = driver_dto_to_core(driver_dto)
     dm.drivers[driver_dto.id] = driver
     repository.drivers.write(driver_dto.id, driver_dto)
     return driver_dto
