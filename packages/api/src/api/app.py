@@ -52,10 +52,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await dm.stop_polling()
+        await dm.stop()
         await websocket_manager.close_all()
-        for transport in dm.transports.values():
-            await transport.close()
 
 
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:

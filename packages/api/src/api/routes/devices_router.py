@@ -70,7 +70,7 @@ async def create_device(
     repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> DeviceDTO:
     try:
-        transport = dm.transports[dto.transport_id]
+        transport = dm._transports[dto.transport_id]
     except KeyError:
         raise HTTPException(
             status_code=404, detail=f"Transport {dto.transport_id} not found"
@@ -100,7 +100,7 @@ async def update_device(
     transport = device.transport
     if payload.transport_id is not None:
         try:
-            transport = dm.transports[payload.transport_id]
+            transport = dm._transports[payload.transport_id]
         except KeyError:
             raise HTTPException(status_code=404, detail="Transport not found")
     driver = device.driver

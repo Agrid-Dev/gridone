@@ -41,7 +41,7 @@ def gen_id() -> str:
 class DevicesManager:
     devices: dict[str, Device]
     _drivers: dict[str, Driver]
-    transports: dict[str, TransportClient]
+    _transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
     _discovery_manager: DevicesDiscoveryManager
     _running: bool
@@ -57,7 +57,7 @@ class DevicesManager:
     ) -> None:
         self.devices = devices
         self._drivers = drivers
-        self.transports = transports
+        self._transports = transports
         self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
@@ -123,7 +123,7 @@ class DevicesManager:
         if not hasattr(self, "_discovery_manager"):
             discovery_context = DiscoveryContext(
                 get_driver=lambda driver_id: self._drivers[driver_id],
-                get_transport=lambda transport_id: self.transports[transport_id],
+                get_transport=lambda transport_id: self._transports[transport_id],
                 add_device=self.add_device,
                 device_exists=lambda device: any(
                     d == device for d in self.devices.values()
@@ -163,7 +163,7 @@ class DevicesManager:
                 )
                 continue
             try:
-                transport = dm.transports[d.transport_id]
+                transport = dm._transports[d.transport_id]
             except KeyError:
                 logger.exception(
                     "Cannot create device %s: missing transport %", d.id, d.transport_id
@@ -187,12 +187,16 @@ class DevicesManager:
             transports=repository.transports.read_all(),
         )
 
+    @property
+    def transport_ids(self) -> set[str]:
+        return set(self._transports.keys())
+
     def list_transports(self) -> list[TransportDTO]:
-        return [transport_core_to_dto(t) for t in self.transports.values()]
+        return [transport_core_to_dto(t) for t in self._transports.values()]
 
     def get_transport(self, transport_id: str) -> TransportClient:
         try:
-            return transport_core_to_dto(self.transports[transport_id])
+            return transport_core_to_dto(self._transports[transport_id])
         except KeyError as e:
             msg = f"Transport {transport_id} not found"
             raise NotFoundError(msg) from e
@@ -206,7 +210,7 @@ class DevicesManager:
         transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
         metadata = TransportMetadata(id=transport_id, name=transport.name)
         client = make_transport_client(transport.protocol, config, metadata)
-        self.transports[metadata.id] = client
+        self._transports[metadata.id] = client
         return transport_core_to_dto(client)
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
@@ -220,7 +224,7 @@ class DevicesManager:
     async def delete_transport(self, transport_id: str) -> None:
         self._assert_transport_not_used(transport_id)
         try:
-            transport = self.transports.pop(transport_id)
+            transport = self._transports.pop(transport_id)
             await transport.close()
         except KeyError as e:
             msg = f"Transport {transport_id} not found"
@@ -229,7 +233,7 @@ class DevicesManager:
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
     ) -> TransportDTO:
-        transport = self.transports.get(transport_id)
+        transport = self._transports.get(transport_id)
         if transport is None:
             msg = f"Transport {transport_id} not found"
             raise NotFoundError(msg)
@@ -275,3 +279,7 @@ class DevicesManager:
             raise NotFoundError(msg)
         self._assert_driver_not_used(driver_id)
         del self._drivers[driver_id]
+
+    async def stop(self) -> None:
+        await self.stop_polling()
+        await asyncio.gather(t.close() for t in self._transports.values())

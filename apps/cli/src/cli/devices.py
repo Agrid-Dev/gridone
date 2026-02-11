@@ -164,7 +164,7 @@ async def _discover(
     if driver_id not in dm.driver_ids:
         msg = f"Driver {driver_id} does not exist"
         raise ValueError(msg)
-    if transport_id not in dm.transports:
+    if transport_id not in dm.transport_ids:
         msg = f"Transport {transport_id} does not exist"
         raise ValueError(msg)
     device_ids = {d.id for d in dm.devices.values()}

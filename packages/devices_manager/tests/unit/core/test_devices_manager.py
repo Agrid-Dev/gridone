@@ -244,6 +244,12 @@ class TestDevicesManagerDiscovery:
 
 
 class TestDevicesManagerListTransports:
+    def test_transport_ids(self, devices_manager):
+        transport_ids = devices_manager.transport_ids
+        assert isinstance(transport_ids, set)
+        assert all(isinstance(t, str) for t in transport_ids)
+        assert len(transport_ids) > 0
+
     def test_list_transports(self, devices_manager):
         transports = devices_manager.list_transports()
         assert isinstance(transports, list)
@@ -272,7 +278,7 @@ class TestDevicesManagerAddTransport:
         assert new_transport.name == transport_data.name
         assert new_transport.protocol == transport_data.protocol
         assert new_transport.config == transport_data.config
-        assert new_transport.id in devices_manager.transports
+        assert devices_manager.get_transport(new_transport.id) is not None
 
 
 class TestDevicesManagerDeleteTransport:
@@ -285,7 +291,8 @@ class TestDevicesManagerDeleteTransport:
         )
         transport_id = mock_push_transport_client.id
         await dm.delete_transport(transport_id)
-        assert transport_id not in dm.transports
+        with pytest.raises(NotFoundError):
+            dm.get_transport(mock_push_transport_client.id)
 
     @pytest.mark.asyncio
     async def test_delete_non_existing_transport(self, devices_manager):
