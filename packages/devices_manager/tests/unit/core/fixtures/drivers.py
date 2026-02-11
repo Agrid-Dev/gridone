@@ -1,6 +1,7 @@
 import pytest
 from devices_manager.core.driver import (
     AttributeDriver,
+    DeviceConfigField,
     Driver,
     DriverMetadata,
     UpdateStrategy,
@@ -58,9 +59,50 @@ def driver(attributes: list[AttributeDriver]) -> Driver:
         metadata=DriverMetadata(id="test_driver"),
         env={"base_url": "http://example.com"},
         transport=TransportProtocols.HTTP,
-        device_config_required=[],
+        device_config_required=[DeviceConfigField(name="some_id", required=True)],
         update_strategy=UpdateStrategy(),
         attributes={attribute.name: attribute for attribute in attributes},
+    )
+
+
+@pytest.fixture
+def other_http_driver() -> Driver:
+    return Driver(
+        metadata=DriverMetadata(id="other_http_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={
+            "power": AttributeDriver(
+                name="power",
+                data_type=DataType.FLOAT,
+                read="GET /power",
+                write=None,
+                value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+            ),
+            "temperature": AttributeDriver(
+                name="temperature",
+                data_type=DataType.FLOAT,
+                read="GET /temp",
+                write=None,
+                value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+            ),
+        },
+    )
+
+
+@pytest.fixture
+def strict_http_driver() -> Driver:
+    return Driver(
+        metadata=DriverMetadata(id="strict_http_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[
+            DeviceConfigField(name="serial", required=True),
+        ],
+        update_strategy=UpdateStrategy(),
+        attributes={},
     )
 
 

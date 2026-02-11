@@ -184,6 +184,13 @@ def mock_transport_client() -> MockTransportClient:
 
 
 @pytest.fixture
+def second_mock_transport_client() -> MockTransportClient:
+    metadata = TransportMetadata(id="http-2", name="Second HTTP Transport")
+    config = make_transport_config(TransportProtocols.HTTP, {})
+    return MockTransportClient(metadata, config)
+
+
+@pytest.fixture
 def mock_push_transport_client() -> MockPushTransportClient:
     metadata = TransportMetadata(id="my-push-transport", name="My Push Transport")
     config = make_transport_config(TransportProtocols.MQTT, {"host": "localhost"})

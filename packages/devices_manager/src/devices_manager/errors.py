@@ -4,3 +4,7 @@ class NotFoundError(Exception):
 
 class ForbiddenError(Exception):
     """Raised when an action is forbidden."""
+
+
+class InvalidError(ValueError):
+    """Raised when an invalid input is submitted."""

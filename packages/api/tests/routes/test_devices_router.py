@@ -1,6 +1,5 @@
 import pytest
-from devices_manager import Device
-from devices_manager import DevicesManager
+from devices_manager import Device, DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -168,13 +167,15 @@ class TestUpdateDevice:
 
 
 class TestDeleteDevice:
-    def test_delete_device_ok(self, client: TestClient, mock_devices):
+    @pytest.mark.asyncio
+    async def test_delete_device_ok(self, client: TestClient, mock_devices):
         device_ids = list(mock_devices.keys())
         assert len(device_ids) >= 1, "Require at least one device to test deletion"
         for device_id in device_ids:
             response = client.delete(f"/{device_id}")
             assert response.status_code == 204
 
-    def test_delete_device_not_found(self, client: TestClient):
+    @pytest.mark.asyncio
+    async def test_delete_device_not_found(self, client: TestClient):
         response = client.delete("/unknown")
         assert response.status_code == 404
