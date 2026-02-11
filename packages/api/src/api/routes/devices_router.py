@@ -1,19 +1,19 @@
 import logging
 from typing import Annotated
 
-from devices_manager.core.device import ConfirmationError, Device, DeviceBase
 from devices_manager import DevicesManager
+from devices_manager.core.device import ConfirmationError, Device, DeviceBase
 from devices_manager.core.driver import DeviceConfigField
-from devices_manager.types import AttributeValueType
 from devices_manager.dto.device_dto import (
     DeviceCreateDTO,
     DeviceDTO,
     DeviceUpdateDTO,
     core_to_dto,
 )
+from devices_manager.storage import CoreFileStorage
+from devices_manager.types import AttributeValueType
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from devices_manager.storage import CoreFileStorage
 
 from api.dependencies import get_device_manager, get_repository
 from api.schemas.device import AttributeUpdate
@@ -76,7 +76,7 @@ async def create_device(
             status_code=404, detail=f"Transport {dto.transport_id} not found"
         )
     try:
-        driver = dm.drivers[dto.driver_id]
+        driver = dm._drivers[dto.driver_id]
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Driver {dto.driver_id} not found")
     _validate_device_config(dto.config, driver.device_config_required)
@@ -106,7 +106,7 @@ async def update_device(
     driver = device.driver
     if payload.driver_id is not None:
         try:
-            driver = dm.drivers[payload.driver_id]
+            driver = dm._drivers[payload.driver_id]
         except KeyError:
             raise HTTPException(status_code=404, detail="Transport not found")
     if transport.protocol != driver.transport:

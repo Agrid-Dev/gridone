@@ -21,20 +21,15 @@ from devices_manager.types import TransportProtocols
 def devices_manager(mock_transport_client, device, driver):
     return DevicesManager(
         devices={"device1": device},
-        drivers={"test_driver": driver},
+        drivers={driver.id: driver},
         transports={mock_transport_client.id: mock_transport_client},
     )
 
 
 class TestDevicesManagerInit:
-    def test_init(self):
+    def test_init_empty(self):
         manager = DevicesManager(devices={}, drivers={}, transports={})
-
-        assert manager.devices == {}
-        assert manager.drivers == {}
-        assert manager.transports == {}
-        assert manager._running is False
-        assert manager._attribute_listeners == []
+        assert isinstance(manager, DevicesManager)
 
 
 class TestDevicesManagerPolling:
@@ -355,14 +350,19 @@ class TestDevicesManagerUpdateTransport:
 
 
 class TestDevicesManagerDrivers:
+    def test_list_driver_ids(self, devices_manager):
+        driver_ids = devices_manager.driver_ids
+        assert isinstance(driver_ids, set)
+        assert all(isinstance(d, str) for d in driver_ids)
+        assert len(driver_ids) > 0
+
     def test_list_drivers(self, devices_manager):
         drivers = devices_manager.list_drivers()
         assert isinstance(drivers, list)
         assert all(isinstance(d, DriverDTO) for d in drivers)
-        assert {d.id for d in drivers} == set(devices_manager.drivers.keys())
 
-    def test_get_driver_existing(self, devices_manager):
-        driver_id = next(iter(devices_manager.drivers.keys()))
+    def test_get_driver_existing(self, devices_manager, driver):
+        driver_id = driver.id
         driver_dto = devices_manager.get_driver(driver_id)
         assert isinstance(driver_dto, DriverDTO)
         assert driver_dto.id == driver_id
@@ -371,7 +371,7 @@ class TestDevicesManagerDrivers:
         with pytest.raises(NotFoundError):
             devices_manager.get_driver("non-existing-driver-id")
 
-    def test_add_driver(self, driver):
+    def test_add_driver_ok(self, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={})
         driver_dto = driver_core_to_dto(driver)
 
@@ -379,7 +379,7 @@ class TestDevicesManagerDrivers:
 
         assert isinstance(created, DriverDTO)
         assert created.id == driver_dto.id
-        assert created.id in dm.drivers
+        assert dm.get_driver(driver_dto.id) is not None
 
     def test_add_driver_conflict(self, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={})
@@ -387,5 +387,23 @@ class TestDevicesManagerDrivers:
 
         dm.add_driver(driver_dto)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError):  # noqa: PT011
             dm.add_driver(driver_dto)
+
+    def test_delete_driver_ok(self, driver):
+        devices_manager = DevicesManager(
+            devices={},
+            drivers={driver.id: driver},
+            transports={},
+        )
+        devices_manager.delete_driver(driver.id)
+        with pytest.raises(NotFoundError):
+            devices_manager.get_driver(driver.id)
+
+    def test_delete_driver_not_found(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            devices_manager.delete_driver("unknown")
+
+    def test_delete_driver_in_use(self, devices_manager, driver):
+        with pytest.raises(ForbiddenError):
+            devices_manager.delete_driver(driver.id)

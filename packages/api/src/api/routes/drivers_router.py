@@ -2,7 +2,7 @@ from typing import Annotated
 
 from devices_manager import DevicesManager
 from devices_manager.dto import DriverDTO, DriverYamlDTO
-from devices_manager.errors import NotFoundError
+from devices_manager.errors import ForbiddenError, NotFoundError
 from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -52,12 +52,16 @@ def delete_driver(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> None:
-    get_driver(driver_id, dm)  # check it exists
-    for device in dm.devices.values():
-        if device.driver.metadata.id == driver_id:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Driver {driver_id} is used by device {device.id}",
-            )
-    del dm.drivers[driver_id]
+    try:
+        dm.delete_driver(driver_id)
+    except NotFoundError as ke:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(ke),
+        )
+    except ForbiddenError as fe:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(fe),
+        )
     repository.drivers.delete(driver_id)

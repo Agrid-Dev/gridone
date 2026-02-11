@@ -22,8 +22,9 @@ async def test_discover_devices(
     thermocktat_container_mqtt,  # noqa: ARG001
 ):
     assert len(devices_manager.devices) == 0
-    driver_id = next(iter(devices_manager.drivers.keys()))
-    transport_id = next(iter(devices_manager.transports.keys()))
+
+    driver_id = devices_manager.list_drivers()[0].id
+    transport_id = devices_manager.list_transports()[0].id
     await devices_manager.discovery_manager.register(
         driver_id=driver_id, transport_id=transport_id
     )

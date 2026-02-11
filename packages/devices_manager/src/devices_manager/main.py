@@ -26,7 +26,6 @@ from .dto import (
     driver_core_to_dto,
     driver_dto_to_core,
     transport_core_to_dto,
-    transport_dto_to_core,
 )
 from .errors import ForbiddenError, NotFoundError
 from .storage.core_file_storage import CoreFileStorage
@@ -41,7 +40,7 @@ def gen_id() -> str:
 
 class DevicesManager:
     devices: dict[str, Device]
-    drivers: dict[str, Driver]
+    _drivers: dict[str, Driver]
     transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
     _discovery_manager: DevicesDiscoveryManager
@@ -57,7 +56,7 @@ class DevicesManager:
         attribute_update_listeners: list[AttributeListener] | None = None,
     ) -> None:
         self.devices = devices
-        self.drivers = drivers
+        self._drivers = drivers
         self.transports = transports
         self._polling_tasks = TasksRegistry()
         self._running = False
@@ -123,7 +122,7 @@ class DevicesManager:
     def discovery_manager(self) -> DevicesDiscoveryManager:
         if not hasattr(self, "_discovery_manager"):
             discovery_context = DiscoveryContext(
-                get_driver=lambda driver_id: self.drivers[driver_id],
+                get_driver=lambda driver_id: self._drivers[driver_id],
                 get_transport=lambda transport_id: self.transports[transport_id],
                 add_device=self.add_device,
                 device_exists=lambda device: any(
@@ -147,18 +146,18 @@ class DevicesManager:
         )
         for t in transports:
             try:
-                dm.transports[t.id] = transport_dto_to_core(t)
+                dm.add_transport(t)
             except Exception:
                 logger.exception("Failed to init transport %s", t.id)
         for d in drivers:
             try:
-                dm.drivers[d.id] = driver_dto_to_core(d)
+                dm.add_driver(d)
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
             try:
-                driver = dm.drivers[d.driver_id]
-            except KeyError:
+                driver = dm._drivers[d.driver_id]
+            except NotFoundError:
                 logger.exception(
                     "Cannot create device %s: missing driver %", d.id, d.driver_id
                 )
@@ -188,9 +187,6 @@ class DevicesManager:
             transports=repository.transports.read_all(),
         )
 
-    def list_drivers(self) -> list[DriverDTO]:
-        return [driver_core_to_dto(driver) for driver in self.drivers.values()]
-
     def list_transports(self) -> list[TransportDTO]:
         return [transport_core_to_dto(t) for t in self.transports.values()]
 
@@ -201,11 +197,14 @@ class DevicesManager:
             msg = f"Transport {transport_id} not found"
             raise NotFoundError(msg) from e
 
-    def add_transport(self, transport: TransportCreateDTO) -> TransportDTO:
+    def add_transport(
+        self, transport: TransportCreateDTO | TransportDTO
+    ) -> TransportDTO:
         config = make_transport_config(
             transport.protocol, transport.config.model_dump()
         )
-        metadata = TransportMetadata(id=gen_id(), name=transport.name)
+        transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
+        metadata = TransportMetadata(id=transport_id, name=transport.name)
         client = make_transport_client(transport.protocol, config, metadata)
         self.transports[metadata.id] = client
         return transport_core_to_dto(client)
@@ -215,7 +214,7 @@ class DevicesManager:
             (d for d in self.devices.values() if d.transport.id == transport_id), None
         )
         if device is not None:
-            msg = f"Transport {transport_id} is still used by device {device.id}"
+            msg = f"Transport {transport_id} is used by device {device.id}"
             raise ForbiddenError(msg)
 
     async def delete_transport(self, transport_id: str) -> None:
@@ -240,18 +239,39 @@ class DevicesManager:
             transport.update_config(update.config)
         return transport_core_to_dto(transport)
 
+    @property
+    def driver_ids(self) -> set[str]:
+        return set(self._drivers.keys())
+
+    def list_drivers(self) -> list[DriverDTO]:
+        return [driver_core_to_dto(driver) for driver in self._drivers.values()]
+
     def get_driver(self, driver_id: str) -> DriverDTO:
         try:
-            return driver_core_to_dto(self.drivers[driver_id])
+            return driver_core_to_dto(self._drivers[driver_id])
         except KeyError as e:
             msg = f"Driver {driver_id} not found"
             raise NotFoundError(msg) from e
 
     def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
-        if driver_dto.id in self.drivers:
+        if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)
         driver = driver_dto_to_core(driver_dto)
-        self.drivers[driver_dto.id] = driver
+        self._drivers[driver_dto.id] = driver
         return driver_core_to_dto(driver)
 
+    def _assert_driver_not_used(self, driver_id: str) -> None:
+        device = next(
+            (d for d in self.devices.values() if d.driver.id == driver_id), None
+        )
+        if device is not None:
+            msg = f"Driver {driver_id} is used by device {device.id}"
+            raise ForbiddenError(msg)
+
+    def delete_driver(self, driver_id: str) -> None:
+        if driver_id not in self._drivers:
+            msg = f"Driver {driver_id} not found"
+            raise NotFoundError(msg)
+        self._assert_driver_not_used(driver_id)
+        del self._drivers[driver_id]

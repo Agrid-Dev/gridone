@@ -161,7 +161,7 @@ async def _discover(
         repository.drivers.read_all(),
         repository.transports.read_all(),
     )
-    if driver_id not in dm.drivers:
+    if driver_id not in dm.driver_ids:
         msg = f"Driver {driver_id} does not exist"
         raise ValueError(msg)
     if transport_id not in dm.transports:
