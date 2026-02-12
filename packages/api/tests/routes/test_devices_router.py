@@ -5,12 +5,14 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import get_device_manager
+from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 
 
 @pytest.fixture
 def app(mock_devices, mock_drivers, mock_transports) -> FastAPI:
     app = FastAPI()
+    register_exception_handlers(app)
     app.include_router(router)
 
     def get_mock_devices_manager() -> DevicesManager:

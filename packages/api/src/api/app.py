@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import FastAPI
 
+from api.exception_handlers import register_exception_handlers
 from api.routes import devices_router, drivers_router, transports_router
 from api.routes import websocket as websocket_routes
 from api.settings import load_settings
@@ -50,6 +51,7 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     if logging_dict_config:
         logging.config.dictConfig(logging_dict_config)
     app = FastAPI(title="Gridone API", lifespan=lifespan)
+    register_exception_handlers(app)
 
     app.include_router(devices_router, prefix="/devices", tags=["devices"])
     app.include_router(transports_router, prefix="/transports", tags=["transports"])

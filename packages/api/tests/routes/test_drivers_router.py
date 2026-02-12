@@ -5,12 +5,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_device_manager
+from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 
 
 @pytest.fixture
 def app(mock_drivers) -> FastAPI:
     app = FastAPI()
+    register_exception_handlers(app)
     app.include_router(router)
 
     def get_mock_devices_manager() -> DevicesManager:
