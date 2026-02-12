@@ -2,6 +2,7 @@ import asyncio
 import logging
 import uuid
 from pathlib import Path
+from typing import TypeVar
 
 from .core.device import AttributeListener, Device, DeviceBase
 from .core.discovery_manager import (
@@ -90,6 +91,20 @@ class DevicesManager:
         except asyncio.CancelledError:
             return
 
+    _T = TypeVar("_T")
+
+    @staticmethod
+    def _get_or_raise(
+        registry: dict[str, _T],
+        entity_id: str,
+        label: str,
+    ) -> _T:
+        try:
+            return registry[entity_id]
+        except KeyError as e:
+            msg = f"{label} {entity_id} not found"
+            raise NotFoundError(msg) from e
+
     def _validate_device_config(self, device_config: dict, driver: Driver) -> None:
         for field in driver.device_config_required:
             if field.required and field.name not in device_config:
@@ -97,20 +112,14 @@ class DevicesManager:
                 raise InvalidError(msg)
 
     def _create_device(self, device_create: DeviceCreateDTO) -> Device:
-        try:
-            driver = self._drivers[device_create.driver_id]
-        except KeyError as ke:
-            msg = f"Driver {device_create.driver_id} not found"
-            raise NotFoundError(msg) from ke
+        driver = self._get_or_raise(
+            self._drivers, device_create.driver_id, "Driver"
+        )
         self._validate_device_config(device_create.config, driver)
-        try:
-            transport = self._transports[device_create.transport_id]
-        except KeyError as ke:
-            msg = f"Transport {device_create.transport_id} not found"
-            raise NotFoundError(msg) from ke
-        if driver.transport != transport.protocol:
-            msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
-            raise ValueError(msg)
+        transport = self._get_or_raise(
+            self._transports, device_create.transport_id, "Transport"
+        )
+        self._check_driver_transport_compat(driver, transport)
         device_base = DeviceBase(
             id=gen_id(), name=device_create.name, config=device_create.config
         )
@@ -147,7 +156,6 @@ class DevicesManager:
         self._attribute_listeners.append(callback)
         for device in self.devices.values():
             device.add_update_listener(callback)
-            self._attach_listeners(device)
 
     def _attach_listeners(self, device: Device) -> None:
         for listener in self._attribute_listeners:
@@ -196,16 +204,18 @@ class DevicesManager:
         for d in devices:
             try:
                 driver = dm._drivers[d.driver_id]
-            except NotFoundError:
+            except KeyError:
                 logger.exception(
-                    "Cannot create device %s: missing driver %", d.id, d.driver_id
+                    "Cannot create device %s: missing driver %s", d.id, d.driver_id
                 )
                 continue
             try:
                 transport = dm._transports[d.transport_id]
             except KeyError:
                 logger.exception(
-                    "Cannot create device %s: missing transport %", d.id, d.transport_id
+                    "Cannot create device %s: missing transport %s",
+                    d.id,
+                    d.transport_id,
                 )
                 continue
             logger.info("Adding device %s", d.id)
@@ -233,12 +243,11 @@ class DevicesManager:
     def list_transports(self) -> list[TransportDTO]:
         return [transport_core_to_dto(t) for t in self._transports.values()]
 
-    def get_transport(self, transport_id: str) -> TransportClient:
-        try:
-            return transport_core_to_dto(self._transports[transport_id])
-        except KeyError as e:
-            msg = f"Transport {transport_id} not found"
-            raise NotFoundError(msg) from e
+    def get_transport(self, transport_id: str) -> TransportDTO:
+        client = self._get_or_raise(
+            self._transports, transport_id, "Transport"
+        )
+        return transport_core_to_dto(client)
 
     def add_transport(
         self, transport: TransportCreateDTO | TransportDTO
@@ -261,21 +270,17 @@ class DevicesManager:
             raise ForbiddenError(msg)
 
     async def delete_transport(self, transport_id: str) -> None:
+        self._get_or_raise(self._transports, transport_id, "Transport")
         self._assert_transport_not_used(transport_id)
-        try:
-            transport = self._transports.pop(transport_id)
-            await transport.close()
-        except KeyError as e:
-            msg = f"Transport {transport_id} not found"
-            raise NotFoundError(msg) from e
+        transport = self._transports.pop(transport_id)
+        await transport.close()
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
     ) -> TransportDTO:
-        transport = self._transports.get(transport_id)
-        if transport is None:
-            msg = f"Transport {transport_id} not found"
-            raise NotFoundError(msg)
+        transport = self._get_or_raise(
+            self._transports, transport_id, "Transport"
+        )
         if update.name is not None:
             transport.metadata.name = update.name
         if update.config is not None:
@@ -290,11 +295,8 @@ class DevicesManager:
         return [driver_core_to_dto(driver) for driver in self._drivers.values()]
 
     def get_driver(self, driver_id: str) -> DriverDTO:
-        try:
-            return driver_core_to_dto(self._drivers[driver_id])
-        except KeyError as e:
-            msg = f"Driver {driver_id} not found"
-            raise NotFoundError(msg) from e
+        driver = self._get_or_raise(self._drivers, driver_id, "Driver")
+        return driver_core_to_dto(driver)
 
     def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
         if driver_dto.id in self._drivers:
@@ -313,9 +315,7 @@ class DevicesManager:
             raise ForbiddenError(msg)
 
     def delete_driver(self, driver_id: str) -> None:
-        if driver_id not in self._drivers:
-            msg = f"Driver {driver_id} not found"
-            raise NotFoundError(msg)
+        self._get_or_raise(self._drivers, driver_id, "Driver")
         self._assert_driver_not_used(driver_id)
         del self._drivers[driver_id]
 
@@ -327,27 +327,22 @@ class DevicesManager:
         return [device_core_to_dto(device) for device in self.devices.values()]
 
     def get_device(self, device_id: str) -> DeviceDTO:
-        try:
-            return device_core_to_dto(self.devices[device_id])
-        except KeyError as ke:
-            msg = f"Device {device_id} not found"
-            raise NotFoundError(msg) from ke
+        device = self._get_or_raise(self.devices, device_id, "Device")
+        return device_core_to_dto(device)
 
     def _resolve_driver(self, driver_id: str | None) -> Driver | None:
         if driver_id is None:
             return None
-        if driver_id not in self._drivers:
-            msg = f"Driver {driver_id} not found"
-            raise NotFoundError(msg)
-        return self._drivers[driver_id]
+        return self._get_or_raise(self._drivers, driver_id, "Driver")
 
-    def _resolve_transport(self, transport_id: str | None) -> TransportClient | None:
+    def _resolve_transport(
+        self, transport_id: str | None
+    ) -> TransportClient | None:
         if transport_id is None:
             return None
-        if transport_id not in self._transports:
-            msg = f"Transport {transport_id} not found"
-            raise NotFoundError(msg)
-        return self._transports[transport_id]
+        return self._get_or_raise(
+            self._transports, transport_id, "Transport"
+        )
 
     @staticmethod
     def _check_driver_transport_compat(
@@ -379,11 +374,7 @@ class DevicesManager:
     async def update_device(
         self, device_id: str, device_update: DeviceUpdateDTO
     ) -> DeviceDTO:
-        if device_id not in self.devices:
-            msg = f"Device {device_id} not found"
-            raise NotFoundError(msg)
-
-        device = self.devices[device_id]
+        device = self._get_or_raise(self.devices, device_id, "Device")
         new_driver = self._resolve_driver(device_update.driver_id)
         new_transport = self._resolve_transport(device_update.transport_id)
         effective_driver = new_driver or device.driver
@@ -409,9 +400,7 @@ class DevicesManager:
         return device_core_to_dto(self.devices[device_id])
 
     async def delete_device(self, device_id: str) -> None:
-        if device_id not in self.devices:
-            msg = f"Device {device_id} not found"
-            raise NotFoundError(msg)
+        self._get_or_raise(self.devices, device_id, "Device")
         polling_key = ("poll", device_id)
         if self._polling_tasks.has(polling_key):
             await self._polling_tasks.remove(polling_key)
@@ -419,4 +408,4 @@ class DevicesManager:
 
     async def stop(self) -> None:
         await self.stop_polling()
-        await asyncio.gather(t.close() for t in self._transports.values())
+        await asyncio.gather(*(t.close() for t in self._transports.values()))
