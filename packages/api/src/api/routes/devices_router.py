@@ -8,10 +8,9 @@ from devices_manager.dto.device_dto import (
     DeviceUpdateDTO,
 )
 from devices_manager.errors import ConfirmationError, InvalidError, NotFoundError
-from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.dependencies import get_device_manager, get_repository
+from api.dependencies import get_device_manager
 from api.schemas.device import AttributeUpdate
 
 logger = logging.getLogger(__name__)
@@ -46,7 +45,6 @@ def get_device(
 async def create_device(
     dto: DeviceCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> DeviceDTO:
     try:
         device = dm.add_device(dto)
@@ -58,7 +56,6 @@ async def create_device(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
         )
-    repository.devices.write(device.id, device)
     return device
 
 
@@ -67,7 +64,6 @@ async def update_device(
     device_id: str,
     payload: DeviceUpdateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> DeviceDTO:
     try:
         device = await dm.update_device(device_id, payload)
@@ -77,7 +73,6 @@ async def update_device(
         raise HTTPException(status_code=422, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    repository.devices.write(device_id, device)
     return device
 
 
@@ -85,13 +80,11 @@ async def update_device(
 async def delete_device(
     device_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ):
     try:
         await dm.delete_device(device_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    repository.devices.delete(device_id)
     return
 
 

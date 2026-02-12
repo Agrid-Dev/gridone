@@ -1,12 +1,8 @@
-from typing import TYPE_CHECKING
-
 import typer
+from devices_manager import DevicesManager
 from rich.console import Console
 
-from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
-
-if TYPE_CHECKING:
-    from devices_manager.storage import CoreFileStorage
+from cli.config import get_db_path  # ty: ignore[unresolved-import]
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
@@ -16,12 +12,12 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault("repository", gridone_repository)
+    ctx.obj.setdefault("dm", DevicesManager.from_storage(get_db_path()))
 
 
 @app.command("list")
 def list_all(ctx: typer.Context) -> None:
-    repository: CoreFileStorage = ctx.obj["repository"]
-    drivers = repository.drivers.read_all()
+    dm: DevicesManager = ctx.obj["dm"]
+    drivers = dm.list_drivers()
     for driver in drivers:
         console.print(driver.id)

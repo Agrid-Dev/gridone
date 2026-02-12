@@ -51,6 +51,7 @@ class DevicesManager:
     _discovery_manager: DevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
+    _storage: CoreFileStorage | None
 
     def __init__(
         self,
@@ -58,11 +59,13 @@ class DevicesManager:
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
         *,
+        db_path: str | Path | None = None,
         attribute_update_listeners: list[AttributeListener] | None = None,
     ) -> None:
         self._devices = devices
         self._drivers = drivers
         self._transports = transports
+        self._storage = CoreFileStorage(db_path) if db_path else None
         self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
@@ -146,7 +149,10 @@ class DevicesManager:
             device_create.name,
             device.id,
         )
-        return device_core_to_dto(device)
+        dto = device_core_to_dto(device)
+        if self._storage:
+            self._storage.devices.write(dto.id, dto)
+        return dto
 
     def add_device_attribute_listener(
         self,
@@ -193,12 +199,12 @@ class DevicesManager:
         )
         for t in transports:
             try:
-                dm.add_transport(t)
+                dm._add_transport(t)
             except Exception:
                 logger.exception("Failed to init transport %s", t.id)
         for d in drivers:
             try:
-                dm.add_driver(d)
+                dm._add_driver(d)
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
@@ -230,11 +236,13 @@ class DevicesManager:
     @classmethod
     def from_storage(cls, db_path: str | Path) -> "DevicesManager":
         repository = CoreFileStorage(db_path)
-        return cls.from_dto(
+        dm = cls.from_dto(
             devices=repository.devices.read_all(),
             drivers=repository.drivers.read_all(),
             transports=repository.transports.read_all(),
         )
+        dm._storage = CoreFileStorage(db_path)  # noqa: SLF001
+        return dm
 
     @property
     def transport_ids(self) -> set[str]:
@@ -247,9 +255,10 @@ class DevicesManager:
         client = self._get_or_raise(self._transports, transport_id, "Transport")
         return transport_core_to_dto(client)
 
-    def add_transport(
+    def _add_transport(
         self, transport: TransportCreateDTO | TransportDTO
     ) -> TransportDTO:
+        """Register a transport in memory. Returns the DTO."""
         config = make_transport_config(
             transport.protocol, transport.config.model_dump()
         )
@@ -258,6 +267,15 @@ class DevicesManager:
         client = make_transport_client(transport.protocol, config, metadata)
         self._transports[metadata.id] = client
         return transport_core_to_dto(client)
+
+    def add_transport(
+        self, transport: TransportCreateDTO | TransportDTO
+    ) -> TransportDTO:
+        """Add a transport to memory + persist to DB."""
+        dto = self._add_transport(transport)
+        if self._storage:
+            self._storage.transports.write(dto.id, dto)
+        return dto
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
@@ -272,6 +290,8 @@ class DevicesManager:
         self._assert_transport_not_used(transport_id)
         transport = self._transports.pop(transport_id)
         await transport.close()
+        if self._storage:
+            self._storage.transports.delete(transport_id)
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
@@ -281,7 +301,10 @@ class DevicesManager:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
-        return transport_core_to_dto(transport)
+        dto = transport_core_to_dto(transport)
+        if self._storage:
+            self._storage.transports.write(transport_id, dto)
+        return dto
 
     @property
     def driver_ids(self) -> set[str]:
@@ -294,13 +317,21 @@ class DevicesManager:
         driver = self._get_or_raise(self._drivers, driver_id, "Driver")
         return driver_core_to_dto(driver)
 
-    def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+    def _add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+        """Register a driver in memory."""
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)
         driver = driver_dto_to_core(driver_dto)
         self._drivers[driver_dto.id] = driver
         return driver_core_to_dto(driver)
+
+    def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+        """Add a driver to memory + persist to DB."""
+        created = self._add_driver(driver_dto)
+        if self._storage:
+            self._storage.drivers.write(created.id, created)
+        return created
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
@@ -314,6 +345,8 @@ class DevicesManager:
         self._get_or_raise(self._drivers, driver_id, "Driver")
         self._assert_driver_not_used(driver_id)
         del self._drivers[driver_id]
+        if self._storage:
+            self._storage.drivers.delete(driver_id)
 
     @property
     def device_ids(self) -> set[str]:
@@ -389,7 +422,10 @@ class DevicesManager:
                 device, effective_driver, effective_transport
             )
 
-        return device_core_to_dto(self._devices[device_id])
+        dto = device_core_to_dto(self._devices[device_id])
+        if self._storage:
+            self._storage.devices.write(device_id, dto)
+        return dto
 
     async def write_device_attribute(
         self,
@@ -411,6 +447,8 @@ class DevicesManager:
         if self._polling_tasks.has(polling_key):
             await self._polling_tasks.remove(polling_key)
         del self._devices[device_id]
+        if self._storage:
+            self._storage.devices.delete(device_id)
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")

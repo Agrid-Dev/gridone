@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from devices_manager import Attribute, Device, DevicesManager
-from devices_manager.storage import CoreFileStorage
 from fastapi import FastAPI
 
 from api.routes import devices_router, drivers_router, transports_router
@@ -23,8 +22,6 @@ async def lifespan(app: FastAPI):
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
 
-    gridone_repository = CoreFileStorage(settings.DB_PATH)
-    app.state.repository = gridone_repository
     dm = DevicesManager.from_storage(settings.DB_PATH)
     app.state.device_manager = dm
 

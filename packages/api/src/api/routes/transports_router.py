@@ -1,4 +1,3 @@
-import uuid
 from typing import Annotated
 
 from devices_manager import DevicesManager
@@ -9,11 +8,10 @@ from devices_manager.dto import (
     TransportUpdateDTO,
 )
 from devices_manager.errors import NotFoundError, ForbiddenError
-from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
-from api.dependencies import get_device_manager, get_repository
+from api.dependencies import get_device_manager
 
 from .discovery_router import router as discovery_router
 
@@ -47,34 +45,25 @@ def get_transport(
     return _get_client(dm, transport_id)
 
 
-def gen_id() -> str:
-    """Temporary id generator: will be handled by storage"""
-    return str(uuid.uuid4())[:8]
-
-
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_transport(
     payload: TransportCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
     request: Request,
     response: Response,
 ) -> TransportDTO:
-    transport_id = gen_id()
     dto = dm.add_transport(payload)
     response.headers["Location"] = str(
-        request.url_for("get_transport", transport_id=transport_id)
+        request.url_for("get_transport", transport_id=dto.id)
     )
-    repository.transports.write(dto.id, dto)
     return dto
 
 
 @router.patch("/{transport_id}")
-async def update_transport(  # noqa: PLR0913
+async def update_transport(
     transport_id: str,
     update_payload: TransportUpdateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
     request: Request,
     response: Response,
 ) -> TransportDTO:
@@ -89,7 +78,6 @@ async def update_transport(  # noqa: PLR0913
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.errors()
         ) from e
-    repository.transports.write(transport.id, transport)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )
@@ -100,7 +88,6 @@ async def update_transport(  # noqa: PLR0913
 async def delete_transport(
     transport_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> None:
     try:
         await dm.delete_transport(transport_id)
