@@ -23,7 +23,6 @@ class YamlFileStorage[M]:
         factory: Callable[[dict], M] | None = None,
     ) -> None:
         self._root_path = Path(root_path)
-        self._root_path.mkdir(parents=True, exist_ok=True)
         if factory is not None and model_cls is not None:
             msg = "Only one builder of model_cls or factory can be provided"
             raise ValueError(msg)
@@ -34,6 +33,7 @@ class YamlFileStorage[M]:
         if not hasattr(self, "_builder") or not self._builder:
             msg = "Either model_cls or factory must be provided to build model"
             raise ValueError(msg)
+        self._root_path.mkdir(parents=True, exist_ok=True)
 
     def _get_file_path(self, name: str) -> Path:
         return self._root_path / (name + self._file_extension)

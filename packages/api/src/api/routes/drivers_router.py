@@ -3,10 +3,9 @@ from typing import Annotated
 from devices_manager import DevicesManager
 from devices_manager.dto import DriverDTO, DriverYamlDTO
 from devices_manager.errors import ForbiddenError, NotFoundError
-from devices_manager.storage import CoreFileStorage
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.dependencies import get_device_manager, get_repository
+from api.dependencies import get_device_manager
 
 router = APIRouter()
 
@@ -33,7 +32,6 @@ def get_driver(
 def create_driver(
     payload: DriverDTO | DriverYamlDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> DriverDTO:
     driver_dto = (
         payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
@@ -42,7 +40,6 @@ def create_driver(
         created_driver = dm.add_driver(driver_dto)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    repository.drivers.write(created_driver.id, created_driver)
     return created_driver
 
 
@@ -50,7 +47,6 @@ def create_driver(
 def delete_driver(
     driver_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
-    repository: Annotated[CoreFileStorage, Depends(get_repository)],
 ) -> None:
     try:
         dm.delete_driver(driver_id)
@@ -64,4 +60,3 @@ def delete_driver(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(fe),
         )
-    repository.drivers.delete(driver_id)

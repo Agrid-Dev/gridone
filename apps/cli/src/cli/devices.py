@@ -7,12 +7,11 @@ from typing import Annotated
 
 import typer
 from devices_manager import DevicesManager
-from devices_manager.storage.core_file_storage import CoreFileStorage
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.repository import gridone_repository  # ty: ignore[unresolved-import]
+from cli.config import get_db_path  # ty: ignore[unresolved-import]
 
 from .formatters import autoformat_value, device_to_table
 
@@ -24,34 +23,13 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault("repository", gridone_repository)
-
-
-def get_single_device_manager(
-    repository: CoreFileStorage, device_id: str
-) -> DevicesManager:
-    device_dto = repository.devices.read(device_id)
-    driver_dto = repository.drivers.read(device_dto.driver_id)
-    transport_dto = repository.transports.read(device_dto.transport_id)
-    return DevicesManager.from_dto([device_dto], [driver_dto], [transport_dto])
-
-
-async def _read_device_async(repository: CoreFileStorage, device_id: str) -> None:
-    """
-    Async implementation that performs device manager initialization and
-    reads attributes from the device using async drivers/transports.
-    """
-    console.print(f"Reading device [bold blue]{device_id}[/bold blue]")
-    dm = get_single_device_manager(repository, device_id)
-    device = await dm.read_device(device_id)
-    for attribute in device.attributes.values():
-        console.print(f"{attribute.name}: {autoformat_value(attribute.current_value)}")
+    ctx.obj.setdefault("dm", DevicesManager.from_storage(get_db_path()))
 
 
 @app.command("list")
 def list_all(ctx: typer.Context) -> None:
-    repository = ctx.obj["repository"]
-    devices = repository.devices.read_all()
+    dm: DevicesManager = ctx.obj["dm"]
+    devices = dm.list_devices()
     print(f"Read {len(devices)} devices")
     table = Table(title=f"Devices ({len(devices)})")
     table.add_column("ID", justify="left", style="cyan", no_wrap=True)
@@ -68,21 +46,31 @@ def list_all(ctx: typer.Context) -> None:
     console.print(table)
 
 
+async def _read_device_async(dm: DevicesManager, device_id: str) -> None:
+    """
+    Async implementation that performs device manager initialization and
+    reads attributes from the device using async drivers/transports.
+    """
+    console.print(f"Reading device [bold blue]{device_id}[/bold blue]")
+    device = await dm.read_device(device_id)
+    for attribute in device.attributes.values():
+        console.print(f"{attribute.name}: {autoformat_value(attribute.current_value)}")
+
+
 @app.command()
 def read(ctx: typer.Context, device_id: str) -> None:
     """
     Read all attributes from a device.
     """
-    asyncio.run(_read_device_async(ctx.obj["repository"], device_id))
+    asyncio.run(_read_device_async(ctx.obj["dm"], device_id))
 
 
 async def _write_device_async(
-    repository: CoreFileStorage,
+    dm: DevicesManager,
     device_id: str,
     attribute: str,
     value: float,
 ) -> None:
-    dm = get_single_device_manager(repository, device_id)
     device = dm.get_device(device_id)
     driver = dm.get_driver(device.driver_id)
     console.print(
@@ -106,7 +94,7 @@ def write(
     For boolean values, use 0 or 1. String values are not supported yet."""
     asyncio.run(
         _write_device_async(
-            ctx.obj["repository"],
+            ctx.obj["dm"],
             device_id,
             attribute,
             value,
@@ -114,8 +102,7 @@ def write(
     )
 
 
-async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
-    dm = get_single_device_manager(repository, device_id)
+async def _watch_device(dm: DevicesManager, device_id: str) -> None:
     await dm.start_polling()
     device = dm.get_device(device_id)
     console.print(
@@ -141,18 +128,10 @@ async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
 @app.command()
 def watch(ctx: typer.Context, device_id: str) -> None:
     """Continuously monitor device attributes."""
-    asyncio.run(_watch_device(ctx.obj["repository"], device_id))
+    asyncio.run(_watch_device(ctx.obj["dm"], device_id))
 
 
-async def _discover(
-    repository: CoreFileStorage, driver_id: str, transport_id: str
-) -> None:
-    dm = DevicesManager.from_dto(
-        repository.devices.read_all(),
-        repository.drivers.read_all(),
-        repository.transports.read_all(),
-    )
-
+async def _discover(dm: DevicesManager, driver_id: str, transport_id: str) -> None:
     device_ids = dm.device_ids
 
     console.print("Starting device discovery (press Ctrl+C to quit)")
@@ -194,4 +173,4 @@ def discover(
         ),
     ],
 ) -> None:
-    asyncio.run(_discover(ctx.obj["repository"], driver_id, transport_id))
+    asyncio.run(_discover(ctx.obj["dm"], driver_id, transport_id))

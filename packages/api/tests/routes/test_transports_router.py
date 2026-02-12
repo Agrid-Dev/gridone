@@ -5,12 +5,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import get_device_manager, get_repository
+from api.dependencies import get_device_manager
 from api.routes.transports_router import router
 
 
 @pytest.fixture
-def app(mock_transports, mock_repository) -> FastAPI:
+def app(mock_transports) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
 
@@ -18,7 +18,6 @@ def app(mock_transports, mock_repository) -> FastAPI:
         return DevicesManager(devices={}, drivers={}, transports=mock_transports)
 
     app.dependency_overrides[get_device_manager] = get_mock_devices_manager
-    app.dependency_overrides[get_repository] = lambda: mock_repository
     return app
 
 

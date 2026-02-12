@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,13 +15,16 @@ from devices_manager.dto import (
     TransportBaseDTO,
     TransportCreateDTO,
     TransportUpdateDTO,
+    device_core_to_dto,
     driver_core_to_dto,
+    transport_core_to_dto,
 )
 from devices_manager.errors import (
     ForbiddenError,
     InvalidError,
     NotFoundError,
 )
+from devices_manager.storage import CoreFileStorage
 from devices_manager.types import TransportProtocols
 
 
@@ -808,3 +812,114 @@ class TestDevicesManagerWriteAttribute:
 
         with pytest.raises(PermissionError):
             await devices_manager.write_device_attribute(device_id, "temperature", 22.0)
+
+
+class TestDevicesManagerStorage:
+    """Tests that mutations persist to storage when db_path is provided."""
+
+    @pytest.fixture
+    def seeded_db(self, tmp_path: Path, device, driver, mock_transport_client) -> Path:
+        """Seed a tmp_path DB with one transport, one driver, one device."""
+        cfs = CoreFileStorage(tmp_path)
+        cfs.transports.write(
+            mock_transport_client.id, transport_core_to_dto(mock_transport_client)
+        )
+        cfs.drivers.write(driver.id, driver_core_to_dto(driver))
+        cfs.devices.write(device.id, device_core_to_dto(device))
+        return tmp_path
+
+    def test_from_storage(self, seeded_db: Path, device, driver, mock_transport_client):
+        dm = DevicesManager.from_storage(seeded_db)
+        assert device.id in dm.device_ids
+        assert driver.id in dm.driver_ids
+        assert mock_transport_client.id in dm.transport_ids
+
+    def test_add_transport_persists(self, tmp_path: Path):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        transport = TransportCreateDTO(
+            name="Test HTTP",
+            protocol=TransportProtocols.HTTP,
+            config={},  # ty: ignore[invalid-argument-type]
+        )
+        dto = dm.add_transport(transport)
+        storage = CoreFileStorage(tmp_path)
+        assert storage.transports.read(dto.id).id == dto.id
+
+    @pytest.mark.asyncio
+    async def test_update_transport_persists(self, tmp_path: Path):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        transport = TransportCreateDTO(
+            name="Test HTTP",
+            protocol=TransportProtocols.HTTP,
+            config={},  # ty: ignore[invalid-argument-type]
+        )
+        dto = dm.add_transport(transport)
+        await dm.update_transport(dto.id, TransportUpdateDTO(name="Updated"))
+        storage = CoreFileStorage(tmp_path)
+        assert storage.transports.read(dto.id).name == "Updated"
+
+    @pytest.mark.asyncio
+    async def test_delete_transport_persists(self, tmp_path: Path):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        transport = TransportCreateDTO(
+            name="Test HTTP",
+            protocol=TransportProtocols.HTTP,
+            config={},  # ty: ignore[invalid-argument-type]
+        )
+        dto = dm.add_transport(transport)
+        await dm.delete_transport(dto.id)
+        storage = CoreFileStorage(tmp_path)
+        assert len(storage.transports.read_all()) == 0
+
+    def test_add_driver_persists(self, tmp_path: Path, driver):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_driver(driver_dto)
+        storage = CoreFileStorage(tmp_path)
+        assert storage.drivers.read(driver_dto.id).id == driver_dto.id
+
+    def test_delete_driver_persists(self, tmp_path: Path, driver):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_driver(driver_dto)
+        dm.delete_driver(driver_dto.id)
+        storage = CoreFileStorage(tmp_path)
+        assert len(storage.drivers.read_all()) == 0
+
+    def test_add_device_persists(self, tmp_path: Path, driver, mock_transport_client):
+        dm = DevicesManager(
+            devices={},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+            db_path=tmp_path,
+        )
+        device_create = DeviceCreateDTO(
+            name="New Device",
+            config={"some_id": "new_abc"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        dto = dm.add_device(device_create)
+        storage = CoreFileStorage(tmp_path)
+        assert storage.devices.read(dto.id).id == dto.id
+
+    @pytest.mark.asyncio
+    async def test_delete_device_persists(
+        self, tmp_path: Path, driver, mock_transport_client
+    ):
+        dm = DevicesManager(
+            devices={},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+            db_path=tmp_path,
+        )
+        device_create = DeviceCreateDTO(
+            name="New Device",
+            config={"some_id": "new_abc"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        dto = dm.add_device(device_create)
+        await dm.delete_device(dto.id)
+        storage = CoreFileStorage(tmp_path)
+        assert len(storage.devices.read_all()) == 0
