@@ -121,7 +121,7 @@ export default function DeviceDetails() {
                   to={`/transports/${device.transportId}`}
                   className="underline text-primary"
                 >
-                  {device.driverId}
+                  {device.transportId}
                 </Link>
               </p>
             </div>
