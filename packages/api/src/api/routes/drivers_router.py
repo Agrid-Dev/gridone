@@ -2,7 +2,6 @@ from typing import Annotated
 
 from devices_manager import DevicesManager
 from devices_manager.dto import DriverDTO, DriverYamlDTO
-from devices_manager.errors import ForbiddenError, NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import get_device_manager
@@ -22,10 +21,7 @@ def get_driver(
     driver_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DriverDTO:
-    try:
-        return dm.get_driver(driver_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+    return dm.get_driver(driver_id)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -48,15 +44,4 @@ def delete_driver(
     driver_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> None:
-    try:
-        dm.delete_driver(driver_id)
-    except NotFoundError as ke:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(ke),
-        )
-    except ForbiddenError as fe:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(fe),
-        )
+    dm.delete_driver(driver_id)

@@ -7,7 +7,6 @@ from devices_manager.dto import (
     TransportDTO,
     TransportUpdateDTO,
 )
-from devices_manager.errors import NotFoundError, ForbiddenError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
@@ -22,15 +21,6 @@ router.include_router(
 )
 
 
-def _get_client(dm: DevicesManager, transport_id: str) -> TransportDTO:
-    try:
-        return dm.get_transport(transport_id)
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=404, detail=f"Transport {transport_id} not found"
-        ) from e
-
-
 @router.get("/")
 def list_transports(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -42,7 +32,7 @@ def list_transports(
 def get_transport(
     transport_id: str, dm: Annotated[DevicesManager, Depends(get_device_manager)]
 ) -> TransportDTO:
-    return _get_client(dm, transport_id)
+    return dm.get_transport(transport_id)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -69,11 +59,6 @@ async def update_transport(
 ) -> TransportDTO:
     try:
         transport = await dm.update_transport(transport_id, update_payload)
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transport {transport_id} not found",
-        ) from e
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=e.errors()
@@ -89,15 +74,7 @@ async def delete_transport(
     transport_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> None:
-    try:
-        await dm.delete_transport(transport_id)
-    except NotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Transport {transport_id} not found",
-        ) from e
-    except ForbiddenError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    await dm.delete_transport(transport_id)
 
 
 @router.get("/schemas/")

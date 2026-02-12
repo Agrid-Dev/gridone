@@ -7,7 +7,6 @@ from devices_manager.dto.device_dto import (
     DeviceDTO,
     DeviceUpdateDTO,
 )
-from devices_manager.errors import ConfirmationError, InvalidError, NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from api.dependencies import get_device_manager
@@ -26,19 +25,12 @@ def list_devices(
     return dm.list_devices()
 
 
-def _get_device(dm: DevicesManager, device_id: str) -> DeviceDTO:
-    try:
-        return dm.get_device(device_id)
-    except NotFoundError:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-
 @router.get("/{device_id}")
 def get_device(
     device_id: str,
     dm: DevicesManager = Depends(get_device_manager),
 ) -> DeviceDTO:
-    return _get_device(dm, device_id)
+    return dm.get_device(device_id)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -46,17 +38,7 @@ async def create_device(
     dto: DeviceCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DeviceDTO:
-    try:
-        device = dm.add_device(dto)
-    except NotFoundError:
-        raise HTTPException(
-            status_code=404, detail=f"Transport {dto.transport_id} not found"
-        )
-    except InvalidError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
-        )
-    return device
+    return dm.add_device(dto)
 
 
 @router.patch("/{device_id}")
@@ -67,10 +49,6 @@ async def update_device(
 ) -> DeviceDTO:
     try:
         device = await dm.update_device(device_id, payload)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except InvalidError as e:
-        raise HTTPException(status_code=422, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     return device
@@ -81,10 +59,7 @@ async def delete_device(
     device_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ):
-    try:
-        await dm.delete_device(device_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    await dm.delete_device(device_id)
     return
 
 
@@ -100,10 +75,6 @@ async def update_attribute(
         await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except ConfirmationError as e:
-        raise HTTPException(status_code=409, detail=str(e))
     return None
