@@ -41,21 +41,12 @@ async def lifespan(app: FastAPI):
 
     dm.add_device_attribute_listener(broadcast_attribute_update)
 
-    for device_id, device in dm.devices.items():
-        try:
-            await device.init_listeners()
-        except Exception as e:
-            logger.exception(
-                "Failed to initialize listeners for device %s", device_id, exc_info=e
-            )
     await dm.start_polling()
     try:
         yield
     finally:
-        await dm.stop_polling()
+        await dm.stop()
         await websocket_manager.close_all()
-        for transport in dm.transports.values():
-            await transport.close()
 
 
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:

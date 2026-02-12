@@ -16,6 +16,7 @@ from .transport_config import ModbusTCPTransportConfig
 
 class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
     _client: AsyncModbusTcpClient
+    _config_builder = ModbusTCPTransportConfig
     protocol = TransportProtocols.MODBUS_TCP
     address_builder = ModbusAddress
     config: ModbusTCPTransportConfig

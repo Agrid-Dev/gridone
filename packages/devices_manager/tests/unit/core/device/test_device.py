@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from devices_manager import Driver, TransportClient
+from devices_manager.core import Driver, TransportClient
 from devices_manager.core.device import Device, DeviceBase
 
 from ..fixtures.transport_clients import MockTransportAddress

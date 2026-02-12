@@ -182,13 +182,13 @@ class TestUpdateTransport:
 
 class TestDeleteTransport:
     @pytest.mark.asyncio
-    async def test_delete_transport_ok(self, async_client):
-        transport_id = "my-mqtt"
+    async def test_delete_transport_ok(self, async_client, mock_transports):
+        transport_id = next(iter(mock_transports.keys()))
         async with async_client as ac:
             delete_response = await ac.delete(f"/{transport_id}")
             assert delete_response.status_code == 204
             get_response = await ac.get(f"/{transport_id}")
-        assert get_response.status_code == 404
+            assert get_response.status_code == 404
 
     @pytest.mark.asyncio
     async def test_delete_transport_unknown(self, async_client):

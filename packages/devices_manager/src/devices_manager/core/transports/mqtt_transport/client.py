@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class MqttTransportClient(PushTransportClient[MqttAddress]):
     _client_instance: aiomqtt.Client | None = None
+    _config_builder = MqttTransportConfig
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig

@@ -8,12 +8,15 @@ from devices_manager.core.transports import (
     RawTransportAddress,
     TransportAddress,
     TransportClient,
+    TransportMetadata,
 )
+from devices_manager.core.transports.factory import make_transport_config
+from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.core.transports.listener_registry import (
     ListenerCallback,
     ListenerRegistry,
 )
-from devices_manager.core.transports.transport_metadata import TransportMetadata
+from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import AttributeValueType, TransportProtocols
 from pydantic import BaseModel
 
@@ -62,10 +65,14 @@ class MockTransportClient(TransportClient[MockTransportAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = MockTransportAddress
     metadata = mock_metadata
+    _config_builder = HttpTransportConfig
 
-    def __init__(self) -> None:
+    def __init__(
+        self, metadata: TransportMetadata, config: BaseTransportConfig
+    ) -> None:
         self._listen_handlers: dict[str, tuple[str, Callable]] = {}
         self._is_connected = False
+        super().__init__(metadata, config)
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -127,10 +134,13 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
     protocol = TransportProtocols.MQTT
     address_builder = MockPushTransportAddress
     _listener_registry: ListenerRegistry
+    _config_builder = MqttTransportConfig
 
-    def __init__(self) -> None:
+    def __init__(
+        self, metadata: TransportMetadata, config: BaseTransportConfig
+    ) -> None:
         self._listener_registry = ListenerRegistry()
-        super().__init__(mock_metadata, BaseTransportConfig())
+        super().__init__(metadata, config)
 
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
@@ -168,12 +178,24 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
 
 @pytest.fixture
 def mock_transport_client() -> MockTransportClient:
-    return MockTransportClient()
+    metadata = TransportMetadata(id="my-transport", name="My Transport")
+    config = make_transport_config(TransportProtocols.HTTP, {})
+    return MockTransportClient(metadata, config)
+
+
+@pytest.fixture
+def second_mock_transport_client() -> MockTransportClient:
+    metadata = TransportMetadata(id="http-2", name="Second HTTP Transport")
+    config = make_transport_config(TransportProtocols.HTTP, {})
+    return MockTransportClient(metadata, config)
 
 
 @pytest.fixture
 def mock_push_transport_client() -> MockPushTransportClient:
-    return MockPushTransportClient()
+    metadata = TransportMetadata(id="my-push-transport", name="My Push Transport")
+    config = make_transport_config(TransportProtocols.MQTT, {"host": "localhost"})
+
+    return MockPushTransportClient(metadata, config)
 
 
 @pytest.fixture

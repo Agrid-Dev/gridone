@@ -1,7 +1,7 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, PositiveInt
+from pydantic import BaseModel, BeforeValidator, NonNegativeInt, PositiveInt
 
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
@@ -40,7 +40,7 @@ class BacnetAddress(BaseModel, TransportAddress):
     object_type: Annotated[
         BacnetObjectType, BeforeValidator(bacnet_object_type_from_raw)
     ]
-    object_instance: PositiveInt
+    object_instance: NonNegativeInt
     property_name: str = DEFAULT_PROPERTY_NAME
     write_priority: BacnetWritePriority | None = None
 

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from devices_manager.core.driver import Driver
 from devices_manager.core.transports import PushTransportClient, TransportClient
 from devices_manager.core.utils.templating.render import render_struct
+from devices_manager.errors import ConfirmationError
 from devices_manager.types import AttributeValueType
 
 from .attribute import Attribute
@@ -16,10 +17,6 @@ from .device_base import DeviceBase
 logger = logging.getLogger(__name__)
 
 AttributeListener = Callable[["Device", str, Attribute], Awaitable[None] | None]
-
-
-class ConfirmationError(ValueError):
-    pass
 
 
 @dataclass
@@ -183,7 +180,7 @@ class Device(DeviceBase):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
-        context = {**self.driver.env, **self.config, "value": value}
+        context = {**self.driver.env, **self.config, "value": validated_value}
         attribute_driver = self.driver.attributes[attribute.name]
         adapter = attribute_driver.value_adapter
         if attribute_driver.write is None:

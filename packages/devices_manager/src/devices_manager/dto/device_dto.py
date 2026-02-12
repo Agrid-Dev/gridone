@@ -30,8 +30,8 @@ def core_to_dto(device: Device) -> DeviceDTO:
         id=device.id,
         name=device.name,
         config=device.config,
-        driver_id=device.driver.metadata.id,
-        transport_id=device.transport.metadata.id,
+        driver_id=device.driver.id,
+        transport_id=device.transport.id,
         attributes=device.attributes,
     )
 

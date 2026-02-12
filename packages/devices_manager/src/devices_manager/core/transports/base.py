@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
+    _config_builder: ClassVar[type[BaseTransportConfig]]
     config: BaseTransportConfig
     metadata: TransportMetadata
     connection_state: TransportConnectionState
@@ -101,9 +102,11 @@ class TransportClient[T_TransportAddress](ABC):
         task.add_done_callback(self._background_tasks.discard)
 
     def update_config(
-        self, config: BaseTransportConfig, *, reconnect: bool = True
+        self, config: BaseTransportConfig | dict, *, reconnect: bool = True
     ) -> None:
-        self.config = config
+        if isinstance(config, BaseTransportConfig):
+            config = config.model_dump()
+        self.config = self.config.model_copy(update=config)
         if reconnect:
             self.schedule_reconnect()
 

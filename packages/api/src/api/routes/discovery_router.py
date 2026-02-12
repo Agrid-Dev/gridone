@@ -29,19 +29,19 @@ def list_discoveries(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> list[DiscoveryHandlerDTO]:
-    if transport_id not in dm.transports:
+    if transport_id not in dm.transport_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transport not found"
         )
     return [
         DiscoveryHandlerDTO(
-            driver_id=driver_id,
+            driver_id=driver.id,
             transport_id=transport_id,
-            enabled=dm.discovery_manager.has(driver_id, transport_id),
+            enabled=dm.discovery_manager.has(driver.id, transport_id),
         )
-        for driver_id, driver in dm.drivers.items()
-        if driver.transport == dm.transports[transport_id].protocol
-        and driver.discovery_schema is not None
+        for driver in dm.list_drivers()
+        if driver.transport == dm.get_transport(transport_id).protocol
+        and driver.discovery is not None
     ]
 
 
@@ -51,11 +51,11 @@ async def create_discovery(
     payload: DiscoveryHandlerCreateDTO,
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> DiscoveryHandlerDTO:
-    if payload.driver_id not in dm.drivers:
+    if payload.driver_id not in dm.driver_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found"
         )
-    if transport_id not in dm.transports:
+    if transport_id not in dm.transport_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found"
         )
