@@ -33,6 +33,7 @@ from .dto import (
 )
 from .errors import ForbiddenError, InvalidError, NotFoundError
 from .storage.core_file_storage import CoreFileStorage
+from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def gen_id() -> str:
 
 
 class DevicesManager:
-    devices: dict[str, Device]
+    _devices: dict[str, Device]
     _drivers: dict[str, Driver]
     _transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
@@ -59,18 +60,19 @@ class DevicesManager:
         *,
         attribute_update_listeners: list[AttributeListener] | None = None,
     ) -> None:
-        self.devices = devices
+        self._devices = devices
         self._drivers = drivers
         self._transports = transports
         self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
         if self._attribute_listeners:
-            for device in self.devices.values():
+            for device in self._devices.values():
                 self._attach_listeners(device)
 
     async def start_polling(self) -> None:
-        for device in self.devices.values():
+        for device in self._devices.values():
+            await device.init_listeners()
             if device.driver.update_strategy.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
                 self._polling_tasks.add(
@@ -112,9 +114,7 @@ class DevicesManager:
                 raise InvalidError(msg)
 
     def _create_device(self, device_create: DeviceCreateDTO) -> Device:
-        driver = self._get_or_raise(
-            self._drivers, device_create.driver_id, "Driver"
-        )
+        driver = self._get_or_raise(self._drivers, device_create.driver_id, "Driver")
         self._validate_device_config(device_create.config, driver)
         transport = self._get_or_raise(
             self._transports, device_create.transport_id, "Transport"
@@ -126,10 +126,10 @@ class DevicesManager:
         return Device.from_base(device_base, driver=driver, transport=transport)
 
     def _add_device(self, device: Device) -> None:
-        if device.id in self.devices:
+        if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
-        self.devices[device.id] = device
+        self._devices[device.id] = device
         if self._running and device.driver.update_strategy.polling_enabled:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
@@ -154,7 +154,7 @@ class DevicesManager:
     ) -> None:
         """Attach a callback to every device for attribute updates."""
         self._attribute_listeners.append(callback)
-        for device in self.devices.values():
+        for device in self._devices.values():
             device.add_update_listener(callback)
 
     def _attach_listeners(self, device: Device) -> None:
@@ -173,7 +173,7 @@ class DevicesManager:
                 get_transport=lambda transport_id: self._transports[transport_id],
                 add_device=self._add_device,
                 device_exists=lambda device: any(
-                    d == device for d in self.devices.values()
+                    d == device for d in self._devices.values()
                 ),
             )
             self._discovery_manager = DevicesDiscoveryManager(context=discovery_context)
@@ -244,9 +244,7 @@ class DevicesManager:
         return [transport_core_to_dto(t) for t in self._transports.values()]
 
     def get_transport(self, transport_id: str) -> TransportDTO:
-        client = self._get_or_raise(
-            self._transports, transport_id, "Transport"
-        )
+        client = self._get_or_raise(self._transports, transport_id, "Transport")
         return transport_core_to_dto(client)
 
     def add_transport(
@@ -263,7 +261,7 @@ class DevicesManager:
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
-            (d for d in self.devices.values() if d.transport.id == transport_id), None
+            (d for d in self._devices.values() if d.transport.id == transport_id), None
         )
         if device is not None:
             msg = f"Transport {transport_id} is used by device {device.id}"
@@ -278,9 +276,7 @@ class DevicesManager:
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
     ) -> TransportDTO:
-        transport = self._get_or_raise(
-            self._transports, transport_id, "Transport"
-        )
+        transport = self._get_or_raise(self._transports, transport_id, "Transport")
         if update.name is not None:
             transport.metadata.name = update.name
         if update.config is not None:
@@ -308,7 +304,7 @@ class DevicesManager:
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
-            (d for d in self.devices.values() if d.driver.id == driver_id), None
+            (d for d in self._devices.values() if d.driver.id == driver_id), None
         )
         if device is not None:
             msg = f"Driver {driver_id} is used by device {device.id}"
@@ -321,13 +317,13 @@ class DevicesManager:
 
     @property
     def device_ids(self) -> set[str]:
-        return set(self.devices.keys())
+        return set(self._devices.keys())
 
     def list_devices(self) -> list[DeviceDTO]:
-        return [device_core_to_dto(device) for device in self.devices.values()]
+        return [device_core_to_dto(device) for device in self._devices.values()]
 
     def get_device(self, device_id: str) -> DeviceDTO:
-        device = self._get_or_raise(self.devices, device_id, "Device")
+        device = self._get_or_raise(self._devices, device_id, "Device")
         return device_core_to_dto(device)
 
     def _resolve_driver(self, driver_id: str | None) -> Driver | None:
@@ -335,14 +331,10 @@ class DevicesManager:
             return None
         return self._get_or_raise(self._drivers, driver_id, "Driver")
 
-    def _resolve_transport(
-        self, transport_id: str | None
-    ) -> TransportClient | None:
+    def _resolve_transport(self, transport_id: str | None) -> TransportClient | None:
         if transport_id is None:
             return None
-        return self._get_or_raise(
-            self._transports, transport_id, "Transport"
-        )
+        return self._get_or_raise(self._transports, transport_id, "Transport")
 
     @staticmethod
     def _check_driver_transport_compat(
@@ -374,7 +366,7 @@ class DevicesManager:
     async def update_device(
         self, device_id: str, device_update: DeviceUpdateDTO
     ) -> DeviceDTO:
-        device = self._get_or_raise(self.devices, device_id, "Device")
+        device = self._get_or_raise(self._devices, device_id, "Device")
         new_driver = self._resolve_driver(device_update.driver_id)
         new_transport = self._resolve_transport(device_update.transport_id)
         effective_driver = new_driver or device.driver
@@ -393,18 +385,41 @@ class DevicesManager:
             self._validate_device_config(device_update.config, device.driver)
 
         if new_driver is not None or new_transport is not None:
-            self.devices[device_id] = self._rebuild_device(
+            self._devices[device_id] = self._rebuild_device(
                 device, effective_driver, effective_transport
             )
 
-        return device_core_to_dto(self.devices[device_id])
+        return device_core_to_dto(self._devices[device_id])
+
+    async def write_device_attribute(
+        self,
+        device_id: str,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+    ) -> None:
+        device = self._get_or_raise(self._devices, device_id, "Device")
+        if attribute_name not in device.attributes:
+            msg = f"Attribute '{attribute_name}' not found on device {device_id}"
+            raise NotFoundError(msg)
+        await device.write_attribute_value(attribute_name, value, confirm=confirm)
 
     async def delete_device(self, device_id: str) -> None:
-        self._get_or_raise(self.devices, device_id, "Device")
+        self._get_or_raise(self._devices, device_id, "Device")
         polling_key = ("poll", device_id)
         if self._polling_tasks.has(polling_key):
             await self._polling_tasks.remove(polling_key)
-        del self.devices[device_id]
+        del self._devices[device_id]
+
+    async def read_device(self, device_id: str) -> DeviceDTO:
+        device = self._get_or_raise(self._devices, device_id, "Device")
+        if self._running:
+            return device_core_to_dto(device)
+        async with device.transport:
+            # if not running open and close transport to read once
+            await device.update_attributes()
+            return device_core_to_dto(device)
 
     async def stop(self) -> None:
         await self.stop_polling()

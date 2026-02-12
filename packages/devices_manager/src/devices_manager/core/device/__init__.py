@@ -1,5 +1,7 @@
+from devices_manager.errors import ConfirmationError
+
 from .attribute import Attribute
-from .device import AttributeListener, ConfirmationError, Device
+from .device import AttributeListener, Device
 from .device_base import DeviceBase
 
 __all__ = [

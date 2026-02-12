@@ -16,7 +16,11 @@ from devices_manager.dto import (
     TransportUpdateDTO,
     driver_core_to_dto,
 )
-from devices_manager.errors import ForbiddenError, InvalidError, NotFoundError
+from devices_manager.errors import (
+    ForbiddenError,
+    InvalidError,
+    NotFoundError,
+)
 from devices_manager.types import TransportProtocols
 
 
@@ -37,9 +41,7 @@ class TestDevicesManagerInit:
 
 class TestDevicesManagerPolling:
     @pytest.mark.asyncio
-    async def test_start_polling_with_polling_enabled(self, devices_manager, device):
-        devices_manager.devices = {device.id: device}
-
+    async def test_start_polling_with_polling_enabled(self, devices_manager):
         await devices_manager.start_polling()
 
         assert devices_manager._running is True
@@ -92,8 +94,7 @@ class TestDevicesManagerPolling:
         assert manager.poll_count == 2
 
     @pytest.mark.asyncio
-    async def test_stop_polling(self, devices_manager, device):
-        devices_manager.devices = {device.id: device}
+    async def test_stop_polling(self, devices_manager):
         await devices_manager.start_polling()
 
         await devices_manager.stop_polling()
@@ -110,10 +111,7 @@ class TestDevicesManagerPolling:
         assert devices_manager._running is False
 
     @pytest.mark.asyncio
-    async def test_device_poll_loop(
-        self, devices_manager, device, mock_transport_client
-    ):
-        devices_manager.devices = {device.id: device}
+    async def test_device_poll_loop(self, devices_manager, mock_transport_client):
         await devices_manager.start_polling()
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await asyncio.sleep(0.1)
@@ -146,7 +144,7 @@ class TestDevicesManagerListeners:
         assert len(devices_manager._attribute_listeners) == 1
         assert callback in device._update_listeners
 
-    def test_attach_listeners(self, devices_manager):
+    def test_attach_listeners(self, devices_manager, device):
         callback_called = False
 
         def callback_spy(_device_obj, _attribute_name, _attribute) -> None:
@@ -154,8 +152,6 @@ class TestDevicesManagerListeners:
             callback_called = True
 
         devices_manager.add_device_attribute_listener(callback_spy)
-
-        device = next(iter(devices_manager.devices.values()))
         device._update_attribute(device.attributes["temperature_setpoint"], 22)
 
         assert callback_called
@@ -180,7 +176,7 @@ class TestDevicesManagerDiscovery:
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
-        assert len(dm.devices) == 1
+        assert len(dm.list_devices()) == 1
         device = dm.list_devices()[0]
         assert device.config["vendor_id"] == "abc"
         assert device.config["gateway_id"] == "gtw"
@@ -189,7 +185,7 @@ class TestDevicesManagerDiscovery:
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
-        assert len(dm.devices) == 1
+        assert len(dm.list_devices()) == 1
 
     @pytest.mark.asyncio
     async def test_devices_manager_does_not_add_existing_device_on_discovery(
@@ -211,7 +207,7 @@ class TestDevicesManagerDiscovery:
             drivers={driver_id: driver_w_push_transport},
             transports={transport_id: mock_push_transport_client},
         )
-        assert len(dm.devices) == 1
+        assert len(dm.list_devices()) == 1
         await dm.discovery_manager.register(
             driver_id=driver_id, transport_id=transport_id
         )
@@ -219,7 +215,7 @@ class TestDevicesManagerDiscovery:
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
-        assert len(dm.devices) == 1
+        assert len(dm.list_devices()) == 1
 
     @pytest.mark.asyncio
     async def test_devices_manager_does_not_add_device_if_discovery_unregistered(
@@ -243,7 +239,7 @@ class TestDevicesManagerDiscovery:
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
-        assert len(dm.devices) == 0
+        assert len(dm.list_devices()) == 0
 
 
 class TestDevicesManagerListTransports:
@@ -304,7 +300,6 @@ class TestDevicesManagerDeleteTransport:
 
     @pytest.mark.asyncio
     async def test_delete_transport_in_use(self, devices_manager, device):
-        device = next(iter(devices_manager.devices.values()))
         transport_id = device.transport.id
         with pytest.raises(ForbiddenError):
             await devices_manager.delete_transport(transport_id)
@@ -776,3 +771,40 @@ class TestDevicesManagerDevices:
         )
         with pytest.raises(InvalidError):
             await dm.update_device(device.id, update)
+
+
+class TestDevicesManagerWriteAttribute:
+    @pytest.mark.asyncio
+    async def test_write_attribute_ok(self, devices_manager, mock_transport_client):
+        mock_transport_client.write = AsyncMock()
+        mock_transport_client.read = AsyncMock(return_value=22.0)
+        device_id = next(iter(devices_manager.device_ids))
+
+        await devices_manager.write_device_attribute(
+            device_id, "temperature_setpoint", 22.0
+        )
+
+        mock_transport_client.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_device_not_found(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            await devices_manager.write_device_attribute(
+                "unknown", "temperature_setpoint", 22.0
+            )
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_attribute_not_found(self, devices_manager):
+        device_id = next(iter(devices_manager.device_ids))
+
+        with pytest.raises(NotFoundError):
+            await devices_manager.write_device_attribute(
+                device_id, "nonexistent_attr", 22.0
+            )
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_not_writable(self, devices_manager):
+        device_id = next(iter(devices_manager.device_ids))
+
+        with pytest.raises(PermissionError):
+            await devices_manager.write_device_attribute(device_id, "temperature", 22.0)

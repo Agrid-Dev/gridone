@@ -72,7 +72,6 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
             timeout=self.config.discovery_timeout,
         )
         discovered_devices: DevicesDict = {}
-        print("discovered_devices", discovered_devices)
         for i_am in i_ams:
             try:
                 device_address: Address = i_am.pduSource

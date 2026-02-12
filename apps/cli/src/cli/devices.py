@@ -41,16 +41,11 @@ async def _read_device_async(repository: CoreFileStorage, device_id: str) -> Non
     Async implementation that performs device manager initialization and
     reads attributes from the device using async drivers/transports.
     """
-    device = get_single_device_manager(repository, device_id).devices[device_id]
-    console.print(
-        f"Reading device [bold blue]{device_id}[/bold blue]"
-        f" with driver [bold blue]{device.driver.name}[/bold blue]"
-    )
-    # Use the async transport context manager inside the coroutine
-    async with device.transport:
-        for attribute in device.attributes:
-            value = await device.read_attribute_value(attribute)
-            console.print(f"{attribute}: {autoformat_value(value)}")
+    console.print(f"Reading device [bold blue]{device_id}[/bold blue]")
+    dm = get_single_device_manager(repository, device_id)
+    device = await dm.read_device(device_id)
+    for attribute in device.attributes.values():
+        console.print(f"{attribute.name}: {autoformat_value(attribute.current_value)}")
 
 
 @app.command("list")
@@ -87,15 +82,17 @@ async def _write_device_async(
     attribute: str,
     value: float,
 ) -> None:
-    device = get_single_device_manager(repository, device_id).devices[device_id]
+    dm = get_single_device_manager(repository, device_id)
+    device = dm.get_device(device_id)
+    driver = dm.get_driver(device.driver_id)
     console.print(
         f"Writing value [bold red]{value}[/bold red] to device"
         f" [bold blue]{device_id}[/bold blue]"
-        f" with driver [bold blue]{device.driver.name}[/bold blue]"
+        f" with driver [bold blue]{driver.id}[/bold blue]"
     )
-    async with device.transport:
-        await device.write_attribute_value(attribute, value)
-        console.print("[bold green]Attribute updated[/bold green]")
+
+    await dm.write_device_attribute(device_id, attribute, value)
+    console.print("[bold green]Attribute updated[/bold green]")
 
 
 @app.command()
@@ -120,28 +117,22 @@ def write(
 async def _watch_device(repository: CoreFileStorage, device_id: str) -> None:
     dm = get_single_device_manager(repository, device_id)
     await dm.start_polling()
-    device = dm.devices[device_id]
+    device = dm.get_device(device_id)
     console.print(
         f"Watching device [bold blue]{device_id}[/bold blue] using driver "
-        f"[bold blue]{device.driver.name}[/bold blue] (press Ctrl+C to quit)"
+        f"[bold blue]{device.driver_id}[/bold blue] (press Ctrl+C to quit)"
     )
 
     try:
-        async with device.transport:
-            await device.init_listeners()
-            # Read initial values
-            for attribute in device.attributes:
-                await device.read_attribute_value(attribute)
-
-            current = None
-            with Live(auto_refresh=False) as live:
-                while True:  # Loop until KeyboardInterrupt
-                    new = device_to_table(device)
-                    if new != current:
-                        live.update(new)
-                        live.refresh()
-                        current = new
-                    await asyncio.sleep(0.2)
+        current = None
+        with Live(auto_refresh=False) as live:
+            while True:  # Loop until KeyboardInterrupt
+                new = device_to_table(dm.get_device(device_id))
+                if new != current:
+                    live.update(new)
+                    live.refresh()
+                    current = new
+                await asyncio.sleep(0.2)
     except KeyboardInterrupt:
         await dm.stop_polling()
         console.print("\n👋 Goodbye")
@@ -161,14 +152,8 @@ async def _discover(
         repository.drivers.read_all(),
         repository.transports.read_all(),
     )
-    if driver_id not in dm.driver_ids:
-        msg = f"Driver {driver_id} does not exist"
-        raise ValueError(msg)
-    if transport_id not in dm.transport_ids:
-        msg = f"Transport {transport_id} does not exist"
-        raise ValueError(msg)
-    device_ids = {d.id for d in dm.devices.values()}
-    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
+
+    device_ids = dm.device_ids
 
     console.print("Starting device discovery (press Ctrl+C to quit)")
 
@@ -176,10 +161,10 @@ async def _discover(
     try:
         with Live(auto_refresh=False):
             while True:
-                new_device_ids = {d.id for d in dm.devices.values()} - device_ids
+                new_device_ids = dm.device_ids - device_ids
                 if new_device_ids:
                     for new_device_id in new_device_ids:
-                        device = dm.devices[new_device_id]
+                        device = dm.get_device(new_device_id)
                         console.print(
                             "New device discovered: "
                             f"[bold green]{device.id}[/bold green]"

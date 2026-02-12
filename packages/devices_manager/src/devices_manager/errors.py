@@ -8,3 +8,7 @@ class ForbiddenError(Exception):
 
 class InvalidError(ValueError):
     """Raised when an invalid input is submitted."""
+
+
+class ConfirmationError(ValueError):
+    """Raised when a written attribute value cannot be confirmed."""

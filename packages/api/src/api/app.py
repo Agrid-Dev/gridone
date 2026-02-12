@@ -41,13 +41,6 @@ async def lifespan(app: FastAPI):
 
     dm.add_device_attribute_listener(broadcast_attribute_update)
 
-    for device_id, device in dm.devices.items():
-        try:
-            await device.init_listeners()
-        except Exception as e:
-            logger.exception(
-                "Failed to initialize listeners for device %s", device_id, exc_info=e
-            )
     await dm.start_polling()
     try:
         yield
