@@ -4,6 +4,7 @@ from pydantic import BaseModel, BeforeValidator
 
 from .fn_adapter import FnAdapter
 from .registry.bool_format_adapter import bool_format_adapter
+from .registry.float32_registers_adapter import float32_registers_adapter
 from .registry.identity_adapter import identity_adapter
 from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
@@ -15,6 +16,7 @@ value_adapter_builders = {
     "json_pointer": json_pointer_adapter,
     "json_path": json_path_adapter,
     "bool_format": bool_format_adapter,
+    "float32_registers": float32_registers_adapter,
 }
 
 supported_value_adapters = list(value_adapter_builders.keys())
