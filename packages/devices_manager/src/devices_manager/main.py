@@ -96,6 +96,13 @@ class DevicesManager:
         except asyncio.CancelledError:
             return
 
+    async def _restart_device_polling(self, device: Device) -> None:
+        polling_key = ("poll", device.id)
+        if self._polling_tasks.has(polling_key):
+            await self._polling_tasks.remove(polling_key)
+        if self._running and device.driver.update_strategy.polling_enabled:
+            self._polling_tasks.add(polling_key, self._device_poll_loop(device))
+
     _T = TypeVar("_T")
 
     @staticmethod
@@ -301,6 +308,10 @@ class DevicesManager:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
+            for device in self._devices.values():
+                if device.transport.id == transport_id:
+                    await device.init_listeners()
+                    await self._restart_device_polling(device)
         dto = transport_core_to_dto(transport)
         if self._storage:
             self._storage.transports.write(transport_id, dto)
@@ -421,6 +432,9 @@ class DevicesManager:
             self._devices[device_id] = self._rebuild_device(
                 device, effective_driver, effective_transport
             )
+            self._attach_listeners(self._devices[device_id])
+
+        await self._restart_device_polling(self._devices[device_id])
 
         dto = device_core_to_dto(self._devices[device_id])
         if self._storage:
