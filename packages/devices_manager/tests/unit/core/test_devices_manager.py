@@ -2,6 +2,8 @@ import asyncio
 import contextlib
 import os
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -26,7 +28,7 @@ from devices_manager.errors import (
     InvalidError,
     NotFoundError,
 )
-from devices_manager.storage import PostgresDevicesManagerStorage
+from devices_manager.storage import DevicesManagerStorage, PostgresDevicesManagerStorage
 from devices_manager.types import TransportProtocols
 from gridone_storage import PostgresConnectionManager
 
@@ -253,6 +255,41 @@ class TestDevicesManagerDiscovery:
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
         assert len(dm.list_devices()) == 0
+
+    @pytest.mark.asyncio
+    async def test_devices_manager_persists_device_on_discovery(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        storage_write = AsyncMock()
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        dm._storage = cast(
+            "DevicesManagerStorage",
+            SimpleNamespace(
+                devices=SimpleNamespace(write=storage_write),
+                drivers=SimpleNamespace(),
+                transports=SimpleNamespace(),
+            ),
+        )
+
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await dm._flush_storage_tasks()
+
+        storage_write.assert_awaited_once()
+        _, stored_dto = storage_write.await_args.args
+        assert stored_dto.config["vendor_id"] == "abc"
+        assert stored_dto.config["gateway_id"] == "gtw"
 
 
 class TestDevicesManagerListTransports:
@@ -821,6 +858,58 @@ class TestDevicesManagerWriteAttribute:
 
         with pytest.raises(PermissionError):
             await devices_manager.write_device_attribute(device_id, "temperature", 22.0)
+
+    @pytest.mark.asyncio
+    async def test_read_attribute_update_persists_when_storage_enabled(
+        self, devices_manager, mock_transport_client
+    ):
+        storage_write = AsyncMock()
+        devices_manager._storage = cast(
+            "DevicesManagerStorage",
+            SimpleNamespace(
+                devices=SimpleNamespace(write=storage_write),
+                drivers=SimpleNamespace(),
+                transports=SimpleNamespace(),
+            ),
+        )
+        devices_manager._enable_attribute_update_persistence()
+        mock_transport_client.read = AsyncMock(return_value=18.5)
+
+        device_id = next(iter(devices_manager.device_ids))
+        await devices_manager._devices[device_id].read_attribute_value("temperature")
+        await devices_manager._flush_storage_tasks()
+
+        storage_write.assert_awaited_once()
+        _, stored_dto = storage_write.await_args.args
+        assert stored_dto.id == device_id
+        assert stored_dto.attributes["temperature"].current_value == 18.5
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_persists_when_storage_enabled(
+        self, devices_manager, mock_transport_client
+    ):
+        storage_write = AsyncMock()
+        devices_manager._storage = cast(
+            "DevicesManagerStorage",
+            SimpleNamespace(
+                devices=SimpleNamespace(write=storage_write),
+                drivers=SimpleNamespace(),
+                transports=SimpleNamespace(),
+            ),
+        )
+        devices_manager._enable_attribute_update_persistence()
+        mock_transport_client.write = AsyncMock()
+
+        device_id = next(iter(devices_manager.device_ids))
+        await devices_manager.write_device_attribute(
+            device_id, "temperature_setpoint", 22.0, confirm=False
+        )
+        await devices_manager._flush_storage_tasks()
+
+        storage_write.assert_awaited_once()
+        _, stored_dto = storage_write.await_args.args
+        assert stored_dto.id == device_id
+        assert stored_dto.attributes["temperature_setpoint"].current_value == 22.0
 
 
 @REQUIRES_DATABASE

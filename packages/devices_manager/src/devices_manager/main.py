@@ -181,6 +181,7 @@ class DevicesManager:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
+        self._attach_listeners(device)
         if self._running and device.driver.update_strategy.polling_enabled:
             logger.info(
                 "Starting polling job for newly discovered device %s", device.id
@@ -188,6 +189,13 @@ class DevicesManager:
             self._polling_tasks.add(("poll", device.id), self._device_poll_loop(device))
 
         logger.info("Successfully loaded and registered device '%s'", device.id)
+
+    def _add_discovered_device(self, device: Device) -> None:
+        """Register a discovered device and persist it when storage is configured."""
+        self._add_device(device)
+        dto = device_core_to_dto(device)
+        if self._storage:
+            self._persist_sync(self._storage.devices.write(dto.id, dto))
 
     def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._create_device(device_create)
@@ -238,7 +246,7 @@ class DevicesManager:
             discovery_context = DiscoveryContext(
                 get_driver=lambda driver_id: self._drivers[driver_id],
                 get_transport=lambda transport_id: self._transports[transport_id],
-                add_device=self._add_device,
+                add_device=self._add_discovered_device,
                 device_exists=lambda device: any(
                     d == device for d in self._devices.values()
                 ),
@@ -308,7 +316,22 @@ class DevicesManager:
             ),
         )
         dm._storage = repository  # noqa: SLF001
+        dm._enable_attribute_update_persistence()  # noqa: SLF001
         return dm
+
+    def _persist_device_attribute_update(
+        self,
+        device: Device,
+        _attribute_name: str,
+        _attribute: object,
+    ) -> None:
+        if not self._storage:
+            return
+        dto = device_core_to_dto(device)
+        self._persist_sync(self._storage.devices.write(dto.id, dto))
+
+    def _enable_attribute_update_persistence(self) -> None:
+        self.add_device_attribute_listener(self._persist_device_attribute_update)
 
     @property
     def transport_ids(self) -> set[str]:
