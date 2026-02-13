@@ -11,7 +11,7 @@ from docker.errors import NotFound
 
 from .config import HTTP_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
 
-thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.2.5"
+thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.5.0"
 mosquitto_image = "eclipse-mosquitto:2.0"
 
 thermocktat_initial_state = {
@@ -43,6 +43,7 @@ def build_config(controller: ControllerKey) -> dict:
             "addr": f"0.0.0.0:{MODBUS_PORT}",
             "unit_id": 4,
             "sync_interval": "1s",
+            "register_count": 2,
         },
     }
     return {
