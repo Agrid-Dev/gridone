@@ -1,8 +1,11 @@
 import asyncio
+import inspect
 import logging
 import uuid
-from pathlib import Path
-from typing import TypeVar
+from collections.abc import Awaitable
+from typing import TypeVar, cast
+
+from gridone_storage import PostgresConnectionManager
 
 from .core.device import AttributeListener, Device, DeviceBase
 from .core.discovery_manager import (
@@ -32,7 +35,8 @@ from .dto import (
     transport_core_to_dto,
 )
 from .errors import ForbiddenError, InvalidError, NotFoundError
-from .storage.core_file_storage import CoreFileStorage
+from .storage.devices_manager_storage import DevicesManagerStorage
+from .storage.postgres_storage import PostgresDevicesManagerStorage
 from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
@@ -51,7 +55,8 @@ class DevicesManager:
     _discovery_manager: DevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
-    _storage: CoreFileStorage | None
+    _storage: DevicesManagerStorage | None
+    _storage_tasks: set[asyncio.Task[object]]
 
     def __init__(
         self,
@@ -59,13 +64,13 @@ class DevicesManager:
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
         *,
-        db_path: str | Path | None = None,
         attribute_update_listeners: list[AttributeListener] | None = None,
     ) -> None:
         self._devices = devices
         self._drivers = drivers
         self._transports = transports
-        self._storage = CoreFileStorage(db_path) if db_path else None
+        self._storage = None
+        self._storage_tasks = set()
         self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
@@ -97,6 +102,49 @@ class DevicesManager:
             return
 
     _T = TypeVar("_T")
+
+    @staticmethod
+    async def _resolve_storage_result[R](result: R | Awaitable[R]) -> R:
+        if inspect.isawaitable(result):
+            return await cast("Awaitable[R]", result)
+        return result
+
+    def _track_storage_task(self, task: asyncio.Task[object]) -> None:
+        self._storage_tasks.add(task)
+        task.add_done_callback(self._on_storage_task_done)
+
+    def _on_storage_task_done(self, task: asyncio.Task[object]) -> None:
+        self._storage_tasks.discard(task)
+        if task.cancelled():
+            return
+        error = task.exception()
+        if error is not None:
+            logger.error("Asynchronous storage operation failed.", exc_info=error)
+
+    def _persist_sync(self, result: object) -> None:
+        if not inspect.isawaitable(result):
+            return
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError as e:
+            msg = (
+                "Cannot persist from a synchronous context without a running event "
+                "loop. Use the async DevicesManager mutation APIs instead."
+            )
+            raise RuntimeError(msg) from e
+
+        self._track_storage_task(loop.create_task(self._persist_async(result)))
+
+    async def _persist_async(self, result: object) -> None:
+        if inspect.isawaitable(result):
+            await result
+
+    async def _flush_storage_tasks(self) -> None:
+        if not self._storage_tasks:
+            return
+        tasks = tuple(self._storage_tasks)
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     @staticmethod
     def _get_or_raise(
@@ -151,7 +199,20 @@ class DevicesManager:
         )
         dto = device_core_to_dto(device)
         if self._storage:
-            self._storage.devices.write(dto.id, dto)
+            self._persist_sync(self._storage.devices.write(dto.id, dto))
+        return dto
+
+    async def add_device_async(self, device_create: DeviceCreateDTO) -> DeviceDTO:
+        device = self._create_device(device_create)
+        self._add_device(device)
+        logger.info(
+            "Successfully created and registered device '%s' (id: %s)",
+            device_create.name,
+            device.id,
+        )
+        dto = device_core_to_dto(device)
+        if self._storage:
+            await self._persist_async(self._storage.devices.write(dto.id, dto))
         return dto
 
     def add_device_attribute_listener(
@@ -234,14 +295,19 @@ class DevicesManager:
         return dm
 
     @classmethod
-    def from_storage(cls, db_path: str | Path) -> "DevicesManager":
-        repository = CoreFileStorage(db_path)
+    async def from_postgres(
+        cls, connection: str | PostgresConnectionManager
+    ) -> "DevicesManager":
+        repository = PostgresDevicesManagerStorage(connection)
+        await repository.ensure_schema()
         dm = cls.from_dto(
-            devices=repository.devices.read_all(),
-            drivers=repository.drivers.read_all(),
-            transports=repository.transports.read_all(),
+            devices=await cls._resolve_storage_result(repository.devices.read_all()),
+            drivers=await cls._resolve_storage_result(repository.drivers.read_all()),
+            transports=await cls._resolve_storage_result(
+                repository.transports.read_all()
+            ),
         )
-        dm._storage = CoreFileStorage(db_path)  # noqa: SLF001
+        dm._storage = repository  # noqa: SLF001
         return dm
 
     @property
@@ -274,7 +340,16 @@ class DevicesManager:
         """Add a transport to memory + persist to DB."""
         dto = self._add_transport(transport)
         if self._storage:
-            self._storage.transports.write(dto.id, dto)
+            self._persist_sync(self._storage.transports.write(dto.id, dto))
+        return dto
+
+    async def add_transport_async(
+        self, transport: TransportCreateDTO | TransportDTO
+    ) -> TransportDTO:
+        """Add a transport to memory + persist to DB."""
+        dto = self._add_transport(transport)
+        if self._storage:
+            await self._persist_async(self._storage.transports.write(dto.id, dto))
         return dto
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
@@ -291,7 +366,7 @@ class DevicesManager:
         transport = self._transports.pop(transport_id)
         await transport.close()
         if self._storage:
-            self._storage.transports.delete(transport_id)
+            await self._persist_async(self._storage.transports.delete(transport_id))
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
@@ -303,7 +378,7 @@ class DevicesManager:
             transport.update_config(update.config)
         dto = transport_core_to_dto(transport)
         if self._storage:
-            self._storage.transports.write(transport_id, dto)
+            await self._persist_async(self._storage.transports.write(transport_id, dto))
         return dto
 
     @property
@@ -330,7 +405,14 @@ class DevicesManager:
         """Add a driver to memory + persist to DB."""
         created = self._add_driver(driver_dto)
         if self._storage:
-            self._storage.drivers.write(created.id, created)
+            self._persist_sync(self._storage.drivers.write(created.id, created))
+        return created
+
+    async def add_driver_async(self, driver_dto: DriverDTO) -> DriverDTO:
+        """Add a driver to memory + persist to DB."""
+        created = self._add_driver(driver_dto)
+        if self._storage:
+            await self._persist_async(self._storage.drivers.write(created.id, created))
         return created
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
@@ -346,7 +428,14 @@ class DevicesManager:
         self._assert_driver_not_used(driver_id)
         del self._drivers[driver_id]
         if self._storage:
-            self._storage.drivers.delete(driver_id)
+            self._persist_sync(self._storage.drivers.delete(driver_id))
+
+    async def delete_driver_async(self, driver_id: str) -> None:
+        self._get_or_raise(self._drivers, driver_id, "Driver")
+        self._assert_driver_not_used(driver_id)
+        del self._drivers[driver_id]
+        if self._storage:
+            await self._persist_async(self._storage.drivers.delete(driver_id))
 
     @property
     def device_ids(self) -> set[str]:
@@ -424,7 +513,7 @@ class DevicesManager:
 
         dto = device_core_to_dto(self._devices[device_id])
         if self._storage:
-            self._storage.devices.write(device_id, dto)
+            await self._persist_async(self._storage.devices.write(device_id, dto))
         return dto
 
     async def write_device_attribute(
@@ -448,7 +537,7 @@ class DevicesManager:
             await self._polling_tasks.remove(polling_key)
         del self._devices[device_id]
         if self._storage:
-            self._storage.devices.delete(device_id)
+            await self._persist_async(self._storage.devices.delete(device_id))
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")
@@ -460,5 +549,6 @@ class DevicesManager:
             return device_core_to_dto(device)
 
     async def stop(self) -> None:
+        await self._flush_storage_tasks()
         await self.stop_polling()
         await asyncio.gather(*(t.close() for t in self._transports.values()))

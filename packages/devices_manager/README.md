@@ -1,40 +1,53 @@
-# Gridone Core
+# gridone-devices-manager
 
-Core package includes all the necessary utilities to manage devices.
+`gridone-devices-manager` is the service package that manages:
+
 - devices
 - drivers
 - transports
 
-## Structure
+## Storage architecture
 
-## Package layout
+The package exposes `devices_manager.storage/` with a Postgres backend implementation:
 
-Package follows a standard `src` layout and unit tests are located in the `tests` directory.
+- `PostgresDevicesManagerStorage`: Postgres/TimescaleDB backend.
 
-## Class diagram
+Both follow a protocol-based design:
 
-```mermaid
-classDiagram
+- `StorageBackend[M]` (from `gridone-storage`) defines generic CRUD operations.
+- `DevicesManagerStorage` (service protocol) composes three sub-storages:
+  - `devices: StorageBackend[DeviceDTO]`
+  - `drivers: StorageBackend[DriverDTO]`
+  - `transports: StorageBackend[TransportDTO]`
 
-class Device {
-    +id: str
-    +config: dict
-    +driver: Driver
-    +attributes: dict[str, Attribute]
-}
+This keeps `DevicesManager` decoupled from storage implementation details.
 
-class Driver {
-    +env: dict
-    +transport: TransportClient
-    +schema: DeviceSchema
-}
+## Instantiation examples
 
-class Attribute
-class TransportClient
-class DeviceSchema
+### Postgres backend (connection string)
 
-Device *-- Driver
-Device *-- Attribute : attributes (many)
-Driver *-- TransportClient
-Driver *-- DeviceSchema
+```python
+import asyncio
+
+from devices_manager import DevicesManager
+
+dm = asyncio.run(
+    DevicesManager.from_postgres("postgresql://user:pass@localhost:5432/gridone")
+)
 ```
+
+### Postgres backend (shared connection manager)
+
+```python
+import asyncio
+
+from devices_manager import DevicesManager
+from gridone_storage import PostgresConnectionManager
+
+connection_manager = PostgresConnectionManager(
+    "postgresql://user:pass@localhost:5432/gridone"
+)
+dm = asyncio.run(DevicesManager.from_postgres(connection_manager))
+```
+
+`from_postgres(...)` ensures the required `devices_manager` schema/tables exist before loading data.

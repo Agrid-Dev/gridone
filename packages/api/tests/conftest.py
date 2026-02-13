@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from devices_manager import Device, DeviceBase
 from devices_manager.core.driver import (
@@ -19,10 +17,6 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.core.value_adapters import ValueAdapterSpec
-from devices_manager.dto.device_dto import core_to_dto as device_to_dto
-from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
-from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
-from devices_manager.storage import CoreFileStorage
 from devices_manager.types import DataType, TransportProtocols
 
 
@@ -102,65 +96,3 @@ def mock_devices(
     device_id = "device1"
     base = DeviceBase(id=device_id, name="My device", config={"some_id": "abc"})
     return {device_id: Device.from_base(base, driver=driver, transport=transport)}
-
-
-@pytest.fixture
-def mock_repository(
-    tmp_path: Path,
-    mock_devices: dict[str, Device],
-    mock_transports: dict[str, TransportClient],
-    mock_drivers: dict[str, Driver],
-) -> CoreFileStorage:
-    cfs = CoreFileStorage(tmp_path)
-    for device_id, device in mock_devices.items():
-        cfs.devices.write(device_id, device_to_dto(device))
-    for transport_id, tc in mock_transports.items():
-        cfs.transports.write(transport_id, transport_to_dto(tc))
-    for driver_id, driver in mock_drivers.items():
-        cfs.drivers.write(driver_id, driver_to_dto(driver))
-    return cfs
-
-
-@pytest.fixture
-def yaml_driver():
-    return """
-id: thermocktat_modbus
-transport: modbus-tcp
-
-device_config:
-- name: device_id
-
-attributes:
-  - name: temperature
-    data_type: float
-    read: IR0
-    scale: 0.01
-
-  - name: temperature_setpoint
-    data_type: float
-    read_write: HR0
-    scale: 0.01
-
-  - name: state
-    data_type: bool
-    read_write: C0
-
-  - name: temperature_setpoint_min
-    data_type: float
-    read_write: HR1
-    scale: 0.01
-
-  - name: temperature_setpoint_max
-    data_type: float
-    read_write: HR2
-    scale: 0.01
-
-  - name: mode
-    data_type: int
-    read_write: HR3
-
-  - name: fan_speed
-    data_type: int
-    read_write: HR3
-
-""".strip()

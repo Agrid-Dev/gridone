@@ -7,12 +7,14 @@ requires-python = ">=3.13"
 
 dependencies = [
     "gridone-devices-manager",
+    "gridone-storage",
 ]
 
 [tool.uv.sources]
 gridone-devices-manager = { workspace = true }
 gridone-dto = { workspace = true }
 gridone-api = { workspace = true }
+gridone-storage = { workspace = true }
 
 
 
@@ -59,6 +61,7 @@ source = [
     "apps/cli",
     "packages/api/src",
     "packages/devices-manager/src",
+    "packages/storage/src",
 ]
 omit = [
     "*/tests/*",

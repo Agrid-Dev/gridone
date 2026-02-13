@@ -1,4 +1,5 @@
 import contextlib
+import json
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -6,7 +7,6 @@ from typing import Literal
 
 import docker
 import pytest
-import yaml
 from docker.errors import NotFound
 
 from .config import HTTP_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
@@ -56,16 +56,16 @@ def build_config(controller: ControllerKey) -> dict:
 def thermocktat_container_http() -> Generator[str]:
     client = docker.from_env()
     config = build_config("http")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(config, f)
         config_path = f.name
     container = None
     try:
         # Run the container with the custom config
         container = client.containers.run(
             thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
+            command="-config /config.json",
+            volumes={config_path: {"bind": "/config.json", "mode": "ro"}},
             ports={"8080/tcp": HTTP_PORT},
             detach=True,
             remove=True,
@@ -85,16 +85,16 @@ def thermocktat_container_mqtt() -> Generator[str]:
     """
     client = docker.from_env()
     config = build_config("mqtt")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(config, f)
         config_path = f.name
     container = None
     try:
         # Use the same Docker network as mosquitto for internal communication
         container = client.containers.run(
             thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
+            command="-config /config.json",
+            volumes={config_path: {"bind": "/config.json", "mode": "ro"}},
             detach=True,
             remove=True,
             network_mode="bridge",
@@ -115,15 +115,15 @@ def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
     """
     client = docker.from_env()
     config = build_config("modbus")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(config, f)
         config_path = f.name
     container = None
     try:
         container = client.containers.run(
             thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
+            command="-config /config.json",
+            volumes={config_path: {"bind": "/config.json", "mode": "ro"}},
             ports={"1502/tcp": MODBUS_PORT},
             detach=True,
             remove=True,

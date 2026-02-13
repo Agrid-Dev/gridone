@@ -1,9 +1,11 @@
 import asyncio
 import contextlib
-from pathlib import Path
+import os
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 from devices_manager import DevicesManager
 from devices_manager.core.device import Device, DeviceBase
 from devices_manager.core.driver import Driver, UpdateStrategy
@@ -24,8 +26,15 @@ from devices_manager.errors import (
     InvalidError,
     NotFoundError,
 )
-from devices_manager.storage import CoreFileStorage
+from devices_manager.storage import PostgresDevicesManagerStorage
 from devices_manager.types import TransportProtocols
+from gridone_storage import PostgresConnectionManager
+
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+REQUIRES_DATABASE = pytest.mark.skipif(
+    TEST_DATABASE_URL is None,
+    reason="TEST_DATABASE_URL is not set.",
+)
 
 
 @pytest.fixture
@@ -814,85 +823,183 @@ class TestDevicesManagerWriteAttribute:
             await devices_manager.write_device_attribute(device_id, "temperature", 22.0)
 
 
+@REQUIRES_DATABASE
 class TestDevicesManagerStorage:
-    """Tests that mutations persist to storage when db_path is provided."""
+    """Tests that mutations persist to Postgres storage."""
 
-    @pytest.fixture
-    def seeded_db(self, tmp_path: Path, device, driver, mock_transport_client) -> Path:
-        """Seed a tmp_path DB with one transport, one driver, one device."""
-        cfs = CoreFileStorage(tmp_path)
-        cfs.transports.write(
-            mock_transport_client.id, transport_core_to_dto(mock_transport_client)
+    @pytest_asyncio.fixture
+    async def connection_manager(self) -> AsyncIterator[PostgresConnectionManager]:
+        database_url = TEST_DATABASE_URL
+        if database_url is None:
+            pytest.skip("TEST_DATABASE_URL is not set.")
+            msg = "TEST_DATABASE_URL is not set."
+            raise RuntimeError(msg)
+        manager = PostgresConnectionManager(database_url)
+        storage = PostgresDevicesManagerStorage(manager)
+        await storage.ensure_schema()
+        pool = await manager.get_pool()
+        await pool.execute(
+            "TRUNCATE TABLE dm_devices, dm_drivers, dm_transports",
         )
-        cfs.drivers.write(driver.id, driver_core_to_dto(driver))
-        cfs.devices.write(device.id, device_core_to_dto(device))
-        return tmp_path
+        try:
+            yield manager
+        finally:
+            pool = await manager.get_pool()
+            await pool.execute(
+                "TRUNCATE TABLE dm_devices, dm_drivers, dm_transports",
+            )
+            await manager.close()
 
-    def test_from_storage(self, seeded_db: Path, device, driver, mock_transport_client):
-        dm = DevicesManager.from_storage(seeded_db)
+    @pytest_asyncio.fixture
+    async def seeded_storage(
+        self,
+        connection_manager: PostgresConnectionManager,
+        device,
+        driver,
+        mock_transport_client,
+    ) -> PostgresDevicesManagerStorage:
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        await DevicesManager._resolve_storage_result(
+            storage.transports.write(
+                mock_transport_client.id,
+                transport_core_to_dto(mock_transport_client),
+            ),
+        )
+        await DevicesManager._resolve_storage_result(
+            storage.drivers.write(driver.id, driver_core_to_dto(driver)),
+        )
+        await DevicesManager._resolve_storage_result(
+            storage.devices.write(device.id, device_core_to_dto(device)),
+        )
+        return storage
+
+    @pytest.mark.asyncio
+    async def test_from_postgres(
+        self,
+        connection_manager: PostgresConnectionManager,
+        seeded_storage: PostgresDevicesManagerStorage,
+        device,
+        driver,
+        mock_transport_client,
+    ) -> None:
+        del seeded_storage
+        dm = await DevicesManager.from_postgres(connection_manager)
         assert device.id in dm.device_ids
         assert driver.id in dm.driver_ids
         assert mock_transport_client.id in dm.transport_ids
-
-    def test_add_transport_persists(self, tmp_path: Path):
-        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
-        transport = TransportCreateDTO(
-            name="Test HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
-        )
-        dto = dm.add_transport(transport)
-        storage = CoreFileStorage(tmp_path)
-        assert storage.transports.read(dto.id).id == dto.id
+        await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_update_transport_persists(self, tmp_path: Path):
-        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+    async def test_add_transport_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
         transport = TransportCreateDTO(
             name="Test HTTP",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
         dto = dm.add_transport(transport)
+        await dm._flush_storage_tasks()
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        stored_transport = await DevicesManager._resolve_storage_result(
+            storage.transports.read(dto.id),
+        )
+        assert stored_transport.id == dto.id
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_update_transport_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
+        transport = TransportCreateDTO(
+            name="Test HTTP",
+            protocol=TransportProtocols.HTTP,
+            config={},  # ty: ignore[invalid-argument-type]
+        )
+        dto = dm.add_transport(transport)
+        await dm._flush_storage_tasks()
         await dm.update_transport(dto.id, TransportUpdateDTO(name="Updated"))
-        storage = CoreFileStorage(tmp_path)
-        assert storage.transports.read(dto.id).name == "Updated"
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        stored_transport = await DevicesManager._resolve_storage_result(
+            storage.transports.read(dto.id),
+        )
+        assert stored_transport.name == "Updated"
+        await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_delete_transport_persists(self, tmp_path: Path):
-        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+    async def test_delete_transport_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
         transport = TransportCreateDTO(
             name="Test HTTP",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
         dto = dm.add_transport(transport)
+        await dm._flush_storage_tasks()
         await dm.delete_transport(dto.id)
-        storage = CoreFileStorage(tmp_path)
-        assert len(storage.transports.read_all()) == 0
-
-    def test_add_driver_persists(self, tmp_path: Path, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
-        driver_dto = driver_core_to_dto(driver)
-        dm.add_driver(driver_dto)
-        storage = CoreFileStorage(tmp_path)
-        assert storage.drivers.read(driver_dto.id).id == driver_dto.id
-
-    def test_delete_driver_persists(self, tmp_path: Path, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
-        driver_dto = driver_core_to_dto(driver)
-        dm.add_driver(driver_dto)
-        dm.delete_driver(driver_dto.id)
-        storage = CoreFileStorage(tmp_path)
-        assert len(storage.drivers.read_all()) == 0
-
-    def test_add_device_persists(self, tmp_path: Path, driver, mock_transport_client):
-        dm = DevicesManager(
-            devices={},
-            drivers={driver.id: driver},
-            transports={mock_transport_client.id: mock_transport_client},
-            db_path=tmp_path,
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        transports = await DevicesManager._resolve_storage_result(
+            storage.transports.read_all(),
         )
+        assert len(transports) == 0
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_add_driver_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+        driver,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_driver(driver_dto)
+        await dm._flush_storage_tasks()
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        stored_driver = await DevicesManager._resolve_storage_result(
+            storage.drivers.read(driver_dto.id),
+        )
+        assert stored_driver.id == driver_dto.id
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_delete_driver_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+        driver,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_driver(driver_dto)
+        await dm._flush_storage_tasks()
+        dm.delete_driver(driver_dto.id)
+        await dm._flush_storage_tasks()
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        drivers = await DevicesManager._resolve_storage_result(
+            storage.drivers.read_all(),
+        )
+        assert len(drivers) == 0
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_add_device_persists(
+        self,
+        connection_manager: PostgresConnectionManager,
+        driver,
+        mock_transport_client,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
+        transport_dto = transport_core_to_dto(mock_transport_client)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_transport(transport_dto)
+        dm.add_driver(driver_dto)
+        await dm._flush_storage_tasks()
         device_create = DeviceCreateDTO(
             name="New Device",
             config={"some_id": "new_abc"},
@@ -900,19 +1007,27 @@ class TestDevicesManagerStorage:
             transport_id=mock_transport_client.id,
         )
         dto = dm.add_device(device_create)
-        storage = CoreFileStorage(tmp_path)
-        assert storage.devices.read(dto.id).id == dto.id
+        await dm._flush_storage_tasks()
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        stored_device = await DevicesManager._resolve_storage_result(
+            storage.devices.read(dto.id),
+        )
+        assert stored_device.id == dto.id
+        await dm.stop()
 
     @pytest.mark.asyncio
     async def test_delete_device_persists(
-        self, tmp_path: Path, driver, mock_transport_client
-    ):
-        dm = DevicesManager(
-            devices={},
-            drivers={driver.id: driver},
-            transports={mock_transport_client.id: mock_transport_client},
-            db_path=tmp_path,
-        )
+        self,
+        connection_manager: PostgresConnectionManager,
+        driver,
+        mock_transport_client,
+    ) -> None:
+        dm = await DevicesManager.from_postgres(connection_manager)
+        transport_dto = transport_core_to_dto(mock_transport_client)
+        driver_dto = driver_core_to_dto(driver)
+        dm.add_transport(transport_dto)
+        dm.add_driver(driver_dto)
+        await dm._flush_storage_tasks()
         device_create = DeviceCreateDTO(
             name="New Device",
             config={"some_id": "new_abc"},
@@ -920,6 +1035,11 @@ class TestDevicesManagerStorage:
             transport_id=mock_transport_client.id,
         )
         dto = dm.add_device(device_create)
+        await dm._flush_storage_tasks()
         await dm.delete_device(dto.id)
-        storage = CoreFileStorage(tmp_path)
-        assert len(storage.devices.read_all()) == 0
+        storage = PostgresDevicesManagerStorage(connection_manager)
+        devices = await DevicesManager._resolve_storage_result(
+            storage.devices.read_all(),
+        )
+        assert len(devices) == 0
+        await dm.stop()

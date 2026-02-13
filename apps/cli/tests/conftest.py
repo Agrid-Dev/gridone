@@ -1,10 +1,5 @@
-from collections.abc import Generator
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
 import pytest
-from devices_manager.dto import DeviceDTO, DriverDTO, build_transport_dto
-from devices_manager.storage import CoreFileStorage
+from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO, build_transport_dto
 from devices_manager.types import TransportProtocols
 
 TEST_DEVICE = DeviceDTO.model_validate(
@@ -50,17 +45,8 @@ TEST_TRANSPORT = build_transport_dto(
 
 
 @pytest.fixture
-def mock_core_file_storage() -> Generator[CoreFileStorage]:
-    with TemporaryDirectory() as temp_dir:
-        (Path(temp_dir) / "devices").mkdir()
-        (Path(temp_dir) / "drivers").mkdir()
-        (Path(temp_dir) / "transports").mkdir()
-        core_file_storage = CoreFileStorage(Path(temp_dir))
-        core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
-        core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)
-        core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
-
-        yield core_file_storage
+def seeded_dtos() -> tuple[list[DeviceDTO], list[DriverDTO], list[TransportDTO]]:
+    return ([TEST_DEVICE], [TEST_DRIVER], [TEST_TRANSPORT])
 
 
 OPEN_METEO_RESPONSE = {

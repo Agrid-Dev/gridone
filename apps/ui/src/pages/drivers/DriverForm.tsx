@@ -14,21 +14,34 @@ type DriverFormProps = {
 
 const DriverForm: FC<DriverFormProps> = ({ onSubmit }) => {
   const schema = z.object({
-    yaml: z.string().min(50),
+    driverJson: z
+      .string()
+      .min(2)
+      .refine((value) => {
+        try {
+          const parsed = JSON.parse(value);
+          return typeof parsed === "object" && parsed !== null;
+        } catch {
+          return false;
+        }
+      }, "Driver payload must be a valid JSON object."),
   });
-  const methods = useForm<z.infer<typeof schema>>({
+  type DriverFormValues = z.infer<typeof schema>;
+  const methods = useForm<DriverFormValues>({
     resolver: zodResolver(schema),
   });
+  const handleSubmit: SubmitHandler<DriverFormValues> = (values) =>
+    onSubmit(JSON.parse(values.driverJson) as DriverCreatePayload);
 
   const navigate = useNavigate();
   return (
     <Card>
       <CardContent className="py-4">
-        <form id="driver-form" onSubmit={methods.handleSubmit(onSubmit)}>
+        <form id="driver-form" onSubmit={methods.handleSubmit(handleSubmit)}>
           <TextareaController
-            label="Driver yaml"
-            placeholder="Paste here the yaml file for the driver"
-            name="yaml"
+            label="Driver JSON"
+            placeholder="Paste a DriverDTO JSON payload"
+            name="driverJson"
             control={methods.control}
             textareaProps={{ rows: 10 }}
             required

@@ -1,21 +1,28 @@
 import re
 from typing import Any
 
-from cli.devices import app  # ty: ignore[unresolved-import]
+import pytest
 from devices_manager import DevicesManager
-from devices_manager.storage import CoreFileStorage
-from typer.testing import CliRunner
 
-from .conftest import TEST_DRIVER
+from .conftest import TEST_DRIVER, TEST_TRANSPORT
 
-runner = CliRunner()
+try:
+    from cli.devices import app  # ty: ignore[unresolved-import]
+    from typer.testing import CliRunner
+except ModuleNotFoundError:
+    pytestmark = pytest.mark.skip(reason="CLI dependencies are not installed.")
+    runner = None
+else:
+    runner = CliRunner()
 
 
-def test_list_devices(mock_core_file_storage: CoreFileStorage) -> None:
+def test_list_devices(seeded_dtos) -> None:
+    assert runner is not None
+    devices, drivers, transports = seeded_dtos
     dm = DevicesManager.from_dto(
-        devices=mock_core_file_storage.devices.read_all(),
-        drivers=mock_core_file_storage.drivers.read_all(),
-        transports=mock_core_file_storage.transports.read_all(),
+        devices=devices,
+        drivers=drivers,
+        transports=transports,
     )
     result = runner.invoke(app, ["list"], obj={"dm": dm})
     assert result.exit_code == 0, result.exception
@@ -23,16 +30,18 @@ def test_list_devices(mock_core_file_storage: CoreFileStorage) -> None:
 
 
 def test_read_device(
-    mock_core_file_storage: CoreFileStorage,
+    seeded_dtos,
     open_meteo_server: Any,
 ) -> None:
+    assert runner is not None
+    devices, _, _ = seeded_dtos
     patched_driver = TEST_DRIVER.model_copy(
         update={"env": {"base_url": open_meteo_server.url_for("") + "/v1/forecast"}}
     )
     dm = DevicesManager.from_dto(
-        devices=mock_core_file_storage.devices.read_all(),
+        devices=devices,
         drivers=[patched_driver],
-        transports=mock_core_file_storage.transports.read_all(),
+        transports=[TEST_TRANSPORT],
     )
     result = runner.invoke(
         app,

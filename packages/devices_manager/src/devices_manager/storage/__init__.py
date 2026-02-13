@@ -1,4 +1,7 @@
-from .core_file_storage import CoreFileStorage
-from .yaml_file_storage import YamlFileStorage
+from .devices_manager_storage import DevicesManagerStorage
+from .postgres_storage import PostgresDevicesManagerStorage
 
-__all__ = ["CoreFileStorage", "YamlFileStorage"]
+__all__ = [
+    "DevicesManagerStorage",
+    "PostgresDevicesManagerStorage",
+]

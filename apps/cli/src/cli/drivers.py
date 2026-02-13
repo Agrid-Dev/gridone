@@ -1,8 +1,10 @@
+import asyncio
+
 import typer
 from devices_manager import DevicesManager
 from rich.console import Console
 
-from cli.config import get_db_path  # ty: ignore[unresolved-import]
+from cli.config import get_database_url  # ty: ignore[unresolved-import]
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 
@@ -12,7 +14,10 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault("dm", DevicesManager.from_storage(get_db_path()))
+    ctx.obj.setdefault(
+        "dm",
+        asyncio.run(DevicesManager.from_postgres(get_database_url())),
+    )
 
 
 @app.command("list")

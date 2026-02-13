@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import FastAPI
+from gridone_storage import PostgresConnectionManager
 
 from api.exception_handlers import register_exception_handlers
 from api.routes import devices_router, drivers_router, transports_router
@@ -22,8 +23,10 @@ async def lifespan(app: FastAPI):
     settings = load_settings()
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
+    postgres_connection_manager = PostgresConnectionManager(settings.DATABASE_URL)
+    app.state.postgres_connection_manager = postgres_connection_manager
 
-    dm = DevicesManager.from_storage(settings.DB_PATH)
+    dm = await DevicesManager.from_postgres(postgres_connection_manager)
     app.state.device_manager = dm
 
     def broadcast_attribute_update(
@@ -45,6 +48,7 @@ async def lifespan(app: FastAPI):
     finally:
         await dm.stop()
         await websocket_manager.close_all()
+        await postgres_connection_manager.close()
 
 
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:

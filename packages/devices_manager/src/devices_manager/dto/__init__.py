@@ -1,7 +1,7 @@
 from .device_dto import DeviceCreateDTO, DeviceDTO, DeviceUpdateDTO
 from .device_dto import core_to_dto as device_core_to_dto
 from .device_dto import dto_to_base as device_dto_to_base
-from .driver_dto import DriverDTO, DriverYamlDTO
+from .driver_dto import DriverDTO
 from .driver_dto import core_to_dto as driver_core_to_dto
 from .driver_dto import dto_to_core as driver_dto_to_core
 from .transport_dto import (
@@ -25,7 +25,6 @@ __all__ = [
     "DeviceDTO",
     "DeviceUpdateDTO",
     "DriverDTO",
-    "DriverYamlDTO",
     "TransportBaseDTO",
     "TransportCreateDTO",
     "TransportDTO",

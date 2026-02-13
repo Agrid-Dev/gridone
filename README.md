@@ -16,12 +16,18 @@ Gridone is a monorepo including both packages and applications.
 │   └── ui
 ├── packages
 │   ├── api
-│   ├── core
-│   └── storage
+│   ├── devices_manager
+│   └── storage          # gridone-storage
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
 ```
+
+## Storage
+
+Gridone uses a shared Postgres/TimescaleDB storage layer across services.
+
+Shared storage infrastructure lives in `packages/storage` (`gridone-storage`) and is reused by services such as `devices_manager`.
 
 ## Setup
 

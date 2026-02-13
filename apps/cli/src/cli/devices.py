@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.config import get_db_path  # ty: ignore[unresolved-import]
+from cli.config import get_database_url  # ty: ignore[unresolved-import]
 
 from .formatters import autoformat_value, device_to_table
 
@@ -23,7 +23,10 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault("dm", DevicesManager.from_storage(get_db_path()))
+    ctx.obj.setdefault(
+        "dm",
+        asyncio.run(DevicesManager.from_postgres(get_database_url())),
+    )
 
 
 @app.command("list")
