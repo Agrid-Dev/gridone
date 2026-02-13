@@ -7,13 +7,13 @@ device_config:
 attributes:
   - name: temperature
     data_type: float
-    read: IR0
-    scale: 0.01
+    read: IR0:2
+    float32_registers: ""
 
   - name: temperature_setpoint
     data_type: float
-    read_write: HR0
-    scale: 0.01
+    read_write: HR0:2
+    float32_registers: ""
 
   - name: state
     data_type: bool
@@ -21,18 +21,18 @@ attributes:
 
   - name: temperature_setpoint_min
     data_type: float
-    read_write: HR1
-    scale: 0.01
+    read_write: HR2:2
+    float32_registers: ""
 
   - name: temperature_setpoint_max
     data_type: float
-    read_write: HR2
-    scale: 0.01
+    read_write: HR4:2
+    float32_registers: ""
 
   - name: mode
     data_type: int
-    read_write: HR3
+    read_write: HR6
 
   - name: fan_speed
     data_type: int
-    read_write: HR4
+    read_write: HR8
