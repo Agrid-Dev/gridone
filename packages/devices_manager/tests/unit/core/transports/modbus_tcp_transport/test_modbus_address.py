@@ -34,7 +34,50 @@ TEST_CASES: list[tuple[str, dict, ModbusAddress]] = [
         "IR 12 ",
         {"type": "IR", "instance": 12},
         ModbusAddress(
-            type=ModbusAddressType.INPUT_REGISTER, instance=12, device_id=DEVICE_ID
+            type=ModbusAddressType.INPUT_REGISTER,
+            instance=12,
+            device_id=DEVICE_ID,
+        ),
+    ),
+    # Multi-register HR/IR addresses with various separators.
+    (
+        "HR4:2",
+        {"type": "HR", "instance": 4, "count": 2},
+        ModbusAddress(
+            type=ModbusAddressType.HOLDING_REGISTER,
+            instance=4,
+            device_id=DEVICE_ID,
+            count=2,
+        ),
+    ),
+    (
+        "HR4x2",
+        {"type": "HR", "instance": 4, "count": 2},
+        ModbusAddress(
+            type=ModbusAddressType.HOLDING_REGISTER,
+            instance=4,
+            device_id=DEVICE_ID,
+            count=2,
+        ),
+    ),
+    (
+        "HR4-2",
+        {"type": "HR", "instance": 4, "count": 2},
+        ModbusAddress(
+            type=ModbusAddressType.HOLDING_REGISTER,
+            instance=4,
+            device_id=DEVICE_ID,
+            count=2,
+        ),
+    ),
+    (
+        "IR0:3",
+        {"type": "IR", "instance": 0, "count": 3},
+        ModbusAddress(
+            type=ModbusAddressType.INPUT_REGISTER,
+            instance=0,
+            device_id=DEVICE_ID,
+            count=3,
         ),
     ),
 ]
@@ -74,6 +117,15 @@ def test_modbus_address_from_dict(
         (
             ModbusAddress(type=ModbusAddressType.COIL, instance=2, device_id=4),
             "modbus@device:4/C:2",
+        ),
+        (
+            ModbusAddress(
+                type=ModbusAddressType.HOLDING_REGISTER,
+                instance=4,
+                device_id=DEVICE_ID,
+                count=2,
+            ),
+            "modbus@device:3/HR:4:2",
         ),
     ],
 )
