@@ -25,9 +25,20 @@ def thermocktat_http_driver() -> Driver:
 
 
 @pytest.fixture
-def thermocktat_modbus_driver() -> Driver:
+def thermocktat_modbus_driver_multi() -> Driver:
     fixture_path = (
-        Path(__file__).parent / "raw_drivers" / "thermocktat_modbus_driver.yaml"
+        Path(__file__).parent / "raw_drivers" / "thermocktat_modbus_driver_multi.yaml"
+    )
+    with fixture_path.open("r") as file:
+        driver_data = yaml.safe_load(file)
+    dto = DriverDTO.model_validate(driver_data)
+    return dto_to_core(dto)
+
+
+@pytest.fixture
+def thermocktat_modbus_driver_single() -> Driver:
+    fixture_path = (
+        Path(__file__).parent / "raw_drivers" / "thermocktat_modbus_driver_single.yaml"
     )
     with fixture_path.open("r") as file:
         driver_data = yaml.safe_load(file)
