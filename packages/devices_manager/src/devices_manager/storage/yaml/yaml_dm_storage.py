@@ -69,3 +69,4 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
 
     async def delete(self, id: str) -> None:
         await asyncio.to_thread(self._delete_sync, id)
+

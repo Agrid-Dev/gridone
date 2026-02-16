@@ -105,22 +105,6 @@ def mock_devices(
     return {device_id: Device.from_base(base, driver=driver, transport=transport)}
 
 
-@pytest.fixture
-def mock_repository(
-    tmp_path: Path,
-    mock_devices: dict[str, Device],
-    mock_transports: dict[str, TransportClient],
-    mock_drivers: dict[str, Driver],
-) -> CoreFileStorage:
-    cfs = CoreFileStorage(tmp_path)
-    for device_id, device in mock_devices.items():
-        asyncio.run(cfs.devices.write(device_id, device_to_dto(device)))
-    for transport_id, tc in mock_transports.items():
-        asyncio.run(cfs.transports.write(transport_id, transport_to_dto(tc)))
-    for driver_id, driver in mock_drivers.items():
-        asyncio.run(cfs.drivers.write(driver_id, driver_to_dto(driver)))
-    return cfs
-
 
 @pytest.fixture
 def yaml_driver():

@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import yaml
-from devices_manager.storage.yaml.yaml_file_storage import YamlFileStorage
+from devices_manager.storage.yaml.yaml_dm_storage import YamlFileStorage
 from pydantic import BaseModel
 
 

@@ -54,7 +54,7 @@ storage/
 ├── factory.py
 ├── yaml/
 │   ├── __init__.py
-│   ├── yaml_file_storage.py
+│   ├── yaml_dm_storage.py
 │   └── core_file_storage.py
 └── postgres/
     ├── __init__.py

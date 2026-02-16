@@ -6,7 +6,7 @@ from devices_manager.dto.transport_dto import TransportDTO
 from devices_manager.dto.transport_dto import build_dto as build_transport_dto
 
 from ..storage_backend import DevicesManagerStorage
-from .yaml_file_storage import YamlFileStorage
+from .yaml_dm_storage import YamlFileStorage
 
 
 class CoreFileStorage(DevicesManagerStorage):
