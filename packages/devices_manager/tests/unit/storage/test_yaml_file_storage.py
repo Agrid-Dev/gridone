@@ -4,7 +4,7 @@ from tempfile import TemporaryDirectory
 
 import pytest
 import yaml
-from devices_manager.storage import YamlFileStorage
+from devices_manager.storage.yaml.yaml_dm_storage import YamlFileStorage
 from pydantic import BaseModel
 
 
@@ -45,29 +45,33 @@ def storage(request) -> Generator[AnimalStorage]:
         yield storage
 
 
-def test_list_seeded_files(storage: AnimalStorage):
+@pytest.mark.asyncio
+async def test_list_seeded_files(storage: AnimalStorage):
     """Test that `list()` returns the correct files after seeding."""
-    files = storage.list_all()
+    files = await storage.list_all()
     assert "a1" in files
     assert "a2" in files
 
 
-def test_read_seeded_file(storage: AnimalStorage):
+@pytest.mark.asyncio
+async def test_read_seeded_file(storage: AnimalStorage):
     """Test that `read()` returns the correct data for a pre-seeded file."""
-    data = storage.read("a1")
+    data = await storage.read("a1")
     assert data == animal_1
 
 
-def test_write_animal(storage: AnimalStorage):
+@pytest.mark.asyncio
+async def test_write_animal(storage: AnimalStorage):
     a3 = Animal(id="a3", name="Irma", species="dolphin", age=9)
-    storage.write("a3", a3)
-    assert storage.read("a3") == a3
+    await storage.write("a3", a3)
+    assert await storage.read("a3") == a3
 
 
-def test_delete_animal(storage: AnimalStorage):
-    storage.delete("a1")
+@pytest.mark.asyncio
+async def test_delete_animal(storage: AnimalStorage):
+    await storage.delete("a1")
     with pytest.raises(FileNotFoundError):
-        storage.read("a1")
+        await storage.read("a1")
 
 
 def test_create_root_dir_if_not_existing():

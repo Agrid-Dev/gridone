@@ -36,13 +36,13 @@ def get_transport(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_transport(
+async def create_transport(
     payload: TransportCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     request: Request,
     response: Response,
 ) -> TransportDTO:
-    dto = dm.add_transport(payload)
+    dto = await dm.add_transport(payload)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=dto.id)
     )

@@ -25,7 +25,7 @@ def get_driver(
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_driver(
+async def create_driver(
     payload: DriverDTO | DriverYamlDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DriverDTO:
@@ -33,15 +33,15 @@ def create_driver(
         payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
     )
     try:
-        created_driver = dm.add_driver(driver_dto)
+        created_driver = await dm.add_driver(driver_dto)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     return created_driver
 
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_driver(
+async def delete_driver(
     driver_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> None:
-    dm.delete_driver(driver_id)
+    await dm.delete_driver(driver_id)

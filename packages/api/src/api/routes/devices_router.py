@@ -38,7 +38,7 @@ async def create_device(
     dto: DeviceCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> DeviceDTO:
-    return dm.add_device(dto)
+    return await dm.add_device(dto)
 
 
 @router.patch("/{device_id}")

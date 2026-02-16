@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
 
-    dm = DevicesManager.from_storage(settings.DB_PATH)
+    dm = await DevicesManager.from_storage(settings.storage_url)
     app.state.device_manager = dm
 
     def broadcast_attribute_update(

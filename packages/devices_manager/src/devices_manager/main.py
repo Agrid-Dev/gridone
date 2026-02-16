@@ -32,7 +32,8 @@ from .dto import (
     transport_core_to_dto,
 )
 from .errors import ForbiddenError, InvalidError, NotFoundError
-from .storage.core_file_storage import CoreFileStorage
+from .storage import DevicesManagerStorage
+from .storage.factory import build_storage, make_storage
 from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
@@ -51,7 +52,7 @@ class DevicesManager:
     _discovery_manager: DevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
-    _storage: CoreFileStorage | None
+    _storage: DevicesManagerStorage | None
 
     def __init__(
         self,
@@ -65,7 +66,7 @@ class DevicesManager:
         self._devices = devices
         self._drivers = drivers
         self._transports = transports
-        self._storage = CoreFileStorage(db_path) if db_path else None
+        self._storage = make_storage(str(db_path)) if db_path else None
         self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_listeners = attribute_update_listeners or []
@@ -148,7 +149,7 @@ class DevicesManager:
 
         logger.info("Successfully loaded and registered device '%s'", device.id)
 
-    def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
+    async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._create_device(device_create)
         self._add_device(device)
         logger.info(
@@ -158,7 +159,7 @@ class DevicesManager:
         )
         dto = device_core_to_dto(device)
         if self._storage:
-            self._storage.devices.write(dto.id, dto)
+            await self._storage.devices.write(dto.id, dto)
         return dto
 
     def add_device_attribute_listener(
@@ -241,14 +242,14 @@ class DevicesManager:
         return dm
 
     @classmethod
-    def from_storage(cls, db_path: str | Path) -> "DevicesManager":
-        repository = CoreFileStorage(db_path)
+    async def from_storage(cls, url: str) -> "DevicesManager":
+        repository = await build_storage(url)
         dm = cls.from_dto(
-            devices=repository.devices.read_all(),
-            drivers=repository.drivers.read_all(),
-            transports=repository.transports.read_all(),
+            devices=await repository.devices.read_all(),
+            drivers=await repository.drivers.read_all(),
+            transports=await repository.transports.read_all(),
         )
-        dm._storage = CoreFileStorage(db_path)  # noqa: SLF001
+        dm._storage = repository  # noqa: SLF001
         return dm
 
     @property
@@ -275,13 +276,13 @@ class DevicesManager:
         self._transports[metadata.id] = client
         return transport_core_to_dto(client)
 
-    def add_transport(
+    async def add_transport(
         self, transport: TransportCreateDTO | TransportDTO
     ) -> TransportDTO:
         """Add a transport to memory + persist to DB."""
         dto = self._add_transport(transport)
         if self._storage:
-            self._storage.transports.write(dto.id, dto)
+            await self._storage.transports.write(dto.id, dto)
         return dto
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
@@ -298,7 +299,7 @@ class DevicesManager:
         transport = self._transports.pop(transport_id)
         await transport.close()
         if self._storage:
-            self._storage.transports.delete(transport_id)
+            await self._storage.transports.delete(transport_id)
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
@@ -314,7 +315,7 @@ class DevicesManager:
                     await self._restart_device_polling(device)
         dto = transport_core_to_dto(transport)
         if self._storage:
-            self._storage.transports.write(transport_id, dto)
+            await self._storage.transports.write(transport_id, dto)
         return dto
 
     @property
@@ -337,11 +338,11 @@ class DevicesManager:
         self._drivers[driver_dto.id] = driver
         return driver_core_to_dto(driver)
 
-    def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+    async def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
         """Add a driver to memory + persist to DB."""
         created = self._add_driver(driver_dto)
         if self._storage:
-            self._storage.drivers.write(created.id, created)
+            await self._storage.drivers.write(created.id, created)
         return created
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
@@ -352,12 +353,12 @@ class DevicesManager:
             msg = f"Driver {driver_id} is used by device {device.id}"
             raise ForbiddenError(msg)
 
-    def delete_driver(self, driver_id: str) -> None:
+    async def delete_driver(self, driver_id: str) -> None:
         self._get_or_raise(self._drivers, driver_id, "Driver")
         self._assert_driver_not_used(driver_id)
         del self._drivers[driver_id]
         if self._storage:
-            self._storage.drivers.delete(driver_id)
+            await self._storage.drivers.delete(driver_id)
 
     @property
     def device_ids(self) -> set[str]:
@@ -438,7 +439,7 @@ class DevicesManager:
 
         dto = device_core_to_dto(self._devices[device_id])
         if self._storage:
-            self._storage.devices.write(device_id, dto)
+            await self._storage.devices.write(device_id, dto)
         return dto
 
     async def write_device_attribute(
@@ -462,7 +463,7 @@ class DevicesManager:
             await self._polling_tasks.remove(polling_key)
         del self._devices[device_id]
         if self._storage:
-            self._storage.devices.delete(device_id)
+            await self._storage.devices.delete(device_id)
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")

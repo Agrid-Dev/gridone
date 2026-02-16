@@ -24,7 +24,7 @@ from devices_manager.errors import (
     InvalidError,
     NotFoundError,
 )
-from devices_manager.storage import CoreFileStorage
+from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import TransportProtocols
 
 
@@ -271,13 +271,14 @@ class TestDevicesManagerGetTransport:
 
 
 class TestDevicesManagerAddTransport:
-    def test_add_transport(self, devices_manager):
+    @pytest.mark.asyncio
+    async def test_add_transport(self, devices_manager):
         transport_data = TransportCreateDTO(
             name="New Transport",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
-        new_transport = devices_manager.add_transport(transport_data)
+        new_transport = await devices_manager.add_transport(transport_data)
         assert new_transport.name == transport_data.name
         assert new_transport.protocol == transport_data.protocol
         assert new_transport.config == transport_data.config
@@ -380,42 +381,47 @@ class TestDevicesManagerDrivers:
         with pytest.raises(NotFoundError):
             devices_manager.get_driver("non-existing-driver-id")
 
-    def test_add_driver_ok(self, driver):
+    @pytest.mark.asyncio
+    async def test_add_driver_ok(self, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={})
         driver_dto = driver_core_to_dto(driver)
 
-        created = dm.add_driver(driver_dto)
+        created = await dm.add_driver(driver_dto)
 
         assert isinstance(created, DriverDTO)
         assert created.id == driver_dto.id
         assert dm.get_driver(driver_dto.id) is not None
 
-    def test_add_driver_conflict(self, driver):
+    @pytest.mark.asyncio
+    async def test_add_driver_conflict(self, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={})
         driver_dto = driver_core_to_dto(driver)
 
-        dm.add_driver(driver_dto)
+        await dm.add_driver(driver_dto)
 
         with pytest.raises(ValueError):  # noqa: PT011
-            dm.add_driver(driver_dto)
+            await dm.add_driver(driver_dto)
 
-    def test_delete_driver_ok(self, driver):
+    @pytest.mark.asyncio
+    async def test_delete_driver_ok(self, driver):
         devices_manager = DevicesManager(
             devices={},
             drivers={driver.id: driver},
             transports={},
         )
-        devices_manager.delete_driver(driver.id)
+        await devices_manager.delete_driver(driver.id)
         with pytest.raises(NotFoundError):
             devices_manager.get_driver(driver.id)
 
-    def test_delete_driver_not_found(self, devices_manager):
+    @pytest.mark.asyncio
+    async def test_delete_driver_not_found(self, devices_manager):
         with pytest.raises(NotFoundError):
-            devices_manager.delete_driver("unknown")
+            await devices_manager.delete_driver("unknown")
 
-    def test_delete_driver_in_use(self, devices_manager, driver):
+    @pytest.mark.asyncio
+    async def test_delete_driver_in_use(self, devices_manager, driver):
         with pytest.raises(ForbiddenError):
-            devices_manager.delete_driver(driver.id)
+            await devices_manager.delete_driver(driver.id)
 
 
 class TestDevicesManagerDevices:
@@ -439,7 +445,8 @@ class TestDevicesManagerDevices:
             devices_manager.get_device("unknown")
 
     # Create device
-    def test_add_device_ok(self, devices_manager, driver, mock_transport_client):
+    @pytest.mark.asyncio
+    async def test_add_device_ok(self, devices_manager, driver, mock_transport_client):
         device_create = DeviceCreateDTO(
             name="New Device",
             config={"some_id": "new_abc"},
@@ -447,7 +454,7 @@ class TestDevicesManagerDevices:
             transport_id=mock_transport_client.id,
         )
 
-        result = devices_manager.add_device(device_create)
+        result = await devices_manager.add_device(device_create)
 
         assert isinstance(result, DeviceDTO)
         assert result.name == "New Device"
@@ -456,7 +463,10 @@ class TestDevicesManagerDevices:
         assert result.transport_id == mock_transport_client.id
         assert result.id in devices_manager.device_ids
 
-    def test_add_device_driver_not_found(self, devices_manager, mock_transport_client):
+    @pytest.mark.asyncio
+    async def test_add_device_driver_not_found(
+        self, devices_manager, mock_transport_client
+    ):
         device_create = DeviceCreateDTO(
             name="Bad Device",
             config={"some_id": "abc"},
@@ -465,9 +475,10 @@ class TestDevicesManagerDevices:
         )
 
         with pytest.raises(NotFoundError):
-            devices_manager.add_device(device_create)
+            await devices_manager.add_device(device_create)
 
-    def test_add_device_transport_not_found(self, devices_manager, driver):
+    @pytest.mark.asyncio
+    async def test_add_device_transport_not_found(self, devices_manager, driver):
         device_create = DeviceCreateDTO(
             name="Bad Device",
             config={"some_id": "abc"},
@@ -476,9 +487,10 @@ class TestDevicesManagerDevices:
         )
 
         with pytest.raises(NotFoundError):
-            devices_manager.add_device(device_create)
+            await devices_manager.add_device(device_create)
 
-    def test_add_device_incompatible_transport(
+    @pytest.mark.asyncio
+    async def test_add_device_incompatible_transport(
         self, driver, mock_push_transport_client
     ):
         dm = DevicesManager(
@@ -494,9 +506,10 @@ class TestDevicesManagerDevices:
         )
 
         with pytest.raises(ValueError):  # noqa: PT011
-            dm.add_device(device_create)
+            await dm.add_device(device_create)
 
-    def test_add_device_invalid_config(
+    @pytest.mark.asyncio
+    async def test_add_device_invalid_config(
         self, devices_manager, driver, mock_transport_client
     ):
         device_create = DeviceCreateDTO(
@@ -507,7 +520,7 @@ class TestDevicesManagerDevices:
         )
 
         with pytest.raises(InvalidError):
-            devices_manager.add_device(device_create)
+            await devices_manager.add_device(device_create)
 
     # Delete device
     @pytest.mark.asyncio
@@ -821,29 +834,35 @@ class TestDevicesManagerStorage:
     def seeded_db(self, tmp_path: Path, device, driver, mock_transport_client) -> Path:
         """Seed a tmp_path DB with one transport, one driver, one device."""
         cfs = CoreFileStorage(tmp_path)
-        cfs.transports.write(
-            mock_transport_client.id, transport_core_to_dto(mock_transport_client)
+        asyncio.run(
+            cfs.transports.write(
+                mock_transport_client.id, transport_core_to_dto(mock_transport_client)
+            )
         )
-        cfs.drivers.write(driver.id, driver_core_to_dto(driver))
-        cfs.devices.write(device.id, device_core_to_dto(device))
+        asyncio.run(cfs.drivers.write(driver.id, driver_core_to_dto(driver)))
+        asyncio.run(cfs.devices.write(device.id, device_core_to_dto(device)))
         return tmp_path
 
-    def test_from_storage(self, seeded_db: Path, device, driver, mock_transport_client):
-        dm = DevicesManager.from_storage(seeded_db)
+    @pytest.mark.asyncio
+    async def test_from_storage(
+        self, seeded_db: Path, device, driver, mock_transport_client
+    ):
+        dm = await DevicesManager.from_storage(str(seeded_db))
         assert device.id in dm.device_ids
         assert driver.id in dm.driver_ids
         assert mock_transport_client.id in dm.transport_ids
 
-    def test_add_transport_persists(self, tmp_path: Path):
+    @pytest.mark.asyncio
+    async def test_add_transport_persists(self, tmp_path: Path):
         dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
         transport = TransportCreateDTO(
             name="Test HTTP",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
-        dto = dm.add_transport(transport)
+        dto = await dm.add_transport(transport)
         storage = CoreFileStorage(tmp_path)
-        assert storage.transports.read(dto.id).id == dto.id
+        assert (await storage.transports.read(dto.id)).id == dto.id
 
     @pytest.mark.asyncio
     async def test_update_transport_persists(self, tmp_path: Path):
@@ -853,10 +872,10 @@ class TestDevicesManagerStorage:
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
-        dto = dm.add_transport(transport)
+        dto = await dm.add_transport(transport)
         await dm.update_transport(dto.id, TransportUpdateDTO(name="Updated"))
         storage = CoreFileStorage(tmp_path)
-        assert storage.transports.read(dto.id).name == "Updated"
+        assert (await storage.transports.read(dto.id)).name == "Updated"
 
     @pytest.mark.asyncio
     async def test_delete_transport_persists(self, tmp_path: Path):
@@ -866,27 +885,32 @@ class TestDevicesManagerStorage:
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
         )
-        dto = dm.add_transport(transport)
+        dto = await dm.add_transport(transport)
         await dm.delete_transport(dto.id)
         storage = CoreFileStorage(tmp_path)
-        assert len(storage.transports.read_all()) == 0
+        assert len(await storage.transports.read_all()) == 0
 
-    def test_add_driver_persists(self, tmp_path: Path, driver):
+    @pytest.mark.asyncio
+    async def test_add_driver_persists(self, tmp_path: Path, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
         driver_dto = driver_core_to_dto(driver)
-        dm.add_driver(driver_dto)
+        await dm.add_driver(driver_dto)
         storage = CoreFileStorage(tmp_path)
-        assert storage.drivers.read(driver_dto.id).id == driver_dto.id
+        assert (await storage.drivers.read(driver_dto.id)).id == driver_dto.id
 
-    def test_delete_driver_persists(self, tmp_path: Path, driver):
+    @pytest.mark.asyncio
+    async def test_delete_driver_persists(self, tmp_path: Path, driver):
         dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
         driver_dto = driver_core_to_dto(driver)
-        dm.add_driver(driver_dto)
-        dm.delete_driver(driver_dto.id)
+        await dm.add_driver(driver_dto)
+        await dm.delete_driver(driver_dto.id)
         storage = CoreFileStorage(tmp_path)
-        assert len(storage.drivers.read_all()) == 0
+        assert len(await storage.drivers.read_all()) == 0
 
-    def test_add_device_persists(self, tmp_path: Path, driver, mock_transport_client):
+    @pytest.mark.asyncio
+    async def test_add_device_persists(
+        self, tmp_path: Path, driver, mock_transport_client
+    ):
         dm = DevicesManager(
             devices={},
             drivers={driver.id: driver},
@@ -899,9 +923,9 @@ class TestDevicesManagerStorage:
             driver_id=driver.id,
             transport_id=mock_transport_client.id,
         )
-        dto = dm.add_device(device_create)
+        dto = await dm.add_device(device_create)
         storage = CoreFileStorage(tmp_path)
-        assert storage.devices.read(dto.id).id == dto.id
+        assert (await storage.devices.read(dto.id)).id == dto.id
 
     @pytest.mark.asyncio
     async def test_delete_device_persists(
@@ -919,7 +943,7 @@ class TestDevicesManagerStorage:
             driver_id=driver.id,
             transport_id=mock_transport_client.id,
         )
-        dto = dm.add_device(device_create)
+        dto = await dm.add_device(device_create)
         await dm.delete_device(dto.id)
         storage = CoreFileStorage(tmp_path)
         assert len(storage.devices.read_all()) == 0

@@ -16,12 +16,21 @@ Gridone is a monorepo including both packages and applications.
 │   └── ui
 ├── packages
 │   ├── api
-│   ├── core
+│   ├── devices_manager
 │   └── storage
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
 ```
+
+## Storage
+
+`devices_manager` uses pluggable storage configured with a single URL string:
+
+- Local development: YAML file backend using a path (example: `.db` or `/tmp/gridone-db`)
+- Production: PostgreSQL-compatible backend (example: `postgresql://...`)
+
+TimescaleDB is PostgreSQL-compatible, so it uses the same `postgresql://` URL format.
 
 ## Setup
 
