@@ -112,11 +112,11 @@ def test_modbus_address_from_dict(
     [
         (
             ModbusAddress(type=ModbusAddressType.COIL, instance=2, device_id=1),
-            "modbus@device:1/C:2",
+            "modbus@device:1/C:2:1",
         ),
         (
             ModbusAddress(type=ModbusAddressType.COIL, instance=2, device_id=4),
-            "modbus@device:4/C:2",
+            "modbus@device:4/C:2:1",
         ),
         (
             ModbusAddress(

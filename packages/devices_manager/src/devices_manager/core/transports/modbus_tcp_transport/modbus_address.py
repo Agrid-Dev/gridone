@@ -33,11 +33,7 @@ class ModbusAddress(BaseModel, TransportAddress):
     @property
     def id(self) -> str:
         base = f"modbus@device:{self.device_id}/{self.type.value}:{self.instance}"
-        if (
-            self.type
-            in {ModbusAddressType.HOLDING_REGISTER, ModbusAddressType.INPUT_REGISTER}
-            and self.count != 1
-        ):
+        if self.count is not None:
             return f"{base}:{self.count}"
         return base
 

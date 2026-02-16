@@ -82,6 +82,30 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
 
+    def _validate_holding_register_value(
+        self,
+        modbus_address: ModbusAddress,
+        value: int | bool | list[int],  # noqa: FBT001
+    ) -> int | list[int]:
+        """Validate value for HR write; return int (single reg) or list[int]."""
+        if isinstance(value, list):
+            if modbus_address.count != len(value):
+                msg = (
+                    "Length of provided values does not match Modbus "
+                    f"address count (got {len(value)}, expected "
+                    f"{modbus_address.count})"
+                )
+                raise ValueError(msg)
+            return value
+        try:
+            return int(value)
+        except (ValueError, TypeError) as e:
+            msg = (
+                f"Cannot write a non integer value ({value}) "
+                "to a Modbus HOLDING_REGISTER"
+            )
+            raise ValueError(msg) from e
+
     @connected
     async def _write_modbus(
         self,
@@ -104,31 +128,17 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
             )
             return
         if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
-            if isinstance(value, list):
-                if modbus_address.count != len(value):
-                    msg = (
-                        "Length of provided values does not match Modbus "
-                        f"address count (got {len(value)}, expected "
-                        f"{modbus_address.count})"
-                    )
-                    raise ValueError(msg)
-                await self._client.write_registers(
+            payload = self._validate_holding_register_value(modbus_address, value)
+            if modbus_address.count == 1:
+                await self._client.write_register(
                     modbus_address.instance,
-                    value,
+                    payload,
                     device_id=modbus_address.device_id,
                 )
             else:
-                try:
-                    int_value = int(value)
-                except ValueError as e:
-                    msg = (
-                        f"Cannot write a non integer value ({value}) "
-                        "to a Modbus HOLDING_REGISTER"
-                    )
-                    raise ValueError(msg) from e
-                await self._client.write_register(
+                await self._client.write_registers(
                     modbus_address.instance,
-                    int_value,
+                    payload,
                     device_id=modbus_address.device_id,
                 )
             return

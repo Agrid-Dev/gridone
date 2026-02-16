@@ -3,6 +3,9 @@ from collections.abc import Callable, Sequence
 
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
+# Logical value types produced by decode / accepted by encode.
+ByteConvertValue = int | float | str | bool
+
 _REGISTER_BYTES = 2
 _ONE_REGISTER = 1
 _TWO_REGISTERS = 2
@@ -230,7 +233,9 @@ _ENCODE_FUNCS = {
 }
 
 
-def byte_convert_adapter(type_spec: str) -> FnAdapter[object, object]:
+def byte_convert_adapter(
+    type_spec: str,
+) -> FnAdapter[int | Sequence[int], ByteConvertValue]:
     """Reversible adapter for converting between registers and typed values.
 
     type_spec examples:
