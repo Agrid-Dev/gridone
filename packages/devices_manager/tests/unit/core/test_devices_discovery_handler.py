@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from devices_manager.core.device import Device
 from devices_manager.core.discovery_manager.discovery_handler import (
@@ -7,12 +9,18 @@ from devices_manager.core.discovery_manager.discovery_handler import (
 
 class FnCallSpy:
     call_args: list[Device]
+    called: asyncio.Event
 
     def __init__(self) -> None:
         self.call_args = []
+        self.called = asyncio.Event()
 
-    def call(self, device: Device):
+    async def call(self, device: Device):
         self.call_args.append(device)
+        self.called.set()
+
+    async def wait(self, timeout: float = 1.0) -> None:  # noqa: ASYNC109
+        await asyncio.wait_for(self.called.wait(), timeout=timeout)
 
     @property
     def call_count(self) -> int:
@@ -52,6 +60,7 @@ async def test_fires_callback_on_discover(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
+    await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
 
 
@@ -68,7 +77,7 @@ async def test_fires_only_once_for_same_payload(
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22 + i}},
         )
-
+    await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
 
 
@@ -85,6 +94,7 @@ async def test_callback_not_fired_after_stop(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
+    await asyncio.sleep(0)
     assert on_discover_spy.call_count == 0
 
 
@@ -100,6 +110,7 @@ async def tests_callback_called_with_actual_device(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
+    await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
     device = on_discover_spy.call_args[0]
     assert isinstance(device, Device)
@@ -119,6 +130,7 @@ async def tests_initializes_attributes_if_present_in_payload(
         "/xx",
         {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
     )
+    await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
     device: Device = on_discover_spy.call_args[0]
     assert isinstance(device, Device)

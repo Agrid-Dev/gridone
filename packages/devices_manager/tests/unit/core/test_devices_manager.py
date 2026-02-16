@@ -98,6 +98,35 @@ class TestDevicesManagerPolling:
         assert manager.poll_count == 2
 
     @pytest.mark.asyncio
+    async def test_start_polling_all_devices_are_polled(
+        self, mock_transport_client, driver
+    ):
+        """Regression: all devices must be polled, not just the last one."""
+        n_readable_attrs = len(driver.attributes)
+        device1 = Device.from_base(
+            DeviceBase(id="device1", name="device1", config={"some_id": "abc"}),
+            transport=mock_transport_client,
+            driver=driver,
+        )
+        device2 = Device.from_base(
+            DeviceBase(id="device2", name="device2", config={"some_id": "xyz"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        manager = DevicesManager(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={"test_driver": driver},
+            transports={"t1": mock_transport_client},
+        )
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+
+        await manager.start_polling()
+        await asyncio.sleep(0.1)  # Should send first poll for both
+        await manager.stop_polling()
+
+        assert mock_transport_client.read.call_count >= 2 * n_readable_attrs
+
+    @pytest.mark.asyncio
     async def test_stop_polling(self, devices_manager):
         await devices_manager.start_polling()
 
@@ -180,6 +209,7 @@ class TestDevicesManagerDiscovery:
             "/xx",
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
+        await asyncio.sleep(0.05)
         assert len(dm.list_devices()) == 1
         device = dm.list_devices()[0]
         assert device.config["vendor_id"] == "abc"
