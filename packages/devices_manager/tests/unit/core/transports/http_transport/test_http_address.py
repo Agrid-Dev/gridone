@@ -10,7 +10,27 @@ from devices_manager.core.transports.http_transport.http_address import (
         (
             "GET {base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
             "GET",
-            "{base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",
+            "http://{base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",
+        ),
+        (
+            "GET localhost:8080/v1",
+            "GET",
+            "http://localhost:8080/v1",
+        ),
+        (
+            "POST 192.168.1.100:8080/api",
+            "POST",
+            "http://192.168.1.100:8080/api",
+        ),
+        (
+            "GET http://localhost:8080/v1",
+            "GET",
+            "http://localhost:8080/v1",
+        ),
+        (
+            "GET https://example.com/api",
+            "GET",
+            "https://example.com/api",
         ),
     ],
 )
@@ -58,6 +78,11 @@ def test_parse_http_address_from_string(address, method, endpoint) -> None:
 )
 def test_parse_http_address_from_dict(raw_address: dict, expected: HttpAddress) -> None:
     assert HttpAddress.from_dict(raw_address) == expected
+
+
+def test_http_address_defaults_scheme_when_missing() -> None:
+    address = HttpAddress(method="GET", path="localhost:8080/v1")
+    assert address.path == "http://localhost:8080/v1"
 
 
 def test_http_address_id() -> None:

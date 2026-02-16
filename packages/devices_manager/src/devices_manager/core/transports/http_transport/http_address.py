@@ -1,7 +1,7 @@
 from functools import cached_property
 from typing import Literal, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from devices_manager.core.transports.hash_model import hash_model
 from devices_manager.core.transports.transport_address import (
@@ -18,11 +18,20 @@ HTTP_METHODS: set[HttpMethod] = {
     "PATCH",
 }
 
+HTTP_SCHEMES = ("http://", "https://")
+
 
 class HttpAddress(BaseModel, TransportAddress):
     method: HttpMethod
     path: str
     body: str | dict | None = None
+
+    @field_validator("path")
+    @classmethod
+    def ensure_scheme(cls, v: str) -> str:
+        if not v.startswith(HTTP_SCHEMES):
+            return f"http://{v}"
+        return v
 
     @cached_property
     def id(self) -> str:
