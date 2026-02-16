@@ -5,10 +5,12 @@ import asyncpg
 from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
 from devices_manager.dto.transport_dto import (
     DEFAULT_CONNECTION_STATE,
+)
+from devices_manager.dto.transport_dto import (
     build_dto as build_transport_dto,
 )
+from devices_manager.storage.storage_backend import DevicesManagerStorage
 
-from ..storage_backend import DevicesManagerStorage
 from .postgres_storage import PostgresStorageBackend
 
 
@@ -74,10 +76,9 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
             )
             """,
         )
-        async with self._pool.acquire() as connection:
-            async with connection.transaction():
-                for statement in statements:
-                    await connection.execute(statement)
+        async with self._pool.acquire() as connection, connection.transaction():
+            for statement in statements:
+                await connection.execute(statement)
 
     async def close(self) -> None:
         await self._pool.close()
