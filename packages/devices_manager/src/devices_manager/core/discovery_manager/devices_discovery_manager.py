@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TypedDict
 
@@ -22,7 +22,7 @@ class DiscoveryContext:
     get_driver: Callable[[str], Driver]
     get_transport: Callable[[str], TransportClient]
     device_exists: Callable[[Device], bool]
-    add_device: Callable[[Device], None]
+    add_device: Callable[[Device], Awaitable[None]]
 
 
 class DevicesDiscoveryManager:
@@ -66,7 +66,7 @@ class DevicesDiscoveryManager:
             msg = f"Transport not found {transport_id}"
             raise KeyError(msg) from e
 
-        def on_discover(device: Device) -> None:
+        async def on_discover(device: Device) -> None:
             logger.info(
                 "Discovered device %s with config %s on driver %s x transport %s",
                 device.id,
@@ -75,7 +75,7 @@ class DevicesDiscoveryManager:
                 transport_id,
             )
             if not self._context.device_exists(device):
-                self._context.add_device(device)
+                await self._context.add_device(device)
                 logger.info("Added device %s to context", device.id)
 
             logger.info("Device %s already exists in context", device.id)

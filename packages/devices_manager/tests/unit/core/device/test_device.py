@@ -3,6 +3,13 @@ from unittest.mock import AsyncMock
 import pytest
 from devices_manager.core import Driver, TransportClient
 from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.driver import (
+    AttributeDriver,
+    DriverMetadata,
+    UpdateStrategy,
+)
+from devices_manager.core.value_adapters.factory import ValueAdapterSpec
+from devices_manager.types import DataType, TransportProtocols
 
 from ..fixtures.transport_clients import MockTransportAddress
 
@@ -172,6 +179,60 @@ class TestDevicesListeners:
             "/xx/temperature", {"payload": {"temperature": 25}}
         )
         assert device_w_push_transport.attributes["temperature"].current_value == 25
+
+    @pytest.mark.asyncio
+    async def test_listeners_update_their_own_attribute(
+        self, mock_push_transport_client
+    ):
+        """Regression: each listener must update its own attribute, not the last one."""
+
+        driver = Driver(
+            metadata=DriverMetadata(id="multi_attr_push"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "temperature": AttributeDriver(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/temperature"},
+                    write=None,
+                    value_adapter_specs=[
+                        ValueAdapterSpec(
+                            adapter="json_pointer", argument="/payload/temperature"
+                        )
+                    ],
+                ),
+                "humidity": AttributeDriver(
+                    name="humidity",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/humidity"},
+                    write=None,
+                    value_adapter_specs=[
+                        ValueAdapterSpec(
+                            adapter="json_pointer", argument="/payload/humidity"
+                        )
+                    ],
+                ),
+            },
+        )
+        device = Device.from_base(
+            DeviceBase(id="d3", name="Multi-attr push device", config={}),
+            driver=driver,
+            transport=mock_push_transport_client,
+        )
+        await device.init_listeners()
+
+        await mock_push_transport_client.simulate_event(
+            "/dev/temperature", {"payload": {"temperature": 22.5}}
+        )
+        await mock_push_transport_client.simulate_event(
+            "/dev/humidity", {"payload": {"humidity": 65.0}}
+        )
+
+        assert device.attributes["temperature"].current_value == 22.5
+        assert device.attributes["humidity"].current_value == 65.0
 
 
 class TestDeviceEquality:

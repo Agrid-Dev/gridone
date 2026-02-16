@@ -1,8 +1,10 @@
 import contextlib
+import logging
 from asyncio import CancelledError, Task, create_task
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
+logger = logging.getLogger(__name__)
 DMTaskKey = tuple[str, ...]
 
 
@@ -22,6 +24,7 @@ class TasksRegistry:
             msg = f"Task with key {key} already exists."
             raise ValueError(msg)
         task = create_task(coro) if isinstance(coro, Coroutine) else create_task(coro())
+        logger.info("Task %s added to registry.", key)
         self._registry[key] = task
 
     def get(self, key: DMTaskKey) -> Task | None:

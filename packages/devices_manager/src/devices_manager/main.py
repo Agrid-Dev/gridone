@@ -75,6 +75,7 @@ class DevicesManager:
                 self._attach_listeners(device)
 
     async def start_polling(self) -> None:
+        self._running = True
         for device in self._devices.values():
             await device.init_listeners()
             if device.driver.update_strategy.polling_enabled:
@@ -82,7 +83,6 @@ class DevicesManager:
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
-        self._running = True
 
     async def stop_polling(self) -> None:
         self._running = False
@@ -136,22 +136,28 @@ class DevicesManager:
         )
         return Device.from_base(device_base, driver=driver, transport=transport)
 
-    def _add_device(self, device: Device) -> None:
+    def _register_device(self, device: Device) -> None:
+        """Register device in memory (sync). Does NOT init listeners."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
-        if self._running and device.driver.update_strategy.polling_enabled:
-            logger.info(
-                "Starting polling job for newly discovered device %s", device.id
-            )
-            self._polling_tasks.add(("poll", device.id), self._device_poll_loop(device))
-
         logger.info("Successfully loaded and registered device '%s'", device.id)
+
+    async def _add_device(self, device: Device) -> None:
+        self._register_device(device)
+        if self._running:
+            await device.init_listeners()
+            self._attach_listeners(device)
+            if device.driver.update_strategy.polling_enabled:
+                logger.info("Starting polling job for new device %s", device.id)
+                self._polling_tasks.add(
+                    ("poll", device.id), self._device_poll_loop(device)
+                )
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._create_device(device_create)
-        self._add_device(device)
+        await self._add_device(device)
         logger.info(
             "Successfully created and registered device '%s' (id: %s)",
             device_create.name,
@@ -236,7 +242,7 @@ class DevicesManager:
             try:
                 base = device_dto_to_base(d)
                 device = Device.from_base(base, transport=transport, driver=driver)
-                dm._add_device(device)
+                dm._register_device(device)
             except Exception:
                 logger.exception("Failed to init device %s", d.id)
         return dm

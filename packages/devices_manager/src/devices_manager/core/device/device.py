@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from devices_manager.core.driver import Driver
 from devices_manager.core.transports import PushTransportClient, TransportClient
 from devices_manager.core.utils.templating.render import render_struct
+from devices_manager.core.value_adapters import FnAdapter
 from devices_manager.errors import ConfirmationError
 from devices_manager.types import AttributeValueType
 
@@ -75,21 +76,28 @@ class Device(DeviceBase):
         }
         for attribute in self.attributes.values():
             attribute_driver = self.driver.attributes[attribute.name]
-
             adapter = attribute_driver.value_adapter
-
-            def updater(
-                new_value: AttributeValueType | None, attribute: Attribute = attribute
-            ) -> None:
-                return self._update_attribute(attribute, new_value)
-
             address = self.transport.build_address(
                 render_struct(attribute_driver.read, context), context
             )
             await self.transport.register_listener(
-                address.topic,
-                lambda v: updater(adapter.decode(v)),  # noqa: B023
+                address.topic, self._make_on_message(adapter, attribute)
             )
+
+    def _make_on_message(
+        self, adapter: FnAdapter, attribute: Attribute
+    ) -> Callable[[object], None]:
+        def on_message(v: object) -> None:
+            decoded = adapter.decode(v)
+            logger.debug(
+                "Attribute %s of device %s updated to value %s by listener",
+                attribute.name,
+                self.id,
+                decoded,
+            )
+            self._update_attribute(attribute, decoded)
+
+        return on_message
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
