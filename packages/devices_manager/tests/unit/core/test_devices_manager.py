@@ -946,4 +946,75 @@ class TestDevicesManagerStorage:
         dto = await dm.add_device(device_create)
         await dm.delete_device(dto.id)
         storage = CoreFileStorage(tmp_path)
-        assert len(await storage.devices.read_all()) == 0
+        assert len(storage.devices.read_all()) == 0
+
+
+class TestDevicesManagerRestartPolling:
+    @pytest.mark.asyncio
+    async def test_update_device_transport_restarts_polling(
+        self, device, driver, mock_transport_client, second_mock_transport_client
+    ):
+        dm = DevicesManager(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                second_mock_transport_client.id: second_mock_transport_client,
+            },
+        )
+        await dm.start_polling()
+        assert dm.poll_count == 1
+
+        update = DeviceUpdateDTO(transport_id=second_mock_transport_client.id)
+        await dm.update_device(device.id, update)
+
+        assert dm.poll_count == 1
+        await dm.stop_polling()
+
+    @pytest.mark.asyncio
+    async def test_update_device_config_restarts_polling(
+        self, device, driver, mock_transport_client
+    ):
+        dm = DevicesManager(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start_polling()
+        assert dm.poll_count == 1
+
+        update = DeviceUpdateDTO(config={"some_id": "new_value"})
+        await dm.update_device(device.id, update)
+
+        assert dm.poll_count == 1
+        await dm.stop_polling()
+
+    @pytest.mark.asyncio
+    async def test_update_transport_restarts_polling_for_affected_devices(
+        self, driver, mock_transport_client
+    ):
+        device1 = Device.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        device2 = Device.from_base(
+            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesManager(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start_polling()
+        assert dm.poll_count == 2
+
+        await dm.update_transport(
+            mock_transport_client.id,
+            TransportUpdateDTO(config={"request_timeout": 5}),
+        )
+
+        assert dm.poll_count == 2
+        await dm.stop_polling()

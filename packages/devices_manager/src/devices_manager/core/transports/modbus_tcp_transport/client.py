@@ -41,7 +41,9 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
                 await super().close()
 
     @connected
-    async def _read_modbus(self, modbus_address: ModbusAddress) -> bool | int:
+    async def _read_modbus(
+        self, modbus_address: ModbusAddress
+    ) -> bool | int | list[int]:
         if not self._client.connected:
             await self.connect()
 
@@ -62,30 +64,53 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
         if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
             result = await self._client.read_holding_registers(
                 modbus_address.instance,
-                count=1,
+                count=modbus_address.count,
                 device_id=modbus_address.device_id,
             )
-            return result.registers[0]
+            if modbus_address.count == 1:
+                return result.registers[0]
+            return result.registers
         if modbus_address.type == ModbusAddressType.INPUT_REGISTER:
             result = await self._client.read_input_registers(
                 modbus_address.instance,
-                count=1,
+                count=modbus_address.count,
                 device_id=modbus_address.device_id,
             )
-            result = await self._client.read_input_registers(
-                modbus_address.instance,
-                count=1,
-                device_id=modbus_address.device_id,
-            )
-            return result.registers[0]
+            if modbus_address.count == 1:
+                return result.registers[0]
+            return result.registers
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
+
+    def _validate_holding_register_value(
+        self,
+        modbus_address: ModbusAddress,
+        value: int | bool | list[int],  # noqa: FBT001
+    ) -> int | list[int]:
+        """Validate value for HR write; return int (single reg) or list[int]."""
+        if isinstance(value, list):
+            if modbus_address.count != len(value):
+                msg = (
+                    "Length of provided values does not match Modbus "
+                    f"address count (got {len(value)}, expected "
+                    f"{modbus_address.count})"
+                )
+                raise ValueError(msg)
+            return value
+        try:
+            return int(value)
+        except (ValueError, TypeError) as e:
+            msg = (
+                f"Cannot write a non integer value ({value}) "
+                "to a Modbus HOLDING_REGISTER"
+            )
+            raise ValueError(msg) from e
 
     @connected
     async def _write_modbus(
         self,
         modbus_address: ModbusAddress,
-        value: int | bool,  # noqa: FBT001
+        value: int | bool | list[int],  # noqa: FBT001
     ) -> None:
         if modbus_address.type not in WRITABLE_MODBUS_ADDRESS_TYPES:
             msg = f"Address type {modbus_address.type} is not writable"
@@ -103,19 +128,19 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
             )
             return
         if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
-            try:
-                int_value = int(value)
-            except ValueError as e:
-                msg = (
-                    f"Cannot write a non integer value ({value}) "
-                    "to a Modbus HOLDING_REGISTER"
+            payload = self._validate_holding_register_value(modbus_address, value)
+            if modbus_address.count == 1:
+                await self._client.write_register(
+                    modbus_address.instance,
+                    payload,
+                    device_id=modbus_address.device_id,
                 )
-                raise ValueError(msg) from e
-            await self._client.write_register(
-                modbus_address.instance,
-                int_value,
-                device_id=modbus_address.device_id,
-            )
+            else:
+                await self._client.write_registers(
+                    modbus_address.instance,
+                    payload,
+                    device_id=modbus_address.device_id,
+                )
             return
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
