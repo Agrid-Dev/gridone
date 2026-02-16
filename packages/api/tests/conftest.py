@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -22,7 +23,7 @@ from devices_manager.core.value_adapters import ValueAdapterSpec
 from devices_manager.dto.device_dto import core_to_dto as device_to_dto
 from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
 from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
-from devices_manager.storage import CoreFileStorage
+from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import DataType, TransportProtocols
 
 
@@ -113,11 +114,11 @@ def mock_repository(
 ) -> CoreFileStorage:
     cfs = CoreFileStorage(tmp_path)
     for device_id, device in mock_devices.items():
-        cfs.devices.write(device_id, device_to_dto(device))
+        asyncio.run(cfs.devices.write(device_id, device_to_dto(device)))
     for transport_id, tc in mock_transports.items():
-        cfs.transports.write(transport_id, transport_to_dto(tc))
+        asyncio.run(cfs.transports.write(transport_id, transport_to_dto(tc)))
     for driver_id, driver in mock_drivers.items():
-        cfs.drivers.write(driver_id, driver_to_dto(driver))
+        asyncio.run(cfs.drivers.write(driver_id, driver_to_dto(driver)))
     return cfs
 
 

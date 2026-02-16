@@ -1,40 +1,75 @@
-# Gridone Core
+# Gridone Devices Manager
 
-Core package includes all the necessary utilities to manage devices.
+`gridone-devices-manager` contains the core domain logic for:
+
 - devices
 - drivers
 - transports
 
-## Structure
+It also defines a storage abstraction and multiple storage backends.
 
-## Package layout
+## Storage architecture
 
-Package follows a standard `src` layout and unit tests are located in the `tests` directory.
+### Abstractions
 
-## Class diagram
+Storage is defined by two async protocols in `storage/storage_backend.py`:
 
-```mermaid
-classDiagram
+- `StorageBackend[M]`
+- `DevicesManagerStorage`
 
-class Device {
-    +id: str
-    +config: dict
-    +driver: Driver
-    +attributes: dict[str, Attribute]
-}
+`DevicesManagerStorage` composes three typed backends:
 
-class Driver {
-    +env: dict
-    +transport: TransportClient
-    +schema: DeviceSchema
-}
+- `devices: StorageBackend[DeviceDTO]`
+- `drivers: StorageBackend[DriverDTO]`
+- `transports: StorageBackend[TransportDTO]`
 
-class Attribute
-class TransportClient
-class DeviceSchema
+All methods are async (`read`, `write`, `read_all`, `list_all`, `delete`).
 
-Device *-- Driver
-Device *-- Attribute : attributes (many)
-Driver *-- TransportClient
-Driver *-- DeviceSchema
+### Backends
+
+- YAML backend for local development:
+  `storage/yaml/`
+- PostgreSQL backend for production (including TimescaleDB):
+  `storage/postgres/`
+
+Both backends implement the same abstraction, so application logic does not change.
+
+### Factory pattern
+
+`storage/factory.py` provides:
+
+- `async build_storage(url: str) -> DevicesManagerStorage`
+
+Resolution rules:
+
+- `postgresql://...` or `postgres://...` -> PostgreSQL backend
+- Any other value -> YAML backend path
+
+## Folder structure
+
+```text
+storage/
+├── __init__.py
+├── storage_backend.py
+├── factory.py
+├── yaml/
+│   ├── __init__.py
+│   ├── yaml_file_storage.py
+│   └── core_file_storage.py
+└── postgres/
+    ├── __init__.py
+    ├── postgres_storage.py
+    └── postgres_dm_storage.py
+```
+
+## Clean architecture boundary
+
+`DevicesManager` is storage-agnostic: it only depends on `DevicesManagerStorage`, never on concrete backend classes.
+
+Typical initialization:
+
+```python
+dm = await DevicesManager.from_storage("postgresql://user:pass@host/db")
+# or
+dm = await DevicesManager.from_storage("/path/to/yaml/dir")
 ```

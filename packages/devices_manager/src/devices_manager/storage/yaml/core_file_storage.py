@@ -5,10 +5,11 @@ from devices_manager.dto.driver_dto import DriverDTO
 from devices_manager.dto.transport_dto import TransportDTO
 from devices_manager.dto.transport_dto import build_dto as build_transport_dto
 
+from ..storage_backend import DevicesManagerStorage
 from .yaml_file_storage import YamlFileStorage
 
 
-class CoreFileStorage:
+class CoreFileStorage(DevicesManagerStorage):
     """A basic file storage system for the core."""
 
     _root_dir: Path

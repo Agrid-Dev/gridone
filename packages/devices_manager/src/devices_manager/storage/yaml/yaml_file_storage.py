@@ -1,15 +1,14 @@
+import asyncio
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
 
 import yaml
 from pydantic import BaseModel
 
-# Define a TypeVar bound to BaseModel
-M = TypeVar("M", bound=BaseModel)
+from ..storage_backend import StorageBackend
 
 
-class YamlFileStorage[M]:
+class YamlFileStorage[M: BaseModel](StorageBackend[M]):
     """A basic generic file storage system for yaml data."""
 
     _root_path: Path
@@ -35,23 +34,38 @@ class YamlFileStorage[M]:
             raise ValueError(msg)
         self._root_path.mkdir(parents=True, exist_ok=True)
 
-    def _get_file_path(self, name: str) -> Path:
-        return self._root_path / (name + self._file_extension)
+    def _get_file_path(self, id: str) -> Path:
+        return self._root_path / (id + self._file_extension)
 
-    def list_all(self) -> list[str]:
+    def _list_all_sync(self) -> list[str]:
         return [file.stem for file in self._root_path.iterdir() if file.is_file()]
 
-    def read(self, name: str) -> M:
-        with self._get_file_path(name).open("r") as file:
+    async def list_all(self) -> list[str]:
+        return await asyncio.to_thread(self._list_all_sync)
+
+    def _read_sync(self, id: str) -> M:
+        with self._get_file_path(id).open("r", encoding="utf-8") as file:
             data = yaml.safe_load(file)
             return self._builder(data)
 
-    def read_all(self) -> list[M]:
-        return [self.read(name) for name in self.list_all()]
+    async def read(self, id: str) -> M:
+        return await asyncio.to_thread(self._read_sync, id)
 
-    def write(self, name: str, data: M) -> None:
-        with self._get_file_path(name).open("w") as file:
+    def _read_all_sync(self) -> list[M]:
+        return [self._read_sync(id) for id in self._list_all_sync()]
+
+    async def read_all(self) -> list[M]:
+        return await asyncio.to_thread(self._read_all_sync)
+
+    def _write_sync(self, id: str, data: M) -> None:
+        with self._get_file_path(id).open("w", encoding="utf-8") as file:
             yaml.dump(data.model_dump(mode="json"), file)  # ty:ignore[unresolved-attribute]
 
-    def delete(self, name: str) -> None:
-        self._get_file_path(name).unlink()
+    async def write(self, id: str, data: M) -> None:
+        await asyncio.to_thread(self._write_sync, id, data)
+
+    def _delete_sync(self, id: str) -> None:
+        self._get_file_path(id).unlink()
+
+    async def delete(self, id: str) -> None:
+        await asyncio.to_thread(self._delete_sync, id)

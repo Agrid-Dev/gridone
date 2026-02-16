@@ -23,7 +23,9 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault("dm", DevicesManager.from_storage(get_db_path()))
+    ctx.obj.setdefault(
+        "dm", asyncio.run(DevicesManager.from_storage(str(get_db_path())))
+    )
 
 
 @app.command("list")

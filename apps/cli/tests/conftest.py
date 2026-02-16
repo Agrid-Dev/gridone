@@ -1,10 +1,11 @@
+import asyncio
 from collections.abc import Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 from devices_manager.dto import DeviceDTO, DriverDTO, build_transport_dto
-from devices_manager.storage import CoreFileStorage
+from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import TransportProtocols
 
 TEST_DEVICE = DeviceDTO.model_validate(
@@ -56,9 +57,11 @@ def mock_core_file_storage() -> Generator[CoreFileStorage]:
         (Path(temp_dir) / "drivers").mkdir()
         (Path(temp_dir) / "transports").mkdir()
         core_file_storage = CoreFileStorage(Path(temp_dir))
-        core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
-        core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)
-        core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
+        asyncio.run(core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE))
+        asyncio.run(core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER))
+        asyncio.run(
+            core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
+        )
 
         yield core_file_storage
 

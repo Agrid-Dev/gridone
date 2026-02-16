@@ -1,4 +1,3 @@
-from .core_file_storage import CoreFileStorage
-from .yaml_file_storage import YamlFileStorage
+from .storage_backend import DevicesManagerStorage, StorageBackend
 
-__all__ = ["CoreFileStorage", "YamlFileStorage"]
+__all__ = ["StorageBackend", "DevicesManagerStorage"]

@@ -19,7 +19,8 @@ gridone-api = { workspace = true }
 [tool.uv.workspace]
 # Globs or paths to your member projects
 members = [
-    "packages/*",
+    "packages/api",
+    "packages/devices_manager",
     "apps/cli",
     "apps/api_server"
 ]
