@@ -1,6 +1,3 @@
-import asyncio
-from pathlib import Path
-
 import pytest
 from devices_manager import Device, DeviceBase
 from devices_manager.core.driver import (
@@ -20,10 +17,6 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.core.value_adapters import ValueAdapterSpec
-from devices_manager.dto.device_dto import core_to_dto as device_to_dto
-from devices_manager.dto.driver_dto import core_to_dto as driver_to_dto
-from devices_manager.dto.transport_dto import core_to_dto as transport_to_dto
-from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import DataType, TransportProtocols
 
 
@@ -103,7 +96,6 @@ def mock_devices(
     device_id = "device1"
     base = DeviceBase(id=device_id, name="My device", config={"some_id": "abc"})
     return {device_id: Device.from_base(base, driver=driver, transport=transport)}
-
 
 
 @pytest.fixture

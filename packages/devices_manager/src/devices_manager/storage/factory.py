@@ -6,7 +6,7 @@ from .postgres.postgres_dm_storage import PostgresDevicesManagerStorage
 from .storage_backend import DevicesManagerStorage
 from .yaml.core_file_storage import CoreFileStorage
 
-POSTGRES_PREFIXES = ("postgresql")
+POSTGRES_PREFIXES = "postgresql"
 
 
 def make_storage(url: str) -> DevicesManagerStorage:
@@ -22,4 +22,4 @@ async def build_storage(url: str) -> DevicesManagerStorage:
     return make_storage(url)
 
 
-__all__ = ["make_storage", "build_storage"]
+__all__ = ["build_storage", "make_storage"]

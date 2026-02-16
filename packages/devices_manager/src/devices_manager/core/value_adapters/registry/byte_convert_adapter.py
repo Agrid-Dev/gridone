@@ -1,5 +1,6 @@
 import struct
 from collections.abc import Callable, Sequence
+from functools import partial
 
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
@@ -233,6 +234,64 @@ _ENCODE_FUNCS = {
 }
 
 
+def _reverse_multi_registers(value: int | Sequence[int]) -> int | list[int]:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, Sequence) and all(isinstance(v, int) for v in value):
+        registers = list(value)
+        if len(registers) > 1:
+            return list(reversed(registers))
+        return registers
+    msg = f"Unsupported register value type: {type(value)}"
+    raise TypeError(msg)
+
+
+def _little_endian_decode(
+    decoder: Callable, value: int | Sequence[int]
+) -> ByteConvertValue:
+    normalized = _reverse_multi_registers(value)
+    return decoder(normalized)  # type: ignore[no-any-return]
+
+
+def _little_endian_encode(
+    encoder: Callable, value: ByteConvertValue
+) -> int | list[int]:
+    raw = encoder(value)
+    return _reverse_multi_registers(raw)  # type: ignore[return-value]
+
+
+def _parse_type_spec(type_spec: str) -> tuple[str, str]:
+    expected_parts = 2
+    spec = type_spec.strip().lower()
+    parts = spec.split()
+    if not parts:
+        msg = "byte_convert type_spec must be a non-empty string"
+        raise ValueError(msg)
+
+    if len(parts) == 1:
+        return parts[0], "little_endian"
+
+    if len(parts) != expected_parts:
+        msg = (
+            "byte_convert type_spec must be '<type>' or "
+            "'<type> <endian>' (e.g. 'float32 little_endian')"
+        )
+        raise ValueError(msg)
+
+    base_spec, endian_token = parts
+    if endian_token in {"little_endian"}:
+        return base_spec, "little_endian"
+    if endian_token in {"big_endian"}:
+        return base_spec, "big_endian"
+
+    msg = (
+        "Unsupported byte order "
+        f"'{endian_token}' in byte_convert type '{type_spec}'. "
+        "Supported byte orders: 'big_endian', 'little_endian'."
+    )
+    raise ValueError(msg)
+
+
 def byte_convert_adapter(
     type_spec: str,
 ) -> FnAdapter[int | Sequence[int], ByteConvertValue]:
@@ -242,12 +301,26 @@ def byte_convert_adapter(
     - 'uint16', 'int16', 'bool'
     - 'uint32', 'int32', 'float32', 'hex32'
     - 'uint64', 'int64', 'float64', 'hex64'
+    - with optional endianness suffix:
+      - 'float32 little_endian', 'uint32 big_endian', 'float64 little_endian'
     """
-    spec = type_spec.strip().lower()
-    decoder = _DECODE_FUNCS.get(spec)
-    encoder = _ENCODE_FUNCS.get(spec)
+    base_spec, endian = _parse_type_spec(type_spec)
+
+    decoder = _DECODE_FUNCS.get(base_spec)
+    encoder = _ENCODE_FUNCS.get(base_spec)
     if not decoder or not encoder:
         supported = ", ".join(sorted(_DECODE_FUNCS.keys()))
-        msg = f"Unsupported byte_convert type '{type_spec}'. Supported: {supported}"
+        msg = (
+            f"Unsupported byte_convert type '{type_spec}'. "
+            f"Supported base types: {supported}"
+        )
         raise ValueError(msg)
-    return FnAdapter(decoder=decoder, encoder=encoder)
+
+    if endian == "big_endian":
+        big_endian_decoder = decoder
+        big_endian_encoder = encoder
+        return FnAdapter(decoder=big_endian_decoder, encoder=big_endian_encoder)
+
+    little_endian_decoder = partial(_little_endian_decode, decoder)
+    little_endian_encoder = partial(_little_endian_encode, encoder)
+    return FnAdapter(decoder=little_endian_decoder, encoder=little_endian_encoder)

@@ -946,7 +946,8 @@ class TestDevicesManagerStorage:
         dto = await dm.add_device(device_create)
         await dm.delete_device(dto.id)
         storage = CoreFileStorage(tmp_path)
-        assert len(storage.devices.read_all()) == 0
+        devices = await storage.devices.read_all()
+        assert len(devices) == 0
 
 
 class TestDevicesManagerRestartPolling:
