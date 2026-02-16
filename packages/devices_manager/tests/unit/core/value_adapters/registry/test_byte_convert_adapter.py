@@ -11,12 +11,13 @@ from devices_manager.core.value_adapters.registry.byte_convert_adapter import (
         ("int16", 0xFFFF, -1),
         ("bool", 0, False),
         ("bool", 1, True),
-        ("uint32", [0x1234, 0x5678], 0x12345678),
+        ("uint32", [0x5678, 0x1234], 0x12345678),
         ("int32", [0xFFFF, 0xFFFF], -1),
-        ("float32", [0x41A8, 0x0000], 21.0),
-        ("hex32", [0xDEAD, 0xBEEF], 0xDEADBEEF),
-        ("uint64", [0, 0, 0x1234, 0x5678], 0x0000000012345678),
+        ("float32", [0x0000, 0x41A8], 21.0),
+        ("hex32", [0xBEEF, 0xDEAD], 0xDEADBEEF),
+        ("uint64", [0x5678, 0x1234, 0, 0], 0x0000000012345678),
         ("int64", [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF], -1),
+        ("float32 big_endian", [0x41A8, 0x0000], 21.0),
     ],
 )
 def test_byte_convert_decode(spec, raw, decoded) -> None:
@@ -44,6 +45,7 @@ def test_byte_convert_decode(spec, raw, decoded) -> None:
         ("int64", -1, 4),
         ("float64", 21.0, 4),
         ("hex64", "DEADBEEF", 4),
+        ("float32 big_endian", 21.0, 2),
     ],
 )
 def test_byte_convert_encode_roundtrip_length(spec, value, expected_len) -> None:
@@ -73,3 +75,54 @@ def test_byte_convert_invalid_register_length() -> None:
 def test_byte_convert_unsupported_type() -> None:
     with pytest.raises(ValueError, match="Unsupported byte_convert type"):
         byte_convert_adapter("unknown_type")
+
+
+@pytest.mark.parametrize(
+    ("raw", "decoded"),
+    [
+        ([42416, 16922], 38.66180419921875),
+        ([10028, 16644], 8.259563446044922),
+        ([35681, 16923], 38.886112213134766),
+    ],
+)
+def test_byte_convert_float32_little_endian_decode(raw, decoded) -> None:
+    adapter = byte_convert_adapter("float32 little_endian")
+    result = adapter.decode(raw)
+    assert result == pytest.approx(decoded, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    ("spec", "value"),
+    [
+        ("float32 little_endian", 21.0),
+        ("uint32 little_endian", 0x12345678),
+    ],
+)
+def test_byte_convert_little_endian_roundtrip(spec, value) -> None:
+    adapter = byte_convert_adapter(spec)
+    raw = adapter.encode(value)
+    assert isinstance(raw, list)
+    assert len(raw) == 2
+    decoded = adapter.decode(raw)
+    if isinstance(value, float):
+        assert decoded == pytest.approx(value, rel=1e-6)
+    else:
+        assert decoded == value
+
+
+def test_byte_convert_endian_variants() -> None:
+    le_default = byte_convert_adapter("float32")
+    be_explicit = byte_convert_adapter("float32 big_endian")
+    le_explicit = byte_convert_adapter("float32 little_endian")
+
+    regs_be = [0x41A8, 0x0000]  # 21.0 in big-endian
+    regs_le = list(reversed(regs_be))
+
+    assert le_default.decode(regs_le) == pytest.approx(21.0, rel=1e-6)
+    assert be_explicit.decode(regs_be) == pytest.approx(21.0, rel=1e-6)
+    assert le_explicit.decode(regs_le) == pytest.approx(21.0, rel=1e-6)
+
+
+def test_byte_convert_invalid_endianness() -> None:
+    with pytest.raises(ValueError, match="Unsupported byte order"):
+        byte_convert_adapter("float32 middle")
