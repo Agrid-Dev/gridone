@@ -81,7 +81,7 @@
       "transport": "Transport",
       "transportPlaceholder": "Sélectionnez un transport",
       "transportDisabled": "Sélectionnez d'abord un pilote",
-      "name": "Nom"
+      "name": "Nom de l'appareil"
     },
     "actions": {
       "create": "Créer l'appareil",

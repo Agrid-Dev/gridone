@@ -82,7 +82,7 @@
       "transport": "Transport",
       "transportPlaceholder": "Select a transport",
       "transportDisabled": "Select a driver first",
-      "name": "Name"
+      "name": "Device name"
     },
     "actions": {
       "create": "Create device",

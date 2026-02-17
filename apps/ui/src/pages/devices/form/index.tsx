@@ -43,6 +43,13 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
           onSubmit={onSubmit}
           className="grid gap-4 md:grid-cols-2"
         >
+          <InputController
+            name="name"
+            control={baseFormMethods.control}
+            label={t("devices.fields.name")}
+            required
+            rules={{ required: true }}
+          />
           <SelectController
             name="driverId"
             control={baseFormMethods.control}
@@ -55,13 +62,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
             rules={{ required: true }}
             disabled={driversLoading}
           />
-          <InputController
-            name="name"
-            control={baseFormMethods.control}
-            label={t("devices.fields.name")}
-            required
-            rules={{ required: true }}
-          />
+
           <SelectController
             name="transportId"
             control={baseFormMethods.control}
