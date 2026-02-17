@@ -56,6 +56,16 @@ class DiscoveryHandler:
                     attributes[attribute_name] = value
         return attributes
 
+    @staticmethod
+    def try_parsing_name(config: DeviceConfig) -> str:
+        """If there is a device config, build a name from its values"""
+        config_values: list[str] = []
+        if isinstance(config, dict) and len(config):
+            for v in config.values():
+                with contextlib.suppress(Exception):
+                    config_values.append(str(v))
+        return "/".join(config_values)
+
     async def start(self) -> None:
         seen: set[str] = set()
 
@@ -65,7 +75,11 @@ class DiscoveryHandler:
             config_hash = _hash_config(device_config)
             if config_hash in seen:
                 return
-            device_base = DeviceBase(id=Device.gen_id(), name="", config=device_config)
+            device_base = DeviceBase(
+                id=Device.gen_id(),
+                name=self.try_parsing_name(device_config),
+                config=device_config,
+            )
             initial_attribute_values = self.try_parsing_attributes(payload)
             device = Device.from_base(
                 device_base,

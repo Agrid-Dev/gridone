@@ -135,3 +135,23 @@ async def tests_initializes_attributes_if_present_in_payload(
     device: Device = on_discover_spy.call_args[0]
     assert isinstance(device, Device)
     assert device.get_attribute_value("temperature") == 22
+
+
+@pytest.mark.asyncio
+async def tests_initializes_name_from_config_fields(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy
+):
+    dh = DiscoveryHandler(
+        driver_w_push_transport, mock_push_transport_client, on_discover_spy.call
+    )
+    await dh.start()
+    await mock_push_transport_client.simulate_event(
+        "/xx",
+        {"gateway_id": "gtw", "id": "abc", "payload": {"temperature": 22}},
+    )
+    await on_discover_spy.wait()
+    assert on_discover_spy.call_count == 1
+    device: Device = on_discover_spy.call_args[0]
+    assert isinstance(device, Device)
+    assert "gtw" in device.name
+    assert "abc" in device.name
