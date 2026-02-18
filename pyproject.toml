@@ -22,7 +22,8 @@ members = [
     "packages/api",
     "packages/devices_manager",
     "apps/cli",
-    "apps/api_server"
+    "apps/api_server",
+    "packages/timeseries",
 ]
 
 [dependency-groups]

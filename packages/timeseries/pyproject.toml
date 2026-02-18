@@ -1,0 +1,17 @@
+[project]
+name = "timeseries"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "lukdavid", email = "lucas.david@a-grid.com" }
+]
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+timeseries = "timeseries:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
