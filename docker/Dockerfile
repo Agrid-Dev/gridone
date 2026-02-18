@@ -65,10 +65,10 @@ RUN uv sync --frozen --no-dev --all-packages && \
 COPY --from=ui-build /build/apps/ui/dist /app/static
 
 # --- nginx configuration ---------------------------------------------------
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx.conf /etc/nginx/nginx.conf
 
-# --- supervisord configuration ----------------------------------------------
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# --- supervisord configuration ---------------------------------------------
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # --- Expose port 80 (nginx listens here inside the container) ---------------
 EXPOSE 80
