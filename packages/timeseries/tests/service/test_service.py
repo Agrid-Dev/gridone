@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from timeseries.domain import DataPoint, DataType, SeriesKey
+from timeseries.errors import InvalidError, NotFoundError
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
 
@@ -33,7 +34,7 @@ class TestCreateSeries:
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(InvalidError, match="already exists"):
             await service.create_series(
                 data_type=DataType.FLOAT,
                 owner_id=KEY.owner_id,
@@ -105,12 +106,12 @@ class TestUpsertPoints:
             metric=KEY.metric,
         )
         now = datetime.now(tz=UTC)
-        with pytest.raises(TypeError, match="Expected float, got str"):
+        with pytest.raises(InvalidError, match="Expected float, got str"):
             await service.upsert_points(KEY, [DataPoint(timestamp=now, value="bad")])
 
     async def test_unknown_key_raises(self, service: TimeSeriesService):
         unknown = SeriesKey(owner_id="y", metric="z")
-        with pytest.raises(KeyError, match="No series found"):
+        with pytest.raises(NotFoundError, match="No series found"):
             await service.upsert_points(unknown, [])
 
     async def test_create_if_not_found(self, service: TimeSeriesService):
@@ -132,10 +133,8 @@ class TestUpsertPoints:
         self, service: TimeSeriesService
     ):
         key = SeriesKey(owner_id="new-owner", metric="temperature")
-        with pytest.raises(ValueError, match="Cannot infer data_type"):
-            await service.upsert_points(
-                key, [], create_if_not_found=True
-            )
+        with pytest.raises(InvalidError, match="Cannot infer data_type"):
+            await service.upsert_points(key, [], create_if_not_found=True)
 
     async def test_create_if_not_found_existing_series(
         self, service: TimeSeriesService
@@ -163,7 +162,7 @@ class TestUpsertPoints:
             metric=key.metric,
         )
         now = datetime.now(tz=UTC)
-        with pytest.raises(TypeError, match="Expected int, got bool"):
+        with pytest.raises(InvalidError, match="Expected int, got bool"):
             await service.upsert_points(
                 key,
                 [DataPoint(timestamp=now, value=True)],

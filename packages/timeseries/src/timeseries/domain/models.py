@@ -6,6 +6,8 @@ from enum import StrEnum
 from secrets import token_hex
 from typing import TypeVar
 
+from timeseries.errors import InvalidError
+
 T = TypeVar("T", int, float, bool, str)
 DataPointValue = int | float | bool | str
 
@@ -58,6 +60,7 @@ class TimeSeries[T: (int, float, bool, str)]:
 
 
 def validate_value_type(value: DataPointValue, expected: type) -> None:
+
     if type(value) is not expected:
         msg = f"Expected {expected.__name__}, got {type(value).__name__}"
-        raise TypeError(msg)
+        raise InvalidError(msg)

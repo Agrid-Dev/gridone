@@ -4,6 +4,8 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from timeseries.errors import InvalidError, NotFoundError
+
 if TYPE_CHECKING:
     from timeseries.domain import DataPoint, DataPointValue, SeriesKey, TimeSeries
 
@@ -16,10 +18,10 @@ class MemoryStorage:
     async def create_series(self, series: TimeSeries) -> TimeSeries:
         if series.id in self._series:
             msg = f"Series {series.id} already exists"
-            raise ValueError(msg)
+            raise InvalidError(msg)
         if series.key in self._key_index:
             msg = f"Series with key {series.key} already exists"
-            raise ValueError(msg)
+            raise InvalidError(msg)
         stored = deepcopy(series)
         self._series[stored.id] = stored
         self._key_index[stored.key] = stored.id
@@ -74,7 +76,7 @@ class MemoryStorage:
         series_id = self._key_index.get(key)
         if series_id is None:
             msg = f"No series found for key {key}"
-            raise KeyError(msg)
+            raise NotFoundError(msg)
         series = self._series[series_id]
         existing = {p.timestamp: p for p in series.data_points}
         for p in points:

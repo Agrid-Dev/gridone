@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from timeseries import TimeSeriesService, create_service
+from timeseries.errors import InvalidError
 from timeseries.storage import MemoryStorage, build_storage
 
 
@@ -15,7 +16,7 @@ class TestBuildStorage:
         assert isinstance(storage, MemoryStorage)
 
     def test_unsupported_url_raises(self):
-        with pytest.raises(ValueError, match="Unsupported storage URL scheme"):
+        with pytest.raises(InvalidError, match="Unsupported storage URL scheme"):
             build_storage("unsupported://localhost")
 
 

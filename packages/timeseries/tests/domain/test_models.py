@@ -11,6 +11,7 @@ from timeseries.domain import (
     TimeSeries,
     validate_value_type,
 )
+from timeseries.errors import InvalidError
 
 
 class TestDataType:
@@ -132,17 +133,17 @@ class TestValidateValueType:
         validate_value_type(value, expected)
 
     def test_wrong_type_raises(self):
-        with pytest.raises(TypeError, match="Expected float, got str"):
+        with pytest.raises(InvalidError, match="Expected float, got str"):
             validate_value_type("oops", float)
 
     def test_bool_rejected_as_int(self):
-        with pytest.raises(TypeError, match="Expected int, got bool"):
+        with pytest.raises(InvalidError, match="Expected int, got bool"):
             validate_value_type(True, int)  # noqa: FBT003
 
     def test_int_rejected_as_bool(self):
-        with pytest.raises(TypeError, match="Expected bool, got int"):
+        with pytest.raises(InvalidError, match="Expected bool, got int"):
             validate_value_type(1, bool)
 
     def test_int_rejected_as_float(self):
-        with pytest.raises(TypeError, match="Expected float, got int"):
+        with pytest.raises(InvalidError, match="Expected float, got int"):
             validate_value_type(1, float)

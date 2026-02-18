@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
+from timeseries.errors import InvalidError, NotFoundError
 from timeseries.storage import MemoryStorage
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
@@ -46,13 +47,13 @@ class TestCreateSeries:
     async def test_duplicate_id_raises(self, storage: MemoryStorage):
         series = _make_series()
         await storage.create_series(series)
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(InvalidError, match="already exists"):
             await storage.create_series(series)
 
     async def test_duplicate_key_raises(self, storage: MemoryStorage):
         await storage.create_series(_make_series())
         second = _make_series()  # same key, different id
-        with pytest.raises(ValueError, match="already exists"):
+        with pytest.raises(InvalidError, match="already exists"):
             await storage.create_series(second)
 
 
@@ -155,7 +156,7 @@ class TestUpsertPoints:
 
     async def test_unknown_key_raises(self, storage: MemoryStorage):
         unknown = SeriesKey(owner_id="y", metric="z")
-        with pytest.raises(KeyError, match="No series found"):
+        with pytest.raises(NotFoundError, match="No series found"):
             await storage.upsert_points(unknown, [])
 
 

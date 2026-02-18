@@ -12,6 +12,7 @@ from timeseries.domain import (
     TimeSeries,
     validate_value_type,
 )
+from timeseries.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -34,7 +35,7 @@ class TimeSeriesService:
         existing = await self._storage.get_series_by_key(key)
         if existing is not None:
             msg = f"Series already exists for {key}"
-            raise ValueError(msg)
+            raise InvalidError(msg)
         series = TimeSeries(
             data_type=data_type,
             owner_id=owner_id,
@@ -69,11 +70,11 @@ class TimeSeriesService:
         series = await self._storage.get_series_by_key(key)
         if series is None and not create_if_not_found:
             msg = f"No series found for {key}"
-            raise KeyError(msg)
+            raise NotFoundError(msg)
         if series is None:
             if not points:
                 msg = "Cannot infer data_type from empty points list"
-                raise ValueError(msg)
+                raise InvalidError(msg)
             data_type = VALUE_TYPE_MAP[type(points[0].value)]
             series = await self._storage.create_series(
                 TimeSeries(
