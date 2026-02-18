@@ -8,7 +8,12 @@ from fastapi import FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
 
 from api.exception_handlers import register_exception_handlers
-from api.routes import devices_router, drivers_router, transports_router
+from api.routes import (
+    devices_router,
+    drivers_router,
+    timeseries_router,
+    transports_router,
+)
 from api.routes import websocket as websocket_routes
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
@@ -26,6 +31,7 @@ async def lifespan(app: FastAPI):
     dm = await DevicesManager.from_storage(settings.storage_url)
     ts_service = await create_service()
     app.state.device_manager = dm
+    app.state.ts_service = ts_service
 
     async def on_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
@@ -71,6 +77,7 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     app.include_router(devices_router, prefix="/devices", tags=["devices"])
     app.include_router(transports_router, prefix="/transports", tags=["transports"])
     app.include_router(drivers_router, prefix="/drivers", tags=["drivers"])
+    app.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"])
     app.include_router(websocket_routes.router, tags=["websocket"])
 
     return app
