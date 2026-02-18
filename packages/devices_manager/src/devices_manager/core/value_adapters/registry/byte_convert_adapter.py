@@ -279,9 +279,9 @@ def _parse_type_spec(type_spec: str) -> tuple[str, str]:
         raise ValueError(msg)
 
     base_spec, endian_token = parts
-    if endian_token in {"little_endian"}:
+    if endian_token == "little_endian":  # noqa: S105
         return base_spec, "little_endian"
-    if endian_token in {"big_endian"}:
+    if endian_token == "big_endian":  # noqa: S105
         return base_spec, "big_endian"
 
     msg = (
