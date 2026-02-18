@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from timeseries.domain import (
@@ -18,6 +19,9 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.storage import TimeSeriesStorage
+
+
+logger = logging.getLogger(__name__)
 
 
 class TimeSeriesService:
@@ -76,6 +80,7 @@ class TimeSeriesService:
                 msg = "Cannot infer data_type from empty points list"
                 raise InvalidError(msg)
             data_type = VALUE_TYPE_MAP[type(points[0].value)]
+            logger.debug("Creating series %s", key)
             series = await self._storage.create_series(
                 TimeSeries(
                     data_type=data_type,
@@ -86,6 +91,7 @@ class TimeSeriesService:
         expected = DATA_TYPE_MAP[series.data_type]
         for p in points:
             validate_value_type(p.value, expected)
+        logger.debug("Upserting %d points for %s", len(points), key)
         await self._storage.upsert_points(key, points)
 
     async def fetch_points(
