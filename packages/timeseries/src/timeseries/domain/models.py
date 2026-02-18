@@ -40,7 +40,6 @@ class DataPoint[T: (int, float, bool, str)]:
 @dataclass
 class TimeSeries[T: (int, float, bool, str)]:
     data_type: DataType
-    owner_type: str
     owner_id: str
     metric: str
     id: str = field(default_factory=lambda: token_hex(8))

@@ -17,11 +17,9 @@ def storage() -> MemoryStorage:
 def _make_series(
     key: SeriesKey = KEY,
     data_type: DataType = DataType.FLOAT,
-    owner_type: str = "device",
 ) -> TimeSeries:
     return TimeSeries(
         data_type=data_type,
-        owner_type=owner_type,
         owner_id=key.owner_id,
         metric=key.metric,
     )
@@ -83,14 +81,6 @@ class TestListSeries:
         key2 = SeriesKey(owner_id="s2", metric="humidity")
         await storage.create_series(_make_series(key2))
         assert len(await storage.list_series()) == 2
-
-    async def test_filter_owner_type(self, storage: MemoryStorage):
-        await storage.create_series(_make_series(KEY))
-        key2 = SeriesKey(owner_id="z1", metric="co2")
-        await storage.create_series(_make_series(key2, owner_type="zone"))
-        results = await storage.list_series(owner_type="device")
-        assert len(results) == 1
-        assert results[0].owner_type == "device"
 
     async def test_filter_owner_id(self, storage: MemoryStorage):
         await storage.create_series(_make_series(KEY))

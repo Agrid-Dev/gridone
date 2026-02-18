@@ -38,13 +38,11 @@ class MemoryStorage:
     async def list_series(
         self,
         *,
-        owner_type: str | None = None,
         owner_id: str | None = None,
         metric: str | None = None,
     ) -> list[TimeSeries]:
         results = self._series.values()
-        if owner_type is not None:
-            results = [s for s in results if s.owner_type == owner_type]
+
         if owner_id is not None:
             results = [s for s in results if s.owner_id == owner_id]
         if metric is not None:

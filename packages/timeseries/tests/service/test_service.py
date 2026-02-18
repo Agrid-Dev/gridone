@@ -21,7 +21,6 @@ class TestCreateSeries:
     async def test_create(self, service: TimeSeriesService):
         series = await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
@@ -31,14 +30,12 @@ class TestCreateSeries:
     async def test_duplicate_key_raises(self, service: TimeSeriesService):
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
         with pytest.raises(ValueError, match="already exists"):
             await service.create_series(
                 data_type=DataType.FLOAT,
-                owner_type="device",
                 owner_id=KEY.owner_id,
                 metric=KEY.metric,
             )
@@ -48,7 +45,6 @@ class TestGetSeries:
     async def test_by_id(self, service: TimeSeriesService):
         created = await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
@@ -59,7 +55,6 @@ class TestGetSeries:
     async def test_by_key(self, service: TimeSeriesService):
         created = await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
@@ -76,13 +71,11 @@ class TestListSeries:
     async def test_list_with_filter(self, service: TimeSeriesService):
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id="s1",
             metric="temperature",
         )
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id="s1",
             metric="humidity",
         )
@@ -95,7 +88,6 @@ class TestUpsertPoints:
     async def test_upsert_and_fetch(self, service: TimeSeriesService):
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
@@ -109,7 +101,6 @@ class TestUpsertPoints:
     async def test_validates_value_type(self, service: TimeSeriesService):
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )
@@ -126,7 +117,6 @@ class TestUpsertPoints:
         key = SeriesKey(owner_id="d1", metric="count")
         await service.create_series(
             data_type=DataType.INTEGER,
-            owner_type="device",
             owner_id=key.owner_id,
             metric=key.metric,
         )
@@ -142,7 +132,6 @@ class TestFetchPoints:
     async def test_with_time_range(self, service: TimeSeriesService):
         await service.create_series(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id=KEY.owner_id,
             metric=KEY.metric,
         )

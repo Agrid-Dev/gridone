@@ -47,7 +47,6 @@ class TestTimeSeries:
     def test_defaults(self):
         ts = TimeSeries(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id="sensor-01",
             metric="temperature",
         )
@@ -62,7 +61,6 @@ class TestTimeSeries:
         dp = DataPoint(timestamp=now, value=23.5)
         ts = TimeSeries(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id="sensor-01",
             metric="temperature",
             data_points=[dp],
@@ -81,7 +79,6 @@ class TestTimeSeries:
         for dt, val in cases:
             ts = TimeSeries(
                 data_type=dt,
-                owner_type="device",
                 owner_id="d1",
                 metric="m",
                 data_points=[DataPoint(timestamp=now, value=val)],  # ty: ignore[invalid-argument-type]
@@ -114,7 +111,6 @@ class TestSeriesKey:
     def test_timeseries_key_property(self):
         ts = TimeSeries(
             data_type=DataType.FLOAT,
-            owner_type="device",
             owner_id="s1",
             metric="temperature",
         )

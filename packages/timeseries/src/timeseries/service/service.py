@@ -26,7 +26,6 @@ class TimeSeriesService:
         self,
         *,
         data_type: DataType,
-        owner_type: str,
         owner_id: str,
         metric: str,
     ) -> TimeSeries:
@@ -37,7 +36,6 @@ class TimeSeriesService:
             raise ValueError(msg)
         series = TimeSeries(
             data_type=data_type,
-            owner_type=owner_type,
             owner_id=owner_id,
             metric=metric,
         )
@@ -52,12 +50,10 @@ class TimeSeriesService:
     async def list_series(
         self,
         *,
-        owner_type: str | None = None,
         owner_id: str | None = None,
         metric: str | None = None,
     ) -> list[TimeSeries]:
         return await self._storage.list_series(
-            owner_type=owner_type,
             owner_id=owner_id,
             metric=metric,
         )

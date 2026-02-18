@@ -18,7 +18,6 @@ class TimeSeriesStorage(Protocol):
     async def list_series(
         self,
         *,
-        owner_type: str | None = None,
         owner_id: str | None = None,
         metric: str | None = None,
     ) -> list[TimeSeries]: ...
