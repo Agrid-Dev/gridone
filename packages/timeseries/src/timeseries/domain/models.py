@@ -24,6 +24,8 @@ DATA_TYPE_MAP: dict[DataType, type] = {
     DataType.STRING: str,
 }
 
+VALUE_TYPE_MAP: dict[type, DataType] = {v: k for k, v in DATA_TYPE_MAP.items()}
+
 
 @dataclass(frozen=True)
 class SeriesKey:

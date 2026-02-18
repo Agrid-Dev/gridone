@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from timeseries.domain import (
     DATA_TYPE_MAP,
+    VALUE_TYPE_MAP,
     DataPoint,
     DataPointValue,
     DataType,
@@ -62,11 +63,25 @@ class TimeSeriesService:
         self,
         key: SeriesKey,
         points: list[DataPoint[DataPointValue]],
+        *,
+        create_if_not_found: bool = False,
     ) -> None:
         series = await self._storage.get_series_by_key(key)
-        if series is None:
+        if series is None and not create_if_not_found:
             msg = f"No series found for {key}"
             raise KeyError(msg)
+        if series is None:
+            if not points:
+                msg = "Cannot infer data_type from empty points list"
+                raise ValueError(msg)
+            data_type = VALUE_TYPE_MAP[type(points[0].value)]
+            series = await self._storage.create_series(
+                TimeSeries(
+                    data_type=data_type,
+                    owner_id=key.owner_id,
+                    metric=key.metric,
+                ),
+            )
         expected = DATA_TYPE_MAP[series.data_type]
         for p in points:
             validate_value_type(p.value, expected)

@@ -1,5 +1,6 @@
 from timeseries.domain.models import (
     DATA_TYPE_MAP,
+    VALUE_TYPE_MAP,
     DataPoint,
     DataPointValue,
     DataType,
@@ -10,6 +11,7 @@ from timeseries.domain.models import (
 
 __all__ = [
     "DATA_TYPE_MAP",
+    "VALUE_TYPE_MAP",
     "DataPoint",
     "DataPointValue",
     "DataType",

@@ -113,6 +113,48 @@ class TestUpsertPoints:
         with pytest.raises(KeyError, match="No series found"):
             await service.upsert_points(unknown, [])
 
+    async def test_create_if_not_found(self, service: TimeSeriesService):
+        key = SeriesKey(owner_id="new-owner", metric="temperature")
+        now = datetime.now(tz=UTC)
+        await service.upsert_points(
+            key,
+            [DataPoint(timestamp=now, value=42.0)],
+            create_if_not_found=True,
+        )
+        series = await service.get_series_by_key(key)
+        assert series is not None
+        assert series.data_type == DataType.FLOAT
+        points = await service.fetch_points(key)
+        assert len(points) == 1
+        assert points[0].value == 42.0
+
+    async def test_create_if_not_found_empty_points_raises(
+        self, service: TimeSeriesService
+    ):
+        key = SeriesKey(owner_id="new-owner", metric="temperature")
+        with pytest.raises(ValueError, match="Cannot infer data_type"):
+            await service.upsert_points(
+                key, [], create_if_not_found=True
+            )
+
+    async def test_create_if_not_found_existing_series(
+        self, service: TimeSeriesService
+    ):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        now = datetime.now(tz=UTC)
+        await service.upsert_points(
+            KEY,
+            [DataPoint(timestamp=now, value=10.0)],
+            create_if_not_found=True,
+        )
+        points = await service.fetch_points(KEY)
+        assert len(points) == 1
+        assert points[0].value == 10.0
+
     async def test_rejects_bool_as_int(self, service: TimeSeriesService):
         key = SeriesKey(owner_id="d1", metric="count")
         await service.create_series(
