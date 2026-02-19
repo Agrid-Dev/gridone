@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from timeseries.errors import InvalidError, NotFoundError
+from models.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from timeseries.domain import DataPoint, DataPointValue, SeriesKey, TimeSeries

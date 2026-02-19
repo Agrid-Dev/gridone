@@ -5,11 +5,12 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from models.errors import ConfirmationError
+
 from devices_manager.core.driver import Driver
 from devices_manager.core.transports import PushTransportClient, TransportClient
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.core.value_adapters import FnAdapter
-from devices_manager.errors import ConfirmationError
 from devices_manager.types import AttributeValueType
 
 from .attribute import Attribute

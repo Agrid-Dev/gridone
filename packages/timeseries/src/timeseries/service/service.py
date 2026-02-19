@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from models.errors import InvalidError, NotFoundError
+
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
@@ -13,7 +15,6 @@ from timeseries.domain import (
     TimeSeries,
     validate_value_type,
 )
-from timeseries.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from datetime import datetime

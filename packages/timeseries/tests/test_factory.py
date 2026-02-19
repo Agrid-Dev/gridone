@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from models.errors import InvalidError
 from timeseries import TimeSeriesService, create_service
-from timeseries.errors import InvalidError
 from timeseries.storage import MemoryStorage, build_storage
 
 

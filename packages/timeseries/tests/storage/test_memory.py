@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from models.errors import InvalidError, NotFoundError
 from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
-from timeseries.errors import InvalidError, NotFoundError
 from timeseries.storage import MemoryStorage
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")

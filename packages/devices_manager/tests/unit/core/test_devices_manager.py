@@ -19,13 +19,13 @@ from devices_manager.dto import (
     driver_core_to_dto,
     transport_core_to_dto,
 )
-from devices_manager.errors import (
+from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
+from devices_manager.types import TransportProtocols
+from models.errors import (
     ForbiddenError,
     InvalidError,
     NotFoundError,
 )
-from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from devices_manager.types import TransportProtocols
 
 
 @pytest.fixture

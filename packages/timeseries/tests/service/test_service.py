@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from models.errors import InvalidError, NotFoundError
 from timeseries.domain import DataPoint, DataType, SeriesKey
-from timeseries.errors import InvalidError, NotFoundError
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
 

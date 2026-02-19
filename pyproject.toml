@@ -6,13 +6,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 
 dependencies = [
-    "gridone-devices-manager",
+    "gridone-models",
 ]
 
 [tool.uv.sources]
 gridone-devices-manager = { workspace = true }
-gridone-dto = { workspace = true }
 gridone-api = { workspace = true }
+gridone-models  = { workspace = true }
 
 
 
@@ -24,6 +24,7 @@ members = [
     "apps/cli",
     "apps/api_server",
     "packages/timeseries",
+    "packages/models",
 ]
 
 [dependency-groups]
@@ -61,6 +62,8 @@ source = [
     "apps/cli",
     "packages/api/src",
     "packages/devices-manager/src",
+    "packages/timeseries/src",
+    "packages/users/src",
 ]
 omit = [
     "*/tests/*",
