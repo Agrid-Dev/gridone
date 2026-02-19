@@ -122,6 +122,38 @@ describe("mergeTimeSeries", () => {
     }
   });
 
+  it("marks isNew=false when value is unchanged from previous row", () => {
+    const result = mergeTimeSeries(
+      {
+        temperature: [
+          point("2024-01-01T00:00:00.000Z", 20),
+          point("2024-01-01T00:01:00.000Z", 20),
+          point("2024-01-01T00:02:00.000Z", 22),
+        ],
+        humidity: [
+          point("2024-01-01T00:00:00.000Z", 60),
+          point("2024-01-01T00:01:00.000Z", 60),
+          point("2024-01-01T00:02:00.000Z", 60),
+        ],
+      },
+      ["temperature", "humidity"],
+    );
+
+    expect(result).toHaveLength(3);
+
+    // Newest (00:02): temp changed (20→22), humidity unchanged (60→60)
+    expect(result[0].isNew.temperature).toBe(true);
+    expect(result[0].isNew.humidity).toBe(false);
+
+    // Middle (00:01): both unchanged from 00:00
+    expect(result[1].isNew.temperature).toBe(false);
+    expect(result[1].isNew.humidity).toBe(false);
+
+    // Oldest (00:00): first occurrence, non-null → isNew
+    expect(result[2].isNew.temperature).toBe(true);
+    expect(result[2].isNew.humidity).toBe(true);
+  });
+
   it("fills null for unknown attribute with no data", () => {
     const result = mergeTimeSeries(
       { temperature: [point("2024-01-01T00:00:00.000Z", 20)] },

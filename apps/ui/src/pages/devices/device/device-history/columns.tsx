@@ -18,6 +18,12 @@ function isNumericType(dataType?: string) {
   return dataType === "float" || dataType === "integer";
 }
 
+const RECENT_MS = 5000;
+
+function isRecent(timestamp: string) {
+  return Date.now() - new Date(timestamp).getTime() < RECENT_MS;
+}
+
 export function buildColumns(
   attributes: string[],
   dataTypes: Record<string, string>,
@@ -52,12 +58,16 @@ export function buildColumns(
       const isNew = row.original.isNew[attr];
       const dt = dataTypes[attr];
       const formatted = formatValue(value, dt);
+      const recent = isNew && isRecent(row.original.timestamp);
       return (
         <span
+          // key forces React to remount the element when the value changes
+          // at this timestamp, restarting the fade animation for each new update
+          key={`${row.original.timestamp}-${value}`}
           className={cn(
-            "transition-colors",
             isNumericType(dt) && "tabular-nums font-mono",
             isNew ? "text-foreground font-medium" : "text-muted-foreground/50",
+            recent && "rounded-sm px-1 -mx-1 animate-highlight-fade",
           )}
         >
           {formatted}
