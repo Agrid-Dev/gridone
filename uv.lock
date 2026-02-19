@@ -9,7 +9,8 @@ members = [
     "gridone",
     "gridone-api",
     "gridone-devices-manager",
-    "timeseries",
+    "gridone-models",
+    "gridone-timeseries",
 ]
 
 [[package]]
@@ -430,7 +431,7 @@ name = "gridone"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "gridone-devices-manager" },
+    { name = "gridone-models" },
 ]
 
 [package.dev-dependencies]
@@ -445,7 +446,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "gridone-devices-manager", editable = "packages/devices_manager" }]
+requires-dist = [{ name = "gridone-models", editable = "packages/models" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -464,6 +465,7 @@ version = "0.1.0"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
+    { name = "gridone-models" },
     { name = "httpx" },
     { name = "pydantic-settings" },
 ]
@@ -471,6 +473,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
+    { name = "gridone-models", editable = "packages/models" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
 ]
@@ -483,6 +486,7 @@ dependencies = [
     { name = "aiomqtt" },
     { name = "asyncpg" },
     { name = "bacpypes3" },
+    { name = "gridone-models" },
     { name = "httpx" },
     { name = "pydantic" },
     { name = "pymodbus" },
@@ -495,12 +499,29 @@ requires-dist = [
     { name = "aiomqtt", specifier = ">=2.4.0" },
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "bacpypes3", specifier = ">=0.0.102" },
+    { name = "gridone-models", editable = "packages/models" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pymodbus", specifier = ">=3.11.3" },
     { name = "python-jsonpath", specifier = ">=2.0.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]
+
+[[package]]
+name = "gridone-models"
+version = "0.1.0"
+source = { editable = "packages/models" }
+
+[[package]]
+name = "gridone-timeseries"
+version = "0.1.0"
+source = { editable = "packages/timeseries" }
+dependencies = [
+    { name = "gridone-models" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "gridone-models", editable = "packages/models" }]
 
 [[package]]
 name = "h11"
@@ -1074,11 +1095,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/ba/b8/73a0e6a6e079a9d9c
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/52/1064f510b141bd54025f9b55105e26d1fa970b9be67ad766380a3c9b74b0/starlette-0.50.0-py3-none-any.whl", hash = "sha256:9e5391843ec9b6e472eed1365a78c8098cfceb7a74bfd4d6b1c0c0095efb3bca", size = 74033, upload-time = "2025-11-01T15:25:25.461Z" },
 ]
-
-[[package]]
-name = "timeseries"
-version = "0.1.0"
-source = { editable = "packages/timeseries" }
 
 [[package]]
 name = "ty"

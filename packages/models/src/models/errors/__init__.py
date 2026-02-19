@@ -11,4 +11,4 @@ class InvalidError(ValueError):
 
 
 class ConfirmationError(ValueError):
-    """Raised when a written attribute value cannot be confirmed."""
+    """Raised when the result of a command failed to be confirmed."""

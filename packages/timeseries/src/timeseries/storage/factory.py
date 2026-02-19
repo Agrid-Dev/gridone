@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from timeseries.errors import InvalidError
+from models.errors import InvalidError
+
 from timeseries.storage.memory import MemoryStorage
 
 

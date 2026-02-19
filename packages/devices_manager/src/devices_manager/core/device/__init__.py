@@ -1,4 +1,4 @@
-from devices_manager.errors import ConfirmationError
+from models.errors import ConfirmationError
 
 from .attribute import Attribute
 from .device import AttributeListener, Device

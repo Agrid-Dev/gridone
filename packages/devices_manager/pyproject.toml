@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 
 dependencies = [
+    "gridone-models",
     "aiomqtt>=2.4.0",
     "asyncpg>=0.30.0",
     "bacpypes3>=0.0.102",

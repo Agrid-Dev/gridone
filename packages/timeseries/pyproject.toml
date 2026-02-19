@@ -1,17 +1,17 @@
 [project]
-name = "timeseries"
+name = "gridone-timeseries"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "lukdavid", email = "lucas.david@a-grid.com" }
-]
+authors = []
 requires-python = ">=3.13"
-dependencies = []
-
-[project.scripts]
-timeseries = "timeseries:main"
+dependencies = ["gridone-models"]
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+
+[tool.uv.build-backend]
+module-name = "timeseries"
+module-root = "src"
