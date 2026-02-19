@@ -4,10 +4,11 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import Literal
 
-import docker
 import pytest
 import yaml
 from docker.errors import NotFound
+
+import docker
 
 from .config import HTTP_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
 

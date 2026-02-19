@@ -24,7 +24,7 @@ module-name = "api"
 module-root = "src"
 
 [tool.ruff.lint]
-ignore=["B008"]
+ignore=[]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
