@@ -1,9 +1,14 @@
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
+import { LogOut, Settings, Users } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function Sidebar() {
   const { t } = useTranslation();
+  const { state, logout } = useAuth();
+
+  const user = state.status === "authenticated" ? state.user : null;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-slate-200 bg-white">
@@ -18,7 +23,7 @@ export function Sidebar() {
           </h1>
         </div>
 
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4 space-y-1">
           {["devices", "drivers", "transports"].map((route) => (
             <NavLink
               key={route}
@@ -34,11 +39,55 @@ export function Sidebar() {
               {t(`app.${route}`)}
             </NavLink>
           ))}
+
+          <hr className="border-slate-100 my-2" />
+
+          {user?.isAdmin && (
+            <NavLink
+              to="/users"
+              className={({ isActive }) =>
+                `flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-slate-900 text-slate-50"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              <Users className="h-4 w-4" />
+              {t("users.title")}
+            </NavLink>
+          )}
+
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-slate-900 text-slate-50"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`
+            }
+          >
+            <Settings className="h-4 w-4" />
+            {t("settings.title")}
+          </NavLink>
         </nav>
 
-        {/* Footer with Language Switcher */}
-        <div className="border-t border-slate-200 p-4">
+        {/* Footer */}
+        <div className="border-t border-slate-200 p-4 space-y-3">
+          {user && (
+            <div className="px-4 text-xs text-slate-500 truncate">
+              {user.name || user.username}
+            </div>
+          )}
           <LanguageSwitcher />
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            {t("auth.logout")}
+          </button>
         </div>
       </div>
     </aside>

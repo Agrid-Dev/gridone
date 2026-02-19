@@ -1,4 +1,50 @@
 {
+  "auth": {
+    "login": {
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "signIn": "Se connecter",
+      "signingIn": "Connexion...",
+      "error": "Échec de la connexion. Veuillez réessayer."
+    },
+    "logout": "Se déconnecter"
+  },
+  "users": {
+    "title": "Utilisateurs",
+    "subtitle": "Gestion des utilisateurs",
+    "create": "Ajouter un utilisateur",
+    "edit": "Modifier l'utilisateur",
+    "created": "Utilisateur créé",
+    "updated": "Utilisateur mis à jour",
+    "deleted": "Utilisateur supprimé",
+    "you": "vous",
+    "roles": {
+      "admin": "Administrateur",
+      "user": "Utilisateur"
+    },
+    "fields": {
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "passwordOptional": "Mot de passe (laisser vide pour conserver l'actuel)",
+      "passwordPlaceholder": "Laisser vide pour conserver l'actuel",
+      "name": "Nom complet",
+      "email": "Email",
+      "title": "Titre",
+      "role": "Rôle",
+      "isAdmin": "Administrateur"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "subtitle": "Mon profil",
+    "saved": "Profil enregistré",
+    "mustChangePassword": "Veuillez changer votre mot de passe par défaut avant de continuer.",
+    "newPassword": "Nouveau mot de passe",
+    "newPasswordPlaceholder": "Laisser vide pour conserver l'actuel",
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "confirmPasswordPlaceholder": "Confirmez votre nouveau mot de passe",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
+  },
   "common": {
     "refresh": "Actualiser",
     "refreshing": "Actualisation...",
@@ -24,6 +70,9 @@
     "true": "Vrai",
     "false": "Faux",
     "cancel": "Annuler",
+    "create": "Créer",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
     "readOnly": "Lecture seule",
     "editable": "Modifiable",
     "attributes": "attributs",

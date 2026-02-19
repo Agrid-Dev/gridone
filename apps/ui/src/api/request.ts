@@ -1,5 +1,6 @@
 import { ApiError } from "./apiError";
 import camelcaseKeys from "camelcase-keys";
+import { getStoredToken } from "./token";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -14,7 +15,18 @@ export async function request<T>(
   init?: RequestInit,
   options?: RequestOptions,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${relativeUrl}`, init);
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${relativeUrl}`, {
+    ...init,
+    headers,
+  });
 
   const data = response.status === 204 ? null : await response.json();
 
