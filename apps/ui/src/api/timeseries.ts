@@ -31,9 +31,13 @@ export function listSeries<D extends DataType = DataType>(
   if (ownerId) params.set("owner_id", ownerId);
   if (metric) params.set("metric", metric);
   const qs = params.toString();
-  return request<TimeSeries<D>[]>(`/timeseries/${qs ? `?${qs}` : ""}`, undefined, {
-    camelCase: true,
-  });
+  return request<TimeSeries<D>[]>(
+    `/timeseries/${qs ? `?${qs}` : ""}`,
+    undefined,
+    {
+      camelCase: true,
+    },
+  );
 }
 
 export function getSeriesPoints<D extends DataType = DataType>(

@@ -32,6 +32,10 @@
     "transport": "Transport",
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
+    "noResults": "Aucun résultat",
+    "rows": "lignes",
+    "previous": "Précédent",
+    "next": "Suivant",
     "timeAgo": {
       "future": "Dans le futur",
       "justNow": "moins d'une minute",
@@ -103,7 +107,11 @@
     "missingDeviceId": "Identifiant d'appareil manquant",
     "unableToLoad": "Impossible de charger l'appareil",
     "updated": "{{name}} mis à jour",
-    "updateFailed": "Échec de la mise à jour"
+    "updateFailed": "Échec de la mise à jour",
+    "liveControl": "Contrôle en direct",
+    "history": "Historique",
+    "selectAttributes": "Sélectionner des attributs...",
+    "searchAttributes": "Rechercher des attributs..."
   },
   "transports": {
     "title": "Transports",
