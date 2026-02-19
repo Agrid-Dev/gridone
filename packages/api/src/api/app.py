@@ -7,7 +7,7 @@ from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
 
-from api.auth import get_current_user_id
+from users.auth import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     devices_router,

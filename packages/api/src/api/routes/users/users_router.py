@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from api.auth import get_current_user_id, get_users_manager
+from users.auth import get_current_user_id, get_users_manager
 from users import User, UsersManager
 
 router = APIRouter()

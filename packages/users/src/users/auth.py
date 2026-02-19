@@ -1,17 +1,24 @@
 """JWT authentication utilities shared across all API routes."""
 
+import secrets
+
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
-
-from api.settings import load_settings
+from pydantic_settings import BaseSettings
 
 _bearer = HTTPBearer()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+
+
+class _AuthSettings(BaseSettings):
+    SECRET_KEY: str = secrets.token_hex(32)
+
+    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 class TokenPayload(BaseModel):
@@ -20,8 +27,7 @@ class TokenPayload(BaseModel):
 
 
 def _get_secret() -> str:
-    settings = load_settings()
-    return settings.secret_key
+    return _AuthSettings().SECRET_KEY
 
 
 def create_access_token(user_id: str) -> str:
@@ -43,8 +49,6 @@ def _decode_token(token: str) -> TokenPayload:
 
 
 def get_users_manager(request: Request):
-    from users import UsersManager
-
     return request.app.state.users_manager
 
 

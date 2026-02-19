@@ -689,7 +689,9 @@ source = { editable = "packages/users" }
 dependencies = [
     { name = "asyncpg" },
     { name = "bcrypt" },
+    { name = "fastapi" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "pyyaml" },
 ]
@@ -698,7 +700,9 @@ dependencies = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "bcrypt", specifier = ">=4.2.0" },
+    { name = "fastapi", specifier = ">=0.123.8" },
     { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]
