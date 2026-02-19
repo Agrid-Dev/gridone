@@ -2,7 +2,7 @@ import { Routes, Route } from "react-router";
 import { FC } from "react";
 import DeviceLayout from "./DeviceLayout";
 import DeviceLiveControl from "./DeviceLiveControl";
-import DeviceHistory from "./DeviceHistory";
+import DeviceHistory from "./device-history";
 import DeviceCreate from "./DeviceCreate";
 import DeviceEdit from "./DeviceEdit";
 

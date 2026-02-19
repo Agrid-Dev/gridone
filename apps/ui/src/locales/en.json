@@ -37,6 +37,12 @@
     "rows": "rows",
     "previous": "Previous",
     "next": "Next",
+    "columns": "Columns",
+    "toggleColumns": "Toggle columns",
+    "selectAll": "Select all",
+    "unselectAll": "Unselect all",
+    "timestamp": "Timestamp",
+    "rowsRange": "{{from}}\u2013{{to}} of {{total}} rows",
     "timeAgo": {
       "future": "In the future",
       "justNow": "just now",

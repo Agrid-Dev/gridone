@@ -36,6 +36,12 @@
     "rows": "lignes",
     "previous": "Précédent",
     "next": "Suivant",
+    "columns": "Colonnes",
+    "toggleColumns": "Afficher les colonnes",
+    "selectAll": "Tout sélectionner",
+    "unselectAll": "Tout désélectionner",
+    "timestamp": "Horodatage",
+    "rowsRange": "{{from}}\u2013{{to}} sur {{total}} lignes",
     "timeAgo": {
       "future": "Dans le futur",
       "justNow": "moins d'une minute",
