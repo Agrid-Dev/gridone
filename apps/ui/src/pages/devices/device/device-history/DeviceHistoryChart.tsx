@@ -17,6 +17,11 @@ export default function DeviceHistoryChart() {
     [visibleAttributes, dataTypes],
   );
 
+  const stringAttrs = useMemo(
+    () => visibleAttributes.filter((attr) => dataTypes[attr] === "string"),
+    [visibleAttributes, dataTypes],
+  );
+
   const timestamps = useMemo(
     () => allRows.map((r) => new Date(r.timestamp)),
     [allRows],
@@ -54,7 +59,27 @@ export default function DeviceHistoryChart() {
     [boolAttrs],
   );
 
-  if (floatAttrs.length === 0 && boolAttrs.length === 0) {
+  const stringValues = useMemo(
+    () =>
+      Object.fromEntries(
+        stringAttrs.map((a) => [
+          a,
+          allRows.map((r) => r.values[a] as string | null),
+        ]),
+      ),
+    [allRows, stringAttrs],
+  );
+
+  const stringSeries: Series[] = useMemo(
+    () => stringAttrs.map((a) => ({ key: a, label: toLabel(a) })),
+    [stringAttrs],
+  );
+
+  if (
+    floatAttrs.length === 0 &&
+    boolAttrs.length === 0 &&
+    stringAttrs.length === 0
+  ) {
     return (
       <p className="text-muted-foreground p-4 text-center text-sm">
         No chartable attributes selected.
@@ -69,6 +94,8 @@ export default function DeviceHistoryChart() {
       lineValues={lineValues}
       booleanSeries={booleanSeries}
       booleanValues={booleanValues}
+      stringSeries={stringSeries}
+      stringValues={stringValues}
       height={400}
     />
   );
