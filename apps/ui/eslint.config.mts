@@ -20,5 +20,5 @@ export default defineConfig([
     },
   },
   eslintConfigPrettier,
-  globalIgnores(["tailwind.config.js", "vite.config.js"]),
+  globalIgnores(["dist", "tailwind.config.js", "vite.config.js"]),
 ]);
