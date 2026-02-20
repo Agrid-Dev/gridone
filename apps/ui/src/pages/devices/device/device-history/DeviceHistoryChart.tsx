@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import LineChart from "@/components/charts/LineChart";
-import type { Series } from "@/components/charts/LineChart";
+import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
+import type { Series } from "@/components/charts/TimeSeriesChart";
 import { toLabel } from "@/lib/textFormat";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
@@ -12,12 +12,17 @@ export default function DeviceHistoryChart() {
     [visibleAttributes, dataTypes],
   );
 
+  const boolAttrs = useMemo(
+    () => visibleAttributes.filter((attr) => dataTypes[attr] === "boolean"),
+    [visibleAttributes, dataTypes],
+  );
+
   const timestamps = useMemo(
     () => allRows.map((r) => new Date(r.timestamp)),
     [allRows],
   );
 
-  const values = useMemo(
+  const lineValues = useMemo(
     () =>
       Object.fromEntries(
         floatAttrs.map((a) => [
@@ -28,24 +33,42 @@ export default function DeviceHistoryChart() {
     [allRows, floatAttrs],
   );
 
-  const series: Series[] = useMemo(
+  const lineSeries: Series[] = useMemo(
     () => floatAttrs.map((a) => ({ key: a, label: toLabel(a) })),
     [floatAttrs],
   );
 
-  if (floatAttrs.length === 0) {
+  const booleanValues = useMemo(
+    () =>
+      Object.fromEntries(
+        boolAttrs.map((a) => [
+          a,
+          allRows.map((r) => r.values[a] as boolean | null),
+        ]),
+      ),
+    [allRows, boolAttrs],
+  );
+
+  const booleanSeries: Series[] = useMemo(
+    () => boolAttrs.map((a) => ({ key: a, label: toLabel(a) })),
+    [boolAttrs],
+  );
+
+  if (floatAttrs.length === 0 && boolAttrs.length === 0) {
     return (
       <p className="text-muted-foreground p-4 text-center text-sm">
-        No numeric attributes selected.
+        No chartable attributes selected.
       </p>
     );
   }
 
   return (
-    <LineChart
+    <TimeSeriesChart
       timestamps={timestamps}
-      series={series}
-      values={values}
+      lineSeries={lineSeries}
+      lineValues={lineValues}
+      booleanSeries={booleanSeries}
+      booleanValues={booleanValues}
       height={400}
     />
   );
