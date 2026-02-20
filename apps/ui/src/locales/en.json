@@ -1,4 +1,64 @@
 {
+  "auth": {
+    "login": {
+      "username": "Username",
+      "password": "Password",
+      "signIn": "Sign in",
+      "signingIn": "Signing in...",
+      "error": "Login failed. Please try again.",
+      "validation": {
+        "usernameMinLength": "Username must be at least {{count}} characters.",
+        "usernameMaxLength": "Username must be at most {{count}} characters.",
+        "passwordMinLength": "Password must be at least {{count}} characters.",
+        "passwordMaxLength": "Password must be at most {{count}} characters."
+      }
+    },
+    "logout": "Log out"
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "User management",
+    "create": "Add user",
+    "edit": "Edit user",
+    "created": "User created",
+    "updated": "User updated",
+    "deleted": "User deleted",
+    "you": "you",
+    "roles": {
+      "admin": "Admin",
+      "user": "User"
+    },
+    "fields": {
+      "username": "Username",
+      "password": "Password",
+      "passwordOptional": "Password (leave blank to keep current)",
+      "passwordPlaceholder": "Leave blank to keep current",
+      "name": "Full name",
+      "email": "Email",
+      "title": "Title",
+      "role": "Role",
+      "isAdmin": "Administrator"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "My profile",
+    "saved": "Profile saved",
+    "mustChangePassword": "Please change your default password before continuing.",
+    "newPassword": "New password",
+    "newPasswordPlaceholder": "Leave blank to keep current",
+    "confirmPassword": "Confirm new password",
+    "confirmPasswordPlaceholder": "Confirm your new password",
+    "passwordMismatch": "Passwords do not match",
+    "validation": {
+      "usernameMinLength": "Username must be at least {{count}} characters.",
+      "usernameMaxLength": "Username must be at most {{count}} characters.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordMinLength": "Password must be at least {{count}} characters.",
+      "passwordMaxLength": "Password must be at most {{count}} characters.",
+      "confirmPasswordRequired": "Please confirm your new password."
+    }
+  },
   "common": {
     "refresh": "Refresh",
     "refreshing": "Refreshing...",
@@ -24,6 +84,9 @@
     "true": "True",
     "false": "False",
     "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save",
+    "saving": "Saving...",
     "readOnly": "Read only",
     "editable": "Editable",
     "attributes": "attrs",

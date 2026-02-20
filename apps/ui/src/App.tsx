@@ -1,12 +1,16 @@
-import { Route, Routes, Navigate } from "react-router";
+import { Navigate, Route, Routes } from "react-router";
 import { useTranslation } from "react-i18next";
 import Devices from "./pages/devices";
 import Transports from "./pages/transports";
 import Drivers from "./pages/drivers";
+import LoginPage from "./pages/login/LoginPage";
+import UsersPage from "./pages/users/UsersPage";
+import SettingsPage from "./pages/settings/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { Toaster } from "./components/ui/sonner";
+import { useAuth } from "./contexts/AuthContext";
 
-export default function App() {
+function ProtectedLayout() {
   const { t } = useTranslation();
 
   return (
@@ -25,10 +29,38 @@ export default function App() {
             <Route path="/devices/*" element={<Devices />} />
             <Route path="/transports/*" element={<Transports />} />
             <Route path="/drivers/*" element={<Drivers />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
           <Toaster />
         </div>
       </main>
     </div>
   );
+}
+
+export default function App() {
+  const { state } = useAuth();
+
+  if (state.status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
+      </div>
+    );
+  }
+
+  if (state.status === "unauthenticated") {
+    return (
+      <>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <Toaster />
+      </>
+    );
+  }
+
+  return <ProtectedLayout />;
 }

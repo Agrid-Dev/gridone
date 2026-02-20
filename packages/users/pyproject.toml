@@ -1,33 +1,29 @@
 [project]
-name = "gridone-api"
+name = "gridone-users"
 version = "0.1.0"
-description = "Add your description here"
+description = "User management and authentication package for Gridone."
 readme = "README.md"
-authors = []
 requires-python = ">=3.13"
+
 dependencies = [
+    "asyncpg>=0.30.0",
+    "bcrypt>=4.2.0",
     "gridone-models",
-    "fastapi>=0.123.8",
-    "gridone-users",
-    "httpx>=0.28.1",
+    "pydantic>=2.12.4",
     "python-jose[cryptography]>=3.3.0",
-    "pydantic-settings>=2.12.0",
+    "pyyaml>=6.0.3",
 ]
 
 [tool.uv]
 workspaces=true
-
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "api"
+module-name = "users"
 module-root = "src"
 
-[tool.ruff.lint]
-ignore=[]
-
 [tool.pytest.ini_options]
-pythonpath = ["src", "../models/src", "../users/src"]
+pythonpath = ["src", "../models/src"]
