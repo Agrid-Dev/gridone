@@ -179,6 +179,8 @@
     "updateFailed": "Échec de la mise à jour",
     "liveControl": "Contrôle en direct",
     "history": "Historique",
+    "table": "Tableau",
+    "chart": "Graphique",
     "selectAttributes": "Sélectionner des attributs...",
     "searchAttributes": "Rechercher des attributs..."
   },

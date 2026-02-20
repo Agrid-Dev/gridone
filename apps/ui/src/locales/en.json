@@ -180,6 +180,8 @@
     "updateFailed": "Update failed",
     "liveControl": "Live Control",
     "history": "History",
+    "table": "Table",
+    "chart": "Chart",
     "selectAttributes": "Select attributes...",
     "searchAttributes": "Search attributes..."
   },
