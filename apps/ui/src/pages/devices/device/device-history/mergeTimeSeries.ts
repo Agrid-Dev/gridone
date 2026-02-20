@@ -13,9 +13,11 @@ const DEFAULT_PRECISION_MS = 1000;
 /**
  * Merge multiple time-series into a single table with forward-fill.
  *
+ * Returns rows sorted ascending (oldest first).
+ *
  * `isNew[attr]` is `true` when the cell value differs from the
  * chronologically previous row (i.e. an actual value change occurred).
- * Computed after forward-fill so it works regardless of sort direction.
+ * Computed after forward-fill.
  */
 export function mergeTimeSeries(
   pointsByMetric: Record<string, DataPoint[]>,
@@ -48,8 +50,8 @@ export function mergeTimeSeries(
 
   if (allEpochs.size === 0) return [];
 
-  // 2. Sort unique timestamps descending (newest first)
-  const sorted = [...allEpochs].sort((a, b) => b - a);
+  // 2. Sort unique timestamps ascending (oldest first)
+  const sorted = [...allEpochs].sort((a, b) => a - b);
 
   // 3. Build rows with raw (sparse) values
   const rows: MergedRow[] = sorted.map((epoch) => {
@@ -63,11 +65,11 @@ export function mergeTimeSeries(
     return { timestamp: new Date(epoch).toISOString(), values, isNew };
   });
 
-  // 4. Forward-fill: walk from oldest (end of array) to newest (start)
+  // 4. Forward-fill: walk from oldest (start) to newest (end)
   const carry: Record<string, CellValue> = {};
   for (const attr of attributes) carry[attr] = null;
 
-  for (let i = rows.length - 1; i >= 0; i--) {
+  for (let i = 0; i < rows.length; i++) {
     for (const attr of attributes) {
       if (rows[i].values[attr] !== null) {
         carry[attr] = rows[i].values[attr];
@@ -78,14 +80,14 @@ export function mergeTimeSeries(
   }
 
   // 5. Compute isNew: true when the value differs from the chronologically
-  //    previous (older) row. Rows are sorted descending, so row[i+1] is older.
+  //    previous (older) row. Rows are sorted ascending, so row[i-1] is older.
   for (let i = 0; i < rows.length; i++) {
     for (const attr of attributes) {
-      if (i === rows.length - 1) {
+      if (i === 0) {
         // Oldest row: new if the value is not null (first occurrence)
         rows[i].isNew[attr] = rows[i].values[attr] !== null;
       } else {
-        rows[i].isNew[attr] = rows[i].values[attr] !== rows[i + 1].values[attr];
+        rows[i].isNew[attr] = rows[i].values[attr] !== rows[i - 1].values[attr];
       }
     }
   }
