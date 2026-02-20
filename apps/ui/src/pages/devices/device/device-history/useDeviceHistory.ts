@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  type PaginationState,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
@@ -159,20 +161,55 @@ export function useDeviceHistory(deviceId: string, attributeNames: string[]) {
     [allRows, visibleAttributes],
   );
 
+  // URL-synced pagination (1-based in URL, 0-based internally)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageIndex = Math.max(0, Number(searchParams.get("page") ?? "1") - 1);
+
+  const handlePaginationChange = useCallback(
+    (
+      updater: PaginationState | ((prev: PaginationState) => PaginationState),
+    ) => {
+      const next =
+        typeof updater === "function"
+          ? updater({ pageIndex, pageSize: PAGE_SIZE })
+          : updater;
+      setSearchParams(
+        next.pageIndex === 0 ? {} : { page: String(next.pageIndex + 1) },
+        { replace: true },
+      );
+    },
+    [pageIndex, setSearchParams],
+  );
+
+  // Clamp to last page when current page exceeds page count
+  const maxPage = Math.max(0, Math.ceil(filteredRows.length / PAGE_SIZE) - 1);
+  useEffect(() => {
+    if (filteredRows.length > 0 && pageIndex > maxPage) {
+      setSearchParams(maxPage === 0 ? {} : { page: String(maxPage + 1) }, {
+        replace: true,
+      });
+    }
+  }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
+
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting, columnVisibility, columnOrder },
+    state: {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      pagination: { pageIndex, pageSize: PAGE_SIZE },
+    },
     onSortingChange: setSorting,
+    onPaginationChange: handlePaginationChange,
     onColumnVisibilityChange: handleVisibilityChange,
     onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     autoResetPageIndex: false,
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
   });
 
   return { table, isLoading, error, availableAttributes };
