@@ -82,7 +82,9 @@ export default function DeviceHistoryTable() {
     }
   }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
 
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "timestamp", desc: true },
+  ]);
 
   const table = useReactTable({
     data: filteredRows,
