@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { ParentSize } from "@visx/responsive";
 import {
   AnimatedAxis,
@@ -120,6 +120,30 @@ function StringPanel({
           />
         );
       })}
+      <Tooltip
+        snapTooltipToDatumX
+        renderTooltip={({ tooltipData }) => {
+          const datum = tooltipData?.nearestDatum?.datum as
+            | BoolDatum
+            | undefined;
+          if (!datum) return null;
+          // Find which sub-series is active (value === 1) at this point
+          const activeKey = Object.entries(tooltipData?.datumByKey ?? {}).find(
+            ([key, entry]) =>
+              key.startsWith(`${seriesKey}::`) &&
+              (entry.datum as BoolDatum).value === 1,
+          )?.[0];
+          const activeValue = activeKey?.split("::")?.[1] ?? "—";
+          return (
+            <div>
+              <div>{datum.timestamp.toLocaleString()}</div>
+              <div>
+                {label}: {activeValue}
+              </div>
+            </div>
+          );
+        }}
+      />
       {/* Series label on the left */}
       <text
         x={4}
@@ -146,6 +170,28 @@ function TimeSeriesChartInner({
   height = 300,
   width,
 }: TimeSeriesChartProps & { width: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [cursorX, setCursorX] = useState<number | null>(null);
+
+  const chartLeft = MARGIN.left;
+  const chartRight = width - MARGIN.right;
+
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = e.clientX - rect.left;
+      if (x >= chartLeft && x <= chartRight) {
+        setCursorX(x);
+      } else {
+        setCursorX(null);
+      }
+    },
+    [chartLeft, chartRight],
+  );
+
+  const handlePointerLeave = useCallback(() => setCursorX(null), []);
+
   if (width <= 0) return null;
 
   const hasFloats = lineSeries.length > 0;
@@ -173,7 +219,12 @@ function TimeSeriesChartInner({
   const isLastFloat = !hasBooleans && !hasStrings;
 
   return (
-    <div style={{ width }}>
+    <div
+      ref={containerRef}
+      style={{ width, position: "relative" }}
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
+    >
       {/* Float panel */}
       {hasFloats && (
         <XYChart
@@ -201,7 +252,6 @@ function TimeSeriesChartInner({
           })}
           <Tooltip
             snapTooltipToDatumX
-            showVerticalCrosshair
             renderTooltip={({ tooltipData }) => {
               const key = tooltipData?.nearestDatum?.key;
               const datum = tooltipData?.nearestDatum?.datum as
@@ -251,6 +301,23 @@ function TimeSeriesChartInner({
               fillOpacity={0.3}
               {...boolAccessors}
             />
+            <Tooltip
+              snapTooltipToDatumX
+              renderTooltip={({ tooltipData }) => {
+                const datum = tooltipData?.nearestDatum?.datum as
+                  | BoolDatum
+                  | undefined;
+                if (!datum) return null;
+                return (
+                  <div>
+                    <div>{datum.timestamp.toLocaleString()}</div>
+                    <div>
+                      {s.label}: {datum.value === 1 ? "true" : "false"}
+                    </div>
+                  </div>
+                );
+              }}
+            />
             {/* Series label on the left */}
             <text
               x={4}
@@ -279,6 +346,21 @@ function TimeSeriesChartInner({
           showBottomAxis={idx === stringSeries.length - 1}
         />
       ))}
+
+      {/* Shared vertical crosshair */}
+      {cursorX !== null && (
+        <div
+          style={{
+            position: "absolute",
+            left: cursorX,
+            top: 0,
+            bottom: 0,
+            width: 1,
+            pointerEvents: "none",
+            backgroundColor: "hsl(var(--foreground) / 0.2)",
+          }}
+        />
+      )}
     </div>
   );
 }
