@@ -8,6 +8,7 @@ members = [
     "cli",
     "gridone",
     "gridone-api",
+    "gridone-common",
     "gridone-devices-manager",
     "gridone-users",
 ]
@@ -640,6 +641,7 @@ version = "0.1.0"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
+    { name = "gridone-common" },
     { name = "gridone-users" },
     { name = "httpx" },
     { name = "pydantic-settings" },
@@ -649,11 +651,17 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
+    { name = "gridone-common", editable = "packages/common" },
     { name = "gridone-users", editable = "packages/users" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
 ]
+
+[[package]]
+name = "gridone-common"
+version = "0.1.0"
+source = { editable = "packages/common" }
 
 [[package]]
 name = "gridone-devices-manager"
@@ -689,9 +697,8 @@ source = { editable = "packages/users" }
 dependencies = [
     { name = "asyncpg" },
     { name = "bcrypt" },
-    { name = "fastapi" },
+    { name = "gridone-common" },
     { name = "pydantic" },
-    { name = "pydantic-settings" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "pyyaml" },
 ]
@@ -700,9 +707,8 @@ dependencies = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "bcrypt", specifier = ">=4.2.0" },
-    { name = "fastapi", specifier = ">=0.123.8" },
+    { name = "gridone-common", editable = "packages/common" },
     { name = "pydantic", specifier = ">=2.12.4" },
-    { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]

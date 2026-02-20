@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
     DB_PATH: str = ".db"
     SECRET_KEY: str = secrets.token_hex(32)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
 
     model_config = {"env_file": ".env"}
 
@@ -18,6 +19,10 @@ class Settings(BaseSettings):
     @property
     def secret_key(self) -> str:
         return self.SECRET_KEY
+
+    @property
+    def access_token_expire_minutes(self) -> int:
+        return self.ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 def load_settings() -> Settings:

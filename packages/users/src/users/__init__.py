@@ -1,4 +1,4 @@
-from users.models import User, UserInDB
 from users.manager import UsersManager
+from users.models import User, UserCreate, UserInDB, UserUpdate
 
-__all__ = ["User", "UserInDB", "UsersManager"]
+__all__ = ["User", "UserCreate", "UserInDB", "UserUpdate", "UsersManager"]

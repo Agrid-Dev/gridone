@@ -1,18 +1,44 @@
 from typing import Annotated
 
+from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 
-from users.auth import create_access_token, get_current_user_id, get_users_manager
 from users import User, UsersManager
-from users.password import verify_password
+from users.auth import AuthService
+from users.validation import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH,
+    AuthValidationRules,
+    get_auth_validation_rules,
+)
+from api.dependencies import (
+    get_auth_service,
+    get_current_user_id,
+    get_users_manager,
+)
 
 router = APIRouter()
 
+UsernameField = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+    ),
+]
+PasswordField = Annotated[
+    str,
+    StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
+]
+
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: UsernameField
+    password: PasswordField
 
 
 class TokenResponse(BaseModel):
@@ -24,15 +50,21 @@ class TokenResponse(BaseModel):
 async def login(
     body: LoginRequest,
     um: Annotated[UsersManager, Depends(get_users_manager)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
-    user = await um.get_by_username(body.username)
-    if user is None or not verify_password(body.password, user.hashed_password):
+    user = await um.authenticate(body.username, body.password)
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
-    token = create_access_token(user.id)
+    token = auth_service.create_access_token(user.id)
     return TokenResponse(access_token=token)
+
+
+@router.get("/validation-rules", response_model=AuthValidationRules)
+async def get_validation_rules() -> AuthValidationRules:
+    return get_auth_validation_rules()
 
 
 @router.get("/me", response_model=User)
@@ -40,7 +72,7 @@ async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
-    user = await um.get_by_id(current_user_id)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return User.model_validate(user.model_dump())
+    try:
+        return await um.get_by_id(current_user_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e

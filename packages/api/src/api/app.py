@@ -6,8 +6,9 @@ from datetime import UTC, datetime
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
+from users.auth import AuthService
 
-from users.auth import get_current_user_id
+from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     devices_router,
@@ -29,6 +30,12 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = load_settings()
+    auth_service = AuthService(
+        secret_key=settings.secret_key,
+        access_token_expire_minutes=settings.access_token_expire_minutes,
+    )
+    app.state.auth_service = auth_service
+
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
 

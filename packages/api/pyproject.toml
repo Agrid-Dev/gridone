@@ -30,4 +30,4 @@ module-root = "src"
 ignore=[]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "../models/src", "../users/src"]

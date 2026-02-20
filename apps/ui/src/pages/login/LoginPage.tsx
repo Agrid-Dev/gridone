@@ -1,37 +1,98 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
+import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/api/apiError";
+import {
+  DEFAULT_AUTH_VALIDATION_RULES,
+  getAuthValidationRules,
+} from "@/api/authValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+type LoginFormValues = {
+  username: string;
+  password: string;
+};
 
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const { data: fetchedValidationRules } = useQuery({
+    queryKey: ["auth-validation-rules"],
+    queryFn: getAuthValidationRules,
+    staleTime: 5 * 60 * 1000,
+  });
+  const validationRules =
+    fetchedValidationRules ?? DEFAULT_AUTH_VALIDATION_RULES;
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        username: z
+          .string()
+          .trim()
+          .min(
+            validationRules.usernameMinLength,
+            t("auth.login.validation.usernameMinLength", {
+              count: validationRules.usernameMinLength,
+            }),
+          )
+          .max(
+            validationRules.usernameMaxLength,
+            t("auth.login.validation.usernameMaxLength", {
+              count: validationRules.usernameMaxLength,
+            }),
+          ),
+        password: z
+          .string()
+          .min(
+            validationRules.passwordMinLength,
+            t("auth.login.validation.passwordMinLength", {
+              count: validationRules.passwordMinLength,
+            }),
+          )
+          .max(
+            validationRules.passwordMaxLength,
+            t("auth.login.validation.passwordMaxLength", {
+              count: validationRules.passwordMaxLength,
+            }),
+          ),
+      }),
+    [t, validationRules],
+  );
+
+  const form = useForm<LoginFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: "",
+      password: "",
+    },
+  });
+
+  const handleSubmit = form.handleSubmit(async (values) => {
+    form.clearErrors("root");
     try {
-      await login(username, password);
+      await login(values.username, values.password);
       navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.detail);
+        form.setError("root", {
+          message: err.detail || err.details || t("auth.login.error"),
+        });
       } else {
-        setError(t("auth.login.error"));
+        form.setError("root", {
+          message: t("auth.login.error"),
+        });
       }
-    } finally {
-      setLoading(false);
     }
-  };
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -57,10 +118,14 @@ export default function LoginPage() {
               id="username"
               type="text"
               autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
+              {...form.register("username")}
+              disabled={form.formState.isSubmitting}
             />
+            {form.formState.errors.username && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.username.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -74,18 +139,30 @@ export default function LoginPage() {
               id="password"
               type="password"
               autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              {...form.register("password")}
+              disabled={form.formState.isSubmitting}
             />
+            {form.formState.errors.password && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.password.message}
+              </p>
+            )}
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
+          {form.formState.errors.root?.message && (
+            <p className="text-sm text-red-600">
+              {form.formState.errors.root.message}
+            </p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? t("auth.login.signingIn") : t("auth.login.signIn")}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={form.formState.isSubmitting}
+          >
+            {form.formState.isSubmitting
+              ? t("auth.login.signingIn")
+              : t("auth.login.signIn")}
           </Button>
         </form>
       </div>

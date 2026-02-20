@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useState,
+  type ReactNode,
 } from "react";
 import {
   clearToken,
@@ -22,17 +23,24 @@ type AuthState =
 type AuthContextValue = {
   state: AuthState;
   login: (username: string, password: string) => Promise<void>;
+  refreshMe: () => Promise<CurrentUser>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
   const logout = useCallback(() => {
     clearToken();
     setState({ status: "unauthenticated" });
+  }, []);
+
+  const refreshMe = useCallback(async () => {
+    const user = await getMe();
+    setState({ status: "authenticated", user });
+    return user;
   }, []);
 
   useEffect(() => {
@@ -41,23 +49,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState({ status: "unauthenticated" });
       return;
     }
-    getMe()
-      .then((user) => setState({ status: "authenticated", user }))
+    refreshMe()
       .catch(() => {
         clearToken();
         setState({ status: "unauthenticated" });
       });
-  }, []);
+  }, [refreshMe]);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const response = await apiLogin({ username, password });
-    storeToken(response.access_token);
-    const user = await getMe();
-    setState({ status: "authenticated", user });
-  }, []);
+  const login = useCallback(
+    async (username: string, password: string) => {
+      const response = await apiLogin({ username, password });
+      storeToken(response.access_token);
+      await refreshMe();
+    },
+    [refreshMe],
+  );
 
   return (
-    <AuthContext.Provider value={{ state, login, logout }}>
+    <AuthContext.Provider value={{ state, login, refreshMe, logout }}>
       {children}
     </AuthContext.Provider>
   );

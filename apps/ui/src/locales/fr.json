@@ -5,7 +5,13 @@
       "password": "Mot de passe",
       "signIn": "Se connecter",
       "signingIn": "Connexion...",
-      "error": "Échec de la connexion. Veuillez réessayer."
+      "error": "Échec de la connexion. Veuillez réessayer.",
+      "validation": {
+        "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
+        "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
+        "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
+        "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères."
+      }
     },
     "logout": "Se déconnecter"
   },
@@ -43,7 +49,15 @@
     "newPasswordPlaceholder": "Laisser vide pour conserver l'actuel",
     "confirmPassword": "Confirmer le nouveau mot de passe",
     "confirmPasswordPlaceholder": "Confirmez votre nouveau mot de passe",
-    "passwordMismatch": "Les mots de passe ne correspondent pas"
+    "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "validation": {
+      "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
+      "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
+      "emailInvalid": "Veuillez saisir une adresse email valide.",
+      "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
+      "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères.",
+      "confirmPasswordRequired": "Veuillez confirmer votre nouveau mot de passe."
+    }
   },
   "common": {
     "refresh": "Actualiser",

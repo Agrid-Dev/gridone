@@ -1,14 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUser } from "@/api/users";
-import { getMe } from "@/api/auth";
+import { ApiError } from "@/api/apiError";
+import {
+  DEFAULT_AUTH_VALIDATION_RULES,
+  getAuthValidationRules,
+} from "@/api/authValidation";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type ProfileForm = {
+type ProfileFormValues = {
   username: string;
   name: string;
   email: string;
@@ -19,59 +27,150 @@ type ProfileForm = {
 
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const { state } = useAuth();
+  const { state, refreshMe } = useAuth();
 
   const user = state.status === "authenticated" ? state.user : null;
 
-  const [form, setForm] = useState<ProfileForm>({
-    username: "",
-    name: "",
-    email: "",
-    title: "",
-    password: "",
-    confirmPassword: "",
+  const { data: fetchedValidationRules } = useQuery({
+    queryKey: ["auth-validation-rules"],
+    queryFn: getAuthValidationRules,
+    staleTime: 5 * 60 * 1000,
   });
-  const [saving, setSaving] = useState(false);
+  const validationRules =
+    fetchedValidationRules ?? DEFAULT_AUTH_VALIDATION_RULES;
+
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          username: z
+            .string()
+            .trim()
+            .min(
+              validationRules.usernameMinLength,
+              t("settings.validation.usernameMinLength", {
+                count: validationRules.usernameMinLength,
+              }),
+            )
+            .max(
+              validationRules.usernameMaxLength,
+              t("settings.validation.usernameMaxLength", {
+                count: validationRules.usernameMaxLength,
+              }),
+            ),
+          name: z.string().trim(),
+          email: z
+            .string()
+            .trim()
+            .email(t("settings.validation.emailInvalid"))
+            .or(z.literal("")),
+          title: z.string().trim(),
+          password: z
+            .string()
+            .max(
+              validationRules.passwordMaxLength,
+              t("settings.validation.passwordMaxLength", {
+                count: validationRules.passwordMaxLength,
+              }),
+            ),
+          confirmPassword: z.string(),
+        })
+        .superRefine((values, ctx) => {
+          if (values.password.length === 0 && values.confirmPassword.length > 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["confirmPassword"],
+              message: t("settings.passwordMismatch"),
+            });
+            return;
+          }
+
+          if (values.password.length > 0) {
+            if (values.password.length < validationRules.passwordMinLength) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["password"],
+                message: t("settings.validation.passwordMinLength", {
+                  count: validationRules.passwordMinLength,
+                }),
+              });
+            }
+
+            if (values.confirmPassword.length === 0) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["confirmPassword"],
+                message: t("settings.validation.confirmPasswordRequired"),
+              });
+            } else if (values.confirmPassword !== values.password) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["confirmPassword"],
+                message: t("settings.passwordMismatch"),
+              });
+            }
+          }
+        }),
+    [t, validationRules],
+  );
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: "",
+      name: "",
+      email: "",
+      title: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
   useEffect(() => {
     if (user) {
-      setForm((f) => ({
-        ...f,
+      form.reset({
         username: user.username,
         name: user.name,
         email: user.email,
         title: user.title,
-      }));
+        password: "",
+        confirmPassword: "",
+      });
     }
-  }, [user]);
+  }, [form, user]);
 
   if (!user) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (form.password && form.password !== form.confirmPassword) {
-      toast.error(t("settings.passwordMismatch"));
-      return;
-    }
-    setSaving(true);
+  const handleSubmit = form.handleSubmit(async (values) => {
+    form.clearErrors("root");
     try {
       await updateUser(user.id, {
-        username: form.username || undefined,
-        name: form.name,
-        email: form.email,
-        title: form.title,
-        ...(form.password ? { password: form.password } : {}),
+        username: values.username || undefined,
+        name: values.name,
+        email: values.email,
+        title: values.title,
+        ...(values.password ? { password: values.password } : {}),
       });
-      // Refresh user info in auth context by re-fetching /me
-      await getMe();
+
+      await refreshMe();
       toast.success(t("settings.saved"));
-      setForm((f) => ({ ...f, password: "", confirmPassword: "" }));
+
+      form.reset({
+        ...values,
+        password: "",
+        confirmPassword: "",
+      });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("common.error"));
-    } finally {
-      setSaving(false);
+      const message =
+        err instanceof ApiError
+          ? err.detail || err.details
+          : err instanceof Error
+            ? err.message
+            : t("common.error");
+      form.setError("root", { message });
+      toast.error(message);
     }
-  };
+  });
 
   return (
     <section className="space-y-6">
@@ -93,18 +192,20 @@ export default function SettingsPage() {
               {t("users.fields.username")}
             </label>
             <Input
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              {...form.register("username")}
+              disabled={form.formState.isSubmitting}
             />
+            {form.formState.errors.username && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.username.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">
               {t("users.fields.name")}
             </label>
-            <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
+            <Input {...form.register("name")} disabled={form.formState.isSubmitting} />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">
@@ -112,18 +213,20 @@ export default function SettingsPage() {
             </label>
             <Input
               type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              {...form.register("email")}
+              disabled={form.formState.isSubmitting}
             />
+            {form.formState.errors.email && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.email.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">
               {t("users.fields.title")}
             </label>
-            <Input
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-            />
+            <Input {...form.register("title")} disabled={form.formState.isSubmitting} />
           </div>
 
           <hr className="border-slate-200" />
@@ -134,10 +237,15 @@ export default function SettingsPage() {
             </label>
             <Input
               type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              {...form.register("password")}
+              disabled={form.formState.isSubmitting}
               placeholder={t("settings.newPasswordPlaceholder")}
             />
+            {form.formState.errors.password && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.password.message}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">
@@ -145,17 +253,26 @@ export default function SettingsPage() {
             </label>
             <Input
               type="password"
-              value={form.confirmPassword}
-              onChange={(e) =>
-                setForm({ ...form, confirmPassword: e.target.value })
-              }
+              {...form.register("confirmPassword")}
+              disabled={form.formState.isSubmitting}
               placeholder={t("settings.confirmPasswordPlaceholder")}
             />
+            {form.formState.errors.confirmPassword && (
+              <p className="text-sm text-red-600">
+                {form.formState.errors.confirmPassword.message}
+              </p>
+            )}
           </div>
 
+          {form.formState.errors.root?.message && (
+            <p className="text-sm text-red-600">
+              {form.formState.errors.root.message}
+            </p>
+          )}
+
           <div className="flex justify-end">
-            <Button type="submit" disabled={saving}>
-              {saving ? t("common.saving") : t("common.save")}
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </form>

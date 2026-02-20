@@ -1,24 +1,13 @@
-"""JWT authentication utilities shared across all API routes."""
-
-import secrets
+"""JWT utilities without any HTTP-framework dependencies."""
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import Depends, HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings
-
-_bearer = HTTPBearer()
-
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 
-class _AuthSettings(BaseSettings):
-    SECRET_KEY: str = secrets.token_hex(32)
-
-    model_config = {"env_file": ".env", "extra": "ignore"}
+class InvalidTokenError(ValueError):
+    """Raised when a JWT is invalid or expired."""
 
 
 class TokenPayload(BaseModel):
@@ -26,41 +15,30 @@ class TokenPayload(BaseModel):
     exp: datetime
 
 
-def _get_secret() -> str:
-    return _AuthSettings().SECRET_KEY
+class AuthService:
+    def __init__(
+        self,
+        *,
+        secret_key: str,
+        access_token_expire_minutes: int = 60 * 24,
+    ) -> None:
+        self._secret_key = secret_key
+        self._access_token_expire_minutes = access_token_expire_minutes
+
+    def create_access_token(self, user_id: str) -> str:
+        expire = datetime.now(UTC) + timedelta(
+            minutes=self._access_token_expire_minutes
+        )
+        payload = {"sub": user_id, "exp": expire}
+        return jwt.encode(payload, self._secret_key, algorithm="HS256")
+
+    def decode_token(self, token: str) -> TokenPayload:
+        try:
+            data = jwt.decode(token, self._secret_key, algorithms=["HS256"])
+            return TokenPayload(**data)
+        except JWTError as e:
+            msg = "Invalid or expired token"
+            raise InvalidTokenError(msg) from e
 
 
-def create_access_token(user_id: str) -> str:
-    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {"sub": user_id, "exp": expire}
-    return jwt.encode(payload, _get_secret(), algorithm="HS256")
-
-
-def _decode_token(token: str) -> TokenPayload:
-    try:
-        data = jwt.decode(token, _get_secret(), algorithms=["HS256"])
-        return TokenPayload(**data)
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
-
-
-def get_users_manager(request: Request):
-    return request.app.state.users_manager
-
-
-async def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
-) -> str:
-    payload = _decode_token(credentials.credentials)
-    return payload.sub
-
-
-__all__ = [
-    "create_access_token",
-    "get_current_user_id",
-    "get_users_manager",
-]
+__all__ = ["AuthService", "InvalidTokenError", "TokenPayload"]
