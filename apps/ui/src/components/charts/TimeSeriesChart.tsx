@@ -7,6 +7,7 @@ import {
   AnimatedAreaSeries,
   Tooltip,
   XYChart,
+  lightTheme,
 } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
@@ -29,19 +30,26 @@ export type TimeSeriesChartProps = {
   /** String series — each rendered as a color-coded step-area in its own panel */
   stringSeries?: Series[];
   stringValues?: Record<string, (string | null)[]>;
-  height?: number;
+  /** Height of the float line panel */
+  lineHeight?: number;
+  /** Height of each boolean / string categorical panel */
+  categoricalHeight?: number;
 };
 
-const CATEGORICAL_PANEL_HEIGHT = 96;
+const DEFAULT_LINE_HEIGHT = 350;
+const DEFAULT_CATEGORICAL_HEIGHT = 60;
 const MARGIN = { top: 8, right: 16, bottom: 32, left: 48 };
 const MARGIN_NO_BOTTOM = { ...MARGIN, bottom: 4 };
+/** Extra pixels the last panel needs to keep the same chart area as others. */
+const AXIS_EXTRA = MARGIN.bottom - MARGIN_NO_BOTTOM.bottom;
 
-// Palette for distinct string values — backed by CSS custom properties
-// so they follow light/dark theme automatically.
+// Palette backed by CSS custom properties — follows light/dark theme.
 const CHART_COLORS = Array.from(
   { length: 8 },
   (_, i) => `hsl(var(--chart-${i + 1}))`,
 );
+
+const lineChartTheme = { ...lightTheme, colors: CHART_COLORS };
 
 const floatAccessors = {
   xAccessor: (d: FloatDatum) => d.timestamp,
@@ -52,6 +60,69 @@ const boolAccessors = {
   xAccessor: (d: BoolDatum) => d.timestamp,
   yAccessor: (d: BoolDatum) => d.value,
 };
+
+const legendStyle = {
+  display: "flex",
+  flexWrap: "wrap" as const,
+  gap: "4px 16px",
+  paddingLeft: MARGIN.left,
+  paddingBottom: 0,
+  paddingTop: 12,
+};
+
+const legendItemStyle = {
+  display: "flex",
+  alignItems: "center" as const,
+  gap: 6,
+  fontSize: 12,
+};
+
+const legendLabelStyle = {
+  color: "hsl(var(--muted-foreground))",
+};
+
+function TooltipContent({
+  timestamp,
+  label,
+  value,
+}: {
+  timestamp: Date;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="leading-relaxed">
+      <div className="text-muted-foreground text-[11px] font-normal">
+        {timestamp.toLocaleString()}
+      </div>
+      <div className="text-xs font-normal">
+        <span className="text-muted-foreground">{label} </span>
+        <span className="font-semibold">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function LegendSwatch({
+  color,
+  variant,
+}: {
+  color: string;
+  variant: "line" | "area";
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        width: variant === "line" ? 16 : 10,
+        height: variant === "line" ? 3 : 10,
+        borderRadius: variant === "line" ? 1 : 2,
+        backgroundColor: color,
+        opacity: variant === "area" ? 0.5 : 1,
+      }}
+    />
+  );
+}
 
 /** Extract unique non-null values from a string series, in first-seen order. */
 function useUniqueValues(values: (string | null)[]): string[] {
@@ -89,73 +160,77 @@ function StringPanel({
   const uniqueValues = useUniqueValues(values);
 
   return (
-    <XYChart
-      height={panelHeight}
-      width={width}
-      margin={showBottomAxis ? MARGIN : MARGIN_NO_BOTTOM}
-      xScale={{ type: "time" }}
-      yScale={{ type: "linear", domain: [0, 1] }}
-    >
-      {showBottomAxis && <AnimatedAxis orientation="bottom" numTicks={5} />}
-      {uniqueValues.map((val, vi) => {
-        const data = timestamps
-          .map((t, i) => {
-            if (values[i] === null || values[i] === undefined) return null;
-            return { timestamp: t, value: values[i] === val ? 1 : 0 };
-          })
-          .filter((d): d is BoolDatum => d !== null);
-
-        const color = CHART_COLORS[vi % CHART_COLORS.length];
-
-        return (
-          <AnimatedAreaSeries
-            key={`${seriesKey}::${val}`}
-            dataKey={`${seriesKey}::${val}`}
-            data={data}
-            curve={curveStepAfter}
-            renderLine={false}
-            fillOpacity={0.35}
-            fill={color}
-            {...boolAccessors}
-          />
-        );
-      })}
-      <Tooltip
-        snapTooltipToDatumX
-        renderTooltip={({ tooltipData }) => {
-          const datum = tooltipData?.nearestDatum?.datum as
-            | BoolDatum
-            | undefined;
-          if (!datum) return null;
-          // Find which sub-series is active (value === 1) at this point
-          const activeKey = Object.entries(tooltipData?.datumByKey ?? {}).find(
-            ([key, entry]) =>
-              key.startsWith(`${seriesKey}::`) &&
-              (entry.datum as BoolDatum).value === 1,
-          )?.[0];
-          const activeValue = activeKey?.split("::")?.[1] ?? "—";
-          return (
-            <div>
-              <div>{datum.timestamp.toLocaleString()}</div>
-              <div>
-                {label}: {activeValue}
-              </div>
-            </div>
-          );
-        }}
-      />
-      {/* Series label on the left */}
-      <text
-        x={4}
-        y={panelHeight / 2}
-        fontSize={11}
-        fill="currentColor"
-        dominantBaseline="middle"
-        className="text-muted-foreground"
+    <>
+      <div style={legendStyle}>
+        {uniqueValues.map((val, vi) => (
+          <div key={val} style={legendItemStyle}>
+            <LegendSwatch
+              color={CHART_COLORS[vi % CHART_COLORS.length]}
+              variant="area"
+            />
+            <span style={legendLabelStyle}>
+              {label}: {val}
+            </span>
+          </div>
+        ))}
+      </div>
+      <XYChart
+        height={panelHeight + (showBottomAxis ? AXIS_EXTRA : 0)}
+        width={width}
+        margin={showBottomAxis ? MARGIN : MARGIN_NO_BOTTOM}
+        xScale={{ type: "time" }}
+        yScale={{ type: "linear", domain: [0, 1] }}
       >
-        {label}
-      </text>
-    </XYChart>
+        {showBottomAxis && <AnimatedAxis orientation="bottom" numTicks={5} />}
+        {uniqueValues.map((val, vi) => {
+          const data = timestamps
+            .map((t, i) => {
+              if (values[i] === null || values[i] === undefined) return null;
+              return { timestamp: t, value: values[i] === val ? 1 : 0 };
+            })
+            .filter((d): d is BoolDatum => d !== null);
+
+          const color = CHART_COLORS[vi % CHART_COLORS.length];
+
+          return (
+            <AnimatedAreaSeries
+              key={`${seriesKey}::${val}`}
+              dataKey={`${seriesKey}::${val}`}
+              data={data}
+              curve={curveStepAfter}
+              renderLine={false}
+              fillOpacity={0.35}
+              fill={color}
+              {...boolAccessors}
+            />
+          );
+        })}
+        <Tooltip
+          snapTooltipToDatumX
+          renderTooltip={({ tooltipData }) => {
+            const datum = tooltipData?.nearestDatum?.datum as
+              | BoolDatum
+              | undefined;
+            if (!datum) return null;
+            const activeKey = Object.entries(
+              tooltipData?.datumByKey ?? {},
+            ).find(
+              ([key, entry]) =>
+                key.startsWith(`${seriesKey}::`) &&
+                (entry.datum as BoolDatum).value === 1,
+            )?.[0];
+            const activeValue = activeKey?.split("::")?.[1] ?? "\u2014";
+            return (
+              <TooltipContent
+                timestamp={datum.timestamp}
+                label={label}
+                value={activeValue}
+              />
+            );
+          }}
+        />
+      </XYChart>
+    </>
   );
 }
 
@@ -167,7 +242,8 @@ function TimeSeriesChartInner({
   booleanValues = {},
   stringSeries = [],
   stringValues = {},
-  height = 300,
+  lineHeight = DEFAULT_LINE_HEIGHT,
+  categoricalHeight = DEFAULT_CATEGORICAL_HEIGHT,
   width,
 }: TimeSeriesChartProps & { width: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,25 +273,6 @@ function TimeSeriesChartInner({
   const hasFloats = lineSeries.length > 0;
   const hasBooleans = booleanSeries.length > 0;
   const hasStrings = stringSeries.length > 0;
-  const categoricalCount = booleanSeries.length + stringSeries.length;
-  const totalCategoricalHeight = categoricalCount * CATEGORICAL_PANEL_HEIGHT;
-
-  let floatHeight: number;
-  if (hasFloats && (hasBooleans || hasStrings)) {
-    floatHeight = Math.max(height - totalCategoricalHeight, 80);
-  } else if (hasFloats) {
-    floatHeight = height;
-  } else {
-    floatHeight = 0;
-  }
-
-  const catPanelHeight =
-    categoricalCount > 0
-      ? hasFloats
-        ? CATEGORICAL_PANEL_HEIGHT
-        : Math.floor(height / categoricalCount)
-      : 0;
-
   const isLastFloat = !hasBooleans && !hasStrings;
 
   return (
@@ -225,14 +282,53 @@ function TimeSeriesChartInner({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
+      {/* Line chart legend */}
+      {hasFloats && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "4px 16px",
+            paddingLeft: MARGIN.left,
+            paddingBottom: 4,
+          }}
+        >
+          {lineSeries.map((s, i) => (
+            <div
+              key={s.key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 16,
+                  height: 3,
+                  borderRadius: 1,
+                  backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                }}
+              />
+              <span style={{ color: "hsl(var(--muted-foreground))" }}>
+                {s.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Float panel */}
       {hasFloats && (
         <XYChart
-          height={floatHeight}
+          height={lineHeight + (isLastFloat ? AXIS_EXTRA : 0)}
           width={width}
           margin={isLastFloat ? MARGIN : MARGIN_NO_BOTTOM}
           xScale={{ type: "time" }}
           yScale={{ type: "linear" }}
+          theme={lineChartTheme}
         >
           {isLastFloat && <AnimatedAxis orientation="bottom" numTicks={5} />}
           <AnimatedAxis orientation="left" numTicks={5} />
@@ -260,12 +356,11 @@ function TimeSeriesChartInner({
               if (!key || !datum) return null;
               const label = lineSeries.find((s) => s.key === key)?.label ?? key;
               return (
-                <div>
-                  <div>{datum.timestamp.toLocaleString()}</div>
-                  <div>
-                    {label}: {datum.value}
-                  </div>
-                </div>
+                <TooltipContent
+                  timestamp={datum.timestamp}
+                  label={label}
+                  value={datum.value.toFixed(2)}
+                />
               );
             }}
           />
@@ -284,52 +379,55 @@ function TimeSeriesChartInner({
           .filter((d): d is BoolDatum => d !== null);
 
         return (
-          <XYChart
-            key={s.key}
-            height={catPanelHeight}
-            width={width}
-            margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
-            xScale={{ type: "time" }}
-            yScale={{ type: "linear", domain: [0, 1] }}
-          >
-            {isLast && <AnimatedAxis orientation="bottom" numTicks={5} />}
-            <AnimatedAreaSeries
-              dataKey={s.key}
-              data={data}
-              curve={curveStepAfter}
-              renderLine={false}
-              fillOpacity={0.3}
-              {...boolAccessors}
-            />
-            <Tooltip
-              snapTooltipToDatumX
-              renderTooltip={({ tooltipData }) => {
-                const datum = tooltipData?.nearestDatum?.datum as
-                  | BoolDatum
-                  | undefined;
-                if (!datum) return null;
-                return (
-                  <div>
-                    <div>{datum.timestamp.toLocaleString()}</div>
-                    <div>
-                      {s.label}: {datum.value === 1 ? "true" : "false"}
-                    </div>
-                  </div>
-                );
-              }}
-            />
-            {/* Series label on the left */}
-            <text
-              x={4}
-              y={catPanelHeight / 2}
-              fontSize={11}
-              fill="currentColor"
-              dominantBaseline="middle"
-              className="text-muted-foreground"
+          <div key={s.key}>
+            <div style={legendStyle}>
+              <div style={legendItemStyle}>
+                <LegendSwatch
+                  color={CHART_COLORS[CHART_COLORS.length - 1]}
+                  variant="area"
+                />
+                <span style={legendLabelStyle}>{s.label}</span>
+              </div>
+            </div>
+            <XYChart
+              height={categoricalHeight + (isLast ? AXIS_EXTRA : 0)}
+              width={width}
+              margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
+              xScale={{ type: "time" }}
+              yScale={{ type: "linear", domain: [0, 1] }}
             >
-              {s.label}
-            </text>
-          </XYChart>
+              {isLast && <AnimatedAxis orientation="bottom" numTicks={5} />}
+              <AnimatedAreaSeries
+                dataKey={s.key}
+                data={data}
+                curve={curveStepAfter}
+                renderLine
+                lineProps={{
+                  strokeWidth: 1,
+                  stroke: CHART_COLORS[CHART_COLORS.length - 1],
+                }}
+                fillOpacity={0.3}
+                fill={CHART_COLORS[CHART_COLORS.length - 1]}
+                {...boolAccessors}
+              />
+              <Tooltip
+                snapTooltipToDatumX
+                renderTooltip={({ tooltipData }) => {
+                  const datum = tooltipData?.nearestDatum?.datum as
+                    | BoolDatum
+                    | undefined;
+                  if (!datum) return null;
+                  return (
+                    <TooltipContent
+                      timestamp={datum.timestamp}
+                      label={s.label}
+                      value={datum.value === 1 ? "true" : "false"}
+                    />
+                  );
+                }}
+              />
+            </XYChart>
+          </div>
         );
       })}
 
@@ -341,7 +439,7 @@ function TimeSeriesChartInner({
           label={s.label}
           timestamps={timestamps}
           values={stringValues[s.key] ?? []}
-          panelHeight={catPanelHeight}
+          panelHeight={categoricalHeight}
           width={width}
           showBottomAxis={idx === stringSeries.length - 1}
         />
