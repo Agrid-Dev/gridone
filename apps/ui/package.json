@@ -8,9 +8,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier .",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier src/",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,6 +27,9 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-query": "^5.90.12",
     "@tanstack/react-table": "^8.21.3",
+    "@visx/curve": "^3.12.0",
+    "@visx/responsive": "^3.12.0",
+    "@visx/xychart": "^3.12.0",
     "camelcase-keys": "^10.0.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

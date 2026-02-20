@@ -1,11 +1,4 @@
-import { useMemo } from "react";
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
+import { Link, Outlet, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Button,
@@ -13,9 +6,6 @@ import {
   CardHeader,
   CardContent,
   CardTitle,
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui";
 import { useDevice } from "@/hooks/useDevice";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
@@ -28,19 +18,8 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 export default function DeviceLayout() {
   const { t } = useTranslation();
   const { deviceId } = useParams<{ deviceId: string }>();
-  const location = useLocation();
-  const navigate = useNavigate();
   const { data: device, isLoading, error } = useDevice(deviceId);
   const { handleDelete, isDeleting } = useDeleteDevice();
-
-  const activeTab = location.pathname.endsWith("/history")
-    ? "history"
-    : "live-control";
-
-  const attributeNames = useMemo(
-    () => Object.keys(device?.attributes ?? {}),
-    [device],
-  );
 
   if (isLoading) {
     return (
@@ -83,6 +62,10 @@ export default function DeviceLayout() {
 
             <Button asChild variant="outline">
               <Link to="edit">{t("devices.actions.edit")}</Link>
+            </Button>
+
+            <Button asChild variant="outline">
+              <Link to="history">{t("deviceDetails.history")}</Link>
             </Button>
           </>
         }
@@ -135,23 +118,7 @@ export default function DeviceLayout() {
         </CardContent>
       </Card>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => {
-          navigate(value === "history" ? "history" : ".", { replace: true });
-        }}
-      >
-        <TabsList>
-          <TabsTrigger value="live-control">
-            {t("deviceDetails.liveControl")}
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            {t("deviceDetails.history")}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <Outlet context={{ deviceId, device, attributeNames }} />
+      <Outlet />
     </section>
   );
 }
