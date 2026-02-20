@@ -16,3 +16,14 @@ export {
   TooltipContent,
   TooltipProvider,
 } from "./tooltip";
+export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
+export {
+  Table,
+  TableHeader,
+  TableBody,
+  TableFooter,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableCaption,
+} from "./table";

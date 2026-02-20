@@ -33,6 +33,16 @@
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",
+    "noResults": "No results",
+    "rows": "rows",
+    "previous": "Previous",
+    "next": "Next",
+    "columns": "Columns",
+    "toggleColumns": "Toggle columns",
+    "selectAll": "Select all",
+    "unselectAll": "Unselect all",
+    "timestamp": "Timestamp",
+    "rowsRange": "{{from}}\u2013{{to}} of {{total}} rows",
     "timeAgo": {
       "future": "In the future",
       "justNow": "just now",
@@ -104,7 +114,11 @@
     "missingDeviceId": "Missing device identifier",
     "unableToLoad": "Unable to load device",
     "updated": "{{name}} updated",
-    "updateFailed": "Update failed"
+    "updateFailed": "Update failed",
+    "liveControl": "Live Control",
+    "history": "History",
+    "selectAttributes": "Select attributes...",
+    "searchAttributes": "Search attributes..."
   },
   "transports": {
     "title": "Transports",
