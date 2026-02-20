@@ -65,18 +65,19 @@ export default function SettingsPage() {
             .email(t("settings.validation.emailInvalid"))
             .or(z.literal("")),
           title: z.string().trim(),
-          password: z
-            .string()
-            .max(
-              validationRules.passwordMaxLength,
-              t("settings.validation.passwordMaxLength", {
-                count: validationRules.passwordMaxLength,
-              }),
-            ),
+          password: z.string().max(
+            validationRules.passwordMaxLength,
+            t("settings.validation.passwordMaxLength", {
+              count: validationRules.passwordMaxLength,
+            }),
+          ),
           confirmPassword: z.string(),
         })
         .superRefine((values, ctx) => {
-          if (values.password.length === 0 && values.confirmPassword.length > 0) {
+          if (
+            values.password.length === 0 &&
+            values.confirmPassword.length > 0
+          ) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               path: ["confirmPassword"],
@@ -205,7 +206,10 @@ export default function SettingsPage() {
             <label className="text-sm font-medium text-slate-700">
               {t("users.fields.name")}
             </label>
-            <Input {...form.register("name")} disabled={form.formState.isSubmitting} />
+            <Input
+              {...form.register("name")}
+              disabled={form.formState.isSubmitting}
+            />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-slate-700">
@@ -226,7 +230,10 @@ export default function SettingsPage() {
             <label className="text-sm font-medium text-slate-700">
               {t("users.fields.title")}
             </label>
-            <Input {...form.register("title")} disabled={form.formState.isSubmitting} />
+            <Input
+              {...form.register("title")}
+              disabled={form.formState.isSubmitting}
+            />
           </div>
 
           <hr className="border-slate-200" />
@@ -272,7 +279,9 @@ export default function SettingsPage() {
 
           <div className="flex justify-end">
             <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? t("common.saving") : t("common.save")}
+              {form.formState.isSubmitting
+                ? t("common.saving")
+                : t("common.save")}
             </Button>
           </div>
         </form>

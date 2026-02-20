@@ -95,11 +95,27 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
 
     # Protected routes (JWT required)
     jwt_dep = [Depends(get_current_user_id)]
-    app.include_router(users_router, prefix="/users", tags=["users"], dependencies=jwt_dep)
-    app.include_router(devices_router, prefix="/devices", tags=["devices"], dependencies=jwt_dep)
-    app.include_router(transports_router, prefix="/transports", tags=["transports"], dependencies=jwt_dep)
-    app.include_router(drivers_router, prefix="/drivers", tags=["drivers"], dependencies=jwt_dep)
-    app.include_router(timeseries_router, prefix="/timeseries", tags=["timeseries"], dependencies=jwt_dep)
+    app.include_router(
+        users_router, prefix="/users", tags=["users"], dependencies=jwt_dep
+    )
+    app.include_router(
+        devices_router, prefix="/devices", tags=["devices"], dependencies=jwt_dep
+    )
+    app.include_router(
+        transports_router,
+        prefix="/transports",
+        tags=["transports"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        drivers_router, prefix="/drivers", tags=["drivers"], dependencies=jwt_dep
+    )
+    app.include_router(
+        timeseries_router,
+        prefix="/timeseries",
+        tags=["timeseries"],
+        dependencies=jwt_dep,
+    )
     app.include_router(websocket_routes.router, tags=["websocket"])
 
     return app

@@ -40,9 +40,7 @@ class PostgresUsersStorage:
         )
 
     async def get_by_id(self, user_id: str) -> UserInDB | None:
-        row = await self._pool.fetchrow(
-            "SELECT * FROM users WHERE id = $1", user_id
-        )
+        row = await self._pool.fetchrow("SELECT * FROM users WHERE id = $1", user_id)
         return self._row_to_model(row) if row else None
 
     async def get_by_username(self, username: str) -> UserInDB | None:
@@ -52,15 +50,16 @@ class PostgresUsersStorage:
         return self._row_to_model(row) if row else None
 
     async def list_all(self) -> list[UserInDB]:
-        rows = await self._pool.fetch(
-            "SELECT * FROM users ORDER BY username"
-        )
+        rows = await self._pool.fetch("SELECT * FROM users ORDER BY username")
         return [self._row_to_model(r) for r in rows]
 
     async def save(self, user: UserInDB) -> None:
         await self._pool.execute(
             """
-            INSERT INTO users (id, username, hashed_password, is_admin, name, email, title, must_change_password)
+            INSERT INTO users (
+                id, username, hashed_password, is_admin,
+                name, email, title, must_change_password
+            )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,

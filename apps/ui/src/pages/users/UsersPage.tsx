@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2 } from "lucide-react";
@@ -39,8 +39,7 @@ export default function UsersPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { state } = useAuth();
-  const currentUserId =
-    state.status === "authenticated" ? state.user.id : null;
+  const currentUserId = state.status === "authenticated" ? state.user.id : null;
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
@@ -184,7 +183,9 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-slate-600">{user.name}</td>
                   <td className="px-4 py-3 text-slate-600">{user.email}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {user.isAdmin ? t("users.roles.admin") : t("users.roles.user")}
+                    {user.isAdmin
+                      ? t("users.roles.admin")
+                      : t("users.roles.user")}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
@@ -215,7 +216,10 @@ export default function UsersPage() {
         </div>
       )}
 
-      <Dialog open={dialogMode !== null} onOpenChange={() => setDialogMode(null)}>
+      <Dialog
+        open={dialogMode !== null}
+        onOpenChange={() => setDialogMode(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -245,7 +249,9 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required={dialogMode === "create"}
                 placeholder={
-                  dialogMode === "edit" ? t("users.fields.passwordPlaceholder") : undefined
+                  dialogMode === "edit"
+                    ? t("users.fields.passwordPlaceholder")
+                    : undefined
                 }
               />
             </div>
@@ -282,7 +288,9 @@ export default function UsersPage() {
                 id="isAdmin"
                 type="checkbox"
                 checked={form.isAdmin}
-                onChange={(e) => setForm({ ...form, isAdmin: e.target.checked })}
+                onChange={(e) =>
+                  setForm({ ...form, isAdmin: e.target.checked })
+                }
                 className="h-4 w-4 rounded border-slate-300"
               />
               <label htmlFor="isAdmin" className="text-sm text-slate-700">
@@ -290,11 +298,17 @@ export default function UsersPage() {
               </label>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogMode(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogMode(null)}
+              >
                 {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={isBusy}>
-                {dialogMode === "create" ? t("common.create") : t("common.save")}
+                {dialogMode === "create"
+                  ? t("common.create")
+                  : t("common.save")}
               </Button>
             </DialogFooter>
           </form>

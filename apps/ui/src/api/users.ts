@@ -32,19 +32,26 @@ export function createUser(payload: UserCreatePayload): Promise<User> {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(snakecaseKeys(payload as Record<string, unknown>, { deep: true })),
+      body: JSON.stringify(
+        snakecaseKeys(payload as Record<string, unknown>, { deep: true }),
+      ),
     },
     { camelCase: true },
   );
 }
 
-export function updateUser(userId: string, payload: UserUpdatePayload): Promise<User> {
+export function updateUser(
+  userId: string,
+  payload: UserUpdatePayload,
+): Promise<User> {
   return request<User>(
     `/users/${encodeURIComponent(userId)}`,
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(snakecaseKeys(payload as Record<string, unknown>, { deep: true })),
+      body: JSON.stringify(
+        snakecaseKeys(payload as Record<string, unknown>, { deep: true }),
+      ),
     },
     { camelCase: true },
   );

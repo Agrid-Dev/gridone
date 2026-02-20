@@ -58,9 +58,7 @@ class UsersManager:
         users = await self._storage.list_all()
         return [self._to_public_user(u) for u in users]
 
-    async def create_user(
-        self, create_data: UserCreate
-    ) -> User:
+    async def create_user(self, create_data: UserCreate) -> User:
         existing = await self._storage.get_by_username(create_data.username)
         if existing is not None:
             msg = f"Username '{create_data.username}' already exists"

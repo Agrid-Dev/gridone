@@ -49,11 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ status: "unauthenticated" });
       return;
     }
-    refreshMe()
-      .catch(() => {
-        clearToken();
-        setState({ status: "unauthenticated" });
-      });
+    refreshMe().catch(() => {
+      clearToken();
+      setState({ status: "unauthenticated" });
+    });
   }, [refreshMe]);
 
   const login = useCallback(
