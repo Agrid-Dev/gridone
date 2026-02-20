@@ -96,7 +96,6 @@ export default function DeviceHistoryChart() {
       booleanValues={booleanValues}
       stringSeries={stringSeries}
       stringValues={stringValues}
-      height={400}
     />
   );
 }
