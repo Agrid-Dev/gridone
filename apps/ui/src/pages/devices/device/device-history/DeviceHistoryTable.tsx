@@ -1,7 +1,16 @@
-import { useOutletContext } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { flexRender } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, History, Settings2 } from "lucide-react";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  type PaginationState,
+  type SortingState,
+} from "@tanstack/react-table";
+import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import {
   Button,
   Table,
@@ -11,17 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Empty,
   EmptyDescription,
@@ -30,43 +28,80 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { ErrorFallback } from "@/components/fallbacks/Error";
-import { toLabel } from "@/lib/textFormat";
-import { useDeviceHistory } from "./useDeviceHistory";
-import type { Device } from "@/api/devices";
+import { buildColumns } from "./columns";
+import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
-type DeviceLayoutContext = {
-  deviceId: string;
-  device: Device;
-  attributeNames: string[];
-};
+const PAGE_SIZE = 20;
 
-export default function DeviceHistory() {
+export default function DeviceHistoryTable() {
   const { t } = useTranslation();
-  const { deviceId, attributeNames } = useOutletContext<DeviceLayoutContext>();
-  const { table, isLoading, error, availableAttributes } = useDeviceHistory(
-    deviceId,
-    attributeNames,
+  const {
+    availableAttributes,
+    dataTypes,
+    columnVisibility,
+    handleVisibilityChange,
+    columnOrder,
+    setColumnOrder,
+    filteredRows,
+    isLoading,
+    error,
+  } = useDeviceHistoryContext();
+
+  const columns = useMemo(
+    () => buildColumns(availableAttributes, dataTypes, t),
+    [availableAttributes, dataTypes, t],
   );
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-8 w-28 rounded-md" />
-          <Skeleton className="h-5 w-16 rounded-full" />
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <div className="bg-muted/50">
-            <Skeleton className="h-10 w-full" />
-          </div>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full border-t" />
-          ))}
-        </div>
-        <Skeleton className="ml-auto h-8 w-48 rounded-md" />
-      </div>
-    );
-  }
+  // URL-synced pagination (1-based in URL, 0-based internally)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageIndex = Math.max(0, Number(searchParams.get("page") ?? "1") - 1);
+
+  const handlePaginationChange = useCallback(
+    (
+      updater: PaginationState | ((prev: PaginationState) => PaginationState),
+    ) => {
+      const next =
+        typeof updater === "function"
+          ? updater({ pageIndex, pageSize: PAGE_SIZE })
+          : updater;
+      setSearchParams(
+        next.pageIndex === 0 ? {} : { page: String(next.pageIndex + 1) },
+        { replace: true },
+      );
+    },
+    [pageIndex, setSearchParams],
+  );
+
+  // Clamp to last page when current page exceeds page count
+  const maxPage = Math.max(0, Math.ceil(filteredRows.length / PAGE_SIZE) - 1);
+  useEffect(() => {
+    if (filteredRows.length > 0 && pageIndex > maxPage) {
+      setSearchParams(maxPage === 0 ? {} : { page: String(maxPage + 1) }, {
+        replace: true,
+      });
+    }
+  }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+
+  const table = useReactTable({
+    data: filteredRows,
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+      columnOrder,
+      pagination: { pageIndex, pageSize: PAGE_SIZE },
+    },
+    onSortingChange: setSorting,
+    onPaginationChange: handlePaginationChange,
+    onColumnVisibilityChange: handleVisibilityChange,
+    onColumnOrderChange: setColumnOrder,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: false,
+  });
 
   if (error) {
     return (
@@ -77,7 +112,7 @@ export default function DeviceHistory() {
     );
   }
 
-  if (availableAttributes.length === 0) {
+  if (!isLoading && availableAttributes.length === 0) {
     return (
       <Empty>
         <EmptyHeader>
@@ -96,64 +131,12 @@ export default function DeviceHistory() {
     );
   }
 
-  const visibleCount = table
-    .getAllColumns()
-    .filter((c) => c.id !== "timestamp" && c.getIsVisible()).length;
-  const allVisible = visibleCount === availableAttributes.length;
-
-  const toggleAll = (visible: boolean) => {
-    for (const attr of availableAttributes) {
-      table.getColumn(attr)?.toggleVisibility(visible);
-    }
-  };
-
-  const { pageIndex, pageSize } = table.getState().pagination;
+  const { pageIndex: currentPage, pageSize } = table.getState().pagination;
   const totalRows = table.getFilteredRowModel().rows.length;
   const pageCount = table.getPageCount();
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Settings2 className="mr-2 h-4 w-4" />
-              {t("common.columns")}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            <DropdownMenuLabel>{t("common.toggleColumns")}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                toggleAll(!allVisible);
-              }}
-            >
-              {allVisible ? t("common.unselectAll") : t("common.selectAll")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {availableAttributes.map((attr) => (
-              <DropdownMenuCheckboxItem
-                key={attr}
-                checked={table.getColumn(attr)?.getIsVisible() ?? false}
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(checked) =>
-                  table.getColumn(attr)?.toggleVisibility(!!checked)
-                }
-              >
-                {toLabel(attr)}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <Badge variant="secondary" className="text-xs">
-          {visibleCount} / {availableAttributes.length}
-        </Badge>
-      </div>
-
       {/* Table */}
       <div className="overflow-hidden rounded-lg border">
         <Table>
@@ -206,8 +189,8 @@ export default function DeviceHistory() {
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
             {t("common.rowsRange", {
-              from: pageIndex * pageSize + 1,
-              to: Math.min((pageIndex + 1) * pageSize, totalRows),
+              from: currentPage * pageSize + 1,
+              to: Math.min((currentPage + 1) * pageSize, totalRows),
               total: totalRows,
             })}
           </p>
@@ -222,7 +205,7 @@ export default function DeviceHistory() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <span className="px-2 text-sm tabular-nums text-muted-foreground">
-              {pageIndex + 1} / {pageCount}
+              {currentPage + 1} / {pageCount}
             </span>
             <Button
               variant="outline"
