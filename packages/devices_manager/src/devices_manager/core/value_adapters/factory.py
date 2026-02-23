@@ -8,6 +8,7 @@ from .registry.byte_convert_adapter import byte_convert_adapter
 from .registry.identity_adapter import identity_adapter
 from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
+from .registry.lorawan_elsys_adapter import lorawan_elsys_adapter
 from .registry.scale_adapter import scale_adapter
 
 value_adapter_builders = {
@@ -17,6 +18,7 @@ value_adapter_builders = {
     "json_path": json_path_adapter,
     "bool_format": bool_format_adapter,
     "byte_convert": byte_convert_adapter,
+    "lorawan_elsys": lorawan_elsys_adapter,
 }
 
 supported_value_adapters = list(value_adapter_builders.keys())
