@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 64
@@ -6,15 +6,27 @@ PASSWORD_MIN_LENGTH = 5
 PASSWORD_MAX_LENGTH = 128
 
 
-class AuthValidationRules(BaseModel):
-    username_min_length: int = USERNAME_MIN_LENGTH
-    username_max_length: int = USERNAME_MAX_LENGTH
-    password_min_length: int = PASSWORD_MIN_LENGTH
-    password_max_length: int = PASSWORD_MAX_LENGTH
+class AuthPayload(BaseModel):
+    """Credentials model with validation enforced via Pydantic Field.
+    Schema is exported to the front for form validation (single source of truth).
+    """
+
+    username: str = Field(
+        ...,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        strip_whitespace=True,
+    )
+    password: str = Field(
+        ...,
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+    )
 
 
-def get_auth_validation_rules() -> AuthValidationRules:
-    return AuthValidationRules()
+def get_auth_payload_schema() -> dict:
+    """JSON schema of AuthPayload for frontend form (e.g. z.fromJSONSchema)."""
+    return AuthPayload.model_json_schema()
 
 
 __all__ = [
@@ -22,6 +34,6 @@ __all__ = [
     "PASSWORD_MIN_LENGTH",
     "USERNAME_MAX_LENGTH",
     "USERNAME_MIN_LENGTH",
-    "AuthValidationRules",
-    "get_auth_validation_rules",
+    "AuthPayload",
+    "get_auth_payload_schema",
 ]

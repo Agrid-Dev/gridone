@@ -2,18 +2,11 @@ from typing import Annotated
 
 from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel
 
 from users import User, UsersManager
 from users.auth import AuthService
-from users.validation import (
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
-    USERNAME_MAX_LENGTH,
-    USERNAME_MIN_LENGTH,
-    AuthValidationRules,
-    get_auth_validation_rules,
-)
+from users.validation import AuthPayload, get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
     get_current_user_id,
@@ -21,24 +14,6 @@ from api.dependencies import (
 )
 
 router = APIRouter()
-
-UsernameField = Annotated[
-    str,
-    StringConstraints(
-        strip_whitespace=True,
-        min_length=USERNAME_MIN_LENGTH,
-        max_length=USERNAME_MAX_LENGTH,
-    ),
-]
-PasswordField = Annotated[
-    str,
-    StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
-]
-
-
-class LoginRequest(BaseModel):
-    username: UsernameField
-    password: PasswordField
 
 
 class TokenResponse(BaseModel):
@@ -48,7 +23,7 @@ class TokenResponse(BaseModel):
 
 @router.post("/login", response_model=TokenResponse)
 async def login(
-    body: LoginRequest,
+    body: AuthPayload,
     um: Annotated[UsersManager, Depends(get_users_manager)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
@@ -62,9 +37,10 @@ async def login(
     return TokenResponse(access_token=token)
 
 
-@router.get("/validation-rules", response_model=AuthValidationRules)
-async def get_validation_rules() -> AuthValidationRules:
-    return get_auth_validation_rules()
+@router.get("/schema")
+async def get_auth_schema() -> dict:
+    """JSON schema of AuthPayload for frontend form validation (e.g. z.fromJSONSchema)."""
+    return get_auth_payload_schema()
 
 
 @router.get("/me", response_model=User)

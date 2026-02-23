@@ -7,10 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/api/apiError";
-import {
-  DEFAULT_AUTH_VALIDATION_RULES,
-  getAuthValidationRules,
-} from "@/api/authValidation";
+import { getAuthSchema } from "@/api/authValidation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,52 +21,22 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const { data: fetchedValidationRules } = useQuery({
-    queryKey: ["auth-validation-rules"],
-    queryFn: getAuthValidationRules,
+  const { data: authSchema, isLoading: isSchemaLoading } = useQuery({
+    queryKey: ["auth-schema"],
+    queryFn: getAuthSchema,
     staleTime: 5 * 60 * 1000,
   });
-  const validationRules =
-    fetchedValidationRules ?? DEFAULT_AUTH_VALIDATION_RULES;
 
-  const schema = useMemo(
-    () =>
-      z.object({
-        username: z
-          .string()
-          .trim()
-          .min(
-            validationRules.usernameMinLength,
-            t("auth.login.validation.usernameMinLength", {
-              count: validationRules.usernameMinLength,
-            }),
-          )
-          .max(
-            validationRules.usernameMaxLength,
-            t("auth.login.validation.usernameMaxLength", {
-              count: validationRules.usernameMaxLength,
-            }),
-          ),
-        password: z
-          .string()
-          .min(
-            validationRules.passwordMinLength,
-            t("auth.login.validation.passwordMinLength", {
-              count: validationRules.passwordMinLength,
-            }),
-          )
-          .max(
-            validationRules.passwordMaxLength,
-            t("auth.login.validation.passwordMaxLength", {
-              count: validationRules.passwordMaxLength,
-            }),
-          ),
-      }),
-    [t, validationRules],
-  );
+  const schema = useMemo(() => {
+    if (!authSchema) return null;
+    return z.fromJSONSchema(authSchema) as z.ZodObject<{
+      username: z.ZodString;
+      password: z.ZodString;
+    }>;
+  }, [authSchema]);
 
   const form = useForm<LoginFormValues>({
-    resolver: zodResolver(schema),
+    resolver: schema ? zodResolver(schema) : undefined,
     defaultValues: {
       username: "",
       password: "",
@@ -158,11 +125,13 @@ export default function LoginPage() {
           <Button
             type="submit"
             className="w-full"
-            disabled={form.formState.isSubmitting}
+            disabled={form.formState.isSubmitting || isSchemaLoading || !schema}
           >
             {form.formState.isSubmitting
               ? t("auth.login.signingIn")
-              : t("auth.login.signIn")}
+              : isSchemaLoading
+                ? t("common.loading")
+                : t("auth.login.signIn")}
           </Button>
         </form>
       </div>

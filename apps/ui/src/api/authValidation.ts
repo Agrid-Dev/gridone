@@ -1,21 +1,21 @@
 import { request } from "./request";
 
-export type AuthValidationRules = {
-  usernameMinLength: number;
-  usernameMaxLength: number;
-  passwordMinLength: number;
-  passwordMaxLength: number;
+/** JSON schema of AuthPayload from the API (Pydantic model_json_schema()). */
+export type AuthSchemaProperty = {
+  type?: "string" | "number" | "integer" | "boolean";
+  minLength?: number;
+  maxLength?: number;
+  title?: string;
+  description?: string;
 };
 
-export const DEFAULT_AUTH_VALIDATION_RULES: AuthValidationRules = {
-  usernameMinLength: 3,
-  usernameMaxLength: 64,
-  passwordMinLength: 5,
-  passwordMaxLength: 128,
+export type AuthSchema = {
+  type?: "object";
+  title?: string;
+  properties?: Record<string, AuthSchemaProperty>;
+  required?: string[];
 };
 
-export function getAuthValidationRules(): Promise<AuthValidationRules> {
-  return request<AuthValidationRules>("/auth/validation-rules", undefined, {
-    camelCase: true,
-  });
+export function getAuthSchema(): Promise<AuthSchema> {
+  return request<AuthSchema>("/auth/schema");
 }

@@ -9,8 +9,8 @@ All routes are defined in this package (not in `gridone-users`).
 - `POST /auth/login`:
   - Body: username/password
   - Response: bearer access token
-- `GET /auth/validation-rules`:
-  - Response: username/password validation constraints
+- `GET /auth/schema`:
+  - Response: JSON schema of AuthPayload (for frontend form validation, e.g. z.fromJSONSchema)
 - `GET /auth/me`:
   - Requires bearer token
   - Response: current authenticated user

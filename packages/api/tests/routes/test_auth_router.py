@@ -53,15 +53,18 @@ def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
-def test_get_auth_validation_rules(client: TestClient) -> None:
-    response = client.get("/validation-rules")
+def test_get_auth_schema(client: TestClient) -> None:
+    response = client.get("/schema")
     assert response.status_code == 200
-    assert response.json() == {
-        "username_min_length": USERNAME_MIN_LENGTH,
-        "username_max_length": USERNAME_MAX_LENGTH,
-        "password_min_length": PASSWORD_MIN_LENGTH,
-        "password_max_length": PASSWORD_MAX_LENGTH,
-    }
+    data = response.json()
+    assert data.get("type") == "object"
+    assert "username" in data.get("properties", {})
+    assert "password" in data.get("properties", {})
+    assert data["properties"]["username"]["minLength"] == USERNAME_MIN_LENGTH
+    assert data["properties"]["username"]["maxLength"] == USERNAME_MAX_LENGTH
+    assert data["properties"]["password"]["minLength"] == PASSWORD_MIN_LENGTH
+    assert data["properties"]["password"]["maxLength"] == PASSWORD_MAX_LENGTH
+    assert set(data.get("required", [])) == {"username", "password"}
 
 
 def test_login_unknown_user_shows_auth_error(client: TestClient) -> None:

@@ -8,10 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUser } from "@/api/users";
 import { ApiError } from "@/api/apiError";
-import {
-  DEFAULT_AUTH_VALIDATION_RULES,
-  getAuthValidationRules,
-} from "@/api/authValidation";
+import { getAuthSchema } from "@/api/authValidation";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,13 +28,16 @@ export default function SettingsPage() {
 
   const user = state.status === "authenticated" ? state.user : null;
 
-  const { data: fetchedValidationRules } = useQuery({
-    queryKey: ["auth-validation-rules"],
-    queryFn: getAuthValidationRules,
+  const { data: authSchema } = useQuery({
+    queryKey: ["auth-schema"],
+    queryFn: getAuthSchema,
     staleTime: 5 * 60 * 1000,
   });
-  const validationRules =
-    fetchedValidationRules ?? DEFAULT_AUTH_VALIDATION_RULES;
+
+  const usernameMin = authSchema?.properties?.username?.minLength ?? 3;
+  const usernameMax = authSchema?.properties?.username?.maxLength ?? 64;
+  const passwordMin = authSchema?.properties?.password?.minLength ?? 5;
+  const passwordMax = authSchema?.properties?.password?.maxLength ?? 128;
 
   const schema = useMemo(
     () =>
@@ -47,16 +47,12 @@ export default function SettingsPage() {
             .string()
             .trim()
             .min(
-              validationRules.usernameMinLength,
-              t("settings.validation.usernameMinLength", {
-                count: validationRules.usernameMinLength,
-              }),
+              usernameMin,
+              t("settings.validation.usernameMinLength", { count: usernameMin }),
             )
             .max(
-              validationRules.usernameMaxLength,
-              t("settings.validation.usernameMaxLength", {
-                count: validationRules.usernameMaxLength,
-              }),
+              usernameMax,
+              t("settings.validation.usernameMaxLength", { count: usernameMax }),
             ),
           name: z.string().trim(),
           email: z
@@ -66,10 +62,8 @@ export default function SettingsPage() {
             .or(z.literal("")),
           title: z.string().trim(),
           password: z.string().max(
-            validationRules.passwordMaxLength,
-            t("settings.validation.passwordMaxLength", {
-              count: validationRules.passwordMaxLength,
-            }),
+            passwordMax,
+            t("settings.validation.passwordMaxLength", { count: passwordMax }),
           ),
           confirmPassword: z.string(),
         })
@@ -87,12 +81,12 @@ export default function SettingsPage() {
           }
 
           if (values.password.length > 0) {
-            if (values.password.length < validationRules.passwordMinLength) {
+            if (values.password.length < passwordMin) {
               ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ["password"],
                 message: t("settings.validation.passwordMinLength", {
-                  count: validationRules.passwordMinLength,
+                  count: passwordMin,
                 }),
               });
             }
@@ -112,7 +106,7 @@ export default function SettingsPage() {
             }
           }
         }),
-    [t, validationRules],
+    [t, usernameMin, usernameMax, passwordMin, passwordMax],
   );
 
   const form = useForm<ProfileFormValues>({
