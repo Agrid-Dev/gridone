@@ -1,48 +1,29 @@
-import {
-  type MutableRefObject,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import type { Series, TooltipRow } from "./types";
-import {
-  MARGIN,
-  AXIS_EXTRA,
-  TOOLTIP_OFFSET,
-  CHART_COLORS,
-  BOOL_COLOR,
-} from "./constants";
+import type {
+  FloatPanelEntry,
+  PanelEntry,
+  StringPanelEntry,
+  TooltipRow,
+} from "./types";
+import type { FloatScaleContextType } from "./FloatScaleContext";
+import { MARGIN, AXIS_EXTRA, TOOLTIP_OFFSET, CHART_COLORS } from "./constants";
 import { nearestIndex } from "./nearestIndex";
+import { getTooltipRows } from "./panels/registry";
 
 type UseChartTooltipArgs = {
   timestamps: Date[];
   width: number;
-  lineSeries: Series[];
-  lineValues: Record<string, (number | null)[]>;
-  booleanSeries: Series[];
-  booleanValues: Record<string, (boolean | null)[]>;
-  stringSeries: Series[];
-  stringValues: Record<string, (string | null)[]>;
-  lineHeight: number;
-  categoricalHeight: number;
+  panels: PanelEntry[];
 };
 
 export function useChartTooltip({
   timestamps,
   width,
-  lineSeries,
-  lineValues,
-  booleanSeries,
-  booleanValues,
-  stringSeries,
-  stringValues,
-  lineHeight,
-  categoricalHeight,
+  panels,
 }: UseChartTooltipArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const floatPanelRef = useRef<HTMLDivElement>(null);
+  const floatPanelRef = useRef<HTMLDivElement | null>(null);
   const floatYScaleRef = useRef<((v: number) => number) | null>(null);
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [cursorY, setCursorY] = useState<number | null>(null);
@@ -75,76 +56,54 @@ export function useChartTooltip({
   const hoveredIdx =
     cursorX !== null ? nearestIndex(cursorX, width, timestamps) : null;
 
-  const hasFloats = lineSeries.length > 0;
-  const hasBooleans = booleanSeries.length > 0;
-  const hasStrings = stringSeries.length > 0;
-  const isLastFloat = !hasBooleans && !hasStrings;
-
+  // Build string value→color maps for tooltip swatches
   const stringColorMaps = useMemo(() => {
     const maps: Record<string, Map<string, string>> = {};
-    for (const s of stringSeries) {
-      const vals = stringValues[s.key] ?? [];
+    for (const p of panels) {
+      if (p.type !== "string") continue;
+      const sp = p as StringPanelEntry;
       const seen = new Map<string, string>();
-      for (const v of vals) {
+      for (const v of sp.values) {
         if (v !== null && !seen.has(v)) {
           seen.set(v, CHART_COLORS[seen.size % CHART_COLORS.length]);
         }
       }
-      maps[s.key] = seen;
+      maps[sp.series.key] = seen;
     }
     return maps;
-  }, [stringSeries, stringValues]);
+  }, [panels]);
 
-  const floatYDomain = useMemo(() => {
-    for (const s of lineSeries) {
-      const vals = lineValues[s.key];
-      if (vals?.some((v) => v !== null)) return true;
-    }
-    return false;
-  }, [lineSeries, lineValues]);
+  // Check whether any float data exists (for nearestFloatKey guard)
+  const hasFloatData = useMemo(() => {
+    const fp = panels.find((p) => p.type === "float") as
+      | FloatPanelEntry
+      | undefined;
+    if (!fp) return false;
+    return fp.series.some((s) => fp.values[s.key]?.some((v) => v !== null));
+  }, [panels]);
 
+  // Detect which panel the cursor is hovering over
   const hoveredSection = useMemo(() => {
     if (cursorY === null) return null;
     let y = 0;
     const legendH = 26;
-    if (hasFloats) {
+    for (let i = 0; i < panels.length; i++) {
       y += legendH;
-      const fh = lineHeight + (isLastFloat ? AXIS_EXTRA : 0);
-      if (cursorY < y + fh) return "float";
-      y += fh;
-    }
-    for (let i = 0; i < booleanSeries.length; i++) {
-      y += legendH;
-      const isLast = !hasStrings && i === booleanSeries.length - 1;
-      const bh = categoricalHeight + (isLast ? AXIS_EXTRA : 0);
-      if (cursorY < y + bh) return booleanSeries[i].key;
-      y += bh;
-    }
-    for (let i = 0; i < stringSeries.length; i++) {
-      y += legendH;
-      const isLast = i === stringSeries.length - 1;
-      const sh = categoricalHeight + (isLast ? AXIS_EXTRA : 0);
-      if (cursorY < y + sh) return stringSeries[i].key;
-      y += sh;
+      const isLast = i === panels.length - 1;
+      const ph = panels[i].height + (isLast ? AXIS_EXTRA : 0);
+      if (cursorY < y + ph) return panels[i].key;
+      y += ph;
     }
     return null;
-  }, [
-    cursorY,
-    hasFloats,
-    isLastFloat,
-    booleanSeries,
-    stringSeries,
-    hasStrings,
-    lineHeight,
-    categoricalHeight,
-  ]);
+  }, [cursorY, panels]);
 
+  // When hovering the float panel, find the nearest-by-Y series (within 32px)
   const nearestFloatKey = useMemo(() => {
     if (
       hoveredSection !== "float" ||
       hoveredIdx === null ||
       cursorY === null ||
-      !floatYDomain
+      !hasFloatData
     )
       return null;
     const yScale = floatYScaleRef.current;
@@ -154,10 +113,16 @@ export function useChartTooltip({
     const panelTop =
       panelEl.getBoundingClientRect().top -
       containerEl.getBoundingClientRect().top;
+
+    const fp = panels.find((p) => p.type === "float") as
+      | FloatPanelEntry
+      | undefined;
+    if (!fp) return null;
+
     let nearestKey: string | null = null;
     let nearestDist = Infinity;
-    for (const s of lineSeries) {
-      const v = lineValues[s.key]?.[hoveredIdx];
+    for (const s of fp.series) {
+      const v = fp.values[s.key]?.[hoveredIdx];
       if (v === null || v === undefined) continue;
       const seriesY = panelTop + yScale(v);
       const pxDist = Math.abs(cursorY - seriesY);
@@ -167,70 +132,42 @@ export function useChartTooltip({
       }
     }
     return nearestDist <= 32 ? nearestKey : null;
-  }, [
-    hoveredSection,
-    hoveredIdx,
-    cursorY,
-    floatYDomain,
-    lineSeries,
-    lineValues,
-  ]);
+  }, [hoveredSection, hoveredIdx, cursorY, hasFloatData, panels]);
 
+  // Build tooltip rows by iterating over panels
   const tooltipRows = useMemo(() => {
     if (hoveredIdx === null) return null;
     const rows: TooltipRow[] = [];
-    for (let i = 0; i < lineSeries.length; i++) {
-      const s = lineSeries[i];
-      const v = lineValues[s.key]?.[hoveredIdx];
-      rows.push({
-        label: s.label,
-        value: v !== null && v !== undefined ? v.toFixed(2) : "\u2014",
-        active:
-          hoveredSection === "float"
-            ? nearestFloatKey === s.key
-            : hoveredSection === null,
-        swatch: {
-          color: CHART_COLORS[i % CHART_COLORS.length],
-          variant: "line",
-        },
-      });
-    }
-    for (const s of booleanSeries) {
-      const v = booleanValues[s.key]?.[hoveredIdx];
-      rows.push({
-        label: s.label,
-        value: v === true ? "true" : v === false ? "false" : "\u2014",
-        active: hoveredSection === s.key || hoveredSection === null,
-        swatch: { color: BOOL_COLOR, variant: "area" },
-      });
-    }
-    for (const s of stringSeries) {
-      const v = stringValues[s.key]?.[hoveredIdx];
-      const color = v ? stringColorMaps[s.key]?.get(v) : undefined;
-      rows.push({
-        label: s.label,
-        value: v ?? "\u2014",
-        active: hoveredSection === s.key || hoveredSection === null,
-        swatch: color ? { color, variant: "area" } : undefined,
-      });
+    for (const panel of panels) {
+      const isActive = hoveredSection === panel.key || hoveredSection === null;
+      const panelRows = getTooltipRows(
+        panel,
+        hoveredIdx,
+        isActive,
+        stringColorMaps,
+      );
+
+      // Refine float active state based on Y proximity
+      if (panel.type === "float" && hoveredSection === "float") {
+        const fp = panel as FloatPanelEntry;
+        for (let i = 0; i < panelRows.length; i++) {
+          panelRows[i].active = nearestFloatKey === fp.series[i].key;
+        }
+      }
+
+      rows.push(...panelRows);
     }
     return rows;
-  }, [
-    hoveredIdx,
-    hoveredSection,
-    nearestFloatKey,
-    lineSeries,
-    lineValues,
-    booleanSeries,
-    booleanValues,
-    stringSeries,
-    stringValues,
-    stringColorMaps,
-  ]);
+  }, [hoveredIdx, hoveredSection, nearestFloatKey, panels, stringColorMaps]);
 
-  const totalRows =
-    lineSeries.length + booleanSeries.length + stringSeries.length;
-  const tooltipEstH = 40 + 24 * totalRows;
+  // Tooltip positioning
+  const tooltipEstH =
+    40 +
+    24 *
+      panels.reduce((n, p) => {
+        if (p.type === "float") return n + (p as FloatPanelEntry).series.length;
+        return n + 1;
+      }, 0);
   const containerH = containerRef.current?.offsetHeight ?? Infinity;
 
   const tooltipLeft =
@@ -249,12 +186,14 @@ export function useChartTooltip({
         : cursorY + TOOLTIP_OFFSET
       : 0;
 
+  const floatScaleCtx: FloatScaleContextType = {
+    panelRef: floatPanelRef,
+    yScaleRef: floatYScaleRef,
+  };
+
   return {
     containerRef,
-    floatPanelRef,
-    floatYScaleRef: floatYScaleRef as MutableRefObject<
-      ((v: number) => number) | null
-    >,
+    floatScaleCtx,
     handlePointerMove,
     handlePointerLeave,
     cursorX,
@@ -263,9 +202,5 @@ export function useChartTooltip({
     tooltipRows,
     tooltipLeft,
     tooltipTop,
-    hasFloats,
-    hasBooleans,
-    hasStrings,
-    isLastFloat,
   };
 }

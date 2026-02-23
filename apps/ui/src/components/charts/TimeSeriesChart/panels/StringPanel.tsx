@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { AnimatedAxis, AnimatedAreaSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
-import type { BoolDatum } from "./types";
+import type {
+  BoolDatum,
+  StringPanelEntry,
+  PanelComponentProps,
+} from "../types";
 import {
   MARGIN,
   MARGIN_NO_BOTTOM,
@@ -12,10 +16,10 @@ import {
   legendStyle,
   legendItemStyle,
   legendLabelStyle,
-} from "./constants";
-import { LegendSwatch } from "./LegendSwatch";
+} from "../constants";
+import { LegendSwatch } from "../LegendSwatch";
 
-/** Extract unique non-null values from a string series, in first-seen order. */
+/** Extract unique non-null values in first-seen order. */
 function useUniqueValues(values: (string | null)[]): string[] {
   return useMemo(() => {
     const seen = new Set<string>();
@@ -30,24 +34,13 @@ function useUniqueValues(values: (string | null)[]): string[] {
   }, [values]);
 }
 
-/** One panel per string series — renders one AreaSeries per unique value. */
 export function StringPanel({
-  seriesKey,
-  label,
+  entry,
   timestamps,
-  values,
-  panelHeight,
   width,
-  showBottomAxis,
-}: {
-  seriesKey: string;
-  label: string;
-  timestamps: Date[];
-  values: (string | null)[];
-  panelHeight: number;
-  width: number;
-  showBottomAxis: boolean;
-}) {
+  isLast,
+}: PanelComponentProps) {
+  const { series, values, height } = entry as StringPanelEntry;
   const uniqueValues = useUniqueValues(values);
 
   return (
@@ -60,19 +53,19 @@ export function StringPanel({
               variant="area"
             />
             <span style={legendLabelStyle}>
-              {label}: {val}
+              {series.label}: {val}
             </span>
           </div>
         ))}
       </div>
       <XYChart
-        height={panelHeight + (showBottomAxis ? AXIS_EXTRA : 0)}
+        height={height + (isLast ? AXIS_EXTRA : 0)}
         width={width}
-        margin={showBottomAxis ? MARGIN : MARGIN_NO_BOTTOM}
+        margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
         xScale={{ type: "time" }}
         yScale={{ type: "linear", domain: [0, 1] }}
       >
-        {showBottomAxis && <AnimatedAxis orientation="bottom" numTicks={5} />}
+        {isLast && <AnimatedAxis orientation="bottom" numTicks={5} />}
         {uniqueValues.map((val, vi) => {
           const data = timestamps
             .map((t, i) => {
@@ -85,8 +78,8 @@ export function StringPanel({
 
           return (
             <AnimatedAreaSeries
-              key={`${seriesKey}::${val}`}
-              dataKey={`${seriesKey}::${val}`}
+              key={`${series.key}::${val}`}
+              dataKey={`${series.key}::${val}`}
               data={data}
               curve={curveStepAfter}
               renderLine={false}

@@ -29,3 +29,40 @@ export type TooltipRow = {
   active?: boolean;
   swatch?: { color: string; variant: "line" | "area" };
 };
+
+// ---------------------------------------------------------------------------
+// Panel registry types
+// ---------------------------------------------------------------------------
+
+export type FloatPanelEntry = {
+  type: "float";
+  key: "float";
+  series: Series[];
+  values: Record<string, (number | null)[]>;
+  height: number;
+};
+
+export type BooleanPanelEntry = {
+  type: "boolean";
+  key: string;
+  series: Series;
+  values: (boolean | null)[];
+  height: number;
+};
+
+export type StringPanelEntry = {
+  type: "string";
+  key: string;
+  series: Series;
+  values: (string | null)[];
+  height: number;
+};
+
+export type PanelEntry = FloatPanelEntry | BooleanPanelEntry | StringPanelEntry;
+
+export type PanelComponentProps = {
+  entry: PanelEntry;
+  timestamps: Date[];
+  width: number;
+  isLast: boolean;
+};
