@@ -1,0 +1,53 @@
+id: elsys_ems_lora
+vendor: Elsys
+model: EMS
+transport: mqtt
+
+device_config:
+    - name: device_eui
+
+update_strategy:
+    polling: disable
+
+attributes:
+    - name: temperature
+      data_type: float
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: temperature
+
+    - name: humidity
+      data_type: float
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: humidity
+
+    - name: co2
+      data_type: int
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: co2
+
+    - name: motion
+      data_type: int
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: motion
+
+    - name: light
+      data_type: int
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: light
+
+    - name: battery_mv
+      data_type: int
+      read:
+          topic: "application/1/device/${device_eui}/rx"
+      json_pointer: /data
+      lorawan_elsys: battery_mv
