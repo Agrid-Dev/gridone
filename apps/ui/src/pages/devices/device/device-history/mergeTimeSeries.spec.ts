@@ -38,13 +38,13 @@ describe("mergeTimeSeries", () => {
       ["temperature", "humidity"],
     );
 
-    // 3 unique timestamps, newest first
+    // 3 unique timestamps, oldest first
     expect(result).toHaveLength(3);
 
-    // Newest: 00:02 — temperature=22 (new), humidity=60 (filled)
-    expect(result[0].values.temperature).toBe(22);
+    // Oldest: 00:00 — temperature=20 (new), humidity=null (no earlier data)
+    expect(result[0].values.temperature).toBe(20);
     expect(result[0].isNew.temperature).toBe(true);
-    expect(result[0].values.humidity).toBe(60);
+    expect(result[0].values.humidity).toBeNull();
     expect(result[0].isNew.humidity).toBe(false);
 
     // Middle: 00:01 — temperature=20 (filled), humidity=60 (new)
@@ -53,10 +53,10 @@ describe("mergeTimeSeries", () => {
     expect(result[1].values.humidity).toBe(60);
     expect(result[1].isNew.humidity).toBe(true);
 
-    // Oldest: 00:00 — temperature=20 (new), humidity=null (no earlier data)
-    expect(result[2].values.temperature).toBe(20);
+    // Newest: 00:02 — temperature=22 (new), humidity=60 (filled)
+    expect(result[2].values.temperature).toBe(22);
     expect(result[2].isNew.temperature).toBe(true);
-    expect(result[2].values.humidity).toBeNull();
+    expect(result[2].values.humidity).toBe(60);
     expect(result[2].isNew.humidity).toBe(false);
   });
 
@@ -104,7 +104,7 @@ describe("mergeTimeSeries", () => {
     expect(row02.isNew.temperature).toBe(false);
   });
 
-  it("returns rows in descending order (newest first)", () => {
+  it("returns rows in ascending order (oldest first)", () => {
     const result = mergeTimeSeries(
       {
         a: [
@@ -118,7 +118,7 @@ describe("mergeTimeSeries", () => {
 
     const timestamps = result.map((r) => new Date(r.timestamp).getTime());
     for (let i = 1; i < timestamps.length; i++) {
-      expect(timestamps[i]).toBeLessThan(timestamps[i - 1]);
+      expect(timestamps[i]).toBeGreaterThan(timestamps[i - 1]);
     }
   });
 
@@ -141,17 +141,17 @@ describe("mergeTimeSeries", () => {
 
     expect(result).toHaveLength(3);
 
-    // Newest (00:02): temp changed (20→22), humidity unchanged (60→60)
+    // Oldest (00:00): first occurrence, non-null → isNew
     expect(result[0].isNew.temperature).toBe(true);
-    expect(result[0].isNew.humidity).toBe(false);
+    expect(result[0].isNew.humidity).toBe(true);
 
     // Middle (00:01): both unchanged from 00:00
     expect(result[1].isNew.temperature).toBe(false);
     expect(result[1].isNew.humidity).toBe(false);
 
-    // Oldest (00:00): first occurrence, non-null → isNew
+    // Newest (00:02): temp changed (20→22), humidity unchanged (60→60)
     expect(result[2].isNew.temperature).toBe(true);
-    expect(result[2].isNew.humidity).toBe(true);
+    expect(result[2].isNew.humidity).toBe(false);
   });
 
   it("fills null for unknown attribute with no data", () => {

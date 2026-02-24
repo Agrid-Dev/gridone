@@ -1,20 +1,17 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "react-router";
-import { useTranslation } from "react-i18next";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  type PaginationState,
-  type SortingState,
-  type VisibilityState,
-} from "@tanstack/react-table";
+import React, {
+  ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
-import { mergeTimeSeries } from "./mergeTimeSeries";
-import { buildColumns } from "./columns";
+import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 
-const PAGE_SIZE = 20;
 const MAX_DEFAULT_VISIBLE = 5;
 
 function storageKey(deviceId: string) {
@@ -38,8 +35,37 @@ function writeVisibility(deviceId: string, state: VisibilityState) {
   }
 }
 
-export function useDeviceHistory(deviceId: string, attributeNames: string[]) {
-  const { t } = useTranslation();
+type DeviceHistoryContextValue = {
+  availableAttributes: string[];
+  dataTypes: Record<string, string>;
+  columnVisibility: VisibilityState;
+  handleVisibilityChange: (
+    updater: VisibilityState | ((prev: VisibilityState) => VisibilityState),
+  ) => void;
+  columnOrder: string[];
+  setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
+  allRows: MergedRow[];
+  visibleAttributes: string[];
+  filteredRows: MergedRow[];
+  isLoading: boolean;
+  error: Error | null;
+};
+
+const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
+  null,
+);
+
+type DeviceHistoryProviderProps = {
+  deviceId: string;
+  attributeNames: string[];
+  children: ReactNode;
+};
+
+export function DeviceHistoryProvider({
+  deviceId,
+  attributeNames,
+  children,
+}: DeviceHistoryProviderProps) {
   const { series, pointsByMetric, isLoading, error } =
     useDeviceTimeSeries(deviceId);
 
@@ -98,7 +124,6 @@ export function useDeviceHistory(deviceId: string, attributeNames: string[]) {
       if (prev.length <= 1) {
         return ["timestamp", ...availableAttributes];
       }
-      // If new series appeared, append them
       const missing = availableAttributes.filter((a) => !prev.includes(a));
       return missing.length > 0 ? [...prev, ...missing] : prev;
     });
@@ -134,11 +159,6 @@ export function useDeviceHistory(deviceId: string, attributeNames: string[]) {
     [deviceId],
   );
 
-  const columns = useMemo(
-    () => buildColumns(availableAttributes, dataTypes, t),
-    [availableAttributes, dataTypes, t],
-  );
-
   // Merge all attributes once (stable — doesn't change with visibility)
   const allRows = useMemo(
     () => mergeTimeSeries(pointsByMetric, availableAttributes),
@@ -161,56 +181,48 @@ export function useDeviceHistory(deviceId: string, attributeNames: string[]) {
     [allRows, visibleAttributes],
   );
 
-  // URL-synced pagination (1-based in URL, 0-based internally)
-  const [searchParams, setSearchParams] = useSearchParams();
-  const pageIndex = Math.max(0, Number(searchParams.get("page") ?? "1") - 1);
-
-  const handlePaginationChange = useCallback(
-    (
-      updater: PaginationState | ((prev: PaginationState) => PaginationState),
-    ) => {
-      const next =
-        typeof updater === "function"
-          ? updater({ pageIndex, pageSize: PAGE_SIZE })
-          : updater;
-      setSearchParams(
-        next.pageIndex === 0 ? {} : { page: String(next.pageIndex + 1) },
-        { replace: true },
-      );
-    },
-    [pageIndex, setSearchParams],
+  const value = useMemo<DeviceHistoryContextValue>(
+    () => ({
+      availableAttributes,
+      dataTypes,
+      columnVisibility,
+      handleVisibilityChange,
+      columnOrder,
+      setColumnOrder,
+      allRows,
+      visibleAttributes,
+      filteredRows,
+      isLoading,
+      error,
+    }),
+    [
+      availableAttributes,
+      dataTypes,
+      columnVisibility,
+      handleVisibilityChange,
+      columnOrder,
+      setColumnOrder,
+      allRows,
+      visibleAttributes,
+      filteredRows,
+      isLoading,
+      error,
+    ],
   );
 
-  // Clamp to last page when current page exceeds page count
-  const maxPage = Math.max(0, Math.ceil(filteredRows.length / PAGE_SIZE) - 1);
-  useEffect(() => {
-    if (filteredRows.length > 0 && pageIndex > maxPage) {
-      setSearchParams(maxPage === 0 ? {} : { page: String(maxPage + 1) }, {
-        replace: true,
-      });
-    }
-  }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
+  return (
+    <DeviceHistoryContext.Provider value={value}>
+      {children}
+    </DeviceHistoryContext.Provider>
+  );
+}
 
-  const [sorting, setSorting] = useState<SortingState>([]);
-
-  const table = useReactTable({
-    data: filteredRows,
-    columns,
-    state: {
-      sorting,
-      columnVisibility,
-      columnOrder,
-      pagination: { pageIndex, pageSize: PAGE_SIZE },
-    },
-    onSortingChange: setSorting,
-    onPaginationChange: handlePaginationChange,
-    onColumnVisibilityChange: handleVisibilityChange,
-    onColumnOrderChange: setColumnOrder,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    autoResetPageIndex: false,
-  });
-
-  return { table, isLoading, error, availableAttributes };
+export function useDeviceHistoryContext(): DeviceHistoryContextValue {
+  const ctx = useContext(DeviceHistoryContext);
+  if (!ctx) {
+    throw new Error(
+      "useDeviceHistoryContext must be used within a DeviceHistoryProvider",
+    );
+  }
+  return ctx;
 }
