@@ -7,20 +7,18 @@ import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 export default function DeviceHistoryChart() {
   const { allRows, visibleAttributes, dataTypes } = useDeviceHistoryContext();
 
-  const floatAttrs = useMemo(
-    () => visibleAttributes.filter((attr) => dataTypes[attr] === "float"),
-    [visibleAttributes, dataTypes],
-  );
-
-  const boolAttrs = useMemo(
-    () => visibleAttributes.filter((attr) => dataTypes[attr] === "boolean"),
-    [visibleAttributes, dataTypes],
-  );
-
-  const stringAttrs = useMemo(
-    () => visibleAttributes.filter((attr) => dataTypes[attr] === "string"),
-    [visibleAttributes, dataTypes],
-  );
+  const { floatAttrs, boolAttrs, stringAttrs } = useMemo(() => {
+    const floatAttrs = visibleAttributes.filter(
+      (attr) => dataTypes[attr] === "float",
+    );
+    const boolAttrs = visibleAttributes.filter(
+      (attr) => dataTypes[attr] === "boolean",
+    );
+    const stringAttrs = visibleAttributes.filter(
+      (attr) => dataTypes[attr] === "string",
+    );
+    return { floatAttrs, boolAttrs, stringAttrs };
+  }, [visibleAttributes, dataTypes]);
 
   const timestamps = useMemo(
     () => allRows.map((r) => new Date(r.timestamp)),

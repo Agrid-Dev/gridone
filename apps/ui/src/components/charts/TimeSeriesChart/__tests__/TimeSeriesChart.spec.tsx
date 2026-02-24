@@ -13,6 +13,9 @@ import {
   booleanValues,
   stringSeries,
   stringValues,
+  manyStringTimestamps,
+  manyStringSeries,
+  manyStringValues,
 } from "./fixture";
 
 afterEach(cleanup);
@@ -366,5 +369,62 @@ describe("TimeSeriesChart — legend swatches", () => {
     expect(areaSwatches.length).toBe(
       booleanSeries.length + 3, // 3 unique string values
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// StringPanel — many unique values (performance cap)
+// ---------------------------------------------------------------------------
+
+describe("StringPanel — many unique values", () => {
+  it("renders without crashing and caps series to ≤ 11", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={manyStringTimestamps}
+        stringSeries={manyStringSeries}
+        stringValues={manyStringValues}
+        width={WIDTH}
+      />,
+    );
+    const svgs = container.querySelectorAll(XYCHART_SVG);
+    expect(svgs.length).toBe(1);
+    // At most 10 top values + 1 "Other" = 11 area swatches
+    const areaSwatches = Array.from(
+      container.querySelectorAll<HTMLSpanElement>("span"),
+    ).filter(
+      (span) => span.style.width === "10px" && span.style.height === "10px",
+    );
+    expect(areaSwatches.length).toBeLessThanOrEqual(11);
+  });
+
+  it('shows "Other" in legend', () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={manyStringTimestamps}
+        stringSeries={manyStringSeries}
+        stringValues={manyStringValues}
+        width={WIDTH}
+      />,
+    );
+    expect(screen.getByText(/Status: Other/)).toBeInTheDocument();
+  });
+
+  it("still renders few values normally without Other", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={stringSeries}
+        stringValues={stringValues}
+        width={WIDTH}
+      />,
+    );
+    // 3 unique values (idle, heating, cooling) → 3 swatches, no "Other"
+    const areaSwatches = Array.from(
+      container.querySelectorAll<HTMLSpanElement>("span"),
+    ).filter(
+      (span) => span.style.width === "10px" && span.style.height === "10px",
+    );
+    expect(areaSwatches.length).toBe(3);
+    expect(screen.queryByText(/Other/)).not.toBeInTheDocument();
   });
 });

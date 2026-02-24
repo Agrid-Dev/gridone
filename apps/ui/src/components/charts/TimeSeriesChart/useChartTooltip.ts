@@ -7,9 +7,16 @@ import type {
   TooltipRow,
 } from "./types";
 import type { FloatScaleContextType } from "./FloatScaleContext";
-import { MARGIN, AXIS_EXTRA, TOOLTIP_OFFSET, CHART_COLORS } from "./constants";
+import {
+  MARGIN,
+  AXIS_EXTRA,
+  TOOLTIP_OFFSET,
+  CHART_COLORS,
+  OTHER_COLOR,
+} from "./constants";
+import { computeTopStringValues } from "./topStringValues";
 import { nearestIndex } from "./nearestIndex";
-import { getTooltipRows } from "./panels/registry";
+import { getTooltipRows, type TooltipRowOptions } from "./panels/registry";
 
 type UseChartTooltipArgs = {
   timestamps: Date[];
@@ -62,16 +69,21 @@ export function useChartTooltip({
     for (const p of panels) {
       if (p.type !== "string") continue;
       const sp = p as StringPanelEntry;
-      const seen = new Map<string, string>();
+      const { displayValues } = computeTopStringValues(sp.values, timestamps);
+      const colorMap = new Map<string, string>();
+      for (let i = 0; i < displayValues.length; i++) {
+        colorMap.set(displayValues[i], CHART_COLORS[i % CHART_COLORS.length]);
+      }
+      // Any value not in topSet gets OTHER_COLOR (looked up on demand)
       for (const v of sp.values) {
-        if (v !== null && !seen.has(v)) {
-          seen.set(v, CHART_COLORS[seen.size % CHART_COLORS.length]);
+        if (v !== null && !colorMap.has(v)) {
+          colorMap.set(v, OTHER_COLOR);
         }
       }
-      maps[sp.series.key] = seen;
+      maps[sp.series.key] = colorMap;
     }
     return maps;
-  }, [panels]);
+  }, [panels, timestamps]);
 
   // Check whether any float data exists (for nearestFloatKey guard)
   const hasFloatData = useMemo(() => {
@@ -137,15 +149,14 @@ export function useChartTooltip({
   // Build tooltip rows by iterating over panels
   const tooltipRows = useMemo(() => {
     if (hoveredIdx === null) return null;
+    const options: TooltipRowOptions = {
+      floatPrecision: 2,
+      stringColorMaps,
+    };
     const rows: TooltipRow[] = [];
     for (const panel of panels) {
       const isActive = hoveredSection === panel.key || hoveredSection === null;
-      const panelRows = getTooltipRows(
-        panel,
-        hoveredIdx,
-        isActive,
-        stringColorMaps,
-      );
+      const panelRows = getTooltipRows(panel, hoveredIdx, isActive, options);
 
       // Refine float active state based on Y proximity
       if (panel.type === "float" && hoveredSection === "float") {

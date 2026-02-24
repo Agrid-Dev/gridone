@@ -30,24 +30,33 @@ export const panelRegistry: Record<
 // Tooltip-row builders — maps panel type → row builder
 // ---------------------------------------------------------------------------
 
+export type TooltipRowOptions = {
+  floatPrecision: number;
+  stringColorMaps: Record<string, Map<string, string>>;
+};
+
 type TooltipRowBuilder = (
   entry: PanelEntry,
   hoveredIdx: number,
   active: boolean,
-  stringColorMaps: Record<string, Map<string, string>>,
+  options: TooltipRowOptions,
 ) => TooltipRow[];
 
 function floatTooltipRows(
   entry: PanelEntry,
   hoveredIdx: number,
   active: boolean,
+  options: TooltipRowOptions,
 ): TooltipRow[] {
   const { series, values } = entry as FloatPanelEntry;
   return series.map((s, i) => {
     const v = values[s.key]?.[hoveredIdx];
     return {
       label: s.label,
-      value: v !== null && v !== undefined ? v.toFixed(2) : "\u2014",
+      value:
+        v !== null && v !== undefined
+          ? v.toFixed(options.floatPrecision)
+          : "\u2014",
       active,
       swatch: {
         color: CHART_COLORS[i % CHART_COLORS.length],
@@ -61,6 +70,8 @@ function booleanTooltipRows(
   entry: PanelEntry,
   hoveredIdx: number,
   active: boolean,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _options: TooltipRowOptions,
 ): TooltipRow[] {
   const { series, values } = entry as BooleanPanelEntry;
   const v = values[hoveredIdx];
@@ -78,11 +89,11 @@ function stringTooltipRows(
   entry: PanelEntry,
   hoveredIdx: number,
   active: boolean,
-  stringColorMaps: Record<string, Map<string, string>>,
+  options: TooltipRowOptions,
 ): TooltipRow[] {
   const { series, values } = entry as StringPanelEntry;
   const v = values[hoveredIdx];
-  const color = v ? stringColorMaps[series.key]?.get(v) : undefined;
+  const color = v ? options.stringColorMaps[series.key]?.get(v) : undefined;
   return [
     {
       label: series.label,
@@ -104,12 +115,7 @@ export function getTooltipRows(
   entry: PanelEntry,
   hoveredIdx: number,
   active: boolean,
-  stringColorMaps: Record<string, Map<string, string>>,
+  options: TooltipRowOptions,
 ): TooltipRow[] {
-  return tooltipRowBuilders[entry.type](
-    entry,
-    hoveredIdx,
-    active,
-    stringColorMaps,
-  );
+  return tooltipRowBuilders[entry.type](entry, hoveredIdx, active, options);
 }

@@ -52,3 +52,19 @@ export const stringValues: Record<string, (string | null)[]> = {
     "heating",
   ],
 };
+
+// ---------------------------------------------------------------------------
+// Many-values string series — 200 unique values for performance testing
+// ---------------------------------------------------------------------------
+
+/** 200 timestamps, 1 minute apart */
+export const manyStringTimestamps = Array.from(
+  { length: 200 },
+  (_, i) => new Date("2025-01-01T00:00:00Z").getTime() + i * 60_000,
+).map((ms) => new Date(ms));
+
+export const manyStringSeries: Series[] = [{ key: "status", label: "Status" }];
+
+export const manyStringValues: Record<string, (string | null)[]> = {
+  status: Array.from({ length: 200 }, (_, i) => `state_${i}`),
+};

@@ -14,6 +14,8 @@ export const CHART_COLORS = Array.from(
   (_, i) => `hsl(var(--chart-${i + 1}))`,
 );
 
+export const MAX_STRING_VALUES = 10;
+export const OTHER_COLOR = "hsl(var(--muted-foreground) / 0.4)";
 export const BOOL_COLOR = CHART_COLORS[CHART_COLORS.length - 1];
 export const lineChartTheme = { ...lightTheme, colors: CHART_COLORS };
 
