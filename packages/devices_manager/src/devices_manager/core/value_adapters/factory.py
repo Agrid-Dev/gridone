@@ -6,11 +6,11 @@ from .fn_adapter import FnAdapter
 from .registry.base64_adapter import base64_adapter
 from .registry.bool_format_adapter import bool_format_adapter
 from .registry.byte_convert_adapter import byte_convert_adapter
+from .registry.byte_slice_adapter import byte_slice_adapter
 from .registry.identity_adapter import identity_adapter
 from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
 from .registry.scale_adapter import scale_adapter
-from .registry.tlv_adapter import tlv_adapter
 
 value_adapter_builders = {
     "identity": identity_adapter,
@@ -20,7 +20,7 @@ value_adapter_builders = {
     "bool_format": bool_format_adapter,
     "byte_convert": byte_convert_adapter,
     "base64": base64_adapter,
-    "tlv": tlv_adapter,
+    "byte_slice": byte_slice_adapter,
 }
 
 supported_value_adapters = list(value_adapter_builders.keys())

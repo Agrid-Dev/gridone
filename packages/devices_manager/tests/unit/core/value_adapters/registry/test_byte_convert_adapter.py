@@ -2,6 +2,10 @@ import pytest
 from devices_manager.core.value_adapters.registry.byte_convert_adapter import (
     byte_convert_adapter,
 )
+from devices_manager.core.value_adapters.registry.byte_slice_adapter import (
+    byte_slice_adapter,
+)
+from devices_manager.core.value_adapters.registry.scale_adapter import scale_adapter
 
 
 @pytest.mark.parametrize(
@@ -126,3 +130,96 @@ def test_byte_convert_endian_variants() -> None:
 def test_byte_convert_invalid_endianness() -> None:
     with pytest.raises(ValueError, match="Unsupported byte order"):
         byte_convert_adapter("float32 middle")
+
+
+# --- bytes input support ---
+
+
+@pytest.mark.parametrize(
+    ("spec", "raw_bytes", "decoded"),
+    [
+        ("int16 big_endian", b"\x08\xce", 2254),
+        ("int16 big_endian", b"\xfe\x0c", -500),
+        ("uint16 big_endian", b"\x08\xe8", 2280),
+        ("uint16 big_endian", b"\x00\x16", 22),
+        ("uint16 big_endian", b"\x06\xbe", 1726),
+    ],
+)
+def test_byte_convert_from_bytes(spec, raw_bytes, decoded) -> None:
+    adapter = byte_convert_adapter(spec)
+    assert adapter.decode(raw_bytes) == decoded
+
+
+def test_byte_convert_bytes_wrong_length() -> None:
+    adapter = byte_convert_adapter("int16 big_endian")
+    with pytest.raises(ValueError, match="expected 2 bytes"):
+        adapter.decode(b"\x08")
+
+
+@pytest.mark.parametrize(
+    ("spec", "raw", "decoded"),
+    [
+        ("uint8", b"\x32", 50),
+        ("uint8", b"\x00", 0),
+        ("uint8", b"\xff", 255),
+        ("int8", b"\x7f", 127),
+        ("int8", b"\x80", -128),
+        ("int8", b"\xff", -1),
+    ],
+)
+def test_byte_convert_uint8_int8_from_bytes(spec, raw, decoded) -> None:
+    adapter = byte_convert_adapter(spec)
+    assert adapter.decode(raw) == decoded
+
+
+def test_byte_convert_uint8_wrong_length() -> None:
+    adapter = byte_convert_adapter("uint8")
+    with pytest.raises(ValueError, match="expected 1 registers"):
+        adapter.decode(b"\x00\x01")
+
+
+def test_byte_convert_int8_wrong_length() -> None:
+    adapter = byte_convert_adapter("int8")
+    with pytest.raises(ValueError, match="expected 1 registers"):
+        adapter.decode(b"\x00\x01")
+
+
+_ELSYS_PAYLOAD = bytes(
+    [
+        0x01,
+        0x08,
+        0xCE,  # temperature: int16 2254 => 22.54 °C
+        0x02,
+        0x32,  # humidity: uint8 50
+        0x04,
+        0x08,
+        0xE8,  # co2: uint16 2280
+        0x05,
+        0x00,  # motion: uint8 0
+        0x06,
+        0x00,
+        0x16,  # light: uint16 22
+        0x07,
+        0x06,
+        0xBE,  # battery: uint16 1726 mV
+    ]
+)
+
+
+def test_byte_slice_then_byte_convert_temperature() -> None:
+    pipeline = (
+        byte_slice_adapter("1:3")
+        + byte_convert_adapter("int16 big_endian")
+        + scale_adapter(0.01)
+    )
+    assert pipeline.decode(_ELSYS_PAYLOAD) == pytest.approx(22.54)
+
+
+def test_byte_slice_then_byte_convert_humidity() -> None:
+    pipeline = byte_slice_adapter("4:5") + byte_convert_adapter("uint8")
+    assert pipeline.decode(_ELSYS_PAYLOAD) == 50
+
+
+def test_byte_slice_then_byte_convert_co2() -> None:
+    pipeline = byte_slice_adapter("6:8") + byte_convert_adapter("uint16 big_endian")
+    assert pipeline.decode(_ELSYS_PAYLOAD) == 2280

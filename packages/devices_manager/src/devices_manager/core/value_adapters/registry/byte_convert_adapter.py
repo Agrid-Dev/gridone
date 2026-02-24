@@ -11,6 +11,9 @@ _REGISTER_BYTES = 2
 _ONE_REGISTER = 1
 _TWO_REGISTERS = 2
 _FOUR_REGISTERS = 4
+_UINT8_MAX = 0xFF
+_INT8_MIN = -0x80
+_INT8_MAX = 0x7F
 _UINT16_MAX = 0xFFFF
 _INT16_MIN = -0x8000
 _INT16_MAX = 0x7FFF
@@ -22,8 +25,17 @@ _INT64_MIN = -0x8000_0000_0000_0000
 _INT64_MAX = 0x7FFF_FFFF_FFFF_FFFF
 
 
-def _ensure_registers(value: int | Sequence[int], expected_registers: int) -> list[int]:
-    """Normalize raw register input to a list[int] and validate length."""
+def _ensure_registers(
+    value: int | bytes | Sequence[int], expected_registers: int
+) -> list[int]:
+    """Normalize raw input to a list[int] and validate length."""
+    if isinstance(value, bytes):
+        expected_bytes = expected_registers * _REGISTER_BYTES
+        if len(value) != expected_bytes:
+            msg = f"byte_convert expected {expected_bytes} bytes, got {len(value)}"
+            raise ValueError(msg)
+        count = len(value) // _REGISTER_BYTES
+        return list(struct.unpack(">" + "H" * count, value))
     if isinstance(value, int):
         # Backwards-compatible: single-register values may be plain ints.
         registers = [value]
@@ -56,6 +68,45 @@ def _from_bytes(data: bytes) -> list[int]:
         raise ValueError(msg)
     count = len(data) // _REGISTER_BYTES
     return list(struct.unpack(">" + "H" * count, data))
+
+
+def _decode_uint8(value: int | bytes | Sequence[int]) -> int:
+    if isinstance(value, bytes):
+        if len(value) != 1:
+            msg = f"byte_convert uint8 expected 1 byte, got {len(value)}"
+            raise ValueError(msg)
+        return value[0]
+    registers = _ensure_registers(value, _ONE_REGISTER)
+    return registers[0]
+
+
+def _encode_uint8(value: int) -> int:
+    if value < 0 or value > _UINT8_MAX:
+        msg = f"Value {value} out of range for uint8"
+        raise ValueError(msg)
+    return value
+
+
+def _decode_int8(value: int | bytes | Sequence[int]) -> int:
+    if isinstance(value, bytes):
+        if len(value) != 1:
+            msg = f"byte_convert int8 expected 1 byte, got {len(value)}"
+            raise ValueError(msg)
+        return struct.unpack(">b", value)[0]
+    registers = _ensure_registers(value, _ONE_REGISTER)
+    reg = registers[0]
+    if reg & 0x80:
+        return reg - 0x100
+    return reg
+
+
+def _encode_int8(value: int) -> int:
+    if value < _INT8_MIN or value > _INT8_MAX:
+        msg = f"Value {value} out of range for int8"
+        raise ValueError(msg)
+    if value < 0:
+        return value + 0x100
+    return value
 
 
 def _decode_uint16(value: int | Sequence[int]) -> int:
@@ -206,6 +257,8 @@ def _encode_hex64(value: str) -> list[int]:
 
 
 _DECODE_FUNCS: dict[str, Callable[[int | Sequence[int]], object]] = {
+    "uint8": _decode_uint8,
+    "int8": _decode_int8,
     "uint16": _decode_uint16,
     "int16": _decode_int16,
     "bool": _decode_bool,
@@ -220,6 +273,8 @@ _DECODE_FUNCS: dict[str, Callable[[int | Sequence[int]], object]] = {
 }
 
 _ENCODE_FUNCS = {
+    "uint8": _encode_uint8,
+    "int8": _encode_int8,
     "uint16": _encode_uint16,
     "int16": _encode_int16,
     "bool": _encode_bool,
@@ -295,14 +350,15 @@ def _parse_type_spec(type_spec: str) -> tuple[str, str]:
 def byte_convert_adapter(
     type_spec: str,
 ) -> FnAdapter[int | Sequence[int], ByteConvertValue]:
-    """Reversible adapter for converting between registers and typed values.
+    """Reversible adapter for converting between registers/bytes and typed values.
 
     type_spec examples:
+    - 'uint8', 'int8'  (1 byte; accepts raw bytes from byte_slice)
     - 'uint16', 'int16', 'bool'
     - 'uint32', 'int32', 'float32', 'hex32'
     - 'uint64', 'int64', 'float64', 'hex64'
     - with optional endianness suffix:
-      - 'float32 little_endian', 'uint32 big_endian', 'float64 little_endian'
+      - 'float32 little_endian', 'uint32 big_endian', 'int16 big_endian'
     """
     base_spec, endian = _parse_type_spec(type_spec)
 
