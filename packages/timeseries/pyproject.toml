@@ -12,6 +12,11 @@ requires = ["uv_build>=0.9.7,<0.10.0"]
 build-backend = "uv_build"
 
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: mark a test as an integration test",
+]
+
 [tool.uv.build-backend]
 module-name = "timeseries"
 module-root = "src"

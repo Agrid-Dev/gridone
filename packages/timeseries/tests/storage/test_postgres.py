@@ -14,6 +14,7 @@ POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
 pytestmark = [
     pytest.mark.asyncio,
+    pytest.mark.integration,
     pytest.mark.skipif(POSTGRES_URL is None, reason="POSTGRES_TEST_URL not set"),
 ]
 
