@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
-import { getAssetTree, updateAsset } from "@/api/assets";
+import { getAssetTreeWithDevices, updateAsset, createAsset, reorderChildren } from "@/api/assets";
 import type { AssetTreeNode } from "@/api/assets";
 import { AssetTree } from "./components/AssetTree";
 
@@ -21,7 +21,7 @@ export default function AssetsList() {
     refetch,
   } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree"],
-    queryFn: getAssetTree,
+    queryFn: getAssetTreeWithDevices,
   });
 
   const moveMutation = useMutation({
@@ -39,8 +39,66 @@ export default function AssetsList() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const createChildMutation = useMutation({
+    mutationFn: ({
+      parentId,
+      name,
+      type,
+    }: {
+      parentId: string;
+      name: string;
+      type: string;
+    }) => createAsset({ name, type, parentId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      toast.success(t("assets.created"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({
+      assetId,
+      newName,
+    }: {
+      assetId: string;
+      newName: string;
+    }) => updateAsset(assetId, { name: newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+      toast.success(t("assets.renamed"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const handleMove = (assetId: string, newParentId: string) => {
     moveMutation.mutate({ assetId, newParentId });
+  };
+
+  const handleCreateChild = (parentId: string, name: string, type: string) => {
+    createChildMutation.mutate({ parentId, name, type });
+  };
+
+  const reorderMutation = useMutation({
+    mutationFn: ({
+      parentId,
+      orderedIds,
+    }: {
+      parentId: string;
+      orderedIds: string[];
+    }) => reorderChildren(parentId, orderedIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleRename = (assetId: string, newName: string) => {
+    renameMutation.mutate({ assetId, newName });
+  };
+
+  const handleReorder = (parentId: string, orderedIds: string[]) => {
+    reorderMutation.mutate({ parentId, orderedIds });
   };
 
   return (
@@ -79,10 +137,16 @@ export default function AssetsList() {
         </div>
       ) : tree.length > 0 ? (
         <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <AssetTree tree={tree} onMove={handleMove} />
+          <AssetTree
+            tree={tree}
+            onMove={handleMove}
+            onCreateChild={handleCreateChild}
+            onRename={handleRename}
+            onReorder={handleReorder}
+          />
         </div>
       ) : (
-        <ResourceEmpty resourceName={t("assets.title").toLowerCase()} />
+        <ResourceEmpty resourceName={t("assets.singular").toLowerCase()} />
       )}
     </section>
   );

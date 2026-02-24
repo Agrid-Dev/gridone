@@ -6,11 +6,18 @@ export type Asset = {
   parentId: string | null;
   type: string;
   name: string;
-  path: string;
+  path: string[];
+  position: number;
+};
+
+export type DeviceRef = {
+  id: string;
+  name: string;
 };
 
 export type AssetTreeNode = Asset & {
   children: AssetTreeNode[];
+  devices?: DeviceRef[];
 };
 
 export type AssetCreatePayload = {
@@ -67,6 +74,12 @@ export function getAssetTree(): Promise<AssetTreeNode[]> {
   });
 }
 
+export function getAssetTreeWithDevices(): Promise<AssetTreeNode[]> {
+  return request<AssetTreeNode[]>("/assets/tree-with-devices", undefined, {
+    camelCase: true,
+  });
+}
+
 export function createAsset(payload: AssetCreatePayload): Promise<Asset> {
   return request<Asset>(
     "/assets/",
@@ -95,6 +108,20 @@ export function updateAsset(
       ),
     },
     { camelCase: true },
+  );
+}
+
+export function reorderChildren(
+  parentId: string,
+  orderedIds: string[],
+): Promise<void> {
+  return request<void>(
+    `/assets/${encodeURIComponent(parentId)}/children/order`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ordered_ids: orderedIds }),
+    },
   );
 }
 

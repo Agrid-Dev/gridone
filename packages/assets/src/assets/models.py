@@ -23,11 +23,8 @@ class Asset(BaseModel):
     parent_id: str | None = None
     type: AssetType
     name: str
-    path: str = ""
-
-
-class AssetInDB(Asset):
-    """Internal storage model."""
+    path: list[str] = Field(default_factory=list)
+    position: int = 0
 
 
 class AssetCreate(BaseModel):
@@ -40,7 +37,7 @@ class AssetCreate(BaseModel):
         strip_whitespace=True,
     )
     type: AssetType
-    parent_id: str | None = None
+    parent_id: str
 
 
 class AssetUpdate(BaseModel):
@@ -73,7 +70,6 @@ __all__ = [
     "ASSET_NAME_MIN_LENGTH",
     "Asset",
     "AssetCreate",
-    "AssetInDB",
     "AssetType",
     "AssetUpdate",
     "DeviceAssetLink",

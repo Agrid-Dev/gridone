@@ -7,16 +7,21 @@ from assets import (
     AssetUpdate,
     get_asset_create_schema,
 )
+from devices_manager import DevicesManager
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 
-from api.dependencies import get_assets_manager
+from api.dependencies import get_assets_manager, get_device_manager
 
 router = APIRouter()
 
 
 class DeviceLinkRequest(BaseModel):
     device_id: str
+
+
+class ReorderRequest(BaseModel):
+    ordered_ids: list[str]
 
 
 @router.get("/schema")
@@ -30,6 +35,28 @@ async def get_tree(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
 ) -> list[dict]:
     return await am.get_tree()
+
+
+@router.get("/tree-with-devices")
+async def get_tree_with_devices(
+    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+) -> list[dict]:
+    tree = await am.get_tree()
+    all_links = await am.get_all_device_links()
+    name_map = {d.id: d.name for d in dm.list_devices()}
+
+    def enrich(nodes: list[dict]) -> None:
+        for node in nodes:
+            device_ids = all_links.get(node["id"], [])
+            node["devices"] = [
+                {"id": did, "name": name_map.get(did, did)}
+                for did in device_ids
+            ]
+            enrich(node["children"])
+
+    enrich(tree)
+    return tree
 
 
 @router.get("/", response_model=list[Asset])
@@ -72,6 +99,15 @@ async def delete_asset(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
 ) -> None:
     await am.delete_asset(asset_id)
+
+
+@router.put("/{asset_id}/children/order", status_code=status.HTTP_204_NO_CONTENT)
+async def reorder_children(
+    asset_id: str,
+    body: ReorderRequest,
+    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+) -> None:
+    await am.reorder_siblings(asset_id, body.ordered_ids)
 
 
 # Device linking endpoints

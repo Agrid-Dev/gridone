@@ -2,7 +2,6 @@ from assets.manager import AssetsManager
 from assets.models import (
     Asset,
     AssetCreate,
-    AssetInDB,
     AssetType,
     AssetUpdate,
     DeviceAssetLink,
@@ -12,7 +11,6 @@ from assets.models import (
 __all__ = [
     "Asset",
     "AssetCreate",
-    "AssetInDB",
     "AssetType",
     "AssetUpdate",
     "AssetsManager",

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
@@ -19,8 +20,8 @@ import {
   unlinkDevice,
 } from "@/api/assets";
 import type { Asset } from "@/api/assets";
+import { listDevices } from "@/api/devices";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
-import { useState } from "react";
 
 export default function AssetDetail() {
   const { t } = useTranslation();
@@ -35,6 +36,12 @@ export default function AssetDetail() {
     enabled: !!assetId,
   });
 
+  const { data: parent } = useQuery<Asset>({
+    queryKey: ["assets", asset?.parentId],
+    queryFn: () => getAsset(asset!.parentId!),
+    enabled: !!asset?.parentId,
+  });
+
   const { data: children = [] } = useQuery<Asset[]>({
     queryKey: ["assets", "children", assetId],
     queryFn: () => listAssets({ parentId: assetId! }),
@@ -46,6 +53,17 @@ export default function AssetDetail() {
     queryFn: () => listAssetDevices(assetId!),
     enabled: !!assetId,
   });
+
+  const { data: allDevices = [] } = useQuery({
+    queryKey: ["devices"],
+    queryFn: listDevices,
+    enabled: deviceIds.length > 0,
+  });
+
+  const deviceNameMap = useMemo(
+    () => new Map(allDevices.map((d) => [d.id, d.name])),
+    [allDevices],
+  );
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteAsset(assetId!),
@@ -124,7 +142,7 @@ export default function AssetDetail() {
                   to={`/assets/${asset.parentId}`}
                   className="text-slate-900 underline underline-offset-2 hover:text-slate-600"
                 >
-                  {asset.parentId}
+                  {parent?.name ?? asset.parentId}
                 </Link>
               </div>
             </div>
@@ -203,7 +221,7 @@ export default function AssetDetail() {
                         to={`/devices/${deviceId}`}
                         className="font-medium text-slate-900 underline underline-offset-2"
                       >
-                        {deviceId}
+                        {deviceNameMap.get(deviceId) || deviceId}
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-right">

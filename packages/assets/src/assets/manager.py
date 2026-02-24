@@ -2,13 +2,21 @@ import uuid
 
 from models.errors import InvalidError, NotFoundError
 
-from assets.models import Asset, AssetCreate, AssetInDB, AssetUpdate, DeviceAssetLink
+from assets.models import Asset, AssetCreate, AssetUpdate, DeviceAssetLink
+from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
 
 
 class AssetsManager:
     def __init__(self, storage: AssetsStorageBackend) -> None:
         self._storage = storage
+
+    @classmethod
+    async def from_storage(cls, storage_url: str) -> "AssetsManager":
+        from assets.storage import build_assets_storage  # noqa: PLC0415
+
+        storage = await build_assets_storage(storage_url)
+        return cls(storage)
 
     @staticmethod
     def _to_public(asset: AssetInDB) -> Asset:
@@ -64,7 +72,10 @@ class AssetsManager:
             by_parent.setdefault(a.parent_id, []).append(pub)
 
         def build(pid: str | None) -> list[dict]:
-            children = by_parent.get(pid, [])
+            children = sorted(
+                by_parent.get(pid, []),
+                key=lambda a: (a.position, a.name),
+            )
             return [
                 {**child.model_dump(), "children": build(child.id)}
                 for child in children
@@ -73,24 +84,19 @@ class AssetsManager:
         return build(None)
 
     async def create_asset(self, data: AssetCreate) -> Asset:
-        if data.parent_id is None:
-            # Root is auto-seeded; new assets must have a parent
-            msg = (
-                "A parent_id is required. "
-                "The root asset is created automatically."
-            )
-            raise InvalidError(msg)
         parent = await self._storage.get_by_id(data.parent_id)
         if parent is None:
             msg = f"Parent asset '{data.parent_id}' not found"
             raise NotFoundError(msg)
 
         asset_id = str(uuid.uuid4())
+        position = await self._storage.get_next_position(data.parent_id)
         asset = AssetInDB(
             id=asset_id,
             parent_id=data.parent_id,
             type=data.type,
             name=data.name,
+            position=position,
         )
         await self._storage.save(asset)
 
@@ -134,6 +140,7 @@ class AssetsManager:
             parent_id=new_parent_id,
             type=new_type,
             name=new_name,
+            position=existing.position,
         )
         await self._storage.save(updated)
 
@@ -169,6 +176,15 @@ class AssetsManager:
     async def get_device_ids(self, asset_id: str) -> list[str]:
         await self._get_or_raise(asset_id)
         return await self._storage.get_device_ids_for_asset(asset_id)
+
+    async def reorder_siblings(
+        self, parent_id: str, ordered_ids: list[str]
+    ) -> None:
+        await self._get_or_raise(parent_id)
+        await self._storage.reorder_siblings(parent_id, ordered_ids)
+
+    async def get_all_device_links(self) -> dict[str, list[str]]:
+        return await self._storage.get_all_device_links()
 
 
 __all__ = ["AssetsManager"]

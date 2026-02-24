@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from assets import AssetsManager
-from assets.storage import build_assets_storage
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
@@ -25,7 +24,6 @@ from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
 from users import UsersManager
-from users.storage import build_users_storage
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +45,12 @@ async def lifespan(app: FastAPI):
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    users_storage = await build_users_storage(settings.storage_url)
-    um = UsersManager(users_storage)
+    um = await UsersManager.from_storage(settings.storage_url)
     await um.ensure_default_admin()
     app.state.users_manager = um
 
     try:
-        assets_storage = await build_assets_storage(settings.storage_url)
-        am = AssetsManager(assets_storage)
+        am = await AssetsManager.from_storage(settings.storage_url)
         await am.ensure_default_root()
         app.state.assets_manager = am
     except ValueError:

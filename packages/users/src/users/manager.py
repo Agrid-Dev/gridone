@@ -11,6 +11,13 @@ class UsersManager:
     def __init__(self, storage: UsersStorageBackend) -> None:
         self._storage = storage
 
+    @classmethod
+    async def from_storage(cls, storage_url: str) -> "UsersManager":
+        from users.storage import build_users_storage  # noqa: PLC0415
+
+        storage = await build_users_storage(storage_url)
+        return cls(storage)
+
     @staticmethod
     def _to_public_user(user: UserInDB) -> User:
         return User.model_validate(user.model_dump())
