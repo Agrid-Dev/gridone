@@ -7,6 +7,7 @@ authors = []
 requires-python = ">=3.13"
 dependencies = [
     "gridone-models",
+    "gridone-assets",
     "fastapi>=0.123.8",
     "gridone-users",
     "httpx>=0.28.1",
@@ -30,4 +31,4 @@ module-root = "src"
 ignore=[]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../models/src", "../users/src"]
+pythonpath = ["src", "../models/src", "../users/src", "../assets/src"]

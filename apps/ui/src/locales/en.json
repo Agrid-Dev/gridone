@@ -133,9 +133,46 @@
     "title": "Gridone",
     "subtitle": "Device control dashboard",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
+    "assets": "Assets",
     "devices": "Devices",
     "drivers": "Drivers",
     "transports": "Transports"
+  },
+  "assets": {
+    "title": "Assets",
+    "subtitle": "Asset hierarchy",
+    "create": "Create asset",
+    "edit": "Edit asset",
+    "created": "Asset created",
+    "updated": "Asset updated",
+    "deleted": "Asset deleted",
+    "moved": "Asset moved",
+    "children": "Children",
+    "addChild": "Add child",
+    "noChildren": "No child assets",
+    "fields": {
+      "name": "Name",
+      "type": "Type",
+      "parent": "Parent asset",
+      "parentPlaceholder": "None (root)",
+      "path": "Path"
+    },
+    "types": {
+      "org": "Organization",
+      "building": "Building",
+      "floor": "Floor",
+      "room": "Room",
+      "zone": "Zone"
+    },
+    "devices": {
+      "title": "Linked devices",
+      "link": "Link device",
+      "unlink": "Unlink",
+      "linked": "Device linked",
+      "unlinked": "Device unlinked",
+      "selectDevice": "Select a device",
+      "noDevices": "No devices linked"
+    }
   },
   "devices": {
     "title": "Devices",

@@ -1,3 +1,4 @@
+from assets import AssetsManager
 from devices_manager import DevicesManager
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -18,6 +19,10 @@ def get_ts_service(request: Request) -> TimeSeriesService:
 
 def get_users_manager(request: Request) -> UsersManager:
     return request.app.state.users_manager
+
+
+def get_assets_manager(request: Request) -> AssetsManager:
+    return request.app.state.assets_manager
 
 
 def get_auth_service(request: Request) -> AuthService:

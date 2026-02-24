@@ -1,6 +1,6 @@
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
-import { LogOut, Settings, Users } from "lucide-react";
+import { Building2, LogOut, Settings, Users } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +24,20 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
+          <NavLink
+            to="/assets"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-slate-900 text-slate-50"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`
+            }
+          >
+            <Building2 className="h-4 w-4" />
+            {t("app.assets")}
+          </NavLink>
+
           {["devices", "drivers", "transports"].map((route) => (
             <NavLink
               key={route}

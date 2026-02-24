@@ -132,9 +132,46 @@
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
+    "assets": "Actifs",
     "devices": "Appareils",
     "drivers": "Drivers",
     "transports": "Transports"
+  },
+  "assets": {
+    "title": "Actifs",
+    "subtitle": "Hiérarchie des actifs",
+    "create": "Créer un actif",
+    "edit": "Modifier l'actif",
+    "created": "Actif créé",
+    "updated": "Actif mis à jour",
+    "deleted": "Actif supprimé",
+    "moved": "Actif déplacé",
+    "children": "Enfants",
+    "addChild": "Ajouter un enfant",
+    "noChildren": "Aucun actif enfant",
+    "fields": {
+      "name": "Nom",
+      "type": "Type",
+      "parent": "Actif parent",
+      "parentPlaceholder": "Aucun (racine)",
+      "path": "Chemin"
+    },
+    "types": {
+      "org": "Organisation",
+      "building": "Bâtiment",
+      "floor": "Étage",
+      "room": "Salle",
+      "zone": "Zone"
+    },
+    "devices": {
+      "title": "Appareils liés",
+      "link": "Lier un appareil",
+      "unlink": "Délier",
+      "linked": "Appareil lié",
+      "unlinked": "Appareil délié",
+      "selectDevice": "Sélectionner un appareil",
+      "noDevices": "Aucun appareil lié"
+    }
   },
   "devices": {
     "title": "Appareils",
