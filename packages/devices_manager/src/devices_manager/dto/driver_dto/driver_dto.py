@@ -16,6 +16,14 @@ from .attribute_driver_dto import core_to_dto as attribute_core_to_dto
 from .attribute_driver_dto import dto_to_core as attribute_dto_to_core
 
 
+class TlvTypeSpec(BaseModel):
+    byte: int
+    field: str
+    length: int
+    scale: float = 1.0
+    signed: bool = False
+
+
 class DriverDTO(BaseModel):
     id: Annotated[str, Field(min_length=1)]
     vendor: str | None = None
@@ -27,6 +35,7 @@ class DriverDTO(BaseModel):
     device_config: list[DeviceConfigField]
     attributes: list[AttributeDriverDTO]
     discovery: dict | None = None
+    tlv_types: list[TlvTypeSpec] | None = None
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverDTO":
@@ -56,12 +65,20 @@ def core_to_dto(driver: Driver) -> DriverDTO:
 
 
 def dto_to_core(dto: DriverDTO) -> Driver:
+    tlv_types = None
+    if dto.tlv_types:
+        tlv_types = {
+            spec.byte: (spec.field, spec.length, spec.scale, spec.signed)
+            for spec in dto.tlv_types
+        }
     return Driver(
         metadata=DriverMetadata.model_validate(dto.model_dump()),
         transport=dto.transport,
         env=dto.env,
         device_config_required=dto.device_config,
         update_strategy=dto.update_strategy,
-        attributes={a.name: attribute_dto_to_core(a) for a in dto.attributes},
+        attributes={
+            a.name: attribute_dto_to_core(a, tlv_types) for a in dto.attributes
+        },
         discovery_schema=dto.discovery,
     )

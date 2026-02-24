@@ -8,6 +8,7 @@ from devices_manager.core.value_adapters.factory import (
     ValueAdapterSpec,
     supported_value_adapters,
 )
+from devices_manager.core.value_adapters.registry.tlv_adapter import build_tlv_adapter
 from devices_manager.types import DataType
 
 
@@ -54,11 +55,18 @@ def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
     )
 
 
-def dto_to_core(dto: AttributeDriverDTO) -> AttributeDriver:
+def dto_to_core(
+    dto: AttributeDriverDTO,
+    tlv_types: dict | None = None,
+) -> AttributeDriver:
+    extra_builders = None
+    if tlv_types:
+        extra_builders = {"tlv": build_tlv_adapter(tlv_types)}
     return AttributeDriver(
         name=dto.name,
         data_type=dto.data_type,
         read=dto.read,
         write=dto.write,
         value_adapter_specs=dto.value_adapters,
+        extra_builders=extra_builders,
     )
