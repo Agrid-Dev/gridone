@@ -6,7 +6,7 @@ from timeseries.storage import build_storage
 
 
 async def create_service(db_url: str | None = None) -> TimeSeriesService:
-    storage = build_storage(db_url)
+    storage = await build_storage(db_url)
     return TimeSeriesService(storage)
 
 

@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 authors = []
 requires-python = ">=3.13"
-dependencies = ["gridone-models"]
+dependencies = ["gridone-models", "asyncpg>=0.30.0"]
 
 [build-system]
 requires = ["uv_build>=0.9.7,<0.10.0"]
