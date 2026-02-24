@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.core.value_adapters import (
     FnAdapter,
@@ -18,21 +16,20 @@ class AttributeDriver:
     value_adapter_specs: list[ValueAdapterSpec]
     value_adapter: FnAdapter
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         name: str,
         data_type: DataType,
         read: RawTransportAddress,
         write: RawTransportAddress | None,
         value_adapter_specs: list[ValueAdapterSpec],
-        extra_builders: dict[str, Callable[..., FnAdapter]] | None = None,
     ) -> None:
         self.name = name
         self.data_type = data_type
         self.read = read
         self.write = write
         self.value_adapter_specs = value_adapter_specs
-        self.value_adapter = build_value_adapter(value_adapter_specs, extra_builders)
+        self.value_adapter = build_value_adapter(value_adapter_specs)
 
     @classmethod
     def from_dict(cls, data: dict) -> "AttributeDriver":

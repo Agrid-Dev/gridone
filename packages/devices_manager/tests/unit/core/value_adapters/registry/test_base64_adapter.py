@@ -4,84 +4,46 @@ import json
 import pytest
 from devices_manager.core.value_adapters.factory import value_adapter_builders
 from devices_manager.core.value_adapters.registry.base64_adapter import base64_adapter
-
-
-def _encode_json(data: dict) -> str:
-    return base64.b64encode(json.dumps(data).encode()).decode()
-
-
-_PAYLOAD = _encode_json(
-    {
-        "temperature": 2.26,
-        "humidity": 50,
-        "co2": 640,
-        "motion": 1,
-        "light": 500,
-        "battery_mv": 3100,
-    }
+from devices_manager.core.value_adapters.registry.json_pointer_adapter import (
+    json_pointer_adapter,
 )
 
 
-def test_decode_temperature() -> None:
-    adapter = base64_adapter("/temperature")
-    assert adapter.decode(_PAYLOAD) == pytest.approx(2.26)
+def _enc(s: str) -> str:
+    return base64.b64encode(s.encode()).decode()
 
 
-def test_decode_humidity() -> None:
-    adapter = base64_adapter("/humidity")
-    assert adapter.decode(_PAYLOAD) == 50
+_JSON_PAYLOAD = _enc(json.dumps({"temperature": 2.26, "humidity": 50}))
 
 
-def test_decode_co2() -> None:
-    adapter = base64_adapter("/co2")
-    assert adapter.decode(_PAYLOAD) == 640
+def test_decode_returns_string() -> None:
+    assert isinstance(base64_adapter("").decode(_JSON_PAYLOAD), str)
 
 
-def test_decode_motion() -> None:
-    adapter = base64_adapter("/motion")
-    assert adapter.decode(_PAYLOAD) == 1
+def test_decode_json_payload() -> None:
+    result = base64_adapter("").decode(_JSON_PAYLOAD)
+    assert json.loads(result) == {"temperature": 2.26, "humidity": 50}
 
 
-def test_decode_light() -> None:
-    adapter = base64_adapter("/light")
-    assert adapter.decode(_PAYLOAD) == 500
+def test_decode_plain_string() -> None:
+    payload = _enc("hello")
+    assert base64_adapter("").decode(payload) == "hello"
 
 
-def test_decode_battery_mv() -> None:
-    adapter = base64_adapter("/battery_mv")
-    assert adapter.decode(_PAYLOAD) == 3100
+def test_encode_roundtrip() -> None:
+    adapter = base64_adapter("")
+    assert adapter.decode(adapter.encode("hello world")) == "hello world"
 
 
-def test_decode_negative_temperature() -> None:
-    payload = _encode_json({"temperature": -1.96})
-    adapter = base64_adapter("/temperature")
-    assert adapter.decode(payload) == pytest.approx(-1.96)
+def test_encode_produces_valid_base64() -> None:
+    encoded = base64_adapter("").encode("hello")
+    assert base64.b64decode(encoded) == b"hello"
 
 
-def test_decode_missing_field_raises() -> None:
-    payload = _encode_json({"temperature": 2.26})
-    adapter = base64_adapter("/co2")
-    with pytest.raises(KeyError):
-        adapter.decode(payload)
-
-
-def test_encode_flat_pointer() -> None:
-    adapter = base64_adapter("/temperature")
-    encoded = adapter.encode(22.5)
-    decoded = json.loads(base64.b64decode(encoded))
-    assert decoded == {"temperature": 22.5}
-
-
-def test_encode_nested_pointer() -> None:
-    adapter = base64_adapter("/sensors/temperature")
-    encoded = adapter.encode(22.5)
-    decoded = json.loads(base64.b64decode(encoded))
-    assert decoded == {"sensors": {"temperature": 22.5}}
-
-
-def test_encode_decode_roundtrip() -> None:
-    adapter = base64_adapter("/temperature")
-    assert adapter.decode(adapter.encode(22.5)) == pytest.approx(22.5)
+def test_chained_with_json_pointer() -> None:
+    """base64 → json_pointer is the intended pattern for JSON payloads."""
+    pipeline = base64_adapter("") + json_pointer_adapter("/temperature")  # type: ignore[operator]
+    assert pipeline.decode(_JSON_PAYLOAD) == pytest.approx(2.26)
 
 
 def test_factory_key_exists() -> None:
@@ -90,5 +52,3 @@ def test_factory_key_exists() -> None:
 
 def test_factory_builds_adapter() -> None:
     assert value_adapter_builders["base64"] is base64_adapter
-    adapter = base64_adapter("/temperature")
-    assert adapter.decode(_encode_json({"temperature": 2.26})) == pytest.approx(2.26)
