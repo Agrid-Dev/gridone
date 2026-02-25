@@ -5,22 +5,23 @@ from models.errors import InvalidError
 from timeseries import TimeSeriesService, create_service
 from timeseries.storage import MemoryStorage, build_storage
 
+pytestmark = pytest.mark.asyncio
+
 
 class TestBuildStorage:
-    def test_none_returns_memory(self):
-        storage = build_storage(None)
+    async def test_none_returns_memory(self):
+        storage = await build_storage(None)
         assert isinstance(storage, MemoryStorage)
 
-    def test_default_returns_memory(self):
-        storage = build_storage()
+    async def test_default_returns_memory(self):
+        storage = await build_storage()
         assert isinstance(storage, MemoryStorage)
 
-    def test_unsupported_url_raises(self):
+    async def test_unsupported_url_raises(self):
         with pytest.raises(InvalidError, match="Unsupported storage URL scheme"):
-            build_storage("unsupported://localhost")
+            await build_storage("unsupported://localhost")
 
 
-@pytest.mark.asyncio
 class TestCreateService:
     async def test_returns_service(self):
         service = await create_service()
