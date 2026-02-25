@@ -174,6 +174,52 @@ class TestUpsertPoints:
             await storage.upsert_points(unknown, [])
 
 
+class TestFetchPointBefore:
+    async def test_returns_most_recent_point_before(self, storage):
+        await storage.create_series(_make_series())
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t2, value=2.0),
+                DataPoint(timestamp=t3, value=3.0),
+            ],
+        )
+        result = await storage.fetch_point_before(KEY, before=t3)
+        assert result is not None
+        assert result.timestamp == t2
+        assert result.value == 2.0
+
+    async def test_no_point_before_returns_none(self, storage):
+        await storage.create_series(_make_series())
+        t1 = datetime(2026, 1, 2, tzinfo=UTC)
+        t2 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t2, value=2.0),
+            ],
+        )
+        result = await storage.fetch_point_before(KEY, before=t1)
+        assert result is None
+
+    async def test_point_at_boundary_excluded(self, storage):
+        await storage.create_series(_make_series())
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        await storage.upsert_points(KEY, [DataPoint(timestamp=t1, value=1.0)])
+        result = await storage.fetch_point_before(KEY, before=t1)
+        assert result is None
+
+    async def test_unknown_key_returns_none(self, storage):
+        unknown = SeriesKey(owner_id="y", metric="z")
+        result = await storage.fetch_point_before(unknown, before=datetime.now(tz=UTC))
+        assert result is None
+
+
 class TestFetchPoints:
     async def test_empty_series(self, storage):
         await storage.create_series(_make_series())

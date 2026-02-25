@@ -187,6 +187,29 @@ class PostgresStorage:
         rows = await self._pool.fetch(query, *params)
         return [DataPoint(timestamp=r["timestamp"], value=r["value"]) for r in rows]
 
+    async def fetch_point_before(
+        self,
+        key: SeriesKey,
+        *,
+        before: datetime,
+    ) -> DataPoint[DataPointValue] | None:
+        series = await self.get_series_by_key(key)
+        if series is None:
+            return None
+
+        value_col = _VALUE_COLUMNS[series.data_type]
+
+        query = (
+            f"SELECT timestamp, {value_col} AS value "  # noqa: S608
+            "FROM ts_data_points "
+            "WHERE series_id = $1 AND timestamp < $2 "
+            "ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = await self._pool.fetchrow(query, series.id, before)
+        if row is None:
+            return None
+        return DataPoint(timestamp=row["timestamp"], value=row["value"])
+
     async def upsert_points(
         self,
         key: SeriesKey,

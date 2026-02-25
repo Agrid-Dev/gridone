@@ -30,6 +30,13 @@ class TimeSeriesStorage(Protocol):
         end: datetime | None = None,
     ) -> list[DataPoint[DataPointValue]]: ...
 
+    async def fetch_point_before(
+        self,
+        key: SeriesKey,
+        *,
+        before: datetime,
+    ) -> DataPoint[DataPointValue] | None: ...
+
     async def upsert_points(
         self,
         key: SeriesKey,

@@ -20,7 +20,8 @@ export function useDeviceTimeSeries(
   const pointsQueries = useQueries({
     queries: seriesList.map((series) => ({
       queryKey: ["timeseries", "points", series.id, start, end, last],
-      queryFn: () => getSeriesPoints(series.id, start, end, last),
+      queryFn: () =>
+        getSeriesPoints(series.id, { start, end, last, carryForward: true }),
     })),
   });
 

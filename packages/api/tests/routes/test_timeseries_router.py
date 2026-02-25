@@ -262,3 +262,60 @@ class TestGetPoints:
         points = response.json()
         assert len(points) == 1
         assert points[0]["value"] == 2.0
+
+    async def test_carry_forward_prepends_point(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 3, tzinfo=UTC)
+        t3 = datetime(2026, 1, 4, tzinfo=UTC)
+        await ts_service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t3, value=3.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{series.id}/points",
+                params={"start": t2.isoformat(), "carry_forward": "true"},
+            )
+        assert response.status_code == 200
+        points = response.json()
+        assert len(points) == 2
+        assert points[0]["value"] == 1.0
+        assert points[1]["value"] == 3.0
+
+    async def test_carry_forward_false(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 3, tzinfo=UTC)
+        t3 = datetime(2026, 1, 4, tzinfo=UTC)
+        await ts_service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t3, value=3.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{series.id}/points",
+                params={"start": t2.isoformat(), "carry_forward": "false"},
+            )
+        assert response.status_code == 200
+        points = response.json()
+        assert len(points) == 1
+        assert points[0]["value"] == 3.0
