@@ -8,9 +8,16 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useSearchParams } from "react-router";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
+import {
+  type TimeRange,
+  parseRangeParams,
+  writeRangeParams,
+  resolveTimeRange,
+} from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 5;
 
@@ -49,6 +56,8 @@ type DeviceHistoryContextValue = {
   filteredRows: MergedRow[];
   isLoading: boolean;
   error: Error | null;
+  timeRange: TimeRange;
+  setTimeRange: (range: TimeRange) => void;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -66,8 +75,29 @@ export function DeviceHistoryProvider({
   attributeNames,
   children,
 }: DeviceHistoryProviderProps) {
-  const { series, pointsByMetric, isLoading, error } =
-    useDeviceTimeSeries(deviceId);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [timeRange, setTimeRangeState] = useState<TimeRange>(() =>
+    parseRangeParams(searchParams),
+  );
+
+  const setTimeRange = useCallback(
+    (range: TimeRange) => {
+      setTimeRangeState(range);
+      setSearchParams((prev) => writeRangeParams(prev, range), {
+        replace: true,
+      });
+    },
+    [setSearchParams],
+  );
+
+  const resolved = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
+
+  const { series, pointsByMetric, isLoading, error } = useDeviceTimeSeries(
+    deviceId,
+    resolved.start,
+    resolved.end,
+  );
 
   const availableAttributes = useMemo(
     () => series.map((s) => s.metric),
@@ -194,6 +224,8 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
+      timeRange,
+      setTimeRange,
     }),
     [
       availableAttributes,
@@ -207,6 +239,8 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
+      timeRange,
+      setTimeRange,
     ],
   );
 

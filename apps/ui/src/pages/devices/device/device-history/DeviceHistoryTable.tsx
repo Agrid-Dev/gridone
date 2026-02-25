@@ -65,7 +65,15 @@ export default function DeviceHistoryTable() {
           ? updater({ pageIndex, pageSize: PAGE_SIZE })
           : updater;
       setSearchParams(
-        next.pageIndex === 0 ? {} : { page: String(next.pageIndex + 1) },
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next.pageIndex === 0) {
+            params.delete("page");
+          } else {
+            params.set("page", String(next.pageIndex + 1));
+          }
+          return params;
+        },
         { replace: true },
       );
     },
@@ -76,9 +84,18 @@ export default function DeviceHistoryTable() {
   const maxPage = Math.max(0, Math.ceil(filteredRows.length / PAGE_SIZE) - 1);
   useEffect(() => {
     if (filteredRows.length > 0 && pageIndex > maxPage) {
-      setSearchParams(maxPage === 0 ? {} : { page: String(maxPage + 1) }, {
-        replace: true,
-      });
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (maxPage === 0) {
+            params.delete("page");
+          } else {
+            params.set("page", String(maxPage + 1));
+          }
+          return params;
+        },
+        { replace: true },
+      );
     }
   }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
 

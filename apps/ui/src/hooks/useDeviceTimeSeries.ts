@@ -3,7 +3,11 @@ import { useQuery, useQueries } from "@tanstack/react-query";
 import { listSeries, getSeriesPoints } from "../api/timeseries";
 import type { DataPoint, TimeSeries } from "../api/timeseries";
 
-export function useDeviceTimeSeries(deviceId: string | undefined) {
+export function useDeviceTimeSeries(
+  deviceId: string | undefined,
+  start?: string,
+  end?: string,
+) {
   const seriesQuery = useQuery<TimeSeries[]>({
     queryKey: ["timeseries", "series", deviceId],
     queryFn: () => listSeries(deviceId),
@@ -14,8 +18,8 @@ export function useDeviceTimeSeries(deviceId: string | undefined) {
 
   const pointsQueries = useQueries({
     queries: seriesList.map((series) => ({
-      queryKey: ["timeseries", "points", series.id],
-      queryFn: () => getSeriesPoints(series.id),
+      queryKey: ["timeseries", "points", series.id, start, end],
+      queryFn: () => getSeriesPoints(series.id, start, end),
     })),
   });
 

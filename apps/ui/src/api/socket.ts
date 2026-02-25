@@ -121,8 +121,8 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
           timestamp: updateMessage.timestamp ?? new Date().toISOString(),
           value: updateMessage.value as DataPoint["value"],
         };
-        queryClient.setQueryData<DataPoint[]>(
-          ["timeseries", "points", series.id],
+        queryClient.setQueriesData<DataPoint[]>(
+          { queryKey: ["timeseries", "points", series.id] },
           (current) => (current ? [...current, point] : [point]),
         );
       }
