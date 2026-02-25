@@ -9,7 +9,6 @@ from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
 from users import UsersManager
 from users.auth import AuthService
-from users.storage import build_users_storage
 
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
