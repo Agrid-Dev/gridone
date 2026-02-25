@@ -7,6 +7,7 @@ export function useDeviceTimeSeries(
   deviceId: string | undefined,
   start?: string,
   end?: string,
+  last?: string,
 ) {
   const seriesQuery = useQuery<TimeSeries[]>({
     queryKey: ["timeseries", "series", deviceId],
@@ -18,8 +19,8 @@ export function useDeviceTimeSeries(
 
   const pointsQueries = useQueries({
     queries: seriesList.map((series) => ({
-      queryKey: ["timeseries", "points", series.id, start, end],
-      queryFn: () => getSeriesPoints(series.id, start, end),
+      queryKey: ["timeseries", "points", series.id, start, end, last],
+      queryFn: () => getSeriesPoints(series.id, start, end, last),
     })),
   });
 

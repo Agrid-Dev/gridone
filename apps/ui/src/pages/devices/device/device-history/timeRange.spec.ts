@@ -8,30 +8,18 @@ import {
   type TimeRange,
 } from "./timeRange";
 
-const NOW = new Date("2026-02-25T12:00:00Z").getTime();
-
 describe("resolveTimeRange", () => {
-  it.each([
-    ["10m", 10 * 60_000],
-    ["30m", 30 * 60_000],
-    ["1h", 60 * 60_000],
-    ["3h", 3 * 60 * 60_000],
-    ["12h", 12 * 60 * 60_000],
-    ["1d", 24 * 60 * 60_000],
-    ["7d", 7 * 24 * 60 * 60_000],
-  ] as const)("preset %s produces a start %d ms before now", (preset, ms) => {
-    const { start, end } = resolveTimeRange({ kind: "preset", preset }, NOW);
-    expect(start).toBe(new Date(NOW - ms).toISOString());
-    expect(end).toBeUndefined();
-  });
+  it.each(["10m", "30m", "1h", "3h", "12h", "1d", "7d"] as const)(
+    "preset %s returns { last: preset }",
+    (preset) => {
+      const result = resolveTimeRange({ kind: "preset", preset });
+      expect(result).toEqual({ last: preset });
+    },
+  );
 
-  it("preset 'all' returns undefined start and end", () => {
-    const { start, end } = resolveTimeRange(
-      { kind: "preset", preset: "all" },
-      NOW,
-    );
-    expect(start).toBeUndefined();
-    expect(end).toBeUndefined();
+  it("preset 'all' returns empty object", () => {
+    const result = resolveTimeRange({ kind: "preset", preset: "all" });
+    expect(result).toEqual({});
   });
 
   it("custom range passes through start and end", () => {

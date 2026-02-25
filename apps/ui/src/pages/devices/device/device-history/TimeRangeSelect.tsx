@@ -26,6 +26,14 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && value.kind === "custom") {
+      setCustomStart(value.start.slice(0, 16));
+      setCustomEnd(value.end.slice(0, 16));
+    }
+    setOpen(nextOpen);
+  };
+
   const handlePreset = (preset: TimeRangePreset) => {
     onChange({ kind: "preset", preset });
     setOpen(false);
@@ -37,9 +45,10 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
   };
 
   const activePreset = value.kind === "preset" ? value.preset : null;
+  const nowLocal = new Date().toISOString().slice(0, 16);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
           <Clock className="mr-2 h-4 w-4" />
@@ -62,29 +71,22 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
               {t(`deviceDetails.${option.unitKey}`, { count: option.count })}
             </button>
           ))}
-          <button
-            type="button"
-            className={`rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
-              activePreset === "all"
-                ? "bg-accent font-medium text-accent-foreground"
-                : "hover:bg-muted"
-            }`}
-            onClick={() => handlePreset("all")}
-          >
-            {t("deviceDetails.rangeAll")}
-          </button>
         </div>
 
         <Separator className="my-2" />
 
         <div className="space-y-2 px-1">
-          <p className="text-xs font-medium text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            {value.kind === "custom" && (
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-foreground" />
+            )}
             {t("deviceDetails.rangeCustom")}
           </p>
           <input
             type="datetime-local"
             aria-label="start"
             className="w-full rounded-md border px-2 py-1 text-sm"
+            max={nowLocal}
             value={customStart}
             onChange={(e) => setCustomStart(e.target.value)}
           />
@@ -92,6 +94,7 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
             type="datetime-local"
             aria-label="end"
             className="w-full rounded-md border px-2 py-1 text-sm"
+            max={nowLocal}
             value={customEnd}
             onChange={(e) => setCustomEnd(e.target.value)}
           />

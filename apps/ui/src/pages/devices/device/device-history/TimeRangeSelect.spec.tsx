@@ -34,17 +34,7 @@ describe("TimeRangeSelect", () => {
     expect(screen.getByText("Last 3h")).toBeInTheDocument();
   });
 
-  it("renders 'All time' label for all preset", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "all" }}
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText("All time")).toBeInTheDocument();
-  });
-
-  it("opens popover showing all presets", () => {
+  it("opens popover showing all duration presets", () => {
     render(
       <TimeRangeSelect
         value={{ kind: "preset", preset: "3h" }}
@@ -59,8 +49,6 @@ describe("TimeRangeSelect", () => {
     expect(screen.getByText("Last 12h")).toBeInTheDocument();
     expect(screen.getByText("Last 1d")).toBeInTheDocument();
     expect(screen.getByText("Last 7d")).toBeInTheDocument();
-    // "All time" appears both in popover and trigger
-    expect(screen.getAllByText("All time").length).toBeGreaterThanOrEqual(1);
   });
 
   it("calls onChange with correct preset when clicking a preset", () => {
@@ -113,5 +101,55 @@ describe("TimeRangeSelect", () => {
     fireEvent.click(screen.getByText("Last 3h"));
     expect(screen.getByText("Custom range")).toBeInTheDocument();
     expect(screen.getByText("Apply")).toBeInTheDocument();
+  });
+
+  it("does not show 'All time' option in popover", () => {
+    render(
+      <TimeRangeSelect
+        value={{ kind: "preset", preset: "3h" }}
+        onChange={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText("Last 3h"));
+    expect(screen.queryByText("All time")).not.toBeInTheDocument();
+  });
+
+  it("shows active dot on 'Custom range' label when custom is selected", () => {
+    render(
+      <TimeRangeSelect
+        value={{ kind: "custom", start: "2026-01-01T00:00", end: "" }}
+        onChange={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText("Custom range"));
+    const label = screen.getByText("Custom range", { selector: "p" });
+    expect(label.querySelector("span")).toBeInTheDocument();
+  });
+
+  it("hides active dot on 'Custom range' label when preset is selected", () => {
+    render(
+      <TimeRangeSelect
+        value={{ kind: "preset", preset: "3h" }}
+        onChange={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText("Last 3h"));
+    const label = screen.getByText("Custom range", { selector: "p" });
+    expect(label.querySelector("span")).not.toBeInTheDocument();
+  });
+
+  it("restores custom dates when re-opening the popover", () => {
+    const value: TimeRange = {
+      kind: "custom",
+      start: "2026-03-01T08:00",
+      end: "2026-03-01T18:00",
+    };
+    render(<TimeRangeSelect value={value} onChange={() => {}} />);
+    fireEvent.click(screen.getByText("Custom range"));
+
+    const startInput = screen.getByLabelText("start") as HTMLInputElement;
+    const endInput = screen.getByLabelText("end") as HTMLInputElement;
+    expect(startInput.value).toBe("2026-03-01T08:00");
+    expect(endInput.value).toBe("2026-03-01T18:00");
   });
 });

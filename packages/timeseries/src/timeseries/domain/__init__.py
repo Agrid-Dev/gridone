@@ -8,6 +8,7 @@ from timeseries.domain.models import (
     TimeSeries,
     validate_value_type,
 )
+from timeseries.domain.time_range import parse_duration, resolve_last
 
 __all__ = [
     "DATA_TYPE_MAP",
@@ -17,5 +18,7 @@ __all__ = [
     "DataType",
     "SeriesKey",
     "TimeSeries",
+    "parse_duration",
+    "resolve_last",
     "validate_value_type",
 ]

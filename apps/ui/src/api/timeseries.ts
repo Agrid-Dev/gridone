@@ -44,10 +44,12 @@ export function getSeriesPoints<D extends DataType = DataType>(
   seriesId: string,
   start?: string,
   end?: string,
+  last?: string,
 ): Promise<DataPoint<D>[]> {
   const params = new URLSearchParams();
   if (start) params.set("start", start);
   if (end) params.set("end", end);
+  if (last) params.set("last", last);
   const qs = params.toString();
   return request<DataPoint<D>[]>(
     `/timeseries/${encodeURIComponent(seriesId)}/points${qs ? `?${qs}` : ""}`,

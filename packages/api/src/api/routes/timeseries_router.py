@@ -23,11 +23,12 @@ async def get_points(
     series_id: str,
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
+    last: str | None = Query(None),
     ts=Depends(get_ts_service),
 ) -> list[DataPointResponse]:
     series = await ts.get_series(series_id)
     if series is None:
         msg = f"Series {series_id} not found"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    points = await ts.fetch_points(series.key, start=start, end=end)
+    points = await ts.fetch_points(series.key, start=start, end=end, last=last)
     return [DataPointResponse(timestamp=p.timestamp, value=p.value) for p in points]

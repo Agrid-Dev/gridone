@@ -32,20 +32,11 @@ export const PRESET_OPTIONS: PresetOption[] = [
   { value: "7d", count: 7, unitKey: "rangeLastDays" },
 ];
 
-const PRESET_DURATIONS_MS: Record<Exclude<TimeRangePreset, "all">, number> = {
-  "10m": 10 * 60_000,
-  "30m": 30 * 60_000,
-  "1h": 60 * 60_000,
-  "3h": 3 * 60 * 60_000,
-  "12h": 12 * 60 * 60_000,
-  "1d": 24 * 60 * 60_000,
-  "7d": 7 * 24 * 60 * 60_000,
-};
-
-export function resolveTimeRange(
-  range: TimeRange,
-  now = Date.now(),
-): { start?: string; end?: string } {
+export function resolveTimeRange(range: TimeRange): {
+  start?: string;
+  end?: string;
+  last?: string;
+} {
   if (range.kind === "custom") {
     return {
       start: range.start || undefined,
@@ -55,8 +46,7 @@ export function resolveTimeRange(
   if (range.preset === "all") {
     return {};
   }
-  const ms = PRESET_DURATIONS_MS[range.preset];
-  return { start: new Date(now - ms).toISOString() };
+  return { last: range.preset };
 }
 
 export function rangeLabel(range: TimeRange, t: TFunction): string {

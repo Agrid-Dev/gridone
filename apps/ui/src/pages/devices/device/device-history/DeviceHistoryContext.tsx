@@ -97,6 +97,7 @@ export function DeviceHistoryProvider({
     deviceId,
     resolved.start,
     resolved.end,
+    resolved.last,
   );
 
   const availableAttributes = useMemo(
