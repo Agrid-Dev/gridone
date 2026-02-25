@@ -7,7 +7,9 @@ from assets import AssetsManager
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
+from users import UsersManager
 from users.auth import AuthService
+from users.storage import build_users_storage
 
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
@@ -23,7 +25,6 @@ from api.routes.users import auth_router, users_router
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
-from users import UsersManager
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ async def lifespan(app: FastAPI):
     app.state.websocket_manager = websocket_manager
 
     dm = await DevicesManager.from_storage(settings.storage_url)
-    ts_service = await create_service()
+    ts_service = await create_service(settings.storage_url)
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
