@@ -126,3 +126,55 @@ def test_byte_convert_endian_variants() -> None:
 def test_byte_convert_invalid_endianness() -> None:
     with pytest.raises(ValueError, match="Unsupported byte order"):
         byte_convert_adapter("float32 middle")
+
+
+# --- bytes input support ---
+
+
+@pytest.mark.parametrize(
+    ("spec", "raw_bytes", "decoded"),
+    [
+        ("int16 big_endian", b"\x08\xce", 2254),
+        ("int16 big_endian", b"\xfe\x0c", -500),
+        ("uint16 big_endian", b"\x08\xe8", 2280),
+        ("uint16 big_endian", b"\x00\x16", 22),
+        ("uint16 big_endian", b"\x06\xbe", 1726),
+    ],
+)
+def test_byte_convert_from_bytes(spec, raw_bytes, decoded) -> None:
+    adapter = byte_convert_adapter(spec)
+    assert adapter.decode(raw_bytes) == decoded
+
+
+def test_byte_convert_bytes_wrong_length() -> None:
+    adapter = byte_convert_adapter("int16 big_endian")
+    with pytest.raises(ValueError, match="expected 2 bytes"):
+        adapter.decode(b"\x08")
+
+
+@pytest.mark.parametrize(
+    ("spec", "raw", "decoded"),
+    [
+        ("uint8", b"\x32", 50),
+        ("uint8", b"\x00", 0),
+        ("uint8", b"\xff", 255),
+        ("int8", b"\x7f", 127),
+        ("int8", b"\x80", -128),
+        ("int8", b"\xff", -1),
+    ],
+)
+def test_byte_convert_uint8_int8_from_bytes(spec, raw, decoded) -> None:
+    adapter = byte_convert_adapter(spec)
+    assert adapter.decode(raw) == decoded
+
+
+def test_byte_convert_uint8_wrong_length() -> None:
+    adapter = byte_convert_adapter("uint8")
+    with pytest.raises(ValueError, match="expected 1 registers"):
+        adapter.decode(b"\x00\x01")
+
+
+def test_byte_convert_int8_wrong_length() -> None:
+    adapter = byte_convert_adapter("int8")
+    with pytest.raises(ValueError, match="expected 1 registers"):
+        adapter.decode(b"\x00\x01")
