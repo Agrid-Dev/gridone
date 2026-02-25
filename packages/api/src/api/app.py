@@ -3,16 +3,17 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
+from assets import AssetsManager
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
 from users import UsersManager
 from users.auth import AuthService
-from users.storage import build_users_storage
 
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
+    assets_router,
     devices_router,
     drivers_router,
     timeseries_router,
@@ -44,10 +45,17 @@ async def lifespan(app: FastAPI):
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    users_storage = await build_users_storage(settings.storage_url)
-    um = UsersManager(users_storage)
+    um = await UsersManager.from_storage(settings.storage_url)
     await um.ensure_default_admin()
     app.state.users_manager = um
+
+    try:
+        am = await AssetsManager.from_storage(settings.storage_url)
+        await am.ensure_default_root()
+        app.state.assets_manager = am
+    except ValueError:
+        logger.warning("Assets package requires PostgreSQL — assets disabled")
+        app.state.assets_manager = None
 
     async def on_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
@@ -114,6 +122,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         timeseries_router,
         prefix="/timeseries",
         tags=["timeseries"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        assets_router,
+        prefix="/assets",
+        tags=["assets"],
         dependencies=jwt_dep,
     )
     app.include_router(websocket_routes.router, tags=["websocket"])

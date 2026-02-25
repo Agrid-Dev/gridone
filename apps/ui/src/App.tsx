@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router";
 import { useTranslation } from "react-i18next";
+import Assets from "./pages/assets";
 import Devices from "./pages/devices";
 import Transports from "./pages/transports";
 import Drivers from "./pages/drivers";
@@ -26,6 +27,7 @@ function ProtectedLayout() {
 
           <Routes>
             <Route index element={<Navigate to="/devices" replace />} />
+            <Route path="/assets/*" element={<Assets />} />
             <Route path="/devices/*" element={<Devices />} />
             <Route path="/transports/*" element={<Transports />} />
             <Route path="/drivers/*" element={<Drivers />} />

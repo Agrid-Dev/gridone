@@ -132,9 +132,51 @@
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
+    "assets": "Zones",
     "devices": "Appareils",
     "drivers": "Drivers",
     "transports": "Transports"
+  },
+  "assets": {
+    "title": "Zones",
+    "singular": "Zone",
+    "subtitle": "Hiérarchie des zones",
+    "create": "Créer une zone",
+    "edit": "Modifier la zone",
+    "created": "Zone créée",
+    "updated": "Zone mise à jour",
+    "deleted": "Zone supprimée",
+    "moved": "Zone déplacée",
+    "renamed": "Zone renommée",
+    "children": "Enfants",
+    "addChild": "Ajouter une zone enfant",
+    "noChildren": "Aucune zone enfant",
+    "inlineCreate": {
+      "placeholder": "Nom de la zone..."
+    },
+    "fields": {
+      "name": "Nom",
+      "type": "Type",
+      "parent": "Zone parente",
+      "parentPlaceholder": "Aucun (racine)",
+      "path": "Chemin"
+    },
+    "types": {
+      "org": "Organisation",
+      "building": "Bâtiment",
+      "floor": "Étage",
+      "room": "Salle",
+      "zone": "Zone"
+    },
+    "devices": {
+      "title": "Appareils liés",
+      "link": "Lier un appareil",
+      "unlink": "Délier",
+      "linked": "Appareil lié",
+      "unlinked": "Appareil délié",
+      "selectDevice": "Sélectionner un appareil",
+      "noDevices": "Aucun appareil lié"
+    }
   },
   "devices": {
     "title": "Appareils",

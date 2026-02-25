@@ -1,0 +1,29 @@
+[project]
+name = "gridone-assets"
+version = "0.1.0"
+description = "Hierarchical asset management package for Gridone."
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "asyncpg>=0.30.0",
+    "gridone-models",
+    "pydantic>=2.12.4",
+]
+
+[tool.uv]
+workspaces=true
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "assets"
+module-root = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../models/src"]
+markers = [
+    "integration: mark a test as an integration test",
+]
