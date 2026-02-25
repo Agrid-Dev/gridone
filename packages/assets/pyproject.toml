@@ -24,3 +24,6 @@ module-root = "src"
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "../models/src"]
+markers = [
+    "integration: mark a test as an integration test",
+]

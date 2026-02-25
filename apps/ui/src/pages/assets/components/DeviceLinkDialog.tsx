@@ -80,9 +80,7 @@ export function DeviceLinkDialog({
                 key={device.id}
                 type="button"
                 className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                  selectedId === device.id
-                    ? "bg-slate-100 font-medium"
-                    : ""
+                  selectedId === device.id ? "bg-slate-100 font-medium" : ""
                 }`}
                 onClick={() => setSelectedId(device.id)}
               >
@@ -100,10 +98,7 @@ export function DeviceLinkDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
           </Button>
           <Button

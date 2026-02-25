@@ -81,9 +81,7 @@ function findNode(
 }
 
 /** Build a flat map of nodeId -> list of sibling IDs (children of the same parent). */
-function buildSiblingMap(
-  roots: AssetTreeNode[],
-): Map<string, string[]> {
+function buildSiblingMap(roots: AssetTreeNode[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
 
   function walk(children: AssetTreeNode[]) {
@@ -352,7 +350,10 @@ function TreeNode({
           </Link>
         )}
 
-        <Badge variant="outline" className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}>
+        <Badge
+          variant="outline"
+          className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
+        >
           {t(`assets.types.${node.type}`, { defaultValue: node.type })}
         </Badge>
 
@@ -450,7 +451,10 @@ function DragOverlayContent({ node }: { node: AssetTreeNode }) {
       <GripVertical className="h-3.5 w-3.5 text-slate-400" />
       <Icon className="h-4 w-4 text-slate-500" />
       <span className="text-sm font-medium text-slate-900">{node.name}</span>
-      <Badge variant="outline" className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}>
+      <Badge
+        variant="outline"
+        className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
+      >
         {t(`assets.types.${node.type}`, { defaultValue: node.type })}
       </Badge>
     </div>

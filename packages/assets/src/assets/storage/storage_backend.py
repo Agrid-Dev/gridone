@@ -15,7 +15,10 @@ class AssetsStorageBackend(Protocol):
         ...
 
     async def get_descendants(self, asset_id: str) -> list[AssetInDB]:
-        """Return every node in the subtree below *asset_id* (recursive, excludes *asset_id* itself)."""
+        """Return every node in the subtree below *asset_id*.
+
+        Recursive, excludes *asset_id* itself.
+        """
         ...
     async def update_descendant_paths(self, asset_id: str) -> None: ...
 

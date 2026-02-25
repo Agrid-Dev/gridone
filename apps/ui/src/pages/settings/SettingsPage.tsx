@@ -48,11 +48,15 @@ export default function SettingsPage() {
             .trim()
             .min(
               usernameMin,
-              t("settings.validation.usernameMinLength", { count: usernameMin }),
+              t("settings.validation.usernameMinLength", {
+                count: usernameMin,
+              }),
             )
             .max(
               usernameMax,
-              t("settings.validation.usernameMaxLength", { count: usernameMax }),
+              t("settings.validation.usernameMaxLength", {
+                count: usernameMax,
+              }),
             ),
           name: z.string().trim(),
           email: z
@@ -63,7 +67,9 @@ export default function SettingsPage() {
           title: z.string().trim(),
           password: z.string().max(
             passwordMax,
-            t("settings.validation.passwordMaxLength", { count: passwordMax }),
+            t("settings.validation.passwordMaxLength", {
+              count: passwordMax,
+            }),
           ),
           confirmPassword: z.string(),
         })

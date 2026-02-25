@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
-import { getAssetTreeWithDevices, updateAsset, createAsset, reorderChildren } from "@/api/assets";
+import {
+  getAssetTreeWithDevices,
+  updateAsset,
+  createAsset,
+  reorderChildren,
+} from "@/api/assets";
 import type { AssetTreeNode } from "@/api/assets";
 import { AssetTree } from "./components/AssetTree";
 
@@ -57,13 +62,8 @@ export default function AssetsList() {
   });
 
   const renameMutation = useMutation({
-    mutationFn: ({
-      assetId,
-      newName,
-    }: {
-      assetId: string;
-      newName: string;
-    }) => updateAsset(assetId, { name: newName }),
+    mutationFn: ({ assetId, newName }: { assetId: string; newName: string }) =>
+      updateAsset(assetId, { name: newName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("assets.renamed"));
