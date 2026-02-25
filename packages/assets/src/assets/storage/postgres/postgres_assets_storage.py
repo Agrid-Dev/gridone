@@ -133,9 +133,7 @@ class PostgresAssetsStorage:
         )
 
     async def get_by_id(self, asset_id: str) -> AssetInDB | None:
-        row = await self._pool.fetchrow(
-            "SELECT * FROM assets WHERE id = $1", asset_id
-        )
+        row = await self._pool.fetchrow("SELECT * FROM assets WHERE id = $1", asset_id)
         return self._row_to_model(row) if row else None
 
     async def list_all(self) -> list[AssetInDB]:
@@ -145,13 +143,11 @@ class PostgresAssetsStorage:
     async def list_by_parent(self, parent_id: str | None) -> list[AssetInDB]:
         if parent_id is None:
             rows = await self._pool.fetch(
-                "SELECT * FROM assets WHERE parent_id IS NULL"
-                " ORDER BY position, name"
+                "SELECT * FROM assets WHERE parent_id IS NULL ORDER BY position, name"
             )
         else:
             rows = await self._pool.fetch(
-                "SELECT * FROM assets WHERE parent_id = $1"
-                " ORDER BY position, name",
+                "SELECT * FROM assets WHERE parent_id = $1 ORDER BY position, name",
                 parent_id,
             )
         return [self._row_to_model(r) for r in rows]
@@ -179,8 +175,7 @@ class PostgresAssetsStorage:
 
     async def get_children(self, asset_id: str) -> list[AssetInDB]:
         rows = await self._pool.fetch(
-            "SELECT * FROM assets WHERE parent_id = $1"
-            " ORDER BY position, name",
+            "SELECT * FROM assets WHERE parent_id = $1 ORDER BY position, name",
             asset_id,
         )
         return [self._row_to_model(r) for r in rows]
@@ -198,9 +193,7 @@ class PostgresAssetsStorage:
         return [self._row_to_model(r) for r in rows]
 
     async def update_descendant_paths(self, asset_id: str) -> None:
-        await self._pool.execute(
-            "SELECT update_descendant_paths($1)", asset_id
-        )
+        await self._pool.execute("SELECT update_descendant_paths($1)", asset_id)
 
     async def get_next_position(self, parent_id: str) -> int:
         row = await self._pool.fetchrow(
@@ -210,16 +203,13 @@ class PostgresAssetsStorage:
         )
         return row["next_pos"]
 
-    async def reorder_siblings(
-        self, parent_id: str, ordered_ids: list[str]
-    ) -> None:
+    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         if not ordered_ids:
             return
         async with self._pool.acquire() as conn, conn.transaction():
             for pos, asset_id in enumerate(ordered_ids):
                 await conn.execute(
-                    "UPDATE assets SET position = $1"
-                    " WHERE id = $2 AND parent_id = $3",
+                    "UPDATE assets SET position = $1 WHERE id = $2 AND parent_id = $3",
                     pos,
                     asset_id,
                     parent_id,

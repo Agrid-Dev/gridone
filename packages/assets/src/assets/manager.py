@@ -2,7 +2,7 @@ import uuid
 
 from models.errors import InvalidError, NotFoundError
 
-from assets.models import Asset, AssetCreate, AssetUpdate, DeviceAssetLink
+from assets.models import Asset, AssetCreate, AssetType, AssetUpdate, DeviceAssetLink
 from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
 
@@ -37,7 +37,7 @@ class AssetsManager:
         root = AssetInDB(
             id=str(uuid.uuid4()),
             parent_id=None,
-            type="org",
+            type=AssetType.ORG,
             name="Organization",
         )
         await self._storage.save(root)
@@ -177,9 +177,7 @@ class AssetsManager:
         await self._get_or_raise(asset_id)
         return await self._storage.get_device_ids_for_asset(asset_id)
 
-    async def reorder_siblings(
-        self, parent_id: str, ordered_ids: list[str]
-    ) -> None:
+    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
         await self._storage.reorder_siblings(parent_id, ordered_ids)
 

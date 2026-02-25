@@ -1,3 +1,4 @@
+import type { FocusEvent } from "react";
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -160,7 +161,7 @@ function InlineCreateRow({
     else onCancel();
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+  const handleBlur = (e: FocusEvent<HTMLDivElement>) => {
     // If focus is moving to another element inside this row, do nothing
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     submit();

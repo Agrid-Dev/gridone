@@ -20,15 +20,14 @@ class AssetsStorageBackend(Protocol):
         Recursive, excludes *asset_id* itself.
         """
         ...
+
     async def update_descendant_paths(self, asset_id: str) -> None: ...
 
     async def get_next_position(self, parent_id: str) -> int:
         """Return the next available position for a new child of *parent_id*."""
         ...
 
-    async def reorder_siblings(
-        self, parent_id: str, ordered_ids: list[str]
-    ) -> None:
+    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         """Set position values for the given sibling IDs in order (0, 1, 2, ...)."""
         ...
 

@@ -50,8 +50,7 @@ async def get_tree_with_devices(
         for node in nodes:
             device_ids = all_links.get(node["id"], [])
             node["devices"] = [
-                {"id": did, "name": name_map.get(did, did)}
-                for did in device_ids
+                {"id": did, "name": name_map.get(did, did)} for did in device_ids
             ]
             enrich(node["children"])
 
