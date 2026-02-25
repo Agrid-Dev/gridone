@@ -5,7 +5,9 @@ from functools import partial
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
 # Logical value types produced by decode / accepted by encode.
-ByteConvertValue = int | float | str | bool
+ByteConvertOutput = int | float | str | bool
+
+ByteConvertInput = int | bytes | Sequence[int]
 
 _REGISTER_BYTES = 2
 _ONE_REGISTER = 1
@@ -70,7 +72,7 @@ def _from_bytes(data: bytes) -> list[int]:
     return list(struct.unpack(">" + "H" * count, data))
 
 
-def _decode_uint8(value: int | bytes | Sequence[int]) -> int:
+def _decode_uint8(value: ByteConvertInput) -> int:
     if isinstance(value, bytes):
         if len(value) != 1:
             msg = f"byte_convert uint8 expected 1 byte, got {len(value)}"
@@ -87,7 +89,7 @@ def _encode_uint8(value: int) -> int:
     return value
 
 
-def _decode_int8(value: int | bytes | Sequence[int]) -> int:
+def _decode_int8(value: ByteConvertInput) -> int:
     if isinstance(value, bytes):
         if len(value) != 1:
             msg = f"byte_convert int8 expected 1 byte, got {len(value)}"
@@ -109,7 +111,7 @@ def _encode_int8(value: int) -> int:
     return value
 
 
-def _decode_uint16(value: int | Sequence[int]) -> int:
+def _decode_uint16(value: ByteConvertInput) -> int:
     registers = _ensure_registers(value, _ONE_REGISTER)
     reg = registers[0]
     if reg < 0 or reg > _UINT16_MAX:
@@ -125,7 +127,7 @@ def _encode_uint16(value: int) -> int:
     return value
 
 
-def _decode_int16(value: int | Sequence[int]) -> int:
+def _decode_int16(value: ByteConvertInput) -> int:
     reg = _decode_uint16(value)
     if reg & 0x8000:
         return reg - (_UINT16_MAX + 1)
@@ -141,7 +143,7 @@ def _encode_int16(value: int) -> int:
     return value
 
 
-def _decode_bool(value: int | Sequence[int]) -> bool:
+def _decode_bool(value: ByteConvertInput) -> bool:
     reg = _decode_uint16(value)
     return bool(reg)
 
@@ -150,7 +152,7 @@ def _encode_bool(value: bool) -> int:  # noqa: FBT001
     return 1 if value else 0
 
 
-def _decode_uint32(value: int | Sequence[int]) -> int:
+def _decode_uint32(value: ByteConvertInput) -> int:
     registers = _ensure_registers(value, _TWO_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">I", data)[0]
@@ -164,7 +166,7 @@ def _encode_uint32(value: int) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_int32(value: int | Sequence[int]) -> int:
+def _decode_int32(value: ByteConvertInput) -> int:
     registers = _ensure_registers(value, _TWO_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">i", data)[0]
@@ -178,7 +180,7 @@ def _encode_int32(value: int) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_float32(value: int | Sequence[int]) -> float:
+def _decode_float32(value: ByteConvertInput) -> float:
     registers = _ensure_registers(value, _TWO_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">f", data)[0]
@@ -189,7 +191,7 @@ def _encode_float32(value: float) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_hex32(value: int | Sequence[int]) -> str:
+def _decode_hex32(value: ByteConvertInput) -> str:
     registers = _ensure_registers(value, _TWO_REGISTERS)
     data = _to_bytes(registers)
     int_value = struct.unpack(">I", data)[0]
@@ -203,7 +205,7 @@ def _encode_hex32(value: str) -> list[int]:
     return _encode_uint32(int_value)
 
 
-def _decode_uint64(value: int | Sequence[int]) -> int:
+def _decode_uint64(value: ByteConvertInput) -> int:
     registers = _ensure_registers(value, _FOUR_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">Q", data)[0]
@@ -217,7 +219,7 @@ def _encode_uint64(value: int) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_int64(value: int | Sequence[int]) -> int:
+def _decode_int64(value: ByteConvertInput) -> int:
     registers = _ensure_registers(value, _FOUR_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">q", data)[0]
@@ -231,7 +233,7 @@ def _encode_int64(value: int) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_float64(value: int | Sequence[int]) -> float:
+def _decode_float64(value: ByteConvertInput) -> float:
     registers = _ensure_registers(value, _FOUR_REGISTERS)
     data = _to_bytes(registers)
     return struct.unpack(">d", data)[0]
@@ -242,7 +244,7 @@ def _encode_float64(value: float) -> list[int]:
     return _from_bytes(data)
 
 
-def _decode_hex64(value: int | Sequence[int]) -> str:
+def _decode_hex64(value: ByteConvertInput) -> str:
     registers = _ensure_registers(value, _FOUR_REGISTERS)
     data = _to_bytes(registers)
     int_value = struct.unpack(">Q", data)[0]
@@ -256,7 +258,7 @@ def _encode_hex64(value: str) -> list[int]:
     return _encode_uint64(int_value)
 
 
-_DECODE_FUNCS: dict[str, Callable[[int | Sequence[int]], object]] = {
+_DECODE_FUNCS: dict[str, Callable[[ByteConvertInput], object]] = {
     "uint8": _decode_uint8,
     "int8": _decode_int8,
     "uint16": _decode_uint16,
@@ -303,13 +305,13 @@ def _reverse_multi_registers(value: int | Sequence[int]) -> int | list[int]:
 
 def _little_endian_decode(
     decoder: Callable, value: int | Sequence[int]
-) -> ByteConvertValue:
+) -> ByteConvertOutput:
     normalized = _reverse_multi_registers(value)
     return decoder(normalized)  # type: ignore[no-any-return]
 
 
 def _little_endian_encode(
-    encoder: Callable, value: ByteConvertValue
+    encoder: Callable, value: ByteConvertOutput
 ) -> int | list[int]:
     raw = encoder(value)
     return _reverse_multi_registers(raw)  # type: ignore[return-value]
@@ -349,11 +351,11 @@ def _parse_type_spec(type_spec: str) -> tuple[str, str]:
 
 def byte_convert_adapter(
     type_spec: str,
-) -> FnAdapter[int | Sequence[int], ByteConvertValue]:
+) -> FnAdapter[ByteConvertInput, ByteConvertOutput]:
     """Reversible adapter for converting between registers/bytes and typed values.
 
     type_spec examples:
-    - 'uint8', 'int8'  (1 byte; accepts raw bytes from byte_slice)
+    - 'uint8', 'int8'  (1 byte; accepts raw bytes from slice)
     - 'uint16', 'int16', 'bool'
     - 'uint32', 'int32', 'float32', 'hex32'
     - 'uint64', 'int64', 'float64', 'hex64'
