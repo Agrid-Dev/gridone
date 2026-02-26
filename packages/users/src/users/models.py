@@ -8,7 +8,6 @@ class User(BaseModel):
 
     id: str
     username: str
-    is_admin: bool = False
     name: str = ""
     email: str = ""
     title: str = ""
@@ -28,7 +27,6 @@ class UserInDB(User):
 class UserUpdate(BaseModel):
     username: str | None = None
     password: str | None = None
-    is_admin: bool | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
@@ -38,8 +36,6 @@ class UserUpdate(BaseModel):
         update_dict: dict[str, str | bool] = {}
         if self.username is not None:
             update_dict["username"] = self.username
-        if self.is_admin is not None:
-            update_dict["is_admin"] = self.is_admin
         if self.name is not None:
             update_dict["name"] = self.name
         if self.email is not None:
@@ -58,7 +54,6 @@ class UserUpdate(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    is_admin: bool = False
     name: str = ""
     email: str = ""
     title: str = ""

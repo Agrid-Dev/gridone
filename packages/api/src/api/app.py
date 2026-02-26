@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     # Users storage (returns pool for sharing with authorization storage)
     users_storage, pg_pool = await build_users_storage(settings.storage_url)
     um = UsersManager(users_storage)
-    await um.ensure_default_admin()
+    default_admin_id = await um.ensure_default_admin()
     app.state.users_manager = um
 
     try:
@@ -95,12 +95,13 @@ async def lifespan(app: FastAPI):
     if root_asset_id is not None:
         await roles_manager.migrate_null_asset_assignments(root_asset_id)
 
-    # One-time migration: convert is_admin flags to role assignments
+    # Assign default roles to users without any role assignments
     all_users = await um.list_users()
-    users_admin_flags = [(u.id, u.is_admin) for u in all_users]
     if root_asset_id is not None:
-        await roles_manager.migrate_is_admin_to_roles(
-            users_admin_flags, root_asset_id
+        await roles_manager.ensure_default_role_assignments(
+            [u.id for u in all_users],
+            root_asset_id,
+            admin_user_id=default_admin_id,
         )
 
     async def on_attribute_update(

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from models.errors import NotFoundError
 from users import (
     ALL_PERMISSIONS,
+    AuthorizationService,
     Permission,
     Role,
     RoleCreate,
@@ -13,7 +14,7 @@ from users import (
 )
 from users.roles_manager import RolesManager
 
-from api.dependencies import get_roles_manager, require_permission
+from api.dependencies import get_authorization_service, get_roles_manager, require_permission
 
 router = APIRouter()
 
@@ -117,7 +118,25 @@ async def create_assignment(
     body: UserRoleAssignmentCreate,
     _: Annotated[str, _manage],
     rm: Annotated[RolesManager, Depends(get_roles_manager)],
+    authz: Annotated[AuthorizationService, Depends(get_authorization_service)],
 ) -> UserRoleAssignment:
+    try:
+        role = await rm.get_role(body.role_id)
+    except NotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
+        ) from e
+
+    # Reject if the user already has all the permissions of this role at
+    # the target asset (through existing ancestor or same-level assignments).
+    existing_perms = await authz.get_user_permissions(body.user_id, body.asset_id)
+    if role.permissions and set(role.permissions).issubset(existing_perms):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Redundant assignment: the user already has all "
+            "permissions of this role at this asset",
+        )
+
     try:
         return await rm.create_assignment(body)
     except NotFoundError as e:

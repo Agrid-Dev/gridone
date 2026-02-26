@@ -1,11 +1,15 @@
 import json
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+
+from users.auth import AuthService, InvalidTokenError
 
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import PongMessage
 
 router = APIRouter()
+
+_WS_CLOSE_AUTH_FAILED = 4001
 
 
 def get_websocket_manager(websocket: WebSocket) -> WebSocketManager:
@@ -13,12 +17,27 @@ def get_websocket_manager(websocket: WebSocket) -> WebSocketManager:
     return websocket.app.state.websocket_manager
 
 
+def get_auth_service(websocket: WebSocket) -> AuthService:
+    return websocket.app.state.auth_service
+
+
 @router.websocket("/ws")
 @router.websocket("/ws/devices")
 async def websocket_endpoint(
     websocket: WebSocket,
     manager: WebSocketManager = Depends(get_websocket_manager),
+    auth_service: AuthService = Depends(get_auth_service),
+    token: str | None = Query(None),
 ) -> None:
+    if not token:
+        await websocket.close(code=_WS_CLOSE_AUTH_FAILED, reason="Missing token")
+        return
+    try:
+        auth_service.decode_token(token)
+    except InvalidTokenError:
+        await websocket.close(code=_WS_CLOSE_AUTH_FAILED, reason="Invalid token")
+        return
+
     connection_id = await manager.connect(websocket)
 
     try:

@@ -20,7 +20,6 @@ export type RoleAssignmentInfo = {
 export type CurrentUser = {
   id: string;
   username: string;
-  isAdmin: boolean;
   name: string;
   email: string;
   title: string;

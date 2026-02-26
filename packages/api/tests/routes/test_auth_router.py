@@ -21,7 +21,6 @@ class MockUsersManager:
             "admin": User(
                 id="admin-id",
                 username="admin",
-                is_admin=True,
             )
         }
 

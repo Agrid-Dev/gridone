@@ -33,7 +33,6 @@ class RoleAssignmentInfo(BaseModel):
 class MeResponse(BaseModel):
     id: str
     username: str
-    is_admin: bool
     name: str
     email: str
     title: str
@@ -94,7 +93,6 @@ async def get_me(
     return MeResponse(
         id=user.id,
         username=user.username,
-        is_admin=user.is_admin,
         name=user.name,
         email=user.email,
         title=user.title,

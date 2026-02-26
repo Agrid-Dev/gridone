@@ -27,3 +27,7 @@ module-root = "src"
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "../models/src"]
+asyncio_mode = "auto"
+markers = [
+    "integration: mark a test as an integration test",
+]

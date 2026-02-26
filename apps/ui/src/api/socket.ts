@@ -32,21 +32,22 @@ export type WebSocketMessage =
   | PingMessage
   | Record<string, unknown>;
 
-export function buildWebSocketUrl(): string {
+export function buildWebSocketUrl(token: string): string {
   const env = import.meta.env as {
     VITE_WS_BASE_URL?: string;
     VITE_API_BASE_URL?: string;
   };
   const base = env.VITE_WS_BASE_URL ?? env.VITE_API_BASE_URL ?? API_BASE_URL;
+  const query = `?token=${encodeURIComponent(token)}`;
 
   try {
     const url = new URL(base);
     const protocol = url.protocol === "https:" ? "wss:" : "ws:";
     const pathname = url.pathname.replace(/\/+$/, "");
-    return `${protocol}//${url.host}${pathname}/ws/devices`;
+    return `${protocol}//${url.host}${pathname}/ws/devices${query}`;
   } catch {
     const sanitized = String(base).replace(/\/+$/, "").replace(/^http/, "ws");
-    return `${sanitized}/ws/devices`;
+    return `${sanitized}/ws/devices${query}`;
   }
 }
 

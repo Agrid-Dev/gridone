@@ -72,25 +72,29 @@ class RolesManager:
                 )
                 await self._storage.save_role(updated)
 
-    async def migrate_is_admin_to_roles(
+    async def ensure_default_role_assignments(
         self,
-        users_admin_flags: list[tuple[str, bool]],
+        user_ids: list[str],
         root_asset_id: str,
+        *,
+        admin_user_id: str | None = None,
     ) -> None:
-        """One-time migration: assign admin role at root asset to is_admin=True
-        users, viewer role at root to others — only if they have no existing
-        assignments.
+        """Assign a default role at the root asset to users without any
+        existing role assignments.
+
+        *admin_user_id* (e.g. the freshly-created default admin) receives the
+        admin role; all other users receive the viewer role.
         """
         admin_role = await self._storage.get_role_by_name("admin")
         viewer_role = await self._storage.get_role_by_name("viewer")
         if admin_role is None or viewer_role is None:
             return
 
-        for user_id, is_admin in users_admin_flags:
+        for user_id in user_ids:
             existing = await self._storage.list_assignments_for_user(user_id)
             if existing:
                 continue  # already has role assignments
-            role = admin_role if is_admin else viewer_role
+            role = admin_role if user_id == admin_user_id else viewer_role
             assignment = UserRoleAssignment(
                 id=str(uuid.uuid4()),
                 user_id=user_id,

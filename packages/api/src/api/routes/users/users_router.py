@@ -35,7 +35,6 @@ _manage = Depends(require_permission(Permission.USERS_MANAGE))
 class UserCreateRequest(BaseModel):
     username: UsernameField
     password: PasswordField
-    is_admin: bool = False
     name: str = ""
     email: str = ""
     title: str = ""
@@ -44,7 +43,6 @@ class UserCreateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     username: UsernameField | None = None
     password: PasswordField | None = None
-    is_admin: bool | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
@@ -69,7 +67,6 @@ async def create_user(
             UserCreate(
                 username=body.username,
                 password=body.password,
-                is_admin=body.is_admin,
                 name=body.name,
                 email=body.email,
                 title=body.title,
@@ -104,7 +101,6 @@ async def update_user(
             UserUpdate(
                 username=body.username,
                 password=body.password,
-                is_admin=body.is_admin,
                 name=body.name,
                 email=body.email,
                 title=body.title,

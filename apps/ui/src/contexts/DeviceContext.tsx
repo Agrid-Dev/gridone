@@ -6,12 +6,14 @@ import {
   useCallback,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { getStoredToken } from "@/api/auth";
 import { useWebSocket, WebSocketStatus } from "@/hooks/useWebSocket";
 import {
   buildWebSocketUrl,
   createDeviceMessageHandler,
   WebSocketMessage,
 } from "@/api/socket";
+import { useAuth } from "./AuthContext";
 
 type DeviceContextValue = {
   status: WebSocketStatus;
@@ -22,15 +24,21 @@ const DeviceContext = createContext<DeviceContextValue | null>(null);
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { state: authState } = useAuth();
+  const token = authState.status === "authenticated" ? getStoredToken() : null;
 
   const handleMessage = useCallback(createDeviceMessageHandler(queryClient), [
     queryClient,
   ]);
 
-  const websocketUrl = useMemo(() => buildWebSocketUrl(), []);
+  const websocketUrl = useMemo(
+    () => (token ? buildWebSocketUrl(token) : ""),
+    [token],
+  );
 
   const { status, isConnected } = useWebSocket<WebSocketMessage>({
     url: websocketUrl,
+    enabled: !!token,
     onMessage: handleMessage,
   });
 

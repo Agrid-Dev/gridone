@@ -35,19 +35,22 @@ class UsersManager:
             raise NotFoundError(msg)
         return user
 
-    async def ensure_default_admin(self) -> None:
-        """Create the default admin/admin user if no users exist."""
+    async def ensure_default_admin(self) -> str | None:
+        """Create the default admin/admin user if no users exist.
+
+        Returns the admin's user ID if created, None otherwise.
+        """
         existing = await self._storage.list_all()
         if existing:
-            return
+            return None
         admin = UserInDB(
             id=str(uuid.uuid4()),
             username="admin",
             hashed_password=hash_password("admin"),
-            is_admin=True,
             must_change_password=True,
         )
         await self._storage.save(admin)
+        return admin.id
 
     async def get_by_username(self, username: str) -> User | None:
         user = await self._storage.get_by_username(username)
@@ -80,7 +83,6 @@ class UsersManager:
             id=str(uuid.uuid4()),
             username=create_data.username,
             hashed_password=hash_password(create_data.password),
-            is_admin=create_data.is_admin,
             name=create_data.name,
             email=create_data.email,
             title=create_data.title,
