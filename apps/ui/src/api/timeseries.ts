@@ -40,16 +40,24 @@ export function listSeries<D extends DataType = DataType>(
   );
 }
 
+export type GetSeriesPointsOptions = {
+  start?: string;
+  end?: string;
+  last?: string;
+  carryForward?: boolean;
+};
+
 export function getSeriesPoints<D extends DataType = DataType>(
   seriesId: string,
-  start?: string,
-  end?: string,
-  last?: string,
+  options?: GetSeriesPointsOptions,
 ): Promise<DataPoint<D>[]> {
+  const { start, end, last, carryForward } = options ?? {};
   const params = new URLSearchParams();
   if (start) params.set("start", start);
   if (end) params.set("end", end);
   if (last) params.set("last", last);
+  if (carryForward !== undefined)
+    params.set("carry_forward", String(carryForward));
   const qs = params.toString();
   return request<DataPoint<D>[]>(
     `/timeseries/${encodeURIComponent(seriesId)}/points${qs ? `?${qs}` : ""}`,

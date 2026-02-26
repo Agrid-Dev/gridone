@@ -103,7 +103,14 @@ class TimeSeriesService:
         start: datetime | None = None,
         end: datetime | None = None,
         last: str | None = None,
+        carry_forward: bool = False,
     ) -> list[DataPoint[DataPointValue]]:
         if last is not None and start is None:
             start = resolve_last(last)
-        return await self._storage.fetch_points(key, start=start, end=end)
+        points = await self._storage.fetch_points(key, start=start, end=end)
+        if carry_forward and start is not None:
+            previous = await self._storage.fetch_point_before(key, before=start)
+            if previous is not None:
+                carried = DataPoint(timestamp=start, value=previous.value)
+                points = [carried, *points]
+        return points

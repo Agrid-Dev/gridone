@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import bisect_left
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -67,6 +68,22 @@ class MemoryStorage:
         if end is not None:
             points = [p for p in points if p.timestamp <= end]
         return list(points)
+
+    async def fetch_point_before(
+        self,
+        key: SeriesKey,
+        *,
+        before: datetime,
+    ) -> DataPoint[DataPointValue] | None:
+        series_id = self._key_index.get(key)
+        if series_id is None:
+            return None
+        points = self._series[series_id].data_points
+        timestamps = [p.timestamp for p in points]
+        idx = bisect_left(timestamps, before)
+        if idx > 0:
+            return points[idx - 1]
+        return None
 
     async def upsert_points(
         self,

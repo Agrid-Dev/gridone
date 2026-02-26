@@ -35,7 +35,8 @@ export function useTimeSeries<D extends DataType = DataType>({
 
   const pointsQuery = useQuery<DataPoint<D>[]>({
     queryKey: ["timeseries", "points", seriesId, start, end],
-    queryFn: () => getSeriesPoints<D>(seriesId!, start, end),
+    queryFn: () =>
+      getSeriesPoints<D>(seriesId!, { start, end, carryForward: true }),
     enabled: !!seriesId,
   });
 
