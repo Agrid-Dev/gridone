@@ -122,7 +122,16 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
           value: updateMessage.value as DataPoint["value"],
         };
         queryClient.setQueriesData<DataPoint[]>(
-          { queryKey: ["timeseries", "points", series.id] },
+          {
+            queryKey: ["timeseries", "points", series.id],
+            predicate: (query) => {
+              // Only inject into open-ended queries (no fixed end).
+              // Queries with a fixed end represent a closed time window
+              // where new data points would fall outside the range.
+              const end = query.queryKey[4];
+              return end === undefined;
+            },
+          },
           (current) => (current ? [...current, point] : [point]),
         );
       }
