@@ -63,13 +63,19 @@ uv run pytest -m "not integration" # run unit tests
 uv run pytest -m integration # run integration tests
 ```
 
-### Githooks (recommended)
+### Git hooks (recommended)
 
-To run checks before pushing, setup the githook :
+This project uses [prek](https://prek.j178.dev/) to manage git hooks. Install prek, then run:
 ```sh
-chmod +x .githooks/setup.sh
-bash .githooks/setup.sh
+prek install -t commit-msg -t pre-commit -t pre-push
 ```
+
+This sets up:
+- **Commit-msg**: [conventional commits](https://www.conventionalcommits.org/) enforcement
+- **Pre-commit**: ruff check, ruff format (Python), eslint, prettier (UI)
+- **Pre-push**: ty check, pytest (Python), type-check, vitest (UI)
+
+Frontend hooks only run when `apps/ui/` files are changed.
 
 ### Running with a proxy
 

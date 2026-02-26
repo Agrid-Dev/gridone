@@ -1,0 +1,93 @@
+# prek.toml — Git hook configuration for Gridone
+# Install: prek install -t commit-msg -t pre-commit -t pre-push
+
+# ── Commit-msg: conventional commits ──────────────────────────
+
+[[repos]]
+repo = "https://github.com/compilerla/conventional-pre-commit"
+rev = "v4.4.0"
+
+[[repos.hooks]]
+id = "conventional-pre-commit"
+stages = ["commit-msg"]
+
+# ── Local hooks ────────────────────────────────────────────────
+
+[[repos]]
+repo = "local"
+
+# ── Pre-commit: fast feedback ─────────────────────────────────
+
+[[repos.hooks]]
+id = "ruff-check"
+name = "Ruff check"
+language = "system"
+entry = "uv run ruff check ."
+pass_filenames = false
+types = ["python"]
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "ruff-format"
+name = "Ruff format check"
+language = "system"
+entry = "uv run ruff format --check ."
+pass_filenames = false
+types = ["python"]
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "ui-lint"
+name = "UI lint"
+language = "system"
+entry = "npm --prefix apps/ui run lint"
+pass_filenames = false
+files = "^apps/ui/"
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "ui-format"
+name = "UI format check"
+language = "system"
+entry = "npm --prefix apps/ui run format -- --check"
+pass_filenames = false
+files = "^apps/ui/"
+stages = ["pre-commit"]
+
+# ── Pre-push: thorough checks ─────────────────────────────────
+
+[[repos.hooks]]
+id = "ty-check"
+name = "Type check (Python)"
+language = "system"
+entry = "uv run ty check"
+pass_filenames = false
+types = ["python"]
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "pytest"
+name = "Tests (Python)"
+language = "system"
+entry = 'uv run pytest -m "not integration"'
+pass_filenames = false
+types = ["python"]
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "ui-type-check"
+name = "UI type check"
+language = "system"
+entry = "npm --prefix apps/ui run type-check"
+pass_filenames = false
+files = "^apps/ui/"
+stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "ui-test"
+name = "UI tests"
+language = "system"
+entry = "npm --prefix apps/ui run test"
+pass_filenames = false
+files = "^apps/ui/"
+stages = ["pre-push"]
