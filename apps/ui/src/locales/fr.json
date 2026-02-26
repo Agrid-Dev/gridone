@@ -24,10 +24,6 @@
     "updated": "Utilisateur mis à jour",
     "deleted": "Utilisateur supprimé",
     "you": "vous",
-    "roles": {
-      "admin": "Administrateur",
-      "user": "Utilisateur"
-    },
     "fields": {
       "username": "Nom d'utilisateur",
       "password": "Mot de passe",
@@ -36,8 +32,14 @@
       "name": "Nom complet",
       "email": "Email",
       "title": "Titre",
-      "role": "Rôle",
-      "isAdmin": "Administrateur"
+      "roles": "Rôles"
+    },
+    "assignments": {
+      "none": "Aucun rôle attribué",
+      "selectRole": "Sélectionner un rôle...",
+      "selectZone": "Sélectionner une zone...",
+      "added": "Rôle attribué",
+      "removed": "Rôle retiré"
     }
   },
   "settings": {
@@ -84,6 +86,7 @@
     "true": "Vrai",
     "false": "Faux",
     "cancel": "Annuler",
+    "close": "Fermer",
     "create": "Créer",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
@@ -118,9 +121,45 @@
       "days_other": "{{count}} jours"
     }
   },
+  "roles": {
+    "title": "Rôles",
+    "subtitle": "Gestion des rôles",
+    "create": "Ajouter un rôle",
+    "edit": "Modifier le rôle",
+    "created": "Rôle créé",
+    "updated": "Rôle mis à jour",
+    "deleted": "Rôle supprimé",
+    "system": "Système",
+    "custom": "Personnalisé",
+    "cannotEditSystem": "Les rôles système ne peuvent pas être modifiés",
+    "cannotDeleteSystem": "Les rôles système ne peuvent pas être supprimés",
+    "fields": {
+      "name": "Nom",
+      "description": "Description",
+      "permissions": "Permissions",
+      "type": "Type"
+    }
+  },
+  "permissions": {
+    "devices:read": "Voir les appareils",
+    "devices:manage": "Gérer les appareils",
+    "devices:command": "Commander les appareils",
+    "drivers:read": "Voir les drivers",
+    "drivers:manage": "Gérer les drivers",
+    "transports:read": "Voir les transports",
+    "transports:manage": "Gérer les transports",
+    "timeseries:read": "Voir les séries temporelles",
+    "assets:read": "Voir les zones",
+    "assets:manage": "Gérer les zones",
+    "users:read": "Voir les utilisateurs",
+    "users:manage": "Gérer les utilisateurs",
+    "roles:read": "Voir les rôles",
+    "roles:manage": "Gérer les rôles"
+  },
   "errors": {
     "notFound": "Cette ressource n'existe pas",
     "loadError": "Une erreur s'est produite lors du chargement de cette ressource.",
+    "forbidden": "Vous n'avez pas la permission d'effectuer cette action.",
     "default": "Une erreur s'est produite"
   },
   "empty": {

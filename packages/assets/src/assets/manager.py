@@ -184,5 +184,19 @@ class AssetsManager:
     async def get_all_device_links(self) -> dict[str, list[str]]:
         return await self._storage.get_all_device_links()
 
+    async def get_root_ids(self) -> list[str]:
+        """Return IDs of root assets (those with parent_id=None)."""
+        roots = await self._storage.list_by_parent(None)
+        return [r.id for r in roots]
+
+    async def get_descendant_ids(self, asset_id: str) -> list[str]:
+        """Return IDs of all descendants of the given asset."""
+        descendants = await self._storage.get_descendants(asset_id)
+        return [d.id for d in descendants]
+
+    async def get_asset_ids_for_device(self, device_id: str) -> list[str]:
+        """Return asset IDs that the given device is linked to."""
+        return await self._storage.get_asset_ids_for_device(device_id)
+
 
 __all__ = ["AssetsManager"]

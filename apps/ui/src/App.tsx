@@ -6,6 +6,7 @@ import Transports from "./pages/transports";
 import Drivers from "./pages/drivers";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
+import RolesPage from "./pages/roles/RolesPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { Toaster } from "./components/ui/sonner";
@@ -32,6 +33,7 @@ function ProtectedLayout() {
             <Route path="/transports/*" element={<Transports />} />
             <Route path="/drivers/*" element={<Drivers />} />
             <Route path="/users" element={<UsersPage />} />
+            <Route path="/roles" element={<RolesPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
           <Toaster />

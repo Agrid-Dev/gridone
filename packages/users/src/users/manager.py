@@ -4,18 +4,24 @@ from models.errors import NotFoundError
 
 from users.models import User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
+from users.storage.authorization_storage_backend import AuthorizationStorageBackend
 from users.storage.storage_backend import UsersStorageBackend
 
 
 class UsersManager:
-    def __init__(self, storage: UsersStorageBackend) -> None:
+    def __init__(
+        self,
+        storage: UsersStorageBackend,
+        authorization_storage: AuthorizationStorageBackend | None = None,
+    ) -> None:
         self._storage = storage
+        self._authorization_storage = authorization_storage
 
     @classmethod
     async def from_storage(cls, storage_url: str) -> "UsersManager":
         from users.storage import build_users_storage  # noqa: PLC0415
 
-        storage = await build_users_storage(storage_url)
+        storage, _pool = await build_users_storage(storage_url)
         return cls(storage)
 
     @staticmethod
@@ -100,8 +106,15 @@ class UsersManager:
         await self._storage.save(updated_user)
         return self._to_public_user(updated_user)
 
+    def set_authorization_storage(
+        self, storage: AuthorizationStorageBackend
+    ) -> None:
+        self._authorization_storage = storage
+
     async def delete_user(self, user_id: str) -> None:
         await self._get_in_db_or_raise(user_id)
+        if self._authorization_storage is not None:
+            await self._authorization_storage.delete_assignments_for_user(user_id)
         await self._storage.delete(user_id)
 
 

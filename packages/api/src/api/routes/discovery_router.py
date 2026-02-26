@@ -4,7 +4,8 @@ from devices_manager import DevicesManager
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 
-from api.dependencies import get_device_manager
+from users import Permission
+from api.dependencies import get_device_manager, require_permission
 
 
 class DiscoveryHandlerCreateDTO(BaseModel):
@@ -18,6 +19,9 @@ class DiscoveryHandlerDTO(DiscoveryHandlerCreateDTO):
 
 router = APIRouter()
 
+_read = Depends(require_permission(Permission.TRANSPORTS_READ))
+_manage = Depends(require_permission(Permission.TRANSPORTS_MANAGE))
+
 
 def get_transport_id(transport_id: str = Path(...)) -> str:
     """Used to get transport_id from path (parent route)"""
@@ -26,6 +30,7 @@ def get_transport_id(transport_id: str = Path(...)) -> str:
 
 @router.get("/")
 def list_discoveries(
+    _: Annotated[str, _read],
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> list[DiscoveryHandlerDTO]:
@@ -47,6 +52,7 @@ def list_discoveries(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_discovery(
+    _: Annotated[str, _manage],
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     payload: DiscoveryHandlerCreateDTO,
     transport_id: Annotated[str, Depends(get_transport_id)],
@@ -74,6 +80,7 @@ async def create_discovery(
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_discovery(
+    _: Annotated[str, _manage],
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
     driver_id: str,

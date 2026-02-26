@@ -1,10 +1,19 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield, X } from "lucide-react";
 import { toast } from "sonner";
 import { listUsers, createUser, updateUser, deleteUser } from "@/api/users";
 import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
+import {
+  listRoles,
+  listAssignments,
+  createAssignment,
+  deleteAssignment,
+} from "@/api/roles";
+import type { UserRoleAssignment } from "@/api/roles";
+import { getAssetTree } from "@/api/assets";
+import type { AssetTreeNode } from "@/api/assets";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
@@ -20,7 +29,6 @@ import { Input } from "@/components/ui/input";
 type UserFormData = {
   username: string;
   password: string;
-  isAdmin: boolean;
   name: string;
   email: string;
   title: string;
@@ -29,11 +37,26 @@ type UserFormData = {
 const emptyForm: UserFormData = {
   username: "",
   password: "",
-  isAdmin: false,
   name: "",
   email: "",
   title: "",
 };
+
+type FlatAssetOption = { id: string; name: string; depth: number };
+
+function flattenTree(
+  nodes: AssetTreeNode[],
+  depth = 0,
+): FlatAssetOption[] {
+  const result: FlatAssetOption[] = [];
+  for (const node of nodes) {
+    result.push({ id: node.id, name: node.name, depth });
+    if (node.children?.length) {
+      result.push(...flattenTree(node.children, depth + 1));
+    }
+  }
+  return result;
+}
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -46,9 +69,28 @@ export default function UsersPage() {
     queryFn: listUsers,
   });
 
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: listRoles,
+  });
+
+  const { data: allAssignments = [] } = useQuery({
+    queryKey: ["assignments"],
+    queryFn: () => listAssignments(),
+  });
+
+  const { data: assetTree = [] } = useQuery({
+    queryKey: ["assets", "tree"],
+    queryFn: getAssetTree,
+  });
+
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form, setForm] = useState<UserFormData>(emptyForm);
+
+  // For adding a new role assignment in the edit dialog
+  const [newRoleId, setNewRoleId] = useState("");
+  const [newAssetId, setNewAssetId] = useState("");
 
   const createMutation = useMutation({
     mutationFn: (data: UserCreatePayload) => createUser(data),
@@ -80,6 +122,28 @@ export default function UsersPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const addAssignmentMutation = useMutation({
+    mutationFn: createAssignment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      setNewRoleId("");
+      setNewAssetId("");
+      toast.success(t("users.assignments.added"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const removeAssignmentMutation = useMutation({
+    mutationFn: deleteAssignment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success(t("users.assignments.removed"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const openCreate = () => {
     setForm(emptyForm);
     setEditingUser(null);
@@ -90,12 +154,13 @@ export default function UsersPage() {
     setForm({
       username: user.username,
       password: "",
-      isAdmin: user.isAdmin,
       name: user.name,
       email: user.email,
       title: user.title,
     });
     setEditingUser(user);
+    setNewRoleId("");
+    setNewAssetId("");
     setDialogMode("edit");
   };
 
@@ -105,7 +170,6 @@ export default function UsersPage() {
       createMutation.mutate({
         username: form.username,
         password: form.password,
-        isAdmin: form.isAdmin,
         name: form.name,
         email: form.email,
         title: form.title,
@@ -113,7 +177,6 @@ export default function UsersPage() {
     } else if (dialogMode === "edit" && editingUser) {
       const payload: UserUpdatePayload = {
         username: form.username || undefined,
-        isAdmin: form.isAdmin,
         name: form.name,
         email: form.email,
         title: form.title,
@@ -125,7 +188,36 @@ export default function UsersPage() {
     }
   };
 
+  const handleAddAssignment = () => {
+    if (!editingUser || !newRoleId || !newAssetId) return;
+    addAssignmentMutation.mutate({
+      userId: editingUser.id,
+      roleId: newRoleId,
+      assetId: newAssetId,
+    });
+  };
+
   const isBusy = createMutation.isPending || updateMutation.isPending;
+
+  // Helpers
+  const roleMap = new Map(roles.map((r) => [r.id, r]));
+  const flatAssets = flattenTree(assetTree);
+  const assetNameMap = new Map(flatAssets.map((a) => [a.id, a.name]));
+
+  function getUserAssignments(userId: string): UserRoleAssignment[] {
+    return allAssignments.filter((a) => a.userId === userId);
+  }
+
+  function getUserRoleNames(userId: string): string[] {
+    return getUserAssignments(userId)
+      .map((a) => roleMap.get(a.roleId)?.name)
+      .filter(Boolean) as string[];
+  }
+
+  // Roles available for assigning
+  const editingUserAssignments = editingUser
+    ? getUserAssignments(editingUser.id)
+    : [];
 
   return (
     <section className="space-y-6">
@@ -164,7 +256,7 @@ export default function UsersPage() {
                   {t("users.fields.email")}
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-slate-600">
-                  {t("users.fields.role")}
+                  {t("users.fields.roles")}
                 </th>
                 <th className="px-4 py-3" />
               </tr>
@@ -182,10 +274,23 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{user.name}</td>
                   <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {user.isAdmin
-                      ? t("users.roles.admin")
-                      : t("users.roles.user")}
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {getUserRoleNames(user.id).map((roleName) => (
+                        <span
+                          key={roleName}
+                          className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                        >
+                          <Shield className="h-3 w-3" />
+                          {roleName}
+                        </span>
+                      ))}
+                      {getUserRoleNames(user.id).length === 0 && (
+                        <span className="text-xs text-slate-400">
+                          {t("users.assignments.none")}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
@@ -220,7 +325,7 @@ export default function UsersPage() {
         open={dialogMode !== null}
         onOpenChange={() => setDialogMode(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {dialogMode === "create" ? t("users.create") : t("users.edit")}
@@ -283,20 +388,98 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="isAdmin"
-                type="checkbox"
-                checked={form.isAdmin}
-                onChange={(e) =>
-                  setForm({ ...form, isAdmin: e.target.checked })
-                }
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              <label htmlFor="isAdmin" className="text-sm text-slate-700">
-                {t("users.fields.isAdmin")}
-              </label>
-            </div>
+
+            {/* Role assignments — only in edit mode */}
+            {dialogMode === "edit" && editingUser && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  {t("users.fields.roles")}
+                </label>
+                <div className="rounded-md border border-slate-200 p-3 space-y-2">
+                  {editingUserAssignments.length === 0 && (
+                    <p className="text-xs text-slate-400">
+                      {t("users.assignments.none")}
+                    </p>
+                  )}
+                  {editingUserAssignments.map((assignment) => {
+                    const role = roleMap.get(assignment.roleId);
+                    const assetName = assetNameMap.get(assignment.assetId);
+                    return (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between rounded bg-slate-50 px-3 py-1.5"
+                      >
+                        <div className="flex items-center gap-2 text-sm">
+                          <Shield className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-medium text-slate-700">
+                            {role?.name ?? assignment.roleId}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {assetName ?? assignment.assetId}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeAssignmentMutation.mutate(assignment.id)
+                          }
+                          disabled={removeAssignmentMutation.isPending}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Add assignment */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <select
+                      value={newRoleId}
+                      onChange={(e) => setNewRoleId(e.target.value)}
+                      className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
+                    >
+                      <option value="">
+                        {t("users.assignments.selectRole")}
+                      </option>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={newAssetId}
+                      onChange={(e) => setNewAssetId(e.target.value)}
+                      className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
+                    >
+                      <option value="">
+                        {t("users.assignments.selectZone")}
+                      </option>
+                      {flatAssets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {"  ".repeat(asset.depth) + asset.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddAssignment}
+                      disabled={
+                        !newRoleId ||
+                        !newAssetId ||
+                        addAssignmentMutation.isPending
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <DialogFooter>
               <Button
                 type="button"

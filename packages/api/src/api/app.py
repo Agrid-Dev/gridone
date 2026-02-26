@@ -7,15 +7,19 @@ from assets import AssetsManager
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
-from users import UsersManager
+from users import AuthorizationService, UsersManager
 from users.auth import AuthService
+from users.roles_manager import RolesManager
+from users.storage import build_authorization_storage, build_users_storage
 
+from api.asset_hierarchy_adapter import AssetHierarchyAdapter
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     assets_router,
     devices_router,
     drivers_router,
+    roles_router,
     timeseries_router,
     transports_router,
 )
@@ -45,7 +49,9 @@ async def lifespan(app: FastAPI):
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    um = await UsersManager.from_storage(settings.storage_url)
+    # Users storage (returns pool for sharing with authorization storage)
+    users_storage, pg_pool = await build_users_storage(settings.storage_url)
+    um = UsersManager(users_storage)
     await um.ensure_default_admin()
     app.state.users_manager = um
 
@@ -56,6 +62,46 @@ async def lifespan(app: FastAPI):
     except ValueError:
         logger.warning("Assets package requires PostgreSQL — assets disabled")
         app.state.assets_manager = None
+
+    # Authorization storage (shares the Postgres pool with users storage)
+    authz_storage = await build_authorization_storage(
+        settings.storage_url, pool=pg_pool
+    )
+    um.set_authorization_storage(authz_storage)
+
+    roles_manager = RolesManager(authz_storage)
+    await roles_manager.ensure_default_roles()
+    app.state.roles_manager = roles_manager
+
+    # Build hierarchy provider if assets are available
+    hierarchy_provider = None
+    if app.state.assets_manager is not None:
+        hierarchy_provider = AssetHierarchyAdapter(app.state.assets_manager)
+
+    authorization_service = AuthorizationService(
+        storage=authz_storage,
+        asset_hierarchy=hierarchy_provider,
+    )
+    app.state.authorization_service = authorization_service
+
+    # Determine root asset ID for role assignment scoping
+    root_asset_id: str | None = None
+    if app.state.assets_manager is not None:
+        root_ids = await app.state.assets_manager.get_root_ids()
+        if root_ids:
+            root_asset_id = root_ids[0]
+
+    # Migrate legacy NULL asset_id assignments to root asset
+    if root_asset_id is not None:
+        await roles_manager.migrate_null_asset_assignments(root_asset_id)
+
+    # One-time migration: convert is_admin flags to role assignments
+    all_users = await um.list_users()
+    users_admin_flags = [(u.id, u.is_admin) for u in all_users]
+    if root_asset_id is not None:
+        await roles_manager.migrate_is_admin_to_roles(
+            users_admin_flags, root_asset_id
+        )
 
     async def on_attribute_update(
         device: Device, attribute_name: str, attribute: Attribute
@@ -128,6 +174,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         assets_router,
         prefix="/assets",
         tags=["assets"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        roles_router,
+        prefix="/roles",
+        tags=["roles"],
         dependencies=jwt_dep,
     )
     app.include_router(websocket_routes.router, tags=["websocket"])

@@ -4,12 +4,15 @@ from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from users import User, UsersManager
+from users import AuthorizationService, UsersManager
 from users.auth import AuthService
+from users.roles_manager import RolesManager
 from users.validation import AuthPayload, get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
+    get_authorization_service,
     get_current_user_id,
+    get_roles_manager,
     get_users_manager,
 )
 
@@ -19,6 +22,24 @@ router = APIRouter()
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class RoleAssignmentInfo(BaseModel):
+    role_id: str
+    role_name: str
+    asset_id: str
+
+
+class MeResponse(BaseModel):
+    id: str
+    username: str
+    is_admin: bool
+    name: str
+    email: str
+    title: str
+    must_change_password: bool
+    permissions: list[str]
+    roles: list[RoleAssignmentInfo]
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -43,12 +64,41 @@ async def get_auth_schema() -> dict:
     return get_auth_payload_schema()
 
 
-@router.get("/me", response_model=User)
+@router.get("/me", response_model=MeResponse)
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
-) -> User:
+    authz: Annotated[AuthorizationService, Depends(get_authorization_service)],
+    rm: Annotated[RolesManager, Depends(get_roles_manager)],
+) -> MeResponse:
     try:
-        return await um.get_by_id(current_user_id)
+        user = await um.get_by_id(current_user_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+    permissions = await authz.get_user_permissions(current_user_id)
+    assignments = await rm.list_assignments(user_id=current_user_id)
+
+    roles_info: list[RoleAssignmentInfo] = []
+    for a in assignments:
+        role = await rm._storage.get_role_by_id(a.role_id)
+        if role:
+            roles_info.append(
+                RoleAssignmentInfo(
+                    role_id=a.role_id,
+                    role_name=role.name,
+                    asset_id=a.asset_id,
+                )
+            )
+
+    return MeResponse(
+        id=user.id,
+        username=user.username,
+        is_admin=user.is_admin,
+        name=user.name,
+        email=user.email,
+        title=user.title,
+        must_change_password=user.must_change_password,
+        permissions=[str(p) for p in sorted(permissions)],
+        roles=roles_info,
+    )

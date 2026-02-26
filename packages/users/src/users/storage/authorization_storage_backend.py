@@ -1,0 +1,43 @@
+from typing import Protocol
+
+from users.authorization_models import Role, UserRoleAssignment
+
+
+class AuthorizationStorageBackend(Protocol):
+    # Roles
+
+    async def get_role_by_id(self, role_id: str) -> Role | None: ...
+
+    async def get_role_by_name(self, name: str) -> Role | None: ...
+
+    async def list_roles(self) -> list[Role]: ...
+
+    async def save_role(self, role: Role) -> None: ...
+
+    async def delete_role(self, role_id: str) -> None: ...
+
+    # User role assignments
+
+    async def get_assignment_by_id(
+        self, assignment_id: str
+    ) -> UserRoleAssignment | None: ...
+
+    async def list_assignments_for_user(
+        self, user_id: str
+    ) -> list[UserRoleAssignment]: ...
+
+    async def list_assignments_for_role(
+        self, role_id: str
+    ) -> list[UserRoleAssignment]: ...
+
+    async def list_all_assignments(self) -> list[UserRoleAssignment]: ...
+
+    async def save_assignment(self, assignment: UserRoleAssignment) -> None: ...
+
+    async def delete_assignment(self, assignment_id: str) -> None: ...
+
+    async def delete_assignments_for_user(self, user_id: str) -> None: ...
+
+    async def update_null_asset_ids(self, root_asset_id: str) -> None:
+        """Replace NULL asset_id values with the given root asset ID."""
+        ...

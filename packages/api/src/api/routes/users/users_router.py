@@ -4,14 +4,14 @@ from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, StringConstraints
 
-from users import User, UserCreate, UserUpdate, UsersManager
+from users import Permission, User, UserCreate, UserUpdate, UsersManager
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
     USERNAME_MAX_LENGTH,
     USERNAME_MIN_LENGTH,
 )
-from api.dependencies import get_current_user_id, get_users_manager
+from api.dependencies import get_users_manager, require_permission
 
 router = APIRouter()
 
@@ -27,6 +27,9 @@ PasswordField = Annotated[
     str,
     StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
 ]
+
+_read = Depends(require_permission(Permission.USERS_READ))
+_manage = Depends(require_permission(Permission.USERS_MANAGE))
 
 
 class UserCreateRequest(BaseModel):
@@ -49,7 +52,7 @@ class UserUpdateRequest(BaseModel):
 
 @router.get("/", response_model=list[User])
 async def list_users(
-    _: Annotated[str, Depends(get_current_user_id)],
+    _: Annotated[str, _read],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> list[User]:
     return await um.list_users()
@@ -58,7 +61,7 @@ async def list_users(
 @router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
 async def create_user(
     body: UserCreateRequest,
-    _: Annotated[str, Depends(get_current_user_id)],
+    _: Annotated[str, _manage],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -79,7 +82,7 @@ async def create_user(
 @router.get("/{user_id}", response_model=User)
 async def get_user(
     user_id: str,
-    _: Annotated[str, Depends(get_current_user_id)],
+    _: Annotated[str, _read],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -92,7 +95,7 @@ async def get_user(
 async def update_user(
     user_id: str,
     body: UserUpdateRequest,
-    _: Annotated[str, Depends(get_current_user_id)],
+    current_user_id: Annotated[str, _manage],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -116,7 +119,7 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: str,
-    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    current_user_id: Annotated[str, _manage],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> None:
     if user_id == current_user_id:

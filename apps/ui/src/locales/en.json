@@ -24,10 +24,6 @@
     "updated": "User updated",
     "deleted": "User deleted",
     "you": "you",
-    "roles": {
-      "admin": "Admin",
-      "user": "User"
-    },
     "fields": {
       "username": "Username",
       "password": "Password",
@@ -36,8 +32,14 @@
       "name": "Full name",
       "email": "Email",
       "title": "Title",
-      "role": "Role",
-      "isAdmin": "Administrator"
+      "roles": "Roles"
+    },
+    "assignments": {
+      "none": "No roles assigned",
+      "selectRole": "Select a role...",
+      "selectZone": "Select a zone...",
+      "added": "Role assigned",
+      "removed": "Role removed"
     }
   },
   "settings": {
@@ -84,6 +86,7 @@
     "true": "True",
     "false": "False",
     "cancel": "Cancel",
+    "close": "Close",
     "create": "Create",
     "save": "Save",
     "saving": "Saving...",
@@ -119,9 +122,45 @@
       "days_other": "{{count}} days"
     }
   },
+  "roles": {
+    "title": "Roles",
+    "subtitle": "Role management",
+    "create": "Add role",
+    "edit": "Edit role",
+    "created": "Role created",
+    "updated": "Role updated",
+    "deleted": "Role deleted",
+    "system": "System",
+    "custom": "Custom",
+    "cannotEditSystem": "System roles cannot be edited",
+    "cannotDeleteSystem": "System roles cannot be deleted",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "permissions": "Permissions",
+      "type": "Type"
+    }
+  },
+  "permissions": {
+    "devices:read": "View devices",
+    "devices:manage": "Manage devices",
+    "devices:command": "Command devices",
+    "drivers:read": "View drivers",
+    "drivers:manage": "Manage drivers",
+    "transports:read": "View transports",
+    "transports:manage": "Manage transports",
+    "timeseries:read": "View time series",
+    "assets:read": "View zones",
+    "assets:manage": "Manage zones",
+    "users:read": "View users",
+    "users:manage": "Manage users",
+    "roles:read": "View roles",
+    "roles:manage": "Manage roles"
+  },
   "errors": {
     "notFound": "Not found",
     "loadError": "An error occurred loading this resource.",
+    "forbidden": "You do not have permission to perform this action.",
     "default": "Error"
   },
   "empty": {

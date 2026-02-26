@@ -11,6 +11,12 @@ export type TokenResponse = {
   token_type: string;
 };
 
+export type RoleAssignmentInfo = {
+  roleId: string;
+  roleName: string;
+  assetId: string;
+};
+
 export type CurrentUser = {
   id: string;
   username: string;
@@ -19,6 +25,8 @@ export type CurrentUser = {
   email: string;
   title: string;
   mustChangePassword: boolean;
+  permissions: string[];
+  roles: RoleAssignmentInfo[];
 };
 
 export async function login(payload: LoginPayload): Promise<TokenResponse> {

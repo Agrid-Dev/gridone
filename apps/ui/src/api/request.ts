@@ -1,5 +1,7 @@
 import { ApiError } from "./apiError";
 import camelcaseKeys from "camelcase-keys";
+import { toast } from "sonner";
+import i18n from "@/i18n";
 import { getStoredToken } from "./token";
 
 export const API_BASE_URL =
@@ -31,6 +33,9 @@ export async function request<T>(
   const data = response.status === 204 ? null : await response.json();
 
   if (!response.ok) {
+    if (response.status === 403) {
+      toast.error(i18n.t("errors.forbidden"));
+    }
     throw new ApiError(
       response.status,
       response.statusText,
