@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Shield, X } from "lucide-react";
 import { toast } from "sonner";
 import { listUsers, createUser, updateUser, deleteUser } from "@/api/users";
-import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
+import type { User, UserUpdatePayload } from "@/api/users";
 import {
   listRoles,
   listAssignments,
@@ -16,6 +19,8 @@ import { getAssetTree } from "@/api/assets";
 import type { AssetTreeNode } from "@/api/assets";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { InputController } from "@/components/forms/controllers/InputController";
+import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,23 +29,35 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 
-type UserFormData = {
-  username: string;
-  password: string;
-  name: string;
-  email: string;
-  title: string;
-};
+// --- Schemas ---
 
-const emptyForm: UserFormData = {
+const userFormSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().default(""),
+  name: z.string().default(""),
+  email: z.string().email().or(z.literal("")).default(""),
+  title: z.string().default(""),
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
+
+const assignmentSchema = z.object({
+  roleId: z.string().min(1, "Role is required"),
+  assetId: z.string().min(1, "Asset is required"),
+});
+
+type AssignmentFormValues = z.infer<typeof assignmentSchema>;
+
+const defaultUserValues: UserFormValues = {
   username: "",
   password: "",
   name: "",
   email: "",
   title: "",
 };
+
+// --- Helpers ---
 
 type FlatAssetOption = { id: string; name: string; depth: number };
 
@@ -57,6 +74,8 @@ function flattenTree(
   }
   return result;
 }
+
+// --- Component ---
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -86,17 +105,22 @@ export default function UsersPage() {
 
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState<UserFormData>(emptyForm);
 
-  // For adding a new role assignment in the edit dialog
-  const [newRoleId, setNewRoleId] = useState("");
-  const [newAssetId, setNewAssetId] = useState("");
+  const userForm = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: defaultUserValues,
+  });
+
+  const assignmentForm = useForm<AssignmentFormValues>({
+    resolver: zodResolver(assignmentSchema),
+    defaultValues: { roleId: "", assetId: "" },
+  });
 
   const createMutation = useMutation({
-    mutationFn: (data: UserCreatePayload) => createUser(data),
+    mutationFn: createUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      setDialogMode(null);
+      closeDialog();
       toast.success(t("users.created"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -107,14 +131,14 @@ export default function UsersPage() {
       updateUser(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      setDialogMode(null);
+      closeDialog();
       toast.success(t("users.updated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteUser(id),
+    mutationFn: deleteUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("users.deleted"));
@@ -127,8 +151,7 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignments"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      setNewRoleId("");
-      setNewAssetId("");
+      assignmentForm.reset({ roleId: "", assetId: "" });
       toast.success(t("users.assignments.added"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -144,58 +167,68 @@ export default function UsersPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const closeDialog = () => {
+    setDialogMode(null);
+    setEditingUser(null);
+    userForm.reset(defaultUserValues);
+    assignmentForm.reset({ roleId: "", assetId: "" });
+  };
+
   const openCreate = () => {
-    setForm(emptyForm);
+    userForm.reset(defaultUserValues);
+    // Switch resolver to create schema (password required)
     setEditingUser(null);
     setDialogMode("create");
   };
 
   const openEdit = (user: User) => {
-    setForm({
+    userForm.reset({
       username: user.username,
       password: "",
       name: user.name,
       email: user.email,
       title: user.title,
     });
+    assignmentForm.reset({ roleId: "", assetId: "" });
     setEditingUser(user);
-    setNewRoleId("");
-    setNewAssetId("");
     setDialogMode("edit");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onUserSubmit = userForm.handleSubmit((values) => {
+    if (dialogMode === "create" && !values.password) {
+      userForm.setError("password", { message: "Password is required" });
+      return;
+    }
     if (dialogMode === "create") {
       createMutation.mutate({
-        username: form.username,
-        password: form.password,
-        name: form.name,
-        email: form.email,
-        title: form.title,
+        username: values.username,
+        password: values.password,
+        name: values.name,
+        email: values.email,
+        title: values.title,
       });
     } else if (dialogMode === "edit" && editingUser) {
       const payload: UserUpdatePayload = {
-        username: form.username || undefined,
-        name: form.name,
-        email: form.email,
-        title: form.title,
+        username: values.username || undefined,
+        name: values.name,
+        email: values.email,
+        title: values.title,
       };
-      if (form.password) {
-        payload.password = form.password;
+      if (values.password) {
+        payload.password = values.password;
       }
       updateMutation.mutate({ id: editingUser.id, data: payload });
     }
-  };
+  });
 
-  const handleAddAssignment = () => {
-    if (!editingUser || !newRoleId || !newAssetId) return;
+  const onAddAssignment = assignmentForm.handleSubmit((values) => {
+    if (!editingUser) return;
     addAssignmentMutation.mutate({
       userId: editingUser.id,
-      roleId: newRoleId,
-      assetId: newAssetId,
+      roleId: values.roleId,
+      assetId: values.assetId,
     });
-  };
+  });
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
 
@@ -203,6 +236,12 @@ export default function UsersPage() {
   const roleMap = new Map(roles.map((r) => [r.id, r]));
   const flatAssets = flattenTree(assetTree);
   const assetNameMap = new Map(flatAssets.map((a) => [a.id, a.name]));
+
+  const roleOptions = roles.map((r) => ({ value: r.id, label: r.name }));
+  const assetOptions = flatAssets.map((a) => ({
+    value: a.id,
+    label: "\u00A0".repeat(a.depth * 2) + a.name,
+  }));
 
   function getUserAssignments(userId: string): UserRoleAssignment[] {
     return allAssignments.filter((a) => a.userId === userId);
@@ -214,11 +253,9 @@ export default function UsersPage() {
       .filter(Boolean) as string[];
   }
 
-  // Roles available for assigning
   const editingUserAssignments = editingUser
     ? getUserAssignments(editingUser.id)
     : [];
-
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -323,7 +360,7 @@ export default function UsersPage() {
 
       <Dialog
         open={dialogMode !== null}
-        onOpenChange={() => setDialogMode(null)}
+        onOpenChange={() => closeDialog()}
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -331,63 +368,46 @@ export default function UsersPage() {
               {dialogMode === "create" ? t("users.create") : t("users.edit")}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                {t("users.fields.username")}
-              </label>
-              <Input
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                required={dialogMode === "create"}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                {dialogMode === "edit"
+          <form onSubmit={onUserSubmit} className="space-y-4">
+            <InputController
+              name="username"
+              control={userForm.control}
+              label={t("users.fields.username")}
+              required={dialogMode === "create"}
+            />
+            <InputController
+              name="password"
+              control={userForm.control}
+              label={
+                dialogMode === "edit"
                   ? t("users.fields.passwordOptional")
-                  : t("users.fields.password")}
-              </label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required={dialogMode === "create"}
-                placeholder={
+                  : t("users.fields.password")
+              }
+              type="password"
+              required={dialogMode === "create"}
+              inputProps={{
+                placeholder:
                   dialogMode === "edit"
                     ? t("users.fields.passwordPlaceholder")
-                    : undefined
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                {t("users.fields.name")}
-              </label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                {t("users.fields.email")}
-              </label>
-              <Input
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
-                {t("users.fields.title")}
-              </label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </div>
+                    : undefined,
+              }}
+            />
+            <InputController
+              name="name"
+              control={userForm.control}
+              label={t("users.fields.name")}
+            />
+            <InputController
+              name="email"
+              control={userForm.control}
+              label={t("users.fields.email")}
+              type="email"
+            />
+            <InputController
+              name="title"
+              control={userForm.control}
+              label={t("users.fields.title")}
+            />
 
             {/* Role assignments — only in edit mode */}
             {dialogMode === "edit" && editingUser && (
@@ -434,44 +454,24 @@ export default function UsersPage() {
 
                   {/* Add assignment */}
                   <div className="flex items-center gap-2 pt-1">
-                    <select
-                      value={newRoleId}
-                      onChange={(e) => setNewRoleId(e.target.value)}
-                      className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
-                    >
-                      <option value="">
-                        {t("users.assignments.selectRole")}
-                      </option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={newAssetId}
-                      onChange={(e) => setNewAssetId(e.target.value)}
-                      className="flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700"
-                    >
-                      <option value="">
-                        {t("users.assignments.selectZone")}
-                      </option>
-                      {flatAssets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {"  ".repeat(asset.depth) + asset.name}
-                        </option>
-                      ))}
-                    </select>
+                    <SelectController
+                      name="roleId"
+                      control={assignmentForm.control}
+                      options={roleOptions}
+                      placeholder={t("users.assignments.selectRole")}
+                    />
+                    <SelectController
+                      name="assetId"
+                      control={assignmentForm.control}
+                      options={assetOptions}
+                      placeholder={t("users.assignments.selectZone")}
+                    />
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
-                      onClick={handleAddAssignment}
-                      disabled={
-                        !newRoleId ||
-                        !newAssetId ||
-                        addAssignmentMutation.isPending
-                      }
+                      onClick={onAddAssignment}
+                      disabled={addAssignmentMutation.isPending}
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -484,7 +484,7 @@ export default function UsersPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setDialogMode(null)}
+                onClick={() => closeDialog()}
               >
                 {t("common.cancel")}
               </Button>

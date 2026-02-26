@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useForm, useController } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Shield, Eye } from "lucide-react";
 import { toast } from "sonner";
@@ -10,8 +13,9 @@ import {
   deleteRole,
   listPermissions,
 } from "@/api/roles";
-import type { Role, RoleCreate, RoleUpdate } from "@/api/roles";
+import type { Role } from "@/api/roles";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { InputController } from "@/components/forms/controllers/InputController";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,15 +24,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 
-type RoleFormData = {
-  name: string;
-  description: string;
-  permissions: string[];
-};
+const roleFormSchema = z.object({
+  name: z.string().min(1, "Name is required").max(128),
+  description: z.string().max(256).default(""),
+  permissions: z.array(z.string()),
+});
 
-const emptyForm: RoleFormData = {
+type RoleFormValues = z.infer<typeof roleFormSchema>;
+
+const defaultValues: RoleFormValues = {
   name: "",
   description: "",
   permissions: [],
@@ -43,6 +48,62 @@ function groupPermissions(perms: string[]): Record<string, string[]> {
     groups[resource].push(p);
   }
   return groups;
+}
+
+/**
+ * Checkbox group wired to a react-hook-form array field.
+ */
+function PermissionsField({
+  control,
+  allPermissions,
+  disabled,
+}: {
+  control: ReturnType<typeof useForm<RoleFormValues>>["control"];
+  allPermissions: string[];
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const { field } = useController({ control, name: "permissions" });
+  const grouped = groupPermissions(allPermissions);
+  const selected: string[] = field.value ?? [];
+
+  const toggle = (perm: string) => {
+    if (disabled) return;
+    field.onChange(
+      selected.includes(perm)
+        ? selected.filter((p) => p !== perm)
+        : [...selected, perm],
+    );
+  };
+
+  return (
+    <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200 p-3 space-y-3">
+      {Object.entries(grouped).map(([resource, perms]) => (
+        <div key={resource}>
+          <p className="text-xs font-semibold uppercase text-slate-400 mb-1">
+            {resource}
+          </p>
+          <div className="space-y-1">
+            {perms.map((perm) => (
+              <label
+                key={perm}
+                className="flex items-center gap-2 text-sm text-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(perm)}
+                  onChange={() => toggle(perm)}
+                  disabled={disabled}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                {t(`permissions.${perm}`, perm)}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function RolesPage() {
@@ -63,31 +124,35 @@ export default function RolesPage() {
     "create" | "edit" | "view" | null
   >(null);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
-  const [form, setForm] = useState<RoleFormData>(emptyForm);
+
+  const form = useForm<RoleFormValues>({
+    resolver: zodResolver(roleFormSchema),
+    defaultValues,
+  });
 
   const createMutation = useMutation({
-    mutationFn: (data: RoleCreate) => createRole(data),
+    mutationFn: createRole,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      setDialogMode(null);
+      closeDialog();
       toast.success(t("roles.created"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: RoleUpdate }) =>
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateRole>[1] }) =>
       updateRole(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      setDialogMode(null);
+      closeDialog();
       toast.success(t("roles.updated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteRole(id),
+    mutationFn: deleteRole,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       toast.success(t("roles.deleted"));
@@ -95,14 +160,20 @@ export default function RolesPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const closeDialog = () => {
+    setDialogMode(null);
+    setEditingRole(null);
+    form.reset(defaultValues);
+  };
+
   const openCreate = () => {
-    setForm(emptyForm);
+    form.reset(defaultValues);
     setEditingRole(null);
     setDialogMode("create");
   };
 
   const openEdit = (role: Role) => {
-    setForm({
+    form.reset({
       name: role.name,
       description: role.description,
       permissions: [...role.permissions],
@@ -112,7 +183,7 @@ export default function RolesPage() {
   };
 
   const openView = (role: Role) => {
-    setForm({
+    form.reset({
       name: role.name,
       description: role.description,
       permissions: [...role.permissions],
@@ -121,37 +192,26 @@ export default function RolesPage() {
     setDialogMode("view");
   };
 
-  const togglePermission = (perm: string) => {
-    setForm((prev) => ({
-      ...prev,
-      permissions: prev.permissions.includes(perm)
-        ? prev.permissions.filter((p) => p !== perm)
-        : [...prev.permissions, perm],
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = form.handleSubmit((values) => {
     if (dialogMode === "create") {
       createMutation.mutate({
-        name: form.name,
-        description: form.description,
-        permissions: form.permissions,
+        name: values.name,
+        description: values.description,
+        permissions: values.permissions,
       });
     } else if (dialogMode === "edit" && editingRole) {
       updateMutation.mutate({
         id: editingRole.id,
         data: {
-          name: form.name,
-          description: form.description,
-          permissions: form.permissions,
+          name: values.name,
+          description: values.description,
+          permissions: values.permissions,
         },
       });
     }
-  };
+  });
 
   const isBusy = createMutation.isPending || updateMutation.isPending;
-  const grouped = groupPermissions(allPermissions);
 
   return (
     <section className="space-y-6">
@@ -262,7 +322,7 @@ export default function RolesPage() {
 
       <Dialog
         open={dialogMode !== null}
-        onOpenChange={() => setDialogMode(null)}
+        onOpenChange={() => closeDialog()}
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -285,100 +345,49 @@ export default function RolesPage() {
                 <label className="text-sm font-medium text-slate-700">
                   {t("roles.fields.permissions")}
                 </label>
-                <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200 p-3 space-y-3">
-                  {Object.entries(grouped).map(([resource, perms]) => (
-                    <div key={resource}>
-                      <p className="text-xs font-semibold uppercase text-slate-400 mb-1">
-                        {resource}
-                      </p>
-                      <div className="space-y-1">
-                        {perms.map((perm) => (
-                          <label
-                            key={perm}
-                            className="flex items-center gap-2 text-sm text-slate-700"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={form.permissions.includes(perm)}
-                              disabled
-                              className="h-4 w-4 rounded border-slate-300"
-                            />
-                            {t(`permissions.${perm}`, perm)}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PermissionsField
+                  control={form.control}
+                  allPermissions={allPermissions}
+                  disabled
+                />
               </div>
               <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setDialogMode(null)}
+                  onClick={() => closeDialog()}
                 >
                   {t("common.close")}
                 </Button>
               </DialogFooter>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">
-                  {t("roles.fields.name")}
-                </label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-700">
-                  {t("roles.fields.description")}
-                </label>
-                <Input
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                />
-              </div>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <InputController
+                name="name"
+                control={form.control}
+                label={t("roles.fields.name")}
+                required
+              />
+              <InputController
+                name="description"
+                control={form.control}
+                label={t("roles.fields.description")}
+              />
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
                   {t("roles.fields.permissions")}
                 </label>
-                <div className="max-h-64 overflow-y-auto rounded-md border border-slate-200 p-3 space-y-3">
-                  {Object.entries(grouped).map(([resource, perms]) => (
-                    <div key={resource}>
-                      <p className="text-xs font-semibold uppercase text-slate-400 mb-1">
-                        {resource}
-                      </p>
-                      <div className="space-y-1">
-                        {perms.map((perm) => (
-                          <label
-                            key={perm}
-                            className="flex items-center gap-2 text-sm text-slate-700"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={form.permissions.includes(perm)}
-                              onChange={() => togglePermission(perm)}
-                              className="h-4 w-4 rounded border-slate-300"
-                            />
-                            {t(`permissions.${perm}`, perm)}
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <PermissionsField
+                  control={form.control}
+                  allPermissions={allPermissions}
+                />
               </div>
               <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setDialogMode(null)}
+                  onClick={() => closeDialog()}
                 >
                   {t("common.cancel")}
                 </Button>
