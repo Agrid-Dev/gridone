@@ -13,6 +13,7 @@ from timeseries.domain import (
     DataType,
     SeriesKey,
     TimeSeries,
+    resolve_last,
     validate_value_type,
 )
 
@@ -101,5 +102,8 @@ class TimeSeriesService:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
+        last: str | None = None,
     ) -> list[DataPoint[DataPointValue]]:
+        if last is not None and start is None:
+            start = resolve_last(last)
         return await self._storage.fetch_points(key, start=start, end=end)

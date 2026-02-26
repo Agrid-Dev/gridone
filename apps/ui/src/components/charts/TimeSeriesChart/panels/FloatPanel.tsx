@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import {
+  Axis,
   AnimatedAxis,
   AnimatedGrid,
   AnimatedLineSeries,
@@ -52,12 +53,18 @@ export function FloatPanel({
         height={height + (isLast ? AXIS_EXTRA : 0)}
         width={width}
         margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
-        xScale={{ type: "time" }}
+        xScale={{
+          type: "time",
+          domain:
+            timestamps.length >= 2
+              ? [timestamps[0], timestamps[timestamps.length - 1]]
+              : undefined,
+        }}
         yScale={{ type: "linear" }}
         theme={lineChartTheme}
       >
         {ctx?.yScaleRef && <ScaleCapture yScaleRef={ctx.yScaleRef} />}
-        {isLast && <AnimatedAxis orientation="bottom" numTicks={5} />}
+        {isLast && <Axis orientation="bottom" numTicks={5} />}
         <AnimatedAxis orientation="left" />
         <AnimatedGrid columns={false} />
         {series.map((s) => {

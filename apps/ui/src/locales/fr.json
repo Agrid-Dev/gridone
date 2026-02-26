@@ -224,7 +224,15 @@
     "table": "Tableau",
     "chart": "Graphique",
     "selectAttributes": "Sélectionner des attributs...",
-    "searchAttributes": "Rechercher des attributs..."
+    "searchAttributes": "Rechercher des attributs...",
+    "rangeLastMinutes": "{{count}} dernières min",
+    "rangeLastHours_one": "Dernière heure",
+    "rangeLastHours_other": "{{count}} dernières heures",
+    "rangeLastDays_one": "Dernier jour",
+    "rangeLastDays_other": "{{count}} derniers jours",
+    "rangeAll": "Tout l'historique",
+    "rangeCustom": "Plage personnalisée",
+    "rangeApply": "Appliquer"
   },
   "transports": {
     "title": "Transports",

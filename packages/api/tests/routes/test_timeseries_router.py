@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -230,6 +230,33 @@ class TestGetPoints:
             response = await ac.get(
                 f"/{series.id}/points",
                 params={"start": t2.isoformat(), "end": t2.isoformat()},
+            )
+        assert response.status_code == 200
+        points = response.json()
+        assert len(points) == 1
+        assert points[0]["value"] == 2.0
+
+    async def test_filter_last(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        now = datetime.now(tz=UTC)
+        old = now - timedelta(hours=5)
+        await ts_service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=old, value=1.0),
+                DataPoint(timestamp=now, value=2.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{series.id}/points",
+                params={"last": "3h"},
             )
         assert response.status_code == 200
         points = response.json()

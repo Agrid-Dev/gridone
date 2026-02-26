@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from models.errors import InvalidError, NotFoundError
@@ -190,6 +190,44 @@ class TestFetchPoints:
         points = await service.fetch_points(KEY, start=t2, end=t2)
         assert len(points) == 1
         assert points[0].value == 2.0
+
+    async def test_with_last(self, service: TimeSeriesService):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        now = datetime.now(tz=UTC)
+        old = now - timedelta(hours=5)
+        await service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=old, value=1.0),
+                DataPoint(timestamp=now, value=2.0),
+            ],
+        )
+        points = await service.fetch_points(KEY, last="3h")
+        assert len(points) == 1
+        assert points[0].value == 2.0
+
+    async def test_last_ignored_when_start_is_set(self, service: TimeSeriesService):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        await service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=t1, value=1.0),
+                DataPoint(timestamp=t2, value=2.0),
+            ],
+        )
+        # explicit start should take precedence over last
+        points = await service.fetch_points(KEY, start=t1, last="1h")
+        assert len(points) == 2
 
     async def test_empty_result(self, service: TimeSeriesService):
         points = await service.fetch_points(KEY)

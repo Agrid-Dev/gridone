@@ -27,6 +27,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { toLabel } from "@/lib/textFormat";
 import { DeviceHistoryProvider } from "./DeviceHistoryContext";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
+import { TimeRangeSelect } from "./TimeRangeSelect";
 
 export default function DeviceHistoryLayout() {
   const { t } = useTranslation();
@@ -92,6 +93,8 @@ function HistoryToolbar() {
     columnVisibility,
     handleVisibilityChange,
     isLoading,
+    timeRange,
+    setTimeRange,
   } = useDeviceHistoryContext();
 
   const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
@@ -158,6 +161,8 @@ function HistoryToolbar() {
             <Badge variant="secondary" className="text-xs">
               {visibleCount} / {availableAttributes.length}
             </Badge>
+
+            <TimeRangeSelect value={timeRange} onChange={setTimeRange} />
           </div>
         )}
 

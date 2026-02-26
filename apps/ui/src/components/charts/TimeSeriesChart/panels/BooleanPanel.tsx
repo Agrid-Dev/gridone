@@ -1,4 +1,4 @@
-import { AnimatedAxis, AnimatedAreaSeries, XYChart } from "@visx/xychart";
+import { Axis, AnimatedAreaSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -46,10 +46,16 @@ export function BooleanPanel({
         height={height + (isLast ? AXIS_EXTRA : 0)}
         width={width}
         margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
-        xScale={{ type: "time" }}
+        xScale={{
+          type: "time",
+          domain:
+            timestamps.length >= 2
+              ? [timestamps[0], timestamps[timestamps.length - 1]]
+              : undefined,
+        }}
         yScale={{ type: "linear", domain: [0, 1] }}
       >
-        {isLast && <AnimatedAxis orientation="bottom" numTicks={5} />}
+        {isLast && <Axis orientation="bottom" numTicks={5} />}
         <AnimatedAreaSeries
           dataKey={series.key}
           data={data}

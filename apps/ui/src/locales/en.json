@@ -225,7 +225,15 @@
     "table": "Table",
     "chart": "Chart",
     "selectAttributes": "Select attributes...",
-    "searchAttributes": "Search attributes..."
+    "searchAttributes": "Search attributes...",
+    "rangeLastMinutes": "Last {{count}} min",
+    "rangeLastHours_one": "Last {{count}}h",
+    "rangeLastHours_other": "Last {{count}}h",
+    "rangeLastDays_one": "Last {{count}}d",
+    "rangeLastDays_other": "Last {{count}}d",
+    "rangeAll": "All time",
+    "rangeCustom": "Custom range",
+    "rangeApply": "Apply"
   },
   "transports": {
     "title": "Transports",
