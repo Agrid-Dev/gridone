@@ -14,6 +14,11 @@ from devices_manager.core.value_adapters.factory import (
         ([ValueAdapterSpec(adapter="identity", argument="")], 1, 1),
         ([ValueAdapterSpec(adapter="scale", argument=0.1)], 10, 1),
         (
+            [ValueAdapterSpec(adapter="byte_frame", argument="11 05 00 13 00 55 20")],
+            bytes([0x11, 0x05, 0x00, 0x13, 0x00, 0x55, 0x20, 0x01]),
+            1,
+        ),
+        (
             [
                 ValueAdapterSpec(adapter="scale", argument=0.1),
                 ValueAdapterSpec(adapter="scale", argument=0.1),

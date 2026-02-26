@@ -189,7 +189,6 @@ class Device(DeviceBase):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
-        context = {**self.driver.env, **self.config, "value": validated_value}
         attribute_driver = self.driver.attributes[attribute.name]
         adapter = attribute_driver.value_adapter
         if attribute_driver.write is None:
@@ -198,10 +197,11 @@ class Device(DeviceBase):
                 " for attribute'{attribute_name}'"
             )
             raise PermissionError(msg)
+        encoded_value = adapter.encode(value)
+        context = {**self.driver.env, **self.config, "value": encoded_value}
         address = self.transport.build_address(
             render_struct(attribute_driver.write, context), context
         )
-        encoded_value = adapter.encode(value)
         await self.transport.write(address, encoded_value)
         logger.info(
             "Wrote attribute '%s' with value '%s' to device '%s'",
