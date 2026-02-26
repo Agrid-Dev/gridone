@@ -91,3 +91,12 @@ entry = "npm --prefix apps/ui run test"
 pass_filenames = false
 files = "^apps/ui/"
 stages = ["pre-push"]
+
+[[repos.hooks]]
+id = "linear-branch"
+name = "Branch linked to Linear issue"
+language = "system"
+entry = """bash -c 'branch=$(git rev-parse --abbrev-ref HEAD) && echo "$branch" | grep -qiE "agr-[0-9]+" || { echo "Error: branch is not linked to a linear issue"; exit 1; }'"""
+pass_filenames = false
+always_run = true
+stages = ["pre-push"]
