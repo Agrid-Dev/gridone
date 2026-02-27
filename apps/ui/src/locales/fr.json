@@ -95,6 +95,7 @@
     "transport": "Transport",
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
+    "notFound": "Introuvable",
     "noResults": "Aucun résultat",
     "rows": "lignes",
     "previous": "Précédent",
@@ -236,8 +237,8 @@
   },
   "transports": {
     "title": "Transports",
-    "subtitle": "Canaux d'intégration",
     "listTitle": "Liste des transports ({{count}})",
+    "subtitle": "Canaux d'intégration",
     "createTitle": "Créer un transport",
     "editTitle": "Modifier le transport",
     "createSubtitle": "Configurer une nouvelle connexion",

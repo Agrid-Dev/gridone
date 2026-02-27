@@ -54,6 +54,15 @@ pass_filenames = false
 files = "^apps/ui/"
 stages = ["pre-commit"]
 
+[[repos.hooks]]
+id = "ui-translations"
+name = "UI translation sync"
+language = "system"
+entry = "npm --prefix apps/ui run check-translations"
+pass_filenames = false
+files = "^apps/ui/src/locales/"
+stages = ["pre-commit"]
+
 # ── Pre-push: thorough checks ─────────────────────────────────
 
 [[repos.hooks]]
