@@ -11,7 +11,8 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier src/",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "check-translations": "node scripts/check-translations.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -65,6 +65,20 @@ jobs:
       - name: Type check
         run: npm run type-check
 
+  translations:
+    name: Translation Sync
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./apps/ui
+    steps:
+      - uses: actions/checkout@v4
+
+      - *setup_node
+
+      - name: Check translation sync
+        run: npm run check-translations
+
   test:
     name: Test
     runs-on: ubuntu-latest
