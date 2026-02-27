@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import csv
-import io
 import logging
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
 
 from models.errors import InvalidError, NotFoundError
 
@@ -19,6 +16,7 @@ from timeseries.domain import (
     resolve_last,
     validate_value_type,
 )
+from timeseries.exporters.csv import to_csv
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -52,8 +50,12 @@ class TimeSeriesService:
         )
         return await self._storage.create_series(series)
 
-    async def get_series(self, series_id: str) -> TimeSeries | None:
-        return await self._storage.get_series(series_id)
+    async def get_series(self, series_id: str) -> TimeSeries:
+        series = await self._storage.get_series(series_id)
+        if series is None:
+            msg = f"Series not found: {series_id}"
+            raise NotFoundError(msg)
+        return series
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None:
         return await self._storage.get_series_by_key(key)
@@ -125,41 +127,17 @@ class TimeSeriesService:
         start: datetime | None = None,
         end: datetime | None = None,
         last: str | None = None,
-        timezone: str = "UTC",
+        carry_forward: bool = False,
     ) -> str:
         if last is not None and start is None:
             start = resolve_last(last)
 
-        tz = ZoneInfo(timezone)
-
         all_series = []
-        all_points = []
         for series_id in series_ids:
-            series = await self._storage.get_series(series_id)
-            if series is None:
-                msg = f"Series not found: {series_id}"
-                raise NotFoundError(msg)
-            points = await self.fetch_points(
-                series.key, start=start, end=end, carry_forward=True
+            series = await self.get_series(series_id)
+            series.data_points = await self.fetch_points(
+                series.key, start=start, end=end, carry_forward=carry_forward
             )
             all_series.append(series)
-            all_points.append(points)
 
-        all_timestamps = sorted({p.timestamp for pts in all_points for p in pts})
-
-        series_point_maps = [{p.timestamp: p.value for p in pts} for pts in all_points]
-
-        sio = io.StringIO()
-        writer = csv.writer(sio)
-        writer.writerow(["timestamp"] + [s.metric for s in all_series])
-
-        last_values: list[DataPointValue | None] = [None] * len(all_series)
-        for ts in all_timestamps:
-            for i, point_map in enumerate(series_point_maps):
-                if ts in point_map:
-                    last_values[i] = point_map[ts]
-            localized_ts = ts.astimezone(tz).isoformat()
-            row = [localized_ts] + [v if v is not None else "" for v in last_values]
-            writer.writerow(row)
-
-        return sio.getvalue()
+        return to_csv(all_series)

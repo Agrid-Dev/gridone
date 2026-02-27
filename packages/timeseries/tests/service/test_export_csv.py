@@ -33,7 +33,7 @@ class TestExportCsvSingleSeries:
             owner_id="d1",
             metric="temperature",
         )
-        t1 = datetime(2024, 1, 1, tzinfo=UTC)
+        t1 = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
         await service.upsert_points(series.key, [DataPoint(timestamp=t1, value=20.5)])
 
         result = await service.export_csv([series.id])
@@ -41,6 +41,7 @@ class TestExportCsvSingleSeries:
         header, rows = parse_csv(result)
         assert header == ["timestamp", "temperature"]
         assert len(rows) == 1
+        assert rows[0][0] == "2024-01-15T08:00:00+00:00"
         assert rows[0][1] == "20.5"
 
     async def test_multiple_points_sorted_asc(self, service: TimeSeriesService):
@@ -126,13 +127,37 @@ class TestExportCsvMultipleSeries:
             ],
         )
 
-        result = await service.export_csv([series.id], start=t2)
+        result = await service.export_csv([series.id], start=t2, carry_forward=True)
 
         _, rows = parse_csv(result)
         assert len(rows) == 2
         # First row at t2 carries forward the value from t1
         assert rows[0][1] == "10.0"
         assert rows[1][1] == "30.0"
+
+    async def test_carry_forward_false_by_default(self, service: TimeSeriesService):
+        series = await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id="d1",
+            metric="temperature",
+        )
+        t1 = datetime(2024, 1, 1, tzinfo=UTC)
+        t2 = datetime(2024, 1, 2, tzinfo=UTC)
+        t3 = datetime(2024, 1, 3, tzinfo=UTC)
+        await service.upsert_points(
+            series.key,
+            [
+                DataPoint(timestamp=t1, value=10.0),
+                DataPoint(timestamp=t3, value=30.0),
+            ],
+        )
+
+        result = await service.export_csv([series.id], start=t2)
+
+        _, rows = parse_csv(result)
+        # Without carry_forward only t3 (inside window) appears
+        assert len(rows) == 1
+        assert rows[0][1] == "30.0"
 
 
 class TestExportCsvLast:
@@ -153,12 +178,12 @@ class TestExportCsvLast:
             ],
         )
 
-        result = await service.export_csv([series.id], last="3h")
+        result = await service.export_csv([series.id], last="3h", carry_forward=True)
 
         _, rows = parse_csv(result)
         # carry_forward seeds the old value at the window start, then the recent point
         assert len(rows) == 2
-        assert rows[0][1] == "1.0"  # carry_forward seed from before window
+        assert rows[0][1] == "1.0"
         assert rows[1][1] == "2.0"
 
 
@@ -166,34 +191,3 @@ class TestExportCsvErrors:
     async def test_unknown_series_id_raises(self, service: TimeSeriesService):
         with pytest.raises(NotFoundError):
             await service.export_csv(["nonexistent"])
-
-
-class TestExportCsvTimezone:
-    async def test_utc_timestamp_format(self, service: TimeSeriesService):
-        series = await service.create_series(
-            data_type=DataType.FLOAT,
-            owner_id="d1",
-            metric="temperature",
-        )
-        t1 = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
-        await service.upsert_points(series.key, [DataPoint(timestamp=t1, value=20.0)])
-
-        result = await service.export_csv([series.id], timezone="UTC")
-
-        _, rows = parse_csv(result)
-        assert rows[0][0] == "2024-01-15T08:00:00+00:00"
-
-    async def test_timezone_conversion(self, service: TimeSeriesService):
-        series = await service.create_series(
-            data_type=DataType.FLOAT,
-            owner_id="d1",
-            metric="temperature",
-        )
-        # Jan 15 is winter in Europe/Paris → UTC+1
-        t1 = datetime(2024, 1, 15, 7, 0, 0, tzinfo=UTC)  # 08:00 local
-        await service.upsert_points(series.key, [DataPoint(timestamp=t1, value=20.0)])
-
-        result = await service.export_csv([series.id], timezone="Europe/Paris")
-
-        _, rows = parse_csv(result)
-        assert rows[0][0] == "2024-01-15T08:00:00+01:00"

@@ -50,7 +50,6 @@ class TestGetSeries:
             metric=KEY.metric,
         )
         fetched = await service.get_series(created.id)
-        assert fetched is not None
         assert fetched.id == created.id
 
     async def test_by_key(self, service: TimeSeriesService):
@@ -63,8 +62,11 @@ class TestGetSeries:
         assert fetched is not None
         assert fetched.id == created.id
 
-    async def test_not_found(self, service: TimeSeriesService):
-        assert await service.get_series("nonexistent") is None
+    async def test_not_found_raises(self, service: TimeSeriesService):
+        with pytest.raises(NotFoundError, match="not found"):
+            await service.get_series("nonexistent")
+
+    async def test_not_found_by_key(self, service: TimeSeriesService):
         assert await service.get_series_by_key(KEY) is None
 
 
