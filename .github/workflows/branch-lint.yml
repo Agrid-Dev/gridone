@@ -1,0 +1,17 @@
+name: Branch Lint
+
+on:
+  pull_request:
+
+jobs:
+  linear-branch:
+    name: Linear Issue Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch is linked to a Linear issue
+        run: |
+          branch="${{ github.head_ref }}"
+          if ! echo "$branch" | grep -qiE 'agr-[0-9]+'; then
+            echo "::error::branch is not linked to a linear issue"
+            exit 1
+          fi
