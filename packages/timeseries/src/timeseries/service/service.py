@@ -16,6 +16,7 @@ from timeseries.domain import (
     resolve_last,
     validate_value_type,
 )
+from timeseries.exporters.csv import to_csv
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -49,8 +50,12 @@ class TimeSeriesService:
         )
         return await self._storage.create_series(series)
 
-    async def get_series(self, series_id: str) -> TimeSeries | None:
-        return await self._storage.get_series(series_id)
+    async def get_series(self, series_id: str) -> TimeSeries:
+        series = await self._storage.get_series(series_id)
+        if series is None:
+            msg = f"Series not found: {series_id}"
+            raise NotFoundError(msg)
+        return series
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None:
         return await self._storage.get_series_by_key(key)
@@ -114,3 +119,25 @@ class TimeSeriesService:
                 carried = DataPoint(timestamp=start, value=previous.value)
                 points = [carried, *points]
         return points
+
+    async def export_csv(
+        self,
+        series_ids: list[str],
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        last: str | None = None,
+        carry_forward: bool = False,
+    ) -> str:
+        if last is not None and start is None:
+            start = resolve_last(last)
+
+        all_series = []
+        for series_id in series_ids:
+            series = await self.get_series(series_id)
+            series.data_points = await self.fetch_points(
+                series.key, start=start, end=end, carry_forward=carry_forward
+            )
+            all_series.append(series)
+
+        return to_csv(all_series)

@@ -319,3 +319,100 @@ class TestGetPoints:
         points = response.json()
         assert len(points) == 1
         assert points[0]["value"] == 3.0
+
+
+class TestExportCsv:
+    async def test_returns_csv_content_type(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        t1 = datetime(2024, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(
+            series.key, [DataPoint(timestamp=t1, value=20.5)]
+        )
+        async with async_client as ac:
+            response = await ac.get("/export/csv", params={"series_ids": series.id})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/csv; charset=utf-8"
+        assert "attachment" in response.headers["content-disposition"]
+
+    async def test_csv_header_and_row(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        t1 = datetime(2024, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(
+            series.key, [DataPoint(timestamp=t1, value=20.5)]
+        )
+        async with async_client as ac:
+            response = await ac.get("/export/csv", params={"series_ids": series.id})
+        lines = response.text.strip().splitlines()
+        assert lines[0] == "timestamp,temperature"
+        assert "20.5" in lines[1]
+
+    async def test_multiple_series_ids(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        s1 = await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        s2 = await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="humidity"
+        )
+        t1 = datetime(2024, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(s1.key, [DataPoint(timestamp=t1, value=21.0)])
+        await ts_service.upsert_points(s2.key, [DataPoint(timestamp=t1, value=60.0)])
+        async with async_client as ac:
+            response = await ac.get(
+                "/export/csv",
+                params=[("series_ids", s1.id), ("series_ids", s2.id)],
+            )
+        assert response.status_code == 200
+        lines = response.text.strip().splitlines()
+        assert lines[0] == "timestamp,temperature,humidity"
+
+    async def test_unknown_series_id_returns_404(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get("/export/csv", params={"series_ids": "nonexistent"})
+        assert response.status_code == 404
+
+    async def test_missing_series_ids_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get("/export/csv")
+        assert response.status_code == 422
+
+    async def test_carry_forward_param(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await ts_service.upsert_points(
+            series.key,
+            [
+                DataPoint(timestamp=t1, value=10.0),
+                DataPoint(timestamp=t3, value=30.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                "/export/csv",
+                params={
+                    "series_ids": series.id,
+                    "start": t2.isoformat(),
+                    "carry_forward": "true",
+                },
+            )
+        assert response.status_code == 200
+        lines = response.text.strip().splitlines()
+        # header + row at t2 (carry_forward seed 10.0) + row at t3 (30.0)
+        assert len(lines) == 3
+        assert "10.0" in lines[1]
+        assert "30.0" in lines[2]
