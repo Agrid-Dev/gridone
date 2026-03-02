@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from secrets import token_hex
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 from models.errors import InvalidError
 
@@ -63,3 +63,23 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
     if type(value) is not expected:
         msg = f"Expected {expected.__name__}, got {type(value).__name__}"
         raise InvalidError(msg)
+
+
+CommandStatus = Literal["success", "error"]
+
+
+@dataclass
+class DeviceCommandCreate[T: (int, float, bool, str)]:
+    device_id: str
+    attribute: str
+    user_id: str
+    value: T
+    data_type: DataType
+    status: CommandStatus
+    timestamp: datetime
+    status_details: str | None
+
+
+@dataclass
+class DeviceCommand(DeviceCommandCreate[T]):
+    id: int

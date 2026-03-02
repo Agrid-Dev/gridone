@@ -11,6 +11,8 @@ from timeseries.domain import (
     DataPoint,
     DataPointValue,
     DataType,
+    DeviceCommand,
+    DeviceCommandCreate,
     SeriesKey,
     TimeSeries,
     resolve_last,
@@ -28,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class TimeSeriesService:
+    _storage: TimeSeriesStorage
+
     def __init__(self, storage: TimeSeriesStorage) -> None:
         self._storage = storage
 
@@ -141,3 +145,6 @@ class TimeSeriesService:
             all_series.append(series)
 
         return to_csv(all_series)
+
+    async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
+        return await self._storage.save_command(command)

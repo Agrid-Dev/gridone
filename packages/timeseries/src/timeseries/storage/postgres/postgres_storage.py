@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING
 import asyncpg
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
+from timeseries.domain import DataPoint, DataType, DeviceCommand, SeriesKey, TimeSeries
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import DataPointValue
+    from timeseries.domain import DataPointValue, DeviceCommandCreate
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,20 @@ CREATE TABLE IF NOT EXISTS ts_data_points (
 );
 """
 
+_CREATE_DEVICE_COMMANDS_TABLE = """\
+CREATE TABLE IF NOT EXISTS ts_device_commands (
+    id              SERIAL          PRIMARY KEY,
+    device_id       TEXT            NOT NULL,
+    attribute       TEXT            NOT NULL,
+    user_id         TEXT            NOT NULL,
+    value           TEXT            NOT NULL,
+    data_type       TEXT            NOT NULL,
+    status          TEXT            NOT NULL,
+    timestamp       TIMESTAMPTZ     NOT NULL,
+    status_details  TEXT
+);
+"""
+
 _CREATE_HYPERTABLE = (
     "SELECT create_hypertable('ts_data_points', 'timestamp', if_not_exists => TRUE);"
 )
@@ -68,6 +82,7 @@ class PostgresStorage:
                 for stmt in _CREATE_SERIES_INDEXES:
                     await conn.execute(stmt)
                 await conn.execute(_CREATE_DATA_POINTS_TABLE)
+                await conn.execute(_CREATE_DEVICE_COMMANDS_TABLE)
 
             try:
                 await conn.execute(_CREATE_HYPERTABLE)
@@ -237,3 +252,23 @@ class PostgresStorage:
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",
                 series.id,
             )
+
+    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
+        row = await self._pool.fetchrow(
+            """
+            INSERT INTO ts_device_commands
+                (device_id, attribute, user_id, value, data_type,
+                 status, timestamp, status_details)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id
+            """,
+            command.device_id,
+            command.attribute,
+            command.user_id,
+            str(command.value),
+            command.data_type.value,
+            command.status,
+            command.timestamp,
+            command.status_details,
+        )
+        return DeviceCommand(id=row["id"], **command.__dict__)

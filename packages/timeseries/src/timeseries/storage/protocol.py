@@ -5,7 +5,14 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import DataPoint, DataPointValue, SeriesKey, TimeSeries
+    from timeseries.domain import (
+        DataPoint,
+        DataPointValue,
+        DeviceCommand,
+        DeviceCommandCreate,
+        SeriesKey,
+        TimeSeries,
+    )
 
 
 class TimeSeriesStorage(Protocol):
@@ -42,3 +49,5 @@ class TimeSeriesStorage(Protocol):
         key: SeriesKey,
         points: list[DataPoint[DataPointValue]],
     ) -> None: ...
+
+    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand: ...

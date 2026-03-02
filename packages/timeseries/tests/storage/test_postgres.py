@@ -7,7 +7,13 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
+from timeseries.domain import (
+    DataPoint,
+    DataType,
+    DeviceCommandCreate,
+    SeriesKey,
+    TimeSeries,
+)
 from timeseries.storage.postgres import PostgresStorage
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
@@ -42,6 +48,7 @@ async def storage():
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM ts_data_points")
         await conn.execute("DELETE FROM ts_series")
+        await conn.execute("DELETE FROM ts_device_commands")
 
     yield store
 
@@ -275,3 +282,55 @@ class TestFetchPoints:
             end=base + timedelta(days=3),
         )
         assert [p.value for p in fetched] == [1.0, 2.0, 3.0]
+
+
+class TestSaveDeviceCommand:
+    async def test_saves_and_returns_with_id(self, storage):
+        command_create = DeviceCommandCreate(
+            device_id="device1",
+            attribute="mode",
+            user_id="user1",
+            value="auto",
+            data_type=DataType.STRING,
+            status="success",
+            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            status_details=None,
+        )
+        command = await storage.save_command(command_create)
+        assert command.id is not None
+        assert command.device_id == "device1"
+        assert command.attribute == "mode"
+        assert command.user_id == "user1"
+        assert command.value == "auto"
+        assert command.status == "success"
+        assert command.status_details is None
+
+    async def test_assigns_unique_ids(self, storage):
+        base = DeviceCommandCreate(
+            device_id="device1",
+            attribute="mode",
+            user_id="user1",
+            value="auto",
+            data_type=DataType.STRING,
+            status="success",
+            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            status_details=None,
+        )
+        cmd1 = await storage.save_command(base)
+        cmd2 = await storage.save_command(base)
+        assert cmd1.id != cmd2.id
+
+    async def test_saves_with_status_details(self, storage):
+        command_create = DeviceCommandCreate(
+            device_id="device1",
+            attribute="mode",
+            user_id="user1",
+            value=42.0,
+            data_type=DataType.FLOAT,
+            status="error",
+            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            status_details="Connection timed out",
+        )
+        command = await storage.save_command(command_create)
+        assert command.status == "error"
+        assert command.status_details == "Connection timed out"
