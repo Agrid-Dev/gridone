@@ -1,14 +1,17 @@
-import { useMemo } from "react";
+import { exportCsv } from "@/api/timeseries";
+import { ResourceHeader } from "@/components/ResourceHeader";
+import { ErrorFallback } from "@/components/fallbacks/Error";
+import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
-import { useTranslation } from "react-i18next";
-import { BarChart3, Settings2, Table } from "lucide-react";
-import { Button, Tabs, TabsList, TabsTrigger } from "@/components/ui";
+  Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -21,13 +24,23 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
-import { ResourceHeader } from "@/components/ResourceHeader";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
-import { ErrorFallback } from "@/components/fallbacks/Error";
 import { toLabel } from "@/lib/textFormat";
-import { DeviceHistoryProvider } from "./DeviceHistoryContext";
-import { useDeviceHistoryContext } from "./DeviceHistoryContext";
+import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  DeviceHistoryProvider,
+  useDeviceHistoryContext,
+} from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
+import { resolveTimeRange } from "./timeRange";
 
 export default function DeviceHistoryLayout() {
   const { t } = useTranslation();
@@ -87,17 +100,38 @@ function HistoryToolbar() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const {
+    series,
     availableAttributes,
     columnVisibility,
     handleVisibilityChange,
     isLoading,
     timeRange,
     setTimeRange,
+    visibleAttributes,
   } = useDeviceHistoryContext();
 
   const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
+
+  const visibleSeriesIds = useMemo(
+    () =>
+      series
+        .filter((s) => visibleAttributes.includes(s.metric))
+        .map((s) => s.id),
+    [series, visibleAttributes],
+  );
+
+  const handleDownload = async () => {
+    const { start, end, last } = resolveTimeRange(timeRange);
+    setIsDownloading(true);
+    try {
+      await exportCsv(visibleSeriesIds, { start, end, last });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const visibleCount = availableAttributes.filter(
     (attr) => columnVisibility[attr] !== false,
@@ -163,6 +197,31 @@ function HistoryToolbar() {
             </Badge>
 
             <TimeRangeSelect value={timeRange} onChange={setTimeRange} />
+
+            {activeTab === "table" && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8"
+                      disabled={isDownloading || visibleSeriesIds.length === 0}
+                      onClick={handleDownload}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("deviceDetails.downloadCsv")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
 

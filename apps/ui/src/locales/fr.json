@@ -233,7 +233,8 @@
     "rangeLastDays_other": "{{count}} derniers jours",
     "rangeAll": "Tout l'historique",
     "rangeCustom": "Plage personnalisée",
-    "rangeApply": "Appliquer"
+    "rangeApply": "Appliquer",
+    "downloadCsv": "Télécharger en CSV"
   },
   "transports": {
     "title": "Transports",

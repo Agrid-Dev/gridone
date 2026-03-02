@@ -12,6 +12,7 @@ import { useSearchParams } from "react-router";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
+import type { TimeSeries } from "@/api/timeseries";
 import {
   type TimeRange,
   parseRangeParams,
@@ -43,6 +44,7 @@ function writeVisibility(deviceId: string, state: VisibilityState) {
 }
 
 type DeviceHistoryContextValue = {
+  series: TimeSeries[];
   availableAttributes: string[];
   dataTypes: Record<string, string>;
   columnVisibility: VisibilityState;
@@ -214,6 +216,7 @@ export function DeviceHistoryProvider({
 
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
+      series,
       availableAttributes,
       dataTypes,
       columnVisibility,
@@ -229,6 +232,7 @@ export function DeviceHistoryProvider({
       setTimeRange,
     }),
     [
+      series,
       availableAttributes,
       dataTypes,
       columnVisibility,

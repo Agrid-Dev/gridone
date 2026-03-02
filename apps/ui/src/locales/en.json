@@ -233,7 +233,8 @@
     "rangeLastDays_other": "Last {{count}}d",
     "rangeAll": "All time",
     "rangeCustom": "Custom range",
-    "rangeApply": "Apply"
+    "rangeApply": "Apply",
+    "downloadCsv": "Download as CSV"
   },
   "transports": {
     "title": "Transports",
