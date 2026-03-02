@@ -38,6 +38,31 @@ async def export_csv(
     )
 
 
+@router.get("/export/png")
+async def export_png(
+    series_ids: list[str] = Query(...),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    carry_forward: bool = Query(False),
+    title: str | None = Query(None),
+    ts=Depends(get_ts_service),
+) -> Response:
+    png_content = await ts.export_png(
+        series_ids,
+        start=start,
+        end=end,
+        last=last,
+        carry_forward=carry_forward,
+        title=title,
+    )
+    return Response(
+        content=png_content,
+        media_type="image/png",
+        headers={"Content-Disposition": 'attachment; filename="export.png"'},
+    )
+
+
 @router.get("/{series_id}/points")
 async def get_points(
     series_id: str,
