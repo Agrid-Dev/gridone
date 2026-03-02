@@ -19,6 +19,7 @@ from timeseries.domain import (
     validate_value_type,
 )
 from timeseries.exporters.csv import to_csv
+from timeseries.exporters.png import to_png
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -148,3 +149,26 @@ class TimeSeriesService:
 
     async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
         return await self._storage.save_command(command)
+
+    async def export_png(  # noqa: PLR0913
+        self,
+        series_ids: list[str],
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        last: str | None = None,
+        carry_forward: bool = False,
+        title: str | None = None,
+    ) -> bytes:
+        if last is not None and start is None:
+            start = resolve_last(last)
+
+        all_series = []
+        for series_id in series_ids:
+            series = await self.get_series(series_id)
+            series.data_points = await self.fetch_points(
+                series.key, start=start, end=end, carry_forward=carry_forward
+            )
+            all_series.append(series)
+
+        return to_png(all_series, title=title)
