@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
 from devices_manager import DevicesManager
@@ -8,8 +9,10 @@ from devices_manager.dto.device_dto import (
     DeviceUpdateDTO,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
+from timeseries.domain import DeviceCommandCreate
+from timeseries.service import TimeSeriesService
 
-from api.dependencies import get_device_manager
+from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
 from api.schemas.device import AttributeUpdate
 
 logger = logging.getLogger(__name__)
@@ -70,11 +73,31 @@ async def update_attribute(
     update: AttributeUpdate,
     confirm: bool = True,
     dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+    user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate | None:
+    async def log_command(status: str, status_text: str | None = None):
+        command = DeviceCommandCreate(
+            device_id=device_id,
+            attribute=attribute_name,
+            user_id=user_id,
+            value=update.value,
+            data_type=dm.get_device(device_id).attributes[attribute_name].data_type,
+            timestamp=datetime.now(UTC),
+            status=status,
+            status_details=status_text,
+        )
+        await ts.log_command(command)
+
     try:
         await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
+        await log_command("success", None)
+
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await log_command("error", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
     return None
