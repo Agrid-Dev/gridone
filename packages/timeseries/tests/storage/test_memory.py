@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from conftest import make_command  # type: ignore[import-not-found]
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
@@ -287,39 +288,20 @@ class TestSaveDeviceCommand:
         assert command.device_id == command_create.device_id
 
 
-def _make_command(
-    *,
-    device_id: str = "device1",
-    attribute: str = "mode",
-    user_id: str = "user1",
-    timestamp: datetime = datetime(2026, 1, 2, tzinfo=UTC),
-) -> DeviceCommandCreate:
-    return DeviceCommandCreate(
-        device_id=device_id,
-        attribute=attribute,
-        user_id=user_id,
-        value="auto",
-        data_type=DataType.STRING,
-        status="success",
-        timestamp=timestamp,
-        status_details=None,
-    )
-
-
 class TestQueryCommands:
     async def test_empty(self, storage: MemoryStorage):
         results = await storage.query_commands(CommandsQueryFilters())
         assert results == []
 
     async def test_no_filters_returns_all(self, storage: MemoryStorage):
-        await storage.save_command(_make_command(device_id="d1"))
-        await storage.save_command(_make_command(device_id="d2"))
+        await storage.save_command(make_command(device_id="d1"))
+        await storage.save_command(make_command(device_id="d2"))
         results = await storage.query_commands(CommandsQueryFilters())
         assert len(results) == 2
 
     async def test_filter_device_id(self, storage: MemoryStorage):
-        await storage.save_command(_make_command(device_id="d1"))
-        await storage.save_command(_make_command(device_id="d2"))
+        await storage.save_command(make_command(device_id="d1"))
+        await storage.save_command(make_command(device_id="d2"))
         results = await storage.query_commands(
             CommandsQueryFilters(device_id="d1"),
         )
@@ -327,8 +309,8 @@ class TestQueryCommands:
         assert results[0].device_id == "d1"
 
     async def test_filter_attribute(self, storage: MemoryStorage):
-        await storage.save_command(_make_command(attribute="mode"))
-        await storage.save_command(_make_command(attribute="setpoint"))
+        await storage.save_command(make_command(attribute="mode"))
+        await storage.save_command(make_command(attribute="setpoint"))
         results = await storage.query_commands(
             CommandsQueryFilters(attribute="setpoint"),
         )
@@ -336,8 +318,8 @@ class TestQueryCommands:
         assert results[0].attribute == "setpoint"
 
     async def test_filter_user_id(self, storage: MemoryStorage):
-        await storage.save_command(_make_command(user_id="u1"))
-        await storage.save_command(_make_command(user_id="u2"))
+        await storage.save_command(make_command(user_id="u1"))
+        await storage.save_command(make_command(user_id="u2"))
         results = await storage.query_commands(
             CommandsQueryFilters(user_id="u1"),
         )
@@ -348,9 +330,9 @@ class TestQueryCommands:
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
         t2 = datetime(2026, 1, 2, tzinfo=UTC)
         t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(_make_command(timestamp=t1))
-        await storage.save_command(_make_command(timestamp=t2))
-        await storage.save_command(_make_command(timestamp=t3))
+        await storage.save_command(make_command(timestamp=t1))
+        await storage.save_command(make_command(timestamp=t2))
+        await storage.save_command(make_command(timestamp=t3))
         results = await storage.query_commands(
             CommandsQueryFilters(start=t2),
         )
@@ -360,9 +342,9 @@ class TestQueryCommands:
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
         t2 = datetime(2026, 1, 2, tzinfo=UTC)
         t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(_make_command(timestamp=t1))
-        await storage.save_command(_make_command(timestamp=t2))
-        await storage.save_command(_make_command(timestamp=t3))
+        await storage.save_command(make_command(timestamp=t1))
+        await storage.save_command(make_command(timestamp=t2))
+        await storage.save_command(make_command(timestamp=t3))
         results = await storage.query_commands(
             CommandsQueryFilters(end=t2),
         )
@@ -372,13 +354,13 @@ class TestQueryCommands:
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
         t2 = datetime(2026, 1, 2, tzinfo=UTC)
         await storage.save_command(
-            _make_command(device_id="d1", user_id="u1", timestamp=t1),
+            make_command(device_id="d1", user_id="u1", timestamp=t1),
         )
         await storage.save_command(
-            _make_command(device_id="d1", user_id="u2", timestamp=t2),
+            make_command(device_id="d1", user_id="u2", timestamp=t2),
         )
         await storage.save_command(
-            _make_command(device_id="d2", user_id="u1", timestamp=t2),
+            make_command(device_id="d2", user_id="u1", timestamp=t2),
         )
         results = await storage.query_commands(
             CommandsQueryFilters(device_id="d1", user_id="u1"),
