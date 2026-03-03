@@ -41,14 +41,17 @@ def _make_series(
 @pytest_asyncio.fixture
 async def storage():
     pool = await asyncpg.create_pool(POSTGRES_URL)
+
+    # Drop and recreate schema to pick up column/type changes
+    async with pool.acquire() as conn:
+        await conn.execute("DROP TABLE IF EXISTS ts_data_points CASCADE")
+        await conn.execute("DROP TABLE IF EXISTS ts_device_commands CASCADE")
+        await conn.execute("DROP TABLE IF EXISTS ts_series CASCADE")
+        await conn.execute("DROP TYPE IF EXISTS data_type CASCADE")
+        await conn.execute("DROP TYPE IF EXISTS command_status CASCADE")
+
     store = PostgresStorage(pool)
     await store.ensure_schema()
-
-    # Clean tables before each test
-    async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM ts_data_points")
-        await conn.execute("DELETE FROM ts_series")
-        await conn.execute("DELETE FROM ts_device_commands")
 
     yield store
 
