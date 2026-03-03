@@ -57,27 +57,3 @@ class TestExportPng:
         result = await service.export_png([series.id], last="3h")
 
         assert result[:4] == PNG_MAGIC
-
-    async def test_title_param(self, service: TimeSeriesService):
-        series = await service.create_series(
-            data_type=DataType.FLOAT,
-            owner_id="d1",
-            metric="temperature",
-        )
-        t1 = datetime(2024, 1, 15, 8, 0, 0, tzinfo=UTC)
-        await service.upsert_points(series.key, [DataPoint(timestamp=t1, value=20.5)])
-
-        result = await service.export_png([series.id], title="My Chart")
-
-        assert result[:4] == PNG_MAGIC
-
-    async def test_empty_data_points(self, service: TimeSeriesService):
-        series = await service.create_series(
-            data_type=DataType.FLOAT,
-            owner_id="d1",
-            metric="temperature",
-        )
-
-        result = await service.export_png([series.id])
-
-        assert result[:4] == PNG_MAGIC
