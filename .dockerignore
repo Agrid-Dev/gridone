@@ -6,7 +6,8 @@
 **/.pytest_cache
 **/.ruff_cache
 **/.coverage
-*.log
-.env
-.env.*
-!.env.example
+**/*.log
+**/*.log.*
+**/.env
+**/.env.*
+!**/.env.example

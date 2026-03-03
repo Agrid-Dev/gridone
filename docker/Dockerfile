@@ -18,26 +18,17 @@ RUN npm run build
 
 
 # =============================================================================
-# Stage 2: Python backend + nginx reverse proxy
+# Stage 2: Build Python virtualenv with all dependencies
 # =============================================================================
-FROM python:3.13-slim AS runtime
+FROM python:3.13-slim AS python-build
 
-# --- System dependencies ---------------------------------------------------
-# nginx:  reverse proxy / static file server
-# supervisor: lightweight process manager (keeps uvicorn + nginx alive)
-# gcc, libpq-dev: needed to build asyncpg and other C-extension wheels
+# Build-time dependencies for compiling C-extension wheels (asyncpg, etc.)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        nginx \
-        supervisor \
-        gcc \
-        libpq-dev \
+    apt-get install -y --no-install-recommends gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Install uv (fast Python package manager) ------------------------------
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
-# --- Python dependencies ---------------------------------------------------
 WORKDIR /app
 
 # Copy workspace definition + lock file first (layer cache)
@@ -54,26 +45,47 @@ COPY packages/ packages/
 COPY apps/api_server/ apps/api_server/
 COPY apps/cli/ apps/cli/
 
-# Sync all workspace packages (api-server, gridone-api, gridone-devices-manager, etc.)
+# Sync all workspace packages
 # --frozen: don't update uv.lock, use it as-is
 # --no-dev: skip dev-only dependencies
 # --all-packages: install every workspace member so all runtime imports resolve
 RUN uv sync --frozen --no-dev --all-packages && \
     uv pip install --no-cache websockets
 
-# --- Copy built UI assets from stage 1 -------------------------------------
+
+# =============================================================================
+# Stage 3: Production runtime (no build tools, no uv, no gcc)
+# =============================================================================
+FROM python:3.13-slim AS production
+
+# Runtime-only system dependencies
+# libpq5: PostgreSQL client library needed by asyncpg at runtime
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nginx supervisor libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the pre-built virtualenv from the build stage
+COPY --from=python-build /app/.venv /app/.venv
+
+# Copy application source (needed for editable installs / imports)
+COPY --from=python-build /app/packages /app/packages
+COPY --from=python-build /app/apps /app/apps
+COPY --from=python-build /app/pyproject.toml /app/pyproject.toml
+
+# Copy built UI assets from stage 1
 COPY --from=ui-build /build/apps/ui/dist /app/static
 
-# --- nginx configuration ---------------------------------------------------
+# nginx & supervisord configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
-
-# --- supervisord configuration ---------------------------------------------
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# --- Expose port 80 (nginx listens here inside the container) ---------------
+# Ensure the venv is on PATH
+ENV PATH="/app/.venv/bin:$PATH"
+
 EXPOSE 80
 
-# --- Start both nginx and uvicorn via supervisord ---------------------------
 # supervisord runs as PID 1 and will exit if either child process dies,
 # ensuring the container stops cleanly.
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
