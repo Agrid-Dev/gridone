@@ -95,7 +95,10 @@ async def lifespan(app: FastAPI):
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     if logging_dict_config:
         logging.config.dictConfig(logging_dict_config)
-    app = FastAPI(title="Gridone API", lifespan=lifespan)
+    app = FastAPI(
+        title="Gridone API",
+        lifespan=lifespan
+    )
     register_exception_handlers(app)
 
     # Public routes (no JWT required)

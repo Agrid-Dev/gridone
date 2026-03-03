@@ -42,7 +42,7 @@ export function getDrivers(): Promise<Driver[]> {
 export type DriverCreatePayload = { yaml: string };
 
 export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
-  return request<Driver>("/drivers", {
+  return request<Driver>("/drivers/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
