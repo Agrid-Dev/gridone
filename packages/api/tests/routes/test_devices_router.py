@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -190,6 +191,76 @@ class TestDeleteDevice:
     async def test_delete_device_not_found(self, client: TestClient):
         response = client.delete("/unknown")
         assert response.status_code == 404
+
+
+class TestGetDevicesCommands:
+    @pytest.mark.asyncio
+    async def test_no_filters(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands.return_value = []
+        async with async_client as ac:
+            response = await ac.get("/commands")
+        assert response.status_code == 200
+        mock_ts_service.get_commands.assert_called_once_with(
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_with_all_filters(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands.return_value = []
+        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        end = datetime(2026, 1, 31, tzinfo=timezone.utc)
+        async with async_client as ac:
+            response = await ac.get(
+                "/commands",
+                params={
+                    "device_id": "dev-1",
+                    "attribute": "temperature",
+                    "user_id": "user-42",
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                    "last": "7d",
+                },
+            )
+        assert response.status_code == 200
+        mock_ts_service.get_commands.assert_called_once_with(
+            device_id="dev-1",
+            attribute="temperature",
+            user_id="user-42",
+            start=start,
+            end=end,
+            last="7d",
+        )
+
+
+class TestGetDeviceCommands:
+    @pytest.mark.asyncio
+    async def test_path_device_id_takes_precedence_over_query_param(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        mock_ts_service.get_commands.return_value = []
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{device_id}/commands",
+                params={"device_id": "other-device"},
+            )
+        assert response.status_code == 200
+        mock_ts_service.get_commands.assert_called_once_with(
+            device_id=device_id,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+        )
 
 
 class TestUpdateAttribute:
