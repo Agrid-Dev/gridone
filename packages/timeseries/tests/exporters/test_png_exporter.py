@@ -48,19 +48,18 @@ class TestToFigure:
         labels = [t.get_text() for t in legend.get_texts()]
         assert "temperature" in labels
 
-    def test_bool_series_on_secondary_axis(self):
+    def test_bool_series_own_panel(self):
         s = make_series(
             DataType.BOOL,
             "state",
             [DataPoint(timestamp=T1, value=True), DataPoint(timestamp=T2, value=False)],
         )
         fig = to_figure([s])
-        assert len(fig.axes) == 2
-        ax_bool = fig.axes[1]
-        assert list(ax_bool.get_yticks()) == [0, 1]
-        assert [t.get_text() for t in ax_bool.get_yticklabels()] == ["False", "True"]
+        assert len(fig.axes) == 1
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        assert "state" in labels
 
-    def test_bool_label_in_primary_legend(self):
+    def test_float_and_bool_in_separate_panels(self):
         float_s = make_series(
             DataType.FLOAT, "temperature", [DataPoint(timestamp=T1, value=22.0)]
         )
@@ -68,18 +67,20 @@ class TestToFigure:
             DataType.BOOL, "state", [DataPoint(timestamp=T1, value=True)]
         )
         fig = to_figure([float_s, bool_s])
-        legend = fig.axes[0].get_legend()
-        assert legend is not None
-        labels = [t.get_text() for t in legend.get_texts()]
-        assert "temperature" in labels
-        assert "state" in labels
+        assert len(fig.axes) == 2
+        float_labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        bool_labels = [t.get_text() for t in fig.axes[1].get_legend().get_texts()]
+        assert "temperature" in float_labels
+        assert "state" in bool_labels
 
-    def test_string_series_skipped(self):
+    def test_string_series_own_panel(self):
         s = make_series(
             DataType.STRING, "status", [DataPoint(timestamp=T1, value="ok")]
         )
         fig = to_figure([s])
-        assert fig.axes[0].get_legend() is None
+        assert len(fig.axes) == 1
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        assert "status: ok" in labels
 
     def test_empty_series_produces_no_legend(self):
         s = make_series(DataType.FLOAT, "temp", [])
