@@ -13,6 +13,7 @@ if TYPE_CHECKING:
         SeriesKey,
         TimeSeries,
     )
+    from timeseries.domain.filters import CommandsQueryFilters
 
 
 class TimeSeriesStorage(Protocol):
@@ -51,3 +52,8 @@ class TimeSeriesStorage(Protocol):
     ) -> None: ...
 
     async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand: ...
+
+    async def query_commands(
+        self,
+        filters: CommandsQueryFilters,
+    ) -> list[DeviceCommand]: ...

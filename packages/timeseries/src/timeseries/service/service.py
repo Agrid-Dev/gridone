@@ -18,6 +18,7 @@ from timeseries.domain import (
     resolve_last,
     validate_value_type,
 )
+from timeseries.domain.filters import CommandsQueryFilters
 from timeseries.exporters.csv import to_csv
 
 if TYPE_CHECKING:
@@ -148,3 +149,24 @@ class TimeSeriesService:
 
     async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
         return await self._storage.save_command(command)
+
+    async def get_commands(  # noqa: PLR0913
+        self,
+        *,
+        device_id: str | None = None,
+        attribute: str | None = None,
+        user_id: str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        last: str | None = None,
+    ) -> list[DeviceCommand]:
+        if last is not None and start is None:
+            start = resolve_last(last)
+        filters = CommandsQueryFilters(
+            device_id=device_id,
+            attribute=attribute,
+            user_id=user_id,
+            start=start,
+            end=end,
+        )
+        return await self._storage.query_commands(filters)

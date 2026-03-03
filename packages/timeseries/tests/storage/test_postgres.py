@@ -14,6 +14,7 @@ from timeseries.domain import (
     SeriesKey,
     TimeSeries,
 )
+from timeseries.domain.filters import CommandsQueryFilters
 from timeseries.storage.postgres import PostgresStorage
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
@@ -337,3 +338,114 @@ class TestSaveDeviceCommand:
         command = await storage.save_command(command_create)
         assert command.status == "error"
         assert command.status_details == "Connection timed out"
+
+
+def _make_command(
+    *,
+    device_id: str = "device1",
+    attribute: str = "mode",
+    user_id: str = "user1",
+    timestamp: datetime = datetime(2026, 1, 2, tzinfo=UTC),
+) -> DeviceCommandCreate:
+    return DeviceCommandCreate(
+        device_id=device_id,
+        attribute=attribute,
+        user_id=user_id,
+        value="auto",
+        data_type=DataType.STRING,
+        status="success",
+        timestamp=timestamp,
+        status_details=None,
+    )
+
+
+class TestQueryCommands:
+    async def test_empty(self, storage):
+        results = await storage.query_commands(CommandsQueryFilters())
+        assert results == []
+
+    async def test_no_filters_returns_all(self, storage):
+        await storage.save_command(_make_command(device_id="d1"))
+        await storage.save_command(_make_command(device_id="d2"))
+        results = await storage.query_commands(CommandsQueryFilters())
+        assert len(results) == 2
+
+    async def test_filter_device_id(self, storage):
+        await storage.save_command(_make_command(device_id="d1"))
+        await storage.save_command(_make_command(device_id="d2"))
+        results = await storage.query_commands(
+            CommandsQueryFilters(device_id="d1"),
+        )
+        assert len(results) == 1
+        assert results[0].device_id == "d1"
+
+    async def test_filter_attribute(self, storage):
+        await storage.save_command(_make_command(attribute="mode"))
+        await storage.save_command(_make_command(attribute="setpoint"))
+        results = await storage.query_commands(
+            CommandsQueryFilters(attribute="setpoint"),
+        )
+        assert len(results) == 1
+        assert results[0].attribute == "setpoint"
+
+    async def test_filter_user_id(self, storage):
+        await storage.save_command(_make_command(user_id="u1"))
+        await storage.save_command(_make_command(user_id="u2"))
+        results = await storage.query_commands(
+            CommandsQueryFilters(user_id="u1"),
+        )
+        assert len(results) == 1
+        assert results[0].user_id == "u1"
+
+    async def test_filter_start(self, storage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(_make_command(timestamp=t1))
+        await storage.save_command(_make_command(timestamp=t2))
+        await storage.save_command(_make_command(timestamp=t3))
+        results = await storage.query_commands(
+            CommandsQueryFilters(start=t2),
+        )
+        assert len(results) == 2
+
+    async def test_filter_end(self, storage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(_make_command(timestamp=t1))
+        await storage.save_command(_make_command(timestamp=t2))
+        await storage.save_command(_make_command(timestamp=t3))
+        results = await storage.query_commands(
+            CommandsQueryFilters(end=t2),
+        )
+        assert len(results) == 2
+
+    async def test_combined_filters(self, storage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        await storage.save_command(
+            _make_command(device_id="d1", user_id="u1", timestamp=t1),
+        )
+        await storage.save_command(
+            _make_command(device_id="d1", user_id="u2", timestamp=t2),
+        )
+        await storage.save_command(
+            _make_command(device_id="d2", user_id="u1", timestamp=t2),
+        )
+        results = await storage.query_commands(
+            CommandsQueryFilters(device_id="d1", user_id="u1"),
+        )
+        assert len(results) == 1
+        assert results[0].device_id == "d1"
+        assert results[0].user_id == "u1"
+
+    async def test_results_ordered_by_timestamp(self, storage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(_make_command(timestamp=t3))
+        await storage.save_command(_make_command(timestamp=t1))
+        await storage.save_command(_make_command(timestamp=t2))
+        results = await storage.query_commands(CommandsQueryFilters())
+        assert [r.timestamp for r in results] == [t1, t2, t3]

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.domain import AttributeValueType, DeviceCommandCreate
+    from timeseries.domain.filters import CommandsQueryFilters
 
 logger = logging.getLogger(__name__)
 
@@ -288,3 +289,51 @@ class PostgresStorage:
             command.status_details,
         )
         return DeviceCommand(id=row["id"], **command.__dict__)
+
+    async def query_commands(
+        self, filters: CommandsQueryFilters
+    ) -> list[DeviceCommand]:
+        clauses: list[str] = []
+        params: list[object] = []
+        idx = 1
+
+        if filters.device_id is not None:
+            clauses.append(f"device_id = ${idx}")
+            params.append(filters.device_id)
+            idx += 1
+        if filters.attribute is not None:
+            clauses.append(f"attribute = ${idx}")
+            params.append(filters.attribute)
+            idx += 1
+        if filters.user_id is not None:
+            clauses.append(f"user_id = ${idx}")
+            params.append(filters.user_id)
+            idx += 1
+        if filters.start is not None:
+            clauses.append(f"timestamp >= ${idx}")
+            params.append(filters.start)
+            idx += 1
+        if filters.end is not None:
+            clauses.append(f"timestamp <= ${idx}")
+            params.append(filters.end)
+
+        query = "SELECT * FROM ts_device_commands"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY timestamp"
+
+        rows = await self._pool.fetch(query, *params)
+        return [
+            DeviceCommand(
+                id=r["id"],
+                device_id=r["device_id"],
+                attribute=r["attribute"],
+                user_id=r["user_id"],
+                value=r["value"],
+                data_type=DataType(r["data_type"]),
+                status=r["status"],
+                timestamp=r["timestamp"],
+                status_details=r["status_details"],
+            )
+            for r in rows
+        ]

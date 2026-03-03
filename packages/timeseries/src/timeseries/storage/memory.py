@@ -18,6 +18,7 @@ if TYPE_CHECKING:
         SeriesKey,
         TimeSeries,
     )
+    from timeseries.domain.filters import CommandsQueryFilters
 
 
 @dataclass
@@ -30,6 +31,20 @@ class CommandMemoryStorage:
         new_command = DeviceCommand(id=self._current_index, **command.__dict__)
         self._history.append(new_command)
         return new_command
+
+    def query(self, filters: CommandsQueryFilters) -> list[DeviceCommand]:
+        results = list(self._history)
+        if filters.device_id is not None:
+            results = [c for c in results if c.device_id == filters.device_id]
+        if filters.attribute is not None:
+            results = [c for c in results if c.attribute == filters.attribute]
+        if filters.user_id is not None:
+            results = [c for c in results if c.user_id == filters.user_id]
+        if filters.start is not None:
+            results = [c for c in results if c.timestamp >= filters.start]
+        if filters.end is not None:
+            results = [c for c in results if c.timestamp <= filters.end]
+        return results
 
 
 class MemoryStorage:
@@ -125,3 +140,8 @@ class MemoryStorage:
 
     async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
         return self._command_history.add(command)
+
+    async def query_commands(
+        self, filters: CommandsQueryFilters
+    ) -> list[DeviceCommand]:
+        return self._command_history.query(filters)

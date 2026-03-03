@@ -328,3 +328,74 @@ class TestLogCommand:
         assert command.device_id == "device1"
         assert command.attribute == "mode"
         assert command.value == "auto"
+
+
+def _make_command(
+    *,
+    device_id: str = "device1",
+    attribute: str = "mode",
+    user_id: str = "user1",
+    timestamp: datetime = datetime(2026, 1, 2, tzinfo=UTC),
+) -> DeviceCommandCreate:
+    return DeviceCommandCreate(
+        device_id=device_id,
+        attribute=attribute,
+        user_id=user_id,
+        value="auto",
+        data_type=DataType.STRING,
+        status="success",
+        timestamp=timestamp,
+        status_details=None,
+    )
+
+
+class TestGetCommands:
+    async def test_empty(self, service: TimeSeriesService):
+        results = await service.get_commands()
+        assert results == []
+
+    async def test_no_filters_returns_all(self, service: TimeSeriesService):
+        await service.log_command(_make_command(device_id="d1"))
+        await service.log_command(_make_command(device_id="d2"))
+        results = await service.get_commands()
+        assert len(results) == 2
+
+    async def test_filter_device_id(self, service: TimeSeriesService):
+        await service.log_command(_make_command(device_id="d1"))
+        await service.log_command(_make_command(device_id="d2"))
+        results = await service.get_commands(device_id="d1")
+        assert len(results) == 1
+        assert results[0].device_id == "d1"
+
+    async def test_filter_with_last(self, service: TimeSeriesService):
+        now = datetime.now(tz=UTC)
+        old = now - timedelta(hours=5)
+        await service.log_command(_make_command(timestamp=old))
+        await service.log_command(_make_command(timestamp=now))
+        results = await service.get_commands(last="3h")
+        assert len(results) == 1
+
+    async def test_last_ignored_when_start_is_set(self, service: TimeSeriesService):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        await service.log_command(_make_command(timestamp=t1))
+        await service.log_command(_make_command(timestamp=t2))
+        results = await service.get_commands(start=t1, last="1s")
+        assert len(results) == 2
+
+    async def test_combined_filters(self, service: TimeSeriesService):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        await service.log_command(
+            _make_command(device_id="d1", user_id="u1", timestamp=t1),
+        )
+        await service.log_command(
+            _make_command(device_id="d1", user_id="u2", timestamp=t2),
+        )
+        await service.log_command(
+            _make_command(device_id="d2", user_id="u1", timestamp=t2),
+        )
+        results = await service.get_commands(device_id="d1", user_id="u1")
+        assert len(results) == 1
+        assert results[0].device_id == "d1"
+        assert results[0].user_id == "u1"
