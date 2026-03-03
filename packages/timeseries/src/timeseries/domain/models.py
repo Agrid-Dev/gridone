@@ -2,31 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from secrets import token_hex
-from typing import Literal, TypeVar
+from typing import Literal
 
 from models.errors import InvalidError
+from models.types import AttributeValueType, DataType
 
-T = TypeVar("T", int, float, bool, str)
-DataPointValue = int | float | bool | str
-
-
-class DataType(StrEnum):
-    INTEGER = "integer"
-    FLOAT = "float"
-    BOOLEAN = "boolean"
-    STRING = "string"
-
-
-DATA_TYPE_MAP: dict[DataType, type] = {
-    DataType.INTEGER: int,
-    DataType.FLOAT: float,
-    DataType.BOOLEAN: bool,
-    DataType.STRING: str,
-}
-
-VALUE_TYPE_MAP: dict[type, DataType] = {v: k for k, v in DATA_TYPE_MAP.items()}
+DataPointValue = AttributeValueType
 
 
 @dataclass(frozen=True)
@@ -81,5 +63,5 @@ class DeviceCommandCreate[T: (int, float, bool, str)]:
 
 
 @dataclass
-class DeviceCommand(DeviceCommandCreate[T]):
+class DeviceCommand[T: (int, float, bool, str)](DeviceCommandCreate[T]):
     id: int

@@ -1,24 +1,9 @@
 from enum import StrEnum
 from typing import Literal
 
-AttributeValueType = int | float | str | bool
+from models.types import AttributeValueType, DataType
 
 ReadWriteMode = Literal["read", "write"]
-
-
-class DataType(StrEnum):
-    INT = "int"
-    FLOAT = "float"
-    STRING = "str"
-    BOOL = "bool"
-
-
-DATA_TYPES: dict[DataType, type] = {
-    DataType.INT: int,
-    DataType.FLOAT: float,
-    DataType.STRING: str,
-    DataType.BOOL: bool,
-}
 
 
 class TransportProtocols(StrEnum):
@@ -29,3 +14,11 @@ class TransportProtocols(StrEnum):
 
 
 type DeviceConfig = dict[str, str | int | float | bool]
+
+__all__ = [
+    "AttributeValueType",
+    "DataType",
+    "DeviceConfig",
+    "ReadWriteMode",
+    "TransportProtocols",
+]

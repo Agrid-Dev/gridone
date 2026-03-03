@@ -11,7 +11,7 @@ from timeseries.domain import DataPoint, DataType, DeviceCommand, SeriesKey, Tim
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import DataPointValue, DeviceCommandCreate
+    from timeseries.domain import AttributeValueType, DeviceCommandCreate
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +64,9 @@ _CREATE_HYPERTABLE = (
 )
 
 _VALUE_COLUMNS: dict[DataType, str] = {
-    DataType.INTEGER: "value_integer",
+    DataType.INT: "value_integer",
     DataType.FLOAT: "value_float",
-    DataType.BOOLEAN: "value_boolean",
+    DataType.BOOL: "value_boolean",
     DataType.STRING: "value_string",
 }
 
@@ -174,7 +174,7 @@ class PostgresStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[DataPointValue]]:
+    ) -> list[DataPoint[AttributeValueType]]:
         series = await self.get_series_by_key(key)
         if series is None:
             return []
@@ -207,7 +207,7 @@ class PostgresStorage:
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[DataPointValue] | None:
+    ) -> DataPoint[AttributeValueType] | None:
         series = await self.get_series_by_key(key)
         if series is None:
             return None
@@ -228,7 +228,7 @@ class PostgresStorage:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[DataPointValue]],
+        points: list[DataPoint[AttributeValueType]],
     ) -> None:
         series = await self.get_series_by_key(key)
         if series is None:

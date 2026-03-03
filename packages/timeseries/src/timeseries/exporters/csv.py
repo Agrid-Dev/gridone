@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import DataPointValue, TimeSeries
+    from timeseries.domain import AttributeValueType, TimeSeries
 
 
 def to_csv(series: list[TimeSeries]) -> str:
@@ -20,7 +20,7 @@ def to_csv(series: list[TimeSeries]) -> str:
         writer = csv.writer(sio)
         writer.writerow(["timestamp"] + [s.metric for s in series])
 
-        last_values: list[DataPointValue | None] = [None] * len(series)
+        last_values: list[AttributeValueType | None] = [None] * len(series)
         for ts in all_timestamps:
             for i, point_map in enumerate(series_point_maps):
                 if ts in point_map:

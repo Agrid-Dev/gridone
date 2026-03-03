@@ -159,7 +159,7 @@ class TestUpsertPoints:
     async def test_rejects_bool_as_int(self, service: TimeSeriesService):
         key = SeriesKey(owner_id="d1", metric="count")
         await service.create_series(
-            data_type=DataType.INTEGER,
+            data_type=DataType.INT,
             owner_id=key.owner_id,
             metric=key.metric,
         )

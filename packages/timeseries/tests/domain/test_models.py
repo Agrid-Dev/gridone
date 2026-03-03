@@ -16,18 +16,18 @@ from timeseries.domain import (
 
 class TestDataType:
     def test_values(self):
-        assert DataType.INTEGER == "integer"
+        assert DataType.INT == "int"
         assert DataType.FLOAT == "float"
-        assert DataType.BOOLEAN == "boolean"
-        assert DataType.STRING == "string"
+        assert DataType.BOOL == "bool"
+        assert DataType.STRING == "str"
 
     def test_data_type_map_covers_all_variants(self):
         assert set(DATA_TYPE_MAP.keys()) == set(DataType)
 
     def test_data_type_map_types(self):
-        assert DATA_TYPE_MAP[DataType.INTEGER] is int
+        assert DATA_TYPE_MAP[DataType.INT] is int
         assert DATA_TYPE_MAP[DataType.FLOAT] is float
-        assert DATA_TYPE_MAP[DataType.BOOLEAN] is bool
+        assert DATA_TYPE_MAP[DataType.BOOL] is bool
         assert DATA_TYPE_MAP[DataType.STRING] is str
 
 
@@ -72,9 +72,9 @@ class TestTimeSeries:
     def test_each_data_type(self):
         now = datetime.now(tz=UTC)
         cases = [
-            (DataType.INTEGER, 42),
+            (DataType.INT, 42),
             (DataType.FLOAT, 3.14),
-            (DataType.BOOLEAN, True),
+            (DataType.BOOL, True),
             (DataType.STRING, "hello"),
         ]
         for dt, val in cases:
