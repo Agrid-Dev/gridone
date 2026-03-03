@@ -27,7 +27,7 @@ def to_figure(series: list[TimeSeries], *, title: str | None = None) -> Figure:
 
         timestamps = [p.timestamp for p in s.data_points]
 
-        if s.data_type == DataType.BOOLEAN:
+        if s.data_type == DataType.BOOL:
             if ax_bool is None:
                 ax_bool = ax.twinx()
                 ax_bool.set_ylim(-0.1, 1.1)

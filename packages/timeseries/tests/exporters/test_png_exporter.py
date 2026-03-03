@@ -50,7 +50,7 @@ class TestToFigure:
 
     def test_bool_series_on_secondary_axis(self):
         s = make_series(
-            DataType.BOOLEAN,
+            DataType.BOOL,
             "state",
             [DataPoint(timestamp=T1, value=True), DataPoint(timestamp=T2, value=False)],
         )
@@ -65,7 +65,7 @@ class TestToFigure:
             DataType.FLOAT, "temperature", [DataPoint(timestamp=T1, value=22.0)]
         )
         bool_s = make_series(
-            DataType.BOOLEAN, "state", [DataPoint(timestamp=T1, value=True)]
+            DataType.BOOL, "state", [DataPoint(timestamp=T1, value=True)]
         )
         fig = to_figure([float_s, bool_s])
         legend = fig.axes[0].get_legend()
