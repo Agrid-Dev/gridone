@@ -4,7 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
+from timeseries.domain import (
+    DataPoint,
+    DataType,
+    DeviceCommandCreate,
+    SeriesKey,
+    TimeSeries,
+)
 from timeseries.storage import MemoryStorage
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
@@ -261,3 +267,20 @@ class TestFetchPoints:
             end=base + timedelta(days=3),
         )
         assert [p.value for p in fetched] == [1.0, 2.0, 3.0]
+
+
+class TestSaveDeviceCommand:
+    async def test_adds_command(self, storage: MemoryStorage):
+        command_create = DeviceCommandCreate(
+            device_id="device1",
+            attribute="mode",
+            user_id="user1",
+            value="auto",
+            data_type=DataType.STRING,
+            status="success",
+            timestamp=datetime.now(tz=UTC),
+            status_details=None,
+        )
+        command = await storage.save_command(command_create)
+        assert command.id is not None
+        assert command.device_id == command_create.device_id

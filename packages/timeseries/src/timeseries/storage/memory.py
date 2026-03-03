@@ -2,19 +2,41 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
 
+from timeseries.domain import DeviceCommand
+
 if TYPE_CHECKING:
-    from timeseries.domain import DataPoint, DataPointValue, SeriesKey, TimeSeries
+    from timeseries.domain import (
+        AttributeValueType,
+        DataPoint,
+        DeviceCommandCreate,
+        SeriesKey,
+        TimeSeries,
+    )
+
+
+@dataclass
+class CommandMemoryStorage:
+    _history: list[DeviceCommand] = field(default_factory=list)
+    _current_index = 0
+
+    def add(self, command: DeviceCommandCreate) -> DeviceCommand:
+        self._current_index += 1
+        new_command = DeviceCommand(id=self._current_index, **command.__dict__)
+        self._history.append(new_command)
+        return new_command
 
 
 class MemoryStorage:
     def __init__(self) -> None:
         self._series: dict[str, TimeSeries] = {}
         self._key_index: dict[SeriesKey, str] = {}
+        self._command_history = CommandMemoryStorage()
 
     async def create_series(self, series: TimeSeries) -> TimeSeries:
         if series.id in self._series:
@@ -58,7 +80,7 @@ class MemoryStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[DataPointValue]]:
+    ) -> list[DataPoint[AttributeValueType]]:
         series_id = self._key_index.get(key)
         if series_id is None:
             return []
@@ -74,7 +96,7 @@ class MemoryStorage:
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[DataPointValue] | None:
+    ) -> DataPoint[AttributeValueType] | None:
         series_id = self._key_index.get(key)
         if series_id is None:
             return None
@@ -88,7 +110,7 @@ class MemoryStorage:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[DataPointValue]],
+        points: list[DataPoint[AttributeValueType]],
     ) -> None:
         series_id = self._key_index.get(key)
         if series_id is None:
@@ -100,3 +122,6 @@ class MemoryStorage:
             existing[p.timestamp] = p
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
+
+    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
+        return self._command_history.add(command)

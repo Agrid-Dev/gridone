@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel
-from timeseries.domain import DataPointValue, DataType
+from models.types import AttributeValueType, DataType
 
 
 class TimeSeriesResponse(BaseModel):
@@ -15,4 +15,4 @@ class TimeSeriesResponse(BaseModel):
 
 class DataPointResponse(BaseModel):
     timestamp: datetime
-    value: DataPointValue
+    value: AttributeValueType

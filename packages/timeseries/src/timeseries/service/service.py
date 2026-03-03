@@ -8,9 +8,11 @@ from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
+    AttributeValueType,
     DataPoint,
-    DataPointValue,
     DataType,
+    DeviceCommand,
+    DeviceCommandCreate,
     SeriesKey,
     TimeSeries,
     resolve_last,
@@ -28,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 class TimeSeriesService:
+    _storage: TimeSeriesStorage
+
     def __init__(self, storage: TimeSeriesStorage) -> None:
         self._storage = storage
 
@@ -74,7 +78,7 @@ class TimeSeriesService:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[DataPointValue]],
+        points: list[DataPoint[AttributeValueType]],
         *,
         create_if_not_found: bool = False,
     ) -> None:
@@ -109,7 +113,7 @@ class TimeSeriesService:
         end: datetime | None = None,
         last: str | None = None,
         carry_forward: bool = False,
-    ) -> list[DataPoint[DataPointValue]]:
+    ) -> list[DataPoint[AttributeValueType]]:
         if last is not None and start is None:
             start = resolve_last(last)
         points = await self._storage.fetch_points(key, start=start, end=end)
@@ -141,3 +145,6 @@ class TimeSeriesService:
             all_series.append(series)
 
         return to_csv(all_series)
+
+    async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
+        return await self._storage.save_command(command)

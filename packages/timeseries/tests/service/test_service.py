@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint, DataType, SeriesKey
+from timeseries.domain import DataPoint, DataType, DeviceCommandCreate, SeriesKey
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
 
@@ -159,7 +159,7 @@ class TestUpsertPoints:
     async def test_rejects_bool_as_int(self, service: TimeSeriesService):
         key = SeriesKey(owner_id="d1", metric="count")
         await service.create_series(
-            data_type=DataType.INTEGER,
+            data_type=DataType.INT,
             owner_id=key.owner_id,
             metric=key.metric,
         )
@@ -309,3 +309,22 @@ class TestFetchPoints:
     async def test_empty_result(self, service: TimeSeriesService):
         points = await service.fetch_points(KEY)
         assert points == []
+
+
+class TestLogCommand:
+    async def test_log_command(self, service: TimeSeriesService):
+        command_create = DeviceCommandCreate(
+            device_id="device1",
+            attribute="mode",
+            user_id="user1",
+            value="auto",
+            data_type=DataType.STRING,
+            status="success",
+            timestamp=datetime.now(tz=UTC),
+            status_details=None,
+        )
+        command = await service.log_command(command_create)
+        assert command.id is not None
+        assert command.device_id == "device1"
+        assert command.attribute == "mode"
+        assert command.value == "auto"

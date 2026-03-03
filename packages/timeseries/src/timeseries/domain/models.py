@@ -2,31 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from secrets import token_hex
-from typing import TypeVar
+from typing import Literal
 
 from models.errors import InvalidError
+from models.types import AttributeValueType, DataType
 
-T = TypeVar("T", int, float, bool, str)
-DataPointValue = int | float | bool | str
-
-
-class DataType(StrEnum):
-    INTEGER = "integer"
-    FLOAT = "float"
-    BOOLEAN = "boolean"
-    STRING = "string"
-
-
-DATA_TYPE_MAP: dict[DataType, type] = {
-    DataType.INTEGER: int,
-    DataType.FLOAT: float,
-    DataType.BOOLEAN: bool,
-    DataType.STRING: str,
-}
-
-VALUE_TYPE_MAP: dict[type, DataType] = {v: k for k, v in DATA_TYPE_MAP.items()}
+DataPointValue = AttributeValueType
 
 
 @dataclass(frozen=True)
@@ -63,3 +45,23 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
     if type(value) is not expected:
         msg = f"Expected {expected.__name__}, got {type(value).__name__}"
         raise InvalidError(msg)
+
+
+CommandStatus = Literal["success", "error"]
+
+
+@dataclass
+class DeviceCommandCreate[T: (int, float, bool, str)]:
+    device_id: str
+    attribute: str
+    user_id: str
+    value: T
+    data_type: DataType
+    status: CommandStatus
+    timestamp: datetime
+    status_details: str | None
+
+
+@dataclass
+class DeviceCommand[T: (int, float, bool, str)](DeviceCommandCreate[T]):
+    id: int

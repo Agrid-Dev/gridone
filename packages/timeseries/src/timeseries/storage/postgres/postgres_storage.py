@@ -6,19 +6,33 @@ from typing import TYPE_CHECKING
 import asyncpg
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
+from timeseries.domain import DataPoint, DataType, DeviceCommand, SeriesKey, TimeSeries
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import DataPointValue
+    from timeseries.domain import AttributeValueType, DeviceCommandCreate
 
 logger = logging.getLogger(__name__)
+
+_CREATE_ENUM_DATA_TYPE = """\
+DO $$ BEGIN
+    CREATE TYPE data_type AS ENUM ('int', 'float', 'str', 'bool');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+"""
+
+_CREATE_ENUM_COMMAND_STATUS = """\
+DO $$ BEGIN
+    CREATE TYPE command_status AS ENUM ('success', 'error');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+"""
 
 _CREATE_SERIES_TABLE = """\
 CREATE TABLE IF NOT EXISTS ts_series (
     id          TEXT        NOT NULL,
-    data_type   TEXT        NOT NULL,
+    data_type   data_type   NOT NULL,
     owner_id    TEXT        NOT NULL,
     metric      TEXT        NOT NULL,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -45,14 +59,28 @@ CREATE TABLE IF NOT EXISTS ts_data_points (
 );
 """
 
+_CREATE_DEVICE_COMMANDS_TABLE = """\
+CREATE TABLE IF NOT EXISTS ts_device_commands (
+    id              SERIAL          PRIMARY KEY,
+    device_id       TEXT            NOT NULL,
+    attribute       TEXT            NOT NULL,
+    user_id         TEXT            NOT NULL,
+    value           TEXT            NOT NULL,
+    data_type       data_type       NOT NULL,
+    status          command_status  NOT NULL,
+    timestamp       TIMESTAMPTZ     NOT NULL,
+    status_details  TEXT
+);
+"""
+
 _CREATE_HYPERTABLE = (
     "SELECT create_hypertable('ts_data_points', 'timestamp', if_not_exists => TRUE);"
 )
 
 _VALUE_COLUMNS: dict[DataType, str] = {
-    DataType.INTEGER: "value_integer",
+    DataType.INT: "value_integer",
     DataType.FLOAT: "value_float",
-    DataType.BOOLEAN: "value_boolean",
+    DataType.BOOL: "value_boolean",
     DataType.STRING: "value_string",
 }
 
@@ -64,10 +92,13 @@ class PostgresStorage:
     async def ensure_schema(self) -> None:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                await conn.execute(_CREATE_ENUM_DATA_TYPE)
+                await conn.execute(_CREATE_ENUM_COMMAND_STATUS)
                 await conn.execute(_CREATE_SERIES_TABLE)
                 for stmt in _CREATE_SERIES_INDEXES:
                     await conn.execute(stmt)
                 await conn.execute(_CREATE_DATA_POINTS_TABLE)
+                await conn.execute(_CREATE_DEVICE_COMMANDS_TABLE)
 
             try:
                 await conn.execute(_CREATE_HYPERTABLE)
@@ -159,7 +190,7 @@ class PostgresStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[DataPointValue]]:
+    ) -> list[DataPoint[AttributeValueType]]:
         series = await self.get_series_by_key(key)
         if series is None:
             return []
@@ -192,7 +223,7 @@ class PostgresStorage:
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[DataPointValue] | None:
+    ) -> DataPoint[AttributeValueType] | None:
         series = await self.get_series_by_key(key)
         if series is None:
             return None
@@ -213,7 +244,7 @@ class PostgresStorage:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[DataPointValue]],
+        points: list[DataPoint[AttributeValueType]],
     ) -> None:
         series = await self.get_series_by_key(key)
         if series is None:
@@ -237,3 +268,23 @@ class PostgresStorage:
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",
                 series.id,
             )
+
+    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
+        row = await self._pool.fetchrow(
+            """
+            INSERT INTO ts_device_commands
+                (device_id, attribute, user_id, value, data_type,
+                 status, timestamp, status_details)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id
+            """,
+            command.device_id,
+            command.attribute,
+            command.user_id,
+            str(command.value),
+            command.data_type.value,
+            command.status,
+            command.timestamp,
+            command.status_details,
+        )
+        return DeviceCommand(id=row["id"], **command.__dict__)
