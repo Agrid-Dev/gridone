@@ -12,7 +12,7 @@ import { useSearchParams } from "react-router";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import type { TimeSeries } from "@/api/timeseries";
+import { exportCsv, type TimeSeries } from "@/api/timeseries";
 import {
   type TimeRange,
   parseRangeParams,
@@ -60,6 +60,8 @@ type DeviceHistoryContextValue = {
   error: Error | null;
   timeRange: TimeRange;
   setTimeRange: (range: TimeRange) => void;
+  isDownloading: boolean;
+  handleDownload: () => Promise<void>;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -214,6 +216,29 @@ export function DeviceHistoryProvider({
     [allRows, visibleAttributes],
   );
 
+  const visibleSeriesIds = useMemo(
+    () =>
+      series
+        .filter((s) => visibleAttributes.includes(s.metric))
+        .map((s) => s.id),
+    [series, visibleAttributes],
+  );
+
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      await exportCsv(visibleSeriesIds, {
+        start: resolved.start,
+        end: resolved.end,
+        last: resolved.last,
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [visibleSeriesIds, resolved]);
+
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
       series,
@@ -230,6 +255,8 @@ export function DeviceHistoryProvider({
       error,
       timeRange,
       setTimeRange,
+      isDownloading,
+      handleDownload,
     }),
     [
       series,
@@ -246,6 +273,8 @@ export function DeviceHistoryProvider({
       error,
       timeRange,
       setTimeRange,
+      isDownloading,
+      handleDownload,
     ],
   );
 

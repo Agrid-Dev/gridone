@@ -1,5 +1,4 @@
-import { request, API_BASE_URL } from "./request";
-import { getStoredToken } from "./token";
+import { request, requestBlob } from "./request";
 
 export type DataTypeMap = {
   integer: number;
@@ -48,35 +47,26 @@ export type GetSeriesPointsOptions = {
   carryForward?: boolean;
 };
 
-export async function exportCsv(
-  seriesIds: string[],
-  options?: GetSeriesPointsOptions,
-): Promise<void> {
+function optionsToParams(options?: GetSeriesPointsOptions): URLSearchParams {
   const { start, end, last, carryForward } = options ?? {};
   const params = new URLSearchParams();
-  for (const id of seriesIds) {
-    params.append("series_ids", id);
-  }
   if (start) params.set("start", start);
   if (end) params.set("end", end);
   if (last) params.set("last", last);
   if (carryForward !== undefined)
     params.set("carry_forward", String(carryForward));
+  return params;
+}
 
-  const token = getStoredToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const response = await fetch(
-    `${API_BASE_URL}/timeseries/export/csv?${params.toString()}`,
-    { headers },
-  );
-
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
+export async function exportCsv(
+  seriesIds: string[],
+  options?: GetSeriesPointsOptions,
+): Promise<void> {
+  const params = optionsToParams(options);
+  for (const id of seriesIds) {
+    params.append("series_ids", id);
   }
-
-  const blob = await response.blob();
+  const blob = await requestBlob(`/timeseries/export/csv?${params.toString()}`);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -89,13 +79,7 @@ export function getSeriesPoints<D extends DataType = DataType>(
   seriesId: string,
   options?: GetSeriesPointsOptions,
 ): Promise<DataPoint<D>[]> {
-  const { start, end, last, carryForward } = options ?? {};
-  const params = new URLSearchParams();
-  if (start) params.set("start", start);
-  if (end) params.set("end", end);
-  if (last) params.set("last", last);
-  if (carryForward !== undefined)
-    params.set("carry_forward", String(carryForward));
+  const params = optionsToParams(options);
   const qs = params.toString();
   return request<DataPoint<D>[]>(
     `/timeseries/${encodeURIComponent(seriesId)}/points${qs ? `?${qs}` : ""}`,

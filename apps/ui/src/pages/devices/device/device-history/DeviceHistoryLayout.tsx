@@ -1,4 +1,3 @@
-import { exportCsv } from "@/api/timeseries";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
@@ -26,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
 import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -40,7 +39,6 @@ import {
   useDeviceHistoryContext,
 } from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
-import { resolveTimeRange } from "./timeRange";
 
 export default function DeviceHistoryLayout() {
   const { t } = useTranslation();
@@ -100,10 +98,7 @@ function HistoryToolbar() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isDownloading, setIsDownloading] = useState(false);
-
   const {
-    series,
     availableAttributes,
     columnVisibility,
     handleVisibilityChange,
@@ -111,27 +106,11 @@ function HistoryToolbar() {
     timeRange,
     setTimeRange,
     visibleAttributes,
+    isDownloading,
+    handleDownload,
   } = useDeviceHistoryContext();
 
   const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
-
-  const visibleSeriesIds = useMemo(
-    () =>
-      series
-        .filter((s) => visibleAttributes.includes(s.metric))
-        .map((s) => s.id),
-    [series, visibleAttributes],
-  );
-
-  const handleDownload = async () => {
-    const { start, end, last } = resolveTimeRange(timeRange);
-    setIsDownloading(true);
-    try {
-      await exportCsv(visibleSeriesIds, { start, end, last });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const visibleCount = availableAttributes.filter(
     (attr) => columnVisibility[attr] !== false,
@@ -205,8 +184,8 @@ function HistoryToolbar() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 w-8"
-                      disabled={isDownloading || visibleSeriesIds.length === 0}
+                      className="h-9 w-9"
+                      disabled={isDownloading || visibleAttributes.length === 0}
                       onClick={handleDownload}
                     >
                       {isDownloading ? (
