@@ -1,5 +1,5 @@
-import { ApiError } from "./apiError";
 import camelcaseKeys from "camelcase-keys";
+import { ApiError } from "./apiError";
 import { getStoredToken } from "./token";
 
 export const API_BASE_URL =
@@ -9,12 +9,11 @@ type RequestOptions = {
   camelCase?: boolean;
 };
 
-export async function request<T>(
+async function fetchWithAuth(
   relativeUrl: string,
   // eslint-disable-next-line no-undef
   init?: RequestInit,
-  options?: RequestOptions,
-): Promise<T> {
+): Promise<Response> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string>),
@@ -22,14 +21,34 @@ export async function request<T>(
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
+  return fetch(`${API_BASE_URL}${relativeUrl}`, { ...init, headers });
+}
 
-  const response = await fetch(`${API_BASE_URL}${relativeUrl}`, {
-    ...init,
-    headers,
-  });
+export async function requestBlob(
+  relativeUrl: string,
+  // eslint-disable-next-line no-undef
+  init?: RequestInit,
+): Promise<Blob> {
+  const response = await fetchWithAuth(relativeUrl, init);
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new ApiError(
+      response.status,
+      response.statusText,
+      data?.detail ?? response.statusText,
+    );
+  }
+  return response.blob();
+}
 
+export async function request<T>(
+  relativeUrl: string,
+  // eslint-disable-next-line no-undef
+  init?: RequestInit,
+  options?: RequestOptions,
+): Promise<T> {
+  const response = await fetchWithAuth(relativeUrl, init);
   const data = response.status === 204 ? null : await response.json();
-
   if (!response.ok) {
     throw new ApiError(
       response.status,
@@ -37,7 +56,6 @@ export async function request<T>(
       data?.detail || response.statusText,
     );
   }
-
   return options?.camelCase
     ? (camelcaseKeys(data, {
         deep: true,

@@ -1,4 +1,4 @@
-import { request } from "./request";
+import { request, requestBlob } from "./request";
 
 export type DataTypeMap = {
   integer: number;
@@ -47,10 +47,7 @@ export type GetSeriesPointsOptions = {
   carryForward?: boolean;
 };
 
-export function getSeriesPoints<D extends DataType = DataType>(
-  seriesId: string,
-  options?: GetSeriesPointsOptions,
-): Promise<DataPoint<D>[]> {
+function optionsToParams(options?: GetSeriesPointsOptions): URLSearchParams {
   const { start, end, last, carryForward } = options ?? {};
   const params = new URLSearchParams();
   if (start) params.set("start", start);
@@ -58,6 +55,31 @@ export function getSeriesPoints<D extends DataType = DataType>(
   if (last) params.set("last", last);
   if (carryForward !== undefined)
     params.set("carry_forward", String(carryForward));
+  return params;
+}
+
+export async function exportCsv(
+  seriesIds: string[],
+  options?: GetSeriesPointsOptions,
+): Promise<void> {
+  const params = optionsToParams(options);
+  for (const id of seriesIds) {
+    params.append("series_ids", id);
+  }
+  const blob = await requestBlob(`/timeseries/export/csv?${params.toString()}`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "export.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function getSeriesPoints<D extends DataType = DataType>(
+  seriesId: string,
+  options?: GetSeriesPointsOptions,
+): Promise<DataPoint<D>[]> {
+  const params = optionsToParams(options);
   const qs = params.toString();
   return request<DataPoint<D>[]>(
     `/timeseries/${encodeURIComponent(seriesId)}/points${qs ? `?${qs}` : ""}`,

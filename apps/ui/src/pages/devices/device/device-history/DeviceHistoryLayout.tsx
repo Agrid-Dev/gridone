@@ -1,14 +1,16 @@
-import { useMemo } from "react";
+import { ResourceHeader } from "@/components/ResourceHeader";
+import { ErrorFallback } from "@/components/fallbacks/Error";
+import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
-import { useTranslation } from "react-i18next";
-import { BarChart3, Settings2, Table } from "lucide-react";
-import { Button, Tabs, TabsList, TabsTrigger } from "@/components/ui";
+  Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -21,12 +23,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
-import { ResourceHeader } from "@/components/ResourceHeader";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
-import { ErrorFallback } from "@/components/fallbacks/Error";
 import { toLabel } from "@/lib/textFormat";
-import { DeviceHistoryProvider } from "./DeviceHistoryContext";
-import { useDeviceHistoryContext } from "./DeviceHistoryContext";
+import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Link,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  DeviceHistoryProvider,
+  useDeviceHistoryContext,
+} from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
 export default function DeviceHistoryLayout() {
@@ -87,7 +98,6 @@ function HistoryToolbar() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-
   const {
     availableAttributes,
     columnVisibility,
@@ -95,6 +105,9 @@ function HistoryToolbar() {
     isLoading,
     timeRange,
     setTimeRange,
+    visibleAttributes,
+    isDownloading,
+    handleDownload,
   } = useDeviceHistoryContext();
 
   const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
@@ -163,6 +176,31 @@ function HistoryToolbar() {
             </Badge>
 
             <TimeRangeSelect value={timeRange} onChange={setTimeRange} />
+
+            {activeTab === "table" && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9"
+                      disabled={isDownloading || visibleAttributes.length === 0}
+                      onClick={handleDownload}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("deviceDetails.downloadCsv")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
 
