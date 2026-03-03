@@ -6,16 +6,15 @@ import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 export default function DeviceHistoryChart() {
   const { allRows, visibleAttributes, dataTypes } = useDeviceHistoryContext();
-
   const { floatAttrs, boolAttrs, stringAttrs } = useMemo(() => {
     const floatAttrs = visibleAttributes.filter(
       (attr) => dataTypes[attr] === "float",
     );
     const boolAttrs = visibleAttributes.filter(
-      (attr) => dataTypes[attr] === "boolean",
+      (attr) => dataTypes[attr] === "bool",
     );
     const stringAttrs = visibleAttributes.filter(
-      (attr) => dataTypes[attr] === "string",
+      (attr) => dataTypes[attr] === "str",
     );
     return { floatAttrs, boolAttrs, stringAttrs };
   }, [visibleAttributes, dataTypes]);
