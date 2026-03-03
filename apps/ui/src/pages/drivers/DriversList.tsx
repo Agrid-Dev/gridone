@@ -38,7 +38,7 @@ const DriversListContainer: FC<{
 }> = ({ driversCount, children }) => {
   const { t } = useTranslation();
   return (
-    <>
+    <section className="space-y-6">
       <ResourceHeader
         resourceName={t("drivers.title")}
         title={t("drivers.list", { count: driversCount })}
@@ -58,7 +58,7 @@ const DriversListContainer: FC<{
       ) : (
         <div>{children}</div>
       )}
-    </>
+    </section>
   );
 };
 
