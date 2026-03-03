@@ -75,6 +75,21 @@ export async function exportCsv(
   URL.revokeObjectURL(url);
 }
 
+export async function exportPng(
+  seriesIds: string[],
+  options?: GetSeriesPointsOptions,
+): Promise<void> {
+  const params = optionsToParams(options);
+  for (const id of seriesIds) params.append("series_ids", id);
+  const blob = await requestBlob(`/timeseries/export/png?${params.toString()}`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "export.png";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function getSeriesPoints<D extends DataType = DataType>(
   seriesId: string,
   options?: GetSeriesPointsOptions,

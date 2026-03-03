@@ -108,6 +108,8 @@ function HistoryToolbar() {
     visibleAttributes,
     isDownloading,
     handleDownload,
+    isDownloadingPng,
+    handleDownloadPng,
   } = useDeviceHistoryContext();
 
   const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
@@ -197,6 +199,33 @@ function HistoryToolbar() {
                   </TooltipTrigger>
                   <TooltipContent>
                     {t("deviceDetails.downloadCsv")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+
+            {activeTab === "chart" && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9"
+                      disabled={
+                        isDownloadingPng || visibleAttributes.length === 0
+                      }
+                      onClick={handleDownloadPng}
+                    >
+                      {isDownloadingPng ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("deviceDetails.downloadPng")}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

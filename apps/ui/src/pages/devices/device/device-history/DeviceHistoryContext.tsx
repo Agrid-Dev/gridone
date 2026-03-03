@@ -12,7 +12,9 @@ import { useSearchParams } from "react-router";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import { exportCsv, type TimeSeries } from "@/api/timeseries";
+import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   type TimeRange,
   parseRangeParams,
@@ -62,6 +64,8 @@ type DeviceHistoryContextValue = {
   setTimeRange: (range: TimeRange) => void;
   isDownloading: boolean;
   handleDownload: () => Promise<void>;
+  isDownloadingPng: boolean;
+  handleDownloadPng: () => Promise<void>;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -79,6 +83,7 @@ export function DeviceHistoryProvider({
   attributeNames,
   children,
 }: DeviceHistoryProviderProps) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [timeRange, setTimeRangeState] = useState<TimeRange>(() =>
@@ -239,6 +244,24 @@ export function DeviceHistoryProvider({
     }
   }, [visibleSeriesIds, resolved]);
 
+  const [isDownloadingPng, setIsDownloadingPng] = useState(false);
+
+  const handleDownloadPng = useCallback(async () => {
+    setIsDownloadingPng(true);
+    try {
+      await exportPng(visibleSeriesIds, {
+        start: resolved.start,
+        end: resolved.end,
+        last: resolved.last,
+      });
+      toast.success(t("deviceDetails.downloadPngSuccess"));
+    } catch {
+      toast.error(t("deviceDetails.downloadPngError"));
+    } finally {
+      setIsDownloadingPng(false);
+    }
+  }, [visibleSeriesIds, resolved, t]);
+
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
       series,
@@ -257,6 +280,8 @@ export function DeviceHistoryProvider({
       setTimeRange,
       isDownloading,
       handleDownload,
+      isDownloadingPng,
+      handleDownloadPng,
     }),
     [
       series,
@@ -275,6 +300,8 @@ export function DeviceHistoryProvider({
       setTimeRange,
       isDownloading,
       handleDownload,
+      isDownloadingPng,
+      handleDownloadPng,
     ],
   );
 
