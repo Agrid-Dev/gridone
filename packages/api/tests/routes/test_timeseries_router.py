@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from models.errors import NotFoundError
 from timeseries import TimeSeriesService, create_service
 from timeseries.domain import DataPoint, DataType, SeriesKey
 
@@ -416,3 +418,58 @@ class TestExportCsv:
         assert len(lines) == 3
         assert "10.0" in lines[1]
         assert "30.0" in lines[2]
+
+
+DUMMY_PNG = b"\x89PNG\r\n\x1a\n"
+
+
+class TestExportPng:
+    @pytest.fixture
+    def stub_ts(self) -> AsyncMock:
+        mock = AsyncMock()
+        mock.export_png.return_value = DUMMY_PNG
+        return mock
+
+    @pytest.fixture
+    def png_app(self, stub_ts: AsyncMock) -> FastAPI:
+        app = FastAPI()
+        register_exception_handlers(app)
+        app.include_router(router)
+        app.dependency_overrides[get_ts_service] = lambda: stub_ts
+        return app
+
+    @pytest.fixture
+    def png_client(self, png_app: FastAPI) -> AsyncClient:
+        return AsyncClient(transport=ASGITransport(app=png_app), base_url="http://test")
+
+    async def test_returns_png_content_type(self, png_client: AsyncClient):
+        async with png_client as ac:
+            response = await ac.get("/export/png", params={"series_ids": "any-id"})
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+
+    async def test_returns_attachment_disposition(self, png_client: AsyncClient):
+        async with png_client as ac:
+            response = await ac.get("/export/png", params={"series_ids": "any-id"})
+        assert (
+            response.headers["content-disposition"]
+            == 'attachment; filename="export.png"'
+        )
+
+    async def test_returns_stub_bytes(self, png_client: AsyncClient):
+        async with png_client as ac:
+            response = await ac.get("/export/png", params={"series_ids": "any-id"})
+        assert response.content == DUMMY_PNG
+
+    async def test_unknown_series_id_returns_404(
+        self, png_client: AsyncClient, stub_ts: AsyncMock
+    ):
+        stub_ts.export_png.side_effect = NotFoundError("not found")
+        async with png_client as ac:
+            response = await ac.get("/export/png", params={"series_ids": "nonexistent"})
+        assert response.status_code == 404
+
+    async def test_missing_series_ids_returns_422(self, png_client: AsyncClient):
+        async with png_client as ac:
+            response = await ac.get("/export/png")
+        assert response.status_code == 422

@@ -2,11 +2,39 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from api.dependencies import get_ts_service
 from api.schemas.timeseries import DataPointResponse, TimeSeriesResponse
 
 router = APIRouter()
+
+
+class ExportQueryParams(BaseModel):
+    series_ids: list[str]
+    start: datetime | None = None
+    end: datetime | None = None
+    last: str | None = None
+    carry_forward: bool = False
+    title: str | None = None
+
+
+def get_export_query_params(
+    series_ids: list[str] = Query(...),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    carry_forward: bool = Query(False),
+    title: str | None = Query(None),
+) -> ExportQueryParams:
+    return ExportQueryParams(
+        series_ids=series_ids,
+        start=start,
+        end=end,
+        last=last,
+        carry_forward=carry_forward,
+        title=title,
+    )
 
 
 @router.get("/")
@@ -21,15 +49,15 @@ async def list_series(
 
 @router.get("/export/csv")
 async def export_csv(
-    series_ids: list[str] = Query(...),
-    start: datetime | None = Query(None),
-    end: datetime | None = Query(None),
-    last: str | None = Query(None),
-    carry_forward: bool = Query(False),
+    params: ExportQueryParams = Depends(get_export_query_params),
     ts=Depends(get_ts_service),
 ) -> Response:
     csv_content = await ts.export_csv(
-        series_ids, start=start, end=end, last=last, carry_forward=carry_forward
+        params.series_ids,
+        start=params.start,
+        end=params.end,
+        last=params.last,
+        carry_forward=params.carry_forward,
     )
     return Response(
         content=csv_content,
@@ -40,22 +68,10 @@ async def export_csv(
 
 @router.get("/export/png")
 async def export_png(
-    series_ids: list[str] = Query(...),
-    start: datetime | None = Query(None),
-    end: datetime | None = Query(None),
-    last: str | None = Query(None),
-    carry_forward: bool = Query(False),
-    title: str | None = Query(None),
+    params: ExportQueryParams = Depends(get_export_query_params),
     ts=Depends(get_ts_service),
 ) -> Response:
-    png_content = await ts.export_png(
-        series_ids,
-        start=start,
-        end=end,
-        last=last,
-        carry_forward=carry_forward,
-        title=title,
-    )
+    png_content = await ts.export_png(**params.model_dump())
     return Response(
         content=png_content,
         media_type="image/png",
