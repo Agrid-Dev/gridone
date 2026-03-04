@@ -7,6 +7,7 @@ import asyncpg
 from models.errors import InvalidError, NotFoundError
 
 from timeseries.domain import DataPoint, DataType, DeviceCommand, SeriesKey, TimeSeries
+from timeseries.storage.postgres.deserialize import deserialize_command_value
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -329,7 +330,7 @@ class PostgresStorage:
                 device_id=r["device_id"],
                 attribute=r["attribute"],
                 user_id=r["user_id"],
-                value=r["value"],
+                value=deserialize_command_value(r["value"], DataType(r["data_type"])),
                 data_type=DataType(r["data_type"]),
                 status=r["status"],
                 timestamp=r["timestamp"],

@@ -423,6 +423,15 @@ class TestQueryCommands:
         assert results[0].device_id == "d1"
         assert results[0].user_id == "u1"
 
+    async def test_query_deserializes_value(self, storage):
+        await storage.save_command(
+            make_command(value=True, data_type=DataType.BOOL),
+        )
+        results = await storage.query_commands(CommandsQueryFilters())
+        assert len(results) == 1
+        assert results[0].value is True
+        assert type(results[0].value) is bool
+
     async def test_results_ordered_by_timestamp(self, storage):
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
         t2 = datetime(2026, 1, 2, tzinfo=UTC)
