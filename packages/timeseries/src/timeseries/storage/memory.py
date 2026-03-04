@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DeviceCommand
+from timeseries.domain import DeviceCommand, SortOrder
 
 if TYPE_CHECKING:
     from timeseries.domain import (
@@ -50,10 +50,13 @@ class CommandMemoryStorage:
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]:
         results = self._apply_filters(filters)
+        if sort == SortOrder.DESC:
+            results = list(reversed(results))
         if offset is not None:
             results = results[offset:]
         if limit is not None:
@@ -162,10 +165,13 @@ class MemoryStorage:
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]:
-        return self._command_history.query(filters, limit=limit, offset=offset)
+        return self._command_history.query(
+            filters, sort=sort, limit=limit, offset=offset
+        )
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         return self._command_history.count(filters)

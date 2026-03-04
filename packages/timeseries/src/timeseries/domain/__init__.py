@@ -6,6 +6,7 @@ from timeseries.domain.models import (
     DeviceCommand,
     DeviceCommandCreate,
     SeriesKey,
+    SortOrder,
     TimeSeries,
     validate_value_type,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "DeviceCommand",
     "DeviceCommandCreate",
     "SeriesKey",
+    "SortOrder",
     "TimeSeries",
     "parse_duration",
     "resolve_last",
