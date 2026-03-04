@@ -56,7 +56,7 @@ class TestToFigure:
         )
         fig = to_figure([s])
         assert len(fig.axes) == 1
-        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
         assert "state" in labels
 
     def test_float_and_bool_in_separate_panels(self):
@@ -68,8 +68,8 @@ class TestToFigure:
         )
         fig = to_figure([float_s, bool_s])
         assert len(fig.axes) == 2
-        float_labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
-        bool_labels = [t.get_text() for t in fig.axes[1].get_legend().get_texts()]
+        float_labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
+        bool_labels = [t.get_text() for t in fig.axes[1].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
         assert "temperature" in float_labels
         assert "state" in bool_labels
 
@@ -79,7 +79,7 @@ class TestToFigure:
         )
         fig = to_figure([s])
         assert len(fig.axes) == 1
-        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
         assert "status: ok" in labels
 
     def test_empty_series_produces_no_legend(self):
