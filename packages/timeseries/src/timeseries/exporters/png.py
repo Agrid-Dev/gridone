@@ -70,10 +70,12 @@ def _plot_categorical(ax: Axes, s: TimeSeries) -> None:
         unique = sorted({str(p.value) for p in s.data_points})
         for i, val in enumerate(unique):
             c = _color(i)
-            ys = [1 if str(p.value) == val else 0 for p in s.data_points]
+            mask = [str(p.value) == val for p in s.data_points]
             ax.fill_between(
                 ts,
-                ys,
+                0,
+                1,
+                where=mask,
                 step="post",
                 color=c,
                 alpha=0.35,

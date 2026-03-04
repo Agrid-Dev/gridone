@@ -63,9 +63,7 @@ type DeviceHistoryContextValue = {
   timeRange: TimeRange;
   setTimeRange: (range: TimeRange) => void;
   isDownloading: boolean;
-  handleDownload: () => Promise<void>;
-  isDownloadingPng: boolean;
-  handleDownloadPng: () => Promise<void>;
+  handleDownload: (format: "csv" | "png") => Promise<void>;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -231,36 +229,29 @@ export function DeviceHistoryProvider({
 
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const handleDownload = useCallback(async () => {
-    setIsDownloading(true);
-    try {
-      await exportCsv(visibleSeriesIds, {
+  const handleDownload = useCallback(
+    async (format: "csv" | "png") => {
+      setIsDownloading(true);
+      const options = {
         start: resolved.start,
         end: resolved.end,
         last: resolved.last,
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [visibleSeriesIds, resolved]);
-
-  const [isDownloadingPng, setIsDownloadingPng] = useState(false);
-
-  const handleDownloadPng = useCallback(async () => {
-    setIsDownloadingPng(true);
-    try {
-      await exportPng(visibleSeriesIds, {
-        start: resolved.start,
-        end: resolved.end,
-        last: resolved.last,
-      });
-      toast.success(t("deviceDetails.downloadPngSuccess"));
-    } catch {
-      toast.error(t("deviceDetails.downloadPngError"));
-    } finally {
-      setIsDownloadingPng(false);
-    }
-  }, [visibleSeriesIds, resolved, t]);
+      };
+      try {
+        if (format === "png") {
+          await exportPng(visibleSeriesIds, options);
+          toast.success(t("deviceDetails.downloadPngSuccess"));
+        } else {
+          await exportCsv(visibleSeriesIds, options);
+        }
+      } catch {
+        if (format === "png") toast.error(t("deviceDetails.downloadPngError"));
+      } finally {
+        setIsDownloading(false);
+      }
+    },
+    [visibleSeriesIds, resolved, t],
+  );
 
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
@@ -280,8 +271,6 @@ export function DeviceHistoryProvider({
       setTimeRange,
       isDownloading,
       handleDownload,
-      isDownloadingPng,
-      handleDownloadPng,
     }),
     [
       series,
@@ -300,8 +289,6 @@ export function DeviceHistoryProvider({
       setTimeRange,
       isDownloading,
       handleDownload,
-      isDownloadingPng,
-      handleDownloadPng,
     ],
   );
 
