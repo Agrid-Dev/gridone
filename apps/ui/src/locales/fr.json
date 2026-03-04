@@ -234,7 +234,10 @@
     "rangeAll": "Tout l'historique",
     "rangeCustom": "Plage personnalisée",
     "rangeApply": "Appliquer",
-    "downloadCsv": "Télécharger en CSV"
+    "downloadCsv": "Télécharger en CSV",
+    "downloadPng": "Télécharger en PNG",
+    "downloadPngSuccess": "PNG exporté",
+    "downloadPngError": "Échec de l'export PNG"
   },
   "transports": {
     "title": "Transports",

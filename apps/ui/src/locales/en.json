@@ -234,7 +234,10 @@
     "rangeAll": "All time",
     "rangeCustom": "Custom range",
     "rangeApply": "Apply",
-    "downloadCsv": "Download as CSV"
+    "downloadCsv": "Download as CSV",
+    "downloadPng": "Download as PNG",
+    "downloadPngSuccess": "PNG exported",
+    "downloadPngError": "Failed to export PNG"
   },
   "transports": {
     "title": "Transports",

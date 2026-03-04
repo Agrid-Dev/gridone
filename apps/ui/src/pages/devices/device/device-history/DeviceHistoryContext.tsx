@@ -12,7 +12,9 @@ import { useSearchParams } from "react-router";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import { exportCsv, type TimeSeries } from "@/api/timeseries";
+import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   type TimeRange,
   parseRangeParams,
@@ -61,7 +63,7 @@ type DeviceHistoryContextValue = {
   timeRange: TimeRange;
   setTimeRange: (range: TimeRange) => void;
   isDownloading: boolean;
-  handleDownload: () => Promise<void>;
+  handleDownload: (format: "csv" | "png") => Promise<void>;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -79,6 +81,7 @@ export function DeviceHistoryProvider({
   attributeNames,
   children,
 }: DeviceHistoryProviderProps) {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [timeRange, setTimeRangeState] = useState<TimeRange>(() =>
@@ -226,18 +229,29 @@ export function DeviceHistoryProvider({
 
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const handleDownload = useCallback(async () => {
-    setIsDownloading(true);
-    try {
-      await exportCsv(visibleSeriesIds, {
+  const handleDownload = useCallback(
+    async (format: "csv" | "png") => {
+      setIsDownloading(true);
+      const options = {
         start: resolved.start,
         end: resolved.end,
         last: resolved.last,
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  }, [visibleSeriesIds, resolved]);
+      };
+      try {
+        if (format === "png") {
+          await exportPng(visibleSeriesIds, options);
+          toast.success(t("deviceDetails.downloadPngSuccess"));
+        } else {
+          await exportCsv(visibleSeriesIds, options);
+        }
+      } catch {
+        if (format === "png") toast.error(t("deviceDetails.downloadPngError"));
+      } finally {
+        setIsDownloading(false);
+      }
+    },
+    [visibleSeriesIds, resolved, t],
+  );
 
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
