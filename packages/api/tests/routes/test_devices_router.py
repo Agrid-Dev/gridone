@@ -5,6 +5,7 @@ from devices_manager import Device, DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from models.errors import NotFoundError
 from timeseries.domain import DeviceCommandCreate
 
 from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
@@ -245,17 +246,36 @@ class TestUpdateAttribute:
             new_callable=AsyncMock,
             side_effect=ValueError(test_error_message),
         ):
+            with pytest.raises(ValueError):  # AsyncClient does not absorb errors
+                async with async_client as ac:
+                    response = await ac.post(
+                        f"/{device_id}/temperature_setpoint",
+                        json={"value": 22.5},
+                    )
+                assert response.status_code == 500
+                mock_ts_service.log_command.assert_called_once()
+                cmd = mock_ts_service.log_command.call_args[0][0]
+                assert isinstance(cmd, DeviceCommandCreate)
+                assert cmd.device_id == device_id
+                assert cmd.attribute == "temperature_setpoint"
+                assert cmd.value == 22.5
+                assert cmd.status == "error"
+                assert cmd.status_details == test_error_message
+
+    @pytest.mark.asyncio
+    async def test_returns_404_if_does_not_log_if_device_not_found(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        with patch.object(
+            DevicesManager,
+            "write_device_attribute",
+            new_callable=AsyncMock,
+            side_effect=NotFoundError("device not found"),
+        ):
             async with async_client as ac:
                 response = await ac.post(
                     f"/{device_id}/temperature_setpoint",
                     json={"value": 22.5},
                 )
-        assert response.status_code == 500
-        mock_ts_service.log_command.assert_called_once()
-        cmd = mock_ts_service.log_command.call_args[0][0]
-        assert isinstance(cmd, DeviceCommandCreate)
-        assert cmd.device_id == device_id
-        assert cmd.attribute == "temperature_setpoint"
-        assert cmd.value == 22.5
-        assert cmd.status == "error"
-        assert cmd.status_details == test_error_message
+            assert response.status_code == 404
+            mock_ts_service.log_command.assert_not_called()

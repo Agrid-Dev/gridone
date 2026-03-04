@@ -9,6 +9,7 @@ from devices_manager.dto.device_dto import (
     DeviceUpdateDTO,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
+from models.errors import InvalidError, NotFoundError
 from timeseries.domain import DeviceCommandCreate
 from timeseries.service import TimeSeriesService
 
@@ -98,6 +99,7 @@ async def update_attribute(
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        await log_command("error", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        if not isinstance(e, (NotFoundError, InvalidError)):
+            await log_command("error", str(e))
+        raise e
     return None
