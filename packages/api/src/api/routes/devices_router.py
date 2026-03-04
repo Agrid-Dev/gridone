@@ -76,7 +76,7 @@ async def update_attribute(
     dm: DevicesManager = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
     user_id: str = Depends(get_current_user_id),
-) -> AttributeUpdate | None:
+) -> AttributeUpdate:
     async def log_command(status: CommandStatus, status_text: str | None = None):
         command = DeviceCommandCreate(
             device_id=device_id,
@@ -102,4 +102,4 @@ async def update_attribute(
         if not isinstance(e, (NotFoundError, InvalidError)):
             await log_command(CommandStatus.ERROR, str(e))
         raise e
-    return None
+    return update
