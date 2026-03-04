@@ -4,7 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint, DataType, DeviceCommandCreate, SeriesKey
+from timeseries.domain import (
+    CommandStatus,
+    DataPoint,
+    DataType,
+    DeviceCommandCreate,
+    SeriesKey,
+)
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
 
@@ -319,7 +325,7 @@ class TestLogCommand:
             user_id="user1",
             value="auto",
             data_type=DataType.STRING,
-            status="success",
+            status=CommandStatus.SUCCESS,
             timestamp=datetime.now(tz=UTC),
             status_details=None,
         )

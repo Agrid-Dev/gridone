@@ -1,16 +1,25 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from devices_manager import Device, DevicesManager
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from models.errors import NotFoundError
+from timeseries.domain import DeviceCommandCreate
 
-from api.dependencies import get_device_manager
+from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 
 
 @pytest.fixture
-def app(mock_devices, mock_drivers, mock_transports) -> FastAPI:
+def mock_ts_service():
+    return AsyncMock()
+
+
+@pytest.fixture
+def app(mock_devices, mock_drivers, mock_transports, mock_ts_service) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
@@ -21,6 +30,8 @@ def app(mock_devices, mock_drivers, mock_transports) -> FastAPI:
         )
 
     app.dependency_overrides[get_device_manager] = get_mock_devices_manager
+    app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    app.dependency_overrides[get_current_user_id] = lambda: "test-user"
     return app
 
 
@@ -180,3 +191,91 @@ class TestDeleteDevice:
     async def test_delete_device_not_found(self, client: TestClient):
         response = client.delete("/unknown")
         assert response.status_code == 404
+
+
+class TestUpdateAttribute:
+    @pytest.mark.asyncio
+    async def test_success_logs_command(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        with patch.object(
+            DevicesManager, "write_device_attribute", new_callable=AsyncMock
+        ):
+            async with async_client as ac:
+                response = await ac.post(
+                    f"/{device_id}/temperature_setpoint",
+                    json={"value": 22.0},
+                )
+        assert response.status_code == 200
+        mock_ts_service.log_command.assert_called_once()
+        cmd = mock_ts_service.log_command.call_args[0][0]
+        assert isinstance(cmd, DeviceCommandCreate)
+        assert cmd.device_id == device_id
+        assert cmd.attribute == "temperature_setpoint"
+        assert cmd.value == 22.0
+        assert cmd.user_id == "test-user"
+        assert cmd.status == "success"
+        assert cmd.status_details is None
+
+    @pytest.mark.asyncio
+    async def test_permission_error_returns_400_without_logging(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        with patch.object(
+            DevicesManager,
+            "write_device_attribute",
+            new_callable=AsyncMock,
+            side_effect=PermissionError("read-only attribute"),
+        ):
+            async with async_client as ac:
+                response = await ac.post(
+                    f"/{device_id}/temperature_setpoint",
+                    json={"value": 22.0},
+                )
+        assert response.status_code == 400
+        mock_ts_service.log_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_internal_error_returns_500_and_logs(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        test_error_message = "The device is offline"
+        with patch.object(
+            DevicesManager,
+            "write_device_attribute",
+            new_callable=AsyncMock,
+            side_effect=ValueError(test_error_message),
+        ):
+            with pytest.raises(ValueError):  # AsyncClient does not absorb errors
+                async with async_client as ac:
+                    response = await ac.post(
+                        f"/{device_id}/temperature_setpoint",
+                        json={"value": 22.5},
+                    )
+                assert response.status_code == 500
+                mock_ts_service.log_command.assert_called_once()
+                cmd = mock_ts_service.log_command.call_args[0][0]
+                assert isinstance(cmd, DeviceCommandCreate)
+                assert cmd.device_id == device_id
+                assert cmd.attribute == "temperature_setpoint"
+                assert cmd.value == 22.5
+                assert cmd.status == "error"
+                assert cmd.status_details == test_error_message
+
+    @pytest.mark.asyncio
+    async def test_returns_404_if_does_not_log_if_device_not_found(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        with patch.object(
+            DevicesManager,
+            "write_device_attribute",
+            new_callable=AsyncMock,
+            side_effect=NotFoundError("device not found"),
+        ):
+            async with async_client as ac:
+                response = await ac.post(
+                    f"/{device_id}/temperature_setpoint",
+                    json={"value": 22.5},
+                )
+            assert response.status_code == 404
+            mock_ts_service.log_command.assert_not_called()

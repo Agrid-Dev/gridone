@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
+    CommandStatus,
     DataPoint,
     DataType,
     DeviceCommandCreate,
@@ -295,7 +296,7 @@ class TestSaveDeviceCommand:
             user_id="user1",
             value="auto",
             data_type=DataType.STRING,
-            status="success",
+            status=CommandStatus.SUCCESS,
             timestamp=datetime(2026, 1, 1, tzinfo=UTC),
             status_details=None,
         )
@@ -305,7 +306,7 @@ class TestSaveDeviceCommand:
         assert command.attribute == "mode"
         assert command.user_id == "user1"
         assert command.value == "auto"
-        assert command.status == "success"
+        assert command.status == CommandStatus.SUCCESS
         assert command.status_details is None
 
     async def test_assigns_unique_ids(self, storage):
@@ -315,7 +316,7 @@ class TestSaveDeviceCommand:
             user_id="user1",
             value="auto",
             data_type=DataType.STRING,
-            status="success",
+            status=CommandStatus.SUCCESS,
             timestamp=datetime(2026, 1, 1, tzinfo=UTC),
             status_details=None,
         )
@@ -330,10 +331,10 @@ class TestSaveDeviceCommand:
             user_id="user1",
             value=42.0,
             data_type=DataType.FLOAT,
-            status="error",
+            status=CommandStatus.ERROR,
             timestamp=datetime(2026, 1, 1, tzinfo=UTC),
             status_details="Connection timed out",
         )
         command = await storage.save_command(command_create)
-        assert command.status == "error"
+        assert command.status == CommandStatus.ERROR
         assert command.status_details == "Connection timed out"

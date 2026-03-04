@@ -1,6 +1,7 @@
 from models.types import DATA_TYPE_MAP, VALUE_TYPE_MAP, AttributeValueType, DataType
 
 from timeseries.domain.models import (
+    CommandStatus,
     DataPoint,
     DeviceCommand,
     DeviceCommandCreate,
@@ -14,6 +15,7 @@ __all__ = [
     "DATA_TYPE_MAP",
     "VALUE_TYPE_MAP",
     "AttributeValueType",
+    "CommandStatus",
     "DataPoint",
     "DataType",
     "DeviceCommand",
