@@ -8,9 +8,9 @@ from devices_manager.dto.device_dto import (
     DeviceDTO,
     DeviceUpdateDTO,
 )
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import CommandStatus, DeviceCommandCreate
+from timeseries.domain import CommandStatus, DeviceCommand, DeviceCommandCreate
 from timeseries.service import TimeSeriesService
 
 from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
@@ -29,12 +29,52 @@ def list_devices(
     return dm.list_devices()
 
 
+@router.get("/commands")
+async def get_commands(
+    device_id: str | None = Query(None),
+    attribute: str | None = Query(None),
+    user_id: str | None = Query(None),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> list[DeviceCommand]:
+    return await ts.get_commands(
+        device_id=device_id,
+        attribute=attribute,
+        user_id=user_id,
+        start=start,
+        end=end,
+        last=last,
+    )
+
+
 @router.get("/{device_id}")
 def get_device(
     device_id: str,
     dm: DevicesManager = Depends(get_device_manager),
 ) -> DeviceDTO:
     return dm.get_device(device_id)
+
+
+@router.get("/{device_id}/commands")
+async def get_device_commands(
+    device_id: str,
+    attribute: str | None = Query(None),
+    user_id: str | None = Query(None),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> list[DeviceCommand]:
+    return await ts.get_commands(
+        device_id=device_id,
+        attribute=attribute,
+        user_id=user_id,
+        start=start,
+        end=end,
+        last=last,
+    )
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
