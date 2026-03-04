@@ -155,6 +155,9 @@ class DevicesManager:
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
+        if self._storage:
+            dto = device_core_to_dto(device)
+            await self._storage.devices.write(dto.id, dto)
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._create_device(device_create)
@@ -164,10 +167,7 @@ class DevicesManager:
             device_create.name,
             device.id,
         )
-        dto = device_core_to_dto(device)
-        if self._storage:
-            await self._storage.devices.write(dto.id, dto)
-        return dto
+        return device_core_to_dto(device)
 
     def add_device_attribute_listener(
         self,
