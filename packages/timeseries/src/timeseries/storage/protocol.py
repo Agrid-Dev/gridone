@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
+from timeseries.domain import SortOrder
+
 if TYPE_CHECKING:
     from datetime import datetime
 
@@ -57,6 +59,7 @@ class TimeSeriesStorage(Protocol):
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]: ...
