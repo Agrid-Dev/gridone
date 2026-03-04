@@ -32,7 +32,7 @@ class CommandMemoryStorage:
         self._history.append(new_command)
         return new_command
 
-    def query(self, filters: CommandsQueryFilters) -> list[DeviceCommand]:
+    def _apply_filters(self, filters: CommandsQueryFilters) -> list[DeviceCommand]:
         results = list(self._history)
         if filters.device_id is not None:
             results = [c for c in results if c.device_id == filters.device_id]
@@ -45,6 +45,23 @@ class CommandMemoryStorage:
         if filters.end is not None:
             results = [c for c in results if c.timestamp < filters.end]
         return results
+
+    def query(
+        self,
+        filters: CommandsQueryFilters,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[DeviceCommand]:
+        results = self._apply_filters(filters)
+        if offset is not None:
+            results = results[offset:]
+        if limit is not None:
+            results = results[:limit]
+        return results
+
+    def count(self, filters: CommandsQueryFilters) -> int:
+        return len(self._apply_filters(filters))
 
 
 class MemoryStorage:
@@ -142,6 +159,13 @@ class MemoryStorage:
         return self._command_history.add(command)
 
     async def query_commands(
-        self, filters: CommandsQueryFilters
+        self,
+        filters: CommandsQueryFilters,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[DeviceCommand]:
-        return self._command_history.query(filters)
+        return self._command_history.query(filters, limit=limit, offset=offset)
+
+    async def count_commands(self, filters: CommandsQueryFilters) -> int:
+        return self._command_history.count(filters)

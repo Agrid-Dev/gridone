@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
+from models.pagination import Page, PaginationParams
 
 from timeseries.domain import (
     DATA_TYPE_MAP,
@@ -183,7 +184,8 @@ class TimeSeriesService:
         start: datetime | None = None,
         end: datetime | None = None,
         last: str | None = None,
-    ) -> list[DeviceCommand]:
+        pagination: PaginationParams | None = None,
+    ) -> Page[DeviceCommand]:
         if last is not None and start is None:
             start = resolve_last(last)
         filters = CommandsQueryFilters(
@@ -193,4 +195,13 @@ class TimeSeriesService:
             start=start,
             end=end,
         )
-        return await self._storage.query_commands(filters)
+        total = await self._storage.count_commands(filters)
+        if pagination is not None:
+            items = await self._storage.query_commands(
+                filters, limit=pagination.limit, offset=pagination.offset
+            )
+            return Page(
+                items=items, total=total, page=pagination.page, size=pagination.size
+            )
+        items = await self._storage.query_commands(filters)
+        return Page(items=items, total=total, page=1, size=max(total, 1))
