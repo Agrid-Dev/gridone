@@ -42,6 +42,13 @@ dev = [
     "ty>=0.0.1a25",
 ]
 
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "pep621"
+tag_format = "v$version"
+major_version_zero = true
+update_changelog_on_bump = true
+
 [tool.ruff]
 indent-width = 4
 line-length = 88
