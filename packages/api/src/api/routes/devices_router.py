@@ -10,7 +10,7 @@ from devices_manager.dto.device_dto import (
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DeviceCommandCreate
+from timeseries.domain import CommandStatus, DeviceCommandCreate
 from timeseries.service import TimeSeriesService
 
 from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
@@ -77,7 +77,7 @@ async def update_attribute(
     ts: TimeSeriesService = Depends(get_ts_service),
     user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate | None:
-    async def log_command(status: str, status_text: str | None = None):
+    async def log_command(status: CommandStatus, status_text: str | None = None):
         command = DeviceCommandCreate(
             device_id=device_id,
             attribute=attribute_name,
@@ -94,12 +94,12 @@ async def update_attribute(
         await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
-        await log_command("success", None)
+        await log_command(CommandStatus.SUCCESS, None)
 
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         if not isinstance(e, (NotFoundError, InvalidError)):
-            await log_command("error", str(e))
+            await log_command(CommandStatus.ERROR, str(e))
         raise e
     return None

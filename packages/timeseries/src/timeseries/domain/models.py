@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from secrets import token_hex
-from typing import Literal
 
 from models.errors import InvalidError
 from models.types import AttributeValueType, DataType
@@ -47,7 +47,9 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
         raise InvalidError(msg)
 
 
-CommandStatus = Literal["success", "error"]
+class CommandStatus(StrEnum):
+    SUCCESS = "success"
+    ERROR = "error"
 
 
 @dataclass
