@@ -1,3 +1,9 @@
+## v0.2.1 (2026-03-05)
+
+### Fix
+
+- persist discovered devices to storage
+
 ## v0.2.0 (2026-03-05)
 
 ### Feat
