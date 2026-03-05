@@ -1,3 +1,9 @@
+## v0.3.0 (2026-03-05)
+
+### Feat
+
+- **timeseries**: support for sorting commands by timestamp
+
 ## v0.2.1 (2026-03-05)
 
 ### Fix
