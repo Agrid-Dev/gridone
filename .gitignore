@@ -35,5 +35,6 @@ coverage.*
 htmlcov
 
 apps/ui/node_modules/
+node_modules
 apps/ui/dist/
 /scripts

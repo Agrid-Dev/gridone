@@ -3,16 +3,9 @@ import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui";
 import { toLabel } from "@/lib/textFormat";
+import { formatValue } from "@/lib/formatValue";
 import { cn } from "@/lib/utils";
-import type { CellValue, MergedRow } from "./mergeTimeSeries";
-
-export function formatValue(value: CellValue, dataType?: string): string {
-  if (value === null || value === undefined) return "\u2014";
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (dataType === "float" && typeof value === "number")
-    return value.toFixed(2);
-  return String(value);
-}
+import type { MergedRow } from "./mergeTimeSeries";
 
 function isNumericType(dataType?: string) {
   return dataType === "float" || dataType === "integer";

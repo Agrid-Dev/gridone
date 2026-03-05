@@ -314,6 +314,21 @@
       "unknown": "Inconnu"
     }
   },
+  "commands": {
+    "title": "Commandes",
+    "subtitle": "Historique des commandes",
+    "device": "Appareil",
+    "attribute": "Attribut",
+    "user": "Utilisateur",
+    "value": "Valeur",
+    "status": "Statut",
+    "details": "Détails",
+    "allDevices": "Tous les appareils",
+    "allAttributes": "Tous les attributs",
+    "allUsers": "Tous les utilisateurs",
+    "noCommands": "Aucune commande enregistrée.",
+    "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
+  },
   "drivers": {
     "title": "Drivers",
     "list": "Liste des drivers disponibles ({{count}})",
