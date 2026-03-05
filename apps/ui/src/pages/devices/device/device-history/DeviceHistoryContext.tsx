@@ -1,3 +1,11 @@
+import {
+  exportCsv,
+  exportPng,
+  type GetSeriesPointsOptions,
+  type TimeSeries,
+} from "@/api/timeseries";
+import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
+import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
   createContext,
@@ -8,13 +16,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router";
-import type { VisibilityState } from "@tanstack/react-table";
-import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
-import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 5;
@@ -205,10 +210,12 @@ export function DeviceHistoryProvider({
 
   const visibleSeriesIds = useMemo(
     () =>
-      series
-        .filter((s) => visibleAttributes.includes(s.metric))
-        .map((s) => s.id),
-    [series, visibleAttributes],
+      columnOrder
+        .filter((col) => col !== "timestamp" && visibleAttributes.includes(col))
+        .flatMap((metric) =>
+          series.filter((s) => s.metric === metric).map((s) => s.id),
+        ),
+    [series, visibleAttributes, columnOrder],
   );
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -216,10 +223,21 @@ export function DeviceHistoryProvider({
   const handleDownload = useCallback(
     async (format: "csv" | "png") => {
       setIsDownloading(true);
-      const options = {
-        start: resolved.start,
-        end: resolved.end,
-        last: resolved.last,
+      const unitMs: Record<string, number> = {
+        m: 60_000,
+        h: 3_600_000,
+        d: 86_400_000,
+      };
+      const now = Date.now();
+      const durationMs = resolved.last
+        ? parseInt(resolved.last) * (unitMs[resolved.last.slice(-1)] ?? 0)
+        : 0;
+      const options: GetSeriesPointsOptions = {
+        carryForward: true,
+        start: durationMs
+          ? new Date(now - durationMs).toISOString()
+          : resolved.start,
+        end: durationMs ? new Date(now).toISOString() : resolved.end,
       };
       try {
         if (format === "png") {
