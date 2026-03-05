@@ -174,7 +174,7 @@ class TimeSeriesService:
             )
             all_series.append(series)
 
-        return to_png(all_series, title=title)
+        return to_png(all_series, title=title, end=end)
 
     async def get_commands(  # noqa: PLR0913
         self,
