@@ -14,6 +14,7 @@ from timeseries.domain import (
     DataType,
     DeviceCommandCreate,
     SeriesKey,
+    SortOrder,
     TimeSeries,
 )
 from timeseries.domain.filters import CommandsQueryFilters
@@ -466,6 +467,18 @@ class TestQueryCommands:
         assert len(results) == 2
         assert results[0].device_id == "d1"
         assert results[1].device_id == "d2"
+
+    async def test_sort_desc(self, storage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(make_command(timestamp=t1))
+        await storage.save_command(make_command(timestamp=t2))
+        await storage.save_command(make_command(timestamp=t3))
+        results = await storage.query_commands(
+            CommandsQueryFilters(), sort=SortOrder.DESC
+        )
+        assert [r.timestamp for r in results] == [t3, t2, t1]
 
 
 class TestCountCommands:

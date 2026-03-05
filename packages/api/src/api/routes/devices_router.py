@@ -11,7 +11,12 @@ from devices_manager.dto.device_dto import (
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
-from timeseries.domain import CommandStatus, DeviceCommand, DeviceCommandCreate
+from timeseries.domain import (
+    CommandStatus,
+    DeviceCommand,
+    DeviceCommandCreate,
+    SortOrder,
+)
 from timeseries.service import TimeSeriesService
 
 from api.dependencies import (
@@ -45,6 +50,7 @@ async def get_commands(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
+    sort: SortOrder = Query(SortOrder.ASC),
     pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> PaginatedResponse[DeviceCommand]:
@@ -55,6 +61,7 @@ async def get_commands(
         start=start,
         end=end,
         last=last,
+        sort=sort,
         pagination=pagination,
     )
     return to_paginated_response(page, str(request.url))
@@ -77,6 +84,7 @@ async def get_device_commands(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
+    sort: SortOrder = Query(SortOrder.ASC),
     pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> PaginatedResponse[DeviceCommand]:
@@ -87,6 +95,7 @@ async def get_device_commands(
         start=start,
         end=end,
         last=last,
+        sort=sort,
         pagination=pagination,
     )
     return to_paginated_response(page, str(request.url))
