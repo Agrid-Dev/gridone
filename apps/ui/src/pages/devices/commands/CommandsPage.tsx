@@ -1,54 +1,48 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useCommands } from "@/hooks/useCommands";
 import { CommandsFilterBar } from "./CommandsFilterBar";
 import { CommandsTable } from "./CommandsTable";
 
-export default function CommandsPage() {
+type CommandsPageProps = {
+  deviceId?: string;
+  header?: ReactNode;
+};
+
+export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
   const { t } = useTranslation();
-  const {
-    deviceId,
-    attribute,
-    userId,
-    attributeOptions,
-    devices,
-    users,
-    setFilter,
-    table,
-    data,
-    isLoading,
-    isPlaceholderData,
-    error,
-    prevHref,
-    nextHref,
-  } = useCommands();
+  const cmd = useCommands({ deviceId });
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("commands.subtitle")}
-        resourceName={t("devices.title")}
-        resourceNameLinksBack
-      />
+      {header ?? (
+        <ResourceHeader
+          title={t("commands.subtitle")}
+          resourceName={t("devices.title")}
+          resourceNameLinksBack
+        />
+      )}
 
       <CommandsFilterBar
-        deviceId={deviceId}
-        attribute={attribute}
-        userId={userId}
-        attributeOptions={attributeOptions}
-        devices={devices}
-        users={users}
-        onFilterChange={setFilter}
+        deviceId={cmd.deviceId}
+        attribute={cmd.attribute}
+        userId={cmd.userId}
+        attributeOptions={cmd.attributeOptions}
+        devices={cmd.devices}
+        users={cmd.users}
+        onFilterChange={cmd.setFilter}
+        isDeviceFixed={cmd.isDeviceFixed}
       />
 
       <CommandsTable
-        table={table}
-        data={data}
-        isLoading={isLoading}
-        isPlaceholderData={isPlaceholderData}
-        error={error}
-        prevHref={prevHref}
-        nextHref={nextHref}
+        table={cmd.table}
+        data={cmd.data}
+        isLoading={cmd.isLoading}
+        isPlaceholderData={cmd.isPlaceholderData}
+        error={cmd.error}
+        prevHref={cmd.prevHref}
+        nextHref={cmd.nextHref}
       />
     </section>
   );
