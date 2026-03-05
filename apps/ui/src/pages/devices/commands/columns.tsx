@@ -15,12 +15,15 @@ import type { DeviceCommand } from "@/api/commands";
 type Lookups = {
   deviceNames: Record<string, string>;
   userNames: Record<string, string>;
+  showDevice?: boolean;
 };
 
 export function buildCommandColumns(
   t: TFunction,
   lookups: Lookups,
 ): ColumnDef<DeviceCommand>[] {
+  const { showDevice = true } = lookups;
+
   return [
     {
       accessorKey: "timestamp",
@@ -31,21 +34,25 @@ export function buildCommandColumns(
         </span>
       ),
     },
-    {
-      accessorKey: "deviceId",
-      header: () => t("commands.device"),
-      cell: ({ row }) => {
-        const deviceId = row.getValue<string>("deviceId");
-        return (
-          <Link
-            to={`/devices/${deviceId}`}
-            className="text-primary hover:underline"
-          >
-            {lookups.deviceNames[deviceId] ?? deviceId}
-          </Link>
-        );
-      },
-    },
+    ...(showDevice
+      ? [
+          {
+            accessorKey: "deviceId",
+            header: () => t("commands.device"),
+            cell: ({ row }: { row: { getValue: <T>(key: string) => T } }) => {
+              const deviceId = row.getValue<string>("deviceId");
+              return (
+                <Link
+                  to={`/devices/${deviceId}`}
+                  className="text-primary hover:underline"
+                >
+                  {lookups.deviceNames[deviceId] ?? deviceId}
+                </Link>
+              );
+            },
+          } satisfies ColumnDef<DeviceCommand>,
+        ]
+      : []),
     {
       accessorKey: "attribute",
       header: () => t("commands.attribute"),

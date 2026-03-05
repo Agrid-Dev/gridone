@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
-import { getCommands } from "@/api/commands";
+import { getCommands, getDeviceCommands } from "@/api/commands";
 import type { Page } from "@/api/pagination";
 import { toSearchString } from "@/api/pagination";
 import type { DeviceCommand } from "@/api/commands";
@@ -42,21 +42,32 @@ function buildApiParams(searchParams: URLSearchParams): URLSearchParams {
 // Hook
 // ---------------------------------------------------------------------------
 
+type UseCommandsOptions = {
+  /** When set, uses the device-specific endpoint and hides the device filter. */
+  deviceId?: string;
+};
+
 function useAttributeOptions(devices: Device[], deviceId: string | undefined) {
   return useMemo(() => {
     if (!deviceId) return [];
     const device = devices.find((d) => d.id === deviceId);
     if (!device) return [];
-    return Object.keys(device.attributes);
+    // Use attribute.name (original snake_case) rather than the object key
+    // which has been camelCased by the API response transform.
+    return Object.values(device.attributes)
+      .filter((attr) => attr.readWriteModes.includes("write"))
+      .map((attr) => attr.name);
   }, [devices, deviceId]);
 }
 
-export function useCommands() {
+export function useCommands({
+  deviceId: fixedDeviceId,
+}: UseCommandsOptions = {}) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read filter values from URL (already in API format)
-  const deviceId = searchParams.get("device_id") ?? undefined;
+  const deviceId = fixedDeviceId ?? searchParams.get("device_id") ?? undefined;
   const attribute = searchParams.get("attribute") ?? undefined;
   const userId = searchParams.get("user_id") ?? undefined;
 
@@ -70,15 +81,23 @@ export function useCommands() {
   const attributeOptions = useAttributeOptions(devices, deviceId);
 
   // Build params for the API — URL params + defaults
-  const apiParams = useMemo(() => buildApiParams(searchParams), [searchParams]);
+  const apiParams = useMemo(() => {
+    const params = buildApiParams(searchParams);
+    // When using device-specific endpoint, device_id is in the URL path
+    if (fixedDeviceId) params.delete("device_id");
+    return params;
+  }, [searchParams, fixedDeviceId]);
   const queryKey = apiParams.toString();
 
   // Fetch commands
   const { data, isLoading, isPlaceholderData, error } = useQuery<
     Page<DeviceCommand>
   >({
-    queryKey: ["commands", queryKey],
-    queryFn: () => getCommands(apiParams),
+    queryKey: ["commands", fixedDeviceId ?? "all", queryKey],
+    queryFn: () =>
+      fixedDeviceId
+        ? getDeviceCommands(fixedDeviceId, apiParams)
+        : getCommands(apiParams),
     placeholderData: keepPreviousData,
     staleTime: 5000,
   });
@@ -98,8 +117,13 @@ export function useCommands() {
   );
 
   const columns = useMemo(
-    () => buildCommandColumns(t, { deviceNames, userNames }),
-    [t, deviceNames, userNames],
+    () =>
+      buildCommandColumns(t, {
+        deviceNames,
+        userNames,
+        showDevice: !fixedDeviceId,
+      }),
+    [t, deviceNames, userNames, fixedDeviceId],
   );
 
   const table = useReactTable({
@@ -152,6 +176,7 @@ export function useCommands() {
     devices,
     users,
     setFilter,
+    isDeviceFixed: !!fixedDeviceId,
 
     // Table state
     table,
