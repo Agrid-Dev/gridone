@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import { flexRender, type Table as TTable } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import {
-  Button,
   Table,
   TableBody,
   TableCell,
@@ -19,32 +20,28 @@ import {
 } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
-import type { DeviceCommand, PaginationLinks } from "@/api/commands";
+import { cn } from "@/lib/utils";
+import type { DeviceCommand } from "@/api/commands";
+import type { Page } from "@/api/pagination";
 
 type CommandsTableProps = {
   table: TTable<DeviceCommand>;
-  total: number;
-  page: number;
-  size: number;
-  totalPages: number;
-  links: PaginationLinks | undefined;
+  data: Page<DeviceCommand> | undefined;
   isLoading: boolean;
   isPlaceholderData: boolean;
   error: Error | null;
-  onPageChange: (page: number) => void;
+  prevHref: string | undefined;
+  nextHref: string | undefined;
 };
 
 export function CommandsTable({
   table,
-  total,
-  page,
-  size,
-  totalPages,
-  links,
+  data,
   isLoading,
   isPlaceholderData,
   error,
-  onPageChange,
+  prevHref,
+  nextHref,
 }: CommandsTableProps) {
   const { t } = useTranslation();
 
@@ -68,7 +65,7 @@ export function CommandsTable({
     );
   }
 
-  if (total === 0) {
+  if (!data || data.total === 0) {
     return (
       <Empty>
         <EmptyHeader>
@@ -84,8 +81,12 @@ export function CommandsTable({
     );
   }
 
-  const hasPrev = links?.prev != null;
-  const hasNext = links?.next != null;
+  const { total, page, size, totalPages } = data;
+  const linkClasses = cn(
+    buttonVariants({ variant: "outline", size: "icon" }),
+    "h-8 w-8",
+  );
+  const disabledClasses = "pointer-events-none opacity-50";
 
   return (
     <div className="space-y-4">
@@ -131,27 +132,27 @@ export function CommandsTable({
           })}
         </p>
         <div className="flex items-center gap-1">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onPageChange(page - 1)}
-            disabled={!hasPrev || isPlaceholderData}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
+          {prevHref && !isPlaceholderData ? (
+            <Link to={{ search: prevHref }} className={linkClasses} replace>
+              <ChevronLeft className="h-4 w-4" />
+            </Link>
+          ) : (
+            <span className={cn(linkClasses, disabledClasses)}>
+              <ChevronLeft className="h-4 w-4" />
+            </span>
+          )}
           <span className="px-2 text-sm tabular-nums text-muted-foreground">
             {page} / {totalPages}
           </span>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onPageChange(page + 1)}
-            disabled={!hasNext || isPlaceholderData}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          {nextHref && !isPlaceholderData ? (
+            <Link to={{ search: nextHref }} className={linkClasses} replace>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <span className={cn(linkClasses, disabledClasses)}>
+              <ChevronRight className="h-4 w-4" />
+            </span>
+          )}
         </div>
       </div>
     </div>

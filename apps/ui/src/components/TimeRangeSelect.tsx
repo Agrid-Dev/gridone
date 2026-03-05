@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -12,39 +13,61 @@ import {
   type TimeRange,
   type TimeRangePreset,
   PRESET_OPTIONS,
+  parseRangeParams,
+  writeRangeParams,
   rangeLabel,
 } from "@/lib/timeRange";
 
 type TimeRangeSelectProps = {
-  value: TimeRange;
-  onChange: (range: TimeRange) => void;
+  onChangeParamsReset?: string[];
 };
 
-export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
+export function TimeRangeSelect({
+  onChangeParamsReset = [],
+}: TimeRangeSelectProps) {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  const timeRange = useMemo(
+    () => parseRangeParams(searchParams),
+    [searchParams],
+  );
+
+  const applyRange = (range: TimeRange) => {
+    setSearchParams(
+      (prev) => {
+        const next = writeRangeParams(prev, range);
+        for (const key of onChangeParamsReset) {
+          next.delete(key);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  };
+
   const handleOpenChange = (nextOpen: boolean) => {
-    if (nextOpen && value.kind === "custom") {
-      setCustomStart(value.start.slice(0, 16));
-      setCustomEnd(value.end.slice(0, 16));
+    if (nextOpen && timeRange.kind === "custom") {
+      setCustomStart(timeRange.start.slice(0, 16));
+      setCustomEnd(timeRange.end.slice(0, 16));
     }
     setOpen(nextOpen);
   };
 
   const handlePreset = (preset: TimeRangePreset) => {
-    onChange({ kind: "preset", preset });
+    applyRange({ kind: "preset", preset });
     setOpen(false);
   };
 
   const handleCustomApply = () => {
-    onChange({ kind: "custom", start: customStart, end: customEnd });
+    applyRange({ kind: "custom", start: customStart, end: customEnd });
     setOpen(false);
   };
 
-  const activePreset = value.kind === "preset" ? value.preset : null;
+  const activePreset = timeRange.kind === "preset" ? timeRange.preset : null;
   const nowLocal = new Date().toISOString().slice(0, 16);
 
   return (
@@ -52,7 +75,7 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm">
           <Clock className="mr-2 h-4 w-4" />
-          {rangeLabel(value, t)}
+          {rangeLabel(timeRange, t)}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2">
@@ -77,7 +100,7 @@ export function TimeRangeSelect({ value, onChange }: TimeRangeSelectProps) {
 
         <div className="space-y-2 px-1">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-            {value.kind === "custom" && (
+            {timeRange.kind === "custom" && (
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-foreground" />
             )}
             {t("deviceDetails.rangeCustom")}

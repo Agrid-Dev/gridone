@@ -72,35 +72,46 @@ const VALID_PRESETS = new Set<string>([
   "all",
 ]);
 
+/**
+ * Parse URL search params into a TimeRange.
+ * Reads `last`, `start`, `end` — matching the API query format.
+ */
 export function parseRangeParams(searchParams: URLSearchParams): TimeRange {
-  const range = searchParams.get("range");
-  if (range && VALID_PRESETS.has(range)) {
-    return { kind: "preset", preset: range as TimeRangePreset };
+  const last = searchParams.get("last");
+  if (last && VALID_PRESETS.has(last)) {
+    return { kind: "preset", preset: last as TimeRangePreset };
   }
 
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  if (from || to) {
-    return { kind: "custom", start: from ?? "", end: to ?? "" };
+  const start = searchParams.get("start");
+  const end = searchParams.get("end");
+  if (start || end) {
+    return { kind: "custom", start: start ?? "", end: end ?? "" };
   }
 
   return { kind: "preset", preset: DEFAULT_PRESET };
 }
 
+/**
+ * Write a TimeRange into URL search params.
+ * Uses `last`, `start`, `end` — matching the API query format.
+ * The default preset (3h) produces no params to keep URLs clean.
+ */
 export function writeRangeParams(
   searchParams: URLSearchParams,
   range: TimeRange,
 ): URLSearchParams {
   const next = new URLSearchParams(searchParams);
-  next.delete("range");
-  next.delete("from");
-  next.delete("to");
+  next.delete("last");
+  next.delete("start");
+  next.delete("end");
 
   if (range.kind === "custom") {
-    if (range.start) next.set("from", range.start);
-    if (range.end) next.set("to", range.end);
+    if (range.start) next.set("start", range.start);
+    if (range.end) next.set("end", range.end);
+  } else if (range.preset === "all") {
+    next.set("last", "all");
   } else if (range.preset !== DEFAULT_PRESET) {
-    next.set("range", range.preset);
+    next.set("last", range.preset);
   }
 
   return next;

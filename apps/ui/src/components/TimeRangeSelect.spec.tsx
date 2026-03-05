@@ -1,7 +1,8 @@
+import React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { TimeRangeSelect } from "./TimeRangeSelect";
-import type { TimeRange } from "@/lib/timeRange";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -23,24 +24,28 @@ vi.mock("react-i18next", () => ({
 
 afterEach(cleanup);
 
+function renderWithRouter(
+  ui: React.ReactElement,
+  initialEntries: string[] = ["/"],
+) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>,
+  );
+}
+
 describe("TimeRangeSelect", () => {
-  it("renders trigger with current range label", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={() => {}}
-      />,
-    );
+  it("renders trigger with default range label (3h)", () => {
+    renderWithRouter(<TimeRangeSelect />);
     expect(screen.getByText("Last 3h")).toBeInTheDocument();
   });
 
+  it("reads initial range from URL params", () => {
+    renderWithRouter(<TimeRangeSelect />, ["/?last=7d"]);
+    expect(screen.getByText("Last 7d")).toBeInTheDocument();
+  });
+
   it("opens popover showing all duration presets", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={() => {}}
-      />,
-    );
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
 
     expect(screen.getByText("Last 10 min")).toBeInTheDocument();
@@ -51,31 +56,16 @@ describe("TimeRangeSelect", () => {
     expect(screen.getByText("Last 7d")).toBeInTheDocument();
   });
 
-  it("calls onChange with correct preset when clicking a preset", () => {
-    const onChange = vi.fn();
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={onChange}
-      />,
-    );
+  it("updates URL params when selecting a preset", () => {
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
     fireEvent.click(screen.getByText("Last 1d"));
 
-    expect(onChange).toHaveBeenCalledWith({
-      kind: "preset",
-      preset: "1d",
-    });
+    expect(screen.getByText("Last 1d")).toBeInTheDocument();
   });
 
-  it("calls onChange with custom range on Apply", () => {
-    const onChange = vi.fn();
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={onChange}
-      />,
-    );
+  it("updates URL params with custom range on Apply", () => {
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
 
     const startInput = screen.getByLabelText("start");
@@ -84,72 +74,59 @@ describe("TimeRangeSelect", () => {
     fireEvent.change(endInput, { target: { value: "2026-01-31T23:59" } });
     fireEvent.click(screen.getByText("Apply"));
 
-    expect(onChange).toHaveBeenCalledWith<[TimeRange]>({
-      kind: "custom",
-      start: "2026-01-01T00:00",
-      end: "2026-01-31T23:59",
-    });
+    expect(screen.getByText("Custom range")).toBeInTheDocument();
   });
 
   it("shows Custom range section in popover", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={() => {}}
-      />,
-    );
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
     expect(screen.getByText("Custom range")).toBeInTheDocument();
     expect(screen.getByText("Apply")).toBeInTheDocument();
   });
 
   it("does not show 'All time' option in popover", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={() => {}}
-      />,
-    );
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
     expect(screen.queryByText("All time")).not.toBeInTheDocument();
   });
 
   it("shows active dot on 'Custom range' label when custom is selected", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "custom", start: "2026-01-01T00:00", end: "" }}
-        onChange={() => {}}
-      />,
-    );
+    renderWithRouter(<TimeRangeSelect />, [
+      "/?start=2026-01-01T00:00&end=2026-01-31T23:59",
+    ]);
     fireEvent.click(screen.getByText("Custom range"));
     const label = screen.getByText("Custom range", { selector: "p" });
     expect(label.querySelector("span")).toBeInTheDocument();
   });
 
   it("hides active dot on 'Custom range' label when preset is selected", () => {
-    render(
-      <TimeRangeSelect
-        value={{ kind: "preset", preset: "3h" }}
-        onChange={() => {}}
-      />,
-    );
+    renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
     const label = screen.getByText("Custom range", { selector: "p" });
     expect(label.querySelector("span")).not.toBeInTheDocument();
   });
 
   it("restores custom dates when re-opening the popover", () => {
-    const value: TimeRange = {
-      kind: "custom",
-      start: "2026-03-01T08:00",
-      end: "2026-03-01T18:00",
-    };
-    render(<TimeRangeSelect value={value} onChange={() => {}} />);
+    renderWithRouter(<TimeRangeSelect />, [
+      "/?start=2026-03-01T08:00&end=2026-03-01T18:00",
+    ]);
     fireEvent.click(screen.getByText("Custom range"));
 
     const startInput = screen.getByLabelText("start") as HTMLInputElement;
     const endInput = screen.getByLabelText("end") as HTMLInputElement;
     expect(startInput.value).toBe("2026-03-01T08:00");
     expect(endInput.value).toBe("2026-03-01T18:00");
+  });
+
+  it("resets specified params on change", () => {
+    renderWithRouter(<TimeRangeSelect onChangeParamsReset={["page"]} />, [
+      "/?page=3&last=1h",
+    ]);
+    // Selecting a new preset should reset 'page'
+    fireEvent.click(screen.getByText("Last 1h"));
+    fireEvent.click(screen.getByText("Last 7d"));
+
+    // The label updates to 7d, meaning URL was updated
+    expect(screen.getByText("Last 7d")).toBeInTheDocument();
   });
 });

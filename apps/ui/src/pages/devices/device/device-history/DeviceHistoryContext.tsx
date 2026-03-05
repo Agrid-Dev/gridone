@@ -15,12 +15,7 @@ import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  type TimeRange,
-  parseRangeParams,
-  writeRangeParams,
-  resolveTimeRange,
-} from "./timeRange";
+import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 5;
 
@@ -60,8 +55,6 @@ type DeviceHistoryContextValue = {
   filteredRows: MergedRow[];
   isLoading: boolean;
   error: Error | null;
-  timeRange: TimeRange;
-  setTimeRange: (range: TimeRange) => void;
   isDownloading: boolean;
   handleDownload: (format: "csv" | "png") => Promise<void>;
 };
@@ -82,20 +75,11 @@ export function DeviceHistoryProvider({
   children,
 }: DeviceHistoryProviderProps) {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const [timeRange, setTimeRangeState] = useState<TimeRange>(() =>
-    parseRangeParams(searchParams),
-  );
-
-  const setTimeRange = useCallback(
-    (range: TimeRange) => {
-      setTimeRangeState(range);
-      setSearchParams((prev) => writeRangeParams(prev, range), {
-        replace: true,
-      });
-    },
-    [setSearchParams],
+  const timeRange = useMemo(
+    () => parseRangeParams(searchParams),
+    [searchParams],
   );
 
   const resolved = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
@@ -267,8 +251,6 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
-      timeRange,
-      setTimeRange,
       isDownloading,
       handleDownload,
     }),
@@ -285,8 +267,6 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
-      timeRange,
-      setTimeRange,
       isDownloading,
       handleDownload,
     ],

@@ -7,7 +7,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
-import type { TimeRange } from "@/lib/timeRange";
 import type { Device } from "@/api/devices";
 import type { User } from "@/api/users";
 
@@ -20,9 +19,7 @@ type CommandsFilterBarProps = {
   attributeOptions: string[];
   devices: Device[];
   users: User[] | undefined;
-  timeRange: TimeRange;
   onFilterChange: (key: string, value: string | undefined) => void;
-  onTimeRangeChange: (range: TimeRange) => void;
 };
 
 export function CommandsFilterBar({
@@ -32,9 +29,7 @@ export function CommandsFilterBar({
   attributeOptions,
   devices,
   users,
-  timeRange,
   onFilterChange,
-  onTimeRangeChange,
 }: CommandsFilterBarProps) {
   const { t } = useTranslation();
 
@@ -98,7 +93,7 @@ export function CommandsFilterBar({
         </SelectContent>
       </Select>
 
-      <TimeRangeSelect value={timeRange} onChange={onTimeRangeChange} />
+      <TimeRangeSelect onChangeParamsReset={["page"]} />
     </div>
   );
 }
