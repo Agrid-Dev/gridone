@@ -291,9 +291,9 @@ class PostgresStorage:
         )
         return DeviceCommand(id=row["id"], **command.__dict__)
 
-    async def query_commands(
+    def _build_commands_where(
         self, filters: CommandsQueryFilters
-    ) -> list[DeviceCommand]:
+    ) -> tuple[str, list[object]]:
         clauses: list[str] = []
         params: list[object] = []
         idx = 1
@@ -318,10 +318,29 @@ class PostgresStorage:
             clauses.append(f"timestamp < ${idx}")
             params.append(filters.end)
 
-        query = "SELECT * FROM ts_device_commands"
+        where = ""
         if clauses:
-            query += " WHERE " + " AND ".join(clauses)
-        query += " ORDER BY timestamp"
+            where = " WHERE " + " AND ".join(clauses)
+        return where, params
+
+    async def query_commands(
+        self,
+        filters: CommandsQueryFilters,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[DeviceCommand]:
+        where, params = self._build_commands_where(filters)
+        idx = len(params) + 1
+
+        query = f"SELECT * FROM ts_device_commands{where} ORDER BY timestamp"  # noqa: S608
+        if limit is not None:
+            query += f" LIMIT ${idx}"
+            params.append(limit)
+            idx += 1
+        if offset is not None:
+            query += f" OFFSET ${idx}"
+            params.append(offset)
 
         rows = await self._pool.fetch(query, *params)
         return [
@@ -338,3 +357,8 @@ class PostgresStorage:
             )
             for r in rows
         ]
+
+    async def count_commands(self, filters: CommandsQueryFilters) -> int:
+        where, params = self._build_commands_where(filters)
+        query = f"SELECT COUNT(*) FROM ts_device_commands{where}"  # noqa: S608
+        return await self._pool.fetchval(query, *params)

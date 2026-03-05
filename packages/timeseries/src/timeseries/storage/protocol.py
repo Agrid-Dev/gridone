@@ -56,4 +56,12 @@ class TimeSeriesStorage(Protocol):
     async def query_commands(
         self,
         filters: CommandsQueryFilters,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[DeviceCommand]: ...
+
+    async def count_commands(
+        self,
+        filters: CommandsQueryFilters,
+    ) -> int: ...

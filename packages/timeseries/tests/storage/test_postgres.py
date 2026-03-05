@@ -441,3 +441,47 @@ class TestQueryCommands:
         await storage.save_command(make_command(timestamp=t2))
         results = await storage.query_commands(CommandsQueryFilters())
         assert [r.timestamp for r in results] == [t1, t2, t3]
+
+    async def test_limit(self, storage):
+        for i in range(5):
+            await storage.save_command(make_command(device_id=f"d{i}"))
+        results = await storage.query_commands(CommandsQueryFilters(), limit=3)
+        assert len(results) == 3
+
+    async def test_offset(self, storage):
+        t = [datetime(2026, 1, i + 1, tzinfo=UTC) for i in range(5)]
+        for i in range(5):
+            await storage.save_command(make_command(device_id=f"d{i}", timestamp=t[i]))
+        results = await storage.query_commands(CommandsQueryFilters(), offset=2)
+        assert len(results) == 3
+        assert results[0].device_id == "d2"
+
+    async def test_limit_and_offset(self, storage):
+        t = [datetime(2026, 1, i + 1, tzinfo=UTC) for i in range(5)]
+        for i in range(5):
+            await storage.save_command(make_command(device_id=f"d{i}", timestamp=t[i]))
+        results = await storage.query_commands(
+            CommandsQueryFilters(), limit=2, offset=1
+        )
+        assert len(results) == 2
+        assert results[0].device_id == "d1"
+        assert results[1].device_id == "d2"
+
+
+class TestCountCommands:
+    async def test_count_empty(self, storage):
+        count = await storage.count_commands(CommandsQueryFilters())
+        assert count == 0
+
+    async def test_count_all(self, storage):
+        await storage.save_command(make_command(device_id="d1"))
+        await storage.save_command(make_command(device_id="d2"))
+        count = await storage.count_commands(CommandsQueryFilters())
+        assert count == 2
+
+    async def test_count_with_filters(self, storage):
+        await storage.save_command(make_command(device_id="d1"))
+        await storage.save_command(make_command(device_id="d2"))
+        await storage.save_command(make_command(device_id="d1"))
+        count = await storage.count_commands(CommandsQueryFilters(device_id="d1"))
+        assert count == 2

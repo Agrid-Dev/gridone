@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
+from models.pagination import Page, PaginationParams
 from timeseries.domain import DeviceCommandCreate
 
 from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
@@ -199,10 +200,19 @@ class TestGetDevicesCommands:
     async def test_no_filters(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
-        mock_ts_service.get_commands.return_value = []
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=50
+        )
         async with async_client as ac:
             response = await ac.get("/commands")
         assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        assert data["page"] == 1
+        assert data["size"] == 50
+        assert data["total_pages"] == 0
+        assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
             device_id=None,
             attribute=None,
@@ -210,13 +220,16 @@ class TestGetDevicesCommands:
             start=None,
             end=None,
             last=None,
+            pagination=PaginationParams(page=1, size=50),
         )
 
     @pytest.mark.asyncio
     async def test_with_all_filters(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
-        mock_ts_service.get_commands.return_value = []
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=50
+        )
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
         end = datetime(2026, 1, 31, tzinfo=timezone.utc)
         async with async_client as ac:
@@ -239,6 +252,31 @@ class TestGetDevicesCommands:
             start=start,
             end=end,
             last="7d",
+            pagination=PaginationParams(page=1, size=50),
+        )
+
+    @pytest.mark.asyncio
+    async def test_custom_page_and_size(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=100, page=2, size=10
+        )
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"page": 2, "size": 10})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["page"] == 2
+        assert data["size"] == 10
+        assert data["total_pages"] == 10
+        mock_ts_service.get_commands.assert_called_once_with(
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+            pagination=PaginationParams(page=2, size=10),
         )
 
 
@@ -247,13 +285,18 @@ class TestGetDeviceCommands:
     async def test_path_device_id_takes_precedence_over_query_param(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
     ):
-        mock_ts_service.get_commands.return_value = []
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=50
+        )
         async with async_client as ac:
             response = await ac.get(
                 f"/{device_id}/commands",
                 params={"device_id": "other-device"},
             )
         assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
             device_id=device_id,
             attribute=None,
@@ -261,6 +304,7 @@ class TestGetDeviceCommands:
             start=None,
             end=None,
             last=None,
+            pagination=PaginationParams(page=1, size=50),
         )
 
 

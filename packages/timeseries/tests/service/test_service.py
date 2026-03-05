@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from conftest import make_command  # type: ignore[import-not-found]
 from models.errors import InvalidError, NotFoundError
+from models.pagination import PaginationParams
 from timeseries.domain import (
     CommandStatus,
     DataPoint,
@@ -339,37 +340,39 @@ class TestLogCommand:
 
 class TestGetCommands:
     async def test_empty(self, service: TimeSeriesService):
-        results = await service.get_commands()
-        assert results == []
+        page = await service.get_commands()
+        assert page.items == []
+        assert page.total == 0
 
     async def test_no_filters_returns_all(self, service: TimeSeriesService):
         await service.log_command(make_command(device_id="d1"))
         await service.log_command(make_command(device_id="d2"))
-        results = await service.get_commands()
-        assert len(results) == 2
+        page = await service.get_commands()
+        assert len(page.items) == 2
+        assert page.total == 2
 
     async def test_filter_device_id(self, service: TimeSeriesService):
         await service.log_command(make_command(device_id="d1"))
         await service.log_command(make_command(device_id="d2"))
-        results = await service.get_commands(device_id="d1")
-        assert len(results) == 1
-        assert results[0].device_id == "d1"
+        page = await service.get_commands(device_id="d1")
+        assert len(page.items) == 1
+        assert page.items[0].device_id == "d1"
 
     async def test_filter_with_last(self, service: TimeSeriesService):
         now = datetime.now(tz=UTC)
         old = now - timedelta(hours=5)
         await service.log_command(make_command(timestamp=old))
         await service.log_command(make_command(timestamp=now))
-        results = await service.get_commands(last="3h")
-        assert len(results) == 1
+        page = await service.get_commands(last="3h")
+        assert len(page.items) == 1
 
     async def test_last_ignored_when_start_is_set(self, service: TimeSeriesService):
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
         t2 = datetime(2026, 1, 2, tzinfo=UTC)
         await service.log_command(make_command(timestamp=t1))
         await service.log_command(make_command(timestamp=t2))
-        results = await service.get_commands(start=t1, last="1s")
-        assert len(results) == 2
+        page = await service.get_commands(start=t1, last="1s")
+        assert len(page.items) == 2
 
     async def test_combined_filters(self, service: TimeSeriesService):
         t1 = datetime(2026, 1, 1, tzinfo=UTC)
@@ -383,10 +386,10 @@ class TestGetCommands:
         await service.log_command(
             make_command(device_id="d2", user_id="u1", timestamp=t2),
         )
-        results = await service.get_commands(device_id="d1", user_id="u1")
-        assert len(results) == 1
-        assert results[0].device_id == "d1"
-        assert results[0].user_id == "u1"
+        page = await service.get_commands(device_id="d1", user_id="u1")
+        assert len(page.items) == 1
+        assert page.items[0].device_id == "d1"
+        assert page.items[0].user_id == "u1"
 
     async def test_end_before_start_raises(self, service: TimeSeriesService):
         with pytest.raises(ValueError, match="start must be before end"):
@@ -394,3 +397,30 @@ class TestGetCommands:
                 start=datetime(2026, 1, 2, tzinfo=UTC),
                 end=datetime(2026, 1, 1, tzinfo=UTC),
             )
+
+    async def test_pagination_page_1(self, service: TimeSeriesService):
+        for i in range(5):
+            await service.log_command(make_command(device_id=f"d{i}"))
+        page = await service.get_commands(pagination=PaginationParams(page=1, size=2))
+        assert len(page.items) == 2
+        assert page.total == 5
+        assert page.page == 1
+        assert page.size == 2
+        assert page.has_next is True
+
+    async def test_pagination_page_2(self, service: TimeSeriesService):
+        for i in range(5):
+            await service.log_command(make_command(device_id=f"d{i}"))
+        page = await service.get_commands(pagination=PaginationParams(page=2, size=2))
+        assert len(page.items) == 2
+        assert page.items[0].device_id == "d2"
+        assert page.page == 2
+        assert page.has_prev is True
+
+    async def test_pagination_no_params_returns_all(self, service: TimeSeriesService):
+        for i in range(3):
+            await service.log_command(make_command(device_id=f"d{i}"))
+        page = await service.get_commands()
+        assert len(page.items) == 3
+        assert page.total == 3
+        assert page.page == 1

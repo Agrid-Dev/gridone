@@ -8,13 +8,20 @@ from devices_manager.dto.device_dto import (
     DeviceDTO,
     DeviceUpdateDTO,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
+from models.pagination import PaginationParams
 from timeseries.domain import CommandStatus, DeviceCommand, DeviceCommandCreate
 from timeseries.service import TimeSeriesService
 
-from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
+from api.dependencies import (
+    get_current_user_id,
+    get_device_manager,
+    get_pagination_params,
+    get_ts_service,
+)
 from api.schemas.device import AttributeUpdate
+from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
 logger = logging.getLogger(__name__)
 
@@ -31,22 +38,26 @@ def list_devices(
 
 @router.get("/commands")
 async def get_commands(
+    request: Request,
     device_id: str | None = Query(None),
     attribute: str | None = Query(None),
     user_id: str | None = Query(None),
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
+    pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> list[DeviceCommand]:
-    return await ts.get_commands(
+) -> PaginatedResponse[DeviceCommand]:
+    page = await ts.get_commands(
         device_id=device_id,
         attribute=attribute,
         user_id=user_id,
         start=start,
         end=end,
         last=last,
+        pagination=pagination,
     )
+    return to_paginated_response(page, str(request.url))
 
 
 @router.get("/{device_id}")
@@ -60,21 +71,25 @@ def get_device(
 @router.get("/{device_id}/commands")
 async def get_device_commands(
     device_id: str,
+    request: Request,
     attribute: str | None = Query(None),
     user_id: str | None = Query(None),
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
+    pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> list[DeviceCommand]:
-    return await ts.get_commands(
+) -> PaginatedResponse[DeviceCommand]:
+    page = await ts.get_commands(
         device_id=device_id,
         attribute=attribute,
         user_id=user_id,
         start=start,
         end=end,
         last=last,
+        pagination=pagination,
     )
+    return to_paginated_response(page, str(request.url))
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)

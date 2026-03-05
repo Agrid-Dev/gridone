@@ -1,7 +1,8 @@
 from assets import AssetsManager
 from devices_manager import DevicesManager
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from models.pagination import PaginationParams
 from timeseries import TimeSeriesService
 from users import UsersManager
 from users.auth import AuthService, InvalidTokenError
@@ -42,3 +43,10 @@ async def get_current_user_id(
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
     return payload.sub
+
+
+def get_pagination_params(
+    page: int = Query(1, ge=1),
+    size: int = Query(50, ge=1, le=200),
+) -> PaginationParams:
+    return PaginationParams(page=page, size=size)
