@@ -1,0 +1,132 @@
+## v0.2.0 (2026-03-05)
+
+### Feat
+
+- use BUMP_TOKEN
+- **api**: pagination
+- **timeseries**: add a get_commands method with filters
+- **timeseries**: log device commands through api
+- png export for timeseries (#90)
+- add download button for timeseries (#89)
+- **timeseries**: device command model and storage
+- added pre-hook
+- create export method in TS service for csv (#86)
+- gridone support for fil pilote to decode and encode message (#85)
+- **timeseries**: carry-forward
+- **UI**: time range selector for device history
+- **api**: plug storage url to enable postgres storage in timeseries
+- **timeseries**: postgres storage driver / CI integration test
+- **timeseries**: postgres storage driver
+- **UI**: time series chart - common tooltip and format
+- **UI**: charts handle strings
+- **UI**: charts handle bools
+- **UI**: device history chart view (line chart for now - floats only).
+- assets comments
+- creation / deletion / edition of assets with ui
+- resolving pr comments
+- changed auth to belong to users package
+- working login/logout + add user
+- **ui**: plug websocket for live history
+- **ui**: time series basic history table
+- **ui**: time series client method and hook
+- docker folder
+- docker image with nginx server
+- **devices-manager**: parse name from config on discovery
+- add byte converter to support multiple data types
+- added nested storage and kept yaml storage capabilities
+- **core**: initialize attributes on discovery if found in payload
+- switch for the discovery  on the transport modification page
+- discovery ui
+- **api**: discovery api
+- **core**: add device to manager on discovery
+- **core**: devices discovery manager instanciates a device on discovery
+- **UI**: update device
+- device creation
+- blank page to add a device - with routing
+- **UI**: driver deletion
+- **UI**: add empty state for devices
+- **UI**: confirm button
+- **UI**: feedback toasts
+- **UI**: driver create form
+- **API**: support driver creation from yaml payload
+- **UI**: empty states
+- **UI**: show driver
+- **UI**: list drivers
+- **dto**: device DTO
+- **core**: add new field on attribute, last_changed != last_updated
+- extracted socket logic
+- added socket manager in ui and back
+- ui with shadcn
+- bool format value parser
+- **core**: handle polling disabled
+- update stratgy
+- **api**: write attribute
+- hooks
+- device-card updated chip
+- add ui application
+- changed mqtt message to yaml structure (#11)
+- set_point http write (#6)
+- **core**: modbus-tcp transport
+
+### Fix
+
+- **timeseries**: deserialize command values
+- **api**: post-rebase conflict fix
+- **api**: fix review comments - improve error handling for write attribute
+- **ui**: string and bool panels not displayed
+- changed the createDriver in the ui
+- ci
+- ci tests failures
+- tests
+- AuthPayload pydantic
+- type and ruff errors
+- **devices-manager**: restart polling on device update
+- remove fixture + file name
+- **ui**: fix transport label
+- **tests**: fix thermocktat config in mqtt integration test
+- **tests**: fix container shutdown in integration tests
+- **core**: fix bacnet application closure
+- **UI**: devices actions - casing issues
+- locales
+- **core**: allow 0 modbus for modbus instances
+- imports ordering check
+- PR comments
+- cache invalidate on register new topic handler
+
+### Refactor
+
+- **api**: delete unused util gen_id
+- **api**: confirm value in the return body of update attribute endpoint
+- **timeseries**: use an enum for command status
+- **timeseries**: use enums in storage for data_type and status
+- **models**: mutualize attribute value type model
+- rewrite the script in typescript
+- **timeseries**: handle edge case for socket updates
+- **timeseries**: move last query param to backend
+- **UI**: extract charts float precision as variable, and cap number of string values to 10
+- **UI**: split time series chart and add tests
+- **UI**: factorize TimeSeriesChart
+- **ui**: polish history table
+- **ui**: devices routes nesting
+- **api**: use exception handlers
+- **devices-manager**: make dm own its storage
+- **devices_manager**: make devices private
+- **devices-manager**: make transports private
+- **device-manager**: apply CRUD methods with dto on drivers
+- **devices-manager**: devices manager takes ownership of its storage
+- **core**: develop core in devices-manager
+- **storage**: merge into devices-manager
+- **dto**: merge into device manager
+- **core**: rename core -> devices_manager
+- **ui**: adapt to new discovery handler api schema
+- **api**: list all available discovery configs with enabled boolean
+- **core**: expose discovery manager directly from devices manager
+- **discovery**: remove legacy method from driver and refactor cli
+- **core**: devices discovery manager
+- **core**: task registry for devices manager
+- **UI**: add defaults titles for fallbacks
+- **UI**: use camelCase keys
+- **core**: refactor value parsers to chainable value adapters
+- **core**: stricter type casting for attributes
+- **mqtt**: fallback to primary templating markup (#10)
+- **mqtt**: fallback to primary templating markup
