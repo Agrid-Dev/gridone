@@ -6,7 +6,14 @@ from typing import TYPE_CHECKING
 import asyncpg
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DataPoint, DataType, DeviceCommand, SeriesKey, TimeSeries
+from timeseries.domain import (
+    DataPoint,
+    DataType,
+    DeviceCommand,
+    SeriesKey,
+    SortOrder,
+    TimeSeries,
+)
 from timeseries.storage.postgres.deserialize import deserialize_command_value
 
 if TYPE_CHECKING:
@@ -327,13 +334,15 @@ class PostgresStorage:
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]:
         where, params = self._build_commands_where(filters)
         idx = len(params) + 1
 
-        query = f"SELECT * FROM ts_device_commands{where} ORDER BY timestamp"  # noqa: S608
+        order = sort.value
+        query = f"SELECT * FROM ts_device_commands{where} ORDER BY timestamp {order}"  # noqa: S608
         if limit is not None:
             query += f" LIMIT ${idx}"
             params.append(limit)

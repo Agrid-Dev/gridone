@@ -47,6 +47,11 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
         raise InvalidError(msg)
 
 
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
 class CommandStatus(StrEnum):
     SUCCESS = "success"
     ERROR = "error"
