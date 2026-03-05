@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { TimeRangeSelect } from "./TimeRangeSelect";
-import type { TimeRange } from "./timeRange";
+import type { TimeRange } from "@/lib/timeRange";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
