@@ -13,8 +13,10 @@ from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from timeseries.domain import (
     CommandStatus,
+    DataPoint,
     DeviceCommand,
     DeviceCommandCreate,
+    SeriesKey,
     SortOrder,
 )
 from timeseries.service import TimeSeriesService
@@ -141,29 +143,51 @@ async def update_attribute(
     ts: TimeSeriesService = Depends(get_ts_service),
     user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate:
-    async def log_command(status: CommandStatus, status_text: str | None = None):
-        command = DeviceCommandCreate(
-            device_id=device_id,
-            attribute=attribute_name,
-            user_id=user_id,
-            value=update.value,
-            data_type=dm.get_device(device_id).attributes[attribute_name].data_type,
-            timestamp=datetime.now(UTC),
-            status=status,
-            status_details=status_text,
-        )
-        await ts.log_command(command)
+    data_type = dm.get_device(device_id).attributes[attribute_name].data_type
 
     try:
-        await dm.write_device_attribute(
+        attribute = await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
-        await log_command(CommandStatus.SUCCESS, None)
+        command = await ts.log_command(
+            DeviceCommandCreate(
+                device_id=device_id,
+                attribute=attribute_name,
+                user_id=user_id,
+                value=update.value,
+                data_type=data_type,
+                timestamp=datetime.now(UTC),
+                status=CommandStatus.SUCCESS,
+                status_details=None,
+            )
+        )
+        await ts.upsert_points(
+            SeriesKey(owner_id=device_id, metric=attribute_name),
+            [
+                DataPoint(
+                    timestamp=attribute.last_changed or datetime.now(UTC),
+                    value=update.value,
+                    command_id=command.id,
+                )
+            ],
+            create_if_not_found=True,
+        )
 
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         if not isinstance(e, (NotFoundError, InvalidError)):
-            await log_command(CommandStatus.ERROR, str(e))
+            await ts.log_command(
+                DeviceCommandCreate(
+                    device_id=device_id,
+                    attribute=attribute_name,
+                    user_id=user_id,
+                    value=update.value,
+                    data_type=data_type,
+                    timestamp=datetime.now(UTC),
+                    status=CommandStatus.ERROR,
+                    status_details=str(e),
+                )
+            )
         raise e
     return update
