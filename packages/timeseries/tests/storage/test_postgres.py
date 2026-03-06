@@ -187,6 +187,37 @@ class TestUpsertPoints:
         with pytest.raises(NotFoundError, match="No series found"):
             await storage.upsert_points(unknown, [])
 
+    async def test_command_id_null_by_default(self, storage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id is None
+
+    async def test_coalesce_preserves_command_id_when_absent(self, storage):
+        await storage.create_series(_make_series())
+        saved = await storage.save_command(make_command())
+        now = datetime.now(tz=UTC)
+        point = DataPoint(timestamp=now, value=1.0, command_id=saved.id)
+        await storage.upsert_points(KEY, [point])
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=2.0)])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == saved.id
+
+    async def test_command_id_overwritten_when_provided(self, storage):
+        await storage.create_series(_make_series())
+        cmd1 = await storage.save_command(make_command())
+        cmd2 = await storage.save_command(make_command())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=cmd1.id)]
+        )
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=cmd2.id)]
+        )
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == cmd2.id
+
 
 class TestFetchPointBefore:
     async def test_returns_most_recent_point_before(self, storage):

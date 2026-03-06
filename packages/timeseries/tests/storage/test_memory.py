@@ -169,6 +169,38 @@ class TestUpsertPoints:
         with pytest.raises(NotFoundError, match="No series found"):
             await storage.upsert_points(unknown, [])
 
+    async def test_command_id_stored_and_fetched(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        point = DataPoint(timestamp=now, value=1.0, command_id=7)
+        await storage.upsert_points(KEY, [point])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 7
+
+    async def test_coalesce_preserves_command_id_when_absent(
+        self, storage: MemoryStorage
+    ):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=5)]
+        )
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 5
+
+    async def test_command_id_overwritten_when_provided(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=5)]
+        )
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=10)]
+        )
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 10
+
 
 class TestFetchPointBefore:
     async def test_returns_most_recent_point_before(self, storage: MemoryStorage):
