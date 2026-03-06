@@ -1,13 +1,4 @@
-const TOKEN_KEY = "gridone_token";
-
-export function getStoredToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function storeToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-}
-
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
+// Tokens are stored in httpOnly cookies set by the server.
+// JavaScript cannot (and should not) access them directly.
+// This module is intentionally minimal — auth state is determined
+// by calling /auth/me (cookie sent automatically by the browser).

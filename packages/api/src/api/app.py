@@ -34,8 +34,10 @@ async def lifespan(app: FastAPI):
     auth_service = AuthService(
         secret_key=settings.secret_key,
         access_token_expire_minutes=settings.access_token_expire_minutes,
+        refresh_token_expire_minutes=settings.refresh_token_expire_minutes,
     )
     app.state.auth_service = auth_service
+    app.state.cookie_secure = settings.COOKIE_SECURE
 
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager

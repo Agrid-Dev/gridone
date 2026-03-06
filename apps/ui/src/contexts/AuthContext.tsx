@@ -6,13 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  clearToken,
-  getMe,
-  getStoredToken,
-  login as apiLogin,
-  storeToken,
-} from "@/api/auth";
+import { getMe, login as apiLogin, logout as apiLogout } from "@/api/auth";
 import type { CurrentUser } from "@/api/auth";
 
 type AuthState =
@@ -32,8 +26,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
 
-  const logout = useCallback(() => {
-    clearToken();
+  const logout = useCallback(async () => {
+    await apiLogout().catch(() => {});
     setState({ status: "unauthenticated" });
   }, []);
 
@@ -44,21 +38,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = getStoredToken();
-    if (!token) {
-      setState({ status: "unauthenticated" });
-      return;
-    }
+    // Try to restore session from httpOnly cookie
     refreshMe().catch(() => {
-      clearToken();
       setState({ status: "unauthenticated" });
     });
   }, [refreshMe]);
 
   const login = useCallback(
     async (username: string, password: string) => {
-      const response = await apiLogin({ username, password });
-      storeToken(response.access_token);
+      await apiLogin({ username, password });
       await refreshMe();
     },
     [refreshMe],

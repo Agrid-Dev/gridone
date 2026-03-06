@@ -1,6 +1,5 @@
 import camelcaseKeys from "camelcase-keys";
 import { ApiError } from "./apiError";
-import { getStoredToken } from "./token";
 
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -9,19 +8,48 @@ type RequestOptions = {
   camelCase?: boolean;
 };
 
+let refreshPromise: Promise<boolean> | null = null;
+
+async function tryRefreshToken(): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchWithAuth(
   relativeUrl: string,
   // eslint-disable-next-line no-undef
   init?: RequestInit,
 ): Promise<Response> {
-  const token = getStoredToken();
-  const headers: Record<string, string> = {
-    ...(init?.headers as Record<string, string>),
-  };
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE_URL}${relativeUrl}`, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    // Deduplicate concurrent refresh attempts
+    if (!refreshPromise) {
+      refreshPromise = tryRefreshToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    const refreshed = await refreshPromise;
+
+    if (refreshed) {
+      return fetch(`${API_BASE_URL}${relativeUrl}`, {
+        ...init,
+        credentials: "include",
+      });
+    }
   }
-  return fetch(`${API_BASE_URL}${relativeUrl}`, { ...init, headers });
+
+  return response;
 }
 
 export async function requestBlob(
