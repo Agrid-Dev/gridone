@@ -8,12 +8,11 @@ from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DeviceCommand, SortOrder
+from timeseries.domain import DataPoint, DeviceCommand, SortOrder
 
 if TYPE_CHECKING:
     from timeseries.domain import (
         AttributeValueType,
-        DataPoint,
         DeviceCommandCreate,
         SeriesKey,
         TimeSeries,
@@ -154,7 +153,15 @@ class MemoryStorage:
         series = self._series[series_id]
         existing = {p.timestamp: p for p in series.data_points}
         for p in points:
-            existing[p.timestamp] = p
+            prev = existing.get(p.timestamp)
+            resolved_id = (
+                p.command_id
+                if p.command_id is not None
+                else (prev.command_id if prev is not None else None)
+            )
+            existing[p.timestamp] = DataPoint(
+                timestamp=p.timestamp, value=p.value, command_id=resolved_id
+            )
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
 
