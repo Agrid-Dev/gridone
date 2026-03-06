@@ -64,8 +64,14 @@ CREATE TABLE IF NOT EXISTS ts_data_points (
     value_float   DOUBLE PRECISION,
     value_boolean BOOLEAN,
     value_string  TEXT,
+    command_id    INTEGER         REFERENCES ts_device_commands (id),
     PRIMARY KEY (series_id, timestamp)
 );
+"""
+
+_ADD_COMMAND_ID_COLUMN = """\
+ALTER TABLE ts_data_points
+    ADD COLUMN IF NOT EXISTS command_id INTEGER REFERENCES ts_device_commands (id);
 """
 
 _CREATE_DEVICE_COMMANDS_TABLE = """\
@@ -108,6 +114,7 @@ class PostgresStorage:
                     await conn.execute(stmt)
                 await conn.execute(_CREATE_DATA_POINTS_TABLE)
                 await conn.execute(_CREATE_DEVICE_COMMANDS_TABLE)
+                await conn.execute(_ADD_COMMAND_ID_COLUMN)
 
             try:
                 await conn.execute(_CREATE_HYPERTABLE)
@@ -219,13 +226,18 @@ class PostgresStorage:
             params.append(end)
 
         query = (
-            f"SELECT timestamp, {value_col} AS value "  # noqa: S608
+            f"SELECT timestamp, {value_col} AS value, command_id "  # noqa: S608
             f"FROM ts_data_points WHERE {' AND '.join(clauses)} "
             "ORDER BY timestamp"
         )
 
         rows = await self._pool.fetch(query, *params)
-        return [DataPoint(timestamp=r["timestamp"], value=r["value"]) for r in rows]
+        return [
+            DataPoint(
+                timestamp=r["timestamp"], value=r["value"], command_id=r["command_id"]
+            )
+            for r in rows
+        ]
 
     async def fetch_point_before(
         self,
@@ -240,7 +252,7 @@ class PostgresStorage:
         value_col = _VALUE_COLUMNS[series.data_type]
 
         query = (
-            f"SELECT timestamp, {value_col} AS value "  # noqa: S608
+            f"SELECT timestamp, {value_col} AS value, command_id "  # noqa: S608
             "FROM ts_data_points "
             "WHERE series_id = $1 AND timestamp < $2 "
             "ORDER BY timestamp DESC LIMIT 1"
@@ -248,7 +260,9 @@ class PostgresStorage:
         row = await self._pool.fetchrow(query, series.id, before)
         if row is None:
             return None
-        return DataPoint(timestamp=row["timestamp"], value=row["value"])
+        return DataPoint(
+            timestamp=row["timestamp"], value=row["value"], command_id=row["command_id"]
+        )
 
     async def upsert_points(
         self,
@@ -267,11 +281,14 @@ class PostgresStorage:
 
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.executemany(
-                f"INSERT INTO ts_data_points (series_id, timestamp, {value_col}) "  # noqa: S608
-                f"VALUES ($1, $2, $3) "
-                f"ON CONFLICT (series_id, timestamp) "
-                f"DO UPDATE SET {value_col} = EXCLUDED.{value_col}",
-                [(series.id, p.timestamp, p.value) for p in points],
+                "INSERT INTO ts_data_points"  # noqa: S608
+                f" (series_id, timestamp, {value_col}, command_id)"
+                " VALUES ($1, $2, $3, $4)"
+                " ON CONFLICT (series_id, timestamp) DO UPDATE SET"
+                f" {value_col} = EXCLUDED.{value_col},"
+                " command_id ="
+                " COALESCE(EXCLUDED.command_id, ts_data_points.command_id)",
+                [(series.id, p.timestamp, p.value, p.command_id) for p in points],
             )
             await conn.execute(
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",

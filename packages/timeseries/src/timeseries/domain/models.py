@@ -21,6 +21,7 @@ class SeriesKey:
 class DataPoint[T: (int, float, bool, str)]:
     timestamp: datetime
     value: T
+    command_id: int | None = None
 
 
 @dataclass
