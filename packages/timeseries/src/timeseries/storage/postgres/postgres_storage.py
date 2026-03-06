@@ -64,7 +64,6 @@ CREATE TABLE IF NOT EXISTS ts_data_points (
     value_float   DOUBLE PRECISION,
     value_boolean BOOLEAN,
     value_string  TEXT,
-    command_id    INTEGER         REFERENCES ts_device_commands (id),
     PRIMARY KEY (series_id, timestamp)
 );
 """
