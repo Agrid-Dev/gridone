@@ -92,4 +92,7 @@ async def get_points(
     points = await ts.fetch_points(
         series.key, start=start, end=end, last=last, carry_forward=carry_forward
     )
-    return [DataPointResponse(timestamp=p.timestamp, value=p.value) for p in points]
+    return [
+        DataPointResponse(timestamp=p.timestamp, value=p.value, command_id=p.command_id)
+        for p in points
+    ]
