@@ -461,8 +461,9 @@ class DevicesManager:
         if attribute_name not in device.attributes:
             msg = f"Attribute '{attribute_name}' not found on device {device_id}"
             raise NotFoundError(msg)
-        await device.write_attribute_value(attribute_name, value, confirm=confirm)
-        return device.attributes[attribute_name]
+        return await device.write_attribute_value(
+            attribute_name, value, confirm=confirm
+        )
 
     async def delete_device(self, device_id: str) -> None:
         self._get_or_raise(self._devices, device_id, "Device")

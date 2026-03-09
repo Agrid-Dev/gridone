@@ -145,22 +145,25 @@ async def update_attribute(
 ) -> AttributeUpdate:
     data_type = dm.get_device(device_id).attributes[attribute_name].data_type
 
+    def make_command(
+        status: CommandStatus, status_details: str | None = None
+    ) -> DeviceCommandCreate:
+        return DeviceCommandCreate(
+            device_id=device_id,
+            attribute=attribute_name,
+            user_id=user_id,
+            value=update.value,
+            data_type=data_type,
+            timestamp=datetime.now(UTC),
+            status=status,
+            status_details=status_details,
+        )
+
     try:
         attribute = await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
-        command = await ts.log_command(
-            DeviceCommandCreate(
-                device_id=device_id,
-                attribute=attribute_name,
-                user_id=user_id,
-                value=update.value,
-                data_type=data_type,
-                timestamp=datetime.now(UTC),
-                status=CommandStatus.SUCCESS,
-                status_details=None,
-            )
-        )
+        command = await ts.log_command(make_command(CommandStatus.SUCCESS))
         await ts.upsert_points(
             SeriesKey(owner_id=device_id, metric=attribute_name),
             [
@@ -177,17 +180,6 @@ async def update_attribute(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         if not isinstance(e, (NotFoundError, InvalidError)):
-            await ts.log_command(
-                DeviceCommandCreate(
-                    device_id=device_id,
-                    attribute=attribute_name,
-                    user_id=user_id,
-                    value=update.value,
-                    data_type=data_type,
-                    timestamp=datetime.now(UTC),
-                    status=CommandStatus.ERROR,
-                    status_details=str(e),
-                )
-            )
+            await ts.log_command(make_command(CommandStatus.ERROR, str(e)))
         raise e
     return update

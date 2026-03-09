@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from devices_manager import DevicesManager
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.device import Attribute, Device, DeviceBase
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
     DeviceCreateDTO,
@@ -832,6 +832,20 @@ class TestDevicesManagerWriteAttribute:
         )
 
         mock_transport_client.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_ok_returns_attribute(
+        self, devices_manager, mock_transport_client
+    ):
+        mock_transport_client.write = AsyncMock()
+        mock_transport_client.read = AsyncMock(return_value=22.0)
+        device_id = next(iter(devices_manager.device_ids))
+        result = await devices_manager.write_device_attribute(
+            device_id, "temperature_setpoint", 22.0
+        )
+        assert isinstance(result, Attribute)
+        assert result.current_value == 22.0
+        assert result.last_changed is not None
 
     @pytest.mark.asyncio
     async def test_write_attribute_device_not_found(self, devices_manager):
