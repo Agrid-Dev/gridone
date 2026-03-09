@@ -183,7 +183,7 @@ class Device(DeviceBase):
 
     async def write_attribute_value(
         self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
-    ) -> AttributeValueType | None:
+    ) -> Attribute:
         attribute = self.get_attribute(attribute_name)
         if "write" not in attribute.read_write_modes:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
@@ -212,7 +212,7 @@ class Device(DeviceBase):
         if confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
         self._update_attribute(attribute, validated_value)
-        return attribute.current_value
+        return attribute
 
     def add_update_listener(
         self,

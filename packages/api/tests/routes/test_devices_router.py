@@ -358,6 +358,25 @@ class TestUpdateAttribute:
         assert cmd.status_details is None
 
     @pytest.mark.asyncio
+    async def test_success_upserts_point_with_command_id(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        mock_ts_service.log_command.return_value.id = 42
+        with patch.object(
+            DevicesManager, "write_device_attribute", new_callable=AsyncMock
+        ):
+            async with async_client as ac:
+                response = await ac.post(
+                    f"/{device_id}/temperature_setpoint",
+                    json={"value": 22.0},
+                )
+        assert response.status_code == 200
+        mock_ts_service.upsert_points.assert_called_once()
+        points = mock_ts_service.upsert_points.call_args[0][1]
+        assert len(points) == 1
+        assert points[0].command_id == 42
+
+    @pytest.mark.asyncio
     async def test_permission_error_returns_400_without_logging(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
     ):
