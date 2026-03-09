@@ -314,6 +314,21 @@
       "unknown": "Unknown"
     }
   },
+  "commands": {
+    "title": "Commands",
+    "subtitle": "Command history",
+    "device": "Device",
+    "attribute": "Attribute",
+    "user": "User",
+    "value": "Value",
+    "status": "Status",
+    "details": "Details",
+    "allDevices": "All devices",
+    "allAttributes": "All attributes",
+    "allUsers": "All users",
+    "noCommands": "No commands recorded yet.",
+    "noCommandsDescription": "Commands will appear here when users control device attributes."
+  },
   "drivers": {
     "title": "Drivers",
     "list": "List of available drivers ({{count}})",

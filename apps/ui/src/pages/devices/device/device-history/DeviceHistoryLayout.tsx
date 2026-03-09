@@ -103,8 +103,6 @@ function HistoryToolbar() {
     columnVisibility,
     handleVisibilityChange,
     isLoading,
-    timeRange,
-    setTimeRange,
     visibleAttributes,
     isDownloading,
     handleDownload,
@@ -175,7 +173,7 @@ function HistoryToolbar() {
               {visibleCount} / {availableAttributes.length}
             </Badge>
 
-            <TimeRangeSelect value={timeRange} onChange={setTimeRange} />
+            <TimeRangeSelect />
 
             <TooltipProvider>
               <Tooltip>
