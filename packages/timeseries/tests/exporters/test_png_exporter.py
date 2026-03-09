@@ -9,6 +9,7 @@ from timeseries.exporters.png import to_figure
 
 T1 = datetime(2024, 1, 1, tzinfo=UTC)
 T2 = datetime(2024, 1, 2, tzinfo=UTC)
+T3 = datetime(2024, 1, 3, tzinfo=UTC)
 
 
 def make_series(
@@ -81,6 +82,19 @@ class TestToFigure:
         assert len(fig.axes) == 1
         labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
         assert "status: ok" in labels
+
+    def test_all_series_extended_to_same_end(self):
+        float_s = make_series(
+            DataType.FLOAT, "temp", [DataPoint(timestamp=T1, value=20.0)]
+        )
+        bool_s = make_series(
+            DataType.BOOL, "state", [DataPoint(timestamp=T2, value=True)]
+        )
+        fig = to_figure([float_s, bool_s], end=T3)
+        for ax in fig.axes:
+            for line in ax.get_lines():
+                if line.get_xdata().size:
+                    assert max(line.get_xdata()) == T3
 
     def test_empty_series_produces_no_legend(self):
         s = make_series(DataType.FLOAT, "temp", [])

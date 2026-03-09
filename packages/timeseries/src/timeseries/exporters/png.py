@@ -66,14 +66,7 @@ def _plot_categorical(ax: Axes, s: TimeSeries, end: datetime | None) -> None:
 
     if is_bool:
         ax.fill_between(
-            ts,
-            0,
-            1,
-            where=[y == 1 for y in raw],
-            step="post",
-            color=_COLORS[-1],
-            alpha=0.25,
-            zorder=0,
+            ts, 0, raw, step="post", color=_COLORS[-1], alpha=0.25, zorder=0
         )
         ax.step(
             ts,

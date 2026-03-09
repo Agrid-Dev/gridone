@@ -1,9 +1,4 @@
-import {
-  exportCsv,
-  exportPng,
-  type GetSeriesPointsOptions,
-  type TimeSeries,
-} from "@/api/timeseries";
+import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
 import type { VisibilityState } from "@tanstack/react-table";
 import React, {
@@ -223,21 +218,10 @@ export function DeviceHistoryProvider({
   const handleDownload = useCallback(
     async (format: "csv" | "png") => {
       setIsDownloading(true);
-      const unitMs: Record<string, number> = {
-        m: 60_000,
-        h: 3_600_000,
-        d: 86_400_000,
-      };
-      const now = Date.now();
-      const durationMs = resolved.last
-        ? parseInt(resolved.last) * (unitMs[resolved.last.slice(-1)] ?? 0)
-        : 0;
-      const options: GetSeriesPointsOptions = {
-        carryForward: true,
-        start: durationMs
-          ? new Date(now - durationMs).toISOString()
-          : resolved.start,
-        end: durationMs ? new Date(now).toISOString() : resolved.end,
+      const options = {
+        start: resolved.start,
+        end: resolved.end,
+        last: resolved.last,
       };
       try {
         if (format === "png") {
