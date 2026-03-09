@@ -214,6 +214,7 @@ class TestGetDevicesCommands:
         assert data["total_pages"] == 0
         assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -247,6 +248,7 @@ class TestGetDevicesCommands:
             )
         assert response.status_code == 200
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id="dev-1",
             attribute="temperature",
             user_id="user-42",
@@ -272,6 +274,7 @@ class TestGetDevicesCommands:
         assert data["size"] == 10
         assert data["total_pages"] == 10
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -293,6 +296,7 @@ class TestGetDevicesCommands:
             response = await ac.get("/commands", params={"sort": "desc"})
         assert response.status_code == 200
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -306,46 +310,44 @@ class TestGetDevicesCommands:
 
 class TestGetCommandsByIds:
     @pytest.mark.asyncio
-    async def test_ids_param_calls_get_commands_by_ids(
+    async def test_ids_param_passed_to_service(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
-        mock_ts_service.get_commands_by_ids.return_value = []
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=1
+        )
         async with async_client as ac:
             response = await ac.get("/commands", params={"ids": [1, 2, 3]})
         assert response.status_code == 200
         data = response.json()
         assert data["items"] == []
         assert data["total"] == 0
-        mock_ts_service.get_commands_by_ids.assert_called_once_with([1, 2, 3])
-        mock_ts_service.get_commands.assert_not_called()
+        mock_ts_service.get_commands.assert_called_once_with(
+            ids=[1, 2, 3],
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+            sort=SortOrder.ASC,
+            pagination=PaginationParams(page=1, size=50),
+        )
 
     @pytest.mark.asyncio
-    async def test_ids_param_returns_commands(
+    async def test_ids_with_other_filters_returns_422(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
-        from timeseries.domain import CommandStatus, DataType, DeviceCommand
+        from models.errors import InvalidError
 
-        cmd = DeviceCommand(
-            id=1,
-            device_id="dev-1",
-            attribute="temp",
-            user_id="user-1",
-            value=22.0,
-            data_type=DataType.FLOAT,
-            status=CommandStatus.SUCCESS,
-            timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            status_details=None,
+        mock_ts_service.get_commands.side_effect = InvalidError(
+            "Cannot combine 'ids' with other filters"
         )
-        mock_ts_service.get_commands_by_ids.return_value = [cmd]
         async with async_client as ac:
-            response = await ac.get("/commands", params={"ids": [1]})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total"] == 1
-        assert data["page"] == 1
-        assert len(data["items"]) == 1
-        assert data["items"][0]["id"] == 1
-        assert data["items"][0]["device_id"] == "dev-1"
+            response = await ac.get(
+                "/commands", params={"ids": [1], "device_id": "dev-1"}
+            )
+        assert response.status_code == 422
 
 
 class TestGetDeviceCommands:
@@ -366,6 +368,7 @@ class TestGetDeviceCommands:
         assert "items" in data
         assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=device_id,
             attribute=None,
             user_id=None,

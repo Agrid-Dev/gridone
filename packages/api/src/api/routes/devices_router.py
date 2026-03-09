@@ -8,16 +8,15 @@ from devices_manager.dto.device_dto import (
     DeviceDTO,
     DeviceUpdateDTO,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from models.errors import InvalidError, NotFoundError
-from models.pagination import Page, PaginationParams
+from models.pagination import PaginationParams
 from timeseries.domain import (
     CommandStatus,
     DataPoint,
     DeviceCommand,
     DeviceCommandCreate,
     SeriesKey,
-    SortOrder,
 )
 from timeseries.service import TimeSeriesService
 
@@ -27,7 +26,7 @@ from api.dependencies import (
     get_pagination_params,
     get_ts_service,
 )
-from api.schemas.device import AttributeUpdate
+from api.schemas.device import AttributeUpdate, CommandsQuery, get_commands_query
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
 logger = logging.getLogger(__name__)
@@ -46,29 +45,19 @@ def list_devices(
 @router.get("/commands")
 async def get_commands(
     request: Request,
-    ids: list[int] | None = Query(None),
-    device_id: str | None = Query(None),
-    attribute: str | None = Query(None),
-    user_id: str | None = Query(None),
-    start: datetime | None = Query(None),
-    end: datetime | None = Query(None),
-    last: str | None = Query(None),
-    sort: SortOrder = Query(SortOrder.ASC),
+    query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> PaginatedResponse[DeviceCommand]:
-    if ids is not None:
-        items = await ts.get_commands_by_ids(ids)
-        page = Page(items=items, total=len(items), page=1, size=max(len(items), 1))
-        return to_paginated_response(page, str(request.url))
     page = await ts.get_commands(
-        device_id=device_id,
-        attribute=attribute,
-        user_id=user_id,
-        start=start,
-        end=end,
-        last=last,
-        sort=sort,
+        ids=query.ids,
+        device_id=query.device_id,
+        attribute=query.attribute,
+        user_id=query.user_id,
+        start=query.start,
+        end=query.end,
+        last=query.last,
+        sort=query.sort,
         pagination=pagination,
     )
     return to_paginated_response(page, str(request.url))
@@ -86,23 +75,19 @@ def get_device(
 async def get_device_commands(
     device_id: str,
     request: Request,
-    attribute: str | None = Query(None),
-    user_id: str | None = Query(None),
-    start: datetime | None = Query(None),
-    end: datetime | None = Query(None),
-    last: str | None = Query(None),
-    sort: SortOrder = Query(SortOrder.ASC),
+    query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> PaginatedResponse[DeviceCommand]:
     page = await ts.get_commands(
+        ids=query.ids,
         device_id=device_id,
-        attribute=attribute,
-        user_id=user_id,
-        start=start,
-        end=end,
-        last=last,
-        sort=sort,
+        attribute=query.attribute,
+        user_id=query.user_id,
+        start=query.start,
+        end=query.end,
+        last=query.last,
+        sort=query.sort,
         pagination=pagination,
     )
     return to_paginated_response(page, str(request.url))
