@@ -10,11 +10,17 @@ if TYPE_CHECKING:
     from timeseries.domain import AttributeValueType, TimeSeries
 
 
+def _trunc(ts: datetime) -> datetime:
+    return ts.replace(microsecond=0)
+
+
 def to_csv(series: list[TimeSeries]) -> str:
     all_timestamps: list[datetime] = sorted(
-        {p.timestamp for s in series for p in s.data_points}
+        {_trunc(p.timestamp) for s in series for p in s.data_points}
     )
-    series_point_maps = [{p.timestamp: p.value for p in s.data_points} for s in series]
+    series_point_maps = [
+        {_trunc(p.timestamp): p.value for p in s.data_points} for s in series
+    ]
 
     with io.StringIO() as sio:
         writer = csv.writer(sio)

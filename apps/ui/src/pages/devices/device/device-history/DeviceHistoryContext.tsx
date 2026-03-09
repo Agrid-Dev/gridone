@@ -1,3 +1,6 @@
+import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
+import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
+import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
   createContext,
@@ -8,13 +11,10 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router";
-import type { VisibilityState } from "@tanstack/react-table";
-import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
-import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 5;
@@ -205,10 +205,12 @@ export function DeviceHistoryProvider({
 
   const visibleSeriesIds = useMemo(
     () =>
-      series
-        .filter((s) => visibleAttributes.includes(s.metric))
-        .map((s) => s.id),
-    [series, visibleAttributes],
+      columnOrder
+        .filter((col) => col !== "timestamp" && visibleAttributes.includes(col))
+        .flatMap((metric) =>
+          series.filter((s) => s.metric === metric).map((s) => s.id),
+        ),
+    [series, visibleAttributes, columnOrder],
   );
 
   const [isDownloading, setIsDownloading] = useState(false);

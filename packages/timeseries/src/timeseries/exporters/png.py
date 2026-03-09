@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from timeseries.domain import DataType
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
 
@@ -40,54 +42,65 @@ def _color(i: int) -> str:
     return _COLORS[i % len(_COLORS)]
 
 
-_LEGEND_KW: dict = {
-    "bbox_to_anchor": (1.01, 1),
-    "loc": "upper left",
-    "borderaxespad": 0,
-    "frameon": False,
-}
 _NUM_H = 3.5
 _CAT_H = 0.9
 _FIG_W = 12.0
 
 
-def _plot_categorical(ax: Axes, s: TimeSeries) -> None:
-    ts = [p.timestamp for p in s.data_points]
+def _extend(ts: list, vals: list, end: datetime) -> tuple[list, list]:
+    if ts and ts[-1] < end:
+        return [*ts, end], [*vals, vals[-1]]
+    return ts, vals
 
-    if s.data_type == DataType.BOOL:
-        ys = [1 if p.value else 0 for p in s.data_points]
-        ax.fill_between(ts, ys, step="post", color=_COLORS[-1], alpha=0.3, zorder=0)
+
+def _plot_categorical(ax: Axes, s: TimeSeries, end: datetime | None) -> None:
+    ts = [p.timestamp for p in s.data_points]
+    is_bool = s.data_type == DataType.BOOL
+    raw = (
+        [1 if p.value else 0 for p in s.data_points]
+        if is_bool
+        else [str(p.value) for p in s.data_points]
+    )
+    if end:
+        ts, raw = _extend(ts, raw, end)
+
+    if is_bool:
+        ax.fill_between(
+            ts, 0, raw, step="post", color=_COLORS[-1], alpha=0.25, zorder=0
+        )
         ax.step(
             ts,
-            ys,
+            raw,
             where="post",
             color=_COLORS[-1],
-            linewidth=1,
+            linewidth=1.5,
             label=s.metric,
-            zorder=1,
+            zorder=2,
         )
     else:
-        unique = sorted({str(p.value) for p in s.data_points})
-        for i, val in enumerate(unique):
-            c = _color(i)
-            mask = [str(p.value) == val for p in s.data_points]
+        for i, val in enumerate(sorted(set(raw))):
             ax.fill_between(
                 ts,
                 0,
                 1,
-                where=mask,
+                where=[v == val for v in raw],
                 step="post",
-                color=c,
+                color=_color(i),
                 alpha=0.35,
-                label=f"{s.metric}: {val}",
                 zorder=0,
+                label=f"{s.metric}: {val}",
             )
 
     ax.set_yticks([])
     ax.set_ylim(-0.1, 1.1)
 
 
-def to_figure(series: list[TimeSeries], *, title: str | None = None) -> Figure:
+def to_figure(
+    series: list[TimeSeries],
+    *,
+    title: str | None = None,
+    end: datetime | None = None,
+) -> Figure:
     num_series = [s for s in series if s.data_points and s.data_type not in _CAT_TYPES]
     cat_series = [s for s in series if s.data_points and s.data_type in _CAT_TYPES]
 
@@ -107,22 +120,30 @@ def to_figure(series: list[TimeSeries], *, title: str | None = None) -> Figure:
     )
     axs = [axes] if n_panels == 1 else list(axes)
 
-    idx = 0
+    all_ts = [p.timestamp for s in series for p in s.data_points]
+    data_end = end or (max(all_ts) if all_ts else None)
+
     if num_series:
-        ax = axs[idx]
-        idx += 1
         for i, s in enumerate(num_series):
             ts = [p.timestamp for p in s.data_points]
-            vs = [float(p.value) for p in s.data_points]
-            ax.plot(ts, vs, label=s.metric, color=_color(i))
+            ys = [float(p.value) for p in s.data_points]
+            if data_end:
+                ts, ys = _extend(ts, ys, data_end)
+            axs[0].step(ts, ys, where="post", label=s.metric, color=_color(i))
 
-    for s in cat_series:
-        _plot_categorical(axs[idx], s)
-        idx += 1
+    if cat_series:
+        for i, s in enumerate(cat_series, start=n_num):
+            _plot_categorical(axs[i], s, data_end)
 
-    for ax in axs[:idx]:
+    for ax in axs:
         ax.grid(axis="x", linestyle="--", alpha=0.7, zorder=3)
-        ax.legend(**_LEGEND_KW)
+        if ax.get_legend_handles_labels()[0]:
+            ax.legend(
+                bbox_to_anchor=(1.01, 1),
+                loc="upper left",
+                borderaxespad=0,
+                frameon=False,
+            )
 
     fig.autofmt_xdate()
     if title is not None:
@@ -131,8 +152,13 @@ def to_figure(series: list[TimeSeries], *, title: str | None = None) -> Figure:
     return fig
 
 
-def to_png(series: list[TimeSeries], *, title: str | None = None) -> bytes:
-    fig = to_figure(series, title=title)
+def to_png(
+    series: list[TimeSeries],
+    *,
+    title: str | None = None,
+    end: datetime | None = None,
+) -> bytes:
+    fig = to_figure(series, title=title, end=end)
     try:
         buf = io.BytesIO()
         fig.savefig(buf, format="png")
