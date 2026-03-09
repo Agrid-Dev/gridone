@@ -23,3 +23,15 @@ export function getCommands(
     { camelCase: true },
   );
 }
+
+export function getDeviceCommands(
+  deviceId: string,
+  params: URLSearchParams,
+): Promise<Page<DeviceCommand>> {
+  const qs = params.toString();
+  return request<Page<DeviceCommand>>(
+    `/devices/${deviceId}/commands${qs ? `?${qs}` : ""}`,
+    undefined,
+    { camelCase: true },
+  );
+}

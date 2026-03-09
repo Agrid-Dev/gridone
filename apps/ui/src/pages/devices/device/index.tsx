@@ -7,6 +7,7 @@ import DeviceHistoryTable from "./device-history/DeviceHistoryTable";
 import DeviceHistoryChart from "./device-history/DeviceHistoryChart";
 import DeviceCreate from "./DeviceCreate";
 import DeviceEdit from "./DeviceEdit";
+import DeviceCommandsPage from "./DeviceCommandsPage";
 
 const Device: FC = () => (
   <Routes>
@@ -19,6 +20,7 @@ const Device: FC = () => (
       <Route path="table" element={<DeviceHistoryTable />} />
       <Route path="chart" element={<DeviceHistoryChart />} />
     </Route>
+    <Route path=":deviceId/commands" element={<DeviceCommandsPage />} />
     <Route path=":deviceId/edit" element={<DeviceEdit />} />
   </Routes>
 );
