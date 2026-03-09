@@ -339,6 +339,26 @@ class TestLogCommand:
         assert command.value == "auto"
 
 
+class TestGetCommandsByIds:
+    async def test_empty_ids_returns_empty(self, service: TimeSeriesService):
+        result = await service.get_commands_by_ids([])
+        assert result == []
+
+    async def test_returns_matching_commands(self, service: TimeSeriesService):
+        cmd1 = await service.log_command(make_command(device_id="d1"))
+        await service.log_command(make_command(device_id="d2"))
+        cmd3 = await service.log_command(make_command(device_id="d3"))
+        result = await service.get_commands_by_ids([cmd1.id, cmd3.id])
+        returned_ids = {c.id for c in result}
+        assert returned_ids == {cmd1.id, cmd3.id}
+
+    async def test_missing_ids_are_ignored(self, service: TimeSeriesService):
+        cmd = await service.log_command(make_command(device_id="d1"))
+        result = await service.get_commands_by_ids([cmd.id, 9999])
+        assert len(result) == 1
+        assert result[0].id == cmd.id
+
+
 class TestGetCommands:
     async def test_empty(self, service: TimeSeriesService):
         page = await service.get_commands()

@@ -10,7 +10,7 @@ from devices_manager.dto.device_dto import (
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
-from models.pagination import PaginationParams
+from models.pagination import Page, PaginationParams
 from timeseries.domain import (
     CommandStatus,
     DataPoint,
@@ -46,6 +46,7 @@ def list_devices(
 @router.get("/commands")
 async def get_commands(
     request: Request,
+    ids: list[int] | None = Query(None),
     device_id: str | None = Query(None),
     attribute: str | None = Query(None),
     user_id: str | None = Query(None),
@@ -56,6 +57,10 @@ async def get_commands(
     pagination: PaginationParams = Depends(get_pagination_params),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> PaginatedResponse[DeviceCommand]:
+    if ids is not None:
+        items = await ts.get_commands_by_ids(ids)
+        page = Page(items=items, total=len(items), page=1, size=max(len(items), 1))
+        return to_paginated_response(page, str(request.url))
     page = await ts.get_commands(
         device_id=device_id,
         attribute=attribute,

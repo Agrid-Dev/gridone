@@ -153,6 +153,11 @@ class TimeSeriesService:
     async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
         return await self._storage.save_command(command)
 
+    async def get_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
+        if not ids:
+            return []
+        return await self._storage.query_commands_by_ids(ids)
+
     async def export_png(  # noqa: PLR0913
         self,
         series_ids: list[str],

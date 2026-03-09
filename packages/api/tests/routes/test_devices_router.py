@@ -304,6 +304,50 @@ class TestGetDevicesCommands:
         )
 
 
+class TestGetCommandsByIds:
+    @pytest.mark.asyncio
+    async def test_ids_param_calls_get_commands_by_ids(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands_by_ids.return_value = []
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"ids": [1, 2, 3]})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        mock_ts_service.get_commands_by_ids.assert_called_once_with([1, 2, 3])
+        mock_ts_service.get_commands.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_ids_param_returns_commands(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        from timeseries.domain import CommandStatus, DataType, DeviceCommand
+
+        cmd = DeviceCommand(
+            id=1,
+            device_id="dev-1",
+            attribute="temp",
+            user_id="user-1",
+            value=22.0,
+            data_type=DataType.FLOAT,
+            status=CommandStatus.SUCCESS,
+            timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            status_details=None,
+        )
+        mock_ts_service.get_commands_by_ids.return_value = [cmd]
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"ids": [1]})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["page"] == 1
+        assert len(data["items"]) == 1
+        assert data["items"][0]["id"] == 1
+        assert data["items"][0]["device_id"] == "dev-1"
+
+
 class TestGetDeviceCommands:
     @pytest.mark.asyncio
     async def test_path_device_id_takes_precedence_over_query_param(
