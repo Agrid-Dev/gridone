@@ -1,3 +1,9 @@
+## v0.5.0 (2026-03-09)
+
+### Feat
+
+- **ui**: device commands history
+
 ## v0.4.0 (2026-03-09)
 
 ### Feat
