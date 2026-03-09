@@ -1,3 +1,13 @@
+## v0.4.0 (2026-03-09)
+
+### Feat
+
+- **ui**: commands history table
+
+### Refactor
+
+- **timeseries**: refactor use commands hook to use pagination links
+
 ## v0.3.0 (2026-03-05)
 
 ### Feat
