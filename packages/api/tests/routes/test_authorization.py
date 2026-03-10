@@ -21,9 +21,21 @@ class MockUsersManager:
             "viewer": "viewer",
         }
         self._users = {
-            "admin": User(id="admin-id", username="admin", role=Role.ADMIN),
-            "operator": User(id="operator-id", username="operator", role=Role.OPERATOR),
-            "viewer": User(id="viewer-id", username="viewer", role=Role.VIEWER),
+            "admin": User(
+                id="admin-id", username="admin", role=Role.ADMIN, name="Alice Admin"
+            ),
+            "operator": User(
+                id="operator-id",
+                username="operator",
+                role=Role.OPERATOR,
+                name="Bob Operator",
+            ),
+            "viewer": User(
+                id="viewer-id",
+                username="viewer",
+                role=Role.VIEWER,
+                name="Charlie Viewer",
+            ),
         }
 
     async def authenticate(self, username: str, password: str) -> User | None:
@@ -120,11 +132,17 @@ def test_operator_me_has_no_user_permissions(app: FastAPI) -> None:
 # --- Viewer cannot access write endpoints ---
 
 
-def test_viewer_cannot_list_users(app: FastAPI) -> None:
+def test_viewer_gets_basic_user_list(app: FastAPI) -> None:
     with TestClient(app) as client:
         token = _login(client, "viewer")
         resp = client.get("/users/", headers=_auth_header(token))
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 3
+        assert all(set(u.keys()) == {"id", "display_name"} for u in data)
+        names = {u["display_name"] for u in data}
+        assert "Alice A." in names
+        assert "Bob O." in names
 
 
 def test_viewer_me_has_read_only_permissions(app: FastAPI) -> None:

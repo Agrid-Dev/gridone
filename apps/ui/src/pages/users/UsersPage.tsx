@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listUsers, createUser, updateUser, deleteUser } from "@/api/users";
 import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
+import type { UserRole } from "@/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
@@ -17,12 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-type Role = "admin" | "operator" | "viewer";
-
 type UserFormData = {
   username: string;
   password: string;
-  role: Role;
+  role: UserRole;
   name: string;
   email: string;
   title: string;
@@ -290,7 +289,7 @@ export default function UsersPage() {
               <select
                 value={form.role}
                 onChange={(e) =>
-                  setForm({ ...form, role: e.target.value as Role })
+                  setForm({ ...form, role: e.target.value as UserRole })
                 }
                 className="flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
               >

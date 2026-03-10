@@ -1,13 +1,13 @@
 import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
-import type { CurrentUser } from "./auth";
+import type { CurrentUser, UserRole } from "./auth";
 
 export type User = CurrentUser;
 
 export type UserCreatePayload = {
   username: string;
   password: string;
-  role?: "admin" | "operator" | "viewer";
+  role?: UserRole;
   name?: string;
   email?: string;
   title?: string;
@@ -16,7 +16,7 @@ export type UserCreatePayload = {
 export type UserUpdatePayload = {
   username?: string;
   password?: string;
-  role?: "admin" | "operator" | "viewer";
+  role?: UserRole;
   name?: string;
   email?: string;
   title?: string;

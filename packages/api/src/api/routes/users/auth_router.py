@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -167,10 +166,7 @@ async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> MeResponse:
-    try:
-        user = await um.get_by_id(current_user_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    user = await um.get_by_id(current_user_id)
     return MeResponse(
         **user.model_dump(),
         permissions=get_permissions_for_role(user.role),

@@ -6,10 +6,12 @@ export type LoginPayload = {
   password: string;
 };
 
+export type UserRole = "admin" | "operator" | "viewer";
+
 export type CurrentUser = {
   id: string;
   username: string;
-  role: "admin" | "operator" | "viewer";
+  role: UserRole;
   name: string;
   email: string;
   title: string;

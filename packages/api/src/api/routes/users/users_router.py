@@ -11,8 +11,16 @@ from users.validation import (
     USERNAME_MAX_LENGTH,
     USERNAME_MIN_LENGTH,
 )
-from api.dependencies import get_current_user_id, get_users_manager, require_permission
-from api.permissions import Permission
+from users.auth import TokenPayload
+from users.models import Role as RoleEnum
+
+from api.dependencies import (
+    get_current_token_payload,
+    get_current_user_id,
+    get_users_manager,
+    require_permission,
+)
+from api.permissions import Permission, get_permissions_for_role
 
 router = APIRouter()
 
@@ -28,6 +36,19 @@ PasswordField = Annotated[
     str,
     StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
 ]
+
+
+class UserBasic(BaseModel):
+    id: str
+    display_name: str
+
+
+def _make_display_name(name: str) -> str:
+    """Return 'First L.' from a full name, or the name as-is if single word / empty."""
+    parts = name.split()
+    if len(parts) >= 2:
+        return f"{parts[0]} {parts[-1][0]}."
+    return name
 
 
 class UserCreateRequest(BaseModel):
@@ -48,15 +69,23 @@ class UserUpdateRequest(BaseModel):
     title: str | None = None
 
 
-@router.get(
-    "/",
-    response_model=list[User],
-    dependencies=[Depends(require_permission(Permission.USERS_READ))],
-)
+@router.get("/")
 async def list_users(
+    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
-) -> list[User]:
-    return await um.list_users()
+) -> list[User] | list[UserBasic]:
+    perms = get_permissions_for_role(RoleEnum(payload.role))
+    if Permission.USERS_READ in perms:
+        return await um.list_users()
+    if Permission.USERS_READ_BASIC in perms:
+        users = await um.list_users()
+        return [
+            UserBasic(id=u.id, display_name=_make_display_name(u.name)) for u in users
+        ]
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"Permission denied: requires {Permission.USERS_READ}",
+    )
 
 
 @router.post(

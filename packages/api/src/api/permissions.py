@@ -7,6 +7,7 @@ from users.models import Role
 
 class Permission(StrEnum):
     USERS_READ = "users:read"
+    USERS_READ_BASIC = "users:read:basic"
     USERS_WRITE = "users:write"
     DEVICES_READ = "devices:read"
     DEVICES_WRITE = "devices:write"
@@ -33,6 +34,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.TIMESERIES_READ,
     },
     Role.VIEWER: {
+        Permission.USERS_READ_BASIC,
         Permission.DEVICES_READ,
         Permission.ASSETS_READ,
         Permission.TRANSPORTS_READ,
