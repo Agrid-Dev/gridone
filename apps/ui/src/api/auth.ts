@@ -9,11 +9,12 @@ export type LoginPayload = {
 export type CurrentUser = {
   id: string;
   username: string;
-  isAdmin: boolean;
+  role: "admin" | "operator" | "viewer";
   name: string;
   email: string;
   title: string;
   mustChangePassword: boolean;
+  permissions: string[];
 };
 
 export async function login(payload: LoginPayload): Promise<void> {

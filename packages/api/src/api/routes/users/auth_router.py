@@ -5,14 +5,16 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
-from users import User, UsersManager
+from users import UsersManager
 from users.auth import AuthService, InvalidTokenError
+from users.models import Role
 from users.validation import get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
     get_current_user_id,
     get_users_manager,
 )
+from api.permissions import get_permissions_for_role
 
 router = APIRouter()
 
@@ -80,8 +82,8 @@ async def login(
             detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token = auth_service.create_access_token(user.id)
-    refresh_token = auth_service.create_refresh_token(user.id)
+    access_token = auth_service.create_access_token(user.id, user.role)
+    refresh_token = auth_service.create_refresh_token(user.id, user.role)
 
     _set_token_cookies(
         response,
@@ -122,8 +124,8 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
 
-    access_token = auth_service.create_access_token(payload.sub)
-    refresh_token = auth_service.create_refresh_token(payload.sub)
+    access_token = auth_service.create_access_token(payload.sub, payload.role)
+    refresh_token = auth_service.create_refresh_token(payload.sub, payload.role)
 
     _set_token_cookies(
         response,
@@ -149,12 +151,27 @@ async def get_auth_schema() -> dict:
     return get_auth_payload_schema()
 
 
-@router.get("/me", response_model=User)
+class MeResponse(BaseModel):
+    id: str
+    username: str
+    role: Role
+    name: str
+    email: str
+    title: str
+    must_change_password: bool
+    permissions: list[str]
+
+
+@router.get("/me", response_model=MeResponse)
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
-) -> User:
+) -> MeResponse:
     try:
-        return await um.get_by_id(current_user_id)
+        user = await um.get_by_id(current_user_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return MeResponse(
+        **user.model_dump(),
+        permissions=get_permissions_for_role(user.role),
+    )

@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from assets import AssetsManager
 from devices_manager import DevicesManager
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -5,7 +7,10 @@ from fastapi.security import OAuth2PasswordBearer
 from models.pagination import PaginationParams
 from timeseries import TimeSeriesService
 from users import UsersManager
-from users.auth import AuthService, InvalidTokenError
+from users.auth import AuthService, InvalidTokenError, TokenPayload
+from users.models import Role
+
+from api.permissions import ROLE_PERMISSIONS, Permission
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -30,12 +35,12 @@ def get_auth_service(request: Request) -> AuthService:
     return request.app.state.auth_service
 
 
-async def get_current_user_id(
+async def get_current_token_payload(
     request: Request,
     token: str | None = Depends(_oauth2_scheme),
     auth_service: AuthService = Depends(get_auth_service),
-) -> str:
-    # Authorization header (Swagger / Postman) takes precedence, then cookie
+) -> TokenPayload:
+    """Extract and validate the full JWT payload (user id + role)."""
     if token is None:
         token = request.cookies.get("access_token")
     if token is None:
@@ -45,14 +50,37 @@ async def get_current_user_id(
             headers={"WWW-Authenticate": "Bearer"},
         )
     try:
-        payload = auth_service.decode_token(token, expected_type="access")
+        return auth_service.decode_token(token, expected_type="access")
     except InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+
+async def get_current_user_id(
+    payload: TokenPayload = Depends(get_current_token_payload),
+) -> str:
     return payload.sub
+
+
+def require_permission(perm: Permission) -> Callable:  # type: ignore[type-arg]
+    """Factory that returns a FastAPI dependency enforcing *perm*."""
+
+    async def _check(
+        payload: TokenPayload = Depends(get_current_token_payload),
+    ) -> str:
+        role = Role(payload.role)
+        allowed = ROLE_PERMISSIONS.get(role, set())
+        if perm not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: requires {perm}",
+            )
+        return payload.sub
+
+    return _check
 
 
 def get_pagination_params(

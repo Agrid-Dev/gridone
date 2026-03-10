@@ -10,7 +10,11 @@ from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
 from timeseries.domain import DeviceCommandCreate, SortOrder
 
-from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
+from api.dependencies import (
+    get_current_token_payload,
+    get_device_manager,
+    get_ts_service,
+)
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 
@@ -21,7 +25,9 @@ def mock_ts_service():
 
 
 @pytest.fixture
-def app(mock_devices, mock_drivers, mock_transports, mock_ts_service) -> FastAPI:
+def app(
+    mock_devices, mock_drivers, mock_transports, mock_ts_service, admin_token_payload
+) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
@@ -33,7 +39,7 @@ def app(mock_devices, mock_drivers, mock_transports, mock_ts_service) -> FastAPI
 
     app.dependency_overrides[get_device_manager] = get_mock_devices_manager
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
-    app.dependency_overrides[get_current_user_id] = lambda: "test-user"
+    app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     return app
 
 

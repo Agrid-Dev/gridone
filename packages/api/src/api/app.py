@@ -103,7 +103,8 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     # Public routes (no JWT required)
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
 
-    # Protected routes (JWT required)
+    # Protected routes — permissions are enforced per endpoint inside each router.
+    # A blanket JWT dep is still applied so unauthenticated requests get a 401.
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(
         users_router, prefix="/users", tags=["users"], dependencies=jwt_dep

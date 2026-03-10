@@ -7,7 +7,7 @@ export type User = CurrentUser;
 export type UserCreatePayload = {
   username: string;
   password: string;
-  isAdmin?: boolean;
+  role?: "admin" | "operator" | "viewer";
   name?: string;
   email?: string;
   title?: string;
@@ -16,7 +16,7 @@ export type UserCreatePayload = {
 export type UserUpdatePayload = {
   username?: string;
   password?: string;
-  isAdmin?: boolean;
+  role?: "admin" | "operator" | "viewer";
   name?: string;
   email?: string;
   title?: string;

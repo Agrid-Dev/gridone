@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import get_users_manager
 from api.routes.users.auth_router import router
-from users import User
+from users import Role, User
 from users.auth import AuthService
 from users.validation import (
     PASSWORD_MAX_LENGTH,
@@ -21,7 +21,7 @@ class MockUsersManager:
             "admin": User(
                 id="admin-id",
                 username="admin",
-                is_admin=True,
+                role=Role.ADMIN,
             )
         }
 
@@ -203,7 +203,12 @@ def test_me_with_bearer_header(client: TestClient) -> None:
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
-    assert response.json()["username"] == "admin"
+    data = response.json()
+    assert data["username"] == "admin"
+    assert data["role"] == "admin"
+    assert "permissions" in data
+    assert "users:read" in data["permissions"]
+    assert "devices:read" in data["permissions"]
 
 
 def test_me_with_cookie(client: TestClient) -> None:

@@ -14,6 +14,7 @@ import { listTransports, type Transport } from "@/api/transports";
 import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { usePermissions } from "@/contexts/AuthContext";
 import { Plus, RefreshCw } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
@@ -79,6 +80,7 @@ function TransportCard({ transport }: TransportCardProps) {
 
 export default function TransportsList() {
   const { t } = useTranslation();
+  const can = usePermissions();
 
   const {
     data: transports = [],
@@ -114,12 +116,14 @@ export default function TransportsList() {
               <RefreshCw />
               {isFetching ? t("common.refreshing") : t("common.refresh")}
             </Button>
-            <Button asChild>
-              <Link to="/transports/new">
-                <Plus />
-                {t("transports.createAction")}
-              </Link>
-            </Button>
+            {can("transports:write") && (
+              <Button asChild>
+                <Link to="/transports/new">
+                  <Plus />
+                  {t("transports.createAction")}
+                </Link>
+              </Button>
+            )}
           </>
         }
       />

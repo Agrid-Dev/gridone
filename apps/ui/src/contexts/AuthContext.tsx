@@ -64,3 +64,14 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
+
+/**
+ * Returns a helper to check if the current user has a given permission.
+ * Usage: const can = usePermissions(); if (can("devices:write")) { ... }
+ */
+export function usePermissions(): (perm: string) => boolean {
+  const { state } = useAuth();
+  if (state.status !== "authenticated") return () => false;
+  const perms = new Set(state.user.permissions);
+  return (perm: string) => perms.has(perm);
+}

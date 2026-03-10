@@ -14,12 +14,14 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { History, Trash } from "lucide-react";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
+import { usePermissions } from "@/contexts/AuthContext";
 
 export default function DeviceLayout() {
   const { t } = useTranslation();
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
   const { handleDelete, isDeleting } = useDeleteDevice();
+  const can = usePermissions();
 
   if (isLoading) {
     return (
@@ -47,22 +49,26 @@ export default function DeviceLayout() {
         title={device.name || device.id || ""}
         actions={
           <>
-            <ConfirmButton
-              variant="destructive"
-              onConfirm={() => handleDelete(deviceId)}
-              confirmTitle={t("devices.actions.deleteDialogTitle")}
-              confirmDetails={t("devices.actions.deleteDialogContent", {
-                name: device.name || deviceId,
-              })}
-              icon={<Trash />}
-              disabled={isDeleting}
-            >
-              {t("devices.actions.delete")}
-            </ConfirmButton>
+            {can("devices:write") && (
+              <>
+                <ConfirmButton
+                  variant="destructive"
+                  onConfirm={() => handleDelete(deviceId)}
+                  confirmTitle={t("devices.actions.deleteDialogTitle")}
+                  confirmDetails={t("devices.actions.deleteDialogContent", {
+                    name: device.name || deviceId,
+                  })}
+                  icon={<Trash />}
+                  disabled={isDeleting}
+                >
+                  {t("devices.actions.delete")}
+                </ConfirmButton>
 
-            <Button asChild variant="outline">
-              <Link to="edit">{t("devices.actions.edit")}</Link>
-            </Button>
+                <Button asChild variant="outline">
+                  <Link to="edit">{t("devices.actions.edit")}</Link>
+                </Button>
+              </>
+            )}
 
             <Button asChild variant="outline">
               <Link to="commands">

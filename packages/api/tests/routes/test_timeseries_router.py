@@ -11,7 +11,7 @@ from models.errors import NotFoundError
 from timeseries import TimeSeriesService, create_service
 from timeseries.domain import DataPoint, DataType, SeriesKey
 
-from api.dependencies import get_ts_service
+from api.dependencies import get_current_token_payload, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.timeseries_router import router
 
@@ -26,11 +26,12 @@ async def ts_service() -> TimeSeriesService:
 
 
 @pytest.fixture
-def app(ts_service: TimeSeriesService) -> FastAPI:
+def app(ts_service: TimeSeriesService, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_ts_service] = lambda: ts_service
+    app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     return app
 
 
@@ -461,11 +462,14 @@ class TestExportPng:
         return mock
 
     @pytest.fixture
-    def png_app(self, stub_ts: AsyncMock) -> FastAPI:
+    def png_app(self, stub_ts: AsyncMock, admin_token_payload) -> FastAPI:
         app = FastAPI()
         register_exception_handlers(app)
         app.include_router(router)
         app.dependency_overrides[get_ts_service] = lambda: stub_ts
+        app.dependency_overrides[get_current_token_payload] = lambda: (
+            admin_token_payload
+        )
         return app
 
     @pytest.fixture

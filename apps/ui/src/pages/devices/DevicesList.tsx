@@ -5,12 +5,14 @@ import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { usePermissions } from "@/contexts/AuthContext";
 import { History, Plus, RefreshCw } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
   const { devices, loading, error, refreshing, fetchDevices } =
     useDevicesList();
+  const can = usePermissions();
 
   return (
     <section className="space-y-6">
@@ -33,12 +35,14 @@ export default function DevicesList() {
                 {t("commands.title")}
               </Link>
             </Button>
-            <Button asChild>
-              <Link to="/devices/new">
-                <Plus />
-                {t("devices.create.title")}
-              </Link>
-            </Button>
+            {can("devices:write") && (
+              <Button asChild>
+                <Link to="/devices/new">
+                  <Plus />
+                  {t("devices.create.title")}
+                </Link>
+              </Button>
+            )}
           </>
         }
       />

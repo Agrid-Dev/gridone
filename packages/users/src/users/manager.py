@@ -2,7 +2,7 @@ import uuid
 
 from models.errors import NotFoundError
 
-from users.models import User, UserCreate, UserInDB, UserUpdate
+from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage.storage_backend import UsersStorageBackend
 
@@ -38,7 +38,7 @@ class UsersManager:
             id=str(uuid.uuid4()),
             username="admin",
             hashed_password=hash_password("admin"),
-            is_admin=True,
+            role=Role.ADMIN,
             must_change_password=True,
         )
         await self._storage.save(admin)
@@ -74,7 +74,7 @@ class UsersManager:
             id=str(uuid.uuid4()),
             username=create_data.username,
             hashed_password=hash_password(create_data.password),
-            is_admin=create_data.is_admin,
+            role=create_data.role,
             name=create_data.name,
             email=create_data.email,
             title=create_data.title,
