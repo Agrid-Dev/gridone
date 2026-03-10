@@ -1,3 +1,9 @@
+## v0.6.0 (2026-03-10)
+
+### Feat
+
+- OAuth2 compliance with refresh tokens and httpOnly cookies
+
 ## v0.5.1 (2026-03-09)
 
 ### Fix
