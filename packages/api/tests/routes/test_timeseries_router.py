@@ -149,6 +149,36 @@ class TestGetPoints:
         assert len(points) == 1
         assert points[0]["value"] == 23.5
 
+    async def test_command_id_null_when_not_set(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        now = datetime.now(tz=UTC)
+        await ts_service.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
+        async with async_client as ac:
+            response = await ac.get(f"/{series.id}/points")
+        assert response.json()[0]["command_id"] is None
+
+    async def test_command_id_in_response(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        series = await ts_service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        now = datetime.now(tz=UTC)
+        await ts_service.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=42)]
+        )
+        async with async_client as ac:
+            response = await ac.get(f"/{series.id}/points")
+        assert response.json()[0]["command_id"] == 42
+
     async def test_filter_start(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
     ):

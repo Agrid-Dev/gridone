@@ -6,7 +6,7 @@ from typing import TypeVar
 
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 
-from .core.device import AttributeListener, Device, DeviceBase
+from .core.device import Attribute, AttributeListener, Device, DeviceBase
 from .core.discovery_manager import (
     DevicesDiscoveryManager,
     DiscoveryContext,
@@ -155,6 +155,9 @@ class DevicesManager:
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
+        if self._storage:
+            dto = device_core_to_dto(device)
+            await self._storage.devices.write(dto.id, dto)
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._create_device(device_create)
@@ -164,10 +167,7 @@ class DevicesManager:
             device_create.name,
             device.id,
         )
-        dto = device_core_to_dto(device)
-        if self._storage:
-            await self._storage.devices.write(dto.id, dto)
-        return dto
+        return device_core_to_dto(device)
 
     def add_device_attribute_listener(
         self,
@@ -456,12 +456,14 @@ class DevicesManager:
         value: AttributeValueType,
         *,
         confirm: bool = True,
-    ) -> None:
+    ) -> Attribute:
         device = self._get_or_raise(self._devices, device_id, "Device")
         if attribute_name not in device.attributes:
             msg = f"Attribute '{attribute_name}' not found on device {device_id}"
             raise NotFoundError(msg)
-        await device.write_attribute_value(attribute_name, value, confirm=confirm)
+        return await device.write_attribute_value(
+            attribute_name, value, confirm=confirm
+        )
 
     async def delete_device(self, device_id: str) -> None:
         self._get_or_raise(self._devices, device_id, "Device")

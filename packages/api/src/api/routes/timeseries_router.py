@@ -15,7 +15,7 @@ class ExportQueryParams(BaseModel):
     start: datetime | None = None
     end: datetime | None = None
     last: str | None = None
-    carry_forward: bool = False
+    carry_forward: bool = True
     title: str | None = None
 
 
@@ -24,7 +24,7 @@ def get_export_query_params(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
-    carry_forward: bool = Query(False),
+    carry_forward: bool = Query(True),
     title: str | None = Query(None),
 ) -> ExportQueryParams:
     return ExportQueryParams(
@@ -92,4 +92,7 @@ async def get_points(
     points = await ts.fetch_points(
         series.key, start=start, end=end, last=last, carry_forward=carry_forward
     )
-    return [DataPointResponse(timestamp=p.timestamp, value=p.value) for p in points]
+    return [
+        DataPointResponse(timestamp=p.timestamp, value=p.value, command_id=p.command_id)
+        for p in points
+    ]

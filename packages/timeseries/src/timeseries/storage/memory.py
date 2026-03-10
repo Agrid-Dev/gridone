@@ -8,12 +8,11 @@ from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
 
-from timeseries.domain import DeviceCommand
+from timeseries.domain import DataPoint, DeviceCommand, SortOrder
 
 if TYPE_CHECKING:
     from timeseries.domain import (
         AttributeValueType,
-        DataPoint,
         DeviceCommandCreate,
         SeriesKey,
         TimeSeries,
@@ -50,10 +49,13 @@ class CommandMemoryStorage:
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]:
         results = self._apply_filters(filters)
+        if sort == SortOrder.DESC:
+            results = list(reversed(results))
         if offset is not None:
             results = results[offset:]
         if limit is not None:
@@ -151,7 +153,15 @@ class MemoryStorage:
         series = self._series[series_id]
         existing = {p.timestamp: p for p in series.data_points}
         for p in points:
-            existing[p.timestamp] = p
+            prev = existing.get(p.timestamp)
+            resolved_id = (
+                p.command_id
+                if p.command_id is not None
+                else (prev.command_id if prev is not None else None)
+            )
+            existing[p.timestamp] = DataPoint(
+                timestamp=p.timestamp, value=p.value, command_id=resolved_id
+            )
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
 
@@ -162,10 +172,13 @@ class MemoryStorage:
         self,
         filters: CommandsQueryFilters,
         *,
+        sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
     ) -> list[DeviceCommand]:
-        return self._command_history.query(filters, limit=limit, offset=offset)
+        return self._command_history.query(
+            filters, sort=sort, limit=limit, offset=offset
+        )
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         return self._command_history.count(filters)

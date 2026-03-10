@@ -11,6 +11,7 @@ from timeseries.domain import (
     DataType,
     DeviceCommandCreate,
     SeriesKey,
+    SortOrder,
     TimeSeries,
 )
 from timeseries.domain.filters import CommandsQueryFilters
@@ -167,6 +168,38 @@ class TestUpsertPoints:
         unknown = SeriesKey(owner_id="y", metric="z")
         with pytest.raises(NotFoundError, match="No series found"):
             await storage.upsert_points(unknown, [])
+
+    async def test_command_id_stored_and_fetched(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        point = DataPoint(timestamp=now, value=1.0, command_id=7)
+        await storage.upsert_points(KEY, [point])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 7
+
+    async def test_coalesce_preserves_command_id_when_absent(
+        self, storage: MemoryStorage
+    ):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=5)]
+        )
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 5
+
+    async def test_command_id_overwritten_when_provided(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=5)]
+        )
+        await storage.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=1.0, command_id=10)]
+        )
+        fetched = await storage.fetch_points(KEY)
+        assert fetched[0].command_id == 10
 
 
 class TestFetchPointBefore:
@@ -392,6 +425,30 @@ class TestQueryCommands:
         assert len(results) == 2
         assert results[0].device_id == "d1"
         assert results[1].device_id == "d2"
+
+    async def test_sort_asc(self, storage: MemoryStorage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(make_command(timestamp=t1))
+        await storage.save_command(make_command(timestamp=t2))
+        await storage.save_command(make_command(timestamp=t3))
+        results = await storage.query_commands(
+            CommandsQueryFilters(), sort=SortOrder.ASC
+        )
+        assert [r.timestamp for r in results] == [t1, t2, t3]
+
+    async def test_sort_desc(self, storage: MemoryStorage):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await storage.save_command(make_command(timestamp=t1))
+        await storage.save_command(make_command(timestamp=t2))
+        await storage.save_command(make_command(timestamp=t3))
+        results = await storage.query_commands(
+            CommandsQueryFilters(), sort=SortOrder.DESC
+        )
+        assert [r.timestamp for r in results] == [t3, t2, t1]
 
 
 class TestCountCommands:

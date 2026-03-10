@@ -1,3 +1,37 @@
+## v0.5.1 (2026-03-09)
+
+### Fix
+
+- png and csv export bug (#113)
+
+## v0.5.0 (2026-03-09)
+
+### Feat
+
+- **ui**: device commands history
+
+## v0.4.0 (2026-03-09)
+
+### Feat
+
+- **ui**: commands history table
+
+### Refactor
+
+- **timeseries**: refactor use commands hook to use pagination links
+
+## v0.3.0 (2026-03-05)
+
+### Feat
+
+- **timeseries**: support for sorting commands by timestamp
+
+## v0.2.1 (2026-03-05)
+
+### Fix
+
+- persist discovered devices to storage
+
 ## v0.2.0 (2026-03-05)
 
 ### Feat

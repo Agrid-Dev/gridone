@@ -16,3 +16,4 @@ class TimeSeriesResponse(BaseModel):
 class DataPointResponse(BaseModel):
     timestamp: datetime
     value: AttributeValueType
+    command_id: int | None = None

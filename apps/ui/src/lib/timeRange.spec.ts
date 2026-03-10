@@ -75,8 +75,8 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
     expect(result).toEqual({ kind: "preset", preset: DEFAULT_PRESET });
   });
 
-  it("parses a valid preset", () => {
-    const params = new URLSearchParams("range=1d");
+  it("parses a valid preset from 'last' param", () => {
+    const params = new URLSearchParams("last=1d");
     expect(parseRangeParams(params)).toEqual({
       kind: "preset",
       preset: "1d",
@@ -84,16 +84,16 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
   });
 
   it("parses 'all' preset", () => {
-    const params = new URLSearchParams("range=all");
+    const params = new URLSearchParams("last=all");
     expect(parseRangeParams(params)).toEqual({
       kind: "preset",
       preset: "all",
     });
   });
 
-  it("parses custom from/to", () => {
+  it("parses custom start/end", () => {
     const params = new URLSearchParams(
-      "from=2026-01-01T00:00:00Z&to=2026-01-31T23:59:59Z",
+      "start=2026-01-01T00:00:00Z&end=2026-01-31T23:59:59Z",
     );
     expect(parseRangeParams(params)).toEqual({
       kind: "custom",
@@ -103,7 +103,7 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
   });
 
   it("ignores invalid preset and falls back to default", () => {
-    const params = new URLSearchParams("range=invalid");
+    const params = new URLSearchParams("last=invalid");
     expect(parseRangeParams(params)).toEqual({
       kind: "preset",
       preset: DEFAULT_PRESET,
@@ -113,6 +113,13 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
   it("round-trips a preset through write → parse", () => {
     const range: TimeRange = { kind: "preset", preset: "7d" };
     const written = writeRangeParams(new URLSearchParams(), range);
+    expect(parseRangeParams(written)).toEqual(range);
+  });
+
+  it("round-trips 'all' preset through write → parse", () => {
+    const range: TimeRange = { kind: "preset", preset: "all" };
+    const written = writeRangeParams(new URLSearchParams(), range);
+    expect(written.get("last")).toBe("all");
     expect(parseRangeParams(written)).toEqual(range);
   });
 
@@ -129,8 +136,7 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
   it("round-trips the default preset (no params written)", () => {
     const range: TimeRange = { kind: "preset", preset: DEFAULT_PRESET };
     const written = writeRangeParams(new URLSearchParams(), range);
-    // Default preset produces no range param
-    expect(written.has("range")).toBe(false);
+    expect(written.has("last")).toBe(false);
     expect(parseRangeParams(written)).toEqual(range);
   });
 
@@ -142,6 +148,17 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
     });
     expect(written.get("page")).toBe("3");
     expect(written.get("foo")).toBe("bar");
-    expect(written.get("range")).toBe("1h");
+    expect(written.get("last")).toBe("1h");
+  });
+
+  it("writeRangeParams cleans up previous time params", () => {
+    const base = new URLSearchParams("last=1d&start=old&end=old");
+    const written = writeRangeParams(base, {
+      kind: "preset",
+      preset: "1h",
+    });
+    expect(written.get("last")).toBe("1h");
+    expect(written.has("start")).toBe(false);
+    expect(written.has("end")).toBe(false);
   });
 });

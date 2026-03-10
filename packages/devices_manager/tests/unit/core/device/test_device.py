@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from devices_manager.core import Driver, TransportClient
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.device import Attribute, Device, DeviceBase
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
@@ -160,6 +160,17 @@ class TestDeviceWrite:
         mock_transport_client.write.assert_called_once()
         mock_transport_client.read.assert_called_once()
         assert device.attributes["temperature_setpoint"].current_value == 20
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_value_returns_attribute(
+        self, device: Device, mock_transport_client
+    ):
+        mock_transport_client.write = AsyncMock()
+        result = await device.write_attribute_value(
+            "temperature_setpoint", 20, confirm=False
+        )
+        assert isinstance(result, Attribute)
+        assert result.current_value == 20
 
     @pytest.mark.asyncio
     async def test_write_value_not_writable(self, device: Device):

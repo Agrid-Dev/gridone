@@ -11,7 +11,7 @@ import { useDevice } from "@/hooks/useDevice";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ConfirmButton } from "@/components/ConfirmButton";
-import { Trash } from "lucide-react";
+import { History, Trash } from "lucide-react";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 
@@ -62,6 +62,13 @@ export default function DeviceLayout() {
 
             <Button asChild variant="outline">
               <Link to="edit">{t("devices.actions.edit")}</Link>
+            </Button>
+
+            <Button asChild variant="outline">
+              <Link to="commands">
+                <History className="mr-2 h-4 w-4" />
+                {t("commands.title")}
+              </Link>
             </Button>
 
             <Button asChild variant="outline">

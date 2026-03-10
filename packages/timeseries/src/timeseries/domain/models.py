@@ -21,6 +21,7 @@ class SeriesKey:
 class DataPoint[T: (int, float, bool, str)]:
     timestamp: datetime
     value: T
+    command_id: int | None = None
 
 
 @dataclass
@@ -45,6 +46,11 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
     if type(value) is not expected:
         msg = f"Expected {expected.__name__}, got {type(value).__name__}"
         raise InvalidError(msg)
+
+
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
 
 
 class CommandStatus(StrEnum):

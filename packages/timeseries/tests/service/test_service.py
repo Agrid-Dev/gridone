@@ -12,6 +12,7 @@ from timeseries.domain import (
     DataType,
     DeviceCommandCreate,
     SeriesKey,
+    SortOrder,
 )
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
@@ -424,3 +425,13 @@ class TestGetCommands:
         assert len(page.items) == 3
         assert page.total == 3
         assert page.page == 1
+
+    async def test_sort_desc(self, service: TimeSeriesService):
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        t2 = datetime(2026, 1, 2, tzinfo=UTC)
+        t3 = datetime(2026, 1, 3, tzinfo=UTC)
+        await service.log_command(make_command(timestamp=t1))
+        await service.log_command(make_command(timestamp=t2))
+        await service.log_command(make_command(timestamp=t3))
+        page = await service.get_commands(sort=SortOrder.DESC)
+        assert [c.timestamp for c in page.items] == [t3, t2, t1]

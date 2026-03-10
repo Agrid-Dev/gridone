@@ -1,3 +1,6 @@
+import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
+import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
+import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
   createContext,
@@ -8,19 +11,11 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useSearchParams } from "react-router";
-import type { VisibilityState } from "@tanstack/react-table";
-import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
-import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
-import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import {
-  type TimeRange,
-  parseRangeParams,
-  writeRangeParams,
-  resolveTimeRange,
-} from "./timeRange";
+import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
+import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 5;
 
@@ -60,8 +55,6 @@ type DeviceHistoryContextValue = {
   filteredRows: MergedRow[];
   isLoading: boolean;
   error: Error | null;
-  timeRange: TimeRange;
-  setTimeRange: (range: TimeRange) => void;
   isDownloading: boolean;
   handleDownload: (format: "csv" | "png") => Promise<void>;
 };
@@ -82,20 +75,11 @@ export function DeviceHistoryProvider({
   children,
 }: DeviceHistoryProviderProps) {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-  const [timeRange, setTimeRangeState] = useState<TimeRange>(() =>
-    parseRangeParams(searchParams),
-  );
-
-  const setTimeRange = useCallback(
-    (range: TimeRange) => {
-      setTimeRangeState(range);
-      setSearchParams((prev) => writeRangeParams(prev, range), {
-        replace: true,
-      });
-    },
-    [setSearchParams],
+  const timeRange = useMemo(
+    () => parseRangeParams(searchParams),
+    [searchParams],
   );
 
   const resolved = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
@@ -221,10 +205,12 @@ export function DeviceHistoryProvider({
 
   const visibleSeriesIds = useMemo(
     () =>
-      series
-        .filter((s) => visibleAttributes.includes(s.metric))
-        .map((s) => s.id),
-    [series, visibleAttributes],
+      columnOrder
+        .filter((col) => col !== "timestamp" && visibleAttributes.includes(col))
+        .flatMap((metric) =>
+          series.filter((s) => s.metric === metric).map((s) => s.id),
+        ),
+    [series, visibleAttributes, columnOrder],
   );
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -267,8 +253,6 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
-      timeRange,
-      setTimeRange,
       isDownloading,
       handleDownload,
     }),
@@ -285,8 +269,6 @@ export function DeviceHistoryProvider({
       filteredRows,
       isLoading,
       error,
-      timeRange,
-      setTimeRange,
       isDownloading,
       handleDownload,
     ],

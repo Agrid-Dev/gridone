@@ -15,6 +15,7 @@ from timeseries.domain import (
     DeviceCommand,
     DeviceCommandCreate,
     SeriesKey,
+    SortOrder,
     TimeSeries,
     resolve_last,
     validate_value_type,
@@ -173,7 +174,7 @@ class TimeSeriesService:
             )
             all_series.append(series)
 
-        return to_png(all_series, title=title)
+        return to_png(all_series, title=title, end=end)
 
     async def get_commands(  # noqa: PLR0913
         self,
@@ -184,6 +185,7 @@ class TimeSeriesService:
         start: datetime | None = None,
         end: datetime | None = None,
         last: str | None = None,
+        sort: SortOrder = SortOrder.ASC,
         pagination: PaginationParams | None = None,
     ) -> Page[DeviceCommand]:
         if last is not None and start is None:
@@ -198,10 +200,13 @@ class TimeSeriesService:
         total = await self._storage.count_commands(filters)
         if pagination is not None:
             items = await self._storage.query_commands(
-                filters, limit=pagination.limit, offset=pagination.offset
+                filters,
+                sort=sort,
+                limit=pagination.limit,
+                offset=pagination.offset,
             )
             return Page(
                 items=items, total=total, page=pagination.page, size=pagination.size
             )
-        items = await self._storage.query_commands(filters)
+        items = await self._storage.query_commands(filters, sort=sort)
         return Page(items=items, total=total, page=1, size=max(total, 1))

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
-from timeseries.domain import DeviceCommandCreate
+from timeseries.domain import DeviceCommandCreate, SortOrder
 
 from api.dependencies import get_current_user_id, get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
@@ -220,6 +220,7 @@ class TestGetDevicesCommands:
             start=None,
             end=None,
             last=None,
+            sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
 
@@ -252,6 +253,7 @@ class TestGetDevicesCommands:
             start=start,
             end=end,
             last="7d",
+            sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
 
@@ -276,7 +278,29 @@ class TestGetDevicesCommands:
             start=None,
             end=None,
             last=None,
+            sort=SortOrder.ASC,
             pagination=PaginationParams(page=2, size=10),
+        )
+
+    @pytest.mark.asyncio
+    async def test_sort_param_passed_to_service(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=50
+        )
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"sort": "desc"})
+        assert response.status_code == 200
+        mock_ts_service.get_commands.assert_called_once_with(
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+            sort=SortOrder.DESC,
+            pagination=PaginationParams(page=1, size=50),
         )
 
 
@@ -304,6 +328,7 @@ class TestGetDeviceCommands:
             start=None,
             end=None,
             last=None,
+            sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
 
@@ -331,6 +356,25 @@ class TestUpdateAttribute:
         assert cmd.user_id == "test-user"
         assert cmd.status == "success"
         assert cmd.status_details is None
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_point_with_command_id(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
+    ):
+        mock_ts_service.log_command.return_value.id = 42
+        with patch.object(
+            DevicesManager, "write_device_attribute", new_callable=AsyncMock
+        ):
+            async with async_client as ac:
+                response = await ac.post(
+                    f"/{device_id}/temperature_setpoint",
+                    json={"value": 22.0},
+                )
+        assert response.status_code == 200
+        mock_ts_service.upsert_points.assert_called_once()
+        points = mock_ts_service.upsert_points.call_args[0][1]
+        assert len(points) == 1
+        assert points[0].command_id == 42
 
     @pytest.mark.asyncio
     async def test_permission_error_returns_400_without_logging(
