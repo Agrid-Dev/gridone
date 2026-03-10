@@ -1,5 +1,9 @@
+import type { DeviceCommand } from "@/api/commands";
 import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
+import type { User } from "@/api/users";
+import { useCommandsByIds } from "@/hooks/useCommandsByIds";
 import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
+import { useUsers } from "@/hooks/useUsers";
 import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
@@ -53,6 +57,8 @@ type DeviceHistoryContextValue = {
   allRows: MergedRow[];
   visibleAttributes: string[];
   filteredRows: MergedRow[];
+  commandsMap: Map<number, DeviceCommand>;
+  usersMap: Map<string, User>;
   isLoading: boolean;
   error: Error | null;
   isDownloading: boolean;
@@ -203,6 +209,21 @@ export function DeviceHistoryProvider({
     [allRows, visibleAttributes],
   );
 
+  // Collect unique command IDs from visible rows for batch fetching
+  const commandIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of allRows) {
+      for (const attr of availableAttributes) {
+        const id = row.commandIds[attr];
+        if (id != null) ids.add(id);
+      }
+    }
+    return [...ids];
+  }, [allRows, availableAttributes]);
+
+  const { commandsMap } = useCommandsByIds(commandIds);
+  const { usersMap } = useUsers();
+
   const visibleSeriesIds = useMemo(
     () =>
       columnOrder
@@ -251,6 +272,8 @@ export function DeviceHistoryProvider({
       allRows,
       visibleAttributes,
       filteredRows,
+      commandsMap,
+      usersMap,
       isLoading,
       error,
       isDownloading,
@@ -267,6 +290,8 @@ export function DeviceHistoryProvider({
       allRows,
       visibleAttributes,
       filteredRows,
+      commandsMap,
+      usersMap,
       isLoading,
       error,
       isDownloading,

@@ -435,3 +435,26 @@ class TestGetCommands:
         await service.log_command(make_command(timestamp=t3))
         page = await service.get_commands(sort=SortOrder.DESC)
         assert [c.timestamp for c in page.items] == [t3, t2, t1]
+
+    async def test_ids_returns_matching(self, service: TimeSeriesService):
+        cmd1 = await service.log_command(make_command(device_id="d1"))
+        await service.log_command(make_command(device_id="d2"))
+        cmd3 = await service.log_command(make_command(device_id="d3"))
+        page = await service.get_commands(ids=[cmd1.id, cmd3.id])
+        assert {c.id for c in page.items} == {cmd1.id, cmd3.id}
+        assert page.total == 2
+
+    async def test_ids_empty_returns_empty(self, service: TimeSeriesService):
+        page = await service.get_commands(ids=[])
+        assert page.items == []
+        assert page.total == 0
+
+    async def test_ids_missing_are_ignored(self, service: TimeSeriesService):
+        cmd = await service.log_command(make_command(device_id="d1"))
+        page = await service.get_commands(ids=[cmd.id, 9999])
+        assert len(page.items) == 1
+        assert page.items[0].id == cmd.id
+
+    async def test_ids_with_other_filters_raises(self, service: TimeSeriesService):
+        with pytest.raises(InvalidError, match="Cannot combine"):
+            await service.get_commands(ids=[1], device_id="d1")

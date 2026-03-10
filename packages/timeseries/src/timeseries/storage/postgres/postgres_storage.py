@@ -383,6 +383,27 @@ class PostgresStorage:
             for r in rows
         ]
 
+    async def query_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
+        if not ids:
+            return []
+        rows = await self._pool.fetch(
+            "SELECT * FROM ts_device_commands WHERE id = ANY($1)", ids
+        )
+        return [
+            DeviceCommand(
+                id=r["id"],
+                device_id=r["device_id"],
+                attribute=r["attribute"],
+                user_id=r["user_id"],
+                value=deserialize_command_value(r["value"], DataType(r["data_type"])),
+                data_type=DataType(r["data_type"]),
+                status=r["status"],
+                timestamp=r["timestamp"],
+                status_details=r["status_details"],
+            )
+            for r in rows
+        ]
+
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         where, params = self._build_commands_where(filters)
         query = f"SELECT COUNT(*) FROM ts_device_commands{where}"  # noqa: S608

@@ -24,6 +24,16 @@ export function getCommands(
   );
 }
 
+export function getCommandsByIds(ids: number[]): Promise<Page<DeviceCommand>> {
+  const params = new URLSearchParams();
+  for (const id of ids) params.append("ids", String(id));
+  return request<Page<DeviceCommand>>(
+    `/devices/commands?${params.toString()}`,
+    undefined,
+    { camelCase: true },
+  );
+}
+
 export function getDeviceCommands(
   deviceId: string,
   params: URLSearchParams,

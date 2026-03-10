@@ -214,6 +214,7 @@ class TestGetDevicesCommands:
         assert data["total_pages"] == 0
         assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -247,6 +248,7 @@ class TestGetDevicesCommands:
             )
         assert response.status_code == 200
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id="dev-1",
             attribute="temperature",
             user_id="user-42",
@@ -272,6 +274,7 @@ class TestGetDevicesCommands:
         assert data["size"] == 10
         assert data["total_pages"] == 10
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -293,6 +296,7 @@ class TestGetDevicesCommands:
             response = await ac.get("/commands", params={"sort": "desc"})
         assert response.status_code == 200
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -302,6 +306,48 @@ class TestGetDevicesCommands:
             sort=SortOrder.DESC,
             pagination=PaginationParams(page=1, size=50),
         )
+
+
+class TestGetCommandsByIds:
+    @pytest.mark.asyncio
+    async def test_ids_param_passed_to_service(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.get_commands.return_value = Page(
+            items=[], total=0, page=1, size=1
+        )
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"ids": [1, 2, 3]})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+        mock_ts_service.get_commands.assert_called_once_with(
+            ids=[1, 2, 3],
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            last=None,
+            sort=SortOrder.ASC,
+            pagination=PaginationParams(page=1, size=50),
+        )
+
+    @pytest.mark.asyncio
+    async def test_ids_with_other_filters_returns_422(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        from models.errors import InvalidError
+
+        mock_ts_service.get_commands.side_effect = InvalidError(
+            "Cannot combine 'ids' with other filters"
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                "/commands", params={"ids": [1], "device_id": "dev-1"}
+            )
+        assert response.status_code == 422
 
 
 class TestGetDeviceCommands:
@@ -322,6 +368,7 @@ class TestGetDeviceCommands:
         assert "items" in data
         assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
+            ids=None,
             device_id=device_id,
             attribute=None,
             user_id=None,

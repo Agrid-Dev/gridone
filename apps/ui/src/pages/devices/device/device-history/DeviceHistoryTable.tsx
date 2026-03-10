@@ -43,13 +43,16 @@ export default function DeviceHistoryTable() {
     columnOrder,
     setColumnOrder,
     filteredRows,
+    commandsMap,
+    usersMap,
     isLoading,
     error,
   } = useDeviceHistoryContext();
 
   const columns = useMemo(
-    () => buildColumns(availableAttributes, dataTypes, t),
-    [availableAttributes, dataTypes, t],
+    () =>
+      buildColumns(availableAttributes, dataTypes, t, commandsMap, usersMap),
+    [availableAttributes, dataTypes, t, commandsMap, usersMap],
   );
 
   // URL-synced pagination (1-based in URL, 0-based internally)
