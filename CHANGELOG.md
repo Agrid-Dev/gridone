@@ -1,3 +1,19 @@
+## v0.8.0 (2026-03-11)
+
+### Feat
+
+- changed display_name to name to make it retro-compatible
+- add role-based access control (RBAC) with admin/operator/viewer roles
+
+### Fix
+
+- pin uv 0.10.9 in CI, pin ty==0.0.1a25, fix duplicate import
+- AttributeUpdate imports
+
+### Refactor
+
+- fixes for authorization feature
+
 ## v0.7.0 (2026-03-10)
 
 ### Feat
