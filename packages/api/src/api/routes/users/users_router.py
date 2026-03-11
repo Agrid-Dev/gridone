@@ -40,7 +40,7 @@ PasswordField = Annotated[
 
 class UserBasic(BaseModel):
     id: str
-    display_name: str
+    name: str
 
 
 def _make_display_name(name: str) -> str:
@@ -79,9 +79,7 @@ async def list_users(
         return await um.list_users()
     if Permission.USERS_READ_BASIC in perms:
         users = await um.list_users()
-        return [
-            UserBasic(id=u.id, display_name=_make_display_name(u.name)) for u in users
-        ]
+        return [UserBasic(id=u.id, name=_make_display_name(u.name)) for u in users]
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"Permission denied: requires {Permission.USERS_READ}",

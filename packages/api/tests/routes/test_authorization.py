@@ -139,8 +139,8 @@ def test_viewer_gets_basic_user_list(app: FastAPI) -> None:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 3
-        assert all(set(u.keys()) == {"id", "display_name"} for u in data)
-        names = {u["display_name"] for u in data}
+        assert all(set(u.keys()) == {"id", "name"} for u in data)
+        names = {u["name"] for u in data}
         assert "Alice A." in names
         assert "Bob O." in names
 
