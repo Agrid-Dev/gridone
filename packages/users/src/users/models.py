@@ -1,6 +1,14 @@
-from pydantic import BaseModel
+from enum import StrEnum
+
+from pydantic import BaseModel, model_validator
 
 from users.password import hash_password
+
+
+class Role(StrEnum):
+    ADMIN = "admin"
+    OPERATOR = "operator"
+    VIEWER = "viewer"
 
 
 class User(BaseModel):
@@ -8,11 +16,21 @@ class User(BaseModel):
 
     id: str
     username: str
-    is_admin: bool = False
+    role: Role = Role.OPERATOR
     name: str = ""
     email: str = ""
     title: str = ""
     must_change_password: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_is_admin(cls, data: dict) -> dict:  # type: ignore[type-arg]
+        """Backward compat: convert legacy ``is_admin`` field to ``role``."""
+        if isinstance(data, dict) and "is_admin" in data and "role" not in data:
+            data["role"] = Role.ADMIN if data.pop("is_admin") else Role.OPERATOR
+        elif isinstance(data, dict) and "is_admin" in data:
+            data.pop("is_admin", None)
+        return data
 
 
 class UserInDB(User):
@@ -28,7 +46,7 @@ class UserInDB(User):
 class UserUpdate(BaseModel):
     username: str | None = None
     password: str | None = None
-    is_admin: bool | None = None
+    role: Role | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
@@ -38,8 +56,8 @@ class UserUpdate(BaseModel):
         update_dict: dict[str, str | bool] = {}
         if self.username is not None:
             update_dict["username"] = self.username
-        if self.is_admin is not None:
-            update_dict["is_admin"] = self.is_admin
+        if self.role is not None:
+            update_dict["role"] = self.role
         if self.name is not None:
             update_dict["name"] = self.name
         if self.email is not None:
@@ -58,10 +76,10 @@ class UserUpdate(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    is_admin: bool = False
+    role: Role = Role.OPERATOR
     name: str = ""
     email: str = ""
     title: str = ""
 
 
-__all__ = ["User", "UserCreate", "UserInDB", "UserUpdate"]
+__all__ = ["Role", "User", "UserCreate", "UserInDB", "UserUpdate"]

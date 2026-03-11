@@ -10,7 +10,8 @@ from devices_manager.dto import (
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
-from api.dependencies import get_device_manager
+from api.dependencies import get_device_manager, require_permission
+from api.permissions import Permission
 
 from .discovery_router import router as discovery_router
 
@@ -21,21 +22,29 @@ router.include_router(
 )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))])
 def list_transports(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
 ) -> list[TransportDTO]:
     return dm.list_transports()
 
 
-@router.get("/{transport_id}", name="get_transport")
+@router.get(
+    "/{transport_id}",
+    name="get_transport",
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))],
+)
 def get_transport(
     transport_id: str, dm: Annotated[DevicesManager, Depends(get_device_manager)]
 ) -> TransportDTO:
     return dm.get_transport(transport_id)
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
 async def create_transport(
     payload: TransportCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -49,7 +58,10 @@ async def create_transport(
     return dto
 
 
-@router.patch("/{transport_id}")
+@router.patch(
+    "/{transport_id}",
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
 async def update_transport(
     transport_id: str,
     update_payload: TransportUpdateDTO,
@@ -69,7 +81,11 @@ async def update_transport(
     return transport
 
 
-@router.delete("/{transport_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{transport_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
 async def delete_transport(
     transport_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -77,7 +93,9 @@ async def delete_transport(
     await dm.delete_transport(transport_id)
 
 
-@router.get("/schemas/")
+@router.get(
+    "/schemas/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))]
+)
 def get_transport_schemas() -> dict[str, dict]:
     return {
         protocol: config_class.model_json_schema()

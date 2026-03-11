@@ -4,14 +4,23 @@ from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, StringConstraints
 
-from users import User, UserCreate, UserUpdate, UsersManager
+from users import Role, User, UserCreate, UserUpdate, UsersManager
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
     USERNAME_MAX_LENGTH,
     USERNAME_MIN_LENGTH,
 )
-from api.dependencies import get_current_user_id, get_users_manager
+from users.auth import TokenPayload
+from users.models import Role as RoleEnum
+
+from api.dependencies import (
+    get_current_token_payload,
+    get_current_user_id,
+    get_users_manager,
+    require_permission,
+)
+from api.permissions import Permission, get_permissions_for_role
 
 router = APIRouter()
 
@@ -29,10 +38,23 @@ PasswordField = Annotated[
 ]
 
 
+class UserBasic(BaseModel):
+    id: str
+    name: str
+
+
+def _make_display_name(name: str) -> str:
+    """Return 'First L.' from a full name, or the name as-is if single word / empty."""
+    parts = name.split()
+    if len(parts) >= 2:
+        return f"{parts[0]} {parts[-1][0]}."
+    return name
+
+
 class UserCreateRequest(BaseModel):
     username: UsernameField
     password: PasswordField
-    is_admin: bool = False
+    role: Role = Role.OPERATOR
     name: str = ""
     email: str = ""
     title: str = ""
@@ -41,24 +63,37 @@ class UserCreateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     username: UsernameField | None = None
     password: PasswordField | None = None
-    is_admin: bool | None = None
+    role: Role | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
 
 
-@router.get("/", response_model=list[User])
+@router.get("/")
 async def list_users(
-    _: Annotated[str, Depends(get_current_user_id)],
+    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
-) -> list[User]:
-    return await um.list_users()
+) -> list[User] | list[UserBasic]:
+    perms = get_permissions_for_role(RoleEnum(payload.role))
+    if Permission.USERS_READ in perms:
+        return await um.list_users()
+    if Permission.USERS_READ_BASIC in perms:
+        users = await um.list_users()
+        return [UserBasic(id=u.id, name=_make_display_name(u.name)) for u in users]
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"Permission denied: requires {Permission.USERS_READ}",
+    )
 
 
-@router.post("/", response_model=User, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=User,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+)
 async def create_user(
     body: UserCreateRequest,
-    _: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -66,7 +101,7 @@ async def create_user(
             UserCreate(
                 username=body.username,
                 password=body.password,
-                is_admin=body.is_admin,
+                role=body.role,
                 name=body.name,
                 email=body.email,
                 title=body.title,
@@ -76,10 +111,13 @@ async def create_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
 
 
-@router.get("/{user_id}", response_model=User)
+@router.get(
+    "/{user_id}",
+    response_model=User,
+    dependencies=[Depends(require_permission(Permission.USERS_READ))],
+)
 async def get_user(
     user_id: str,
-    _: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -88,11 +126,14 @@ async def get_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
-@router.patch("/{user_id}", response_model=User)
+@router.patch(
+    "/{user_id}",
+    response_model=User,
+    dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+)
 async def update_user(
     user_id: str,
     body: UserUpdateRequest,
-    _: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
     try:
@@ -101,7 +142,7 @@ async def update_user(
             UserUpdate(
                 username=body.username,
                 password=body.password,
-                is_admin=body.is_admin,
+                role=body.role,
                 name=body.name,
                 email=body.email,
                 title=body.title,
@@ -113,7 +154,11 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+)
 async def delete_user(
     user_id: str,
     current_user_id: Annotated[str, Depends(get_current_user_id)],

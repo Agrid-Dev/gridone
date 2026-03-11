@@ -11,6 +11,7 @@ import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Button } from "@/components/ui";
 import { Plus } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { usePermissions } from "@/contexts/AuthContext";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -37,18 +38,21 @@ const DriversListContainer: FC<{
   children: React.ReactNode;
 }> = ({ driversCount, children }) => {
   const { t } = useTranslation();
+  const can = usePermissions();
   return (
     <section className="space-y-6">
       <ResourceHeader
         resourceName={t("drivers.title")}
         title={t("drivers.list", { count: driversCount })}
         actions={
-          <Button asChild>
-            <Link to="new">
-              <Plus />
-              {t("drivers.actions.create")}
-            </Link>
-          </Button>
+          can("drivers:write") ? (
+            <Button asChild>
+              <Link to="new">
+                <Plus />
+                {t("drivers.actions.create")}
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
       {driversCount > 0 ? (

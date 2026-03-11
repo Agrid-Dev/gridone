@@ -2,11 +2,12 @@ import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Building2, LogOut, Settings, Users } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 
 export function Sidebar() {
   const { t } = useTranslation();
   const { state, logout } = useAuth();
+  const can = usePermissions();
 
   const user = state.status === "authenticated" ? state.user : null;
 
@@ -56,7 +57,7 @@ export function Sidebar() {
 
           <hr className="border-slate-100 my-2" />
 
-          {user?.isAdmin && (
+          {can("users:read") && (
             <NavLink
               to="/users"
               className={({ isActive }) =>

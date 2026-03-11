@@ -11,7 +11,8 @@ from devices_manager import DevicesManager
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 
-from api.dependencies import get_assets_manager, get_device_manager
+from api.dependencies import get_assets_manager, get_device_manager, require_permission
+from api.permissions import Permission
 
 router = APIRouter()
 
@@ -24,20 +25,25 @@ class ReorderRequest(BaseModel):
     ordered_ids: list[str]
 
 
-@router.get("/schema")
+@router.get(
+    "/schema", dependencies=[Depends(require_permission(Permission.ASSETS_READ))]
+)
 async def get_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return get_asset_create_schema()
 
 
-@router.get("/tree")
+@router.get("/tree", dependencies=[Depends(require_permission(Permission.ASSETS_READ))])
 async def get_tree(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
 ) -> list[dict]:
     return await am.get_tree()
 
 
-@router.get("/tree-with-devices")
+@router.get(
+    "/tree-with-devices",
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
 async def get_tree_with_devices(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -58,7 +64,11 @@ async def get_tree_with_devices(
     return tree
 
 
-@router.get("/", response_model=list[Asset])
+@router.get(
+    "/",
+    response_model=list[Asset],
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
 async def list_assets(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
     parent_id: str | None = Query(None),
@@ -67,7 +77,11 @@ async def list_assets(
     return await am.list_all(parent_id=parent_id, asset_type=type)
 
 
-@router.get("/{asset_id}", response_model=Asset)
+@router.get(
+    "/{asset_id}",
+    response_model=Asset,
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
 async def get_asset(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
@@ -75,7 +89,12 @@ async def get_asset(
     return await am.get_by_id(asset_id)
 
 
-@router.post("/", response_model=Asset, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=Asset,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
 async def create_asset(
     body: AssetCreate,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
@@ -83,7 +102,11 @@ async def create_asset(
     return await am.create_asset(body)
 
 
-@router.put("/{asset_id}", response_model=Asset)
+@router.put(
+    "/{asset_id}",
+    response_model=Asset,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
 async def update_asset(
     asset_id: str,
     body: AssetUpdate,
@@ -92,7 +115,11 @@ async def update_asset(
     return await am.update_asset(asset_id, body)
 
 
-@router.delete("/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{asset_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
 async def delete_asset(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
@@ -100,7 +127,11 @@ async def delete_asset(
     await am.delete_asset(asset_id)
 
 
-@router.put("/{asset_id}/children/order", status_code=status.HTTP_204_NO_CONTENT)
+@router.put(
+    "/{asset_id}/children/order",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
 async def reorder_children(
     asset_id: str,
     body: ReorderRequest,
@@ -112,7 +143,11 @@ async def reorder_children(
 # Device linking endpoints
 
 
-@router.get("/{asset_id}/devices", response_model=list[str])
+@router.get(
+    "/{asset_id}/devices",
+    response_model=list[str],
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
 async def list_asset_devices(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
@@ -120,7 +155,11 @@ async def list_asset_devices(
     return await am.get_device_ids(asset_id)
 
 
-@router.post("/{asset_id}/devices", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{asset_id}/devices",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
 async def link_device(
     asset_id: str,
     body: DeviceLinkRequest,
@@ -132,6 +171,7 @@ async def link_device(
 @router.delete(
     "/{asset_id}/devices/{device_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
 )
 async def unlink_device(
     asset_id: str,

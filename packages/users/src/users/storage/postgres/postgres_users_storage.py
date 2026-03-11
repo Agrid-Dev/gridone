@@ -18,7 +18,7 @@ class PostgresUsersStorage:
                 id          TEXT PRIMARY KEY,
                 username    TEXT UNIQUE NOT NULL,
                 hashed_password TEXT NOT NULL,
-                is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
+                role        TEXT NOT NULL,
                 name        TEXT NOT NULL DEFAULT '',
                 email       TEXT NOT NULL DEFAULT '',
                 title       TEXT NOT NULL DEFAULT '',
@@ -26,13 +26,33 @@ class PostgresUsersStorage:
             )
             """
         )
+        # Migrate from is_admin boolean to role column for existing tables.
+        has_is_admin = await self._pool.fetchval(
+            """
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = 'is_admin'
+            )
+            """
+        )
+        if has_is_admin:
+            # Add role column if missing (old schema).
+            await self._pool.execute(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS"
+                " role TEXT NOT NULL DEFAULT 'operator'"
+            )
+            await self._pool.execute(
+                "UPDATE users SET role = 'admin'"
+                " WHERE is_admin = TRUE AND role = 'operator'"
+            )
+            await self._pool.execute("ALTER TABLE users DROP COLUMN is_admin")
 
     def _row_to_model(self, row: asyncpg.Record) -> UserInDB:
         return UserInDB(
             id=row["id"],
             username=row["username"],
             hashed_password=row["hashed_password"],
-            is_admin=row["is_admin"],
+            role=row["role"],
             name=row["name"],
             email=row["email"],
             title=row["title"],
@@ -57,14 +77,14 @@ class PostgresUsersStorage:
         await self._pool.execute(
             """
             INSERT INTO users (
-                id, username, hashed_password, is_admin,
+                id, username, hashed_password, role,
                 name, email, title, must_change_password
             )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,
                 hashed_password = EXCLUDED.hashed_password,
-                is_admin = EXCLUDED.is_admin,
+                role = EXCLUDED.role,
                 name = EXCLUDED.name,
                 email = EXCLUDED.email,
                 title = EXCLUDED.title,
@@ -73,7 +93,7 @@ class PostgresUsersStorage:
             user.id,
             user.username,
             user.hashed_password,
-            user.is_admin,
+            user.role,
             user.name,
             user.email,
             user.title,

@@ -18,6 +18,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Trash } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { usePermissions } from "@/contexts/AuthContext";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -58,23 +59,26 @@ const DriverDetails: FC<{
   onDelete: (driverId: string) => Promise<void>;
 }> = ({ driver, onDelete }) => {
   const { t } = useTranslation();
+  const can = usePermissions();
   return (
     <div>
       <ResourceHeader
         resourceName={t("drivers.title")}
         title={driver.id}
         actions={
-          <ConfirmButton
-            variant="destructive"
-            onConfirm={() => {
-              onDelete(driver.id);
-            }}
-            confirmTitle={t("drivers.actions.deleteConfirmTitle")}
-            confirmDetails={t("drivers.actions.deleteConfirmDetails")}
-            icon={<Trash />}
-          >
-            {t("drivers.actions.delete")}
-          </ConfirmButton>
+          can("drivers:write") ? (
+            <ConfirmButton
+              variant="destructive"
+              onConfirm={() => {
+                onDelete(driver.id);
+              }}
+              confirmTitle={t("drivers.actions.deleteConfirmTitle")}
+              confirmDetails={t("drivers.actions.deleteConfirmDetails")}
+              icon={<Trash />}
+            >
+              {t("drivers.actions.delete")}
+            </ConfirmButton>
+          ) : undefined
         }
         resourceNameLinksBack
       />

@@ -25,7 +25,9 @@ from api.dependencies import (
     get_device_manager,
     get_pagination_params,
     get_ts_service,
+    require_permission,
 )
+from api.permissions import Permission
 from api.schemas.device import AttributeUpdate, CommandsQuery, get_commands_query
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
@@ -35,14 +37,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
     dm: DevicesManager = Depends(get_device_manager),
 ) -> list[DeviceDTO]:
     return dm.list_devices()
 
 
-@router.get("/commands")
+@router.get(
+    "/commands", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+)
 async def get_commands(
     request: Request,
     query: CommandsQuery = Depends(get_commands_query),
@@ -63,7 +67,9 @@ async def get_commands(
     return to_paginated_response(page, str(request.url))
 
 
-@router.get("/{device_id}")
+@router.get(
+    "/{device_id}", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+)
 def get_device(
     device_id: str,
     dm: DevicesManager = Depends(get_device_manager),
@@ -71,7 +77,10 @@ def get_device(
     return dm.get_device(device_id)
 
 
-@router.get("/{device_id}/commands")
+@router.get(
+    "/{device_id}/commands",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
 async def get_device_commands(
     device_id: str,
     request: Request,
@@ -93,7 +102,11 @@ async def get_device_commands(
     return to_paginated_response(page, str(request.url))
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
 async def create_device(
     dto: DeviceCreateDTO,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -101,7 +114,9 @@ async def create_device(
     return await dm.add_device(dto)
 
 
-@router.patch("/{device_id}")
+@router.patch(
+    "/{device_id}", dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))]
+)
 async def update_device(
     device_id: str,
     payload: DeviceUpdateDTO,
@@ -114,7 +129,11 @@ async def update_device(
     return device
 
 
-@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{device_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
 async def delete_device(
     device_id: str,
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
@@ -123,7 +142,10 @@ async def delete_device(
     return
 
 
-@router.post("/{device_id}/{attribute_name}")
+@router.post(
+    "/{device_id}/{attribute_name}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
 async def update_attribute(
     device_id: str,
     attribute_name: str,

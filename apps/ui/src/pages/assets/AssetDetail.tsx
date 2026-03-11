@@ -17,6 +17,7 @@ import {
 import type { Asset } from "@/api/assets";
 import { listDevices } from "@/api/devices";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
+import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetDetail() {
   const { t } = useTranslation();
@@ -24,6 +25,7 @@ export default function AssetDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const can = usePermissions();
 
   const { data: asset, isLoading } = useQuery<Asset>({
     queryKey: ["assets", assetId],
@@ -97,22 +99,24 @@ export default function AssetDetail() {
         resourceName={t("assets.title")}
         resourceNameLinksBack
         actions={
-          <>
-            <Button variant="outline" asChild>
-              <Link to={`/assets/${assetId}/edit`}>
-                <Pencil />
-                {t("common.update")}
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="text-red-600 hover:bg-red-50 hover:border-red-200"
-              onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
-            >
-              <Trash2 />
-            </Button>
-          </>
+          can("assets:write") ? (
+            <>
+              <Button variant="outline" asChild>
+                <Link to={`/assets/${assetId}/edit`}>
+                  <Pencil />
+                  {t("common.update")}
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="text-red-600 hover:bg-red-50 hover:border-red-200"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+              >
+                <Trash2 />
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -151,12 +155,14 @@ export default function AssetDetail() {
           <h3 className="text-sm font-medium text-slate-900">
             {t("assets.children")} ({children.length})
           </h3>
-          <Button size="sm" variant="outline" asChild>
-            <Link to={`/assets/new?parentId=${assetId}`}>
-              <Plus className="h-3.5 w-3.5" />
-              {t("assets.addChild")}
-            </Link>
-          </Button>
+          {can("assets:write") && (
+            <Button size="sm" variant="outline" asChild>
+              <Link to={`/assets/new?parentId=${assetId}`}>
+                <Plus className="h-3.5 w-3.5" />
+                {t("assets.addChild")}
+              </Link>
+            </Button>
+          )}
         </div>
         {children.length > 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -196,14 +202,16 @@ export default function AssetDetail() {
           <h3 className="text-sm font-medium text-slate-900">
             {t("assets.devices.title")} ({deviceIds.length})
           </h3>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setLinkDialogOpen(true)}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {t("assets.devices.link")}
-          </Button>
+          {can("assets:write") && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setLinkDialogOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t("assets.devices.link")}
+            </Button>
+          )}
         </div>
         {deviceIds.length > 0 ? (
           <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
@@ -219,17 +227,19 @@ export default function AssetDetail() {
                         {deviceNameMap.get(deviceId) || deviceId}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-red-600 hover:bg-red-50 hover:border-red-200"
-                        onClick={() => unlinkMutation.mutate(deviceId)}
-                        disabled={unlinkMutation.isPending}
-                      >
-                        {t("assets.devices.unlink")}
-                      </Button>
-                    </td>
+                    {can("assets:write") && (
+                      <td className="px-4 py-3 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:bg-red-50 hover:border-red-200"
+                          onClick={() => unlinkMutation.mutate(deviceId)}
+                          disabled={unlinkMutation.isPending}
+                        >
+                          {t("assets.devices.unlink")}
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

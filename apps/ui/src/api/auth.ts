@@ -6,14 +6,17 @@ export type LoginPayload = {
   password: string;
 };
 
+export type UserRole = "admin" | "operator" | "viewer";
+
 export type CurrentUser = {
   id: string;
   username: string;
-  isAdmin: boolean;
+  role: UserRole;
   name: string;
   email: string;
   title: string;
   mustChangePassword: boolean;
+  permissions: string[];
 };
 
 export async function login(payload: LoginPayload): Promise<void> {

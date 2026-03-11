@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from api.dependencies import get_ts_service
+from api.dependencies import get_ts_service, require_permission
+from api.permissions import Permission
 from api.schemas.timeseries import DataPointResponse, TimeSeriesResponse
 
 router = APIRouter()
@@ -37,7 +38,7 @@ def get_export_query_params(
     )
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))])
 async def list_series(
     owner_id: str | None = Query(None),
     metric: str | None = Query(None),
@@ -47,7 +48,10 @@ async def list_series(
     return [TimeSeriesResponse(**s.__dict__) for s in results]
 
 
-@router.get("/export/csv")
+@router.get(
+    "/export/csv",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
 async def export_csv(
     params: ExportQueryParams = Depends(get_export_query_params),
     ts=Depends(get_ts_service),
@@ -66,7 +70,10 @@ async def export_csv(
     )
 
 
-@router.get("/export/png")
+@router.get(
+    "/export/png",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
 async def export_png(
     params: ExportQueryParams = Depends(get_export_query_params),
     ts=Depends(get_ts_service),
@@ -79,7 +86,10 @@ async def export_png(
     )
 
 
-@router.get("/{series_id}/points")
+@router.get(
+    "/{series_id}/points",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
 async def get_points(
     series_id: str,
     start: datetime | None = Query(None),

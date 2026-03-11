@@ -17,6 +17,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { Trash } from "lucide-react";
+import { usePermissions } from "@/contexts/AuthContext";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -33,6 +34,7 @@ export default function TransportDetails() {
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const can = usePermissions();
 
   const {
     data: transport,
@@ -128,25 +130,29 @@ export default function TransportDetails() {
         title={transport.name || transport.id}
         actions={
           <>
-            <ConfirmButton
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onConfirm={() => {
-                deleteMutation.mutate();
-              }}
-              confirmTitle={t("transports.deleteAction")}
-              confirmDetails={t("transports.deleteConfirm", {
-                name: transport.name,
-              })}
-              icon={<Trash />}
-            >
-              {t("drivers.actions.delete")}
-            </ConfirmButton>
-            <Button variant="outline" asChild>
-              <Link to={`/transports/${transportId}/edit`}>
-                {t("transports.editAction")}
-              </Link>
-            </Button>
+            {can("transports:write") && (
+              <>
+                <ConfirmButton
+                  variant="destructive"
+                  disabled={deleteMutation.isPending}
+                  onConfirm={() => {
+                    deleteMutation.mutate();
+                  }}
+                  confirmTitle={t("transports.deleteAction")}
+                  confirmDetails={t("transports.deleteConfirm", {
+                    name: transport.name,
+                  })}
+                  icon={<Trash />}
+                >
+                  {t("drivers.actions.delete")}
+                </ConfirmButton>
+                <Button variant="outline" asChild>
+                  <Link to={`/transports/${transportId}/edit`}>
+                    {t("transports.editAction")}
+                  </Link>
+                </Button>
+              </>
+            )}
           </>
         }
         resourceNameLinksBack

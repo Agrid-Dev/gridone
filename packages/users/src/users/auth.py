@@ -15,6 +15,7 @@ class InvalidTokenError(ValueError):
 
 class TokenPayload(BaseModel):
     sub: str  # user id
+    role: str = ""
     exp: datetime
     type: str = _ACCESS
 
@@ -31,21 +32,25 @@ class AuthService:
         self._access_token_expire_minutes = access_token_expire_minutes
         self._refresh_token_expire_minutes = refresh_token_expire_minutes
 
-    def _create_token(self, user_id: str, *, kind: str, expire_minutes: int) -> str:
+    def _create_token(
+        self, user_id: str, *, role: str, kind: str, expire_minutes: int
+    ) -> str:
         expire = datetime.now(UTC) + timedelta(minutes=expire_minutes)
-        payload = {"sub": user_id, "exp": expire, "type": kind}
+        payload = {"sub": user_id, "role": role, "exp": expire, "type": kind}
         return jwt.encode(payload, self._secret_key, algorithm="HS256")
 
-    def create_access_token(self, user_id: str) -> str:
+    def create_access_token(self, user_id: str, role: str) -> str:
         return self._create_token(
             user_id,
+            role=role,
             kind=_ACCESS,
             expire_minutes=self._access_token_expire_minutes,
         )
 
-    def create_refresh_token(self, user_id: str) -> str:
+    def create_refresh_token(self, user_id: str, role: str) -> str:
         return self._create_token(
             user_id,
+            role=role,
             kind=_REFRESH,
             expire_minutes=self._refresh_token_expire_minutes,
         )

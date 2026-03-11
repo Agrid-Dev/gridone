@@ -26,7 +26,8 @@
     "you": "vous",
     "roles": {
       "admin": "Administrateur",
-      "user": "Utilisateur"
+      "operator": "Opérateur",
+      "viewer": "Lecteur"
     },
     "fields": {
       "username": "Nom d'utilisateur",
@@ -37,7 +38,7 @@
       "email": "Email",
       "title": "Titre",
       "role": "Rôle",
-      "isAdmin": "Administrateur"
+      "role": "Rôle"
     }
   },
   "settings": {

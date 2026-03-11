@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { listUsers, createUser, updateUser, deleteUser } from "@/api/users";
 import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
+import type { UserRole } from "@/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import { Input } from "@/components/ui/input";
 type UserFormData = {
   username: string;
   password: string;
-  isAdmin: boolean;
+  role: UserRole;
   name: string;
   email: string;
   title: string;
@@ -29,7 +30,7 @@ type UserFormData = {
 const emptyForm: UserFormData = {
   username: "",
   password: "",
-  isAdmin: false,
+  role: "operator",
   name: "",
   email: "",
   title: "",
@@ -90,7 +91,7 @@ export default function UsersPage() {
     setForm({
       username: user.username,
       password: "",
-      isAdmin: user.isAdmin,
+      role: user.role,
       name: user.name,
       email: user.email,
       title: user.title,
@@ -105,7 +106,7 @@ export default function UsersPage() {
       createMutation.mutate({
         username: form.username,
         password: form.password,
-        isAdmin: form.isAdmin,
+        role: form.role,
         name: form.name,
         email: form.email,
         title: form.title,
@@ -113,7 +114,7 @@ export default function UsersPage() {
     } else if (dialogMode === "edit" && editingUser) {
       const payload: UserUpdatePayload = {
         username: form.username || undefined,
-        isAdmin: form.isAdmin,
+        role: form.role,
         name: form.name,
         email: form.email,
         title: form.title,
@@ -183,9 +184,7 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-slate-600">{user.name}</td>
                   <td className="px-4 py-3 text-slate-600">{user.email}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {user.isAdmin
-                      ? t("users.roles.admin")
-                      : t("users.roles.user")}
+                    {t(`users.roles.${user.role}`)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
@@ -283,19 +282,21 @@ export default function UsersPage() {
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <input
-                id="isAdmin"
-                type="checkbox"
-                checked={form.isAdmin}
-                onChange={(e) =>
-                  setForm({ ...form, isAdmin: e.target.checked })
-                }
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              <label htmlFor="isAdmin" className="text-sm text-slate-700">
-                {t("users.fields.isAdmin")}
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-700">
+                {t("users.fields.role")}
               </label>
+              <select
+                value={form.role}
+                onChange={(e) =>
+                  setForm({ ...form, role: e.target.value as UserRole })
+                }
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+              >
+                <option value="admin">{t("users.roles.admin")}</option>
+                <option value="operator">{t("users.roles.operator")}</option>
+                <option value="viewer">{t("users.roles.viewer")}</option>
+              </select>
             </div>
             <DialogFooter>
               <Button

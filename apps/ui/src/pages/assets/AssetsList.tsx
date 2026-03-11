@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { usePermissions } from "@/contexts/AuthContext";
 import {
   getAssetTreeWithDevices,
   updateAsset,
@@ -18,6 +19,7 @@ import { AssetTree } from "./components/AssetTree";
 export default function AssetsList() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const can = usePermissions();
 
   const {
     data: tree = [],
@@ -116,12 +118,14 @@ export default function AssetsList() {
               <RefreshCw />
               {isFetching ? t("common.refreshing") : t("common.refresh")}
             </Button>
-            <Button asChild>
-              <Link to="/assets/new">
-                <Plus />
-                {t("assets.create")}
-              </Link>
-            </Button>
+            {can("assets:write") && (
+              <Button asChild>
+                <Link to="/assets/new">
+                  <Plus />
+                  {t("assets.create")}
+                </Link>
+              </Button>
+            )}
           </>
         }
       />
