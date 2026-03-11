@@ -1,3 +1,14 @@
+## v0.7.0 (2026-03-10)
+
+### Feat
+
+- **ui**: display a user avatar with command info next to resulting time series value
+- **timeseries**: query commands by ids
+
+### Refactor
+
+- **timeseries**: mutualize query model in get commands
+
 ## v0.6.0 (2026-03-10)
 
 ### Feat

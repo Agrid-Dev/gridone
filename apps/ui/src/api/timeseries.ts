@@ -21,6 +21,7 @@ export type TimeSeries<D extends DataType = DataType> = {
 export type DataPoint<D extends DataType = DataType> = {
   timestamp: string;
   value: DataTypeMap[D];
+  commandId?: number;
 };
 
 export function listSeries<D extends DataType = DataType>(

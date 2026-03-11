@@ -8,8 +8,8 @@ import type { Page } from "@/api/pagination";
 import { toSearchString } from "@/api/pagination";
 import type { DeviceCommand } from "@/api/commands";
 import type { Device } from "@/api/devices";
-import { listUsers, type User } from "@/api/users";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
 import { DEFAULT_PRESET } from "@/lib/timeRange";
 
@@ -73,11 +73,7 @@ export function useCommands({
 
   // Data sources for filter dropdowns
   const { devices } = useDevicesList();
-  const { data: users } = useQuery<User[]>({
-    queryKey: ["users"],
-    queryFn: listUsers,
-    staleTime: 30000,
-  });
+  const { users } = useUsers();
   const attributeOptions = useAttributeOptions(devices, deviceId);
 
   // Build params for the API — URL params + defaults
@@ -112,7 +108,7 @@ export function useCommands({
   );
 
   const userNames = useMemo(
-    () => Object.fromEntries((users ?? []).map((u) => [u.id, u.username])),
+    () => Object.fromEntries(users.map((u) => [u.id, u.username])),
     [users],
   );
 

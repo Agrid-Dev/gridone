@@ -5,6 +5,8 @@ export type CellValue = string | number | boolean | null;
 export type MergedRow = {
   timestamp: string;
   values: Record<string, CellValue>;
+  previousValues: Record<string, CellValue>;
+  commandIds: Record<string, number | undefined>;
   isNew: Record<string, boolean>;
 };
 
@@ -26,25 +28,37 @@ export function mergeTimeSeries(
 ): MergedRow[] {
   if (attributes.length === 0) return [];
 
-  // 1. Build per-attribute lookup: roundedEpoch → value
+  // 1. Build per-attribute lookup: roundedEpoch → value + commandId
   //    When two points round to the same epoch, keep the later original.
   const lookups = new Map<string, Map<number, CellValue>>();
+  const cmdLookups = new Map<string, Map<number, number | undefined>>();
   const allEpochs = new Set<number>();
 
   for (const attr of attributes) {
-    const map = new Map<number, { original: number; value: CellValue }>();
+    const map = new Map<
+      number,
+      { original: number; value: CellValue; commandId?: number }
+    >();
     for (const point of pointsByMetric[attr] ?? []) {
       const original = new Date(point.timestamp).getTime();
       const rounded = Math.floor(original / precisionMs) * precisionMs;
       const existing = map.get(rounded);
       if (!existing || original > existing.original) {
-        map.set(rounded, { original, value: point.value });
+        map.set(rounded, {
+          original,
+          value: point.value,
+          commandId: point.commandId,
+        });
       }
       allEpochs.add(rounded);
     }
     lookups.set(
       attr,
       new Map([...map.entries()].map(([k, v]) => [k, v.value])),
+    );
+    cmdLookups.set(
+      attr,
+      new Map([...map.entries()].map(([k, v]) => [k, v.commandId])),
     );
   }
 
@@ -56,13 +70,23 @@ export function mergeTimeSeries(
   // 3. Build rows with raw (sparse) values
   const rows: MergedRow[] = sorted.map((epoch) => {
     const values: Record<string, CellValue> = {};
+    const previousValues: Record<string, CellValue> = {};
+    const commandIds: Record<string, number | undefined> = {};
     const isNew: Record<string, boolean> = {};
     for (const attr of attributes) {
       const lookup = lookups.get(attr)!;
       values[attr] = lookup.has(epoch) ? lookup.get(epoch)! : null;
+      previousValues[attr] = null; // placeholder, computed in step 5
+      commandIds[attr] = cmdLookups.get(attr)?.get(epoch);
       isNew[attr] = false; // placeholder, computed in step 5
     }
-    return { timestamp: new Date(epoch).toISOString(), values, isNew };
+    return {
+      timestamp: new Date(epoch).toISOString(),
+      values,
+      previousValues,
+      commandIds,
+      isNew,
+    };
   });
 
   // 4. Forward-fill: walk from oldest (start) to newest (end)
@@ -79,15 +103,17 @@ export function mergeTimeSeries(
     }
   }
 
-  // 5. Compute isNew: true when the value differs from the chronologically
-  //    previous (older) row. Rows are sorted ascending, so row[i-1] is older.
+  // 5. Compute isNew and previousValues: isNew is true when the value differs
+  //    from the chronologically previous (older) row. Rows are sorted ascending,
+  //    so row[i-1] is older.
   for (let i = 0; i < rows.length; i++) {
     for (const attr of attributes) {
       if (i === 0) {
-        // Oldest row: new if the value is not null (first occurrence)
         rows[i].isNew[attr] = rows[i].values[attr] !== null;
+        rows[i].previousValues[attr] = null;
       } else {
         rows[i].isNew[attr] = rows[i].values[attr] !== rows[i - 1].values[attr];
+        rows[i].previousValues[attr] = rows[i - 1].values[attr];
       }
     }
   }

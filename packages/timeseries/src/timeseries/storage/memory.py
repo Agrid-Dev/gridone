@@ -62,6 +62,10 @@ class CommandMemoryStorage:
             results = results[:limit]
         return results
 
+    def query_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
+        id_set = set(ids)
+        return [c for c in self._history if c.id in id_set]
+
     def count(self, filters: CommandsQueryFilters) -> int:
         return len(self._apply_filters(filters))
 
@@ -179,6 +183,9 @@ class MemoryStorage:
         return self._command_history.query(
             filters, sort=sort, limit=limit, offset=offset
         )
+
+    async def query_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
+        return self._command_history.query_by_ids(ids)
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         return self._command_history.count(filters)

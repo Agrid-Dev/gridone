@@ -179,6 +179,7 @@ class TimeSeriesService:
     async def get_commands(  # noqa: PLR0913
         self,
         *,
+        ids: list[int] | None = None,
         device_id: str | None = None,
         attribute: str | None = None,
         user_id: str | None = None,
@@ -188,6 +189,18 @@ class TimeSeriesService:
         sort: SortOrder = SortOrder.ASC,
         pagination: PaginationParams | None = None,
     ) -> Page[DeviceCommand]:
+        if ids is not None:
+            other = (device_id, attribute, user_id, start, end, last)
+            if any(f is not None for f in other):
+                msg = "Cannot combine 'ids' with other filters"
+                raise InvalidError(msg)
+            items = await self._storage.query_commands_by_ids(ids)
+            return Page(
+                items=items,
+                total=len(items),
+                page=1,
+                size=max(len(items), 1),
+            )
         if last is not None and start is None:
             start = resolve_last(last)
         filters = CommandsQueryFilters(
