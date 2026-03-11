@@ -28,7 +28,6 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission
-from api.schemas.device import AttributeUpdate
 from api.schemas.device import AttributeUpdate, CommandsQuery, get_commands_query
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
