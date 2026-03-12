@@ -21,7 +21,7 @@ async def build_storage(url: str | None = None) -> TimeSeriesStorage:
 
         pool = await asyncpg.create_pool(url)
         storage = PostgresStorage(pool)
-        await storage.ensure_schema()
+        await storage.try_enable_hypertable()
         return storage
 
     msg = f"Unsupported storage URL scheme: {url}"

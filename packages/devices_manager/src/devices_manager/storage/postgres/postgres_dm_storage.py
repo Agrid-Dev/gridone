@@ -41,9 +41,7 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
     @classmethod
     async def from_url(cls, url: str) -> "PostgresDevicesManagerStorage":
         pool = await asyncpg.create_pool(dsn=url)
-        storage = cls(pool)
-        await storage.ensure_schema()
-        return storage
+        return cls(pool)
 
     @staticmethod
     def _deserialize_transport(data: dict[str, Any]) -> TransportDTO:
@@ -54,31 +52,6 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
             config=data.get("config", {}),
             connection_state=data.get("connection_state", DEFAULT_CONNECTION_STATE),
         )
-
-    async def ensure_schema(self) -> None:
-        statements = (
-            """
-            CREATE TABLE IF NOT EXISTS dm_devices (
-                id TEXT PRIMARY KEY,
-                data JSONB NOT NULL
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS dm_drivers (
-                id TEXT PRIMARY KEY,
-                data JSONB NOT NULL
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS dm_transports (
-                id TEXT PRIMARY KEY,
-                data JSONB NOT NULL
-            )
-            """,
-        )
-        async with self._pool.acquire() as connection, connection.transaction():
-            for statement in statements:
-                await connection.execute(statement)
 
     async def close(self) -> None:
         await self._pool.close()

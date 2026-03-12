@@ -9,9 +9,7 @@ POSTGRES_PREFIX = "postgresql"
 async def build_assets_storage(url: str) -> AssetsStorageBackend:
     if url.startswith(POSTGRES_PREFIX):
         pool = await asyncpg.create_pool(dsn=url)
-        storage = PostgresAssetsStorage(pool)
-        await storage.ensure_schema()
-        return storage
+        return PostgresAssetsStorage(pool)
 
     msg = (
         "Assets package requires PostgreSQL. "

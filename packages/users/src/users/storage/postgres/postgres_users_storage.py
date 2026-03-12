@@ -11,42 +11,6 @@ class PostgresUsersStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def ensure_schema(self) -> None:
-        await self._pool.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id          TEXT PRIMARY KEY,
-                username    TEXT UNIQUE NOT NULL,
-                hashed_password TEXT NOT NULL,
-                role        TEXT NOT NULL,
-                name        TEXT NOT NULL DEFAULT '',
-                email       TEXT NOT NULL DEFAULT '',
-                title       TEXT NOT NULL DEFAULT '',
-                must_change_password BOOLEAN NOT NULL DEFAULT FALSE
-            )
-            """
-        )
-        # Migrate from is_admin boolean to role column for existing tables.
-        has_is_admin = await self._pool.fetchval(
-            """
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_name = 'users' AND column_name = 'is_admin'
-            )
-            """
-        )
-        if has_is_admin:
-            # Add role column if missing (old schema).
-            await self._pool.execute(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS"
-                " role TEXT NOT NULL DEFAULT 'operator'"
-            )
-            await self._pool.execute(
-                "UPDATE users SET role = 'admin'"
-                " WHERE is_admin = TRUE AND role = 'operator'"
-            )
-            await self._pool.execute("ALTER TABLE users DROP COLUMN is_admin")
-
     def _row_to_model(self, row: asyncpg.Record) -> UserInDB:
         return UserInDB(
             id=row["id"],

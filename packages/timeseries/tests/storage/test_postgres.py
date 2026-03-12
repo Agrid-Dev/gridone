@@ -18,7 +18,7 @@ from timeseries.domain import (
     TimeSeries,
 )
 from timeseries.domain.filters import CommandsQueryFilters
-from timeseries.storage.postgres import PostgresStorage
+from timeseries.storage.postgres import MIGRATIONS_PATH, PostgresStorage
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -54,8 +54,12 @@ async def storage():
         await conn.execute("DROP TYPE IF EXISTS data_type CASCADE")
         await conn.execute("DROP TYPE IF EXISTS command_status CASCADE")
 
+    from migrations import run_migrations  # noqa: PLC0415
+
+    assert POSTGRES_URL is not None
+    run_migrations(POSTGRES_URL, MIGRATIONS_PATH)
+
     store = PostgresStorage(pool)
-    await store.ensure_schema()
 
     yield store
 

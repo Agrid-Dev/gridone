@@ -14,9 +14,7 @@ async def build_users_storage(url: str) -> UsersStorageBackend:
         )
 
         pool = await asyncpg.create_pool(dsn=url)
-        storage = PostgresUsersStorage(pool)
-        await storage.ensure_schema()
-        return storage
+        return PostgresUsersStorage(pool)
 
     from users.storage.yaml.yaml_users_storage import YamlUsersStorage  # noqa: PLC0415
 

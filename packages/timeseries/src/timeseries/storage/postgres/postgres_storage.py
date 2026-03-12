@@ -24,69 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_CREATE_ENUM_DATA_TYPE = """\
-DO $$ BEGIN
-    CREATE TYPE data_type AS ENUM ('int', 'float', 'str', 'bool');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-"""
-
-_CREATE_ENUM_COMMAND_STATUS = """\
-DO $$ BEGIN
-    CREATE TYPE command_status AS ENUM ('success', 'error');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-"""
-
-_CREATE_SERIES_TABLE = """\
-CREATE TABLE IF NOT EXISTS ts_series (
-    id          TEXT        NOT NULL,
-    data_type   data_type   NOT NULL,
-    owner_id    TEXT        NOT NULL,
-    metric      TEXT        NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT ts_series_pkey PRIMARY KEY (id),
-    CONSTRAINT ts_series_owner_metric_uq UNIQUE (owner_id, metric)
-);
-"""
-
-_CREATE_SERIES_INDEXES = [
-    "CREATE INDEX IF NOT EXISTS idx_ts_series_owner_id ON ts_series (owner_id);",
-    "CREATE INDEX IF NOT EXISTS idx_ts_series_metric   ON ts_series (metric);",
-]
-
-_CREATE_DATA_POINTS_TABLE = """\
-CREATE TABLE IF NOT EXISTS ts_data_points (
-    series_id     TEXT            NOT NULL REFERENCES ts_series (id) ON DELETE CASCADE,
-    timestamp     TIMESTAMPTZ     NOT NULL,
-    value_integer BIGINT,
-    value_float   DOUBLE PRECISION,
-    value_boolean BOOLEAN,
-    value_string  TEXT,
-    PRIMARY KEY (series_id, timestamp)
-);
-"""
-
-_ADD_COMMAND_ID_COLUMN = """\
-ALTER TABLE ts_data_points
-    ADD COLUMN IF NOT EXISTS command_id INTEGER REFERENCES ts_device_commands (id);
-"""
-
-_CREATE_DEVICE_COMMANDS_TABLE = """\
-CREATE TABLE IF NOT EXISTS ts_device_commands (
-    id              SERIAL          PRIMARY KEY,
-    device_id       TEXT            NOT NULL,
-    attribute       TEXT            NOT NULL,
-    user_id         TEXT            NOT NULL,
-    value           TEXT            NOT NULL,
-    data_type       data_type       NOT NULL,
-    status          command_status  NOT NULL,
-    timestamp       TIMESTAMPTZ     NOT NULL,
-    status_details  TEXT
-);
-"""
-
 _CREATE_HYPERTABLE = (
     "SELECT create_hypertable('ts_data_points', 'timestamp', if_not_exists => TRUE);"
 )
@@ -103,18 +40,9 @@ class PostgresStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def ensure_schema(self) -> None:
+    async def try_enable_hypertable(self) -> None:
+        """Best-effort TimescaleDB hypertable conversion."""
         async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(_CREATE_ENUM_DATA_TYPE)
-                await conn.execute(_CREATE_ENUM_COMMAND_STATUS)
-                await conn.execute(_CREATE_SERIES_TABLE)
-                for stmt in _CREATE_SERIES_INDEXES:
-                    await conn.execute(stmt)
-                await conn.execute(_CREATE_DATA_POINTS_TABLE)
-                await conn.execute(_CREATE_DEVICE_COMMANDS_TABLE)
-                await conn.execute(_ADD_COMMAND_ID_COLUMN)
-
             try:
                 await conn.execute(_CREATE_HYPERTABLE)
             except asyncpg.UndefinedFunctionError:
