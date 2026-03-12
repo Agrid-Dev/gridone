@@ -235,7 +235,7 @@ class Device(DeviceBase):
             try:
                 result = callback(self, attribute_name, attribute)
                 if inspect.isawaitable(result):
-                    task = asyncio.create_task(result)
+                    task = asyncio.ensure_future(result)
                     self._background_tasks.add(task)
                     task.add_done_callback(self._background_tasks.discard)
             except Exception:
@@ -248,7 +248,9 @@ class Device(DeviceBase):
         """Generate an id for a new device"""
         return str(uuid.uuid4())[:8]
 
-    def __eq__(self, other: "Device") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Device):
+            return NotImplemented
         return (
             (self.transport.id == other.transport.id)
             & (self.driver.metadata.id == other.driver.metadata.id)

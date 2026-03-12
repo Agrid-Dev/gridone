@@ -18,21 +18,21 @@ class SeriesKey:
 
 
 @dataclass(frozen=True)
-class DataPoint[T: (int, float, bool, str)]:
+class DataPoint:
     timestamp: datetime
-    value: T
+    value: DataPointValue
     command_id: int | None = None
 
 
 @dataclass
-class TimeSeries[T: (int, float, bool, str)]:
+class TimeSeries:
     data_type: DataType
     owner_id: str
     metric: str
     id: str = field(default_factory=lambda: token_hex(8))
     created_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
-    data_points: list[DataPoint[T]] = field(default_factory=list)
+    data_points: list[DataPoint] = field(default_factory=list)
 
     @property
     def key(self) -> SeriesKey:
@@ -59,11 +59,11 @@ class CommandStatus(StrEnum):
 
 
 @dataclass
-class DeviceCommandCreate[T: (int, float, bool, str)]:
+class DeviceCommandCreate:
     device_id: str
     attribute: str
     user_id: str
-    value: T
+    value: DataPointValue
     data_type: DataType
     status: CommandStatus
     timestamp: datetime
@@ -71,5 +71,5 @@ class DeviceCommandCreate[T: (int, float, bool, str)]:
 
 
 @dataclass
-class DeviceCommand[T: (int, float, bool, str)](DeviceCommandCreate[T]):
+class DeviceCommand(DeviceCommandCreate):
     id: int

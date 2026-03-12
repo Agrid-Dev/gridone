@@ -16,14 +16,14 @@ def test_instanciate_update_strategy():
 
 
 def test_instanciate_update_strategy_none_values():
-    update_strategy = UpdateStrategy()  # ty:ignore[missing-argument]
+    update_strategy = UpdateStrategy()
     assert update_strategy.polling_enabled
     assert update_strategy.polling_interval == DEFAULT_POLLING_INTERVAL
     assert update_strategy.read_timeout == DEFAULT_READ_TIMEOUT
 
 
 def test_instanciate_update_strategy_disable_polling():
-    update_strategy = UpdateStrategy(polling_enabled=False)  # ty:ignore[missing-argument]
+    update_strategy = UpdateStrategy(polling_enabled=False)
     assert not update_strategy.polling_enabled
     assert update_strategy.read_timeout == DEFAULT_READ_TIMEOUT
 
@@ -39,7 +39,7 @@ def test_instanciate_from_dict():
 def test_invalid_timeout():
     for invalid_timeout in [MAX_TIMEOUT + 1, -1]:
         with pytest.raises(ValidationError):
-            _ = UpdateStrategy(read_timeout=invalid_timeout)  # ty:ignore[missing-argument]
+            _ = UpdateStrategy(read_timeout=invalid_timeout)
 
 
 def test_polling_disabled():

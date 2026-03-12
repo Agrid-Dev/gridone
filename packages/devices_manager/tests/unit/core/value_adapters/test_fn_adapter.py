@@ -54,7 +54,7 @@ _ELSYS_PAYLOAD = bytes(
 
 def test_byte_slice_then_byte_convert_temperature() -> None:
     pipeline = (
-        slice_adapter("1:3")
+        slice_adapter("1:3")  # ty: ignore[unsupported-operator]
         + byte_convert_adapter("int16 big_endian")
         + scale_adapter(0.01)
     )

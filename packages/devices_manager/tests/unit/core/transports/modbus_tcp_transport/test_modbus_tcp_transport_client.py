@@ -53,7 +53,7 @@ def transport() -> ModbusTCPTransportClient:
     t.connection_state = TransportConnectionState.connected()
     # Ensure connection lock exists for @connected decorator.
     if not hasattr(t, "_connection_lock"):
-        t._connection_lock = asyncio.Lock()  # type: ignore[attr-defined]
+        t._connection_lock = asyncio.Lock()
     return t
 
 
@@ -136,7 +136,7 @@ async def test_write_holding_register_multi(
         device_id=3,
         count=2,
     )
-    await transport.write(address, [1, 2])
+    await transport.write(address, [1, 2])  # ty: ignore[invalid-argument-type]
     assert transport._client.last_call == (  # type: ignore[attr-defined]
         "write_registers",
         7,
@@ -156,4 +156,4 @@ async def test_write_holding_register_multi_mismatched_length(
         count=2,
     )
     with pytest.raises(ValueError, match="Length of provided values"):
-        await transport.write(address, [1])
+        await transport.write(address, [1])  # ty: ignore[invalid-argument-type]

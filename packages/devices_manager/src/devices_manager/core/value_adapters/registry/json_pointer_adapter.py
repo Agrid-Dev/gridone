@@ -18,6 +18,6 @@ def json_pointer_adapter(
     def decode(d: dict | str | bytes) -> AttributeValueType:
         if isinstance(d, bytes):
             d = json.loads(d)
-        return pointer.resolve(json_pointer_str, d)
+        return pointer.resolve(json_pointer_str, d)  # ty: ignore[invalid-return-type]
 
     return FnAdapter(decoder=decode)

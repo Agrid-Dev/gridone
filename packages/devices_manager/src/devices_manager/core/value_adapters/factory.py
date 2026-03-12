@@ -55,7 +55,7 @@ def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:
     if not builder:
         msg = f"Unknown value adapter: {raw_adapter.adapter}"
         raise ValueError(msg)
-    return builder(raw_adapter.argument)
+    return builder(raw_adapter.argument)  # ty: ignore[invalid-argument-type]
 
 
 def build_value_adapter(raw_adapters: list[ValueAdapterSpec]) -> FnAdapter:

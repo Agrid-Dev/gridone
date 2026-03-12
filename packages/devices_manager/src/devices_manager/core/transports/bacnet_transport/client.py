@@ -157,7 +157,7 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
         if isinstance(response, RejectPDU):
             msg = (
                 f"BACnet reject on write-property to {obj_id} {address.property_name}: "
-                f"rejectReason={response.rejectReason}"
+                f"rejectReason={response.rejectReason}"  # ty: ignore[unresolved-attribute]
             )
             raise RuntimeError(msg)  # noqa: TRY004
 
@@ -165,8 +165,8 @@ class BacnetTransportClient(TransportClient[BacnetAddress]):
         if isinstance(response, AbortPDU):
             msg = (
                 f"BACnet abort on write-property to {obj_id} {address.property_name}: "
-                f"abortReason={response.abortReason}, "
-                f"apduAbortReject={response.apduAbortReject}"
+                f"abortReason={response.abortReason}, "  # ty: ignore[unresolved-attribute]
+                f"apduAbortReject={response.apduAbortReject}"  # ty: ignore[unresolved-attribute]
             )
             raise RuntimeError(msg)  # noqa: TRY004
 

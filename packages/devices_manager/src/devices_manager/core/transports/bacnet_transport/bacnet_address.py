@@ -77,17 +77,18 @@ class BacnetAddress(BaseModel, TransportAddress):
             msg = f"Invalid Bacnet address format: {address_str}"
             raise ValueError(msg)
         object_type = bacnet_object_type_from_raw(match.group(1))
-        object_instance = match.group(2)
+        object_instance = int(match.group(2))
         write_priority_match = re.search(bacnet_write_priority_regex, address_str)
 
         write_priority = (
             int(write_priority_match.group(1)) if write_priority_match else None
         )
+        device_instance = extra_context.get("device_instance")
         return cls(
             object_type=object_type,
             object_instance=object_instance,
             write_priority=write_priority,
-            device_instance=extra_context.get("device_instance"),
+            device_instance=int(device_instance),  # type: ignore[arg-type]  # validated above
         )
 
     @classmethod

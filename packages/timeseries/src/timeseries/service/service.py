@@ -9,7 +9,6 @@ from models.pagination import Page, PaginationParams
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
-    AttributeValueType,
     DataPoint,
     DataType,
     DeviceCommand,
@@ -85,7 +84,7 @@ class TimeSeriesService:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[AttributeValueType]],
+        points: list[DataPoint],
         *,
         create_if_not_found: bool = False,
     ) -> None:
@@ -120,7 +119,7 @@ class TimeSeriesService:
         end: datetime | None = None,
         last: str | None = None,
         carry_forward: bool = False,
-    ) -> list[DataPoint[AttributeValueType]]:
+    ) -> list[DataPoint]:
         if last is not None and start is None:
             start = resolve_last(last)
         points = await self._storage.fetch_points(key, start=start, end=end)

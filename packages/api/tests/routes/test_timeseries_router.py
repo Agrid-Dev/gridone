@@ -402,7 +402,7 @@ class TestExportCsv:
         async with async_client as ac:
             response = await ac.get(
                 "/export/csv",
-                params=[("series_ids", s1.id), ("series_ids", s2.id)],
+                params=[("series_ids", s1.id), ("series_ids", s2.id)],  # ty: ignore[invalid-argument-type]
             )
         assert response.status_code == 200
         lines = response.text.strip().splitlines()

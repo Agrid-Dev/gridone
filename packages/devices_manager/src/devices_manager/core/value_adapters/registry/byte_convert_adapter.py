@@ -307,14 +307,14 @@ def _little_endian_decode(
     decoder: Callable, value: int | Sequence[int]
 ) -> ByteConvertOutput:
     normalized = _reverse_multi_registers(value)
-    return decoder(normalized)  # type: ignore[no-any-return]
+    return decoder(normalized)
 
 
 def _little_endian_encode(
     encoder: Callable, value: ByteConvertOutput
 ) -> int | list[int]:
     raw = encoder(value)
-    return _reverse_multi_registers(raw)  # type: ignore[return-value]
+    return _reverse_multi_registers(raw)
 
 
 def _parse_type_spec(type_spec: str) -> tuple[str, str]:
@@ -377,7 +377,7 @@ def byte_convert_adapter(
     if endian == "big_endian":
         big_endian_decoder = decoder
         big_endian_encoder = encoder
-        return FnAdapter(decoder=big_endian_decoder, encoder=big_endian_encoder)
+        return FnAdapter(decoder=big_endian_decoder, encoder=big_endian_encoder)  # ty: ignore[invalid-argument-type]
 
     little_endian_decoder = partial(_little_endian_decode, decoder)
     little_endian_encoder = partial(_little_endian_encode, encoder)

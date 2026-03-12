@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import make_command  # type: ignore[import-not-found]
+from conftest import make_command
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     CommandStatus,

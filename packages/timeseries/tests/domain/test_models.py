@@ -82,7 +82,7 @@ class TestTimeSeries:
                 data_type=dt,
                 owner_id="d1",
                 metric="m",
-                data_points=[DataPoint(timestamp=now, value=val)],  # ty: ignore[invalid-argument-type]
+                data_points=[DataPoint(timestamp=now, value=val)],
             )
             assert ts.data_points[0].value == val
 

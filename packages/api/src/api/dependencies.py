@@ -65,7 +65,7 @@ async def get_current_user_id(
     return payload.sub
 
 
-def require_permission(perm: Permission) -> Callable:  # type: ignore[type-arg]
+def require_permission(perm: Permission) -> Callable:
     """Factory that returns a FastAPI dependency enforcing *perm*."""
 
     async def _check(

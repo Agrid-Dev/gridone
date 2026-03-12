@@ -57,7 +57,7 @@ class TestToFigure:
         )
         fig = to_figure([s])
         assert len(fig.axes) == 1
-        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[unresolved-attribute]
         assert "state" in labels
 
     def test_float_and_bool_in_separate_panels(self):
@@ -69,8 +69,8 @@ class TestToFigure:
         )
         fig = to_figure([float_s, bool_s])
         assert len(fig.axes) == 2
-        float_labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
-        bool_labels = [t.get_text() for t in fig.axes[1].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
+        float_labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[unresolved-attribute]
+        bool_labels = [t.get_text() for t in fig.axes[1].get_legend().get_texts()]  # ty: ignore[unresolved-attribute]
         assert "temperature" in float_labels
         assert "state" in bool_labels
 
@@ -80,7 +80,7 @@ class TestToFigure:
         )
         fig = to_figure([s])
         assert len(fig.axes) == 1
-        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[possibly-missing-attribute]
+        labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[unresolved-attribute]
         assert "status: ok" in labels
 
     def test_all_series_extended_to_same_end(self):
@@ -93,8 +93,8 @@ class TestToFigure:
         fig = to_figure([float_s, bool_s], end=T3)
         for ax in fig.axes:
             for line in ax.get_lines():
-                if line.get_xdata().size:
-                    assert max(line.get_xdata()) == T3
+                if line.get_xdata().size:  # ty: ignore[unresolved-attribute]
+                    assert max(line.get_xdata()) == T3  # ty: ignore[invalid-argument-type]
 
     def test_empty_series_produces_no_legend(self):
         s = make_series(DataType.FLOAT, "temp", [])

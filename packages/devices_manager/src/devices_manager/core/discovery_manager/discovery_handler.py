@@ -88,7 +88,7 @@ class DiscoveryHandler:
                 initial_values=initial_attribute_values,
             )
 
-            asyncio.create_task(self.on_discover(device))  # noqa: RUF006 # @TODO: make listeners async
+            asyncio.ensure_future(self.on_discover(device))  # noqa: RUF006 # @TODO: make listeners async
             seen.add(config_hash)
 
         self._transport_listener_id = await self.transport.register_listener(

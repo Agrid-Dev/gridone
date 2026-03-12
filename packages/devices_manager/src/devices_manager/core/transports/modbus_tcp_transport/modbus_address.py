@@ -100,7 +100,7 @@ class ModbusAddress(BaseModel, TransportAddress):
         return cls(
             type=address_type,
             instance=instance,
-            device_id=extra_context.get("device_id"),
+            device_id=int(extra_context["device_id"]),
             count=count,
         )
 

@@ -1,6 +1,6 @@
 import contextlib
 import logging
-from asyncio import CancelledError, Task, create_task
+from asyncio import CancelledError, Task, ensure_future
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any
 
@@ -23,7 +23,11 @@ class TasksRegistry:
         if key in self._registry:
             msg = f"Task with key {key} already exists."
             raise ValueError(msg)
-        task = create_task(coro) if isinstance(coro, Coroutine) else create_task(coro())
+        task = (
+            ensure_future(coro)
+            if isinstance(coro, Coroutine)
+            else ensure_future(coro())
+        )
         logger.info("Task %s added to registry.", key)
         self._registry[key] = task
 

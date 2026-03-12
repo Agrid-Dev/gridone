@@ -54,9 +54,7 @@ class PostgresStorageBackend[M: BaseModel](StorageBackend[M]):
         return self._deserializer(data)
 
     async def write(self, item_id: str, data: M) -> None:
-        payload = json.dumps(
-            data.model_dump(mode="json")  # ty:ignore[unresolved-attribute]
-        )
+        payload = json.dumps(data.model_dump(mode="json"))
         query = (
             f"INSERT INTO {self._table_name} (id, data) VALUES ($1, $2::jsonb) "  # noqa: S608
             "ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data"
