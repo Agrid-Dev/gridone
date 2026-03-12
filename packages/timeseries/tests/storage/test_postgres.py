@@ -7,7 +7,6 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from conftest import make_command  # type: ignore[import-not-found]
-from migrations import run_migrations
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     CommandStatus,
@@ -19,7 +18,7 @@ from timeseries.domain import (
     TimeSeries,
 )
 from timeseries.domain.filters import CommandsQueryFilters
-from timeseries.storage.postgres import MIGRATIONS_PATH, PostgresStorage
+from timeseries.storage.postgres import PostgresStorage, run_migrations
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -46,7 +45,7 @@ def _make_series(
 @pytest_asyncio.fixture
 async def storage():
     assert POSTGRES_URL is not None
-    run_migrations(POSTGRES_URL, MIGRATIONS_PATH)
+    run_migrations(POSTGRES_URL)
 
     pool = await asyncpg.create_pool(POSTGRES_URL)
 

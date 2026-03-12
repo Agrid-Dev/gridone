@@ -9,10 +9,12 @@ async def build_users_storage(url: str) -> UsersStorageBackend:
     if url.startswith(POSTGRES_PREFIX):
         import asyncpg  # noqa: PLC0415
 
-        from users.storage.postgres.postgres_users_storage import (  # noqa: PLC0415
+        from users.storage.postgres import (  # noqa: PLC0415
             PostgresUsersStorage,
+            run_migrations,
         )
 
+        run_migrations(url)
         pool = await asyncpg.create_pool(dsn=url)
         return PostgresUsersStorage(pool)
 

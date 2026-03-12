@@ -4,16 +4,11 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from assets import AssetsManager
-from assets.storage.postgres import MIGRATIONS_PATH as ASSETS_MIGRATIONS
 from devices_manager import Attribute, Device, DevicesManager
-from devices_manager.storage.postgres import MIGRATIONS_PATH as DM_MIGRATIONS
 from fastapi import Depends, FastAPI
-from migrations import run_migrations
 from timeseries import DataPoint, SeriesKey, create_service
-from timeseries.storage.postgres import MIGRATIONS_PATH as TS_MIGRATIONS
 from users import UsersManager
 from users.auth import AuthService
-from users.storage.postgres import MIGRATIONS_PATH as USERS_MIGRATIONS
 
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
@@ -43,16 +38,6 @@ async def lifespan(app: FastAPI):
     )
     app.state.auth_service = auth_service
     app.state.cookie_secure = settings.COOKIE_SECURE
-
-    # Run database migrations before building storage instances.
-    if settings.storage_url.startswith("postgresql"):
-        for mpath in (
-            USERS_MIGRATIONS,
-            DM_MIGRATIONS,
-            TS_MIGRATIONS,
-            ASSETS_MIGRATIONS,
-        ):
-            run_migrations(settings.storage_url, mpath)
 
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager

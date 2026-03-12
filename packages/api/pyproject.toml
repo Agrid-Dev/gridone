@@ -8,7 +8,6 @@ requires-python = ">=3.13"
 dependencies = [
     "gridone-models",
     "gridone-assets",
-    "gridone-migrations",
     "fastapi>=0.123.8",
     "gridone-users",
     "httpx>=0.28.1",

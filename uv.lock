@@ -762,7 +762,6 @@ source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
     { name = "gridone-assets" },
-    { name = "gridone-migrations" },
     { name = "gridone-models" },
     { name = "gridone-users" },
     { name = "httpx" },
@@ -775,7 +774,6 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
     { name = "gridone-assets", editable = "packages/assets" },
-    { name = "gridone-migrations", editable = "apps/migrations" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-users", editable = "packages/users" },
     { name = "httpx", specifier = ">=0.28.1" },

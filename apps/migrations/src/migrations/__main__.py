@@ -7,21 +7,19 @@ import logging
 import os
 import sys
 
-from assets.storage.postgres import MIGRATIONS_PATH as ASSETS_MIGRATIONS
-from devices_manager.storage.postgres import MIGRATIONS_PATH as DM_MIGRATIONS
-from timeseries.storage.postgres import MIGRATIONS_PATH as TS_MIGRATIONS
-from users.storage.postgres import MIGRATIONS_PATH as USERS_MIGRATIONS
-
-from migrations import run_migrations
+from assets.storage.postgres import run_migrations as run_assets_migrations
+from devices_manager.storage.postgres import run_migrations as run_dm_migrations
+from timeseries.storage.postgres import run_migrations as run_ts_migrations
+from users.storage.postgres import run_migrations as run_users_migrations
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 ALL_MIGRATIONS = [
-    ("users", USERS_MIGRATIONS),
-    ("devices_manager", DM_MIGRATIONS),
-    ("timeseries", TS_MIGRATIONS),
-    ("assets", ASSETS_MIGRATIONS),
+    ("users", run_users_migrations),
+    ("devices_manager", run_dm_migrations),
+    ("timeseries", run_ts_migrations),
+    ("assets", run_assets_migrations),
 ]
 
 
@@ -48,9 +46,9 @@ def main() -> None:
     database_url: str = args.database_url or _get_database_url()
 
     if args.command == "apply":
-        for name, path in ALL_MIGRATIONS:
+        for name, run_fn in ALL_MIGRATIONS:
             logger.info("Running migrations for %s …", name)
-            run_migrations(database_url, path)
+            run_fn(database_url)
         logger.info("All migrations applied.")
 
 
