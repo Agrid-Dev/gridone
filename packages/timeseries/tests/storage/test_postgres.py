@@ -7,6 +7,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from conftest import make_command  # type: ignore[import-not-found]
+from migrations import run_migrations
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     CommandStatus,
@@ -44,20 +45,16 @@ def _make_series(
 
 @pytest_asyncio.fixture
 async def storage():
-    pool = await asyncpg.create_pool(POSTGRES_URL)
-
-    # Drop and recreate schema to pick up column/type changes
-    async with pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS ts_data_points CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS ts_device_commands CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS ts_series CASCADE")
-        await conn.execute("DROP TYPE IF EXISTS data_type CASCADE")
-        await conn.execute("DROP TYPE IF EXISTS command_status CASCADE")
-
-    from migrations import run_migrations  # noqa: PLC0415
-
     assert POSTGRES_URL is not None
     run_migrations(POSTGRES_URL, MIGRATIONS_PATH)
+
+    pool = await asyncpg.create_pool(POSTGRES_URL)
+
+    # Clean data between tests (preserve tables so yoyo tracking stays valid)
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM ts_data_points")
+        await conn.execute("DELETE FROM ts_device_commands")
+        await conn.execute("DELETE FROM ts_series")
 
     store = PostgresStorage(pool)
 
