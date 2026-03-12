@@ -23,7 +23,7 @@ async def build_storage(url: str | None = None) -> TimeSeriesStorage:
         )
 
         run_migrations(url)
-        pool = await asyncpg.create_pool(url)
+        pool = await asyncpg.create_pool(url, min_size=1, max_size=3)
         storage = PostgresStorage(pool)
         await storage.try_enable_hypertable()
         return storage

@@ -66,3 +66,6 @@ class PostgresUsersStorage:
 
     async def delete(self, user_id: str) -> None:
         await self._pool.execute("DELETE FROM users WHERE id = $1", user_id)
+
+    async def close(self) -> None:
+        await self._pool.close()

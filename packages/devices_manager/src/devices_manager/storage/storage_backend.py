@@ -22,5 +22,7 @@ class DevicesManagerStorage(Protocol):
     drivers: StorageBackend[DriverDTO]
     transports: StorageBackend[TransportDTO]
 
+    async def close(self) -> None: ...
+
 
 __all__ = ["DevicesManagerStorage", "StorageBackend"]

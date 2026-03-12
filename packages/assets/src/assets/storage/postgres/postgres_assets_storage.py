@@ -150,3 +150,6 @@ class PostgresAssetsStorage:
         for row in rows:
             result.setdefault(row["asset_id"], []).append(row["device_id"])
         return result
+
+    async def close(self) -> None:
+        await self._pool.close()
