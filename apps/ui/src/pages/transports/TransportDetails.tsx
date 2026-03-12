@@ -1,11 +1,7 @@
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  deleteTransport,
-  getTransport,
-  type Transport,
-} from "@/api/transports";
+import { useQuery } from "@tanstack/react-query";
+import { getTransport, type Transport } from "@/api/transports";
 import { isNotFound } from "@/api/apiError";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button, Card, CardContent, CardHeader } from "@/components/ui";
@@ -15,8 +11,6 @@ import { cn } from "@/lib/utils";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ConfirmButton } from "@/components/ConfirmButton";
-import { Trash } from "lucide-react";
 import { usePermissions } from "@/contexts/AuthContext";
 
 const statusStyles: Record<string, string> = {
@@ -32,8 +26,6 @@ const statusStyles: Record<string, string> = {
 export default function TransportDetails() {
   const { t } = useTranslation();
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const can = usePermissions();
 
   const {
@@ -45,21 +37,6 @@ export default function TransportDetails() {
     queryFn: () => getTransport(transportId ?? ""),
     enabled: !!transportId,
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteTransport(transportId ?? ""),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transports"] });
-      queryClient.removeQueries({ queryKey: ["transports", transportId] });
-      navigate("/transports");
-    },
-  });
-
-  const deleteError = deleteMutation.error
-    ? deleteMutation.error instanceof Error
-      ? deleteMutation.error.message
-      : t("transports.deleteFailed")
-    : null;
 
   if (!transportId) {
     return (
@@ -85,8 +62,8 @@ export default function TransportDetails() {
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <div className="h-40 animate-pulse rounded-lg border border-slate-200 bg-white" />
-        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64" />
       </section>
     );
   }
@@ -115,47 +92,20 @@ export default function TransportDetails() {
 
   return (
     <section className="space-y-6">
-      {deleteError && (
-        <Alert variant="destructive">
-          <AlertTitle>
-            {t("transports.deleteFailedTitle", {
-              defaultValue: t("common.error"),
-            })}
-          </AlertTitle>
-          <AlertDescription>{deleteError}</AlertDescription>
-        </Alert>
-      )}
       <ResourceHeader
         resourceName={t("transports.title")}
         title={transport.name || transport.id}
         actions={
-          <>
-            {can("transports:write") && (
-              <>
-                <ConfirmButton
-                  variant="destructive"
-                  disabled={deleteMutation.isPending}
-                  onConfirm={() => {
-                    deleteMutation.mutate();
-                  }}
-                  confirmTitle={t("transports.deleteAction")}
-                  confirmDetails={t("transports.deleteConfirm", {
-                    name: transport.name,
-                  })}
-                  icon={<Trash />}
-                >
-                  {t("drivers.actions.delete")}
-                </ConfirmButton>
-                <Button variant="outline" asChild>
-                  <Link to={`/transports/${transportId}/edit`}>
-                    {t("transports.editAction")}
-                  </Link>
-                </Button>
-              </>
-            )}
-          </>
+          can("transports:write") ? (
+            <Button variant="outline" asChild>
+              <Link to={`/transports/${transportId}/edit`}>
+                {t("transports.editAction")}
+              </Link>
+            </Button>
+          ) : undefined
         }
         resourceNameLinksBack
+        backTo="/transports"
       />
       <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
         <span

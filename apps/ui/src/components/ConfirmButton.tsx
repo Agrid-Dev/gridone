@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui";
 import {
   AlertDialog,
@@ -18,6 +19,7 @@ interface ConfirmButtonProps extends Omit<
 > {
   confirmTitle: React.ReactNode;
   confirmDetails: React.ReactNode;
+  confirmLabel?: React.ReactNode;
   icon?: React.ReactNode;
   onConfirm: React.ButtonHTMLAttributes<HTMLButtonElement>["onClick"];
 }
@@ -25,14 +27,17 @@ interface ConfirmButtonProps extends Omit<
 export const ConfirmButton: React.FC<ConfirmButtonProps> = ({
   confirmTitle,
   confirmDetails,
+  confirmLabel,
   onConfirm,
   icon,
+  children,
   ...buttonProps
 }) => {
+  const { t } = useTranslation();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button {...buttonProps} />
+        <Button {...buttonProps}>{children}</Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -43,8 +48,13 @@ export const ConfirmButton: React.FC<ConfirmButtonProps> = ({
           <AlertDialogDescription>{confirmDetails}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction {...buttonProps} onClick={onConfirm} />
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-white hover:bg-destructive/90"
+            onClick={onConfirm}
+          >
+            {confirmLabel ?? children ?? t("common.delete")}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

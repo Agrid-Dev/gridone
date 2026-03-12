@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { History, Plus, RefreshCw } from "lucide-react";
 
@@ -56,10 +57,7 @@ export default function DevicesList() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-48 animate-pulse rounded-lg border border-slate-200 bg-white"
-            />
+            <Skeleton key={index} className="h-48" />
           ))}
         </div>
       ) : devices.length > 0 ? (

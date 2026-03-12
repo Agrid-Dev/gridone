@@ -11,6 +11,7 @@ export default function TransportCreate() {
         resourceName={t("transports.title")}
         title={t("transports.createTitle")}
         resourceNameLinksBack
+        backTo="/transports"
       />
       <TransportForm />
     </section>

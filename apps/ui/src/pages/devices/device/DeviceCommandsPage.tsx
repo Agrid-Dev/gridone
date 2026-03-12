@@ -31,6 +31,7 @@ export default function DeviceCommandsPage() {
         <ResourceHeader
           resourceName={t("devices.title")}
           resourceNameLinksBack
+          backTo="/devices"
           title={
             <>
               <Link to={`/devices/${deviceId}`} className="hover:underline">

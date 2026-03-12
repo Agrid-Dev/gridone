@@ -48,6 +48,7 @@ export default function AssetCreate() {
         title={t("assets.create")}
         resourceName={t("assets.title")}
         resourceNameLinksBack
+        backTo="/assets"
       />
 
       <div className="rounded-lg border border-slate-200 bg-white p-6">

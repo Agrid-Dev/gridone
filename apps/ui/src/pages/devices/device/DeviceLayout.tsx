@@ -7,11 +7,10 @@ import {
   CardContent,
   CardTitle,
 } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
-import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ConfirmButton } from "@/components/ConfirmButton";
-import { History, Trash } from "lucide-react";
+import { History } from "lucide-react";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -20,21 +19,13 @@ export default function DeviceLayout() {
   const { t } = useTranslation();
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
-  const { handleDelete, isDeleting } = useDeleteDevice();
   const can = usePermissions();
 
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <div className="h-56 animate-pulse rounded-lg border border-slate-200 bg-white" />
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div
-              key={index}
-              className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white"
-            />
-          ))}
-        </div>
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64" />
       </section>
     );
   }
@@ -50,24 +41,9 @@ export default function DeviceLayout() {
         actions={
           <>
             {can("devices:write") && (
-              <>
-                <ConfirmButton
-                  variant="destructive"
-                  onConfirm={() => handleDelete(deviceId)}
-                  confirmTitle={t("devices.actions.deleteDialogTitle")}
-                  confirmDetails={t("devices.actions.deleteDialogContent", {
-                    name: device.name || deviceId,
-                  })}
-                  icon={<Trash />}
-                  disabled={isDeleting}
-                >
-                  {t("devices.actions.delete")}
-                </ConfirmButton>
-
-                <Button asChild variant="outline">
-                  <Link to="edit">{t("devices.actions.edit")}</Link>
-                </Button>
-              </>
+              <Button asChild variant="outline">
+                <Link to="edit">{t("devices.actions.edit")}</Link>
+              </Button>
             )}
 
             <Button asChild variant="outline">
@@ -83,6 +59,7 @@ export default function DeviceLayout() {
           </>
         }
         resourceNameLinksBack
+        backTo="/devices"
       />
 
       <Card>

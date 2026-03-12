@@ -1,17 +1,17 @@
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   getAsset,
   listAssets,
   listAssetDevices,
-  deleteAsset,
   unlinkDevice,
 } from "@/api/assets";
 import type { Asset } from "@/api/assets";
@@ -22,7 +22,6 @@ import { usePermissions } from "@/contexts/AuthContext";
 export default function AssetDetail() {
   const { t } = useTranslation();
   const { assetId } = useParams<{ assetId: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const can = usePermissions();
@@ -62,16 +61,6 @@ export default function AssetDetail() {
     [allDevices],
   );
 
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteAsset(assetId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.deleted"));
-      navigate("/assets");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
   const unlinkMutation = useMutation({
     mutationFn: (deviceId: string) => unlinkDevice(assetId!, deviceId),
     onSuccess: () => {
@@ -86,8 +75,8 @@ export default function AssetDetail() {
   if (isLoading || !asset) {
     return (
       <div className="space-y-4">
-        <div className="h-10 animate-pulse rounded-lg bg-slate-200" />
-        <div className="h-64 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64" />
       </div>
     );
   }
@@ -98,24 +87,15 @@ export default function AssetDetail() {
         title={asset.name}
         resourceName={t("assets.title")}
         resourceNameLinksBack
+        backTo="/assets"
         actions={
           can("assets:write") ? (
-            <>
-              <Button variant="outline" asChild>
-                <Link to={`/assets/${assetId}/edit`}>
-                  <Pencil />
-                  {t("common.update")}
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="text-red-600 hover:bg-red-50 hover:border-red-200"
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-              >
-                <Trash2 />
-              </Button>
-            </>
+            <Button variant="outline" asChild>
+              <Link to={`/assets/${assetId}/edit`}>
+                <Pencil />
+                {t("common.update")}
+              </Link>
+            </Button>
           ) : undefined
         }
       />
