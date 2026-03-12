@@ -41,3 +41,6 @@ class CoreFileStorage(DevicesManagerStorage):
         self.transports = YamlFileStorage[TransportDTO](
             self._root_dir / "transports", factory=transport_dto_factory
         )
+
+    async def close(self) -> None:
+        pass

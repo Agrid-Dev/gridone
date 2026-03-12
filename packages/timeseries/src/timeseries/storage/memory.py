@@ -189,3 +189,6 @@ class MemoryStorage:
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         return self._command_history.count(filters)
+
+    async def close(self) -> None:
+        pass

@@ -13,7 +13,7 @@ async def build_assets_storage(url: str) -> AssetsStorageBackend:
         )
 
         run_migrations(url)
-        pool = await asyncpg.create_pool(dsn=url)
+        pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
         return PostgresAssetsStorage(pool)
 
     msg = (

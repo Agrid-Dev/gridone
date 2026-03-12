@@ -14,5 +14,7 @@ class UsersStorageBackend(Protocol):
 
     async def delete(self, user_id: str) -> None: ...
 
+    async def close(self) -> None: ...
+
 
 __all__ = ["UsersStorageBackend"]

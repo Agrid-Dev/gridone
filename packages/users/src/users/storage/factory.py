@@ -15,7 +15,7 @@ async def build_users_storage(url: str) -> UsersStorageBackend:
         )
 
         run_migrations(url)
-        pool = await asyncpg.create_pool(dsn=url)
+        pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
         return PostgresUsersStorage(pool)
 
     from users.storage.yaml.yaml_users_storage import YamlUsersStorage  # noqa: PLC0415

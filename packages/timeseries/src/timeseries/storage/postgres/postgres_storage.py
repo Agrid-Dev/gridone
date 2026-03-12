@@ -336,3 +336,6 @@ class PostgresStorage:
         where, params = self._build_commands_where(filters)
         query = f"SELECT COUNT(*) FROM ts_device_commands{where}"  # noqa: S608
         return await self._pool.fetchval(query, *params)
+
+    async def close(self) -> None:
+        await self._pool.close()

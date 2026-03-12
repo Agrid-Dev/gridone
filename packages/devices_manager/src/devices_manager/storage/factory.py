@@ -20,7 +20,7 @@ async def build_storage(url: str) -> DevicesManagerStorage:
         )
 
         run_migrations(url)
-        pool = await asyncpg.create_pool(dsn=url)
+        pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
         return PostgresDevicesManagerStorage(pool)
     return make_storage(url)
 
