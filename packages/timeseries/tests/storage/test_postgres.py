@@ -18,7 +18,7 @@ from timeseries.domain import (
     TimeSeries,
 )
 from timeseries.domain.filters import CommandsQueryFilters
-from timeseries.storage.postgres import PostgresStorage
+from timeseries.storage.postgres import PostgresStorage, run_migrations
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -44,18 +44,18 @@ def _make_series(
 
 @pytest_asyncio.fixture
 async def storage():
+    assert POSTGRES_URL is not None
+    run_migrations(POSTGRES_URL)
+
     pool = await asyncpg.create_pool(POSTGRES_URL)
 
-    # Drop and recreate schema to pick up column/type changes
+    # Clean data between tests (preserve tables so yoyo tracking stays valid)
     async with pool.acquire() as conn:
-        await conn.execute("DROP TABLE IF EXISTS ts_data_points CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS ts_device_commands CASCADE")
-        await conn.execute("DROP TABLE IF EXISTS ts_series CASCADE")
-        await conn.execute("DROP TYPE IF EXISTS data_type CASCADE")
-        await conn.execute("DROP TYPE IF EXISTS command_status CASCADE")
+        await conn.execute("DELETE FROM ts_data_points")
+        await conn.execute("DELETE FROM ts_device_commands")
+        await conn.execute("DELETE FROM ts_series")
 
     store = PostgresStorage(pool)
-    await store.ensure_schema()
 
     yield store
 

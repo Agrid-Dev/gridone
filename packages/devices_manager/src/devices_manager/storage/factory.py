@@ -1,8 +1,5 @@
 from pathlib import Path
 
-import asyncpg
-
-from .postgres.postgres_dm_storage import PostgresDevicesManagerStorage
 from .storage_backend import DevicesManagerStorage
 from .yaml.core_file_storage import CoreFileStorage
 
@@ -15,10 +12,16 @@ def make_storage(url: str) -> DevicesManagerStorage:
 
 async def build_storage(url: str) -> DevicesManagerStorage:
     if url.startswith(POSTGRES_PREFIXES):
+        import asyncpg  # noqa: PLC0415
+
+        from .postgres import (  # noqa: PLC0415
+            PostgresDevicesManagerStorage,
+            run_migrations,
+        )
+
+        run_migrations(url)
         pool = await asyncpg.create_pool(dsn=url)
-        storage = PostgresDevicesManagerStorage(pool)
-        await storage.ensure_schema()
-        return storage
+        return PostgresDevicesManagerStorage(pool)
     return make_storage(url)
 
 

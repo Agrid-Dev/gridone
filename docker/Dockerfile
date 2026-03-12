@@ -39,11 +39,13 @@ COPY packages/api/pyproject.toml packages/api/pyproject.toml
 COPY packages/devices_manager/pyproject.toml packages/devices_manager/pyproject.toml
 COPY apps/api_server/pyproject.toml apps/api_server/pyproject.toml
 COPY apps/cli/pyproject.toml apps/cli/pyproject.toml
+COPY apps/migrations/pyproject.toml apps/migrations/pyproject.toml
 
 # Copy the full source for installable packages
 COPY packages/ packages/
 COPY apps/api_server/ apps/api_server/
 COPY apps/cli/ apps/cli/
+COPY apps/migrations/ apps/migrations/
 
 # Sync all workspace packages
 # --frozen: don't update uv.lock, use it as-is
@@ -86,6 +88,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 80
 
-# supervisord runs as PID 1 and will exit if either child process dies,
-# ensuring the container stops cleanly.
-CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Run database migrations, then start supervisord as PID 1.
+# Supervisord will exit if either child process dies, ensuring the
+# container stops cleanly.
+CMD ["sh", "-c", "python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]

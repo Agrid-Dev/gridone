@@ -1,0 +1,21 @@
+[project]
+name = "gridone-migrations"
+version = "0.1.0"
+description = "Database migration runner for Gridone"
+requires-python = ">=3.13"
+dependencies = [
+    "yoyo-migrations>=8.2.0",
+    "psycopg2-binary>=2.9.0",
+    "gridone-users",
+    "gridone-devices-manager",
+    "gridone-timeseries",
+    "gridone-assets",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "migrations"
+module-root = "src"
