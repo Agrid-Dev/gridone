@@ -1,3 +1,9 @@
+## v0.9.1 (2026-03-12)
+
+### Fix
+
+- **storage**: add max pool size param and close connections on app shutdown
+
 ## v0.9.0 (2026-03-12)
 
 ### Feat
