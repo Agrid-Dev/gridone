@@ -15,7 +15,7 @@ function ProtectedLayout() {
     <div className="min-h-screen bg-slate-50">
       <Sidebar />
       <main className="ml-64 min-h-screen">
-        <div className="mx-auto flex max-w-6xl flex-col mt-8 px-4 pb-10 lg:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col px-4 pb-10 lg:px-6 pt-10">
           <Routes>
             <Route index element={<Navigate to="/devices" replace />} />
             <Route path="/assets/*" element={<Assets />} />
