@@ -39,6 +39,9 @@ class TimeSeriesService:
     def __init__(self, storage: TimeSeriesStorage) -> None:
         self._storage = storage
 
+    async def close(self) -> None:
+        await self._storage.close()
+
     async def create_series(
         self,
         *,

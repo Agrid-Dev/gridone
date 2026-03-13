@@ -11,6 +11,9 @@ class AssetsManager:
     def __init__(self, storage: AssetsStorageBackend) -> None:
         self._storage = storage
 
+    async def close(self) -> None:
+        await self._storage.close()
+
     @classmethod
     async def from_storage(cls, storage_url: str) -> "AssetsManager":
         from assets.storage import build_assets_storage  # noqa: PLC0415

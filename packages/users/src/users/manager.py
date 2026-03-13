@@ -11,6 +11,9 @@ class UsersManager:
     def __init__(self, storage: UsersStorageBackend) -> None:
         self._storage = storage
 
+    async def close(self) -> None:
+        await self._storage.close()
+
     @classmethod
     async def from_storage(cls, storage_url: str) -> "UsersManager":
         from users.storage import build_users_storage  # noqa: PLC0415

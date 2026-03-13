@@ -486,3 +486,5 @@ class DevicesManager:
     async def stop(self) -> None:
         await self.stop_polling()
         await asyncio.gather(*(t.close() for t in self._transports.values()))
+        if self._storage:
+            await self._storage.close()

@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 from assets.models import AssetType, DeviceAssetLink
 from assets.storage.models import AssetInDB
+from assets.storage.postgres import run_migrations
 from assets.storage.postgres.postgres_assets_storage import (
     PostgresAssetsStorage,
 )
@@ -60,9 +61,10 @@ def _root(asset_id: str = "root-org", name: str = "Root Org") -> AssetInDB:
 
 @pytest_asyncio.fixture
 async def storage():
+    assert POSTGRES_URL is not None
+    run_migrations(POSTGRES_URL)
     pool = await asyncpg.create_pool(POSTGRES_URL)
     store = PostgresAssetsStorage(pool)
-    await store.ensure_schema()
 
     # Clean tables before each test (links first due to FK)
     async with pool.acquire() as conn:

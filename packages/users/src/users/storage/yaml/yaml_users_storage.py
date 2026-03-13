@@ -64,3 +64,6 @@ class YamlUsersStorage:
 
     async def delete(self, user_id: str) -> None:
         await asyncio.to_thread(self._delete_sync, user_id)
+
+    async def close(self) -> None:
+        pass

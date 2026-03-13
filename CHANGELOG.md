@@ -1,3 +1,23 @@
+## v0.9.1 (2026-03-12)
+
+### Fix
+
+- **storage**: add max pool size param and close connections on app shutdown
+
+## v0.9.0 (2026-03-12)
+
+### Feat
+
+- replace ensure_schema() with yoyo-migrations across all packages
+
+### Fix
+
+- use DELETE instead of DROP in timeseries test fixture for yoyo compatibility
+
+### Refactor
+
+- move run_migrations() into each package and decouple api from storage internals
+
 ## v0.8.1 (2026-03-11)
 
 ### Fix

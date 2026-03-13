@@ -40,7 +40,55 @@ Then set:
 STORAGE_URL=postgresql://postgres:postgres@localhost:5432/gridone
 ```
 
-The FastAPI lifespan only calls `DevicesManager.from_storage(url)`; backend selection is handled by the storage factory.
+## Migrations
+
+Schema migrations are managed by [yoyo-migrations](https://ollycope.com/software/yoyo/latest/). Each package (`users`, `devices_manager`, `timeseries`, `assets`) owns its migrations under `packages/<pkg>/src/<pkg>/storage/postgres/migrations/`.
+
+### Automatic
+
+Migrations run automatically in two places:
+
+- **App startup** — the FastAPI lifespan calls `run_migrations()` per package before building storage instances (PostgreSQL only; skipped for the YAML backend).
+- **Docker** — `python -m migrations apply` runs before supervisord in the container `CMD`.
+
+### Manual CLI
+
+```sh
+# Apply all pending migrations (reads STORAGE_URL / DATABASE_URL from env)
+python -m migrations apply
+
+# Or pass the URL explicitly
+python -m migrations apply --database-url postgresql://postgres:postgres@localhost:5432/gridone
+```
+
+### Adding a new migration
+
+1. Create a new `.sql` file in the relevant package's migrations directory:
+
+   ```
+   packages/<pkg>/src/<pkg>/storage/postgres/migrations/NNNN.<pkg>-<description>.sql
+   ```
+
+2. Add a `-- depends:` header referencing the previous migration in the same package:
+
+   ```sql
+   -- depends: 0001.<pkg>-initial
+
+   ALTER TABLE ...;
+   ```
+
+3. Optionally create a rollback companion file with the same name plus `.rollback.sql`.
+
+4. Naming rules:
+   - Prefix filenames with the package name (e.g. `0002.users-...`) to avoid collisions in yoyo's shared tracking table.
+   - `-- depends:` declarations must stay **intra-package** only — no cross-package dependencies.
+
+### Rollback
+
+```sh
+# Undo the latest migration for a specific package
+yoyo rollback --database postgresql://... packages/<pkg>/src/<pkg>/storage/postgres/migrations/
+```
 
 ## Run
 

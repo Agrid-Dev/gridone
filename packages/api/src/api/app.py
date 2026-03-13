@@ -91,6 +91,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await dm.stop()
+        await ts_service.close()
+        await um.close()
+        if am is not None:
+            await am.close()
         await websocket_manager.close_all()
 
 
