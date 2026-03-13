@@ -53,6 +53,7 @@ version_provider = "pep621"
 tag_format = "v$version"
 major_version_zero = true
 update_changelog_on_bump = true
+pre_bump_hooks = ["uv lock && git add uv.lock"]
 
 [tool.ruff]
 indent-width = 4
