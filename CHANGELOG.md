@@ -1,3 +1,13 @@
+## v0.10.0 (2026-03-13)
+
+### Feat
+
+- polish global ui layout
+
+### Fix
+
+- padding top refactored
+
 ## v0.9.1 (2026-03-12)
 
 ### Fix
