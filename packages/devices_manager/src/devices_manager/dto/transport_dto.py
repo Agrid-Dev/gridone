@@ -92,8 +92,8 @@ def build_dto(
     return dto_class(
         id=transport_id,
         name=name,
-        protocol=protocol,
-        config=config,
+        protocol=protocol,  # ty: ignore[invalid-argument-type]
+        config=config,  # ty: ignore[invalid-argument-type]
         connection_state=connection_state,
     )
 

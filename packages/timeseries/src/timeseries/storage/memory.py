@@ -12,7 +12,6 @@ from timeseries.domain import DataPoint, DeviceCommand, SortOrder
 
 if TYPE_CHECKING:
     from timeseries.domain import (
-        AttributeValueType,
         DeviceCommandCreate,
         SeriesKey,
         TimeSeries,
@@ -118,7 +117,7 @@ class MemoryStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[AttributeValueType]]:
+    ) -> list[DataPoint]:
         series_id = self._key_index.get(key)
         if series_id is None:
             return []
@@ -134,7 +133,7 @@ class MemoryStorage:
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[AttributeValueType] | None:
+    ) -> DataPoint | None:
         series_id = self._key_index.get(key)
         if series_id is None:
             return None
@@ -148,7 +147,7 @@ class MemoryStorage:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[AttributeValueType]],
+        points: list[DataPoint],
     ) -> None:
         series_id = self._key_index.get(key)
         if series_id is None:

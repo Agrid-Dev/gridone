@@ -1,12 +1,12 @@
 from api import create_app
 from fastapi.middleware.cors import CORSMiddleware
-from logging_config import LOGGING_CONFIG  # type: ignore[unresolved-import]
+from logging_config import LOGGING_CONFIG
 
 app = create_app(logging_dict_config=LOGGING_CONFIG)
 
 # Configure CORS
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,  # ty: ignore[invalid-argument-type]
     allow_origins=[
         "http://localhost:5173",  # Vite dev server (default port)
         "http://localhost:5174",  # Vite dev server (alternative port)

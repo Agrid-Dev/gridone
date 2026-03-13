@@ -7,7 +7,7 @@ import logging
 import typer
 from rich.logging import RichHandler
 
-from cli.devices import app as devices_app  # ty: ignore[unresolved-import]
+from cli.devices import app as devices_app
 from cli.drivers import app as drivers_app
 
 # Configure logging with RichHandler

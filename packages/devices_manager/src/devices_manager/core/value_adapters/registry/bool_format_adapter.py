@@ -9,4 +9,4 @@ def bool_format_adapter(raw: str) -> FnAdapter[int, bool]:
         msg = f"Unsupported bool format: {raw}"
         raise ValueError(msg)
 
-    return FnAdapter(decoder=cast_as_bool, encoder=int)
+    return FnAdapter(decoder=cast_as_bool, encoder=int)  # ty: ignore[invalid-return-type]

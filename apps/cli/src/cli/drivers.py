@@ -4,7 +4,7 @@ import typer
 from devices_manager import DevicesManager
 from rich.console import Console
 
-from cli.config import get_db_path  # ty: ignore[unresolved-import]
+from cli.config import get_db_path
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 

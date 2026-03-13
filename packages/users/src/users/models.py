@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, model_validator
 
@@ -24,7 +25,7 @@ class User(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _migrate_is_admin(cls, data: dict) -> dict:  # type: ignore[type-arg]
+    def _migrate_is_admin(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Backward compat: convert legacy ``is_admin`` field to ``role``."""
         if isinstance(data, dict) and "is_admin" in data and "role" not in data:
             data["role"] = Role.ADMIN if data.pop("is_admin") else Role.OPERATOR

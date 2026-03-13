@@ -27,7 +27,7 @@ class TransportClient[T_TransportAddress](ABC):
     config: BaseTransportConfig
     metadata: TransportMetadata
     connection_state: TransportConnectionState
-    address_builder: ClassVar[type[T_TransportAddress]]
+    address_builder: type[T_TransportAddress]
     _connection_lock: Lock
     _background_tasks: set[Task]
 

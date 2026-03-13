@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.domain import (
-        AttributeValueType,
         DataPoint,
         DeviceCommand,
         DeviceCommandCreate,
@@ -38,19 +37,19 @@ class TimeSeriesStorage(Protocol):
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[AttributeValueType]]: ...
+    ) -> list[DataPoint]: ...
 
     async def fetch_point_before(
         self,
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[AttributeValueType] | None: ...
+    ) -> DataPoint | None: ...
 
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[AttributeValueType]],
+        points: list[DataPoint],
     ) -> None: ...
 
     async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand: ...

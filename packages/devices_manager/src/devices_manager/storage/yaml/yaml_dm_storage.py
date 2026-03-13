@@ -26,7 +26,7 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
             msg = "Only one builder of model_cls or factory can be provided"
             raise ValueError(msg)
         if model_cls is not None:
-            self._builder = model_cls.model_validate  # ty:ignore[unresolved-attribute]
+            self._builder = model_cls.model_validate
         if factory is not None:
             self._builder = factory
         if not hasattr(self, "_builder") or not self._builder:
@@ -59,7 +59,7 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
 
     def _write_sync(self, item_id: str, data: M) -> None:
         with self._get_file_path(item_id).open("w", encoding="utf-8") as file:
-            yaml.dump(data.model_dump(mode="json"), file)  # ty:ignore[unresolved-attribute]
+            yaml.dump(data.model_dump(mode="json"), file)
 
     async def write(self, item_id: str, data: M) -> None:
         await asyncio.to_thread(self._write_sync, item_id, data)

@@ -1,13 +1,11 @@
-from typing import TypeVar
+from typing import Any
 
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
-T = TypeVar("T")
 
-
-def identity[T](x: T) -> T:
+def _identity(x: Any) -> Any:  # noqa: ANN401
     return x
 
 
-def identity_adapter(raw: str) -> FnAdapter[T, T]:  # noqa: ARG001
-    return FnAdapter(encoder=identity, decoder=identity)
+def identity_adapter(raw: str) -> FnAdapter:  # noqa: ARG001
+    return FnAdapter(encoder=_identity, decoder=_identity)

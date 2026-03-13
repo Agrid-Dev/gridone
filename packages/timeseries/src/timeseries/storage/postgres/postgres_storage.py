@@ -19,7 +19,7 @@ from timeseries.storage.postgres.deserialize import deserialize_command_value
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from timeseries.domain import AttributeValueType, DeviceCommandCreate
+    from timeseries.domain import DeviceCommandCreate
     from timeseries.domain.filters import CommandsQueryFilters
 
 logger = logging.getLogger(__name__)
@@ -133,7 +133,7 @@ class PostgresStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
-    ) -> list[DataPoint[AttributeValueType]]:
+    ) -> list[DataPoint]:
         series = await self.get_series_by_key(key)
         if series is None:
             return []
@@ -171,7 +171,7 @@ class PostgresStorage:
         key: SeriesKey,
         *,
         before: datetime,
-    ) -> DataPoint[AttributeValueType] | None:
+    ) -> DataPoint | None:
         series = await self.get_series_by_key(key)
         if series is None:
             return None
@@ -194,7 +194,7 @@ class PostgresStorage:
     async def upsert_points(
         self,
         key: SeriesKey,
-        points: list[DataPoint[AttributeValueType]],
+        points: list[DataPoint],
     ) -> None:
         series = await self.get_series_by_key(key)
         if series is None:

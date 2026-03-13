@@ -1,9 +1,9 @@
 import asyncio
-import inspect
 import logging
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
+from typing import Any
 
 from models.errors import ConfirmationError
 
@@ -18,7 +18,9 @@ from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
 
-AttributeListener = Callable[["Device", str, Attribute], Awaitable[None] | None]
+AttributeListener = Callable[
+    ["Device", str, Attribute], Coroutine[Any, Any, None] | None
+]
 
 
 @dataclass
@@ -234,7 +236,7 @@ class Device(DeviceBase):
         for callback in self._update_listeners:
             try:
                 result = callback(self, attribute_name, attribute)
-                if inspect.isawaitable(result):
+                if isinstance(result, Coroutine):
                     task = asyncio.create_task(result)
                     self._background_tasks.add(task)
                     task.add_done_callback(self._background_tasks.discard)
@@ -248,7 +250,9 @@ class Device(DeviceBase):
         """Generate an id for a new device"""
         return str(uuid.uuid4())[:8]
 
-    def __eq__(self, other: "Device") -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Device):
+            return NotImplemented
         return (
             (self.transport.id == other.transport.id)
             & (self.driver.metadata.id == other.driver.metadata.id)

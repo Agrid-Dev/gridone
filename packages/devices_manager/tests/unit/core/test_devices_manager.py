@@ -20,7 +20,7 @@ from devices_manager.dto import (
     transport_core_to_dto,
 )
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from devices_manager.types import TransportProtocols
+from devices_manager.types import DeviceConfig, TransportProtocols
 from models.errors import (
     ForbiddenError,
     InvalidError,
@@ -227,7 +227,7 @@ class TestDevicesManagerDiscovery:
     ):
         driver_id = driver_w_push_transport.id
         transport_id = mock_push_transport_client.id
-        config = {
+        config: DeviceConfig = {
             "vendor_id": "abc",
             "gateway_id": "gtw",
         }

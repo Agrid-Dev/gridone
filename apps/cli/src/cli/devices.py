@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.config import get_db_path  # ty: ignore[unresolved-import]
+from cli.config import get_db_path
 
 from .formatters import autoformat_value, device_to_table
 

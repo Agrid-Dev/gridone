@@ -25,8 +25,9 @@ def render_str(
     the original matching value from the context, not necessarily a string."""
 
     # Check if the template is just a placeholder
-    if re.fullmatch(template_pattern, template):
-        key = re.match(template_pattern, template).group(1)  # ty: ignore[possibly-missing-attribute]
+    full_match = re.fullmatch(template_pattern, template)
+    if full_match:
+        key = full_match.group(1)
         if key not in context and raise_for_missing_context:
             msg = f"Missing context for key: {key}"
             raise ValueError(msg)
@@ -58,7 +59,7 @@ def render_struct[Struct: dict | list | str](
     if isinstance(struct, str):
         return render_str(struct, context, **kwargs)  # ty: ignore[invalid-return-type]
     if isinstance(struct, list):
-        return [render_struct(item, context, **kwargs) for item in struct]  # ty: ignore[invalid-return-type]
+        return [render_struct(item, context, **kwargs) for item in struct]  # ty: ignore[invalid-return-type, invalid-argument-type]
     if isinstance(struct, dict):
         return {  # ty: ignore[invalid-return-type]
             render_str(key, context, **kwargs): render_struct(value, context, **kwargs)

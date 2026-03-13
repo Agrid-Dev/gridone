@@ -129,14 +129,14 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
             return
         if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
             payload = self._validate_holding_register_value(modbus_address, value)
-            if modbus_address.count == 1:
-                await self._client.write_register(
+            if isinstance(payload, list):
+                await self._client.write_registers(
                     modbus_address.instance,
                     payload,
                     device_id=modbus_address.device_id,
                 )
             else:
-                await self._client.write_registers(
+                await self._client.write_register(
                     modbus_address.instance,
                     payload,
                     device_id=modbus_address.device_id,
@@ -149,7 +149,7 @@ class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
         self,
         address: ModbusAddress,
     ) -> AttributeValueType:
-        return await self._read_modbus(address)
+        return await self._read_modbus(address)  # ty: ignore[invalid-return-type]
 
     async def write(
         self,

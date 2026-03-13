@@ -108,7 +108,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 len(callback_ids),
             )
             if callback_ids:
-                decoded_payload = message.payload.decode()  # ty: ignore[possibly-missing-attribute]
+                decoded_payload = message.payload.decode()
                 for callback_id in callback_ids:
                     try:
                         handler = self._handlers_registry.get_by_id(callback_id)

@@ -33,7 +33,8 @@ class Attribute(BaseModel):
 
     @model_validator(mode="after")
     def ensure_type_and_post_init(self) -> "Attribute":
-        self.current_value = self.ensure_type(self.current_value)
+        if self.current_value is not None:
+            self.current_value = self.ensure_type(self.current_value)
         return self
 
     def _update_value(self, new_value: AttributeValueType) -> None:
