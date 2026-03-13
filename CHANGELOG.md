@@ -1,3 +1,9 @@
+## v0.10.2 (2026-03-13)
+
+### Fix
+
+- **logs**: update handlers for production and remove connection errors tracebacks
+
 ## v0.10.1 (2026-03-13)
 
 ### Fix
