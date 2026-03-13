@@ -1,3 +1,13 @@
+## v0.10.1 (2026-03-13)
+
+### Fix
+
+- **types**: fix python type issues after ty upgrade
+
+### Refactor
+
+- **types**: use coroutine/create_task instead of awaitable/ensure_future
+
 ## v0.10.0 (2026-03-13)
 
 ### Feat
