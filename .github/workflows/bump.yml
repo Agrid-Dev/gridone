@@ -18,6 +18,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up UV
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.9"
+
       - name: Create bump and changelog
         uses: commitizen-tools/commitizen-action@master
         with:
