@@ -5,6 +5,7 @@ import { Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
 import {
@@ -133,10 +134,7 @@ export default function AssetsList() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-12 animate-pulse rounded-lg border border-slate-200 bg-white"
-            />
+            <Skeleton key={i} className="h-12" />
           ))}
         </div>
       ) : tree.length > 0 ? (

@@ -1,13 +1,42 @@
-import { NavLink } from "react-router";
+import { NavLink, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Building2, LogOut, Settings, Users } from "lucide-react";
+import {
+  Building2,
+  Cable,
+  ChevronsUpDown,
+  Cpu,
+  LogOut,
+  Puzzle,
+  Settings,
+  Users,
+} from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function getInitials(name: string, username: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  return username.slice(0, 2).toUpperCase();
+}
 
 export function Sidebar() {
   const { t } = useTranslation();
   const { state, logout } = useAuth();
   const can = usePermissions();
+  const navigate = useNavigate();
 
   const user = state.status === "authenticated" ? state.user : null;
 
@@ -39,18 +68,25 @@ export function Sidebar() {
             {t("app.assets")}
           </NavLink>
 
-          {["devices", "drivers", "transports"].map((route) => (
+          {(
+            [
+              { route: "devices", icon: Cpu },
+              { route: "drivers", icon: Puzzle },
+              { route: "transports", icon: Cable },
+            ] as const
+          ).map(({ route, icon: Icon }) => (
             <NavLink
               key={route}
               to={`/${route}`}
               className={({ isActive }) =>
-                `block rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                `flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-slate-900 text-slate-50"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`
               }
             >
+              <Icon className="h-4 w-4" />
               {t(`app.${route}`)}
             </NavLink>
           ))}
@@ -89,20 +125,53 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-slate-200 p-4 space-y-3">
+        <div className="border-t border-slate-200 p-3">
           {user && (
-            <div className="px-4 text-xs text-slate-500 truncate">
-              {user.name || user.username}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-slate-100">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-medium text-slate-700">
+                    {getInitials(user.name, user.username)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">
+                      {user.name || user.username}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {t(`users.roles.${user.role}`)}
+                    </p>
+                  </div>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">
+                      {user.name || user.username}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                  <Settings className="h-4 w-4" />
+                  {t("settings.subtitle")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5">
+                  <LanguageSwitcher />
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="h-4 w-4" />
+                  {t("auth.logout")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          <LanguageSwitcher />
-          <button
-            onClick={logout}
-            className="flex w-full items-center gap-2 rounded-md px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            {t("auth.logout")}
-          </button>
         </div>
       </div>
     </aside>

@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from "react-router";
-import { useTranslation } from "react-i18next";
 import Assets from "./pages/assets";
 import Devices from "./pages/devices";
 import Transports from "./pages/transports";
@@ -12,19 +11,11 @@ import { Toaster } from "./components/ui/sonner";
 import { useAuth } from "./contexts/AuthContext";
 
 function ProtectedLayout() {
-  const { t } = useTranslation();
-
   return (
     <div className="min-h-screen bg-slate-50">
       <Sidebar />
       <main className="ml-64 min-h-screen">
-        <div className="mx-auto flex max-w-6xl flex-col mt-4 px-4 pb-10 lg:px-6">
-          <header className="space-y-3 rounded-lg border border-slate-200 bg-white p-6 shadow-sm mb-8">
-            <div>
-              <p className="text-sm text-slate-600">{t("app.description")}</p>
-            </div>
-          </header>
-
+        <div className="mx-auto flex max-w-6xl flex-col px-4 pb-10 lg:px-6 pt-10">
           <Routes>
             <Route index element={<Navigate to="/devices" replace />} />
             <Route path="/assets/*" element={<Assets />} />

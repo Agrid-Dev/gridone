@@ -13,6 +13,7 @@ const DriverCreate: FC = () => {
         resourceName={t("drivers.title")}
         title={t("drivers.actions.create")}
         resourceNameLinksBack
+        backTo="/drivers"
       />
       <DriverForm onSubmit={handleCreate} />
     </div>

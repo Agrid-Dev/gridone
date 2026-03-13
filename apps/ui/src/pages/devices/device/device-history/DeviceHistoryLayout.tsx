@@ -53,7 +53,7 @@ export default function DeviceHistoryLayout() {
   if (isLoading) {
     return (
       <section className="space-y-4">
-        <div className="h-20 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        <Skeleton className="h-8 w-48" />
         <div className="flex items-center gap-3">
           <Skeleton className="h-8 w-28 rounded-md" />
           <Skeleton className="h-5 w-16 rounded-full" />
@@ -77,6 +77,7 @@ export default function DeviceHistoryLayout() {
         <ResourceHeader
           resourceName={t("devices.title")}
           resourceNameLinksBack
+          backTo="/devices"
           title={
             <>
               <Link to={`/devices/${deviceId}`} className="hover:underline">

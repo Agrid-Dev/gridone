@@ -6,6 +6,8 @@ type ResourceHeaderProps = {
   title: React.ReactNode;
   resourceName: React.ReactNode;
   resourceNameLinksBack?: boolean;
+  /** Explicit path for the back link. When set, overrides the default ".." relative navigation. */
+  backTo?: string;
   actions?: React.ReactNode;
 };
 
@@ -13,12 +15,13 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   title,
   resourceName,
   resourceNameLinksBack = false,
+  backTo,
   actions = null,
 }) => (
   <div className="flex justify-between items-end mb-4 pb-4 border-b border-muted">
     <div>
       {resourceNameLinksBack ? (
-        <Link to="..">
+        <Link to={backTo ?? ".."}>
           <TypographyEyebrow>{resourceName}</TypographyEyebrow>
         </Link>
       ) : (

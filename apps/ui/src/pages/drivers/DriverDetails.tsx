@@ -11,13 +11,13 @@ import {
   TypographySmall,
 } from "@/components/ui/typography";
 import { Card, CardContent } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
 import { ErrorBoundary } from "react-error-boundary";
-import { ConfirmButton } from "@/components/ConfirmButton";
-import { Trash } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { DangerZone } from "@/components/DangerZone";
 import { usePermissions } from "@/contexts/AuthContext";
 
 const LabelledProperty: FC<{
@@ -61,26 +61,12 @@ const DriverDetails: FC<{
   const { t } = useTranslation();
   const can = usePermissions();
   return (
-    <div>
+    <div className="space-y-6">
       <ResourceHeader
         resourceName={t("drivers.title")}
         title={driver.id}
-        actions={
-          can("drivers:write") ? (
-            <ConfirmButton
-              variant="destructive"
-              onConfirm={() => {
-                onDelete(driver.id);
-              }}
-              confirmTitle={t("drivers.actions.deleteConfirmTitle")}
-              confirmDetails={t("drivers.actions.deleteConfirmDetails")}
-              icon={<Trash />}
-            >
-              {t("drivers.actions.delete")}
-            </ConfirmButton>
-          ) : undefined
-        }
         resourceNameLinksBack
+        backTo="/drivers"
       />
       <Card className="py-4">
         <CardContent>
@@ -139,6 +125,16 @@ const DriverDetails: FC<{
           </div>
         </CardContent>
       </Card>
+      {can("drivers:write") && (
+        <DangerZone
+          onDelete={() => {
+            onDelete(driver.id);
+          }}
+          confirmTitle={t("drivers.actions.deleteConfirmTitle")}
+          confirmDetails={t("drivers.actions.deleteConfirmDetails")}
+          deleteLabel={t("drivers.actions.delete")}
+        />
+      )}
     </div>
   );
 };
@@ -148,7 +144,12 @@ const DriverDetailsWrapper: FC = () => {
   const { driverId } = useParams();
   const { t } = useTranslation();
   if (query.isLoading) {
-    return <h1>loading</h1>;
+    return (
+      <section className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64" />
+      </section>
+    );
   }
   if (!driverId) {
     return <ErrorFallback />;

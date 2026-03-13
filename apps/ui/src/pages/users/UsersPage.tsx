@@ -9,6 +9,10 @@ import type { UserRole } from "@/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +39,17 @@ const emptyForm: UserFormData = {
   email: "",
   title: "",
 };
+
+function getUserInitials(name: string, username: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  }
+  return username.slice(0, 2).toUpperCase();
+}
 
 export default function UsersPage() {
   const { t } = useTranslation();
@@ -142,76 +157,74 @@ export default function UsersPage() {
       />
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-lg border border-slate-200 bg-white"
-            />
+            <Skeleton key={i} className="h-40" />
           ))}
         </div>
       ) : (
-        <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">
-                  {t("users.fields.username")}
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">
-                  {t("users.fields.name")}
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">
-                  {t("users.fields.email")}
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-slate-600">
-                  {t("users.fields.role")}
-                </th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-900">
-                    {user.username}
-                    {user.id === currentUserId && (
-                      <span className="ml-2 text-xs text-slate-400">
-                        ({t("users.you")})
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{user.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{user.email}</td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {t(`users.roles.${user.role}`)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEdit(user)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {user.id !== currentUserId && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:bg-red-50 hover:border-red-200"
-                          onClick={() => deleteMutation.mutate(user.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {users.map((user) => (
+            <Card key={user.id}>
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-4">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-medium text-slate-700">
+                    {getUserInitials(user.name, user.username)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-slate-900">
+                        {user.name || user.username}
+                      </p>
+                      {user.id === currentUserId && (
+                        <span className="text-xs text-slate-400">
+                          ({t("users.you")})
+                        </span>
                       )}
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <p className="truncate text-sm text-slate-500">
+                      {user.username}
+                    </p>
+                    {user.email && (
+                      <p className="mt-1 truncate text-xs text-slate-400">
+                        {user.email}
+                      </p>
+                    )}
+                    <div className="mt-2">
+                      <Badge variant="secondary">
+                        {t(`users.roles.${user.role}`)}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEdit(user)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  {user.id !== currentUserId && (
+                    <ConfirmButton
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive"
+                      onConfirm={() => deleteMutation.mutate(user.id)}
+                      confirmTitle={t("users.deleteConfirmTitle")}
+                      confirmDetails={t("users.deleteConfirmDetails", {
+                        name: user.name || user.username,
+                      })}
+                      icon={<Trash2 />}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </ConfirmButton>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
