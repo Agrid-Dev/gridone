@@ -145,12 +145,13 @@ class Device(DeviceBase):
                     value,
                 )
 
-            except Exception as e:
-                logger.exception(
-                    "[Device %s] failed to read attribute %s",
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] failed to read attribute %s — %s: %s",
                     self.id,
                     attr_name,
-                    exc_info=e,
+                    type(e).__name__,
+                    e,
                 )
 
     async def _confirm_attribute_value(
@@ -170,12 +171,13 @@ class Device(DeviceBase):
                 if actual_value == expected_value:
                     return
                 confirm_delay *= 4
-            except Exception as e:
-                logger.exception(
-                    "[Device %s] failed to read attribute %s",
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] failed to read attribute %s — %s: %s",
                     self.id,
                     attribute_name,
-                    exc_info=e,
+                    type(e).__name__,
+                    e,
                 )
         msg = (
             f"Failed to confirm attribute {attribute_name} value, "

@@ -44,9 +44,12 @@ def connected[**P, T_Return](
         if not self.connection_state.is_connected:
             try:
                 await self.connect()
-            except Exception as e:
-                logger.exception(
-                    "Connection attempt for transport %s failed", self.id, exc_info=e
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "Connection attempt for transport %s failed — %s: %s",
+                    self.id,
+                    type(e).__name__,
+                    e,
                 )
                 self.connection_state = TransportConnectionState.connection_error(
                     str(e)

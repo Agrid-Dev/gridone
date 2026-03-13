@@ -68,6 +68,8 @@ RUN apt-get update && \
 
 WORKDIR /app
 
+ENV GRIDONE_ENV=production
+
 # Copy the pre-built virtualenv from the build stage
 COPY --from=python-build /app/.venv /app/.venv
 
