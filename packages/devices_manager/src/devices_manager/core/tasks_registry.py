@@ -1,7 +1,8 @@
+import asyncio
 import contextlib
 import logging
-from asyncio import CancelledError, Task, ensure_future
-from collections.abc import Awaitable, Callable, Coroutine
+from asyncio import CancelledError, Task
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -17,16 +18,16 @@ class TasksRegistry:
     def add(
         self,
         key: DMTaskKey,
-        coro: Coroutine[Any, Any, Any] | Callable[[], Awaitable[Any]],
+        coro: Coroutine[Any, Any, Any] | Callable[[], Coroutine[Any, Any, Any]],
     ) -> None:
         """Add a new task to the registry."""
         if key in self._registry:
             msg = f"Task with key {key} already exists."
             raise ValueError(msg)
         task = (
-            ensure_future(coro)
+            asyncio.create_task(coro)
             if isinstance(coro, Coroutine)
-            else ensure_future(coro())
+            else asyncio.create_task(coro())
         )
         logger.info("Task %s added to registry.", key)
         self._registry[key] = task

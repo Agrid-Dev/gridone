@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import hashlib
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from devices_manager.core.device import Device, DeviceBase
@@ -17,7 +17,7 @@ def _hash_config(device_config: DeviceConfig) -> str:
     return hashlib.sha256(str(device_config).encode("utf-8")).hexdigest()
 
 
-type DiscoveryCallback = Callable[[Device], Awaitable[None]]
+type DiscoveryCallback = Callable[[Device], Coroutine[Any, Any, None]]
 
 
 class DiscoveryHandler:
@@ -88,7 +88,7 @@ class DiscoveryHandler:
                 initial_values=initial_attribute_values,
             )
 
-            asyncio.ensure_future(self.on_discover(device))  # noqa: RUF006 # @TODO: make listeners async
+            asyncio.create_task(self.on_discover(device))  # noqa: RUF006 # @TODO: make listeners async
             seen.add(config_hash)
 
         self._transport_listener_id = await self.transport.register_listener(
