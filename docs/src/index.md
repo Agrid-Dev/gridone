@@ -21,9 +21,14 @@ It abstracts devices behind a unified API using YAML-based drivers — you descr
 
 ---
 
-## One driver. Any protocol.
+## Introducing: Devices drivers
 
-A Gridone driver is a YAML file that describes a device's attributes and how to read or write them. Switch the transport, keep everything else.
+> **YAML-based, reusable device drivers.**
+
+
+Let's solve the integration problem with building hardware all at once.
+
+A Gridone driver is a YAML file that declares a device's attributes and how to read or write them — in its native protocol. That's where proprietary specifics live, and nowhere else. Declare once, reuse across buildings, share with the community.
 
 === "HTTP"
 
@@ -143,7 +148,7 @@ A Gridone driver is a YAML file that describes a device's attributes and how to 
 
 ## What you get
 
-**Protocol-agnostic drivers** — HTTP, MQTT, Modbus, BACnet and more. One driver format for all of them.
+**YAML-based, reusable device drivers** — one file per device model, shared across buildings and protocols.
 
 **Automatic time-series recording** — every reading stored automatically. Query, aggregate, and export historical data with no extra setup.
 
