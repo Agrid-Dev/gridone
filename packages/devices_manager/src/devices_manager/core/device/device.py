@@ -43,6 +43,10 @@ class Device(DeviceBase):
             )
             raise TypeError(msg)
 
+    @property
+    def type(self) -> str | None:
+        return self.driver.type
+
     @classmethod
     def from_base(
         cls,

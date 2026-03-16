@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
 
+from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import TransportProtocols
 
 from .attribute_driver import AttributeDriver
@@ -22,6 +23,10 @@ class Driver:
     attributes: dict[str, AttributeDriver]
     discovery_schema: dict | None = None
     type: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.type is not None:
+            validate_standard_schema(self.type, list(self.attributes.values()))
 
     @property
     def name(self) -> str:
