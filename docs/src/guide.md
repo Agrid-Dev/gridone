@@ -28,7 +28,7 @@ vendor: <string>              # equipment vendor / manufacturer
 model: <string>               # device model name
 version: <int>                # driver version
 
-transport: <protocol>         # (required) one of: http | mqtt | modbus-tcp | bacnet
+transport: <protocol>         # (required)
 
 env:                          # (optional) driver-scoped constants, reusable across attributes
   BASE_URL: "http://default-host"
@@ -61,7 +61,7 @@ attributes:                   # (required) list of attribute drivers
 | `vendor` | no | Equipment vendor name |
 | `model` | no | Device model name |
 | `version` | no | Driver version number |
-| `env` | no | Driver-scoped constants, interpolated in addresses |
+| `env` | no | Driver-scoped constants |
 | `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`) |
 | `update_strategy` | no | Polling frequency configuration |
 | `attributes` | yes | List of readable/writable device attributes |
