@@ -1,3 +1,9 @@
+## v0.11.0 (2026-03-16)
+
+### Feat
+
+- create homepage with product details (#129)
+
 ## v0.10.2 (2026-03-13)
 
 ### Fix
