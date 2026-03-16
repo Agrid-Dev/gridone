@@ -21,6 +21,7 @@ class Driver:
     update_strategy: UpdateStrategy
     attributes: dict[str, AttributeDriver]
     discovery_schema: dict | None = None
+    type: str | None = None
 
     @property
     def name(self) -> str:
