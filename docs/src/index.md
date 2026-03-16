@@ -1,4 +1,4 @@
-# "Phrase: Lorem Ipsum"
+# Gridone: The Backbone of Scalable Building Automation
 
 Buildings are full of untapped automation potential. **Gridone** is the open platform that connects your software to any building equipment — regardless of protocol, vendor, or model.
 
