@@ -31,6 +31,20 @@ theme:
     - content.code.annotate
     - content.tabs.link
 
+copyright: Copyright &copy; 2026 AGRID
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Agrid-Dev/gridone
+      name: Gridone on GitHub
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/company/a-grid/
+      name: A-Grid on LinkedIn
+    - icon: fontawesome/solid/globe
+      link: https://www.a-grid.com/
+      name: a-grid.com
+
 markdown_extensions:
   - attr_list
   - md_in_html
