@@ -140,7 +140,10 @@
   "empty": {
     "title": "No {{resourceName}} yet",
     "details": "You haven't created any {{resourceName}} yet. Get started by creating your first {{resourceName}}.",
-    "new": "Create a {{resourceName}}"
+    "new": "Create a {{resourceName}}",
+    "noMatch": "No matching {{resourceName}}",
+    "clearFiltersHint": "Try adjusting or clearing your filters.",
+    "clearFilters": "Clear filters"
   },
   "app": {
     "title": "Gridone",

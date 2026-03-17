@@ -3,7 +3,7 @@ import { useDrivers } from "./useDrivers";
 import { Driver } from "@/api/drivers";
 import { Card, CardContent, CardHeader } from "@/components/ui";
 import { TypographyH3 } from "@/components/ui/typography";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { useTranslation } from "react-i18next";
@@ -71,13 +71,21 @@ const DriversListContainer: FC<{
   );
 };
 
-const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
+const DriversList: FC<{ drivers: Driver[]; hasFilters: boolean }> = ({
+  drivers,
+  hasFilters,
+}) => {
+  const [, setSearchParams] = useSearchParams();
   return (
     <DriversListContainer driversCount={drivers.length}>
       {drivers.length ? (
         drivers.map((driver) => <DriverCard key={driver.id} driver={driver} />)
       ) : (
-        <ResourceEmpty resourceName="driver" />
+        <ResourceEmpty
+          resourceName="driver"
+          filtered={hasFilters}
+          onClearFilters={() => setSearchParams({})}
+        />
       )}
     </DriversListContainer>
   );
@@ -98,6 +106,6 @@ const DriversListWrapper: FC = () => {
     return <DriversListLoader />;
   }
   const drivers = query.data;
-  return <DriversList drivers={drivers} />;
+  return <DriversList drivers={drivers} hasFilters={!!filters} />;
 };
 export default DriversListWrapper;

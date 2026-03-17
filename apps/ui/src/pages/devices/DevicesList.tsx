@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DeviceCard } from "./DeviceCard";
 import { Button } from "@/components/ui";
@@ -14,9 +14,11 @@ import { History, Plus, RefreshCw } from "lucide-react";
 export default function DevicesList() {
   const { t } = useTranslation();
   const filters = useFilterParams();
+  const [, setSearchParams] = useSearchParams();
   const { devices, loading, error, refreshing, fetchDevices } =
     useDevicesList(filters);
   const can = usePermissions();
+  const hasFilters = !!filters;
 
   return (
     <section className="space-y-6">
@@ -72,7 +74,11 @@ export default function DevicesList() {
           ))}
         </div>
       ) : (
-        <ResourceEmpty resourceName={t("common.device").toLowerCase()} />
+        <ResourceEmpty
+          resourceName={t("common.device").toLowerCase()}
+          filtered={hasFilters}
+          onClearFilters={() => setSearchParams({})}
+        />
       )}
     </section>
   );
