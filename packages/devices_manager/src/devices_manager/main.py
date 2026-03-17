@@ -12,6 +12,7 @@ from .core.discovery_manager import (
     DiscoveryContext,
 )
 from .core.driver import Driver
+from .core.standard_schemas.registry import default_registry
 from .core.tasks_registry import TasksRegistry
 from .core.transports import (
     TransportClient,
@@ -24,6 +25,7 @@ from .dto import (
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
+    StandardAttributeSchemaDTO,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
@@ -31,6 +33,7 @@ from .dto import (
     device_dto_to_base,
     driver_core_to_dto,
     driver_dto_to_core,
+    standard_schema_core_to_dto,
     transport_core_to_dto,
 )
 from .storage import DevicesManagerStorage
@@ -334,6 +337,12 @@ class DevicesManager:
         if device_type is not None:
             drivers = [d for d in drivers if d.type == device_type]
         return [driver_core_to_dto(driver) for driver in drivers]
+
+    @staticmethod
+    def list_standard_schemas() -> list[StandardAttributeSchemaDTO]:
+        return [
+            standard_schema_core_to_dto(schema) for schema in default_registry.values()
+        ]
 
     def get_driver(self, driver_id: str) -> DriverDTO:
         driver = self._get_or_raise(self._drivers, driver_id, "Driver")

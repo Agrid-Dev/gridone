@@ -2,7 +2,7 @@ from typing import Annotated
 
 from devices_manager import DevicesManager
 from devices_manager.dto import DriverDTO, DriverYamlDTO
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
@@ -13,8 +13,9 @@ router = APIRouter()
 @router.get("/", dependencies=[Depends(require_permission(Permission.DRIVERS_READ))])
 def list_drivers(
     dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    device_type: str | None = Query(None, alias="type"),
 ) -> list[DriverDTO]:
-    return dm.list_drivers()
+    return dm.list_drivers(device_type=device_type)
 
 
 @router.get(

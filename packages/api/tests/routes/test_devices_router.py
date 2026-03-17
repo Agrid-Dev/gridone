@@ -55,6 +55,38 @@ class TestListDevices:
         devices = response.json()
         assert len(devices) == 1
 
+    def test_list_devices_filter_by_type(self, client: TestClient):
+        response = client.get("/", params={"type": "unknown_type"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_list_devices_no_filter_returns_all(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+
+class TestGetStandardTypes:
+    def test_get_standard_types(self, client: TestClient):
+        response = client.get("/standard-types")
+        assert response.status_code == 200
+        schemas = response.json()
+        assert isinstance(schemas, list)
+        assert len(schemas) >= 2
+        keys = {s["key"] for s in schemas}
+        assert "thermostat" in keys
+        assert "awhp" in keys
+
+    def test_standard_type_has_fields(self, client: TestClient):
+        response = client.get("/standard-types")
+        schemas = response.json()
+        thermostat = next(s for s in schemas if s["key"] == "thermostat")
+        assert len(thermostat["fields"]) > 0
+        field = thermostat["fields"][0]
+        assert "name" in field
+        assert "required" in field
+        assert "data_type" in field
+
 
 class TestGetDevice:
     def test_get_device_ok(self, client: TestClient, mock_devices: dict[str, Device]):

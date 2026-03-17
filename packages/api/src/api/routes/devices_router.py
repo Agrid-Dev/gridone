@@ -3,12 +3,13 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from devices_manager import DevicesManager
+from devices_manager.dto import StandardAttributeSchemaDTO
 from devices_manager.dto.device_dto import (
     DeviceCreateDTO,
     DeviceDTO,
     DeviceUpdateDTO,
 )
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from timeseries.domain import (
@@ -40,8 +41,19 @@ router = APIRouter()
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
     dm: DevicesManager = Depends(get_device_manager),
+    device_type: str | None = Query(None, alias="type"),
 ) -> list[DeviceDTO]:
-    return dm.list_devices()
+    return dm.list_devices(device_type=device_type)
+
+
+@router.get(
+    "/standard-types",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+def get_standard_types(
+    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+) -> list[StandardAttributeSchemaDTO]:
+    return dm.list_standard_schemas()
 
 
 @router.get(
