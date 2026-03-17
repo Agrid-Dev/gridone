@@ -4,7 +4,7 @@ from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, StringConstraints
 
-from users import Role, User, UserCreate, UserUpdate, UsersManager
+from users import Role, User, UserCreate, UserType, UserUpdate, UsersManager
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -55,6 +55,7 @@ class UserCreateRequest(BaseModel):
     username: UsernameField
     password: PasswordField
     role: Role = Role.OPERATOR
+    type: UserType = UserType.USER
     name: str = ""
     email: str = ""
     title: str = ""
@@ -102,6 +103,7 @@ async def create_user(
                 username=body.username,
                 password=body.password,
                 role=body.role,
+                type=body.type,
                 name=body.name,
                 email=body.email,
                 title=body.title,
