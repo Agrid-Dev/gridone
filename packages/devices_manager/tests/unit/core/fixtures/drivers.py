@@ -65,6 +65,40 @@ def driver(attributes: list[AttributeDriver]) -> Driver:
     )
 
 
+def _make_identity_attr(
+    name: str, data_type: DataType, *, writable: bool = False
+) -> AttributeDriver:
+    return AttributeDriver(
+        name=name,
+        data_type=data_type,
+        read=f"GET /{name}",
+        write=f"POST /{name}" if writable else None,
+        value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+    )
+
+
+@pytest.fixture
+def thermostat_driver() -> Driver:
+    """A driver with type='thermostat' and all required standard attributes."""
+    attrs = [
+        _make_identity_attr("temperature", DataType.FLOAT),
+        _make_identity_attr("temperature_setpoint", DataType.FLOAT, writable=True),
+        _make_identity_attr("onoff_state", DataType.BOOL, writable=True),
+        _make_identity_attr("mode", DataType.STRING, writable=True),
+        _make_identity_attr("temperature_setpoint_min", DataType.FLOAT),
+        _make_identity_attr("temperature_setpoint_max", DataType.FLOAT),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="thermostat_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={a.name: a for a in attrs},
+        type="thermostat",
+    )
+
+
 @pytest.fixture
 def other_http_driver() -> Driver:
     return Driver(
