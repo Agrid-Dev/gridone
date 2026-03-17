@@ -9,9 +9,12 @@ export type DeviceAttribute = {
   lastUpdated: string | null;
 };
 
+export type DeviceType = "thermostat" | "awhp";
+
 export type Device = {
   id: string;
   name: string;
+  type: DeviceType | null;
   driverId: string;
   transportId: string;
   config: Record<string, unknown>;

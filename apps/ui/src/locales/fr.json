@@ -99,6 +99,12 @@
     "driver": "Driver",
     "device": "Appareil",
     "transport": "Transport",
+    "type": "Type",
+    "unknown": "Inconnu",
+    "deviceTypes": {
+      "thermostat": "Thermostat",
+      "awhp": "PAC air-eau"
+    },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
     "notFound": "Introuvable",
@@ -344,6 +350,7 @@
     "attribute_other": "attributs",
     "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
     "fields": {
+      "type": "Type d’appareil",
       "vendor": "Fabricant",
       "model": "Modèle",
       "version": "Version",

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui";
 import { TypographyH3 } from "@/components/ui/typography";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
+import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
@@ -22,6 +23,7 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
           <TypographyH3>{driver.id}</TypographyH3>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
+          <DeviceTypeChip type={driver.type} />
           <Badge variant="secondary">{driver.transport}</Badge>
           <Badge variant="outline">
             {driver.attributes.length}&nbsp;

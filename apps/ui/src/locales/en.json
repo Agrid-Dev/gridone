@@ -99,6 +99,12 @@
     "driver": "Driver",
     "device": "Device",
     "transport": "Transport",
+    "type": "Type",
+    "unknown": "Unknown",
+    "deviceTypes": {
+      "thermostat": "Thermostat",
+      "awhp": "AWHP"
+    },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",
@@ -344,6 +350,7 @@
     "attribute_other": "attributes",
     "notFoundDetails": "No driver found for id \"{{driverId}}\"",
     "fields": {
+      "type": "Device type",
       "vendor": "Vendor",
       "model": "Model",
       "version": "Version",

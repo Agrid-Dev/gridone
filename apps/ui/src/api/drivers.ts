@@ -20,8 +20,11 @@ export type DriverAttribute = {
   write?: Address;
 };
 
+import type { DeviceType } from "./devices";
+
 export type Driver = {
   id: string;
+  type: DeviceType | null;
   vendor: string | null;
   model: string | null;
   version: string | null;
