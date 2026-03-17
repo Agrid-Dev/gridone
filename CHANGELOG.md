@@ -1,3 +1,9 @@
+## v0.14.0 (2026-03-17)
+
+### Feat
+
+- add type field to distinguish users from service accounts
+
 ## v0.13.0 (2026-03-17)
 
 ### Feat
