@@ -12,12 +12,18 @@ class Role(StrEnum):
     VIEWER = "viewer"
 
 
+class UserType(StrEnum):
+    USER = "user"
+    SERVICE_ACCOUNT = "service_account"
+
+
 class User(BaseModel):
     """Public user model (no password hash)."""
 
     id: str
     username: str
     role: Role = Role.OPERATOR
+    type: UserType = UserType.USER
     name: str = ""
     email: str = ""
     title: str = ""
@@ -78,9 +84,10 @@ class UserCreate(BaseModel):
     username: str
     password: str
     role: Role = Role.OPERATOR
+    type: UserType = UserType.USER
     name: str = ""
     email: str = ""
     title: str = ""
 
 
-__all__ = ["Role", "User", "UserCreate", "UserInDB", "UserUpdate"]
+__all__ = ["Role", "User", "UserCreate", "UserInDB", "UserType", "UserUpdate"]

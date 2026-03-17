@@ -78,6 +78,7 @@ class UsersManager:
             username=create_data.username,
             hashed_password=hash_password(create_data.password),
             role=create_data.role,
+            type=create_data.type,
             name=create_data.name,
             email=create_data.email,
             title=create_data.title,

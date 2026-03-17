@@ -17,6 +17,7 @@ class PostgresUsersStorage:
             username=row["username"],
             hashed_password=row["hashed_password"],
             role=row["role"],
+            type=row["type"],
             name=row["name"],
             email=row["email"],
             title=row["title"],
@@ -41,14 +42,15 @@ class PostgresUsersStorage:
         await self._pool.execute(
             """
             INSERT INTO users (
-                id, username, hashed_password, role,
+                id, username, hashed_password, role, type,
                 name, email, title, must_change_password
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,
                 hashed_password = EXCLUDED.hashed_password,
                 role = EXCLUDED.role,
+                type = EXCLUDED.type,
                 name = EXCLUDED.name,
                 email = EXCLUDED.email,
                 title = EXCLUDED.title,
@@ -58,6 +60,7 @@ class PostgresUsersStorage:
             user.username,
             user.hashed_password,
             user.role,
+            user.type,
             user.name,
             user.email,
             user.title,
