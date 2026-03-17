@@ -27,6 +27,7 @@ class DriverDTO(BaseModel):
     device_config: list[DeviceConfigField]
     attributes: list[AttributeDriverDTO]
     discovery: dict | None = None
+    type: str | None = None
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverDTO":
@@ -52,6 +53,7 @@ def core_to_dto(driver: Driver) -> DriverDTO:
         attributes=[
             attribute_core_to_dto(attribute) for attribute in driver.attributes.values()
         ],
+        type=driver.type,
     )
 
 
@@ -64,4 +66,5 @@ def dto_to_core(dto: DriverDTO) -> Driver:
         update_strategy=dto.update_strategy,
         attributes={a.name: attribute_dto_to_core(a) for a in dto.attributes},
         discovery_schema=dto.discovery,
+        type=dto.type,
     )
