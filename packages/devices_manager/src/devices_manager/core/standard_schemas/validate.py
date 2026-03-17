@@ -22,6 +22,12 @@ def _find_matching_fields(
     standard_field: StandardAttributeSchemaField,
     validated_fields: list[ValidatedField],
 ) -> list[ValidatedField]:
+    """Find fields matching a standard field definition.
+
+    For single fields (multiple=False), matches by exact name.
+    For multiple fields (multiple=True), matches ``{name}_{suffix}`` where
+    suffix is a positive integer (1, 2, …) or an uppercase letter (A, B, …).
+    """
     if not standard_field.multiple:
         return [f for f in validated_fields if f.name == standard_field.name]
     pattern = re.compile(rf"^{re.escape(standard_field.name)}_([1-9][0-9]*|[A-Z])$")
@@ -65,4 +71,4 @@ def validate_standard_schema(
     if schema_key not in registry:
         msg = f"Standard schema {schema_key} is not registered"
         raise InvalidError(msg)
-    return _validate_standard_schema(registry[schema_key], validated_schema)
+    _validate_standard_schema(registry[schema_key], validated_schema)

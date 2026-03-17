@@ -1,8 +1,12 @@
+from typing import Final
+
 from devices_manager.core.standard_schemas import (
     StandardAttributeSchema,
     StandardAttributeSchemaField,
 )
 from devices_manager.types import DataType
+
+AWHP_KEY: Final = "awhp"
 
 awhp_fields = [
     StandardAttributeSchemaField(
@@ -75,7 +79,7 @@ awhp_fields = [
 ]
 
 awhp_schema = StandardAttributeSchema(
-    key="awhp",
+    key=AWHP_KEY,
     name="Air-to-Water Heat Pump",
     fields=awhp_fields,
 )

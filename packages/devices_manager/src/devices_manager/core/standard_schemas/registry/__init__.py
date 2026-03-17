@@ -9,7 +9,7 @@ from .thermostat import thermostat_schema
 
 def _build_registry(
     *schemas: StandardAttributeSchema,
-) -> StandardAttributeSchemaRegistry:
+) -> dict[str, StandardAttributeSchema]:
     return {schema.key: schema for schema in schemas}
 
 

@@ -1,8 +1,12 @@
+from typing import Final
+
 from devices_manager.core.standard_schemas import (
     StandardAttributeSchema,
     StandardAttributeSchemaField,
 )
 from devices_manager.types import DataType
+
+THERMOSTAT_KEY: Final = "thermostat"
 
 thermostat_fields = [
     StandardAttributeSchemaField(
@@ -27,7 +31,7 @@ thermostat_fields = [
 ]
 
 thermostat_schema = StandardAttributeSchema(
-    key="thermostat",
+    key=THERMOSTAT_KEY,
     name="Thermostat",
     fields=thermostat_fields,
 )
