@@ -1,6 +1,6 @@
 import uuid
 
-from models.errors import NotFoundError
+from models.errors import BlockedUserError, NotFoundError
 
 from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
@@ -62,6 +62,9 @@ class UsersManager:
             return None
         if not verify_password(password, user.hashed_password):
             return None
+        if user.is_blocked:
+            msg = f"User '{username}' is blocked"
+            raise BlockedUserError(msg)
         return self._to_public_user(user)
 
     async def list_users(self) -> list[User]:
@@ -107,6 +110,22 @@ class UsersManager:
     async def delete_user(self, user_id: str) -> None:
         await self._get_in_db_or_raise(user_id)
         await self._storage.delete(user_id)
+
+    async def block_user(self, user_id: str) -> User:
+        user = await self._get_in_db_or_raise(user_id)
+        blocked = user.model_copy(update={"is_blocked": True})
+        await self._storage.save(blocked)
+        return self._to_public_user(blocked)
+
+    async def unblock_user(self, user_id: str) -> User:
+        user = await self._get_in_db_or_raise(user_id)
+        unblocked = user.model_copy(update={"is_blocked": False})
+        await self._storage.save(unblocked)
+        return self._to_public_user(unblocked)
+
+    async def is_blocked(self, user_id: str) -> bool:
+        user = await self._storage.get_by_id(user_id)
+        return user is not None and user.is_blocked
 
 
 __all__ = ["UsersManager"]

@@ -53,6 +53,12 @@ class MockUsersManager:
     async def list_users(self) -> list[User]:
         return list(self._users.values())
 
+    async def is_blocked(self, user_id: str) -> bool:
+        for user in self._users.values():
+            if user.id == user_id:
+                return user.is_blocked
+        return False
+
 
 def _build_app() -> FastAPI:
     app = FastAPI()

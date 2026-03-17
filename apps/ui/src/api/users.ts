@@ -62,3 +62,23 @@ export function deleteUser(userId: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export function blockUser(userId: string): Promise<User> {
+  return request<User>(
+    `/users/${encodeURIComponent(userId)}/block`,
+    {
+      method: "POST",
+    },
+    { camelCase: true },
+  );
+}
+
+export function unblockUser(userId: string): Promise<User> {
+  return request<User>(
+    `/users/${encodeURIComponent(userId)}/unblock`,
+    {
+      method: "POST",
+    },
+    { camelCase: true },
+  );
+}

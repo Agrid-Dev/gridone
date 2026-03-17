@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
+from models.errors import BlockedUserError
+
 from users import UsersManager
 from users.auth import AuthService, InvalidTokenError
 from users.models import Role
@@ -74,7 +76,13 @@ async def login(
     um: Annotated[UsersManager, Depends(get_users_manager)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
-    user = await um.authenticate(form_data.username, form_data.password)
+    try:
+        user = await um.authenticate(form_data.username, form_data.password)
+    except BlockedUserError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been blocked. Contact an administrator.",
+        )
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -102,6 +110,7 @@ async def refresh(
     response: Response,
     body: RefreshRequest | None = None,
     auth_service: AuthService = Depends(get_auth_service),
+    um: UsersManager = Depends(get_users_manager),
 ) -> TokenResponse:
     # Cookie takes precedence; fall back to JSON body (for Postman/Swagger)
     token = request.cookies.get("refresh_token")
@@ -122,6 +131,12 @@ async def refresh(
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+    if await um.is_blocked(payload.sub):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been blocked. Contact an administrator.",
+        )
 
     access_token = auth_service.create_access_token(payload.sub, payload.role)
     refresh_token = auth_service.create_refresh_token(payload.sub, payload.role)

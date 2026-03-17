@@ -1,9 +1,16 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import { listUsers, createUser, updateUser, deleteUser } from "@/api/users";
+import {
+  listUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  blockUser,
+  unblockUser,
+} from "@/api/users";
 import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
 import type { UserRole } from "@/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
@@ -92,6 +99,24 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("users.deleted"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const blockMutation = useMutation({
+    mutationFn: (id: string) => blockUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success(t("users.blocked"));
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const unblockMutation = useMutation({
+    mutationFn: (id: string) => unblockUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success(t("users.unblocked"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -190,10 +215,15 @@ export default function UsersPage() {
                         {user.email}
                       </p>
                     )}
-                    <div className="mt-2">
+                    <div className="mt-2 flex gap-1.5">
                       <Badge variant="secondary">
                         {t(`users.roles.${user.role}`)}
                       </Badge>
+                      {user.isBlocked && (
+                        <Badge variant="destructive">
+                          {t("users.blockedBadge")}
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -205,6 +235,31 @@ export default function UsersPage() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
+                  {user.id !== currentUserId && !user.isBlocked && (
+                    <ConfirmButton
+                      variant="outline"
+                      size="sm"
+                      onConfirm={() => blockMutation.mutate(user.id)}
+                      confirmTitle={t("users.blockConfirmTitle")}
+                      confirmDetails={t("users.blockConfirmDetails", {
+                        name: user.name || user.username,
+                      })}
+                      icon={<Ban />}
+                      disabled={blockMutation.isPending}
+                    >
+                      <Ban className="h-3.5 w-3.5" />
+                    </ConfirmButton>
+                  )}
+                  {user.id !== currentUserId && user.isBlocked && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => unblockMutation.mutate(user.id)}
+                      disabled={unblockMutation.isPending}
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   {user.id !== currentUserId && (
                     <ConfirmButton
                       variant="outline"

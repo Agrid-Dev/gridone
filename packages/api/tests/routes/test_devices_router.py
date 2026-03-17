@@ -12,6 +12,7 @@ from timeseries.domain import DeviceCommandCreate, SortOrder
 
 from api.dependencies import (
     get_current_token_payload,
+    get_current_user_id,
     get_device_manager,
     get_ts_service,
 )
@@ -40,6 +41,7 @@ def app(
     app.dependency_overrides[get_device_manager] = get_mock_devices_manager
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 
 

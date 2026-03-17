@@ -61,7 +61,13 @@ async def get_current_token_payload(
 
 async def get_current_user_id(
     payload: TokenPayload = Depends(get_current_token_payload),
+    um: UsersManager = Depends(get_users_manager),
 ) -> str:
+    if await um.is_blocked(payload.sub):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been blocked. Contact an administrator.",
+        )
     return payload.sub
 
 

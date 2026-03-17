@@ -16,6 +16,7 @@ export type CurrentUser = {
   email: string;
   title: string;
   mustChangePassword: boolean;
+  isBlocked: boolean;
   permissions: string[];
 };
 

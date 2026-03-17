@@ -25,6 +25,11 @@
     "deleted": "User deleted",
     "deleteConfirmTitle": "Delete user",
     "deleteConfirmDetails": "Delete user \"{{name}}\"? This action cannot be undone.",
+    "blockConfirmTitle": "Block user",
+    "blockConfirmDetails": "Block user \"{{name}}\"? They will be immediately logged out and unable to sign in.",
+    "blocked": "User blocked",
+    "unblocked": "User unblocked",
+    "blockedBadge": "Blocked",
     "you": "you",
     "roles": {
       "admin": "Admin",
