@@ -28,8 +28,11 @@ export type DeviceCreatePayload = {
   config: Record<string, unknown>;
 };
 
-export function listDevices(): Promise<Device[]> {
-  return request<Device[]>("/devices/", undefined, { camelCase: true });
+export function listDevices(
+  params?: Record<string, string>,
+): Promise<Device[]> {
+  const query = params ? `?${new URLSearchParams(params)}` : "";
+  return request<Device[]>(`/devices/${query}`, undefined, { camelCase: true });
 }
 
 export function getDevice(deviceId: string): Promise<Device> {

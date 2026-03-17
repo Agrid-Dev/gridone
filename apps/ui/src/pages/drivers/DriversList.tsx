@@ -13,6 +13,8 @@ import { Button } from "@/components/ui";
 import { Plus } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useFilterParams } from "@/hooks/useFilterParams";
+import { TypeFilter } from "@/components/FilterBar";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -57,6 +59,7 @@ const DriversListContainer: FC<{
           ) : undefined
         }
       />
+      <TypeFilter />
       {driversCount > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {children}
@@ -89,7 +92,8 @@ const DriversListLoader: FC = () => (
 );
 
 const DriversListWrapper: FC = () => {
-  const { driversListQuery: query } = useDrivers();
+  const filters = useFilterParams();
+  const { driversListQuery: query } = useDrivers(filters);
   if (query.isLoading) {
     return <DriversListLoader />;
   }

@@ -38,8 +38,9 @@ export type Driver = {
   discovery?: Record<string, unknown> | null;
 };
 
-export function getDrivers(): Promise<Driver[]> {
-  return request<Driver[]>("/drivers/", undefined, { camelCase: true });
+export function getDrivers(params?: Record<string, string>): Promise<Driver[]> {
+  const query = params ? `?${new URLSearchParams(params)}` : "";
+  return request<Driver[]>(`/drivers/${query}`, undefined, { camelCase: true });
 }
 
 export type DriverCreatePayload = { yaml: string };

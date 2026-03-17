@@ -101,6 +101,7 @@
     "transport": "Transport",
     "type": "Type",
     "unknown": "Inconnu",
+    "allTypes": "Tous les types",
     "deviceTypes": {
       "thermostat": "Thermostat",
       "awhp": "PAC air-eau"

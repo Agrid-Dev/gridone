@@ -101,6 +101,7 @@
     "transport": "Transport",
     "type": "Type",
     "unknown": "Unknown",
+    "allTypes": "All types",
     "deviceTypes": {
       "thermostat": "Thermostat",
       "awhp": "AWHP"

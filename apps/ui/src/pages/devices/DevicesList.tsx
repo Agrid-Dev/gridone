@@ -3,16 +3,19 @@ import { useTranslation } from "react-i18next";
 import { DeviceCard } from "./DeviceCard";
 import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
+import { TypeFilter } from "@/components/FilterBar";
 import { History, Plus, RefreshCw } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
+  const filters = useFilterParams();
   const { devices, loading, error, refreshing, fetchDevices } =
-    useDevicesList();
+    useDevicesList(filters);
   const can = usePermissions();
 
   return (
@@ -47,6 +50,8 @@ export default function DevicesList() {
           </>
         }
       />
+
+      <TypeFilter />
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
