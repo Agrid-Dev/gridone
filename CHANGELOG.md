@@ -1,3 +1,15 @@
+## v0.13.0 (2026-03-17)
+
+### Feat
+
+- **devices-manager**: enforce type schema at driver level and add type as property on device
+- **devices-manager**: introduce standard devices registry
+- **devices-manager**: schema validator for standard attributes
+
+### Refactor
+
+- **devices-manager**: address pr comments
+
 ## v0.12.0 (2026-03-16)
 
 ### Feat
