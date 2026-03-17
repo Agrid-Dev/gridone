@@ -19,13 +19,13 @@ export function formatAttributeValue(value: unknown | null): string {
 }
 
 export function getLastUpdateTime(
-  attributes: Record<string, { last_updated?: string | null }>,
+  attributes: Record<string, { lastUpdated?: string | null }>,
 ): number | null {
   let lastUpdate: number | null = null;
 
   for (const attribute of Object.values(attributes)) {
-    if (attribute.last_updated) {
-      const updatedTime = new Date(attribute.last_updated).getTime();
+    if (attribute.lastUpdated) {
+      const updatedTime = new Date(attribute.lastUpdated).getTime();
       if (!lastUpdate || updatedTime > lastUpdate) {
         lastUpdate = updatedTime;
       }

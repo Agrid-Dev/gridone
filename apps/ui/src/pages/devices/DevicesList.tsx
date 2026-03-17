@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { DeviceCard } from "@/components/DeviceCard";
+import { DeviceCard } from "./DeviceCard";
 import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
