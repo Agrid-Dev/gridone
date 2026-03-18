@@ -280,3 +280,16 @@ class TestDiscardRegistrationRequest:
         await apps_manager.discard_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
             await apps_manager.discard_registration_request(req.id)
+
+
+class TestAppsManagerLifecycle:
+    async def test_close_delegates_to_storage(self, reg_storage, users_manager):
+        """close() should forward to the underlying storage backend."""
+        manager = AppsManager(reg_storage, users_manager)
+        # Should not raise
+        await manager.close()
+
+    async def test_from_storage_rejects_non_postgres(self, users_manager):
+        """from_storage() raises ValueError for non-PostgreSQL URLs."""
+        with pytest.raises(ValueError, match="requires PostgreSQL"):
+            await AppsManager.from_storage("/data/not-postgres", users_manager)
