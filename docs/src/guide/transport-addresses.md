@@ -46,23 +46,32 @@ write:
 
 ---
 
-## HTTP
+## Address reference per protocol
 
-The read address is a plain string: `"<METHOD> <path>"`.
+### HTTP
+
+Both read and write addresses accept either a compact string or an object.
+
+**String format** — `"<METHOD> <path>"` — use when no body is needed:
 
 ```yaml
 read: "GET ${ip}/api/v1/status"
+write: "POST ${ip}/attribute?value=${value}"
 ```
 
-The write address is an object:
+**Object format** — use when a body is required or for explicitness:
 
 | Field | Required | Description |
 |---|---|---|
-| `method` | yes | HTTP method: `GET`, `POST`, `PATCH`, etc. |
+| `method` | yes | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `path` | yes | URL of the endpoint |
 | `body` | no | JSON payload sent with the request |
 
 ```yaml
+read:
+  method: GET
+  path: "${ip}/api/v1/status"
+
 write:
   method: POST
   path: "${ip}/api/v1/setpoint"
@@ -72,7 +81,7 @@ write:
 
 ---
 
-## MQTT
+### MQTT
 
 Both read and write addresses are objects. `topic` is the topic to subscribe to or publish on. The `request` field triggers a message before reading, or sends an update when writing.
 
@@ -100,9 +109,9 @@ write:
 
 ---
 
-## Modbus TCP
+### Modbus TCP
 
-Addresses are compact strings: `<type><instance>` or `<type><instance>:<count>` for values that span multiple registers.
+Addresses are compact strings: `<type><instance>` or `<type><instance>:<count>` for values that span multiple registers. An object format is also accepted (`type`, `instance`, `count`) but the string notation is preferred.
 
 | Type | Code | Access | Data types |
 |---|---|---|---|
@@ -121,7 +130,7 @@ read_write: C0    # Coil 0
 
 ---
 
-## BACnet
+### BACnet
 
 Addresses reference a BACnet object by type and instance. The `device_instance` is provided via `device_config` and resolved at runtime.
 
