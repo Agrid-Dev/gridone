@@ -1,3 +1,15 @@
+## v0.17.0 (2026-03-18)
+
+### Feat
+
+- **ui**: handle empty state with filters
+- **ui**: filter bar and type filter for devices and drivers list
+- **ui**: add device type chips
+
+### Refactor
+
+- **ui**: rework, fix and simplify device preview card
+
 ## v0.16.0 (2026-03-18)
 
 ### Feat
