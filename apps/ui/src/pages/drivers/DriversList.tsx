@@ -3,8 +3,9 @@ import { useDrivers } from "./useDrivers";
 import { Driver } from "@/api/drivers";
 import { Card, CardContent, CardHeader } from "@/components/ui";
 import { TypographyH3 } from "@/components/ui/typography";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
+import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
@@ -12,6 +13,8 @@ import { Button } from "@/components/ui";
 import { Plus } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useFilterParams } from "@/hooks/useFilterParams";
+import { TypeFilter } from "@/components/FilterBar";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation();
@@ -22,6 +25,7 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
           <TypographyH3>{driver.id}</TypographyH3>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
+          <DeviceTypeChip type={driver.type} />
           <Badge variant="secondary">{driver.transport}</Badge>
           <Badge variant="outline">
             {driver.attributes.length}&nbsp;
@@ -55,6 +59,7 @@ const DriversListContainer: FC<{
           ) : undefined
         }
       />
+      <TypeFilter />
       {driversCount > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {children}
@@ -66,13 +71,21 @@ const DriversListContainer: FC<{
   );
 };
 
-const DriversList: FC<{ drivers: Driver[] }> = ({ drivers }) => {
+const DriversList: FC<{ drivers: Driver[]; hasFilters: boolean }> = ({
+  drivers,
+  hasFilters,
+}) => {
+  const [, setSearchParams] = useSearchParams();
   return (
     <DriversListContainer driversCount={drivers.length}>
       {drivers.length ? (
         drivers.map((driver) => <DriverCard key={driver.id} driver={driver} />)
       ) : (
-        <ResourceEmpty resourceName="driver" />
+        <ResourceEmpty
+          resourceName="driver"
+          filtered={hasFilters}
+          onClearFilters={() => setSearchParams({})}
+        />
       )}
     </DriversListContainer>
   );
@@ -87,11 +100,12 @@ const DriversListLoader: FC = () => (
 );
 
 const DriversListWrapper: FC = () => {
-  const { driversListQuery: query } = useDrivers();
+  const filters = useFilterParams();
+  const { driversListQuery: query } = useDrivers(filters);
   if (query.isLoading) {
     return <DriversListLoader />;
   }
   const drivers = query.data;
-  return <DriversList drivers={drivers} />;
+  return <DriversList drivers={drivers} hasFilters={!!filters} />;
 };
 export default DriversListWrapper;

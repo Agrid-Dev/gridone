@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
+import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ErrorBoundary } from "react-error-boundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
@@ -22,7 +23,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
-  value: string | number | boolean | null | undefined;
+  value: string | number | boolean | React.ReactNode | undefined;
 }> = ({ label, value }) => (
   <div>
     <Label>{label}</Label>
@@ -71,6 +72,7 @@ const DriverDetails: FC<{
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>
+
           <div className="flex justify-start gap-16 my-4">
             <LabelledProperty
               label={t("drivers.fields.vendor")}
@@ -87,6 +89,10 @@ const DriverDetails: FC<{
             <LabelledProperty
               label={t("drivers.fields.protocol")}
               value={driver.transport}
+            />
+            <LabelledProperty
+              label={t("drivers.fields.type")}
+              value={<DeviceTypeChip type={driver.type} />}
             />
           </div>
           <TypographyH3>{t("drivers.fields.updateStrategy")}</TypographyH3>

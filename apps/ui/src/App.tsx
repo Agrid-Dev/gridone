@@ -8,6 +8,7 @@ import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
 import { Toaster } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
 
 function ProtectedLayout() {
@@ -55,5 +56,9 @@ export default function App() {
     );
   }
 
-  return <ProtectedLayout />;
+  return (
+    <TooltipProvider>
+      <ProtectedLayout />
+    </TooltipProvider>
+  );
 }

@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
 
-export const useDrivers = () => {
+export const useDrivers = (filters?: Record<string, string>) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const driversListQuery = useQuery<Driver[]>({
-    queryKey: ["drivers"],
-    queryFn: getDrivers,
+    queryKey: ["drivers", filters],
+    queryFn: () => getDrivers(filters),
     initialData: [],
   });
   const handleApiError = (err: ApiError) => {

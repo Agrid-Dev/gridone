@@ -104,6 +104,13 @@
     "driver": "Driver",
     "device": "Appareil",
     "transport": "Transport",
+    "type": "Type",
+    "unknown": "Inconnu",
+    "allTypes": "Tous les types",
+    "deviceTypes": {
+      "thermostat": "Thermostat",
+      "awhp": "PAC air-eau"
+    },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
     "notFound": "Introuvable",
@@ -138,7 +145,10 @@
   "empty": {
     "title": "Aucun {{resourceName}} pour le moment",
     "details": "Vous n'avez pas encore créé de {{resourceName}}. Commencez par créer votre premier {{resourceName}}.",
-    "new": "Créer un {{resourceName}}"
+    "new": "Créer un {{resourceName}}",
+    "noMatch": "Aucun {{resourceName}} correspondant",
+    "clearFiltersHint": "Essayez d'ajuster ou de supprimer vos filtres.",
+    "clearFilters": "Effacer les filtres"
   },
   "app": {
     "title": "Gridone",
@@ -349,6 +359,7 @@
     "attribute_other": "attributs",
     "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
     "fields": {
+      "type": "Type d’appareil",
       "vendor": "Fabricant",
       "model": "Modèle",
       "version": "Version",

@@ -8,7 +8,6 @@ import {
   TabsTrigger,
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
@@ -176,34 +175,32 @@ function HistoryToolbar() {
 
             <TimeRangeSelect />
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 w-9"
-                    disabled={isDownloading || visibleAttributes.length === 0}
-                    onClick={() =>
-                      handleDownload(activeTab === "chart" ? "png" : "csv")
-                    }
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Download className="h-4 w-4" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t(
-                    activeTab === "chart"
-                      ? "deviceDetails.downloadPng"
-                      : "deviceDetails.downloadCsv",
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9"
+                  disabled={isDownloading || visibleAttributes.length === 0}
+                  onClick={() =>
+                    handleDownload(activeTab === "chart" ? "png" : "csv")
+                  }
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
                   )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t(
+                  activeTab === "chart"
+                    ? "deviceDetails.downloadPng"
+                    : "deviceDetails.downloadCsv",
+                )}
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
 

@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { History } from "lucide-react";
+import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -66,7 +67,10 @@ export default function DeviceLayout() {
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <CardTitle className="mt-1">{device.name || deviceId}</CardTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <CardTitle>{device.name || deviceId}</CardTitle>
+                <DeviceTypeChip type={device.type} />
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {t("common.driver")}:&nbsp;
                 <Link

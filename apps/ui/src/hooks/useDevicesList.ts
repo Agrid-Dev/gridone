@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Device, listDevices } from "../api/devices";
 import { useDeviceContext } from "../contexts/DeviceContext";
 
-export function useDevicesList() {
+export function useDevicesList(filters?: Record<string, string>) {
   const { t } = useTranslation();
   const { isConnected } = useDeviceContext();
 
@@ -14,8 +14,8 @@ export function useDevicesList() {
     refetch,
     isFetching,
   } = useQuery<Device[]>({
-    queryKey: ["devices"],
-    queryFn: listDevices,
+    queryKey: ["devices", filters],
+    queryFn: () => listDevices(filters),
     refetchInterval: isConnected ? false : 15000,
     staleTime: 5000,
   });
