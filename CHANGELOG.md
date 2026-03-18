@@ -1,3 +1,11 @@
+## v0.16.0 (2026-03-18)
+
+### Feat
+
+- **api**: type filter in list devices and list routers and get standard schemas
+- **devices-manager**: add filters for list devices / drivers
+- **devices-manager**: pass type through dto
+
 ## v0.15.0 (2026-03-18)
 
 ### Feat
