@@ -15,6 +15,7 @@ class DeviceCreateDTO(BaseModel):
 
 class DeviceDTO(DeviceCreateDTO):
     id: str
+    type: str | None = None
     attributes: dict[str, Attribute] = Field(default_factory=dict)
 
 
@@ -32,6 +33,7 @@ def core_to_dto(device: Device) -> DeviceDTO:
         config=device.config,
         driver_id=device.driver.id,
         transport_id=device.transport.id,
+        type=device.type,
         attributes=device.attributes,
     )
 

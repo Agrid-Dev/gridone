@@ -12,6 +12,7 @@ from .core.discovery_manager import (
     DiscoveryContext,
 )
 from .core.driver import Driver
+from .core.standard_schemas.registry import default_registry
 from .core.tasks_registry import TasksRegistry
 from .core.transports import (
     TransportClient,
@@ -24,6 +25,7 @@ from .dto import (
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
+    StandardAttributeSchemaDTO,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
@@ -31,6 +33,7 @@ from .dto import (
     device_dto_to_base,
     driver_core_to_dto,
     driver_dto_to_core,
+    standard_schema_core_to_dto,
     transport_core_to_dto,
 )
 from .storage import DevicesManagerStorage
@@ -329,8 +332,17 @@ class DevicesManager:
     def driver_ids(self) -> set[str]:
         return set(self._drivers.keys())
 
-    def list_drivers(self) -> list[DriverDTO]:
-        return [driver_core_to_dto(driver) for driver in self._drivers.values()]
+    def list_drivers(self, *, device_type: str | None = None) -> list[DriverDTO]:
+        drivers = self._drivers.values()
+        if device_type is not None:
+            drivers = [d for d in drivers if d.type == device_type]
+        return [driver_core_to_dto(driver) for driver in drivers]
+
+    @staticmethod
+    def list_standard_schemas() -> list[StandardAttributeSchemaDTO]:
+        return [
+            standard_schema_core_to_dto(schema) for schema in default_registry.values()
+        ]
 
     def get_driver(self, driver_id: str) -> DriverDTO:
         driver = self._get_or_raise(self._drivers, driver_id, "Driver")
@@ -371,8 +383,11 @@ class DevicesManager:
     def device_ids(self) -> set[str]:
         return set(self._devices.keys())
 
-    def list_devices(self) -> list[DeviceDTO]:
-        return [device_core_to_dto(device) for device in self._devices.values()]
+    def list_devices(self, *, device_type: str | None = None) -> list[DeviceDTO]:
+        devices = self._devices.values()
+        if device_type is not None:
+            devices = [d for d in devices if d.type == device_type]
+        return [device_core_to_dto(device) for device in devices]
 
     def get_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")

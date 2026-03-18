@@ -35,6 +35,16 @@ class TestListDrivers:
         drivers = response.json()
         assert len(drivers) == 2
 
+    def test_list_drivers_filter_by_type(self, client: TestClient):
+        response = client.get("/", params={"type": "unknown_type"})
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_list_drivers_no_filter_returns_all(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert len(response.json()) == 2
+
 
 class TestGetDriver:
     def test_get_driver_by_id_ok(self, client: TestClient):

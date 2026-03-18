@@ -401,6 +401,28 @@ class TestDevicesManagerDrivers:
         assert isinstance(drivers, list)
         assert all(isinstance(d, DriverDTO) for d in drivers)
 
+    def test_list_drivers_filter_by_type(self, thermostat_driver, other_http_driver):
+        dm = DevicesManager(
+            devices={},
+            drivers={
+                thermostat_driver.id: thermostat_driver,
+                other_http_driver.id: other_http_driver,
+            },
+            transports={},
+        )
+
+        result = dm.list_drivers(device_type="thermostat")
+
+        assert len(result) == 1
+        assert result[0].id == thermostat_driver.id
+
+    def test_list_drivers_filter_by_type_no_match(self, driver):
+        dm = DevicesManager(devices={}, drivers={driver.id: driver}, transports={})
+
+        result = dm.list_drivers(device_type="unknown")
+
+        assert result == []
+
     def test_get_driver_existing(self, devices_manager, driver):
         driver_id = driver.id
         driver_dto = devices_manager.get_driver(driver_id)
@@ -464,6 +486,38 @@ class TestDevicesManagerDevices:
         devices = devices_manager.list_devices()
         assert len(devices) > 0
         assert all(isinstance(d, DeviceDTO) for d in devices)
+
+    def test_list_devices_filter_by_type(
+        self, thermostat_driver, driver, mock_transport_client
+    ):
+        device_typed = Device.from_base(
+            DeviceBase(id="d1", name="Typed", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        device_untyped = Device.from_base(
+            DeviceBase(id="d2", name="Untyped", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesManager(
+            devices={device_typed.id: device_typed, device_untyped.id: device_untyped},
+            drivers={
+                thermostat_driver.id: thermostat_driver,
+                driver.id: driver,
+            },
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+
+        result = dm.list_devices(device_type="thermostat")
+
+        assert len(result) == 1
+        assert result[0].id == "d1"
+
+    def test_list_devices_filter_by_type_no_match(self, devices_manager):
+        result = devices_manager.list_devices(device_type="unknown")
+
+        assert result == []
 
     def test_get_device_ok(self, devices_manager, device):
         result = devices_manager.get_device(device.id)
