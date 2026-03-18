@@ -192,10 +192,7 @@ async def block_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot block your own account",
         )
-    try:
-        return await um.block_user(user_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return await um.block_user(user_id)
 
 
 @router.post(
@@ -207,7 +204,4 @@ async def unblock_user(
     user_id: str,
     um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> User:
-    try:
-        return await um.unblock_user(user_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    return await um.unblock_user(user_id)

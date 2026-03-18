@@ -4,8 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
-from models.errors import BlockedUserError
-
 from users import UsersManager
 from users.auth import AuthService, InvalidTokenError
 from users.models import Role
@@ -76,13 +74,7 @@ async def login(
     um: Annotated[UsersManager, Depends(get_users_manager)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
-    try:
-        user = await um.authenticate(form_data.username, form_data.password)
-    except BlockedUserError:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been blocked. Contact an administrator.",
-        )
+    user = await um.authenticate(form_data.username, form_data.password)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

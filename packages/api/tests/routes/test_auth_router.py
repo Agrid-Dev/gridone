@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_users_manager
+from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
 from models.errors import BlockedUserError
 from users import Role, User
@@ -63,6 +64,7 @@ def app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersManager()
     app.dependency_overrides[get_users_manager] = lambda: manager
+    register_exception_handlers(app)
     return app
 
 

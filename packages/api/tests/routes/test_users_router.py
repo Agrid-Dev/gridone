@@ -1,4 +1,6 @@
-"""Tests for the user blocking system (block/unblock endpoints + JWT rejection)."""
+"""Tests for users_router block/unblock endpoints and JWT rejection."""
+
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -9,97 +11,74 @@ from users import Role, User
 from users.auth import AuthService
 
 from api.dependencies import get_current_user_id, get_users_manager
+from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 
+ADMIN = User(id="admin-id", username="admin", role=Role.ADMIN, name="Admin User")
+BOB = User(id="bob-id", username="bob", role=Role.OPERATOR, name="Bob User")
 
-class MockUsersManager:
-    def __init__(self) -> None:
-        self._credentials = {"admin": "admin", "bob": "bob"}
-        self._users: dict[str, User] = {
-            "admin": User(
-                id="admin-id",
-                username="admin",
-                role=Role.ADMIN,
-                name="Admin User",
-            ),
-            "bob": User(
-                id="bob-id",
-                username="bob",
-                role=Role.OPERATOR,
-                name="Bob User",
-            ),
-        }
 
-    async def authenticate(self, username: str, password: str) -> User | None:
-        if self._credentials.get(username) != password:
+@pytest.fixture
+def users_manager() -> AsyncMock:
+    um = AsyncMock()
+
+    async def _authenticate(username: str, password: str) -> User | None:
+        creds = {"admin": "admin", "bob": "bob"}
+        users = {"admin": ADMIN, "bob": BOB}
+        if creds.get(username) != password:
             return None
-        user = self._users.get(username)
-        if user and user.is_blocked:
+        user = users[username]
+        if user.is_blocked:
             msg = f"User '{username}' is blocked"
             raise BlockedUserError(msg)
         return user
 
-    async def get_by_id(self, user_id: str) -> User:
-        for user in self._users.values():
+    async def _get_by_id(user_id: str) -> User:
+        for user in (ADMIN, BOB):
             if user.id == user_id:
                 return user
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
 
-    async def list_users(self) -> list[User]:
-        return list(self._users.values())
-
-    async def is_blocked(self, user_id: str) -> bool:
-        for user in self._users.values():
+    async def _is_blocked(user_id: str) -> bool:
+        for user in (ADMIN, BOB):
             if user.id == user_id:
                 return user.is_blocked
         return False
 
-    async def block_user(self, user_id: str) -> User:
-        for username, user in self._users.items():
-            if user.id == user_id:
-                blocked = user.model_copy(update={"is_blocked": True})
-                self._users[username] = blocked
-                return blocked
-        msg = f"User '{user_id}' not found"
-        raise NotFoundError(msg)
+    um.authenticate = AsyncMock(side_effect=_authenticate)
+    um.get_by_id = AsyncMock(side_effect=_get_by_id)
+    um.is_blocked = AsyncMock(side_effect=_is_blocked)
+    um.list_users = AsyncMock(return_value=[ADMIN, BOB])
+    um.block_user = AsyncMock(
+        side_effect=lambda uid: (
+            BOB.model_copy(update={"is_blocked": True})
+            if uid == "bob-id"
+            else (_ for _ in ()).throw(NotFoundError(f"User '{uid}' not found"))
+        ),
+    )
+    um.unblock_user = AsyncMock(
+        side_effect=lambda uid: (
+            BOB.model_copy(update={"is_blocked": False})
+            if uid == "bob-id"
+            else (_ for _ in ()).throw(NotFoundError(f"User '{uid}' not found"))
+        ),
+    )
+    return um
 
-    async def unblock_user(self, user_id: str) -> User:
-        for username, user in self._users.items():
-            if user.id == user_id:
-                unblocked = user.model_copy(update={"is_blocked": False})
-                self._users[username] = unblocked
-                return unblocked
-        msg = f"User '{user_id}' not found"
-        raise NotFoundError(msg)
 
-
-def _build_app() -> tuple[FastAPI, MockUsersManager]:
+@pytest.fixture
+def app(users_manager: AsyncMock) -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_users_manager] = lambda: users_manager
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(users_router, prefix="/users", dependencies=jwt_dep)
-    return app, manager
-
-
-@pytest.fixture
-def app_and_manager() -> tuple[FastAPI, MockUsersManager]:
-    return _build_app()
-
-
-@pytest.fixture
-def app(app_and_manager: tuple[FastAPI, MockUsersManager]) -> FastAPI:
-    return app_and_manager[0]
-
-
-@pytest.fixture
-def manager(app_and_manager: tuple[FastAPI, MockUsersManager]) -> MockUsersManager:
-    return app_and_manager[1]
+    register_exception_handlers(app)
+    return app
 
 
 def _login(client: TestClient, username: str) -> str:
@@ -144,12 +123,9 @@ def test_block_nonexistent_user_returns_404(app: FastAPI) -> None:
 # --- Unblock endpoint ---
 
 
-def test_admin_can_unblock_user(app: FastAPI, manager: MockUsersManager) -> None:
+def test_admin_can_unblock_user(app: FastAPI) -> None:
     with TestClient(app) as client:
         token = _login(client, "admin")
-        # Block first
-        client.post("/users/bob-id/block", headers=_auth(token))
-        # Then unblock
         resp = client.post("/users/bob-id/unblock", headers=_auth(token))
         assert resp.status_code == 200
         assert resp.json()["is_blocked"] is False
@@ -165,16 +141,20 @@ def test_unblock_nonexistent_user_returns_404(app: FastAPI) -> None:
 # --- Blocked user JWT rejection ---
 
 
-def test_blocked_user_jwt_is_rejected(app: FastAPI) -> None:
+def test_blocked_user_jwt_is_rejected(app: FastAPI, users_manager: AsyncMock) -> None:
     """After blocking, existing JWTs should be rejected with 403."""
     with TestClient(app) as client:
-        # Bob logs in (gets a valid token)
         bob_token = _login(client, "bob")
         admin_token = _login(client, "admin")
 
         # Admin blocks Bob
         resp = client.post("/users/bob-id/block", headers=_auth(admin_token))
         assert resp.status_code == 200
+
+        # Simulate Bob being blocked for is_blocked check
+        users_manager.is_blocked = AsyncMock(
+            side_effect=lambda uid: uid == "bob-id",
+        )
 
         # Bob's existing token is now rejected
         resp = client.get("/auth/me", headers=_auth(bob_token))
