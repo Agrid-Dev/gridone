@@ -21,6 +21,66 @@ export type Device = {
   attributes: Record<string, DeviceAttribute>;
 };
 
+// ---------------------------------------------------------------------------
+// Standard device type helpers
+// ---------------------------------------------------------------------------
+
+/** Extract a typed attribute value, returning `null` when the attribute is missing. */
+type AttrValue<T> = T | null;
+
+/** Typed view of thermostat standard attributes (read from Device.attributes). */
+export type ThermostatAttributes = {
+  temperature: AttrValue<number>;
+  temperatureSetpoint: AttrValue<number>;
+  onoffState: AttrValue<boolean>;
+  mode: AttrValue<string>;
+  fanSpeed: AttrValue<string>;
+  temperatureSetpointMin: AttrValue<number>;
+  temperatureSetpointMax: AttrValue<number>;
+};
+
+/** A Device whose `type` is `"thermostat"`. */
+export type ThermostatDevice = Device & { type: "thermostat" };
+
+/** A Device whose `type` is `"awhp"`. */
+export type AwhpDevice = Device & { type: "awhp" };
+
+/** Union of all devices with a known standard type. */
+export type StandardDevice = ThermostatDevice | AwhpDevice;
+
+// Type guards ---
+
+export function isThermostat(device: Device): device is ThermostatDevice {
+  return device.type === "thermostat";
+}
+
+export function isAwhp(device: Device): device is AwhpDevice {
+  return device.type === "awhp";
+}
+
+export function isStandardDevice(device: Device): device is StandardDevice {
+  return isThermostat(device) || isAwhp(device);
+}
+
+/**
+ * Read the standard thermostat attributes from a device's attribute map.
+ * Attribute keys are already camelCase (converted by the API client).
+ */
+export function readThermostatAttributes(
+  device: ThermostatDevice,
+): ThermostatAttributes {
+  const v = (name: string) => device.attributes[name]?.currentValue ?? null;
+  return {
+    temperature: v("temperature") as AttrValue<number>,
+    temperatureSetpoint: v("temperatureSetpoint") as AttrValue<number>,
+    onoffState: v("onoffState") as AttrValue<boolean>,
+    mode: v("mode") as AttrValue<string>,
+    fanSpeed: v("fanSpeed") as AttrValue<string>,
+    temperatureSetpointMin: v("temperatureSetpointMin") as AttrValue<number>,
+    temperatureSetpointMax: v("temperatureSetpointMax") as AttrValue<number>,
+  };
+}
+
 export type DeviceCreatePayload = {
   name: string;
   driverId: string;

@@ -1,92 +1,57 @@
-import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, CardHeader, CardContent } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Device } from "@/api/devices";
-import {
-  getLastUpdateTime,
-  formatTimeAgo,
-  getUpdateStatusColor,
-} from "@/lib/utils";
 import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
+import { getStandardDeviceEntry } from "./standard-devices/registry";
 
-function UpdateDot({ attributes }: { attributes: Device["attributes"] }) {
+/** Default card content for devices without a registered standard type. */
+function DefaultCardContent({ device }: { device: Device }) {
   const { t } = useTranslation();
-  const lastUpdateTime = getLastUpdateTime(attributes);
-
-  const [, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    if (!lastUpdateTime) return;
-    const interval = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(interval);
-  }, [lastUpdateTime]);
-
-  if (!lastUpdateTime) return null;
-
-  const statusColor = getUpdateStatusColor(lastUpdateTime);
-  const isRecent = Date.now() - lastUpdateTime < 5 * 60 * 1000;
+  const configEntries = Object.entries(device.config ?? {});
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="relative flex h-2 w-2 flex-shrink-0">
-          {isRecent && (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-          )}
-          <span
-            className={`relative inline-flex h-2 w-2 rounded-full ${statusColor.dot}`}
-          />
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge variant="outline" className="text-[10px]">
+        {Object.keys(device.attributes).length} {t("common.attributes")}
+      </Badge>
+      {configEntries.length > 0 && (
+        <span className="text-[10px] text-muted-foreground truncate">
+          {configEntries.map(([key, value], i) => (
+            <span key={key}>
+              {i > 0 && " · "}
+              <span className="font-medium">{key}</span>: {String(value)}
+            </span>
+          ))}
         </span>
-      </TooltipTrigger>
-      <TooltipContent>
-        {t("common.lastUpdate")} {formatTimeAgo(lastUpdateTime, t)}
-      </TooltipContent>
-    </Tooltip>
+      )}
+    </div>
   );
 }
 
 export function DeviceCard({ device }: { device: Device }) {
-  const { t } = useTranslation();
-
-  const configEntries = Object.entries(device.config ?? {});
+  const standardEntry = getStandardDeviceEntry(device.type);
+  const Content = standardEntry?.Preview ?? DefaultCardContent;
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">
-      <Card className="h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-1.5">
-            <UpdateDot attributes={device.attributes} />
-            <p className="text-xs font-medium uppercase tracking-[0.1em] text-muted-foreground truncate">
+      <Card className="flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+        {/* ── Header (generic) ── */}
+        <div>
+          <div className="flex items-center justify-between gap-1.5">
+            <p className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               {device.driverId}
             </p>
+            <DeviceTypeChip type={device.type} />
           </div>
-          <h2 className="mt-1 text-lg font-semibold text-card-foreground truncate">
+          <h2 className="mt-0.5 truncate text-base font-semibold text-card-foreground">
             {device.name || device.id}
           </h2>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2">
-          <DeviceTypeChip type={device.type} />
-          <Badge variant="outline">
-            {Object.keys(device.attributes).length} {t("common.attributes")}
-          </Badge>
-          {configEntries.length > 0 && (
-            <span className="text-xs text-muted-foreground truncate">
-              {configEntries.map(([key, value], i) => (
-                <span key={key}>
-                  {i > 0 && " \u00b7 "}
-                  <span className="font-medium">{key}</span>: {String(value)}
-                </span>
-              ))}
-            </span>
-          )}
-        </CardContent>
+        </div>
+
+        {/* ── Content (type-specific or fallback) ── */}
+        <Content device={device} />
       </Card>
     </Link>
   );

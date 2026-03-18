@@ -352,6 +352,16 @@
     "noCommands": "No commands recorded yet.",
     "noCommandsDescription": "Commands will appear here when users control device attributes."
   },
+  "thermostat": {
+    "current": "Current",
+    "setpoint": "Setpoint",
+    "mode": "Mode",
+    "fanSpeed": "Fan speed",
+    "on": "On",
+    "off": "Off",
+    "increaseSetpoint": "Increase setpoint",
+    "decreaseSetpoint": "Decrease setpoint"
+  },
   "drivers": {
     "title": "Drivers",
     "list": "List of available drivers ({{count}})",
