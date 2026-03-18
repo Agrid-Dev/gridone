@@ -22,6 +22,7 @@ class PostgresUsersStorage:
             email=row["email"],
             title=row["title"],
             must_change_password=row["must_change_password"],
+            is_blocked=row["is_blocked"],
         )
 
     async def get_by_id(self, user_id: str) -> UserInDB | None:
@@ -43,9 +44,9 @@ class PostgresUsersStorage:
             """
             INSERT INTO users (
                 id, username, hashed_password, role, type,
-                name, email, title, must_change_password
+                name, email, title, must_change_password, is_blocked
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,
                 hashed_password = EXCLUDED.hashed_password,
@@ -54,7 +55,8 @@ class PostgresUsersStorage:
                 name = EXCLUDED.name,
                 email = EXCLUDED.email,
                 title = EXCLUDED.title,
-                must_change_password = EXCLUDED.must_change_password
+                must_change_password = EXCLUDED.must_change_password,
+                is_blocked = EXCLUDED.is_blocked
             """,
             user.id,
             user.username,
@@ -65,6 +67,7 @@ class PostgresUsersStorage:
             user.email,
             user.title,
             user.must_change_password,
+            user.is_blocked,
         )
 
     async def delete(self, user_id: str) -> None:

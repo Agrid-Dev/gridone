@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from models.errors import (
+    BlockedUserError,
     ConfirmationError,
     ForbiddenError,
     InvalidError,
@@ -26,3 +27,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: ConfirmationError
     ) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(BlockedUserError)
+    async def blocked_user_handler(
+        request: Request, exc: BlockedUserError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "detail": "Your account has been blocked. Contact an administrator."
+            },
+        )

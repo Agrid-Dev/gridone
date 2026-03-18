@@ -28,6 +28,7 @@ class User(BaseModel):
     email: str = ""
     title: str = ""
     must_change_password: bool = False
+    is_blocked: bool = False
 
     @model_validator(mode="before")
     @classmethod

@@ -25,6 +25,11 @@
     "deleted": "Utilisateur supprimé",
     "deleteConfirmTitle": "Supprimer l'utilisateur",
     "deleteConfirmDetails": "Supprimer l'utilisateur « {{name}} » ? Cette action est irréversible.",
+    "blockConfirmTitle": "Bloquer l'utilisateur",
+    "blockConfirmDetails": "Bloquer l'utilisateur « {{name}} » ? Il sera immédiatement déconnecté et ne pourra plus se connecter.",
+    "blocked": "Utilisateur bloqué",
+    "unblocked": "Utilisateur débloqué",
+    "blockedBadge": "Bloqué",
     "you": "vous",
     "roles": {
       "admin": "Administrateur",

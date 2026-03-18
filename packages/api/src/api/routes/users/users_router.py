@@ -175,3 +175,33 @@ async def delete_user(
         await um.delete_user(user_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+@router.post(
+    "/{user_id}/block",
+    response_model=User,
+    dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+)
+async def block_user(
+    user_id: str,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    um: Annotated[UsersManager, Depends(get_users_manager)],
+) -> User:
+    if user_id == current_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot block your own account",
+        )
+    return await um.block_user(user_id)
+
+
+@router.post(
+    "/{user_id}/unblock",
+    response_model=User,
+    dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+)
+async def unblock_user(
+    user_id: str,
+    um: Annotated[UsersManager, Depends(get_users_manager)],
+) -> User:
+    return await um.unblock_user(user_id)

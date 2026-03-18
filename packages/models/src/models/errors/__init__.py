@@ -12,3 +12,7 @@ class InvalidError(ValueError):
 
 class ConfirmationError(ValueError):
     """Raised when the result of a command failed to be confirmed."""
+
+
+class BlockedUserError(Exception):
+    """Raised when a blocked user attempts to authenticate."""

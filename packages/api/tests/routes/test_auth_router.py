@@ -3,7 +3,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from api.dependencies import get_users_manager
+from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
+from models.errors import BlockedUserError
 from users import Role, User
 from users.auth import AuthService
 from users.validation import (
@@ -16,19 +18,29 @@ from users.validation import (
 
 class MockUsersManager:
     def __init__(self) -> None:
-        self._credentials = {"admin": "admin"}
+        self._credentials = {"admin": "admin", "blocked": "blocked"}
         self._users = {
             "admin": User(
                 id="admin-id",
                 username="admin",
                 role=Role.ADMIN,
-            )
+            ),
+            "blocked": User(
+                id="blocked-id",
+                username="blocked",
+                role=Role.OPERATOR,
+                is_blocked=True,
+            ),
         }
 
     async def authenticate(self, username: str, password: str) -> User | None:
         if self._credentials.get(username) != password:
             return None
-        return self._users[username]
+        user = self._users[username]
+        if user.is_blocked:
+            msg = f"User '{username}' is blocked"
+            raise BlockedUserError(msg)
+        return user
 
     async def get_by_id(self, user_id: str) -> User:
         for user in self._users.values():
@@ -36,6 +48,12 @@ class MockUsersManager:
                 return user
         msg = f"User '{user_id}' not found"
         raise RuntimeError(msg)
+
+    async def is_blocked(self, user_id: str) -> bool:
+        for user in self._users.values():
+            if user.id == user_id:
+                return user.is_blocked
+        return False
 
 
 @pytest.fixture
@@ -46,6 +64,7 @@ def app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersManager()
     app.dependency_overrides[get_users_manager] = lambda: manager
+    register_exception_handlers(app)
     return app
 
 
@@ -249,3 +268,34 @@ def test_logout_clears_cookies(client: TestClient) -> None:
     # Cookies are cleared (max_age=0)
     assert response.headers.get("set-cookie") is not None
     assert 'access_token=""' in response.headers.get("set-cookie", "")
+
+
+# --- Blocked user tests ---
+
+
+def test_login_blocked_user_returns_403(client: TestClient) -> None:
+    response = client.post(
+        "/login",
+        data={
+            "grant_type": "password",
+            "username": "blocked",
+            "password": "blocked",
+        },
+    )
+    assert response.status_code == 403
+    assert "blocked" in response.json()["detail"].lower()
+
+
+def test_refresh_blocked_user_returns_403(app: FastAPI) -> None:
+    """A blocked user cannot refresh tokens even with a valid refresh token."""
+    auth_service: AuthService = app.state.auth_service
+    # Create a refresh token for the blocked user
+    refresh_token = auth_service.create_refresh_token("blocked-id", "operator")
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/refresh",
+            json={"refresh_token": refresh_token},
+        )
+    assert response.status_code == 403
+    assert "blocked" in response.json()["detail"].lower()

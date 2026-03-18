@@ -1,0 +1,3 @@
+-- depends: 0003.users-add-type
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE;

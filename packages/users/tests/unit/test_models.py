@@ -43,3 +43,13 @@ class TestUserType:
         }
         user = UserInDB.model_validate(data)
         assert user.type == UserType.USER
+
+
+class TestIsBlocked:
+    def test_default_is_not_blocked(self):
+        user = User(id="1", username="alice")
+        assert user.is_blocked is False
+
+    def test_can_set_blocked(self):
+        user = User(id="1", username="alice", is_blocked=True)
+        assert user.is_blocked is True

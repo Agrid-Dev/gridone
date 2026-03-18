@@ -102,6 +102,7 @@ async def refresh(
     response: Response,
     body: RefreshRequest | None = None,
     auth_service: AuthService = Depends(get_auth_service),
+    um: UsersManager = Depends(get_users_manager),
 ) -> TokenResponse:
     # Cookie takes precedence; fall back to JSON body (for Postman/Swagger)
     token = request.cookies.get("refresh_token")
@@ -122,6 +123,12 @@ async def refresh(
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
+
+    if await um.is_blocked(payload.sub):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been blocked. Contact an administrator.",
+        )
 
     access_token = auth_service.create_access_token(payload.sub, payload.role)
     refresh_token = auth_service.create_refresh_token(payload.sub, payload.role)
