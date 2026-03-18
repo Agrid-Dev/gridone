@@ -3,7 +3,6 @@ from apps.models import (
     RegistrationRequest,
     RegistrationRequestCreate,
     RegistrationRequestStatus,
-    RegistrationRequestType,
 )
 
 __all__ = [
@@ -11,5 +10,4 @@ __all__ = [
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",
-    "RegistrationRequestType",
 ]

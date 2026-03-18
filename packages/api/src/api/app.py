@@ -54,7 +54,7 @@ async def lifespan(app: FastAPI):
     app.state.users_manager = um
 
     try:
-        apps_mgr = await AppsManager.from_storage(settings.storage_url)
+        apps_mgr = await AppsManager.from_storage(settings.storage_url, um)
         app.state.apps_manager = apps_mgr
     except ValueError:
         logger.warning("Apps package requires PostgreSQL — apps disabled")

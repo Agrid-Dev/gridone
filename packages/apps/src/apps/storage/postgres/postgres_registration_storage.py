@@ -5,7 +5,6 @@ import asyncpg
 from apps.models import (
     RegistrationRequest,
     RegistrationRequestStatus,
-    RegistrationRequestType,
 )
 
 
@@ -25,7 +24,6 @@ class PostgresRegistrationRequestStorage:
             id=row["id"],
             username=row["username"],
             hashed_password=row["hashed_password"],
-            type=RegistrationRequestType(row["type"]),
             status=RegistrationRequestStatus(row["status"]),
             created_at=created_at,
             config=row["config"],
@@ -50,13 +48,12 @@ class PostgresRegistrationRequestStorage:
         await self._pool.execute(
             """
             INSERT INTO registration_requests (
-                id, username, hashed_password, type, status, created_at, config
+                id, username, hashed_password, status, created_at, config
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (id) DO UPDATE SET
                 username = EXCLUDED.username,
                 hashed_password = EXCLUDED.hashed_password,
-                type = EXCLUDED.type,
                 status = EXCLUDED.status,
                 created_at = EXCLUDED.created_at,
                 config = EXCLUDED.config
@@ -64,7 +61,6 @@ class PostgresRegistrationRequestStorage:
             request.id,
             request.username,
             request.hashed_password,
-            request.type,
             request.status,
             created_at,
             request.config,

@@ -4,15 +4,14 @@ from apps import (
     AppsManager,
     RegistrationRequest,
     RegistrationRequestCreate,
-    RegistrationRequestType,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.errors import InvalidError, NotFoundError
 from pydantic import BaseModel
-from users import User, UsersManager
+from users import User
 from users.validation import PasswordField, UsernameField
 
-from api.dependencies import get_apps_manager, get_users_manager, require_permission
+from api.dependencies import get_apps_manager, require_permission
 from api.permissions import Permission
 
 router = APIRouter()
@@ -21,14 +20,12 @@ router = APIRouter()
 class RegistrationRequestCreateBody(BaseModel):
     username: UsernameField
     password: PasswordField
-    type: RegistrationRequestType = RegistrationRequestType.USER
     config: str = ""
 
 
 class RegistrationRequestResponse(BaseModel):
     id: str
     username: str
-    type: RegistrationRequestType
     status: str
     created_at: str
     config: str
@@ -43,7 +40,6 @@ def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
     return RegistrationRequestResponse(
         id=req.id,
         username=req.username,
-        type=req.type,
         status=req.status,
         created_at=req.created_at.isoformat(),
         config=req.config,
@@ -64,7 +60,6 @@ async def create_registration_request(
             RegistrationRequestCreate(
                 username=body.username,
                 password=body.password,
-                type=body.type,
                 config=body.config,
             )
         )
@@ -110,10 +105,9 @@ async def get_registration_request(
 async def accept_registration_request(
     request_id: str,
     am: Annotated[AppsManager, Depends(get_apps_manager)],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
 ) -> AcceptRegistrationResponse:
     try:
-        req, user = await am.accept_registration_request(request_id, um)
+        req, user = await am.accept_registration_request(request_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except InvalidError as e:

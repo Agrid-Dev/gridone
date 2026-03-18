@@ -3,45 +3,49 @@ from datetime import UTC, datetime
 
 import yaml
 from models.errors import InvalidError, NotFoundError
-from users import User, UsersManager
+from users import User, UserCreate, UsersManagerInterface
 from users.models import UserType
 from users.password import hash_password
 
 from apps.models import (
-    SERVICE_ACCOUNT_REQUIRED_FIELDS,
+    REQUIRED_CONFIG_FIELDS,
     RegistrationRequest,
     RegistrationRequestCreate,
     RegistrationRequestStatus,
-    RegistrationRequestType,
 )
 from apps.storage.storage_backend import RegistrationRequestStorageBackend
 
 
 class AppsManager:
-    def __init__(self, storage: RegistrationRequestStorageBackend) -> None:
+    def __init__(
+        self,
+        storage: RegistrationRequestStorageBackend,
+        users_manager: UsersManagerInterface,
+    ) -> None:
         self._storage = storage
+        self._users_manager = users_manager
 
     async def close(self) -> None:
         await self._storage.close()
 
     @classmethod
-    async def from_storage(cls, storage_url: str) -> "AppsManager":
+    async def from_storage(
+        cls, storage_url: str, users_manager: UsersManagerInterface
+    ) -> "AppsManager":
         from apps.storage import build_registration_request_storage  # noqa: PLC0415
 
         storage = await build_registration_request_storage(storage_url)
-        return cls(storage)
+        return cls(storage, users_manager)
 
     @staticmethod
-    def _validate_config(config: str, req_type: RegistrationRequestType) -> None:
+    def _validate_config(config: str) -> None:
         """Validate the YAML config string.
 
-        For service_account requests, the config must be well-formed YAML
-        containing at least the required manifest fields.
+        The config must be well-formed YAML containing at least the
+        required manifest fields.
         """
-        if req_type != RegistrationRequestType.SERVICE_ACCOUNT:
-            return
         if not config:
-            msg = "config is required for service_account registrations"
+            msg = "config is required for registration requests"
             raise InvalidError(msg)
         try:
             parsed = yaml.safe_load(config)
@@ -51,7 +55,7 @@ class AppsManager:
         if not isinstance(parsed, dict):
             msg = "config must be a YAML mapping"
             raise InvalidError(msg)
-        missing = SERVICE_ACCOUNT_REQUIRED_FIELDS - parsed.keys()
+        missing = REQUIRED_CONFIG_FIELDS - parsed.keys()
         if missing:
             msg = f"config is missing required fields: {', '.join(sorted(missing))}"
             raise InvalidError(msg)
@@ -59,12 +63,11 @@ class AppsManager:
     async def create_registration_request(
         self, create_data: RegistrationRequestCreate
     ) -> RegistrationRequest:
-        self._validate_config(create_data.config, create_data.type)
+        self._validate_config(create_data.config)
         request = RegistrationRequest(
             id=str(uuid.uuid4()),
             username=create_data.username,
             hashed_password=hash_password(create_data.password),
-            type=create_data.type,
             status=RegistrationRequestStatus.PENDING,
             created_at=datetime.now(UTC),
             config=create_data.config,
@@ -83,7 +86,7 @@ class AppsManager:
         return request
 
     async def accept_registration_request(
-        self, request_id: str, users_manager: UsersManager
+        self, request_id: str
     ) -> tuple[RegistrationRequest, User]:
         request = await self.get_registration_request(request_id)
         if request.status != RegistrationRequestStatus.PENDING:
@@ -93,15 +96,13 @@ class AppsManager:
             )
             raise InvalidError(msg)
 
-        user_type = (
-            UserType.SERVICE_ACCOUNT
-            if request.type == RegistrationRequestType.SERVICE_ACCOUNT
-            else UserType.USER
-        )
-        user = await users_manager.create_user_prehashed(
-            username=request.username,
-            hashed_password=request.hashed_password,
-            user_type=user_type,
+        user = await self._users_manager.create_user(
+            UserCreate(
+                username=request.username,
+                password="unused",  # noqa: S106 — pre_hashed_password takes precedence
+                type=UserType.SERVICE_ACCOUNT,
+            ),
+            pre_hashed_password=request.hashed_password,
         )
 
         accepted = request.model_copy(

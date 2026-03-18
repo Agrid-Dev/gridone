@@ -2,7 +2,7 @@ import uuid
 
 from models.errors import BlockedUserError, NotFoundError
 
-from users.models import Role, User, UserCreate, UserInDB, UserType, UserUpdate
+from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage.storage_backend import UsersStorageBackend
 
@@ -71,41 +71,27 @@ class UsersManager:
         users = await self._storage.list_all()
         return [self._to_public_user(u) for u in users]
 
-    async def create_user(self, create_data: UserCreate) -> User:
+    async def create_user(
+        self,
+        create_data: UserCreate,
+        *,
+        pre_hashed_password: str | None = None,
+    ) -> User:
         existing = await self._storage.get_by_username(create_data.username)
         if existing is not None:
             msg = f"Username '{create_data.username}' already exists"
             raise ValueError(msg)
+        hashed = pre_hashed_password or hash_password(create_data.password)
         user = UserInDB(
             id=str(uuid.uuid4()),
             username=create_data.username,
-            hashed_password=hash_password(create_data.password),
+            hashed_password=hashed,
             role=create_data.role,
             type=create_data.type,
             name=create_data.name,
             email=create_data.email,
             title=create_data.title,
             must_change_password=False,
-        )
-        await self._storage.save(user)
-        return self._to_public_user(user)
-
-    async def create_user_prehashed(
-        self,
-        username: str,
-        hashed_password: str,
-        user_type: "UserType" = UserType.USER,
-    ) -> User:
-        """Create a user with an already-hashed password."""
-        existing = await self._storage.get_by_username(username)
-        if existing is not None:
-            msg = f"Username '{username}' already exists"
-            raise ValueError(msg)
-        user = UserInDB(
-            id=str(uuid.uuid4()),
-            username=username,
-            hashed_password=hashed_password,
-            type=user_type,
         )
         await self._storage.save(user)
         return self._to_public_user(user)

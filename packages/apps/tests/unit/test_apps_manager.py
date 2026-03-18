@@ -11,10 +11,11 @@ from apps import (
     AppsManager,
     RegistrationRequestCreate,
     RegistrationRequestStatus,
-    RegistrationRequestType,
 )
 
 pytestmark = pytest.mark.asyncio
+
+VALID_CONFIG = "name: My App\napi_url: https://example.com\n"
 
 
 # ── In-memory storage doubles ────────────────────────────────────────────
@@ -76,11 +77,6 @@ def reg_storage() -> InMemoryRegistrationStorage:
 
 
 @pytest.fixture
-def apps_manager(reg_storage) -> AppsManager:
-    return AppsManager(reg_storage)
-
-
-@pytest.fixture
 def users_storage() -> InMemoryUsersStorage:
     return InMemoryUsersStorage()
 
@@ -90,78 +86,67 @@ def users_manager(users_storage) -> UsersManager:
     return UsersManager(users_storage)
 
 
+@pytest.fixture
+def apps_manager(reg_storage, users_manager) -> AppsManager:
+    return AppsManager(reg_storage, users_manager)
+
+
 # ── Tests ────────────────────────────────────────────────────────────────
 
 
 class TestCreateRegistrationRequest:
-    async def test_create_user_request(self, apps_manager, reg_storage):
+    async def test_create_request(self, apps_manager, reg_storage):
         req = await apps_manager.create_registration_request(
             RegistrationRequestCreate(
-                username="newuser",
+                username="myapp",
                 password="securepassword",
+                config=VALID_CONFIG,
             )
         )
-        assert req.username == "newuser"
+        assert req.username == "myapp"
         assert req.status == RegistrationRequestStatus.PENDING
-        assert req.type == RegistrationRequestType.USER
         assert req.hashed_password != "securepassword"  # noqa: S105
+        assert req.config == VALID_CONFIG
         # Persisted
         stored = await reg_storage.get_by_id(req.id)
         assert stored is not None
 
-    async def test_create_service_account_request(self, apps_manager):
-        config = "name: My App\napi_url: https://example.com\n"
-        req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(
-                username="myapp",
-                password="apppassword",
-                type=RegistrationRequestType.SERVICE_ACCOUNT,
-                config=config,
-            )
-        )
-        assert req.type == RegistrationRequestType.SERVICE_ACCOUNT
-        assert req.config == config
-
-    async def test_create_service_account_missing_config(self, apps_manager):
+    async def test_create_missing_config(self, apps_manager):
         with pytest.raises(InvalidError, match="config is required"):
             await apps_manager.create_registration_request(
                 RegistrationRequestCreate(
                     username="myapp",
                     password="apppassword",
-                    type=RegistrationRequestType.SERVICE_ACCOUNT,
                     config="",
                 )
             )
 
-    async def test_create_service_account_invalid_yaml(self, apps_manager):
+    async def test_create_invalid_yaml(self, apps_manager):
         with pytest.raises(InvalidError, match="not valid YAML"):
             await apps_manager.create_registration_request(
                 RegistrationRequestCreate(
                     username="myapp",
                     password="apppassword",
-                    type=RegistrationRequestType.SERVICE_ACCOUNT,
                     config="[invalid: yaml: {",
                 )
             )
 
-    async def test_create_service_account_missing_required_fields(self, apps_manager):
+    async def test_create_missing_required_fields(self, apps_manager):
         with pytest.raises(InvalidError, match="missing required fields"):
             await apps_manager.create_registration_request(
                 RegistrationRequestCreate(
                     username="myapp",
                     password="apppassword",
-                    type=RegistrationRequestType.SERVICE_ACCOUNT,
                     config="description: no name or api_url\n",
                 )
             )
 
-    async def test_create_service_account_not_a_mapping(self, apps_manager):
+    async def test_create_not_a_mapping(self, apps_manager):
         with pytest.raises(InvalidError, match="must be a YAML mapping"):
             await apps_manager.create_registration_request(
                 RegistrationRequestCreate(
                     username="myapp",
                     password="apppassword",
-                    type=RegistrationRequestType.SERVICE_ACCOUNT,
                     config="- just a list\n",
                 )
             )
@@ -174,10 +159,14 @@ class TestListRegistrationRequests:
 
     async def test_list_returns_all(self, apps_manager):
         await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
         await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user2", password="password2")
+            RegistrationRequestCreate(
+                username="app2", password="password2", config=VALID_CONFIG
+            )
         )
         result = await apps_manager.list_registration_requests()
         assert len(result) == 2
@@ -186,11 +175,13 @@ class TestListRegistrationRequests:
 class TestGetRegistrationRequest:
     async def test_get_existing(self, apps_manager):
         created = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
         fetched = await apps_manager.get_registration_request(created.id)
         assert fetched.id == created.id
-        assert fetched.username == "user1"
+        assert fetched.username == "app1"
 
     async def test_get_not_found(self, apps_manager):
         with pytest.raises(NotFoundError):
@@ -198,63 +189,46 @@ class TestGetRegistrationRequest:
 
 
 class TestAcceptRegistrationRequest:
-    async def test_accept_creates_user(
-        self, apps_manager, users_manager, users_storage
-    ):
-        req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="newuser", password="password123")
-        )
-        accepted, user = await apps_manager.accept_registration_request(
-            req.id, users_manager
-        )
-        assert accepted.status == RegistrationRequestStatus.ACCEPTED
-        assert user.username == "newuser"
-        assert user.type == UserType.USER
-
-        # User is persisted in users storage
-        stored = await users_storage.get_by_username("newuser")
-        assert stored is not None
-
-    async def test_accept_service_account(self, apps_manager, users_manager):
-        config = "name: My App\napi_url: https://example.com\n"
+    async def test_accept_creates_service_account(self, apps_manager, users_storage):
         req = await apps_manager.create_registration_request(
             RegistrationRequestCreate(
-                username="myapp",
-                password="apppass",
-                type=RegistrationRequestType.SERVICE_ACCOUNT,
-                config=config,
+                username="myapp", password="password123", config=VALID_CONFIG
             )
         )
-        _accepted, user = await apps_manager.accept_registration_request(
-            req.id, users_manager
-        )
+        accepted, user = await apps_manager.accept_registration_request(req.id)
+        assert accepted.status == RegistrationRequestStatus.ACCEPTED
+        assert user.username == "myapp"
         assert user.type == UserType.SERVICE_ACCOUNT
 
-    async def test_accept_not_found(self, apps_manager, users_manager):
+        # User is persisted in users storage
+        stored = await users_storage.get_by_username("myapp")
+        assert stored is not None
+
+    async def test_accept_not_found(self, apps_manager):
         with pytest.raises(NotFoundError):
-            await apps_manager.accept_registration_request(
-                "nonexistent-id", users_manager
+            await apps_manager.accept_registration_request("nonexistent-id")
+
+    async def test_accept_already_accepted(self, apps_manager):
+        req = await apps_manager.create_registration_request(
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
             )
-
-    async def test_accept_already_accepted(self, apps_manager, users_manager):
-        req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
         )
-        await apps_manager.accept_registration_request(req.id, users_manager)
+        await apps_manager.accept_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
-            await apps_manager.accept_registration_request(req.id, users_manager)
+            await apps_manager.accept_registration_request(req.id)
 
-    async def test_accept_already_discarded(self, apps_manager, users_manager):
+    async def test_accept_already_discarded(self, apps_manager):
         req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
         await apps_manager.discard_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
-            await apps_manager.accept_registration_request(req.id, users_manager)
+            await apps_manager.accept_registration_request(req.id)
 
-    async def test_accept_duplicate_username(
-        self, apps_manager, users_manager, users_storage
-    ):
+    async def test_accept_duplicate_username(self, apps_manager, users_storage):
         # Pre-create an existing user with the same username
         existing = UserInDB(
             id="existing-id",
@@ -265,16 +239,20 @@ class TestAcceptRegistrationRequest:
         await users_storage.save(existing)
 
         req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="taken", password="password1")
+            RegistrationRequestCreate(
+                username="taken", password="password1", config=VALID_CONFIG
+            )
         )
         with pytest.raises(ValueError, match="already exists"):
-            await apps_manager.accept_registration_request(req.id, users_manager)
+            await apps_manager.accept_registration_request(req.id)
 
 
 class TestDiscardRegistrationRequest:
     async def test_discard(self, apps_manager):
         req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
         discarded = await apps_manager.discard_registration_request(req.id)
         assert discarded.status == RegistrationRequestStatus.DISCARDED
@@ -283,17 +261,21 @@ class TestDiscardRegistrationRequest:
         with pytest.raises(NotFoundError):
             await apps_manager.discard_registration_request("nonexistent-id")
 
-    async def test_discard_already_accepted(self, apps_manager, users_manager):
+    async def test_discard_already_accepted(self, apps_manager):
         req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
-        await apps_manager.accept_registration_request(req.id, users_manager)
+        await apps_manager.accept_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
             await apps_manager.discard_registration_request(req.id)
 
     async def test_discard_already_discarded(self, apps_manager):
         req = await apps_manager.create_registration_request(
-            RegistrationRequestCreate(username="user1", password="password1")
+            RegistrationRequestCreate(
+                username="app1", password="password1", config=VALID_CONFIG
+            )
         )
         await apps_manager.discard_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
