@@ -1,3 +1,13 @@
+## v0.15.0 (2026-03-18)
+
+### Feat
+
+- block users
+
+### Fix
+
+- pr comments
+
 ## v0.14.0 (2026-03-17)
 
 ### Feat
