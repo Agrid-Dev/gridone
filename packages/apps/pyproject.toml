@@ -1,0 +1,28 @@
+[project]
+name = "gridone-apps"
+version = "0.1.0"
+description = "Application registration and management package for Gridone."
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    "asyncpg>=0.30.0",
+    "gridone-models",
+    "gridone-users",
+    "pydantic>=2.12.4",
+    "pyyaml>=6.0.3",
+]
+
+[tool.uv]
+workspaces=true
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "apps"
+module-root = "src"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../models/src", "../users/src"]

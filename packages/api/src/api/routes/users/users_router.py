@@ -1,18 +1,12 @@
 from typing import Annotated
 
-from models.errors import NotFoundError
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, StringConstraints
-
+from models.errors import NotFoundError
+from pydantic import BaseModel
 from users import Role, User, UserCreate, UserType, UserUpdate, UsersManager
-from users.validation import (
-    PASSWORD_MAX_LENGTH,
-    PASSWORD_MIN_LENGTH,
-    USERNAME_MAX_LENGTH,
-    USERNAME_MIN_LENGTH,
-)
 from users.auth import TokenPayload
 from users.models import Role as RoleEnum
+from users.validation import PasswordField, UsernameField
 
 from api.dependencies import (
     get_current_token_payload,
@@ -23,19 +17,6 @@ from api.dependencies import (
 from api.permissions import Permission, get_permissions_for_role
 
 router = APIRouter()
-
-UsernameField = Annotated[
-    str,
-    StringConstraints(
-        strip_whitespace=True,
-        min_length=USERNAME_MIN_LENGTH,
-        max_length=USERNAME_MAX_LENGTH,
-    ),
-]
-PasswordField = Annotated[
-    str,
-    StringConstraints(min_length=PASSWORD_MIN_LENGTH, max_length=PASSWORD_MAX_LENGTH),
-]
 
 
 class UserBasic(BaseModel):

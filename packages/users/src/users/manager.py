@@ -2,7 +2,7 @@ import uuid
 
 from models.errors import BlockedUserError, NotFoundError
 
-from users.models import Role, User, UserCreate, UserInDB, UserUpdate
+from users.models import Role, User, UserCreate, UserInDB, UserType, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage.storage_backend import UsersStorageBackend
 
@@ -86,6 +86,26 @@ class UsersManager:
             email=create_data.email,
             title=create_data.title,
             must_change_password=False,
+        )
+        await self._storage.save(user)
+        return self._to_public_user(user)
+
+    async def create_user_prehashed(
+        self,
+        username: str,
+        hashed_password: str,
+        user_type: "UserType" = UserType.USER,
+    ) -> User:
+        """Create a user with an already-hashed password."""
+        existing = await self._storage.get_by_username(username)
+        if existing is not None:
+            msg = f"Username '{username}' already exists"
+            raise ValueError(msg)
+        user = UserInDB(
+            id=str(uuid.uuid4()),
+            username=username,
+            hashed_password=hashed_password,
+            type=user_type,
         )
         await self._storage.save(user)
         return self._to_public_user(user)

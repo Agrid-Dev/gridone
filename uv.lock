@@ -12,6 +12,7 @@ members = [
     "cli",
     "gridone",
     "gridone-api",
+    "gridone-apps",
     "gridone-assets",
     "gridone-devices-manager",
     "gridone-migrations",
@@ -761,6 +762,7 @@ version = "0.1.0"
 source = { editable = "packages/api" }
 dependencies = [
     { name = "fastapi" },
+    { name = "gridone-apps" },
     { name = "gridone-assets" },
     { name = "gridone-models" },
     { name = "gridone-users" },
@@ -773,6 +775,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.123.8" },
+    { name = "gridone-apps", editable = "packages/apps" },
     { name = "gridone-assets", editable = "packages/assets" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-users", editable = "packages/users" },
@@ -780,6 +783,27 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
     { name = "python-multipart", specifier = ">=0.0.18" },
+]
+
+[[package]]
+name = "gridone-apps"
+version = "0.1.0"
+source = { editable = "packages/apps" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "gridone-users" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "gridone-users", editable = "packages/users" },
+    { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
 ]
 
 [[package]]

@@ -1,9 +1,27 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 64
 PASSWORD_MIN_LENGTH = 5
 PASSWORD_MAX_LENGTH = 128
+
+UsernameField = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+    ),
+]
+PasswordField = Annotated[
+    str,
+    StringConstraints(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+    ),
+]
 
 
 class AuthPayload(BaseModel):
@@ -35,5 +53,7 @@ __all__ = [
     "USERNAME_MAX_LENGTH",
     "USERNAME_MIN_LENGTH",
     "AuthPayload",
+    "PasswordField",
+    "UsernameField",
     "get_auth_payload_schema",
 ]
