@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from apps import AppsManager
+from apps import AppsManager, RegistrationRequestsManager
 from assets import AssetsManager
 from devices_manager import DevicesManager
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -30,6 +30,10 @@ def get_users_manager(request: Request) -> UsersManager:
 
 def get_apps_manager(request: Request) -> AppsManager:
     return request.app.state.apps_manager
+
+
+def get_registration_requests_manager(request: Request) -> RegistrationRequestsManager:
+    return request.app.state.registration_requests_manager
 
 
 def get_assets_manager(request: Request) -> AssetsManager:

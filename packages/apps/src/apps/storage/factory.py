@@ -25,6 +25,16 @@ async def build_registration_request_storage(
     raise ValueError(msg)
 
 
+async def build_app_storage(url: str) -> AppStorageBackend:
+    if url.startswith(POSTGRES_PREFIX):
+        run_migrations(url)
+        pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
+        return PostgresAppStorage(pool)
+
+    msg = "Apps package requires PostgreSQL storage"
+    raise ValueError(msg)
+
+
 async def build_apps_storages(
     url: str,
 ) -> tuple[RegistrationRequestStorageBackend, AppStorageBackend]:
@@ -38,4 +48,8 @@ async def build_apps_storages(
     raise ValueError(msg)
 
 
-__all__ = ["build_apps_storages", "build_registration_request_storage"]
+__all__ = [
+    "build_app_storage",
+    "build_apps_storages",
+    "build_registration_request_storage",
+]

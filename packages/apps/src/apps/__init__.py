@@ -6,6 +6,7 @@ from apps.models import (
     RegistrationRequestCreate,
     RegistrationRequestStatus,
 )
+from apps.registration_requests_manager import RegistrationRequestsManager
 
 __all__ = [
     "App",
@@ -14,4 +15,5 @@ __all__ = [
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",
+    "RegistrationRequestsManager",
 ]

@@ -3,7 +3,7 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from apps import AppsManager
+from apps import AppsManager, RegistrationRequestsManager
 from assets import AssetsManager
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
@@ -54,12 +54,16 @@ async def lifespan(app: FastAPI):
     app.state.users_manager = um
 
     apps_mgr = None
+    rrm = None
     try:
+        rrm = await RegistrationRequestsManager.from_storage(settings.storage_url)
+        app.state.registration_requests_manager = rrm
         apps_mgr = await AppsManager.from_storage(settings.storage_url, um)
         app.state.apps_manager = apps_mgr
         await apps_mgr.start_health_check()
     except ValueError:
         logger.warning("Apps package requires PostgreSQL — apps disabled")
+        app.state.registration_requests_manager = None
         app.state.apps_manager = None
 
     try:
@@ -106,6 +110,8 @@ async def lifespan(app: FastAPI):
         await um.close()
         if apps_mgr is not None:
             await apps_mgr.close()
+        if rrm is not None:
+            await rrm.close()
         if am is not None:
             await am.close()
         await websocket_manager.close_all()

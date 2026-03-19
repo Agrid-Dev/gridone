@@ -8,7 +8,12 @@ from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_apps_manager, get_current_user_id, get_users_manager
+from api.dependencies import (
+    get_apps_manager,
+    get_current_user_id,
+    get_registration_requests_manager,
+    get_users_manager,
+)
 from api.routes.apps import apps_registration_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -65,7 +70,7 @@ class MockUsersManager:
         return False
 
 
-def _build_apps_manager_mock() -> AsyncMock:
+def _build_registration_requests_manager_mock() -> AsyncMock:
     dummy_req = RegistrationRequest(
         id="req-1",
         username="app",
@@ -74,6 +79,14 @@ def _build_apps_manager_mock() -> AsyncMock:
         created_at=datetime.now(UTC),
         config="name: x\napi_url: http://x\n",
     )
+    rrm = AsyncMock()
+    rrm.list_registration_requests = AsyncMock(return_value=[])
+    rrm.accept_registration_request = AsyncMock(return_value=dummy_req)
+    rrm.discard_registration_request = AsyncMock(return_value=dummy_req)
+    return rrm
+
+
+def _build_apps_manager_mock() -> AsyncMock:
     dummy_user = User(id="u-1", username="app")
     dummy_app = App(
         id="app-1",
@@ -83,14 +96,10 @@ def _build_apps_manager_mock() -> AsyncMock:
         api_url="http://x",
         icon="",
         status=AppStatus.REGISTERED,
-        manifest=dummy_req.config,
+        manifest="name: x\napi_url: http://x\n",
     )
     am = AsyncMock()
-    am.list_registration_requests = AsyncMock(return_value=[])
-    am.accept_registration_request = AsyncMock(
-        return_value=(dummy_req, dummy_user, dummy_app)
-    )
-    am.discard_registration_request = AsyncMock(return_value=dummy_req)
+    am.create_app = AsyncMock(return_value=(dummy_user, dummy_app))
     return am
 
 
@@ -100,6 +109,9 @@ def _build_app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersManager()
     app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_registration_requests_manager] = lambda: (
+        _build_registration_requests_manager_mock()
+    )
     app.dependency_overrides[get_apps_manager] = lambda: _build_apps_manager_mock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]

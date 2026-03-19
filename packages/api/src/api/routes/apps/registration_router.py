@@ -5,6 +5,7 @@ from apps import (
     AppsManager,
     RegistrationRequest,
     RegistrationRequestCreate,
+    RegistrationRequestsManager,
 )
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.errors import InvalidError, NotFoundError
@@ -12,7 +13,11 @@ from pydantic import BaseModel
 from users import User
 from users.validation import PasswordField, UsernameField
 
-from api.dependencies import get_apps_manager, require_permission
+from api.dependencies import (
+    get_apps_manager,
+    get_registration_requests_manager,
+    require_permission,
+)
 from api.permissions import Permission
 
 router = APIRouter()
@@ -81,10 +86,12 @@ def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
 )
 async def create_registration_request(
     body: RegistrationRequestCreateBody,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    rrm: Annotated[
+        RegistrationRequestsManager, Depends(get_registration_requests_manager)
+    ],
 ) -> RegistrationRequestResponse:
     try:
-        req = await am.create_registration_request(
+        req = await rrm.create_registration_request(
             RegistrationRequestCreate(
                 username=body.username,
                 password=body.password,
@@ -104,9 +111,11 @@ async def create_registration_request(
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def list_registration_requests(
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    rrm: Annotated[
+        RegistrationRequestsManager, Depends(get_registration_requests_manager)
+    ],
 ) -> list[RegistrationRequestResponse]:
-    requests = await am.list_registration_requests()
+    requests = await rrm.list_registration_requests()
     return [_to_response(r) for r in requests]
 
 
@@ -116,10 +125,12 @@ async def list_registration_requests(
 )
 async def get_registration_request(
     request_id: str,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    rrm: Annotated[
+        RegistrationRequestsManager, Depends(get_registration_requests_manager)
+    ],
 ) -> RegistrationRequestResponse:
     try:
-        req = await am.get_registration_request(request_id)
+        req = await rrm.get_registration_request(request_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     return _to_response(req)
@@ -132,10 +143,18 @@ async def get_registration_request(
 )
 async def accept_registration_request(
     request_id: str,
+    rrm: Annotated[
+        RegistrationRequestsManager, Depends(get_registration_requests_manager)
+    ],
     am: Annotated[AppsManager, Depends(get_apps_manager)],
 ) -> AcceptRegistrationResponse:
     try:
-        req, user, app = await am.accept_registration_request(request_id)
+        req = await rrm.accept_registration_request(request_id)
+        user, app = await am.create_app(
+            username=req.username,
+            hashed_password=req.hashed_password,
+            config=req.config,
+        )
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except InvalidError as e:
@@ -156,10 +175,12 @@ async def accept_registration_request(
 )
 async def discard_registration_request(
     request_id: str,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    rrm: Annotated[
+        RegistrationRequestsManager, Depends(get_registration_requests_manager)
+    ],
 ) -> RegistrationRequestResponse:
     try:
-        req = await am.discard_registration_request(request_id)
+        req = await rrm.discard_registration_request(request_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except InvalidError as e:
