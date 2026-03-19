@@ -1,3 +1,16 @@
+## v0.18.0 (2026-03-19)
+
+### Feat
+
+- registration and apps package
+
+### Fix
+
+- comments
+- precommit
+- codecov
+- resolve test collection errors in CI for apps package
+
 ## v0.17.0 (2026-03-18)
 
 ### Feat
