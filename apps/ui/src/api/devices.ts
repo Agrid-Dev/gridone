@@ -9,7 +9,10 @@ export type DeviceAttribute = {
   lastUpdated: string | null;
 };
 
-export type DeviceType = "thermostat" | "awhp";
+export enum DeviceType {
+  Thermostat = "thermostat",
+  Awhp = "awhp",
+}
 
 export type Device = {
   id: string;
@@ -40,10 +43,10 @@ export type ThermostatAttributes = {
 };
 
 /** A Device whose `type` is `"thermostat"`. */
-export type ThermostatDevice = Device & { type: "thermostat" };
+export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
 /** A Device whose `type` is `"awhp"`. */
-export type AwhpDevice = Device & { type: "awhp" };
+export type AwhpDevice = Device & { type: DeviceType.Awhp };
 
 /** Union of all devices with a known standard type. */
 export type StandardDevice = ThermostatDevice | AwhpDevice;
@@ -51,11 +54,11 @@ export type StandardDevice = ThermostatDevice | AwhpDevice;
 // Type guards ---
 
 export function isThermostat(device: Device): device is ThermostatDevice {
-  return device.type === "thermostat";
+  return device.type === DeviceType.Thermostat;
 }
 
 export function isAwhp(device: Device): device is AwhpDevice {
-  return device.type === "awhp";
+  return device.type === DeviceType.Awhp;
 }
 
 export function isStandardDevice(device: Device): device is StandardDevice {
