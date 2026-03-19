@@ -1,3 +1,10 @@
+import asyncpg
+
+from apps.storage.postgres import (
+    PostgresAppStorage,
+    PostgresRegistrationRequestStorage,
+    run_migrations,
+)
 from apps.storage.storage_backend import (
     AppStorageBackend,
     RegistrationRequestStorageBackend,
@@ -10,13 +17,6 @@ async def build_registration_request_storage(
     url: str,
 ) -> RegistrationRequestStorageBackend:
     if url.startswith(POSTGRES_PREFIX):
-        import asyncpg  # noqa: PLC0415
-
-        from apps.storage.postgres import (  # noqa: PLC0415
-            PostgresRegistrationRequestStorage,
-            run_migrations,
-        )
-
         run_migrations(url)
         pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
         return PostgresRegistrationRequestStorage(pool)
@@ -30,14 +30,6 @@ async def build_apps_storages(
 ) -> tuple[RegistrationRequestStorageBackend, AppStorageBackend]:
     """Build both storage backends sharing a single connection pool."""
     if url.startswith(POSTGRES_PREFIX):
-        import asyncpg  # noqa: PLC0415
-
-        from apps.storage.postgres import (  # noqa: PLC0415
-            PostgresAppStorage,
-            PostgresRegistrationRequestStorage,
-            run_migrations,
-        )
-
         run_migrations(url)
         pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
         return PostgresRegistrationRequestStorage(pool), PostgresAppStorage(pool)
