@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, Power } from "lucide-react";
+import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
 import { isThermostat, readThermostatAttributes } from "@/api/devices";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
 import {
@@ -71,13 +71,17 @@ export function ThermostatControl({
                 }
                 disabled={powerSaving}
                 onClick={() => changeAndSaveNow("onoffState", !isOn)}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 ${
                   isOn
                     ? "border-green-400 bg-green-50 text-green-600"
                     : "border-border bg-muted text-muted-foreground"
                 } disabled:opacity-50`}
               >
-                <Power className="h-4 w-4" />
+                {powerSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
               </button>
             </TooltipTrigger>
             <TooltipContent>
@@ -105,7 +109,9 @@ export function ThermostatControl({
             {t("thermostat.setpoint")}
           </span>
           <div className="flex items-center gap-1">
-            <div className="flex items-start">
+            <div
+              className={`flex items-start transition-opacity duration-1000 ${setpointSaving ? "animate-pulse" : ""}`}
+            >
               <span className="text-5xl font-extralight tabular-nums leading-none">
                 {setpoint != null ? Number(setpoint).toFixed(1) : "—"}
               </span>
