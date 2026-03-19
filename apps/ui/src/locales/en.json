@@ -360,7 +360,10 @@
     "on": "On",
     "off": "Off",
     "increaseSetpoint": "Increase setpoint",
-    "decreaseSetpoint": "Decrease setpoint"
+    "decreaseSetpoint": "Decrease setpoint",
+    "turnOn": "Turn on",
+    "turnOff": "Turn off",
+    "attributeUpdated": "{{name}} updated ({{previous}} → {{current}})"
   },
   "drivers": {
     "title": "Drivers",

@@ -357,10 +357,13 @@
     "setpoint": "Consigne",
     "mode": "Mode",
     "fanSpeed": "Vitesse ventilateur",
-    "on": "Marche",
-    "off": "Arrêt",
+    "on": "ON",
+    "off": "OFF",
     "increaseSetpoint": "Augmenter la consigne",
-    "decreaseSetpoint": "Diminuer la consigne"
+    "decreaseSetpoint": "Diminuer la consigne",
+    "turnOn": "Allumer",
+    "turnOff": "Éteindre",
+    "attributeUpdated": "{{name}} mis à jour ({{previous}} → {{current}})"
   },
   "drivers": {
     "title": "Drivers",
