@@ -71,15 +71,21 @@ class UsersManager:
         users = await self._storage.list_all()
         return [self._to_public_user(u) for u in users]
 
-    async def create_user(self, create_data: UserCreate) -> User:
+    async def create_user(
+        self,
+        create_data: UserCreate,
+        *,
+        pre_hashed_password: str | None = None,
+    ) -> User:
         existing = await self._storage.get_by_username(create_data.username)
         if existing is not None:
             msg = f"Username '{create_data.username}' already exists"
             raise ValueError(msg)
+        hashed = pre_hashed_password or hash_password(create_data.password)
         user = UserInDB(
             id=str(uuid.uuid4()),
             username=create_data.username,
-            hashed_password=hash_password(create_data.password),
+            hashed_password=hashed,
             role=create_data.role,
             type=create_data.type,
             name=create_data.name,

@@ -1,3 +1,4 @@
+from users.interface import UsersManagerInterface
 from users.manager import UsersManager
 from users.models import Role, User, UserCreate, UserInDB, UserType, UserUpdate
 
@@ -9,4 +10,5 @@ __all__ = [
     "UserType",
     "UserUpdate",
     "UsersManager",
+    "UsersManagerInterface",
 ]

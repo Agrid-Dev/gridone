@@ -16,6 +16,7 @@ gridone-devices-manager = { workspace = true }
 gridone-api = { workspace = true }
 gridone-models  = { workspace = true }
 gridone-users = { workspace = true }
+gridone-apps = { workspace = true }
 gridone-assets = { workspace = true }
 gridone-timeseries = { workspace = true }
 gridone-migrations = { workspace = true }
@@ -26,6 +27,7 @@ gridone-migrations = { workspace = true }
 # Globs or paths to your member projects
 members = [
     "packages/api",
+    "packages/apps",
     "packages/assets",
     "packages/devices_manager",
     "packages/users",
@@ -81,6 +83,7 @@ source = [
     "packages/devices-manager/src",
     "packages/timeseries/src",
     "packages/users/src",
+    "packages/apps/src",
     "packages/assets/src",
 ]
 omit = [
