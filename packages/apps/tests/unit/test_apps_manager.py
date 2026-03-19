@@ -1,11 +1,12 @@
 """Unit tests for AppsManager registration request functionality."""
 
+from unittest.mock import AsyncMock
+
 import pytest
 from apps.models import RegistrationRequest
 from models.errors import InvalidError, NotFoundError
-from users import UsersManager
-from users.models import Role, UserInDB, UserType
-from users.password import hash_password
+from users import UsersManagerInterface
+from users.models import User, UserType
 
 from apps import (
     AppsManager,
@@ -40,34 +41,6 @@ class InMemoryRegistrationStorage:
         pass
 
 
-class InMemoryUsersStorage:
-    """Minimal in-memory user storage for testing accept flow."""
-
-    def __init__(self) -> None:
-        self._users: dict[str, UserInDB] = {}
-
-    async def get_by_id(self, user_id: str) -> UserInDB | None:
-        return self._users.get(user_id)
-
-    async def get_by_username(self, username: str) -> UserInDB | None:
-        for u in self._users.values():
-            if u.username == username:
-                return u
-        return None
-
-    async def list_all(self) -> list[UserInDB]:
-        return list(self._users.values())
-
-    async def save(self, user: UserInDB) -> None:
-        self._users[user.id] = user
-
-    async def delete(self, user_id: str) -> None:
-        self._users.pop(user_id, None)
-
-    async def close(self) -> None:
-        pass
-
-
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
 
@@ -77,13 +50,14 @@ def reg_storage() -> InMemoryRegistrationStorage:
 
 
 @pytest.fixture
-def users_storage() -> InMemoryUsersStorage:
-    return InMemoryUsersStorage()
-
-
-@pytest.fixture
-def users_manager(users_storage) -> UsersManager:
-    return UsersManager(users_storage)
+def users_manager() -> AsyncMock:
+    mock = AsyncMock(spec=UsersManagerInterface)
+    mock.create_user.return_value = User(
+        id="new-user-id",
+        username="placeholder",
+        type=UserType.SERVICE_ACCOUNT,
+    )
+    return mock
 
 
 @pytest.fixture
@@ -189,7 +163,10 @@ class TestGetRegistrationRequest:
 
 
 class TestAcceptRegistrationRequest:
-    async def test_accept_creates_service_account(self, apps_manager, users_storage):
+    async def test_accept_creates_service_account(self, apps_manager, users_manager):
+        users_manager.create_user.return_value = User(
+            id="new-id", username="myapp", type=UserType.SERVICE_ACCOUNT
+        )
         req = await apps_manager.create_registration_request(
             RegistrationRequestCreate(
                 username="myapp", password="password123", config=VALID_CONFIG
@@ -200,9 +177,12 @@ class TestAcceptRegistrationRequest:
         assert user.username == "myapp"
         assert user.type == UserType.SERVICE_ACCOUNT
 
-        # User is persisted in users storage
-        stored = await users_storage.get_by_username("myapp")
-        assert stored is not None
+        # Verify create_user was called with the right arguments
+        users_manager.create_user.assert_called_once()
+        call_args = users_manager.create_user.call_args
+        assert call_args.args[0].username == "myapp"
+        assert call_args.args[0].type == UserType.SERVICE_ACCOUNT
+        assert call_args.kwargs["pre_hashed_password"] == req.hashed_password
 
     async def test_accept_not_found(self, apps_manager):
         with pytest.raises(NotFoundError):
@@ -228,15 +208,8 @@ class TestAcceptRegistrationRequest:
         with pytest.raises(InvalidError, match="not pending"):
             await apps_manager.accept_registration_request(req.id)
 
-    async def test_accept_duplicate_username(self, apps_manager, users_storage):
-        # Pre-create an existing user with the same username
-        existing = UserInDB(
-            id="existing-id",
-            username="taken",
-            hashed_password=hash_password("password"),
-            role=Role.OPERATOR,
-        )
-        await users_storage.save(existing)
+    async def test_accept_duplicate_username(self, apps_manager, users_manager):
+        users_manager.create_user.side_effect = ValueError("already exists")
 
         req = await apps_manager.create_registration_request(
             RegistrationRequestCreate(

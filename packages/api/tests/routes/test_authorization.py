@@ -198,74 +198,70 @@ def test_unauthenticated_returns_401(app: FastAPI) -> None:
 
 # --- Apps registration RBAC ---
 
+ACCESS_CONTROL_SCENARIOS = [
+    # (method, endpoint, username | None, expected_status)
+    pytest.param("GET", "/apps/registration-requests", "admin", 200, id="admin-list"),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/accept",
+        "admin",
+        200,
+        id="admin-accept",
+    ),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/discard",
+        "admin",
+        200,
+        id="admin-discard",
+    ),
+    pytest.param(
+        "GET", "/apps/registration-requests", "operator", 403, id="operator-list"
+    ),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/accept",
+        "operator",
+        403,
+        id="operator-accept",
+    ),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/discard",
+        "operator",
+        403,
+        id="operator-discard",
+    ),
+    pytest.param(
+        "GET", "/apps/registration-requests", None, 401, id="unauthenticated-list"
+    ),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/accept",
+        None,
+        401,
+        id="unauthenticated-accept",
+    ),
+    pytest.param(
+        "POST",
+        "/apps/registration-requests/any-id/discard",
+        None,
+        401,
+        id="unauthenticated-discard",
+    ),
+]
 
-def test_admin_can_list_registration_requests(app: FastAPI) -> None:
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"), ACCESS_CONTROL_SCENARIOS
+)
+def test_registration_access_control(
+    app: FastAPI, method: str, endpoint: str, username: str | None, expected_status: int
+) -> None:
     with TestClient(app) as client:
-        token = _login(client, "admin")
-        resp = client.get("/apps/registration-requests", headers=_auth_header(token))
-        assert resp.status_code == 200
-
-
-def test_admin_can_accept_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "admin")
-        resp = client.post(
-            "/apps/registration-requests/any-id/accept",
-            headers=_auth_header(token),
-        )
-        assert resp.status_code == 200
-
-
-def test_admin_can_discard_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "admin")
-        resp = client.post(
-            "/apps/registration-requests/any-id/discard",
-            headers=_auth_header(token),
-        )
-        assert resp.status_code == 200
-
-
-def test_operator_cannot_list_registration_requests(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "operator")
-        resp = client.get("/apps/registration-requests", headers=_auth_header(token))
-        assert resp.status_code == 403
-
-
-def test_operator_cannot_accept_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "operator")
-        resp = client.post(
-            "/apps/registration-requests/any-id/accept",
-            headers=_auth_header(token),
-        )
-        assert resp.status_code == 403
-
-
-def test_operator_cannot_discard_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "operator")
-        resp = client.post(
-            "/apps/registration-requests/any-id/discard",
-            headers=_auth_header(token),
-        )
-        assert resp.status_code == 403
-
-
-def test_unauthenticated_cannot_list_registration_requests(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        resp = client.get("/apps/registration-requests")
-        assert resp.status_code == 401
-
-
-def test_unauthenticated_cannot_accept_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        resp = client.post("/apps/registration-requests/any-id/accept")
-        assert resp.status_code == 401
-
-
-def test_unauthenticated_cannot_discard_registration_request(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        resp = client.post("/apps/registration-requests/any-id/discard")
-        assert resp.status_code == 401
+        headers = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers)
+        assert resp.status_code == expected_status
