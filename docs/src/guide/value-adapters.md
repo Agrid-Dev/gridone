@@ -1,21 +1,23 @@
 # Value Adapters
 
-Value adapters transform the raw value exchanged with a device into the internal typed value Gridone works with — and back again when writing.
+Value adapters **decode** the raw value exchanged with a device into the internal typed value Gridone works with — and **encode** it back for writing.
 
-They are declared as keys directly on an attribute, alongside `read`/`write`:
+They are declared as keys directly on an attribute, alongside `read`/`write`. Each key is the adapter's identifier and its value is the argument:
 
 ```yaml
 - name: temperature
   data_type: float
-  read: IR0:2
-  byte_convert: "float32 big_endian"
+  read_write: HR0:2
+  byte_convert: "float32 big_endian"  # key: byte_convert, argument: "float32 big_endian"
 ```
+
+---
 
 ## Reversible vs non-reversible
 
-An adapter is **reversible** if it can transform in both directions: decode (raw → internal) on read, and encode (internal → raw) on write. Both directions are applied automatically.
+An adapter is **reversible** if it implements both directions: **decode** (transport → Gridone) on read, and **encode** (Gridone → transport) on write. Both are applied automatically.
 
-A **non-reversible** adapter only has a decode function. It transforms the raw value on read but is skipped on write — meaning it should not be used on writable attributes where the write path depends on that transformation.
+A **non-reversible** adapter only implements decode. It is skipped on write (falls back to identity) — meaning it should not be used on writable attributes where the write path depends on that transformation.
 
 | Adapter | Reversible |
 |---|---|
@@ -34,91 +36,108 @@ A **non-reversible** adapter only has a decode function. It transforms the raw v
 
 ### `json_pointer`
 
-Extracts a value from a JSON object or string using an [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) pointer. Typically used with HTTP and MQTT responses.
+Decodes a value from a JSON object or string using an [RFC 6901](https://datatracker.ietf.org/doc/html/rfc6901) pointer. Typically used with HTTP and MQTT responses.
 
 | | |
 |---|---|
-| Argument | JSON pointer path (e.g. `/sensors/temperature`) |
+| Argument | JSON pointer path (e.g. `/data/temperature`) |
 | Input | `dict`, JSON string, or bytes |
 | Output | any |
 | Reversible | no |
 
 ```yaml
-- name: temperature
-  data_type: float
-  read: "GET ${ip}/api/v1/status"
-  json_pointer: /temperature
+json_pointer: /data/temperature
 ```
+
+**Decode examples:**
+
+| Input | Argument | Output |
+|---|---|---|
+| `{"data": {"temperature": 21.5, "pressure": 1013}}` | `/data/temperature` | `21.5` |
+| `{"data": {"temperature": 21.5, "pressure": 1013}}` | `/data/pressure` | `1013` |
+| `{"enabled": true}` | `/enabled` | `true` |
 
 ---
 
 ### `json_path`
 
-Extracts a value from a JSON object using a [JSONPath](https://goessner.net/articles/JsonPath/) expression.
+Decodes a value from a JSON object using a [JSONPath](https://goessner.net/articles/JsonPath/) expression.
 
 | | |
 |---|---|
 | Argument | JSONPath expression (e.g. `$.sensors[0].value`) |
-| Input | `dict` |
+| Input | `str`, `dict` |
 | Output | any |
 | Reversible | no |
 
 ```yaml
-- name: temperature
-  data_type: float
-  read: "GET ${ip}/api/v1/status"
-  json_path: "$.sensors[0].temperature"
+json_path: "$.sensors[0].temperature"
 ```
+
+**Decode examples:**
+
+| Input | Argument | Output |
+|---|---|---|
+| `{"sensors": [{"temperature": 21.5}]}` | `$.sensors[0].temperature` | `21.5` |
 
 ---
 
 ### `scale`
 
-Multiplies the value by a factor on read, divides on write. Use when a device reports values in a different unit or resolution.
+Decodes by multiplying the raw value by a factor. Encodes by dividing. Use when a device reports values in a different unit or resolution.
 
 | | |
 |---|---|
 | Argument | numeric factor |
 | Input | `float` |
 | Output | `float` |
-| Reversible | yes — encode divides by the same factor |
+| Reversible | yes |
 
 ```yaml
-- name: temperature
-  data_type: float
-  read_write: HR0
-  scale: 0.1   # device reports in tenths of a degree
+scale: 0.1
 ```
+
+**Decode / encode examples:**
+
+| Raw value | Argument | Decoded | Encoded back |
+|---|---|---|---|
+| `215` | `0.1` | `21.5` | `215` |
+| `1000` | `0.01` | `10.0` | `1000` |
+| `72` | `0.5` | `36.0` | `72` |
 
 ---
 
 ### `bool_format`
 
-Converts between an integer `0`/`1` and a boolean. Only `"0/1"` is supported as argument.
+Decodes an integer `0`/`1` to a boolean. Encodes a boolean back to `0`/`1`. Only `"0/1"` is supported as argument.
 
 | | |
 |---|---|
 | Argument | `"0/1"` |
 | Input | `int` (`0` or `1`) |
 | Output | `bool` |
-| Reversible | yes — encode converts `bool` back to `int` |
+| Reversible | yes |
 
 ```yaml
-- name: enabled
-  data_type: bool
-  read_write: HR5
-  bool_format: "0/1"
+bool_format: "0/1"
 ```
+
+**Decode / encode examples:**
+
+| Raw value | Decoded | Encoded back |
+|---|---|---|
+| `0` | `false` | `0` |
+| `1` | `true` | `1` |
 
 ---
 
 ### `byte_convert`
 
-Converts raw Modbus register values (or bytes) to a typed value. Argument format: `"<type>"` or `"<type> <endian>"`.
+Decodes raw register values or bytes into a typed value. Encodes back to registers/bytes for writing.
+
+Argument format: `"<type>"` or `"<type> <endian>"`. Default endianness is `little_endian` when omitted.
 
 Supported types: `uint8`, `int8`, `uint16`, `int16`, `bool`, `uint32`, `int32`, `float32`, `hex32`, `uint64`, `int64`, `float64`, `hex64`.
-
-Endianness: `big_endian` or `little_endian` (default when omitted).
 
 | | |
 |---|---|
@@ -128,17 +147,22 @@ Endianness: `big_endian` or `little_endian` (default when omitted).
 | Reversible | yes |
 
 ```yaml
-- name: temperature
-  data_type: float
-  read_write: HR0:2
-  byte_convert: "float32 big_endian"
+byte_convert: "float32 big_endian"
 ```
+
+**Decode / encode examples:**
+
+| Raw registers | Argument | Decoded | Encoded back |
+|---|---|---|---|
+| `[0x41, 0xAC, 0x00, 0x00]` | `float32 big_endian` | `21.5` | `[0x41, 0xAC, 0x00, 0x00]` |
+| `[0x00, 0xD7]` | `int16 big_endian` | `215` | `[0x00, 0xD7]` |
+| `[0x00, 0x01]` | `bool` | `true` | `[0x00, 0x01]` |
 
 ---
 
 ### `base64`
 
-Decodes a base64-encoded string to raw bytes on read, encodes bytes back to base64 on write.
+Decodes a base64-encoded string to raw bytes. Encodes bytes back to a base64 string.
 
 | | |
 |---|---|
@@ -148,18 +172,21 @@ Decodes a base64-encoded string to raw bytes on read, encodes bytes back to base
 | Reversible | yes |
 
 ```yaml
-- name: payload
-  data_type: str
-  read: "GET ${ip}/api/v1/data"
-  json_pointer: /encoded
-  base64: "standard"
+base64: "standard"
 ```
+
+**Decode / encode examples:**
+
+| Raw value | Decoded | Encoded back |
+|---|---|---|
+| `"AAAA"` | `b'\x00\x00\x00'` | `"AAAA"` |
+| `"QWxpYQ=="` | `b'Alia'` | `"QWxpYQ=="` |
 
 ---
 
 ### `byte_frame`
 
-Extracts the byte immediately after a known prefix on read. On write, prepends the prefix to the value byte. Useful for proprietary binary protocols.
+Decodes the byte immediately after a known prefix. Encodes by prepending the prefix to the value byte. Useful for proprietary binary protocols.
 
 | | |
 |---|---|
@@ -169,17 +196,21 @@ Extracts the byte immediately after a known prefix on read. On write, prepends t
 | Reversible | yes |
 
 ```yaml
-- name: mode
-  data_type: int
-  read_write: HR10
-  byte_frame: "11 05 00 13 00 55"
+byte_frame: "11 05 00 13 00 55"
 ```
+
+**Decode / encode examples (prefix `"11 05"`):**
+
+| Raw bytes | Decoded | Encoded back |
+|---|---|---|
+| `b'\x11\x05\x03'` | `3` | `b'\x11\x05\x03'` |
+| `b'\x11\x05\xFF'` | `255` | `b'\x11\x05\xFF'` |
 
 ---
 
 ### `slice`
 
-Slices a sequence (bytes or list) using Python slice notation.
+Decodes a subsequence from bytes or a list using Python slice notation (0-indexed).
 
 | | |
 |---|---|
@@ -189,56 +220,64 @@ Slices a sequence (bytes or list) using Python slice notation.
 | Reversible | no |
 
 ```yaml
-- name: serial
-  data_type: str
-  read: "GET ${ip}/api/v1/info"
-  json_pointer: /raw_bytes
-  base64: "standard"
-  slice: "0:4"
+slice: "0:4"
 ```
+
+**Decode examples:**
+
+| Raw value | Argument | Output |
+|---|---|---|
+| `b'\x41\xAC\x00\x00\xFF\xFF'` | `"0:4"` | `b'\x41\xAC\x00\x00'` |
+| `[10, 20, 30, 40]` | `"1:3"` | `[20, 30]` |
 
 ---
 
 ## Chaining
 
-Multiple adapters can be declared on the same attribute. They are applied in the order they appear in the YAML file.
+Multiple adapters can be declared on the same attribute. They run in the order they appear in the YAML.
 
-**On read:** adapters run top-to-bottom — the output of each becomes the input of the next.
+**On read (decode):** top-to-bottom — each adapter's output becomes the next one's input.
 
-**On write:** adapters run in reverse order — each encoder is applied from last to first.
+**On write (encode):** bottom-to-top — encoders run in reverse order.
 
-If a non-reversible adapter is in the chain, it is skipped on write (its encode is a no-op).
+Non-reversible adapters are skipped on write (identity encoder).
 
-### Example — integer register with scaling
-
-A device reports temperature as a signed 16-bit integer in tenths of a degree (e.g. `215` = 21.5 °C).
+**Integration example** — a single attribute with two chained adapters:
 
 ```yaml
 - name: temperature
   data_type: float
   read_write: HR0
-  byte_convert: "int16 big_endian"  # step 1: registers → int
-  scale: 0.1                        # step 2: int → float (÷10)
+  byte_convert: "int16 big_endian"
+  scale: 0.1
 ```
 
-Read: `[0x00, 0xD7]` → `215` (byte_convert) → `21.5` (scale)
+### Example — integer register with scaling
 
-Write: `21.5` → `215` (scale encode: ÷0.1) → `[0x00, 0xD7]` (byte_convert encode)
+A device reports temperature as a signed 16-bit integer in tenths of a degree (`215` = 21.5 °C).
+
+```yaml
+byte_convert: "int16 big_endian"  # step 1: registers → int
+scale: 0.1                        # step 2: int → float (÷10)
+```
+
+| Direction | Steps | Result |
+|---|---|---|
+| Decode (read) | `[0x00, 0xD7]` → `215` (byte_convert) → `21.5` (scale) | `21.5` |
+| Encode (write) | `21.5` → `215` (scale) → `[0x00, 0xD7]` (byte_convert) | `[0x00, 0xD7]` |
 
 ### Example — base64-encoded binary payload
 
-A device returns a base64 string containing a binary frame. The value is at bytes 0–3 as a float.
+A device returns a base64 string in a JSON response. The float value is packed at bytes 0–3.
 
 ```yaml
-- name: temperature
-  data_type: float
-  read: "GET ${ip}/api/v1/snapshot"
-  json_pointer: /data          # step 1: extract base64 string from JSON
-  base64: "standard"           # step 2: decode to bytes
-  slice: "0:4"                 # step 3: take first 4 bytes
-  byte_convert: "float32 big_endian"  # step 4: bytes → float
+json_pointer: /data                 # step 1: extract base64 string from JSON (non-reversible)
+base64: "standard"                  # step 2: decode to bytes
+slice: "0:4"                        # step 3: take first 4 bytes (non-reversible)
+byte_convert: "float32 big_endian"  # step 4: bytes → float
 ```
 
-Read: JSON → base64 string (json_pointer) → bytes (base64) → 4-byte slice (slice) → float (byte_convert)
-
-Write: not applicable — `json_pointer` and `slice` are non-reversible, this attribute should be declared read-only.
+| Direction | Steps | Note |
+|---|---|---|
+| Decode (read) | JSON → base64 str → bytes → 4-byte slice → float | full pipeline |
+| Encode (write) | not applicable | `json_pointer` and `slice` are non-reversible — declare as read-only |
