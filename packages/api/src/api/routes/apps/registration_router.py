@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from apps import (
+    App,
     AppsManager,
     RegistrationRequest,
     RegistrationRequestCreate,
@@ -31,9 +32,36 @@ class RegistrationRequestResponse(BaseModel):
     config: str
 
 
+class AppResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    description: str
+    api_url: str
+    health_url: str
+    icon: str
+    status: str
+    created_at: str
+
+
+def _to_app_response(app: App) -> AppResponse:
+    return AppResponse(
+        id=app.id,
+        user_id=app.user_id,
+        name=app.name,
+        description=app.description,
+        api_url=app.api_url,
+        health_url=app.health_url,
+        icon=app.icon,
+        status=app.status,
+        created_at=app.created_at.isoformat(),
+    )
+
+
 class AcceptRegistrationResponse(BaseModel):
     request: RegistrationRequestResponse
     user: User
+    app: AppResponse
 
 
 def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
@@ -107,7 +135,7 @@ async def accept_registration_request(
     am: Annotated[AppsManager, Depends(get_apps_manager)],
 ) -> AcceptRegistrationResponse:
     try:
-        req, user = await am.accept_registration_request(request_id)
+        req, user, app = await am.accept_registration_request(request_id)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except InvalidError as e:
@@ -116,7 +144,9 @@ async def accept_registration_request(
         ) from e
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    return AcceptRegistrationResponse(request=_to_response(req), user=user)
+    return AcceptRegistrationResponse(
+        request=_to_response(req), user=user, app=_to_app_response(app)
+    )
 
 
 @router.post(

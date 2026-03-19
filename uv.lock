@@ -793,6 +793,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "gridone-models" },
     { name = "gridone-users" },
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
@@ -802,6 +803,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-users", editable = "packages/users" },
+    { name = "httpx", specifier = ">=0.28.0" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pyyaml", specifier = ">=6.0.3" },
 ]

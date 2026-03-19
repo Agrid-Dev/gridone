@@ -11,7 +11,7 @@ class RegistrationRequestStatus(StrEnum):
 
 
 # Required top-level keys in the YAML config for registration requests.
-REQUIRED_CONFIG_FIELDS = {"name", "api_url"}
+REQUIRED_CONFIG_FIELDS = {"name", "api_url", "description", "icon"}
 
 
 class RegistrationRequest(BaseModel):
@@ -29,8 +29,32 @@ class RegistrationRequestCreate(BaseModel):
     config: str = ""
 
 
+class AppStatus(StrEnum):
+    REGISTERED = "registered"
+    HEALTHY = "healthy"
+    UNHEALTHY = "unhealthy"
+
+
+class App(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    description: str
+    api_url: str
+    icon: str
+    status: AppStatus = AppStatus.REGISTERED
+    manifest: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @property
+    def health_url(self) -> str:
+        return f"{self.api_url.rstrip('/')}/health"
+
+
 __all__ = [
     "REQUIRED_CONFIG_FIELDS",
+    "App",
+    "AppStatus",
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",

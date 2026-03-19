@@ -21,7 +21,7 @@ from api.routes import (
     transports_router,
 )
 from api.routes import websocket as websocket_routes
-from api.routes.apps import apps_registration_router
+from api.routes.apps import apps_registration_router, apps_router
 from api.routes.users import auth_router, users_router
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
@@ -53,9 +53,11 @@ async def lifespan(app: FastAPI):
     await um.ensure_default_admin()
     app.state.users_manager = um
 
+    apps_mgr = None
     try:
         apps_mgr = await AppsManager.from_storage(settings.storage_url, um)
         app.state.apps_manager = apps_mgr
+        await apps_mgr.start_health_check()
     except ValueError:
         logger.warning("Apps package requires PostgreSQL — apps disabled")
         app.state.apps_manager = None
@@ -147,6 +149,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         assets_router,
         prefix="/assets",
         tags=["assets"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        apps_router,
+        prefix="/apps",
+        tags=["apps"],
         dependencies=jwt_dep,
     )
     app.include_router(websocket_routes.router, tags=["websocket"])

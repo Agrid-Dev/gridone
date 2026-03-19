@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from apps.models import RegistrationRequest
+from apps.models import App, RegistrationRequest
 from models.errors import InvalidError, NotFoundError
 from users import UsersManagerInterface
 from users.models import User, UserType
@@ -16,7 +16,12 @@ from apps import (
 
 pytestmark = pytest.mark.asyncio
 
-VALID_CONFIG = "name: My App\napi_url: https://example.com\n"
+VALID_CONFIG = (
+    "name: My App\n"
+    "api_url: https://example.com\n"
+    "description: A test application\n"
+    "icon: https://example.com/icon.png\n"
+)
 
 
 # ── In-memory storage doubles ────────────────────────────────────────────
@@ -41,12 +46,36 @@ class InMemoryRegistrationStorage:
         pass
 
 
+class InMemoryAppStorage:
+    """Minimal in-memory storage for App records."""
+
+    def __init__(self) -> None:
+        self._apps: dict[str, App] = {}
+
+    async def get_by_id(self, app_id: str) -> App | None:
+        return self._apps.get(app_id)
+
+    async def list_all(self) -> list[App]:
+        return list(self._apps.values())
+
+    async def save(self, app: App) -> None:
+        self._apps[app.id] = app
+
+    async def close(self) -> None:
+        pass
+
+
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
 def reg_storage() -> InMemoryRegistrationStorage:
     return InMemoryRegistrationStorage()
+
+
+@pytest.fixture
+def app_storage() -> InMemoryAppStorage:
+    return InMemoryAppStorage()
 
 
 @pytest.fixture
@@ -61,8 +90,8 @@ def users_manager() -> AsyncMock:
 
 
 @pytest.fixture
-def apps_manager(reg_storage, users_manager) -> AppsManager:
-    return AppsManager(reg_storage, users_manager)
+def apps_manager(reg_storage, app_storage, users_manager) -> AppsManager:
+    return AppsManager(reg_storage, app_storage, users_manager)
 
 
 # ── Tests ────────────────────────────────────────────────────────────────
@@ -111,7 +140,7 @@ class TestCreateRegistrationRequest:
                 RegistrationRequestCreate(
                     username="myapp",
                     password="apppassword",
-                    config="description: no name or api_url\n",
+                    config="name: only name\n",
                 )
             )
 
@@ -163,7 +192,9 @@ class TestGetRegistrationRequest:
 
 
 class TestAcceptRegistrationRequest:
-    async def test_accept_creates_service_account(self, apps_manager, users_manager):
+    async def test_accept_creates_service_account_and_app(
+        self, apps_manager, app_storage, users_manager
+    ):
         users_manager.create_user.return_value = User(
             id="new-id", username="myapp", type=UserType.SERVICE_ACCOUNT
         )
@@ -172,10 +203,23 @@ class TestAcceptRegistrationRequest:
                 username="myapp", password="password123", config=VALID_CONFIG
             )
         )
-        accepted, user = await apps_manager.accept_registration_request(req.id)
+        accepted, user, app = await apps_manager.accept_registration_request(req.id)
         assert accepted.status == RegistrationRequestStatus.ACCEPTED
         assert user.username == "myapp"
         assert user.type == UserType.SERVICE_ACCOUNT
+
+        # Verify the App was created correctly
+        assert app.user_id == "new-id"
+        assert app.name == "My App"
+        assert app.description == "A test application"
+        assert app.api_url == "https://example.com"
+        assert app.icon == "https://example.com/icon.png"
+        assert app.health_url == "https://example.com/health"
+        assert app.manifest == VALID_CONFIG
+
+        # Verify app was persisted
+        stored = await app_storage.get_by_id(app.id)
+        assert stored is not None
 
         # Verify create_user was called with the right arguments
         users_manager.create_user.assert_called_once()
@@ -256,9 +300,11 @@ class TestDiscardRegistrationRequest:
 
 
 class TestAppsManagerLifecycle:
-    async def test_close_delegates_to_storage(self, reg_storage, users_manager):
+    async def test_close_delegates_to_storage(
+        self, reg_storage, app_storage, users_manager
+    ):
         """close() should forward to the underlying storage backend."""
-        manager = AppsManager(reg_storage, users_manager)
+        manager = AppsManager(reg_storage, app_storage, users_manager)
         # Should not raise
         await manager.close()
 

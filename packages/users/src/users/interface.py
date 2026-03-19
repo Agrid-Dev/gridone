@@ -15,5 +15,9 @@ class UsersManagerInterface(Protocol):
         pre_hashed_password: str | None = None,
     ) -> User: ...
 
+    async def block_user(self, user_id: str) -> User: ...
+
+    async def unblock_user(self, user_id: str) -> User: ...
+
 
 __all__ = ["UsersManagerInterface"]

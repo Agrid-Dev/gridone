@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from apps.storage.postgres.postgres_app_storage import PostgresAppStorage
 from apps.storage.postgres.postgres_registration_storage import (
     PostgresRegistrationRequestStorage,
 )
@@ -25,4 +26,4 @@ def run_migrations(database_url: str) -> None:
             backend.apply_migrations(to_apply)
 
 
-__all__ = ["PostgresRegistrationRequestStorage", "run_migrations"]
+__all__ = ["PostgresAppStorage", "PostgresRegistrationRequestStorage", "run_migrations"]
