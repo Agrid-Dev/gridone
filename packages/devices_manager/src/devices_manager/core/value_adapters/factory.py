@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator
 
@@ -10,6 +10,7 @@ from .registry.byte_frame_adapter import byte_frame_adapter
 from .registry.identity_adapter import identity_adapter
 from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
+from .registry.mapping_adapter import mapping_adapter
 from .registry.scale_adapter import scale_adapter
 from .registry.slice_adapter import slice_adapter
 
@@ -23,10 +24,11 @@ value_adapter_builders = {
     "base64": base64_adapter,
     "byte_frame": byte_frame_adapter,
     "slice": slice_adapter,
+    "mapping": mapping_adapter,
 }
 
 supported_value_adapters = list(value_adapter_builders.keys())
-RawArg = str | float
+RawArg = str | float | dict[Any, Any]
 
 
 def is_supported(adapter: str) -> str:
@@ -50,7 +52,14 @@ def spec_from_raw(raw: dict[str, str]) -> ValueAdapterSpec:
     return ValueAdapterSpec(adapter=adpater, argument=argument)
 
 
+_DICT_ADAPTERS = {"mapping"}
+
+
 def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:
+    is_dict_arg = isinstance(raw_adapter.argument, dict)
+    if is_dict_arg and raw_adapter.adapter not in _DICT_ADAPTERS:
+        msg = f"Adapter '{raw_adapter.adapter}' does not support dict arguments"
+        raise ValueError(msg)
     builder = value_adapter_builders.get(raw_adapter.adapter)
     if not builder:
         msg = f"Unknown value adapter: {raw_adapter.adapter}"
