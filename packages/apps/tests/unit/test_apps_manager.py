@@ -4,11 +4,12 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
-from apps import AppsManager, RegistrationRequestCreate, RegistrationRequestStatus
 from apps.models import App, AppStatus, RegistrationRequest
 from models.errors import InvalidError, NotFoundError
 from users import UsersManagerInterface
 from users.models import User, UserType
+
+from apps import AppsManager, RegistrationRequestCreate, RegistrationRequestStatus
 
 pytestmark = pytest.mark.asyncio
 
@@ -120,9 +121,7 @@ def http_client() -> AsyncMock:
 
 
 @pytest.fixture
-def apps_manager(
-    reg_storage, app_storage, users_manager, http_client
-) -> AppsManager:
+def apps_manager(reg_storage, app_storage, users_manager, http_client) -> AppsManager:
     return AppsManager(reg_storage, app_storage, users_manager, http_client)
 
 
