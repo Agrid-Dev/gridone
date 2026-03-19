@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from apps import RegistrationRequest, RegistrationRequestStatus
+from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -75,9 +75,21 @@ def _build_apps_manager_mock() -> AsyncMock:
         config="name: x\napi_url: http://x\n",
     )
     dummy_user = User(id="u-1", username="app")
+    dummy_app = App(
+        id="app-1",
+        user_id="u-1",
+        name="x",
+        description="",
+        api_url="http://x",
+        icon="",
+        status=AppStatus.REGISTERED,
+        manifest=dummy_req.config,
+    )
     am = AsyncMock()
     am.list_registration_requests = AsyncMock(return_value=[])
-    am.accept_registration_request = AsyncMock(return_value=(dummy_req, dummy_user))
+    am.accept_registration_request = AsyncMock(
+        return_value=(dummy_req, dummy_user, dummy_app)
+    )
     am.discard_registration_request = AsyncMock(return_value=dummy_req)
     return am
 

@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 from apps import (
+    App,
+    AppStatus,
     RegistrationRequest,
     RegistrationRequestStatus,
 )
@@ -59,8 +61,19 @@ def apps_manager() -> AsyncMock:
     am.create_registration_request = AsyncMock(return_value=PENDING_REQ)
     am.list_registration_requests = AsyncMock(return_value=[PENDING_REQ])
     am.get_registration_request = AsyncMock(return_value=PENDING_REQ)
+    dummy_app = App(
+        id="app-1",
+        user_id="new-id",
+        name="My App",
+        description="",
+        api_url="https://example.com",
+        icon="",
+        status=AppStatus.REGISTERED,
+        manifest=VALID_CONFIG,
+        created_at=NOW,
+    )
     am.accept_registration_request = AsyncMock(
-        return_value=(ACCEPTED_REQ, User(id="new-id", username="myapp"))
+        return_value=(ACCEPTED_REQ, User(id="new-id", username="myapp"), dummy_app)
     )
     am.discard_registration_request = AsyncMock(
         return_value=PENDING_REQ.model_copy(
@@ -170,6 +183,8 @@ def test_accept_registration_request(app: FastAPI):
         data = resp.json()
         assert data["request"]["status"] == "accepted"
         assert data["user"]["username"] == "myapp"
+        assert data["app"]["id"] == "app-1"
+        assert data["app"]["name"] == "My App"
 
 
 def test_accept_registration_request_not_found(app: FastAPI, apps_manager: AsyncMock):
