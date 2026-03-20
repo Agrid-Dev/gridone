@@ -16,6 +16,7 @@ import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getSliderRange } from "@/utils/sliderPresets";
 import { toLabel } from "@/lib/textFormat";
+import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
   const { t } = useTranslation();
@@ -24,8 +25,23 @@ export default function DeviceLiveControl() {
     useDeviceDetails(deviceId);
   const attributes = useMemo(() => device?.attributes ?? {}, [device]);
 
+  const standardEntry = device
+    ? getStandardDeviceEntry(device.type)
+    : undefined;
+
   return (
     <div className="space-y-4">
+      {standardEntry && device && (
+        <standardEntry.Control
+          device={device}
+          draft={draft}
+          savingAttr={savingAttr}
+          feedback={feedback}
+          onDraftChange={handleDraftChange}
+          onSave={handleSave}
+        />
+      )}
+
       {feedback && (
         <div
           className={`rounded-lg border p-4 text-sm transition-colors ${

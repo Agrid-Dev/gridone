@@ -9,11 +9,11 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui";
 import { ListFilter, X } from "lucide-react";
-import type { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/api/devices";
 
 const ALL = "__all__";
 
-const DEVICE_TYPES: DeviceType[] = ["thermostat", "awhp"];
+const DEVICE_TYPES = Object.values(DeviceType);
 
 export function TypeFilter() {
   const { t } = useTranslation();
