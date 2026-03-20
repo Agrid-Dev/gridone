@@ -1,3 +1,13 @@
+## v0.21.1 (2026-03-20)
+
+### Fix
+
+- **ui**: thermostat control feedback toast previous value
+
+### Refactor
+
+- **ui**: refetch device list every 10s
+
 ## v0.21.0 (2026-03-20)
 
 ### Feat
