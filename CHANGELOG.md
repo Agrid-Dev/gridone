@@ -1,3 +1,15 @@
+## v0.20.0 (2026-03-20)
+
+### Feat
+
+- **ui**: loading state animations in standard thermostat control
+- **ui**: thermostat control
+- **ui**: introduce standard devices and thermostat preview
+
+### Refactor
+
+- **ui**: device type enum and removed circular imports
+
 ## v0.19.0 (2026-03-20)
 
 ### Feat
