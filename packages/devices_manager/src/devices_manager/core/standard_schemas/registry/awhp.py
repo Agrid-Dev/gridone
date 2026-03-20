@@ -10,7 +10,7 @@ AWHP_KEY: Final = "awhp"
 
 awhp_fields = [
     StandardAttributeSchemaField(
-        name="enabled", data_type=DataType.BOOL, required=True
+        name="onoff_state", data_type=DataType.BOOL, required=True
     ),
     StandardAttributeSchemaField(
         name="unit_run_status", data_type=DataType.STRING, required=True
@@ -23,7 +23,7 @@ awhp_fields = [
         name="outlet_temperature", data_type=DataType.FLOAT, required=True
     ),
     StandardAttributeSchemaField(
-        name="control_point", data_type=DataType.FLOAT, required=True
+        name="setpoint_temperature", data_type=DataType.FLOAT, required=True
     ),
     StandardAttributeSchemaField(
         name="outdoor_temperature", data_type=DataType.FLOAT, required=False

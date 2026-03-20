@@ -365,6 +365,24 @@
     "turnOff": "Éteindre",
     "attributeUpdated": "{{name}} mis à jour ({{previous}} → {{current}})"
   },
+  "awhp": {
+    "evaporator": "Évaporateur",
+    "compressor": "Compresseur",
+    "condenser": "Condenseur",
+    "expansionValve": "Détendeur",
+    "inlet": "Entrée",
+    "outlet": "Sortie",
+    "setpoint": "Consigne",
+    "outdoor": "Extérieur",
+    "suction": "Aspiration",
+    "discharge": "Refoulement",
+    "satTemp": "Temp. sat.",
+    "pressure": "Pression",
+    "runStatus": "État",
+    "mode": "Mode",
+    "waterSide": "Eau",
+    "airSide": "Air"
+  },
   "drivers": {
     "title": "Drivers",
     "list": "Liste des drivers disponibles ({{count}})",
