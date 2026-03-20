@@ -44,6 +44,11 @@ from devices_manager.core.value_adapters.factory import (
             True,
         ),
         ([], 1, 1),
+        (
+            [ValueAdapterSpec(adapter="mapping", argument={1: "heat", 2: "cool"})],
+            1,
+            "heat",
+        ),
     ],
 )
 def test_build_value_adapter(
@@ -56,6 +61,11 @@ def test_build_value_adapter(
 def test_build_value_adapter_invalid_adapter():
     with pytest.raises(ValueError, match="not supported"):
         build_value_adapter([ValueAdapterSpec(adapter="unknown", argument="arg")])
+
+
+def test_build_value_adapter_wrong_arg_type():
+    with pytest.raises(TypeError, match="expects argument of type"):
+        build_value_adapter([ValueAdapterSpec(adapter="scale", argument={1: 2})])
 
 
 @pytest.mark.parametrize(("raw"), [({"json_pointer": "/path/to/value"})])
