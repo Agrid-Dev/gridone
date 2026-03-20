@@ -3,7 +3,7 @@ from devices_manager.core.value_adapters.registry.scale_adapter import scale_ada
 
 
 @pytest.mark.parametrize(
-    ("input_value", "scale", "expected"), [(10, 0.1, 1), (10, 10, 100)]
+    ("input_value", "scale", "expected"), [(10, 0.1, 1), (10, 10, 100), (5, 2, 10)]
 )
 def test_scale_parser_parse(input_value: float, scale: float, expected: float) -> None:
     adapter = scale_adapter(scale)

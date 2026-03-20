@@ -63,8 +63,8 @@ def test_build_value_adapter_invalid_adapter():
         build_value_adapter([ValueAdapterSpec(adapter="unknown", argument="arg")])
 
 
-def test_build_value_adapter_dict_arg_unsupported_adapter():
-    with pytest.raises(ValueError, match="does not support dict arguments"):
+def test_build_value_adapter_wrong_arg_type():
+    with pytest.raises(TypeError, match="expects argument of type"):
         build_value_adapter([ValueAdapterSpec(adapter="scale", argument={1: 2})])
 
 
