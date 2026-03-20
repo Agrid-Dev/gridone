@@ -21,7 +21,7 @@ from users import User
 from users.auth import TokenPayload
 
 from api.dependencies import (
-    get_apps_manager,
+    get_apps_service,
     get_current_token_payload,
 )
 from api.exception_handlers import register_exception_handlers
@@ -56,11 +56,11 @@ ADMIN_PAYLOAD = TokenPayload(
 
 
 @pytest.fixture
-def apps_manager() -> AsyncMock:
-    am = AsyncMock()
-    am.create_registration_request = AsyncMock(return_value=PENDING_REQ)
-    am.list_registration_requests = AsyncMock(return_value=[PENDING_REQ])
-    am.get_registration_request = AsyncMock(return_value=PENDING_REQ)
+def registration_service() -> AsyncMock:
+    reg = AsyncMock()
+    reg.create_registration_request = AsyncMock(return_value=PENDING_REQ)
+    reg.list_registration_requests = AsyncMock(return_value=[PENDING_REQ])
+    reg.get_registration_request = AsyncMock(return_value=PENDING_REQ)
     dummy_app = App(
         id="app-1",
         user_id="new-id",
@@ -72,21 +72,23 @@ def apps_manager() -> AsyncMock:
         manifest=VALID_CONFIG,
         created_at=NOW,
     )
-    am.accept_registration_request = AsyncMock(
+    reg.accept_registration_request = AsyncMock(
         return_value=(ACCEPTED_REQ, User(id="new-id", username="myapp"), dummy_app)
     )
-    am.discard_registration_request = AsyncMock(
+    reg.discard_registration_request = AsyncMock(
         return_value=PENDING_REQ.model_copy(
             update={"status": RegistrationRequestStatus.DISCARDED}
         )
     )
-    return am
+    return reg
 
 
 @pytest.fixture
-def app(apps_manager: AsyncMock) -> FastAPI:
+def app(registration_service: AsyncMock) -> FastAPI:
+    service = AsyncMock()
+    service.registration = registration_service
     test_app = FastAPI()
-    test_app.dependency_overrides[get_apps_manager] = lambda: apps_manager
+    test_app.dependency_overrides[get_apps_service] = lambda: service
     test_app.dependency_overrides[get_current_token_payload] = lambda: ADMIN_PAYLOAD
     test_app.include_router(apps_registration_router, prefix="/apps")
     register_exception_handlers(test_app)
@@ -113,9 +115,9 @@ def test_create_registration_request(app: FastAPI):
 
 
 def test_create_registration_request_invalid_config(
-    app: FastAPI, apps_manager: AsyncMock
+    app: FastAPI, registration_service: AsyncMock
 ):
-    apps_manager.create_registration_request = AsyncMock(
+    registration_service.create_registration_request = AsyncMock(
         side_effect=InvalidError("config is not valid YAML")
     )
     with TestClient(app) as client:
@@ -164,8 +166,10 @@ def test_get_registration_request(app: FastAPI):
         assert resp.json()["id"] == "req-1"
 
 
-def test_get_registration_request_not_found(app: FastAPI, apps_manager: AsyncMock):
-    apps_manager.get_registration_request = AsyncMock(
+def test_get_registration_request_not_found(
+    app: FastAPI, registration_service: AsyncMock
+):
+    registration_service.get_registration_request = AsyncMock(
         side_effect=NotFoundError("not found")
     )
     with TestClient(app) as client:
@@ -181,14 +185,14 @@ def test_accept_registration_request(app: FastAPI):
         resp = client.post("/apps/registration-requests/req-1/accept")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["request"]["status"] == "accepted"
-        assert data["user"]["username"] == "myapp"
-        assert data["app"]["id"] == "app-1"
-        assert data["app"]["name"] == "My App"
+        assert data["status"] == "accepted"
+        assert data["username"] == "myapp"
 
 
-def test_accept_registration_request_not_found(app: FastAPI, apps_manager: AsyncMock):
-    apps_manager.accept_registration_request = AsyncMock(
+def test_accept_registration_request_not_found(
+    app: FastAPI, registration_service: AsyncMock
+):
+    registration_service.accept_registration_request = AsyncMock(
         side_effect=NotFoundError("not found")
     )
     with TestClient(app) as client:
@@ -196,8 +200,10 @@ def test_accept_registration_request_not_found(app: FastAPI, apps_manager: Async
         assert resp.status_code == 404
 
 
-def test_accept_registration_request_not_pending(app: FastAPI, apps_manager: AsyncMock):
-    apps_manager.accept_registration_request = AsyncMock(
+def test_accept_registration_request_not_pending(
+    app: FastAPI, registration_service: AsyncMock
+):
+    registration_service.accept_registration_request = AsyncMock(
         side_effect=InvalidError("not pending")
     )
     with TestClient(app) as client:
@@ -206,9 +212,9 @@ def test_accept_registration_request_not_pending(app: FastAPI, apps_manager: Asy
 
 
 def test_accept_registration_request_duplicate_username(
-    app: FastAPI, apps_manager: AsyncMock
+    app: FastAPI, registration_service: AsyncMock
 ):
-    apps_manager.accept_registration_request = AsyncMock(
+    registration_service.accept_registration_request = AsyncMock(
         side_effect=ValueError("Username 'taken' already exists")
     )
     with TestClient(app) as client:
@@ -226,8 +232,10 @@ def test_discard_registration_request(app: FastAPI):
         assert resp.json()["status"] == "discarded"
 
 
-def test_discard_registration_request_not_found(app: FastAPI, apps_manager: AsyncMock):
-    apps_manager.discard_registration_request = AsyncMock(
+def test_discard_registration_request_not_found(
+    app: FastAPI, registration_service: AsyncMock
+):
+    registration_service.discard_registration_request = AsyncMock(
         side_effect=NotFoundError("not found")
     )
     with TestClient(app) as client:
@@ -236,9 +244,9 @@ def test_discard_registration_request_not_found(app: FastAPI, apps_manager: Asyn
 
 
 def test_discard_registration_request_not_pending(
-    app: FastAPI, apps_manager: AsyncMock
+    app: FastAPI, registration_service: AsyncMock
 ):
-    apps_manager.discard_registration_request = AsyncMock(
+    registration_service.discard_registration_request = AsyncMock(
         side_effect=InvalidError("not pending")
     )
     with TestClient(app) as client:

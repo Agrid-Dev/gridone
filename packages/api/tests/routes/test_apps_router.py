@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from models.errors import NotFoundError
 from users.auth import TokenPayload
 
-from api.dependencies import get_apps_manager, get_current_token_payload
+from api.dependencies import get_apps_service, get_current_token_payload
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
 
@@ -52,8 +52,10 @@ def apps_manager() -> AsyncMock:
 
 @pytest.fixture
 def app(apps_manager: AsyncMock) -> FastAPI:
+    service = AsyncMock()
+    service.apps = apps_manager
     test_app = FastAPI()
-    test_app.dependency_overrides[get_apps_manager] = lambda: apps_manager
+    test_app.dependency_overrides[get_apps_service] = lambda: service
     test_app.dependency_overrides[get_current_token_payload] = lambda: ADMIN_PAYLOAD
     test_app.include_router(apps_router, prefix="/apps")
     register_exception_handlers(test_app)

@@ -6,12 +6,16 @@ from apps.models import (
     RegistrationRequestCreate,
     RegistrationRequestStatus,
 )
+from apps.registration_service import RegistrationService
+from apps.service import AppsService
 
 __all__ = [
     "App",
     "AppStatus",
     "AppsManager",
+    "AppsService",
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",
+    "RegistrationService",
 ]

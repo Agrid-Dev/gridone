@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, field_validator
 
 
 class RegistrationRequestStatus(StrEnum):
@@ -46,9 +46,23 @@ class App(BaseModel):
     manifest: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("api_url")
+    @classmethod
+    def _normalize_api_url(cls, v: str) -> str:
+        return v.rstrip("/")
+
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def health_url(self) -> str:
-        return f"{self.api_url.rstrip('/')}/health"
+        return f"{self.api_url}/health"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def enable_url(self) -> str:
+        return f"{self.api_url}/enable"
+
+    def with_status(self, new_status: AppStatus) -> "App":
+        return self.model_copy(update={"status": new_status})
 
 
 __all__ = [
