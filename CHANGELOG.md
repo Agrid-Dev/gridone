@@ -1,3 +1,9 @@
+## v0.18.1 (2026-03-20)
+
+### Fix
+
+- accept int values where float is expected in timeseries validation
+
 ## v0.18.0 (2026-03-19)
 
 ### Feat
