@@ -43,9 +43,13 @@ class TimeSeries:
 
 
 def validate_value_type(value: DataPointValue, expected: type) -> None:
-    if type(value) is not expected:
-        msg = f"Expected {expected.__name__}, got {type(value).__name__}"
-        raise InvalidError(msg)
+    actual = type(value)
+    if actual is expected:
+        return
+    if expected is float and actual is int:
+        return
+    msg = f"Expected {expected.__name__}, got {actual.__name__}"
+    raise InvalidError(msg)
 
 
 class SortOrder(StrEnum):

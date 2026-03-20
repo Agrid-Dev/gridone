@@ -144,6 +144,5 @@ class TestValidateValueType:
         with pytest.raises(InvalidError, match="Expected bool, got int"):
             validate_value_type(1, bool)
 
-    def test_int_rejected_as_float(self):
-        with pytest.raises(InvalidError, match="Expected float, got int"):
-            validate_value_type(1, float)
+    def test_int_accepted_as_float(self):
+        validate_value_type(1, float)
