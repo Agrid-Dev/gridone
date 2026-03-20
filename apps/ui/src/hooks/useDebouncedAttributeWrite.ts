@@ -38,8 +38,7 @@ export function useDebouncedAttributeWrite({
   }, []);
 
   const save = useCallback(
-    async (name: string, value: DraftValue) => {
-      const previousValue = draftRef.current[name];
+    async (name: string, value: DraftValue, previousValue: DraftValue) => {
       setSaving((prev) => new Set(prev).add(name));
       try {
         const updated = await updateDeviceAttribute(deviceId, name, value);
@@ -71,6 +70,7 @@ export function useDebouncedAttributeWrite({
 
   const changeAndSave = useCallback(
     (name: string, value: DraftValue) => {
+      const previousValue = draftRef.current[name];
       onDraftChange(name, value);
 
       const existing = timers.current.get(name);
@@ -80,7 +80,7 @@ export function useDebouncedAttributeWrite({
         name,
         setTimeout(() => {
           timers.current.delete(name);
-          save(name, value);
+          save(name, value, previousValue);
         }, delay),
       );
     },
@@ -89,6 +89,7 @@ export function useDebouncedAttributeWrite({
 
   const changeAndSaveNow = useCallback(
     (name: string, value: DraftValue) => {
+      const previousValue = draftRef.current[name];
       onDraftChange(name, value);
 
       const existing = timers.current.get(name);
@@ -97,7 +98,7 @@ export function useDebouncedAttributeWrite({
         timers.current.delete(name);
       }
 
-      save(name, value);
+      save(name, value, previousValue);
     },
     [onDraftChange, save],
   );
