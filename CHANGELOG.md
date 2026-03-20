@@ -1,3 +1,9 @@
+## v0.21.0 (2026-03-20)
+
+### Feat
+
+- mapping adapter with expected arg handling (#144)
+
 ## v0.20.0 (2026-03-20)
 
 ### Feat
