@@ -1,17 +1,12 @@
 from typing import Annotated
 
-from apps import (
-    AppsManager,
-    RegistrationRequest,
-    RegistrationRequestCreate,
-)
+from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.errors import InvalidError, NotFoundError
+from models.errors import InvalidError
 from pydantic import BaseModel
-from users import User
 from users.validation import PasswordField, UsernameField
 
-from api.dependencies import get_apps_manager, require_permission
+from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
 
 router = APIRouter()
@@ -31,11 +26,6 @@ class RegistrationRequestResponse(BaseModel):
     config: str
 
 
-class AcceptRegistrationResponse(BaseModel):
-    request: RegistrationRequestResponse
-    user: User
-
-
 def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
     return RegistrationRequestResponse(
         id=req.id,
@@ -53,20 +43,15 @@ def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
 )
 async def create_registration_request(
     body: RegistrationRequestCreateBody,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    try:
-        req = await am.create_registration_request(
-            RegistrationRequestCreate(
-                username=body.username,
-                password=body.password,
-                config=body.config,
-            )
+    req = await service.registration.create_registration_request(
+        RegistrationRequestCreate(
+            username=body.username,
+            password=body.password,
+            config=body.config,
         )
-    except InvalidError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+    )
     return _to_response(req)
 
 
@@ -76,9 +61,9 @@ async def create_registration_request(
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def list_registration_requests(
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> list[RegistrationRequestResponse]:
-    requests = await am.list_registration_requests()
+    requests = await service.registration.list_registration_requests()
     return [_to_response(r) for r in requests]
 
 
@@ -88,35 +73,30 @@ async def list_registration_requests(
 )
 async def get_registration_request(
     request_id: str,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    try:
-        req = await am.get_registration_request(request_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    req = await service.registration.get_registration_request(request_id)
     return _to_response(req)
 
 
 @router.post(
     "/registration-requests/{request_id}/accept",
-    response_model=AcceptRegistrationResponse,
+    response_model=RegistrationRequestResponse,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def accept_registration_request(
     request_id: str,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
-) -> AcceptRegistrationResponse:
+    service: Annotated[AppsService, Depends(get_apps_service)],
+) -> RegistrationRequestResponse:
     try:
-        req, user = await am.accept_registration_request(request_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except InvalidError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+        req, _user, _app = await service.registration.accept_registration_request(
+            request_id
+        )
+    except InvalidError:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    return AcceptRegistrationResponse(request=_to_response(req), user=user)
+    return _to_response(req)
 
 
 @router.post(
@@ -126,14 +106,7 @@ async def accept_registration_request(
 )
 async def discard_registration_request(
     request_id: str,
-    am: Annotated[AppsManager, Depends(get_apps_manager)],
+    service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    try:
-        req = await am.discard_registration_request(request_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except InvalidError as e:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
-        ) from e
+    req = await service.registration.discard_registration_request(request_id)
     return _to_response(req)

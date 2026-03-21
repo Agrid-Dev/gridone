@@ -1,8 +1,15 @@
 import logging
 from pathlib import Path
 
+import asyncpg
+
+from apps.storage.postgres.postgres_app_storage import PostgresAppStorage
 from apps.storage.postgres.postgres_registration_storage import (
     PostgresRegistrationRequestStorage,
+)
+from apps.storage.storage_backend import (
+    AppStorageBackend,
+    RegistrationRequestStorageBackend,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,4 +32,18 @@ def run_migrations(database_url: str) -> None:
             backend.apply_migrations(to_apply)
 
 
-__all__ = ["PostgresRegistrationRequestStorage", "run_migrations"]
+async def build(
+    url: str,
+) -> tuple[RegistrationRequestStorageBackend, AppStorageBackend]:
+    """Build both postgres storage backends sharing a single connection pool."""
+    run_migrations(url)
+    pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
+    return PostgresRegistrationRequestStorage(pool), PostgresAppStorage(pool)
+
+
+__all__ = [
+    "PostgresAppStorage",
+    "PostgresRegistrationRequestStorage",
+    "build",
+    "run_migrations",
+]
