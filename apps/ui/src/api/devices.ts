@@ -42,6 +42,25 @@ export type ThermostatAttributes = {
   temperatureSetpointMax: AttrValue<number>;
 };
 
+/** Typed view of AWHP standard attributes (read from Device.attributes). */
+export type AwhpAttributes = {
+  onoffState: AttrValue<boolean>;
+  unitRunStatus: AttrValue<string>;
+  mode: AttrValue<string>;
+  inletTemperature: AttrValue<number>;
+  outletTemperature: AttrValue<number>;
+  setpointTemperature: AttrValue<number>;
+  outdoorTemperature: AttrValue<number>;
+  compressorSuctionTemperature: AttrValue<number>;
+  compressorSuctionPressure: AttrValue<number>;
+  compressorDischargeTemperature: AttrValue<number>;
+  compressorDischargePressure: AttrValue<number>;
+  condenserSaturatedRefrigerantTemperature: AttrValue<number>;
+  condenserRefrigerantPressure: AttrValue<number>;
+  evaporatorSaturatedRefrigerantTemperature: AttrValue<number>;
+  evaporatorRefrigerantPressure: AttrValue<number>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
@@ -81,6 +100,47 @@ export function readThermostatAttributes(
     fanSpeed: v("fanSpeed") as AttrValue<string>,
     temperatureSetpointMin: v("temperatureSetpointMin") as AttrValue<number>,
     temperatureSetpointMax: v("temperatureSetpointMax") as AttrValue<number>,
+  };
+}
+
+/**
+ * Read the standard AWHP attributes from a device's attribute map.
+ * Attribute keys are already camelCase (converted by the API client).
+ */
+export function readAwhpAttributes(device: AwhpDevice): AwhpAttributes {
+  const v = (name: string) => device.attributes[name]?.currentValue ?? null;
+  return {
+    onoffState: v("onoffState") as AttrValue<boolean>,
+    unitRunStatus: v("unitRunStatus") as AttrValue<string>,
+    mode: v("mode") as AttrValue<string>,
+    inletTemperature: v("inletTemperature") as AttrValue<number>,
+    outletTemperature: v("outletTemperature") as AttrValue<number>,
+    setpointTemperature: v("setpointTemperature") as AttrValue<number>,
+    outdoorTemperature: v("outdoorTemperature") as AttrValue<number>,
+    compressorSuctionTemperature: v(
+      "compressorSuctionTemperature",
+    ) as AttrValue<number>,
+    compressorSuctionPressure: v(
+      "compressorSuctionPressure",
+    ) as AttrValue<number>,
+    compressorDischargeTemperature: v(
+      "compressorDischargeTemperature",
+    ) as AttrValue<number>,
+    compressorDischargePressure: v(
+      "compressorDischargePressure",
+    ) as AttrValue<number>,
+    condenserSaturatedRefrigerantTemperature: v(
+      "condenserSaturatedRefrigerantTemperature",
+    ) as AttrValue<number>,
+    condenserRefrigerantPressure: v(
+      "condenserRefrigerantPressure",
+    ) as AttrValue<number>,
+    evaporatorSaturatedRefrigerantTemperature: v(
+      "evaporatorSaturatedRefrigerantTemperature",
+    ) as AttrValue<number>,
+    evaporatorRefrigerantPressure: v(
+      "evaporatorRefrigerantPressure",
+    ) as AttrValue<number>,
   };
 }
 

@@ -363,7 +363,25 @@
     "decreaseSetpoint": "Decrease setpoint",
     "turnOn": "Turn on",
     "turnOff": "Turn off",
-    "attributeUpdated": "{{name}} updated ({{previous}} → {{current}})"
+    "attributeUpdated": "{{name}} updated to {{value}}"
+  },
+  "awhp": {
+    "evaporator": "Evaporator",
+    "compressor": "Compressor",
+    "condenser": "Condenser",
+    "expansionValve": "Exp. valve",
+    "inlet": "Inlet",
+    "outlet": "Outlet",
+    "setpoint": "Setpoint",
+    "outdoor": "Outdoor",
+    "suction": "Suction",
+    "discharge": "Discharge",
+    "satTemp": "Sat. temp",
+    "pressure": "Pressure",
+    "runStatus": "Status",
+    "mode": "Mode",
+    "waterSide": "Water",
+    "airSide": "Air"
   },
   "drivers": {
     "title": "Drivers",

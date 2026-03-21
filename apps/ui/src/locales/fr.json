@@ -363,7 +363,25 @@
     "decreaseSetpoint": "Diminuer la consigne",
     "turnOn": "Allumer",
     "turnOff": "Éteindre",
-    "attributeUpdated": "{{name}} mis à jour ({{previous}} → {{current}})"
+    "attributeUpdated": "{{name}} mis à jour : {{value}}"
+  },
+  "awhp": {
+    "evaporator": "Évaporateur",
+    "compressor": "Compresseur",
+    "condenser": "Condenseur",
+    "expansionValve": "Détendeur",
+    "inlet": "Entrée",
+    "outlet": "Sortie",
+    "setpoint": "Consigne",
+    "outdoor": "Extérieur",
+    "suction": "Aspiration",
+    "discharge": "Refoulement",
+    "satTemp": "Temp. sat.",
+    "pressure": "Pression",
+    "runStatus": "État",
+    "mode": "Mode",
+    "waterSide": "Eau",
+    "airSide": "Air"
   },
   "drivers": {
     "title": "Drivers",

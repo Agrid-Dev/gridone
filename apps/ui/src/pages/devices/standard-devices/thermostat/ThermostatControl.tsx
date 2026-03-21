@@ -22,7 +22,6 @@ export function ThermostatControl({
   const { changeAndSave, changeAndSaveNow, isSaving } =
     useDebouncedAttributeWrite({
       deviceId: device.id,
-      draft,
       onDraftChange,
     });
 
