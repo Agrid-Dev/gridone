@@ -40,11 +40,10 @@ vi.mock("@/api/apiError", () => ({
 const DEVICE_ID = "dev-1";
 const DELAY = 300;
 
-function setup(onDraftChange = vi.fn(), draft: Record<string, unknown> = {}) {
+function setup(onDraftChange = vi.fn()) {
   return renderHook(() =>
     useDebouncedAttributeWrite({
       deviceId: DEVICE_ID,
-      draft: draft as Record<string, string | number | boolean | null>,
       onDraftChange,
       delay: DELAY,
     }),
@@ -217,18 +216,15 @@ describe("useDebouncedAttributeWrite", () => {
 
   it("shows success toast on save", async () => {
     mockUpdateDeviceAttribute.mockResolvedValue({ id: DEVICE_ID });
-    const draft = { temperatureSetpoint: 20 };
-    const { result } = setup(vi.fn(), draft);
+    const { result } = setup();
 
     await act(async () => {
       result.current.changeAndSaveNow("temperatureSetpoint", 22);
     });
 
     expect(mockToast.success).toHaveBeenCalledOnce();
-    // The message includes name, previous, and current values
     expect(mockToast.success.mock.calls[0][0]).toContain("attributeUpdated");
-    expect(mockToast.success.mock.calls[0][0]).toContain('"previous":"20"');
-    expect(mockToast.success.mock.calls[0][0]).toContain('"current":"22"');
+    expect(mockToast.success.mock.calls[0][0]).toContain('"value":"22"');
   });
 
   it("shows error toast on API failure", async () => {

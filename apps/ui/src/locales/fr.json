@@ -363,7 +363,7 @@
     "decreaseSetpoint": "Diminuer la consigne",
     "turnOn": "Allumer",
     "turnOff": "Éteindre",
-    "attributeUpdated": "{{name}} mis à jour ({{previous}} → {{current}})"
+    "attributeUpdated": "{{name}} mis à jour : {{value}}"
   },
   "awhp": {
     "evaporator": "Évaporateur",

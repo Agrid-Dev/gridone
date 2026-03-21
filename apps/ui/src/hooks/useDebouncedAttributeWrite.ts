@@ -10,14 +10,12 @@ type DraftValue = string | number | boolean | null;
 
 type Options = {
   deviceId: string;
-  draft: Record<string, DraftValue>;
   onDraftChange: (name: string, value: DraftValue) => void;
   delay?: number;
 };
 
 export function useDebouncedAttributeWrite({
   deviceId,
-  draft,
   onDraftChange,
   delay = 600,
 }: Options) {
@@ -25,9 +23,6 @@ export function useDebouncedAttributeWrite({
   const queryClient = useQueryClient();
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
-
   // Cleanup all timers on unmount
   useEffect(() => {
     const map = timers.current;
@@ -38,7 +33,7 @@ export function useDebouncedAttributeWrite({
   }, []);
 
   const save = useCallback(
-    async (name: string, value: DraftValue, previousValue: DraftValue) => {
+    async (name: string, value: DraftValue) => {
       setSaving((prev) => new Set(prev).add(name));
       try {
         const updated = await updateDeviceAttribute(deviceId, name, value);
@@ -46,8 +41,7 @@ export function useDebouncedAttributeWrite({
         toast.success(
           t("thermostat.attributeUpdated", {
             name,
-            previous: String(previousValue ?? "—"),
-            current: String(value ?? "—"),
+            value: String(value ?? "—"),
           }),
         );
       } catch (err) {
@@ -70,7 +64,6 @@ export function useDebouncedAttributeWrite({
 
   const changeAndSave = useCallback(
     (name: string, value: DraftValue) => {
-      const previousValue = draftRef.current[name];
       onDraftChange(name, value);
 
       const existing = timers.current.get(name);
@@ -80,7 +73,7 @@ export function useDebouncedAttributeWrite({
         name,
         setTimeout(() => {
           timers.current.delete(name);
-          save(name, value, previousValue);
+          save(name, value);
         }, delay),
       );
     },
@@ -89,7 +82,6 @@ export function useDebouncedAttributeWrite({
 
   const changeAndSaveNow = useCallback(
     (name: string, value: DraftValue) => {
-      const previousValue = draftRef.current[name];
       onDraftChange(name, value);
 
       const existing = timers.current.get(name);
@@ -98,7 +90,7 @@ export function useDebouncedAttributeWrite({
         timers.current.delete(name);
       }
 
-      save(name, value, previousValue);
+      save(name, value);
     },
     [onDraftChange, save],
   );

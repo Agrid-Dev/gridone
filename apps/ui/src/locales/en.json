@@ -363,7 +363,7 @@
     "decreaseSetpoint": "Decrease setpoint",
     "turnOn": "Turn on",
     "turnOff": "Turn off",
-    "attributeUpdated": "{{name}} updated ({{previous}} → {{current}})"
+    "attributeUpdated": "{{name}} updated to {{value}}"
   },
   "awhp": {
     "evaporator": "Evaporator",
