@@ -1,3 +1,13 @@
+## v0.22.0 (2026-03-21)
+
+### Feat
+
+- **ui**: standard awhp controls
+
+### Refactor
+
+- **ui**: remove previous value in thermostat control success toast
+
 ## v0.21.1 (2026-03-20)
 
 ### Fix
