@@ -23,6 +23,7 @@ theme:
         name: Switch to light mode
   features:
     - navigation.instant
+    - navigation.tabs
     - navigation.sections
     - navigation.top
     - search.suggest
@@ -54,4 +55,9 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - User Guide: guide.md
+  - User Guide:
+    - Devices: guide/devices.md
+    - Driver Schema Reference:
+      - General Layout: guide/general-layout.md
+      - Transport Addresses: guide/transport-addresses.md
+      - Value Adapters: guide/value-adapters.md

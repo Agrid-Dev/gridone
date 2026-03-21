@@ -144,6 +144,29 @@ A Gridone driver is a YAML file that declares a device's attributes and how to r
         read_write: C0
     ```
 
+=== "BACnet"
+
+    ```yaml
+    id: agrid_thermostat
+    transport: bacnet
+
+    device_config:
+      - name: device_instance
+
+    attributes:
+      - name: temperature
+        data_type: float
+        read: "AI 0"
+
+      - name: setpoint
+        data_type: float
+        read_write: "AV 1"
+
+      - name: enabled
+        data_type: bool
+        read_write: "BV 0 P8"
+    ```
+
 ---
 
 ## What you get
