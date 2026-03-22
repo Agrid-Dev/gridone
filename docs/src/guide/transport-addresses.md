@@ -65,7 +65,7 @@ write: "POST ${ip}/attribute?value=${value}"
 |---|---|---|
 | `method` | yes | HTTP method: `GET`, `POST`, `PUT`, `PATCH`, `DELETE` |
 | `path` | yes | URL of the endpoint |
-| `body` | no | JSON payload sent with the request |
+| `body` | no | Request body — a `dict` (sent as JSON on write, form data on read) or a raw `str` (sent as-is) |
 
 ```yaml
 read:
@@ -77,6 +77,11 @@ write:
   path: "${ip}/api/v1/setpoint"
   body:
     value: ${value}
+
+write:
+  method: POST
+  path: "${ip}/api/v1/setpoint"
+  body: "raw string payload"
 ```
 
 ---
@@ -126,6 +131,10 @@ Addresses are compact strings: `<type><instance>` or `<type><instance>:<count>` 
 read: IR0:2       # Input Register 0, 2 registers (32-bit)
 read_write: HR0:2 # Holding Register 0, 2 registers
 read_write: C0    # Coil 0
+
+read_write:
+  type: IR
+  instance: 4
 ```
 
 ---
@@ -151,4 +160,9 @@ An optional BACnet write priority (`P5`–`P16`) can be appended to the address 
 read: "AI 0"          # Analog Input 0 — read only
 read_write: "AV 1"    # Analog Value 1
 read_write: "BV 0 P8" # Binary Value 0, write priority 8
+
+read:
+  object_type: analog-value
+  object_instance: 4
+  property_name: present-value
 ```
