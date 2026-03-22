@@ -1,3 +1,9 @@
+## v0.22.1 (2026-03-22)
+
+### Fix
+
+- additional examples added for transport addresses (#149)
+
 ## v0.22.0 (2026-03-21)
 
 ### Feat
