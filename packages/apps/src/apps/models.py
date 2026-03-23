@@ -51,12 +51,12 @@ class App(BaseModel):
     def _normalize_api_url(cls, v: str) -> str:
         return v.rstrip("/")
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def health_url(self) -> str:
         return f"{self.api_url}/health"
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def enable_url(self) -> str:
         return f"{self.api_url}/enable"

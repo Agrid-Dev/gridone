@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - docs/**
+      - packages/api/**
   workflow_dispatch:
 
 permissions:
@@ -29,7 +30,13 @@ jobs:
           enable-cache: true
           version: "0.10.9"
 
-      - name: Install dependencies
+      - name: Install monorepo dependencies
+        run: uv sync --locked
+
+      - name: Generate OpenAPI spec
+        run: uv run python packages/api/generate_openapi.py
+
+      - name: Install docs dependencies
         working-directory: docs
         run: uv sync --locked
 
