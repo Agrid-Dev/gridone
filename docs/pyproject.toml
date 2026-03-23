@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 dependencies = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
+    "mkdocs-swagger-ui-tag>=0.6",
 ]
 
 [tool.uv]
