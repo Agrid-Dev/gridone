@@ -3,7 +3,7 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from apps import AppsManager
+from apps import AppsService
 from assets import AssetsManager
 from devices_manager import Attribute, Device, DevicesManager
 from fastapi import Depends, FastAPI
@@ -21,7 +21,7 @@ from api.routes import (
     transports_router,
 )
 from api.routes import websocket as websocket_routes
-from api.routes.apps import apps_registration_router
+from api.routes.apps import apps_registration_router, apps_router
 from api.routes.users import auth_router, users_router
 from api.settings import load_settings
 from api.websocket.manager import WebSocketManager
@@ -53,12 +53,14 @@ async def lifespan(app: FastAPI):
     await um.ensure_default_admin()
     app.state.users_manager = um
 
+    apps_svc = None
     try:
-        apps_mgr = await AppsManager.from_storage(settings.storage_url, um)
-        app.state.apps_manager = apps_mgr
+        apps_svc = await AppsService.from_storage(settings.storage_url, um)
+        app.state.apps_service = apps_svc
+        await apps_svc.start_health_check()
     except ValueError:
         logger.warning("Apps package requires PostgreSQL — apps disabled")
-        app.state.apps_manager = None
+        app.state.apps_service = None
 
     try:
         am = await AssetsManager.from_storage(settings.storage_url)
@@ -102,8 +104,8 @@ async def lifespan(app: FastAPI):
         await dm.stop()
         await ts_service.close()
         await um.close()
-        if apps_mgr is not None:
-            await apps_mgr.close()
+        if apps_svc is not None:
+            await apps_svc.close()
         if am is not None:
             await am.close()
         await websocket_manager.close_all()
@@ -147,6 +149,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         assets_router,
         prefix="/assets",
         tags=["assets"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        apps_router,
+        prefix="/apps",
+        tags=["apps"],
         dependencies=jwt_dep,
     )
     app.include_router(websocket_routes.router, tags=["websocket"])

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -9,33 +10,33 @@ from users.password import hash_password
 
 from apps.models import (
     REQUIRED_CONFIG_FIELDS,
+    App,
+    AppStatus,
     RegistrationRequest,
     RegistrationRequestCreate,
     RegistrationRequestStatus,
 )
-from apps.storage.storage_backend import RegistrationRequestStorageBackend
+from apps.storage.storage_backend import (
+    AppStorageBackend,
+    RegistrationRequestStorageBackend,
+)
+
+logger = logging.getLogger(__name__)
 
 
-class AppsManager:
+class RegistrationService:
     def __init__(
         self,
         storage: RegistrationRequestStorageBackend,
+        app_storage: AppStorageBackend,
         users_manager: UsersManagerInterface,
     ) -> None:
         self._storage = storage
+        self._app_storage = app_storage
         self._users_manager = users_manager
 
     async def close(self) -> None:
         await self._storage.close()
-
-    @classmethod
-    async def from_storage(
-        cls, storage_url: str, users_manager: UsersManagerInterface
-    ) -> "AppsManager":
-        from apps.storage import build_registration_request_storage  # noqa: PLC0415
-
-        storage = await build_registration_request_storage(storage_url)
-        return cls(storage, users_manager)
 
     @staticmethod
     def _validate_config(config: str) -> None:
@@ -87,7 +88,7 @@ class AppsManager:
 
     async def accept_registration_request(
         self, request_id: str
-    ) -> tuple[RegistrationRequest, User]:
+    ) -> tuple[RegistrationRequest, User, App]:
         request = await self.get_registration_request(request_id)
         if request.status != RegistrationRequestStatus.PENDING:
             msg = (
@@ -105,11 +106,24 @@ class AppsManager:
             pre_hashed_password=request.hashed_password,
         )
 
+        parsed = yaml.safe_load(request.config)
+        app = App(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            name=parsed["name"],
+            description=parsed.get("description", ""),
+            api_url=parsed["api_url"],
+            icon=parsed.get("icon", ""),
+            status=AppStatus.REGISTERED,
+            manifest=request.config,
+        )
+        await self._app_storage.save(app)
+
         accepted = request.model_copy(
             update={"status": RegistrationRequestStatus.ACCEPTED}
         )
         await self._storage.save(accepted)
-        return accepted, user
+        return accepted, user, app
 
     async def discard_registration_request(
         self, request_id: str
@@ -128,4 +142,4 @@ class AppsManager:
         return discarded
 
 
-__all__ = ["AppsManager"]
+__all__ = ["RegistrationService"]

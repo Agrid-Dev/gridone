@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from apps.models import RegistrationRequest
+from apps.models import App, RegistrationRequest
 
 
 class RegistrationRequestStorageBackend(Protocol):
@@ -13,4 +13,14 @@ class RegistrationRequestStorageBackend(Protocol):
     async def close(self) -> None: ...
 
 
-__all__ = ["RegistrationRequestStorageBackend"]
+class AppStorageBackend(Protocol):
+    async def get_by_id(self, app_id: str) -> App | None: ...
+
+    async def list_all(self) -> list[App]: ...
+
+    async def save(self, app: App) -> None: ...
+
+    async def close(self) -> None: ...
+
+
+__all__ = ["AppStorageBackend", "RegistrationRequestStorageBackend"]

@@ -1,12 +1,16 @@
-from apps.manager import AppsManager
 from apps.models import (
+    App,
+    AppStatus,
     RegistrationRequest,
     RegistrationRequestCreate,
     RegistrationRequestStatus,
 )
+from apps.service import AppsService
 
 __all__ = [
-    "AppsManager",
+    "App",
+    "AppStatus",
+    "AppsService",
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",
