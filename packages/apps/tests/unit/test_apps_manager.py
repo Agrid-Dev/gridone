@@ -198,7 +198,7 @@ class TestHealthCheck:
             with pytest.raises(asyncio.CancelledError):
                 await apps_manager._health_check_loop(60)
         finally:
-            asyncio.sleep = original_sleep  # type: ignore[assignment]
+            asyncio.sleep = original_sleep
 
         # The loop body ran once before being cancelled
         http_client.get.assert_called_once()
