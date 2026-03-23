@@ -1,6 +1,6 @@
 from users import UsersManagerInterface
 
-from apps.manager import AppsManager
+from apps.apps_manager import AppsManager
 from apps.registration_service import RegistrationService
 from apps.storage import build_apps_storages
 

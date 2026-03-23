@@ -5,14 +5,13 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from apps.apps_manager import AppsManager
 from apps.models import App, AppStatus
 from apps.registration_service import RegistrationService
 from apps.service import AppsService
 from apps.storage.factory import build_apps_storages
 from conftest import make_app
 from models.errors import NotFoundError
-
-from apps import AppsManager
 
 pytestmark = pytest.mark.asyncio
 
