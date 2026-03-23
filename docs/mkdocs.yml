@@ -46,6 +46,10 @@ extra:
       link: https://www.a-grid.com/
       name: a-grid.com
 
+plugins:
+  - search
+  - swagger-ui-tag
+
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -62,3 +66,4 @@ nav:
       - Transport Addresses: guide/transport-addresses.md
       - Value Adapters: guide/value-adapters.md
     - Transports: guide/transports.md
+  - API Reference: api-reference.md
