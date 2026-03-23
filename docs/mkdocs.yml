@@ -61,3 +61,4 @@ nav:
       - General Layout: guide/general-layout.md
       - Transport Addresses: guide/transport-addresses.md
       - Value Adapters: guide/value-adapters.md
+    - Transports: guide/transports.md
