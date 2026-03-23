@@ -1,12 +1,7 @@
-from __future__ import annotations
-
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from main import app
+from api.app import app
 
 OUTPUT = Path(__file__).parents[2] / "docs" / "src" / "openapi.json"
 

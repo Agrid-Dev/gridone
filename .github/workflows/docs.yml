@@ -7,7 +7,6 @@ on:
     paths:
       - docs/**
       - packages/api/**
-      - apps/api_server/**
   workflow_dispatch:
 
 permissions:
@@ -35,7 +34,7 @@ jobs:
         run: uv sync --locked
 
       - name: Generate OpenAPI spec
-        run: uv run python apps/api_server/generate_openapi.py
+        run: uv run python packages/api/generate_openapi.py
 
       - name: Install docs dependencies
         working-directory: docs
