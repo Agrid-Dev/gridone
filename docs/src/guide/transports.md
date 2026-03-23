@@ -35,33 +35,20 @@ HTTP is stateless — each read or write sends a new HTTP request. The transport
 |---|---|---|---|
 | `request_timeout` | no | `10` | Timeout in seconds applied to every HTTP request |
 
-```yaml
-transport: http
-config:
-  request_timeout: 30
-```
-
 ---
 
 ### MQTT
 
-MQTT maintains a persistent connection to a broker. It is push-based: on connect, the transport starts a background message loop that dispatches incoming messages to registered attribute listeners.
+MQTT maintains a persistent connection to a broker. It is push-based: on connect, the transport starts a background message loop that dispatches incoming messages to registered attribute listeners. Any message arriving on a topic that matches a registered attribute's read topic will be parsed through that attribute's value adapters and used to update its value — regardless of whether the message was triggered by a read request. In practice, the MQTT transport largely works by listening to topics corresponding to registered device attributes.
 
 **Read flow** — the transport publishes a request message to `request.topic`, subscribes to the response `topic`, and waits up to **10 seconds** for a message to arrive. If no message is received within that window, the read times out. The `request` field in the transport address controls what is published and where.
 
-**Write flow** — the transport publishes the value to `request.topic` as defined in the write address.
+**Write flow** — the transport publishes a message to `request.topic`, passing in the target value as defined in the write address of the attribute driver.
 
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `host` | yes | — | Hostname or IP address of the MQTT broker |
 | `port` | no | `1883` | TCP port of the MQTT broker |
-
-```yaml
-transport: mqtt
-config:
-  host: 192.168.1.50
-  port: 1883
-```
 
 ---
 
@@ -73,13 +60,6 @@ Modbus TCP maintains a persistent TCP connection to the Modbus server (PLC or ga
 |---|---|---|---|
 | `host` | yes | — | Hostname or IP address of the Modbus server |
 | `port` | no | `502` | TCP port of the Modbus server |
-
-```yaml
-transport: modbus_tcp
-config:
-  host: 192.168.1.10
-  port: 502
-```
 
 ---
 
@@ -101,11 +81,3 @@ BACnet creates a local BACnet/IP application bound to the specified network inte
 | `write_property_timeout` | no | `5.0` | Timeout in seconds for write operations |
 | `default_write_priority` | no | `8` | Default BACnet write priority (`5`–`16`) used when no priority is specified in the address |
 
-```yaml
-transport: bacnet
-config:
-  ip_with_mask: 192.168.1.100/24
-  port: 47808
-  read_property_timeout: 10.0
-  default_write_priority: 10
-```
