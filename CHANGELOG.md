@@ -1,3 +1,17 @@
+## v0.23.0 (2026-03-23)
+
+### Feat
+
+- app registration flow after validation
+
+### Fix
+
+- comments
+- pr review
+- added tests to match
+- prek
+- tests
+
 ## v0.22.1 (2026-03-22)
 
 ### Fix
