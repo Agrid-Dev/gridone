@@ -30,8 +30,11 @@ jobs:
           enable-cache: true
           version: "0.10.9"
 
+      - name: Install workspace dependencies
+        run: uv sync --all-packages --locked
+
       - name: Generate OpenAPI spec
-        run: uv run --package gridone-api python packages/api/generate_openapi.py
+        run: uv run python packages/api/generate_openapi.py
 
       - name: Install docs dependencies
         working-directory: docs
