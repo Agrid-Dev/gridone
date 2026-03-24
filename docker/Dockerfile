@@ -54,6 +54,9 @@ COPY apps/migrations/ apps/migrations/
 RUN uv sync --frozen --no-dev --all-packages && \
     uv pip install --no-cache websockets
 
+# Extract app version so the production stage can expose it via GRIDONE_VERSION
+RUN python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])" > /tmp/gridone_version
+
 
 # =============================================================================
 # Stage 3: Production runtime (no build tools, no uv, no gcc)
@@ -81,6 +84,9 @@ COPY --from=python-build /app/pyproject.toml /app/pyproject.toml
 # Copy built UI assets from stage 1
 COPY --from=ui-build /build/apps/ui/dist /app/static
 
+# App version for the health endpoint
+COPY --from=python-build /tmp/gridone_version /tmp/gridone_version
+
 # nginx & supervisord configuration
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -93,4 +99,4 @@ EXPOSE 80
 # Run database migrations, then start supervisord as PID 1.
 # Supervisord will exit if either child process dies, ensuring the
 # container stops cleanly.
-CMD ["sh", "-c", "python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+CMD ["sh", "-c", "export GRIDONE_VERSION=$(cat /tmp/gridone_version) && python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]

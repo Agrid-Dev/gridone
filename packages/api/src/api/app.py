@@ -17,6 +17,7 @@ from api.routes import (
     assets_router,
     devices_router,
     drivers_router,
+    health_router,
     timeseries_router,
     transports_router,
 )
@@ -118,6 +119,7 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     register_exception_handlers(app)
 
     # Public routes (no JWT required)
+    app.include_router(health_router, prefix="/health", tags=["health"])
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(apps_registration_router, prefix="/apps", tags=["apps"])
 
