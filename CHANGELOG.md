@@ -1,3 +1,10 @@
+## v0.24.0 (2026-03-24)
+
+### Feat
+
+- **api**: healh endpoint (#153)
+- **api**: healh endpoint
+
 ## v0.23.0 (2026-03-23)
 
 ### Feat
