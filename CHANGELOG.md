@@ -1,3 +1,9 @@
+## v0.24.1 (2026-03-24)
+
+### Fix
+
+- sync --all-packages to install workspace deps before generating OpenAPI spec (#154)
+
 ## v0.24.0 (2026-03-24)
 
 ### Feat
