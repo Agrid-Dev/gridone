@@ -1,4 +1,4 @@
-import { Thermometer, Fan } from "lucide-react";
+import { Thermometer, Fan, CloudSun, CircleHelp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/api/devices";
@@ -15,13 +15,22 @@ const typeConfig: Record<
     icon: Fan,
     className: "text-blue-700 border-blue-200",
   },
+  [DeviceType.WeatherSensor]: {
+    icon: CloudSun,
+    className: "text-sky-700 border-sky-200",
+  },
+};
+
+const fallbackConfig = {
+  icon: CircleHelp,
+  className: "text-muted-foreground border-border",
 };
 
 export function DeviceTypeChip({ type }: { type: DeviceType | null }) {
   const { t } = useTranslation();
   if (!type) return null;
 
-  const config = typeConfig[type];
+  const config = typeConfig[type] ?? fallbackConfig;
   const Icon = config.icon;
 
   return (

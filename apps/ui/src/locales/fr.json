@@ -109,7 +109,8 @@
     "allTypes": "Tous les types",
     "deviceTypes": {
       "thermostat": "Thermostat",
-      "awhp": "PAC air-eau"
+      "awhp": "PAC air-eau",
+      "weather_sensor": "Station météo"
     },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
@@ -382,6 +383,10 @@
     "mode": "Mode",
     "waterSide": "Eau",
     "airSide": "Air"
+  },
+  "weatherSensor": {
+    "wind": "Vent",
+    "humidity": "Humidité"
   },
   "apps": {
     "title": "Applications",

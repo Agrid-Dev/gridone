@@ -109,7 +109,8 @@
     "allTypes": "All types",
     "deviceTypes": {
       "thermostat": "Thermostat",
-      "awhp": "AWHP"
+      "awhp": "AWHP",
+      "weather_sensor": "Weather Sensor"
     },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
@@ -382,6 +383,10 @@
     "mode": "Mode",
     "waterSide": "Water",
     "airSide": "Air"
+  },
+  "weatherSensor": {
+    "wind": "Wind",
+    "humidity": "Humidity"
   },
   "apps": {
     "title": "Apps",
