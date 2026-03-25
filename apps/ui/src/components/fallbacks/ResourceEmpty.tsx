@@ -16,12 +16,14 @@ interface ResourceEmptyProps {
   resourceName: string;
   filtered?: boolean;
   onClearFilters?: () => void;
+  showCreate?: boolean;
 }
 
 export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   resourceName,
   filtered,
   onClearFilters,
+  showCreate = true,
 }) => {
   const { t } = useTranslation();
   return (
@@ -41,20 +43,22 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
             : t("empty.details", { resourceName })}
         </EmptyDescription>
       </EmptyHeader>
-      <EmptyContent className="flex-row justify-center gap-2">
-        {filtered ? (
-          <Button variant="outline" onClick={onClearFilters}>
-            {t("empty.clearFilters")}
-          </Button>
-        ) : (
-          <Button variant="default" asChild>
-            <Link to="new">
-              <Plus />
-              {t("empty.new", { resourceName })}
-            </Link>
-          </Button>
-        )}
-      </EmptyContent>
+      {(filtered || showCreate) && (
+        <EmptyContent className="flex-row justify-center gap-2">
+          {filtered ? (
+            <Button variant="outline" onClick={onClearFilters}>
+              {t("empty.clearFilters")}
+            </Button>
+          ) : (
+            <Button variant="default" asChild>
+              <Link to="new">
+                <Plus />
+                {t("empty.new", { resourceName })}
+              </Link>
+            </Button>
+          )}
+        </EmptyContent>
+      )}
     </Empty>
   );
 };

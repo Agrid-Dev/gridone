@@ -2,10 +2,9 @@ import { useMemo } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { RefreshCw, ClipboardList } from "lucide-react";
+import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -20,14 +19,10 @@ export default function AppsList() {
   const queryClient = useQueryClient();
   const can = usePermissions();
 
-  const {
-    data: apps = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
+  const { data: apps = [], isLoading } = useQuery({
     queryKey: ["apps"],
     queryFn: listApps,
+    refetchInterval: 3_000,
   });
 
   const { data: users = [] } = useQuery({
@@ -77,24 +72,14 @@ export default function AppsList() {
         title={t("apps.subtitle")}
         resourceName={t("apps.title")}
         actions={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading || isFetching}
-            >
-              <RefreshCw />
-              {isFetching ? t("common.refreshing") : t("common.refresh")}
+          can("users:write") ? (
+            <Button variant="outline" asChild>
+              <Link to="/apps/requests">
+                <ClipboardList />
+                {t("apps.requests.title")}
+              </Link>
             </Button>
-            {can("users:write") && (
-              <Button variant="outline" asChild>
-                <Link to="/apps/requests">
-                  <ClipboardList />
-                  {t("apps.requests.title")}
-                </Link>
-              </Button>
-            )}
-          </>
+          ) : undefined
         }
       />
 
@@ -125,31 +110,39 @@ export default function AppsList() {
                       <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">
                         {app.description}
                       </p>
-                      <div className="mt-2 flex gap-1.5">
+                      <div className="mt-2">
                         <AppStatusBadge status={app.status} />
-                        {disabled && (
-                          <Badge
-                            variant="outline"
-                            className="border-red-200 bg-red-100 text-red-800"
-                          >
-                            {t("apps.disabledBadge")}
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </div>
                   {can("users:write") && (
                     <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggle(app.id, app.userId)}
-                        disabled={
-                          enableMutation.isPending || disableMutation.isPending
-                        }
-                      >
-                        {disabled ? t("apps.enable") : t("apps.disable")}
-                      </Button>
+                      {disabled ? (
+                        <Button
+                          size="sm"
+                          className="bg-green-600 text-white hover:bg-green-700"
+                          onClick={() => handleToggle(app.id, app.userId)}
+                          disabled={
+                            enableMutation.isPending ||
+                            disableMutation.isPending
+                          }
+                        >
+                          {t("apps.enable")}
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                          onClick={() => handleToggle(app.id, app.userId)}
+                          disabled={
+                            enableMutation.isPending ||
+                            disableMutation.isPending
+                          }
+                        >
+                          {t("apps.disable")}
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -158,7 +151,10 @@ export default function AppsList() {
           })}
         </div>
       ) : (
-        <ResourceEmpty resourceName={t("apps.singular").toLowerCase()} />
+        <ResourceEmpty
+          resourceName={t("apps.singular").toLowerCase()}
+          showCreate={false}
+        />
       )}
     </section>
   );

@@ -2,7 +2,6 @@ import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -73,12 +72,17 @@ export default function AppDetail() {
         actions={
           can("users:write") ? (
             isDisabled ? (
-              <Button onClick={() => enableMutation.mutate()} disabled={isBusy}>
+              <Button
+                className="bg-green-600 text-white hover:bg-green-700"
+                onClick={() => enableMutation.mutate()}
+                disabled={isBusy}
+              >
                 {t("apps.enable")}
               </Button>
             ) : (
               <Button
                 variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
                 onClick={() => disableMutation.mutate()}
                 disabled={isBusy}
               >
@@ -100,16 +104,9 @@ export default function AppDetail() {
           </div>
           <div>
             <span className="text-slate-500">{t("apps.fields.status")}</span>
-            <div className="mt-1 flex gap-1.5">
+            {/* TODO: display last health check timestamp when backend exposes it */}
+            <div className="mt-1">
               <AppStatusBadge status={app.status} />
-              {isDisabled && (
-                <Badge
-                  variant="outline"
-                  className="border-red-200 bg-red-100 text-red-800"
-                >
-                  {t("apps.disabledBadge")}
-                </Badge>
-              )}
             </div>
           </div>
           <div>

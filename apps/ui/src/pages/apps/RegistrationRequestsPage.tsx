@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -33,12 +33,48 @@ function RequestStatusBadge({ status }: { status: string }) {
   );
 }
 
+function RequestsTable({
+  requests,
+  renderRow,
+}: {
+  requests: RegistrationRequest[];
+  renderRow: (req: RegistrationRequest) => React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const can = usePermissions();
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50">
+            <th className="px-4 py-2 text-left font-medium text-slate-500">
+              {t("apps.requests.username")}
+            </th>
+            <th className="px-4 py-2 text-left font-medium text-slate-500">
+              {t("apps.requests.appName")}
+            </th>
+            <th className="px-4 py-2 text-left font-medium text-slate-500">
+              {t("apps.fields.status")}
+            </th>
+            <th className="px-4 py-2 text-left font-medium text-slate-500">
+              {t("apps.fields.createdAt")}
+            </th>
+            {can("users:write") && <th className="px-4 py-2" />}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {requests.map(renderRow)}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function RegistrationRequestsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const can = usePermissions();
   const navigate = useNavigate();
-  const [showArchive, setShowArchive] = useState(false);
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["registration-requests"],
@@ -64,9 +100,6 @@ export default function RegistrationRequestsPage() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const pending = requests.filter((r) => r.status === "pending");
-  const processed = requests.filter((r) => r.status !== "pending");
 
   const renderRow = (req: RegistrationRequest) => {
     const configName = parseConfigName(req.config);
@@ -135,88 +168,13 @@ export default function RegistrationRequestsPage() {
             <Skeleton key={i} className="h-12" />
           ))}
         </div>
-      ) : pending.length === 0 && processed.length === 0 ? (
+      ) : requests.length === 0 ? (
         <ResourceEmpty
           resourceName={t("apps.requests.singular").toLowerCase()}
+          showCreate={false}
         />
       ) : (
-        <>
-          {/* Pending requests */}
-          {pending.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-sm font-medium text-slate-900">
-                {t("apps.requests.pendingTitle")} ({pending.length})
-              </h3>
-              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-100 bg-slate-50">
-                      <th className="px-4 py-2 text-left font-medium text-slate-500">
-                        {t("apps.requests.username")}
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-slate-500">
-                        {t("apps.requests.appName")}
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-slate-500">
-                        {t("apps.fields.status")}
-                      </th>
-                      <th className="px-4 py-2 text-left font-medium text-slate-500">
-                        {t("apps.fields.createdAt")}
-                      </th>
-                      {can("users:write") && <th className="px-4 py-2" />}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {pending.map(renderRow)}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Archive toggle */}
-          {processed.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowArchive(!showArchive)}
-                className="text-sm font-medium text-slate-500 hover:text-slate-900"
-              >
-                {showArchive
-                  ? t("apps.requests.hideArchive")
-                  : t("apps.requests.showArchive", {
-                      count: processed.length,
-                    })}
-              </button>
-              {showArchive && (
-                <div className="mt-2 rounded-lg border border-slate-200 bg-white overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-50">
-                        <th className="px-4 py-2 text-left font-medium text-slate-500">
-                          {t("apps.requests.username")}
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium text-slate-500">
-                          {t("apps.requests.appName")}
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium text-slate-500">
-                          {t("apps.fields.status")}
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium text-slate-500">
-                          {t("apps.fields.createdAt")}
-                        </th>
-                        {can("users:write") && <th className="px-4 py-2" />}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {processed.map(renderRow)}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </>
+        <RequestsTable requests={requests} renderRow={renderRow} />
       )}
     </section>
   );
