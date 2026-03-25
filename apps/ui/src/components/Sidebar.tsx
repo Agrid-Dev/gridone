@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
+  Blocks,
   Cable,
   ChevronsUpDown,
   Cpu,
@@ -90,6 +91,20 @@ export function Sidebar() {
               {t(`app.${route}`)}
             </NavLink>
           ))}
+
+          <NavLink
+            to="/apps"
+            className={({ isActive }) =>
+              `flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-slate-900 text-slate-50"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              }`
+            }
+          >
+            <Blocks className="h-4 w-4" />
+            {t("apps.title")}
+          </NavLink>
 
           <hr className="border-slate-100 my-2" />
 
