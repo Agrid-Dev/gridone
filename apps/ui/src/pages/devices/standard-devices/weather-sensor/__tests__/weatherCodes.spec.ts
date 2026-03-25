@@ -6,13 +6,13 @@ describe("getWeatherCode", () => {
   it("returns Sun for code 0 (clear sky)", () => {
     const result = getWeatherCode(0);
     expect(result.icon).toBe(Sun);
-    expect(result.label).toBe("Clear sky");
+    expect(result.labelKey).toBe("clearSky");
   });
 
   it("returns CloudRain for code 63 (moderate rain)", () => {
     const result = getWeatherCode(63);
     expect(result.icon).toBe(CloudRain);
-    expect(result.label).toBe("Moderate rain");
+    expect(result.labelKey).toBe("moderateRain");
   });
 
   it("returns CloudSnow for code 73 (moderate snowfall)", () => {
@@ -28,12 +28,12 @@ describe("getWeatherCode", () => {
   it("returns Cloud fallback for unknown code", () => {
     const result = getWeatherCode(999);
     expect(result.icon).toBe(Cloud);
-    expect(result.label).toBe("Unknown");
+    expect(result.labelKey).toBe("unknown");
   });
 
   it("returns Cloud fallback for null", () => {
     const result = getWeatherCode(null);
     expect(result.icon).toBe(Cloud);
-    expect(result.label).toBe("Unknown");
+    expect(result.labelKey).toBe("unknown");
   });
 });

@@ -21,7 +21,7 @@ export function WeatherSensorPreview({ device }: StandardPreviewProps) {
       </div>
 
       {/* Wind */}
-      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-1 text-xs text-muted-foreground">
         <Wind className="h-3 w-3" />
         <span className="tabular-nums">
           {a.windSpeed != null ? `${Number(a.windSpeed).toFixed(0)} km/h` : "—"}

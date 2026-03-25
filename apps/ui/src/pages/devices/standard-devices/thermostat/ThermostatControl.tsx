@@ -17,7 +17,7 @@ export function ThermostatControl({
   draft,
   onDraftChange,
 }: StandardControlProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   const { changeAndSave, changeAndSaveNow, isSaving } =
     useDebouncedAttributeWrite({

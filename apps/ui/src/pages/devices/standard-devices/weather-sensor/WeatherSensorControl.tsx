@@ -11,7 +11,7 @@ function fmt(v: number | null, decimals = 1): string {
 }
 
 export function WeatherSensorControl({ device }: StandardControlProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   if (!isWeatherSensor(device)) return null;
   const a = readWeatherSensorAttributes(device);
@@ -23,7 +23,9 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
       {/* Header: weather icon + label */}
       <div className="mb-5 flex flex-col items-center gap-1">
         <WeatherIcon className="h-10 w-10 text-muted-foreground" />
-        <span className="text-xs text-muted-foreground">{weather.label}</span>
+        <span className="text-xs text-muted-foreground">
+          {t(`weatherCodes.${weather.labelKey}`)}
+        </span>
       </div>
 
       {/* Temperature — prominent */}

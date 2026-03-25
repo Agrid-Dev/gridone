@@ -14,48 +14,48 @@ import {
 
 type WeatherCodeEntry = {
   icon: LucideIcon;
-  label: string;
+  labelKey: string;
 };
 
 /**
  * Maps WMO weather interpretation codes (0–99) to a Lucide icon and
- * an English label.
+ * a translation key (under the `devices:weatherCodes` namespace).
  *
  * Reference: https://open-meteo.com/en/docs#weathervariables
- * Codes not listed fall back to the `Cloud` icon with "Unknown".
+ * Codes not listed fall back to the `Cloud` icon with "unknown".
  */
 const WEATHER_CODES: Record<number, WeatherCodeEntry> = {
-  0: { icon: Sun, label: "Clear sky" },
-  1: { icon: CloudSun, label: "Mainly clear" },
-  2: { icon: CloudSun, label: "Partly cloudy" },
-  3: { icon: Cloud, label: "Overcast" },
-  45: { icon: CloudFog, label: "Fog" },
-  48: { icon: CloudFog, label: "Depositing rime fog" },
-  51: { icon: CloudDrizzle, label: "Light drizzle" },
-  53: { icon: CloudDrizzle, label: "Moderate drizzle" },
-  55: { icon: CloudDrizzle, label: "Dense drizzle" },
-  56: { icon: CloudDrizzle, label: "Light freezing drizzle" },
-  57: { icon: CloudDrizzle, label: "Dense freezing drizzle" },
-  61: { icon: CloudRain, label: "Slight rain" },
-  63: { icon: CloudRain, label: "Moderate rain" },
-  65: { icon: CloudRain, label: "Heavy rain" },
-  66: { icon: CloudRain, label: "Light freezing rain" },
-  67: { icon: CloudRain, label: "Heavy freezing rain" },
-  71: { icon: CloudSnow, label: "Slight snowfall" },
-  73: { icon: CloudSnow, label: "Moderate snowfall" },
-  75: { icon: CloudSnow, label: "Heavy snowfall" },
-  77: { icon: Snowflake, label: "Snow grains" },
-  80: { icon: CloudRain, label: "Slight rain showers" },
-  81: { icon: CloudRain, label: "Moderate rain showers" },
-  82: { icon: CloudRain, label: "Violent rain showers" },
-  85: { icon: CloudSnow, label: "Slight snow showers" },
-  86: { icon: CloudSnow, label: "Heavy snow showers" },
-  95: { icon: CloudLightning, label: "Thunderstorm" },
-  96: { icon: CloudHail, label: "Thunderstorm with slight hail" },
-  99: { icon: CloudHail, label: "Thunderstorm with heavy hail" },
+  0: { icon: Sun, labelKey: "clearSky" },
+  1: { icon: CloudSun, labelKey: "mainlyClear" },
+  2: { icon: CloudSun, labelKey: "partlyCloudy" },
+  3: { icon: Cloud, labelKey: "overcast" },
+  45: { icon: CloudFog, labelKey: "fog" },
+  48: { icon: CloudFog, labelKey: "depositingRimeFog" },
+  51: { icon: CloudDrizzle, labelKey: "lightDrizzle" },
+  53: { icon: CloudDrizzle, labelKey: "moderateDrizzle" },
+  55: { icon: CloudDrizzle, labelKey: "denseDrizzle" },
+  56: { icon: CloudDrizzle, labelKey: "lightFreezingDrizzle" },
+  57: { icon: CloudDrizzle, labelKey: "denseFreezingDrizzle" },
+  61: { icon: CloudRain, labelKey: "slightRain" },
+  63: { icon: CloudRain, labelKey: "moderateRain" },
+  65: { icon: CloudRain, labelKey: "heavyRain" },
+  66: { icon: CloudRain, labelKey: "lightFreezingRain" },
+  67: { icon: CloudRain, labelKey: "heavyFreezingRain" },
+  71: { icon: CloudSnow, labelKey: "slightSnowfall" },
+  73: { icon: CloudSnow, labelKey: "moderateSnowfall" },
+  75: { icon: CloudSnow, labelKey: "heavySnowfall" },
+  77: { icon: Snowflake, labelKey: "snowGrains" },
+  80: { icon: CloudRain, labelKey: "slightRainShowers" },
+  81: { icon: CloudRain, labelKey: "moderateRainShowers" },
+  82: { icon: CloudRain, labelKey: "violentRainShowers" },
+  85: { icon: CloudSnow, labelKey: "slightSnowShowers" },
+  86: { icon: CloudSnow, labelKey: "heavySnowShowers" },
+  95: { icon: CloudLightning, labelKey: "thunderstorm" },
+  96: { icon: CloudHail, labelKey: "thunderstormSlightHail" },
+  99: { icon: CloudHail, labelKey: "thunderstormHeavyHail" },
 };
 
-const FALLBACK: WeatherCodeEntry = { icon: Cloud, label: "Unknown" };
+const FALLBACK: WeatherCodeEntry = { icon: Cloud, labelKey: "unknown" };
 
 export function getWeatherCode(code: number | null): WeatherCodeEntry {
   if (code == null) return FALLBACK;

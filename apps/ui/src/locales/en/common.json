@@ -353,41 +353,6 @@
     "noCommands": "No commands recorded yet.",
     "noCommandsDescription": "Commands will appear here when users control device attributes."
   },
-  "thermostat": {
-    "current": "Current",
-    "setpoint": "Setpoint",
-    "mode": "Mode",
-    "fanSpeed": "Fan speed",
-    "on": "On",
-    "off": "Off",
-    "increaseSetpoint": "Increase setpoint",
-    "decreaseSetpoint": "Decrease setpoint",
-    "turnOn": "Turn on",
-    "turnOff": "Turn off",
-    "attributeUpdated": "{{name}} updated to {{value}}"
-  },
-  "awhp": {
-    "evaporator": "Evaporator",
-    "compressor": "Compressor",
-    "condenser": "Condenser",
-    "expansionValve": "Exp. valve",
-    "inlet": "Inlet",
-    "outlet": "Outlet",
-    "setpoint": "Setpoint",
-    "outdoor": "Outdoor",
-    "suction": "Suction",
-    "discharge": "Discharge",
-    "satTemp": "Sat. temp",
-    "pressure": "Pressure",
-    "runStatus": "Status",
-    "mode": "Mode",
-    "waterSide": "Water",
-    "airSide": "Air"
-  },
-  "weatherSensor": {
-    "wind": "Wind",
-    "humidity": "Humidity"
-  },
   "apps": {
     "title": "Apps",
     "subtitle": "Registered applications",

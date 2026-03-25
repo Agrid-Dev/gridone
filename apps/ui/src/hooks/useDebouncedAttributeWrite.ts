@@ -19,7 +19,7 @@ export function useDebouncedAttributeWrite({
   onDraftChange,
   delay = 600,
 }: Options) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const queryClient = useQueryClient();
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
@@ -49,7 +49,7 @@ export function useDebouncedAttributeWrite({
           ? err.details || err.message
           : err instanceof Error
             ? err.message
-            : t("deviceDetails.updateFailed");
+            : t("common:deviceDetails.updateFailed");
         toast.error(message);
       } finally {
         setSaving((prev) => {

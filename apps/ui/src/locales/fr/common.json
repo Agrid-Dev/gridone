@@ -353,41 +353,6 @@
     "noCommands": "Aucune commande enregistrée.",
     "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
   },
-  "thermostat": {
-    "current": "Actuelle",
-    "setpoint": "Consigne",
-    "mode": "Mode",
-    "fanSpeed": "Vitesse ventilateur",
-    "on": "ON",
-    "off": "OFF",
-    "increaseSetpoint": "Augmenter la consigne",
-    "decreaseSetpoint": "Diminuer la consigne",
-    "turnOn": "Allumer",
-    "turnOff": "Éteindre",
-    "attributeUpdated": "{{name}} mis à jour : {{value}}"
-  },
-  "awhp": {
-    "evaporator": "Évaporateur",
-    "compressor": "Compresseur",
-    "condenser": "Condenseur",
-    "expansionValve": "Détendeur",
-    "inlet": "Entrée",
-    "outlet": "Sortie",
-    "setpoint": "Consigne",
-    "outdoor": "Extérieur",
-    "suction": "Aspiration",
-    "discharge": "Refoulement",
-    "satTemp": "Temp. sat.",
-    "pressure": "Pression",
-    "runStatus": "État",
-    "mode": "Mode",
-    "waterSide": "Eau",
-    "airSide": "Air"
-  },
-  "weatherSensor": {
-    "wind": "Vent",
-    "humidity": "Humidité"
-  },
   "apps": {
     "title": "Applications",
     "subtitle": "Applications enregistrées",

@@ -30,7 +30,7 @@ function Reading({
 }
 
 export function AwhpControl({ device }: StandardControlProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   if (!isAwhp(device)) return null;
   const a = readAwhpAttributes(device);
