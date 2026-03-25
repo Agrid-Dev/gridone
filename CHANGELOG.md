@@ -1,3 +1,13 @@
+## v0.25.0 (2026-03-25)
+
+### Feat
+
+- ui for app registration flow
+
+### Fix
+
+- ui comments
+
 ## v0.24.1 (2026-03-24)
 
 ### Fix
