@@ -383,6 +383,49 @@
     "waterSide": "Eau",
     "airSide": "Air"
   },
+  "apps": {
+    "title": "Applications",
+    "subtitle": "Applications enregistrées",
+    "singular": "Application",
+    "fields": {
+      "name": "Nom",
+      "description": "Description",
+      "apiUrl": "URL de l'API",
+      "status": "Statut",
+      "createdAt": "Date d'enregistrement",
+      "icon": "Icône"
+    },
+    "status": {
+      "healthy": "En ligne",
+      "unhealthy": "Hors ligne",
+      "registered": "Enregistré"
+    },
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "enabled": "Application activée",
+    "disabled": "Application désactivée",
+    "disabledBadge": "Désactivée",
+    "configuration": "Configuration",
+    "configPlaceholder": "Bientôt disponible — sera alimenté par le schéma de configuration de l'application.",
+    "requests": {
+      "title": "Demandes d'enregistrement",
+      "singular": "Demande",
+      "pendingTitle": "En attente",
+      "pending": "En attente",
+      "accepted": "Acceptée",
+      "discarded": "Rejetée",
+      "accept": "Accepter",
+      "discard": "Rejeter",
+      "username": "Nom d'utilisateur",
+      "appName": "Nom de l'application",
+      "acceptedToast": "Demande acceptée",
+      "discardedToast": "Demande rejetée",
+      "discardConfirmTitle": "Rejeter la demande",
+      "discardConfirmDetails": "Rejeter la demande d'enregistrement de « {{name}} » ? Cette action est irréversible.",
+      "showArchive": "Afficher les traitées ({{count}})",
+      "hideArchive": "Masquer les traitées"
+    }
+  },
   "drivers": {
     "title": "Drivers",
     "list": "Liste des drivers disponibles ({{count}})",
