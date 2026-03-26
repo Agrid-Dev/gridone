@@ -180,7 +180,7 @@ export default function SettingsPage() {
         resourceName={t("settings.title")}
       />
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6 max-w-lg">
+      <div className="rounded-lg border border-border bg-card p-6 max-w-lg">
         {user.mustChangePassword && (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             {t("settings.mustChangePassword")}
@@ -189,7 +189,7 @@ export default function SettingsPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("users.fields.username")}
             </label>
             <Input
@@ -203,7 +203,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("users.fields.name")}
             </label>
             <Input
@@ -212,7 +212,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("users.fields.email")}
             </label>
             <Input
@@ -227,7 +227,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("users.fields.title")}
             </label>
             <Input
@@ -236,10 +236,10 @@ export default function SettingsPage() {
             />
           </div>
 
-          <hr className="border-slate-200" />
+          <hr className="border-border" />
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("settings.newPassword")}
             </label>
             <Input
@@ -255,7 +255,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700">
+            <label className="text-sm font-medium text-foreground">
               {t("settings.confirmPassword")}
             </label>
             <Input

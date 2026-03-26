@@ -5,7 +5,7 @@ import type { AppStatus } from "@/api/apps";
 const statusStyles: Record<AppStatus, string> = {
   healthy: "border-green-200 bg-green-100 text-green-800",
   unhealthy: "border-red-200 bg-red-100 text-red-800",
-  registered: "border-slate-200 bg-slate-100 text-slate-600",
+  registered: "border-border bg-muted text-muted-foreground",
 };
 
 export function AppStatusBadge({ status }: { status: AppStatus }) {

@@ -68,27 +68,31 @@ export default function DeviceLayout() {
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="flex items-center gap-2 mt-1">
-                <CardTitle>{device.name || deviceId}</CardTitle>
+                <CardTitle className="font-display">
+                  {device.name || deviceId}
+                </CardTitle>
                 <DeviceTypeChip type={device.type} />
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.driver")}:&nbsp;
-                <Link
-                  to={`/drivers/${device.driverId}`}
-                  className="underline text-primary"
-                >
-                  {device.driverId}
-                </Link>
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("common.transport")}:&nbsp;
-                <Link
-                  to={`/transports/${device.transportId}`}
-                  className="underline text-primary"
-                >
-                  {device.transportId}
-                </Link>
-              </p>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span>
+                  {t("common.driver")}:&nbsp;
+                  <Link
+                    to={`/drivers/${device.driverId}`}
+                    className="font-mono text-xs text-primary underline underline-offset-2"
+                  >
+                    {device.driverId}
+                  </Link>
+                </span>
+                <span>
+                  {t("common.transport")}:&nbsp;
+                  <Link
+                    to={`/transports/${device.transportId}`}
+                    className="font-mono text-xs text-primary underline underline-offset-2"
+                  >
+                    {device.transportId}
+                  </Link>
+                </span>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -100,7 +104,9 @@ export default function DeviceLayout() {
                 className="flex justify-between border-b border-border pb-2 text-sm"
               >
                 <span className="font-medium text-foreground">{key}</span>
-                <span className="text-muted-foreground">{String(value)}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {String(value)}
+                </span>
               </div>
             ))}
             {Object.keys(device.config).length === 0 && (

@@ -193,25 +193,25 @@ export default function UsersPage() {
             <Card key={user.id}>
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-medium text-slate-700">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-sm font-medium text-primary">
                     {getUserInitials(user.name, user.username)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-slate-900">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {user.name || user.username}
                       </p>
                       {user.id === currentUserId && (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-muted-foreground">
                           ({t("users.you")})
                         </span>
                       )}
                     </div>
-                    <p className="truncate text-sm text-slate-500">
+                    <p className="truncate text-sm text-muted-foreground">
                       {user.username}
                     </p>
                     {user.email && (
-                      <p className="mt-1 truncate text-xs text-slate-400">
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
                         {user.email}
                       </p>
                     )}
@@ -227,7 +227,7 @@ export default function UsersPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
                   <Button
                     variant="outline"
                     size="sm"
@@ -295,7 +295,7 @@ export default function UsersPage() {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {t("users.fields.username")}
               </label>
               <Input
@@ -305,7 +305,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {dialogMode === "edit"
                   ? t("users.fields.passwordOptional")
                   : t("users.fields.password")}
@@ -323,7 +323,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {t("users.fields.name")}
               </label>
               <Input
@@ -332,7 +332,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {t("users.fields.email")}
               </label>
               <Input
@@ -342,7 +342,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {t("users.fields.title")}
               </label>
               <Input
@@ -351,7 +351,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-slate-700">
+              <label className="text-sm font-medium text-foreground">
                 {t("users.fields.role")}
               </label>
               <select
@@ -359,7 +359,7 @@ export default function UsersPage() {
                 onChange={(e) =>
                   setForm({ ...form, role: e.target.value as UserRole })
                 }
-                className="flex h-9 w-full rounded-md border border-slate-200 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="admin">{t("users.roles.admin")}</option>
                 <option value="operator">{t("users.roles.operator")}</option>

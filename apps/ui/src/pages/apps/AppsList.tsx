@@ -97,17 +97,17 @@ export default function AppsList() {
               <Card key={app.id}>
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xl">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
                       {app.icon}
                     </span>
                     <div className="min-w-0 flex-1">
                       <Link
                         to={`/apps/${app.id}`}
-                        className="text-sm font-medium text-slate-900 hover:underline"
+                        className="text-sm font-medium text-foreground hover:underline"
                       >
                         {app.name}
                       </Link>
-                      <p className="mt-0.5 text-sm text-slate-500 line-clamp-2">
+                      <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
                         {app.description}
                       </p>
                       <div className="mt-2">
@@ -116,7 +116,7 @@ export default function AppsList() {
                     </div>
                   </div>
                   {can("users:write") && (
-                    <div className="mt-4 flex justify-end border-t border-slate-100 pt-3">
+                    <div className="mt-4 flex justify-end border-t border-border pt-3">
                       {disabled ? (
                         <Button
                           size="sm"

@@ -73,25 +73,25 @@ export function DeviceLinkDialog({
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <div className="max-h-60 overflow-y-auto rounded-md border border-slate-200">
+        <div className="max-h-60 overflow-y-auto rounded-md border border-border">
           {available.length > 0 ? (
             available.map((device) => (
               <button
                 key={device.id}
                 type="button"
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 ${
-                  selectedId === device.id ? "bg-slate-100 font-medium" : ""
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50 ${
+                  selectedId === device.id ? "bg-muted font-medium" : ""
                 }`}
                 onClick={() => setSelectedId(device.id)}
               >
                 <span className="truncate">{device.name}</span>
-                <span className="ml-auto text-xs text-slate-400 truncate">
+                <span className="ml-auto text-xs text-muted-foreground truncate">
                   {device.id}
                 </span>
               </button>
             ))
           ) : (
-            <p className="px-3 py-4 text-sm text-slate-500 text-center">
+            <p className="px-3 py-4 text-sm text-muted-foreground text-center">
               {t("common.noResults")}
             </p>
           )}

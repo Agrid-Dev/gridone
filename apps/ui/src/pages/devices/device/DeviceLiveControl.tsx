@@ -55,10 +55,10 @@ export default function DeviceLiveControl() {
       )}
 
       <div className="flex items-center justify-between">
-        <h3 className="text-xl font-semibold text-slate-900">
+        <h3 className="font-display text-xl font-semibold text-foreground">
           {t("deviceDetails.attributes")}
         </h3>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted-foreground">
           {t("deviceDetails.attributesDescription")}
         </p>
       </div>

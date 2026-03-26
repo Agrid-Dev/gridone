@@ -41,7 +41,7 @@ const typeIcons: Record<string, typeof Building2> = {
 /** Tailwind classes for each asset type badge. */
 const typeBadgeColors: Record<string, string> = {
   org: "border-purple-200 bg-purple-50 text-purple-700",
-  building: "border-blue-200 bg-blue-50 text-blue-700",
+  building: "border-blue-200 bg-primary/10 text-blue-700",
   floor: "border-amber-200 bg-amber-50 text-amber-700",
   room: "border-emerald-200 bg-emerald-50 text-emerald-700",
   zone: "border-rose-200 bg-rose-50 text-rose-700",
@@ -178,7 +178,7 @@ function InlineCreateRow({
       <select
         value={type}
         onChange={(e) => setType(e.target.value)}
-        className="h-7 rounded border border-slate-300 bg-white px-1 text-xs"
+        className="h-7 rounded border border-border bg-card px-1 text-xs"
       >
         {ASSET_TYPES.map((at) => (
           <option key={at} value={at}>
@@ -195,7 +195,7 @@ function InlineCreateRow({
           if (e.key === "Escape") onCancel();
         }}
         placeholder={t("assets.inlineCreate.placeholder")}
-        className="h-7 flex-1 rounded border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="h-7 flex-1 rounded border border-border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
       />
     </div>
   );
@@ -291,15 +291,15 @@ function TreeNode({
           isDragging
             ? "opacity-40"
             : isValidDropTarget
-              ? "bg-blue-50 ring-2 ring-blue-400 ring-inset"
-              : "hover:bg-slate-50"
+              ? "bg-primary/10 ring-2 ring-primary ring-inset"
+              : "hover:bg-muted/50"
         }`}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
       >
         {/* Drag handle */}
         {!isRoot ? (
           <button
-            className="flex items-center justify-center h-5 w-5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing"
+            className="flex items-center justify-center h-5 w-5 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
             {...dragListeners}
             {...dragAttributes}
           >
@@ -313,7 +313,7 @@ function TreeNode({
         {isExpandable ? (
           <button
             onClick={() => toggleExpanded(node.id)}
-            className="flex items-center justify-center h-5 w-5 text-slate-400 hover:text-slate-600"
+            className="flex items-center justify-center h-5 w-5 text-muted-foreground/60 hover:text-foreground"
           >
             {expanded ? (
               <ChevronDown className="h-4 w-4" />
@@ -324,7 +324,7 @@ function TreeNode({
         ) : (
           <span className="w-5" />
         )}
-        <Icon className="h-4 w-4 text-slate-500" />
+        <Icon className="h-4 w-4 text-muted-foreground" />
 
         {/* Name — inline rename or link */}
         {isRenaming ? (
@@ -340,12 +340,12 @@ function TreeNode({
               }
             }}
             onBlur={submitRename}
-            className="h-7 flex-1 rounded border border-slate-300 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="h-7 flex-1 rounded border border-border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         ) : (
           <Link
             to={`/assets/${node.id}`}
-            className="text-sm font-medium text-slate-900 hover:underline underline-offset-2"
+            className="text-sm font-medium text-foreground hover:underline underline-offset-2"
           >
             {node.name}
           </Link>
@@ -368,7 +368,7 @@ function TreeNode({
                   setRenameValue(node.name);
                   setIsRenaming(true);
                 }}
-                className="flex items-center justify-center h-6 w-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
                 title={t("assets.edit")}
               >
                 <Pencil className="h-3 w-3" />
@@ -380,7 +380,7 @@ function TreeNode({
                   e.preventDefault();
                   setAddingChildOf(node.id);
                 }}
-                className="flex items-center justify-center h-6 w-6 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
                 title={t("assets.addChild")}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -427,10 +427,10 @@ function TreeNode({
             >
               <span className="w-5" />
               <span className="w-5" />
-              <Cpu className="h-3.5 w-3.5 text-slate-400" />
+              <Cpu className="h-3.5 w-3.5 text-muted-foreground/60" />
               <Link
                 to={`/devices/${device.id}`}
-                className="text-sm text-slate-500 hover:underline underline-offset-2"
+                className="text-sm text-muted-foreground hover:underline underline-offset-2"
               >
                 {device.name}
               </Link>
@@ -448,10 +448,10 @@ function DragOverlayContent({ node }: { node: AssetTreeNode }) {
   const Icon = typeIcons[node.type] ?? Building2;
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-lg">
-      <GripVertical className="h-3.5 w-3.5 text-slate-400" />
-      <Icon className="h-4 w-4 text-slate-500" />
-      <span className="text-sm font-medium text-slate-900">{node.name}</span>
+    <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-lg">
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-medium text-foreground">{node.name}</span>
       <Badge
         variant="outline"
         className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
