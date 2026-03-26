@@ -58,20 +58,20 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/[0.06] bg-sidebar text-sidebar-foreground">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-white/[0.06] p-6">
+        <div className="border-b border-white/[0.06] px-5 py-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
-              <span className="font-display text-sm font-bold text-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+              <span className="font-display text-lg font-bold text-primary">
                 G
               </span>
             </div>
-            <div>
-              <p className="font-display text-[10px] font-medium uppercase tracking-[0.3em] text-sidebar-foreground/60">
+            <div className="min-w-0">
+              <h1 className="font-display text-base font-bold tracking-wide text-white/95">
                 {t("app.title")}
-              </p>
-              <h1 className="font-display text-base font-semibold leading-tight text-white/90">
-                {t("app.subtitle")}
               </h1>
+              <p className="text-[11px] leading-snug text-sidebar-foreground/50">
+                {t("app.subtitle")}
+              </p>
             </div>
           </div>
         </div>

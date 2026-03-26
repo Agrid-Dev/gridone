@@ -9,7 +9,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
-import { History, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
@@ -37,7 +37,7 @@ export default function DevicesList() {
             </Button>
             <Button asChild variant="outline">
               <Link to="/devices/commands">
-                <History />
+                <Terminal />
                 {t("commands.title")}
               </Link>
             </Button>
