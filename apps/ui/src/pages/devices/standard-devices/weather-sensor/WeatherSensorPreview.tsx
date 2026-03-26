@@ -21,7 +21,7 @@ export function WeatherSensorPreview({ device }: StandardPreviewProps) {
       {/* Temperature + weather icon */}
       <div className="flex items-center gap-2 min-w-0">
         <WeatherIcon className="h-5 w-5 text-muted-foreground" />
-        <span className="text-2xl font-light tabular-nums leading-none">
+        <span className="font-mono text-2xl font-light tabular-nums leading-none">
           {fmt(a.temperature)}°
         </span>
       </div>

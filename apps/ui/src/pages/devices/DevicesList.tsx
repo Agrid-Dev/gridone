@@ -69,8 +69,14 @@ export default function DevicesList() {
         </div>
       ) : devices.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {devices.map((device) => (
-            <DeviceCard key={device.id} device={device} />
+          {devices.map((device, i) => (
+            <div
+              key={device.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${i * 40}ms` }}
+            >
+              <DeviceCard device={device} />
+            </div>
           ))}
         </div>
       ) : (

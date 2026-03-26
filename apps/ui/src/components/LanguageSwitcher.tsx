@@ -8,23 +8,23 @@ export function LanguageSwitcher() {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white">
+    <div className="flex items-center gap-1 rounded-md border border-border bg-secondary/50 p-0.5">
       <button
         onClick={() => changeLanguage("fr")}
-        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors rounded-l ${
+        className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
           i18n.language === "fr"
-            ? "bg-slate-900 text-slate-50"
-            : "text-slate-600 hover:bg-slate-100"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         FR
       </button>
       <button
         onClick={() => changeLanguage("en")}
-        className={`flex-1 px-3 py-2 text-xs font-medium transition-colors rounded-r ${
+        className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
           i18n.language === "en"
-            ? "bg-slate-900 text-slate-50"
-            : "text-slate-600 hover:bg-slate-100"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
         }`}
       >
         EN

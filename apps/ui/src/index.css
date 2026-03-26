@@ -4,61 +4,72 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 15% 14%;
+    /* Warm off-white base with amber accent — architectural / industrial warmth */
+    --background: 40 20% 97%;
+    --foreground: 220 20% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 14%;
+    --card-foreground: 220 20% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 14%;
-    --primary: 220 17% 18%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14% 94%;
+    --popover-foreground: 220 20% 12%;
+    --primary: 36 72% 48%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 12% 92%;
     --secondary-foreground: 220 15% 18%;
-    --muted: 220 13% 93%;
-    --muted-foreground: 220 9% 45%;
-    --accent: 160 12% 90%;
+    --muted: 40 10% 93%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 40 20% 93%;
     --accent-foreground: 220 17% 18%;
-    --destructive: 0 72% 50%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 14% 86%;
-    --input: 220 14% 86%;
-    --ring: 220 17% 24%;
-    --radius: 0.6rem;
-    --chart-1: 234 89% 74%;
-    --chart-2: 160 84% 39%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
-    --chart-6: 187 85% 53%;
-    --chart-7: 24 95% 53%;
-    --chart-8: 330 81% 60%;
+    --destructive: 0 68% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 40 10% 86%;
+    --input: 40 10% 86%;
+    --ring: 36 72% 48%;
+    --radius: 0.5rem;
+
+    --sidebar: 220 18% 11%;
+    --sidebar-foreground: 216 12% 64%;
+    --sidebar-accent: 36 72% 48%;
+
+    --chart-1: 36 72% 48%;
+    --chart-2: 160 84% 36%;
+    --chart-3: 210 78% 50%;
+    --chart-4: 0 68% 52%;
+    --chart-5: 262 70% 52%;
+    --chart-6: 187 80% 44%;
+    --chart-7: 24 90% 50%;
+    --chart-8: 330 70% 52%;
   }
 
   .dark {
-    --background: 220 15% 8%;
-    --foreground: 210 40% 96%;
-    --card: 220 15% 10%;
-    --card-foreground: 210 40% 96%;
-    --popover: 220 15% 10%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 220 14% 82%;
-    --primary-foreground: 222 18% 12%;
-    --secondary: 220 10% 18%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 220 10% 18%;
-    --muted-foreground: 220 12% 70%;
-    --accent: 160 14% 24%;
-    --accent-foreground: 210 40% 96%;
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 8% 26%;
-    --input: 220 8% 26%;
-    --ring: 220 15% 65%;
-    --chart-1: 234 89% 74%;
-    --chart-2: 160 84% 39%;
-    --chart-3: 43 96% 56%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
+    --background: 220 20% 7%;
+    --foreground: 216 12% 84%;
+    --card: 220 18% 10%;
+    --card-foreground: 216 12% 84%;
+    --popover: 220 18% 10%;
+    --popover-foreground: 216 12% 84%;
+    --primary: 40 76% 59%;
+    --primary-foreground: 220 20% 7%;
+    --secondary: 220 14% 14%;
+    --secondary-foreground: 216 12% 84%;
+    --muted: 220 12% 14%;
+    --muted-foreground: 216 8% 55%;
+    --accent: 220 14% 16%;
+    --accent-foreground: 216 12% 84%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 12% 18%;
+    --input: 220 12% 18%;
+    --ring: 40 76% 59%;
+
+    --sidebar: 220 22% 5%;
+    --sidebar-foreground: 216 12% 64%;
+    --sidebar-accent: 40 76% 59%;
+
+    --chart-1: 40 76% 59%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 210 78% 56%;
+    --chart-4: 0 72% 60%;
+    --chart-5: 262 83% 68%;
     --chart-6: 187 85% 53%;
     --chart-7: 24 95% 53%;
     --chart-8: 330 81% 60%;
@@ -71,9 +82,129 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family:
+      "Figtree",
+      system-ui,
+      -apple-system,
+      sans-serif;
+    font-feature-settings:
+      "rlig" 1,
+      "calt" 1;
   }
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* ── Dot grid background ── */
+.bg-grid {
+  background-image: radial-gradient(
+    circle,
+    hsl(var(--border) / 0.5) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
+/* ── Ambient glow effect for cards ── */
+.card-glow {
+  position: relative;
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.card-glow:hover {
+  border-color: hsl(var(--primary) / 0.25);
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.08),
+    0 8px 24px hsl(var(--primary) / 0.06);
+}
+
+/* ── Monospace data display ── */
+.font-data {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  font-feature-settings:
+    "ss01" 1,
+    "cv01" 1;
+}
+
+/* ── Display / heading font ── */
+.font-display {
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+/* ── Pulse animation for connected status ── */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.animate-status-pulse {
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+/* ── Stagger entrance animation ── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}
+
+/* ── Login background ── */
+.login-bg {
+  background:
+    radial-gradient(
+      ellipse at 30% 40%,
+      hsl(var(--primary) / 0.06) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 70% 60%,
+      hsl(var(--primary) / 0.04) 0%,
+      transparent 40%
+    ),
+    hsl(var(--background));
+}
+.dark .login-bg {
+  background:
+    radial-gradient(
+      ellipse at 30% 40%,
+      hsl(var(--primary) / 0.08) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 70% 60%,
+      hsl(var(--primary) / 0.05) 0%,
+      transparent 40%
+    ),
+    hsl(var(--background));
+}
+
+/* ── Scrollbar styling (dark theme) ── */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.dark ::-webkit-scrollbar-track {
+  background: hsl(220 20% 7%);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(220 12% 22%);
+  border-radius: 4px;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(220 12% 28%);
 }

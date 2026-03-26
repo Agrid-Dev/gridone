@@ -62,78 +62,104 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.4em] text-slate-500">
-            {t("app.title")}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">
-            {t("app.subtitle")}
-          </h1>
+    <div className="login-bg bg-grid flex min-h-screen items-center justify-center">
+      {/* Ambient glow */}
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-1/4 top-1/3 h-96 w-96 rounded-full bg-primary/[0.03] blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/3 h-64 w-64 rounded-full bg-primary/[0.02] blur-3xl" />
+      </div>
+
+      <div className="relative w-full max-w-sm animate-fade-up">
+        {/* Card */}
+        <div className="rounded-xl border border-border/60 bg-card/80 p-8 shadow-2xl shadow-black/20 backdrop-blur-sm">
+          {/* Brand */}
+          <div className="mb-8 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15">
+              <span className="font-display text-xl font-bold text-primary">
+                G
+              </span>
+            </div>
+            <p className="font-display text-[10px] font-medium uppercase tracking-[0.4em] text-muted-foreground">
+              {t("app.title")}
+            </p>
+            <h1 className="mt-1 font-display text-2xl font-semibold text-foreground">
+              {t("app.subtitle")}
+            </h1>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="username"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                {t("auth.login.username")}
+              </label>
+              <Input
+                id="username"
+                type="text"
+                autoComplete="username"
+                className="h-11 bg-background/50"
+                {...form.register("username")}
+                disabled={form.formState.isSubmitting}
+              />
+              {form.formState.errors.username && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.username.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="password"
+                className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                {t("auth.login.password")}
+              </label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                className="h-11 bg-background/50"
+                {...form.register("password")}
+                disabled={form.formState.isSubmitting}
+              />
+              {form.formState.errors.password && (
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.password.message}
+                </p>
+              )}
+            </div>
+
+            {form.formState.errors.root?.message && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+                <p className="text-sm text-destructive">
+                  {form.formState.errors.root.message}
+                </p>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="h-11 w-full font-display font-semibold tracking-wide"
+              disabled={
+                form.formState.isSubmitting || isSchemaLoading || !schema
+              }
+            >
+              {form.formState.isSubmitting
+                ? t("auth.login.signingIn")
+                : isSchemaLoading
+                  ? t("common.loading")
+                  : t("auth.login.signIn")}
+            </Button>
+          </form>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label
-              htmlFor="username"
-              className="text-sm font-medium text-slate-700"
-            >
-              {t("auth.login.username")}
-            </label>
-            <Input
-              id="username"
-              type="text"
-              autoComplete="username"
-              {...form.register("username")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.username && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.username.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium text-slate-700"
-            >
-              {t("auth.login.password")}
-            </label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              {...form.register("password")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-
-          {form.formState.errors.root?.message && (
-            <p className="text-sm text-red-600">
-              {form.formState.errors.root.message}
-            </p>
-          )}
-
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={form.formState.isSubmitting || isSchemaLoading || !schema}
-          >
-            {form.formState.isSubmitting
-              ? t("auth.login.signingIn")
-              : isSchemaLoading
-                ? t("common.loading")
-                : t("auth.login.signIn")}
-          </Button>
-        </form>
+        {/* Subtle footer */}
+        <p className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground/40">
+          Building Management System
+        </p>
       </div>
     </div>
   );
