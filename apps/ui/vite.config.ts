@@ -9,6 +9,7 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
+    assetsDir: "_assets",
   },
   resolve: {
     alias: {
