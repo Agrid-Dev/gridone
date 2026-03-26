@@ -109,7 +109,8 @@
     "allTypes": "Tous les types",
     "deviceTypes": {
       "thermostat": "Thermostat",
-      "awhp": "PAC air-eau"
+      "awhp": "PAC air-eau",
+      "weather_sensor": "Station météo"
     },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
@@ -351,37 +352,6 @@
     "allUsers": "Tous les utilisateurs",
     "noCommands": "Aucune commande enregistrée.",
     "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
-  },
-  "thermostat": {
-    "current": "Actuelle",
-    "setpoint": "Consigne",
-    "mode": "Mode",
-    "fanSpeed": "Vitesse ventilateur",
-    "on": "ON",
-    "off": "OFF",
-    "increaseSetpoint": "Augmenter la consigne",
-    "decreaseSetpoint": "Diminuer la consigne",
-    "turnOn": "Allumer",
-    "turnOff": "Éteindre",
-    "attributeUpdated": "{{name}} mis à jour : {{value}}"
-  },
-  "awhp": {
-    "evaporator": "Évaporateur",
-    "compressor": "Compresseur",
-    "condenser": "Condenseur",
-    "expansionValve": "Détendeur",
-    "inlet": "Entrée",
-    "outlet": "Sortie",
-    "setpoint": "Consigne",
-    "outdoor": "Extérieur",
-    "suction": "Aspiration",
-    "discharge": "Refoulement",
-    "satTemp": "Temp. sat.",
-    "pressure": "Pression",
-    "runStatus": "État",
-    "mode": "Mode",
-    "waterSide": "Eau",
-    "airSide": "Air"
   },
   "apps": {
     "title": "Applications",

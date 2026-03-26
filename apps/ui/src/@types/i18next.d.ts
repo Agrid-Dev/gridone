@@ -1,11 +1,13 @@
 import "i18next";
-import type translation from "../locales/en.json";
+import type common from "../locales/en/common.json";
+import type devices from "../locales/en/devices.json";
 
 declare module "i18next" {
   interface CustomTypeOptions {
-    defaultNS: "translation";
+    defaultNS: "common";
     resources: {
-      translation: typeof translation;
+      common: typeof common;
+      devices: typeof devices;
     };
   }
 }

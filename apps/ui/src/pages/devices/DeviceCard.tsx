@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { Device } from "@/api/devices";
@@ -51,7 +52,9 @@ export function DeviceCard({ device }: { device: Device }) {
         </div>
 
         {/* ── Content (type-specific or fallback) ── */}
-        <Content device={device} />
+        <ErrorBoundary fallback={<DefaultCardContent device={device} />}>
+          <Content device={device} />
+        </ErrorBoundary>
       </Card>
     </Link>
   );

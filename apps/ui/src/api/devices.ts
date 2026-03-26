@@ -12,6 +12,7 @@ export type DeviceAttribute = {
 export enum DeviceType {
   Thermostat = "thermostat",
   Awhp = "awhp",
+  WeatherSensor = "weather_sensor",
 }
 
 export type Device = {
@@ -61,14 +62,31 @@ export type AwhpAttributes = {
   evaporatorRefrigerantPressure: AttrValue<number>;
 };
 
+/** Typed view of weather sensor standard attributes. */
+export type WeatherSensorAttributes = {
+  temperature: AttrValue<number>;
+  weatherCode: AttrValue<number>;
+  windSpeed: AttrValue<number>;
+  windDirection: AttrValue<number>;
+  humidity: AttrValue<number>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
 /** A Device whose `type` is `"awhp"`. */
 export type AwhpDevice = Device & { type: DeviceType.Awhp };
 
+/** A Device whose `type` is `"weather_sensor"`. */
+export type WeatherSensorDevice = Device & {
+  type: DeviceType.WeatherSensor;
+};
+
 /** Union of all devices with a known standard type. */
-export type StandardDevice = ThermostatDevice | AwhpDevice;
+export type StandardDevice =
+  | ThermostatDevice
+  | AwhpDevice
+  | WeatherSensorDevice;
 
 // Type guards ---
 
@@ -80,8 +98,12 @@ export function isAwhp(device: Device): device is AwhpDevice {
   return device.type === DeviceType.Awhp;
 }
 
+export function isWeatherSensor(device: Device): device is WeatherSensorDevice {
+  return device.type === DeviceType.WeatherSensor;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
-  return isThermostat(device) || isAwhp(device);
+  return isThermostat(device) || isAwhp(device) || isWeatherSensor(device);
 }
 
 /**
@@ -141,6 +163,23 @@ export function readAwhpAttributes(device: AwhpDevice): AwhpAttributes {
     evaporatorRefrigerantPressure: v(
       "evaporatorRefrigerantPressure",
     ) as AttrValue<number>,
+  };
+}
+
+/**
+ * Read the standard weather sensor attributes from a device's attribute map.
+ * Attribute keys are already camelCase (converted by the API client).
+ */
+export function readWeatherSensorAttributes(
+  device: WeatherSensorDevice,
+): WeatherSensorAttributes {
+  const v = (name: string) => device.attributes[name]?.currentValue ?? null;
+  return {
+    temperature: v("temperature") as AttrValue<number>,
+    weatherCode: v("weatherCode") as AttrValue<number>,
+    windSpeed: v("windSpeed") as AttrValue<number>,
+    windDirection: v("windDirection") as AttrValue<number>,
+    humidity: v("humidity") as AttrValue<number>,
   };
 }
 
