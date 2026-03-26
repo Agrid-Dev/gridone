@@ -61,6 +61,7 @@ nav:
   - Home: index.md
   - User Guide:
     - Devices: guide/devices.md
+    - Standard Devices: guide/standard-devices.md
     - Driver Schema Reference:
       - General Layout: guide/general-layout.md
       - Transport Addresses: guide/transport-addresses.md

@@ -9,6 +9,7 @@ id: <string>                  # (required) unique identifier for this driver
 vendor: <string>              # equipment vendor / manufacturer
 model: <string>               # device model name
 version: <int>                # driver version
+type: <string>                # standard device type (e.g. thermostat, awhp, weather_sensor)
 
 transport: <protocol>         # (required)
 
@@ -43,6 +44,7 @@ attributes:                   # (required) list of attribute drivers
 | `vendor` | no | Equipment vendor name |
 | `model` | no | Device model name |
 | `version` | no | Driver version number |
+| `type` | no | Standard device type — enables schema validation and built-in UI. See [Standard Devices](standard-devices.md) |
 | `env` | no | Driver-scoped constants |
 | `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`) |
 | `update_strategy` | no | Polling frequency configuration |
