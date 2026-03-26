@@ -1,3 +1,9 @@
+## v0.27.1 (2026-03-26)
+
+### Fix
+
+- changed assets directory to avoid conflicting with gridone assets
+
 ## v0.27.0 (2026-03-26)
 
 ### Feat
