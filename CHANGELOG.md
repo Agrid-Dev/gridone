@@ -1,3 +1,9 @@
+## v0.26.0 (2026-03-26)
+
+### Feat
+
+- **devices-manager**: standard weather_sensor device
+
 ## v0.25.0 (2026-03-25)
 
 ### Feat
