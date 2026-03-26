@@ -1,3 +1,17 @@
+## v0.27.0 (2026-03-26)
+
+### Feat
+
+- **ui**: standard weather_sensor device
+
+### Fix
+
+- **ui**: address pr comments
+
+### Refactor
+
+- **ui**: split translations i18n
+
 ## v0.26.0 (2026-03-26)
 
 ### Feat
