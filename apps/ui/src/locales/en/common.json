@@ -239,6 +239,8 @@
   "deviceDetails": {
     "title": "Device",
     "attributes": "Attributes",
+    "advancedAttributes": "Advanced attributes",
+    "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",
     "missingDeviceId": "Missing device identifier",
     "unableToLoad": "Unable to load device",

@@ -18,7 +18,7 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   backTo,
   actions = null,
 }) => (
-  <div className="flex justify-between items-end mb-6 pb-4 border-b border-border">
+  <div className="flex justify-between items-end pb-6 border-b border-border">
     <div>
       {resourceNameLinksBack ? (
         <Link
