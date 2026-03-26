@@ -31,7 +31,7 @@ describe("degreesToCompass", () => {
     expect(degreesToCompass(450)).toBe("E");
   });
 
-  it('returns "N" for null', () => {
-    expect(degreesToCompass(null)).toBe("N");
+  it("returns null for null", () => {
+    expect(degreesToCompass(null)).toBeNull();
   });
 });

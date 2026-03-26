@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Thermometer, Wind, Droplets, Navigation } from "lucide-react";
+import { Thermometer, Wind, Droplets, Navigation2 } from "lucide-react";
 import { isWeatherSensor, readWeatherSensorAttributes } from "@/api/devices";
 import { getWeatherCode } from "./weatherCodes";
 import { degreesToCompass } from "./compass";
@@ -17,6 +17,7 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
   const a = readWeatherSensorAttributes(device);
   const weather = getWeatherCode(a.weatherCode);
   const WeatherIcon = weather.icon;
+  const compass = degreesToCompass(a.windDirection);
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border bg-card p-6 shadow-md">
@@ -48,18 +49,20 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
             {fmt(a.windSpeed, 0)}{" "}
             <span className="text-xs text-muted-foreground">km/h</span>
           </span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Navigation
-              className="h-3 w-3"
-              style={{
-                transform: `rotate(${(a.windDirection ?? 0) + 180}deg)`,
-              }}
-            />
-            <span className="font-medium">
-              {degreesToCompass(a.windDirection)}
-            </span>
-            <span className="tabular-nums">({a.windDirection ?? "—"}°)</span>
-          </div>
+          {compass ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Navigation2
+                className="h-3 w-3"
+                style={{
+                  transform: `rotate(${a.windDirection}deg)`,
+                }}
+              />
+              <span className="font-medium">{compass}</span>
+              <span className="tabular-nums">({a.windDirection}°)</span>
+            </div>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
         </div>
 
         {/* Humidity */}
