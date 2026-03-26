@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
@@ -176,7 +177,8 @@ export function Sidebar() {
                   {t("settings.subtitle")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <div className="px-2 py-1.5">
+                <div className="space-y-3 px-2 py-2">
+                  <ThemeSwitcher />
                   <LanguageSwitcher />
                 </div>
                 <DropdownMenuSeparator />

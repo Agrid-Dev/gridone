@@ -11,6 +11,19 @@
       href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Blocking script: apply theme class before first paint to prevent FOUC.
+      // Reads from localStorage; falls back to system preference.
+      (function () {
+        var stored = localStorage.getItem("gridone-theme");
+        var prefersDark =
+          window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var dark =
+          stored === "dark" || (stored !== "light" && prefersDark);
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
     <title>Gridone Device Dashboard</title>
     <meta
       name="description"

@@ -1,4 +1,11 @@
 {
+  "appearance": {
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "language": "Langue"
+  },
   "auth": {
     "login": {
       "username": "Nom d'utilisateur",

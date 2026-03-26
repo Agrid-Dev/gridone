@@ -1,4 +1,11 @@
 {
+  "appearance": {
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language"
+  },
   "auth": {
     "login": {
       "username": "Username",

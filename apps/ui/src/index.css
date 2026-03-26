@@ -41,28 +41,29 @@
   }
 
   .dark {
-    --background: 220 20% 7%;
-    --foreground: 216 12% 84%;
-    --card: 220 18% 10%;
-    --card-foreground: 216 12% 84%;
-    --popover: 220 18% 10%;
-    --popover-foreground: 216 12% 84%;
+    /* Deep navy tint — twilight blue, pairs with amber accent */
+    --background: 230 25% 13%;
+    --foreground: 220 16% 87%;
+    --card: 230 22% 16%;
+    --card-foreground: 220 16% 87%;
+    --popover: 230 22% 16%;
+    --popover-foreground: 220 16% 87%;
     --primary: 40 76% 59%;
-    --primary-foreground: 220 20% 7%;
-    --secondary: 220 14% 14%;
-    --secondary-foreground: 216 12% 84%;
-    --muted: 220 12% 14%;
-    --muted-foreground: 216 8% 55%;
-    --accent: 220 14% 16%;
-    --accent-foreground: 216 12% 84%;
-    --destructive: 0 62% 50%;
+    --primary-foreground: 230 25% 10%;
+    --secondary: 230 18% 19%;
+    --secondary-foreground: 220 16% 87%;
+    --muted: 230 18% 19%;
+    --muted-foreground: 220 10% 58%;
+    --accent: 230 16% 22%;
+    --accent-foreground: 220 16% 87%;
+    --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 12% 18%;
-    --input: 220 12% 18%;
+    --border: 230 16% 23%;
+    --input: 230 16% 23%;
     --ring: 40 76% 59%;
 
-    --sidebar: 220 22% 5%;
-    --sidebar-foreground: 216 12% 64%;
+    --sidebar: 230 28% 9%;
+    --sidebar-foreground: 220 14% 62%;
     --sidebar-accent: 40 76% 59%;
 
     --chart-1: 40 76% 59%;
@@ -199,12 +200,12 @@
   height: 8px;
 }
 .dark ::-webkit-scrollbar-track {
-  background: hsl(220 20% 7%);
+  background: hsl(230 25% 13%);
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(220 12% 22%);
+  background: hsl(230 16% 27%);
   border-radius: 4px;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 12% 28%);
+  background: hsl(230 16% 33%);
 }
