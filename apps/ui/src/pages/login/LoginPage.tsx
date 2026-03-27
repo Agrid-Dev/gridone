@@ -158,7 +158,7 @@ export default function LoginPage() {
 
         {/* Subtle footer */}
         <p className="mt-6 text-center text-[10px] uppercase tracking-[0.3em] text-muted-foreground/40">
-          Building Management System
+          {t("app.description")}
         </p>
       </div>
     </div>

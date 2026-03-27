@@ -122,48 +122,6 @@
     0 8px 24px hsl(var(--primary) / 0.06);
 }
 
-/* ── Monospace data display ── */
-.font-data {
-  font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-feature-settings:
-    "ss01" 1,
-    "cv01" 1;
-}
-
-/* ── Display / heading font ── */
-.font-display {
-  font-family: "Outfit", system-ui, sans-serif;
-}
-
-/* ── Pulse animation for connected status ── */
-@keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-.animate-status-pulse {
-  animation: status-pulse 2s ease-in-out infinite;
-}
-
-/* ── Stagger entrance animation ── */
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-fade-up {
-  animation: fade-up 0.4s ease-out both;
-}
-
 /* ── Login background ── */
 .login-bg {
   background:

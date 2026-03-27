@@ -38,7 +38,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
     isActive
       ? "bg-primary/10 text-primary"
-      : "text-sidebar-foreground hover:bg-white/[0.04] hover:text-white/90"
+      : "text-sidebar-foreground hover:bg-sidebar-foreground/[0.06] hover:text-sidebar-foreground/90"
   }`;
 
 const activeIndicator = (isActive: boolean) =>
@@ -55,10 +55,10 @@ export function Sidebar() {
   const user = state.status === "authenticated" ? state.user : null;
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-white/[0.06] bg-sidebar text-sidebar-foreground">
+    <aside className="fixed left-0 top-0 h-screen w-64 border-r border-sidebar-foreground/[0.06] bg-sidebar text-sidebar-foreground">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-white/[0.06] px-5 py-5">
+        <div className="border-b border-sidebar-foreground/[0.06] px-5 py-5">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
               <span className="font-display text-lg font-bold text-primary">
@@ -66,7 +66,7 @@ export function Sidebar() {
               </span>
             </div>
             <div className="min-w-0">
-              <h1 className="font-display text-base font-bold tracking-wide text-white/95">
+              <h1 className="font-display text-base font-bold tracking-wide text-sidebar-foreground/95">
                 {t("app.title")}
               </h1>
               <p className="text-[11px] leading-snug text-sidebar-foreground/50">
@@ -115,7 +115,7 @@ export function Sidebar() {
             )}
           </NavLink>
 
-          <hr className="!my-3 border-white/[0.06]" />
+          <hr className="!my-3 border-sidebar-foreground/[0.06]" />
 
           {can("users:read") && (
             <NavLink to="/users" className={navLinkClass}>
@@ -141,16 +141,16 @@ export function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-white/[0.06] p-3">
+        <div className="border-t border-sidebar-foreground/[0.06] p-3">
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-all duration-200 hover:bg-white/[0.04]">
+                <button className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-all duration-200 hover:bg-sidebar-foreground/[0.04]">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary">
                     {getInitials(user.name, user.username)}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white/90">
+                    <p className="truncate text-sm font-medium text-sidebar-foreground/90">
                       {user.name || user.username}
                     </p>
                     <p className="truncate text-xs text-sidebar-foreground/60">

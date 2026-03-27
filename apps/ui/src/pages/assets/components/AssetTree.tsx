@@ -41,7 +41,7 @@ const typeIcons: Record<string, typeof Building2> = {
 /** Tailwind classes for each asset type badge. */
 const typeBadgeColors: Record<string, string> = {
   org: "border-purple-200 bg-purple-50 text-purple-700",
-  building: "border-blue-200 bg-primary/10 text-blue-700",
+  building: "border-blue-200 bg-blue-50 text-blue-700",
   floor: "border-amber-200 bg-amber-50 text-amber-700",
   room: "border-emerald-200 bg-emerald-50 text-emerald-700",
   zone: "border-rose-200 bg-rose-50 text-rose-700",

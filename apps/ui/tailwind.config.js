@@ -71,17 +71,12 @@ module.exports = {
           from: { opacity: 0, transform: "translateY(8px)" },
           to: { opacity: 1, transform: "translateY(0)" },
         },
-        "glow-pulse": {
-          "0%, 100%": { opacity: 0.4 },
-          "50%": { opacity: 1 },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "highlight-fade": "highlight-fade 3s ease-out forwards",
         "fade-up": "fade-up 0.4s ease-out both",
-        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
       },
     },
   },
