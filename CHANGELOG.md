@@ -1,3 +1,9 @@
+## v0.27.3 (2026-03-27)
+
+### Refactor
+
+- **docs**: refactor home page with a hero section
+
 ## v0.27.2 (2026-03-27)
 
 ### Refactor
