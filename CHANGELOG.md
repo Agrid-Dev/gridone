@@ -1,3 +1,9 @@
+## v0.27.2 (2026-03-27)
+
+### Refactor
+
+- **ui**: redesign with warm amber / deep navy theme
+
 ## v0.27.1 (2026-03-26)
 
 ### Fix
