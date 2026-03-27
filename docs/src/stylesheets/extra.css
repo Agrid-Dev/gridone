@@ -1,0 +1,71 @@
+/* ── Gridone brand colors ──
+   Matches the app's warm amber / deep navy palette defined in
+   apps/ui/src/index.css.  MkDocs Material surfaces these via
+   --md-primary-* / --md-accent-* custom properties.
+
+   The header uses the app's dark sidebar color (#161a22) with
+   amber accent text — mirroring the sidebar vs primary contrast.
+*/
+
+/* ---------- Light mode ---------- */
+[data-md-color-scheme="default"] {
+  /* Dark header (sidebar color) with amber accent */
+  --md-primary-fg-color: #161a22;
+  --md-primary-fg-color--light: #1e2330;
+  --md-primary-fg-color--dark: #0e1118;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  /* Amber accent */
+  --md-accent-fg-color: #b8860b;
+  --md-accent-fg-color--transparent: rgba(184, 134, 11, 0.1);
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: rgba(255, 255, 255, 0.7);
+
+  --md-typeset-a-color: #b8860b;
+}
+
+/* Header text & icons: amber on dark background */
+[data-md-color-scheme="default"] .md-header {
+  --md-primary-bg-color: #d4a034;
+  --md-primary-bg-color--light: rgba(212, 160, 52, 0.7);
+  color: #d4a034;
+}
+
+/* ---------- Dark mode ---------- */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #1a1d2e;
+  --md-default-bg-color--light: #222539;
+  --md-default-bg-color--lighter: #292d42;
+  --md-default-bg-color--lightest: #33384f;
+
+  --md-default-fg-color: rgba(208, 213, 225, 1);
+  --md-default-fg-color--light: rgba(208, 213, 225, 0.7);
+  --md-default-fg-color--lighter: rgba(208, 213, 225, 0.32);
+  --md-default-fg-color--lightest: rgba(208, 213, 225, 0.12);
+
+  /* Deep navy header (dark sidebar color) */
+  --md-primary-fg-color: #101328;
+  --md-primary-fg-color--light: #161a33;
+  --md-primary-fg-color--dark: #0a0c1e;
+  --md-primary-bg-color: #141627;
+  --md-primary-bg-color--light: rgba(20, 22, 39, 0.7);
+
+  /* Amber accent */
+  --md-accent-fg-color: #d4a034;
+  --md-accent-fg-color--transparent: rgba(212, 160, 52, 0.1);
+  --md-accent-bg-color: #141627;
+  --md-accent-bg-color--light: rgba(20, 22, 39, 0.7);
+
+  --md-typeset-a-color: #d4a034;
+
+  --md-code-bg-color: #121425;
+  --md-code-fg-color: #d0d5e1;
+}
+
+/* Header text & icons: amber on deep navy background */
+[data-md-color-scheme="slate"] .md-header {
+  --md-primary-bg-color: #d4a034;
+  --md-primary-bg-color--light: rgba(212, 160, 52, 0.7);
+  color: #d4a034;
+}

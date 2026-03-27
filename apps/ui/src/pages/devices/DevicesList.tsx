@@ -9,7 +9,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
-import { History, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
@@ -37,7 +37,7 @@ export default function DevicesList() {
             </Button>
             <Button asChild variant="outline">
               <Link to="/devices/commands">
-                <History />
+                <Terminal />
                 {t("commands.title")}
               </Link>
             </Button>
@@ -56,7 +56,7 @@ export default function DevicesList() {
       <TypeFilter />
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -69,8 +69,14 @@ export default function DevicesList() {
         </div>
       ) : devices.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {devices.map((device) => (
-            <DeviceCard key={device.id} device={device} />
+          {devices.map((device, i) => (
+            <div
+              key={device.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${i * 40}ms` }}
+            >
+              <DeviceCard device={device} />
+            </div>
           ))}
         </div>
       ) : (

@@ -30,13 +30,11 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-background text-foreground;
     font-family:
-      "Inter",
-      "Segoe UI",
+      "Figtree",
       system-ui,
       -apple-system,
-      BlinkMacSystemFont,
       sans-serif;
     font-feature-settings:
       "rlig" 1,

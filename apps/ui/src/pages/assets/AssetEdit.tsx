@@ -71,7 +71,7 @@ export default function AssetEdit() {
         backTo="/assets"
       />
 
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-card p-6">
         <AssetForm
           defaultValues={{
             name: asset.name,

@@ -103,8 +103,8 @@ export function AwhpControl({ device }: StandardControlProps) {
           </div>
 
           {/* Compressor */}
-          <div className="flex flex-col items-center gap-1 rounded-xl border border-slate-300 bg-slate-50/80 p-3 dark:border-slate-700 dark:bg-slate-800/50">
-            <div className="flex items-center gap-1 text-slate-700 dark:text-slate-300">
+          <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-muted/80 p-3">
+            <div className="flex items-center gap-1 text-foreground">
               <Fan className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {t("awhp.compressor")}
@@ -178,7 +178,7 @@ export function AwhpControl({ device }: StandardControlProps) {
         </div>
 
         {/* Expansion valve */}
-        <div className="rounded-lg border border-dashed border-slate-300 px-4 py-1 dark:border-slate-600">
+        <div className="rounded-lg border border-dashed border-border px-4 py-1">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {t("awhp.expansionValve")}
           </span>

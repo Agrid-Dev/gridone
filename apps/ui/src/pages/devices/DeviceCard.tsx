@@ -37,16 +37,16 @@ export function DeviceCard({ device }: { device: Device }) {
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">
-      <Card className="flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md">
+      <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
         {/* ── Header (generic) ── */}
         <div>
           <div className="flex items-center justify-between gap-1.5">
-            <p className="truncate text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <p className="truncate font-mono text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               {device.driverId}
             </p>
             <DeviceTypeChip type={device.type} />
           </div>
-          <h2 className="mt-0.5 truncate text-base font-semibold text-card-foreground">
+          <h2 className="mt-0.5 truncate font-display text-base font-semibold text-card-foreground">
             {device.name || device.id}
           </h2>
         </div>

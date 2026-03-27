@@ -1,10 +1,14 @@
 /** @type {import('tailwindcss').Config} */
-/** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Figtree", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Outfit", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -39,6 +43,11 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar))",
+          foreground: "hsl(var(--sidebar-foreground))",
+          accent: "hsl(var(--sidebar-accent))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -55,14 +64,19 @@ module.exports = {
           to: { height: 0 },
         },
         "highlight-fade": {
-          "0%": { backgroundColor: "hsl(48 96% 89%)" },
+          "0%": { backgroundColor: "hsl(40 76% 59% / 0.2)" },
           "100%": { backgroundColor: "transparent" },
+        },
+        "fade-up": {
+          from: { opacity: 0, transform: "translateY(8px)" },
+          to: { opacity: 1, transform: "translateY(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "highlight-fade": "highlight-fade 3s ease-out forwards",
+        "fade-up": "fade-up 0.4s ease-out both",
       },
     },
   },

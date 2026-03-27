@@ -11,7 +11,7 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
     <div className="flex items-center justify-between gap-3">
       {/* Temperatures */}
       <div className="flex items-baseline gap-2 min-w-0">
-        <span className="text-2xl font-light tabular-nums leading-none">
+        <span className="font-mono text-2xl font-light tabular-nums leading-none">
           {attrs.temperature != null
             ? Number(attrs.temperature).toFixed(1)
             : "—"}

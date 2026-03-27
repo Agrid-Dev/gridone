@@ -17,10 +17,10 @@ const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
   connecting: "bg-orange-100 text-orange-700 border-orange-200",
   connection_error: "bg-red-100 text-red-700 border-red-200",
-  idle: "bg-slate-100 text-slate-600 border-slate-200",
-  closing: "bg-slate-100 text-slate-600 border-slate-200",
-  closed: "bg-slate-100 text-slate-600 border-slate-200",
-  unknown: "bg-slate-100 text-slate-600 border-slate-200",
+  idle: "bg-muted text-muted-foreground border-border",
+  closing: "bg-muted text-muted-foreground border-border",
+  closed: "bg-muted text-muted-foreground border-border",
+  unknown: "bg-muted text-muted-foreground border-border",
 };
 
 export default function TransportDetails() {
@@ -51,7 +51,7 @@ export default function TransportDetails() {
         </Alert>
         <Link
           to="/transports"
-          className="inline-block text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
+          className="inline-block text-sm font-medium text-foreground transition-colors hover:text-foreground"
         >
           {t("transports.backToList")}
         </Link>
@@ -107,7 +107,7 @@ export default function TransportDetails() {
         resourceNameLinksBack
         backTo="/transports"
       />
-      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span
           className={cn(
             "rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap",
@@ -116,10 +116,10 @@ export default function TransportDetails() {
         >
           {statusLabel}
         </span>
-        <span className="text-slate-500">{transport.id}</span>
+        <span className="text-muted-foreground">{transport.id}</span>
         <Link
           to="/transports"
-          className="text-sm font-medium text-slate-600 transition-colors hover:text-slate-900"
+          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           {t("common.back")}
         </Link>

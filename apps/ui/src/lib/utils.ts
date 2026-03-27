@@ -71,10 +71,10 @@ export function getUpdateStatusColor(timestamp: number | null): {
 } {
   if (!timestamp) {
     return {
-      bg: "bg-slate-100",
-      text: "text-slate-600",
-      border: "border-slate-200",
-      dot: "bg-slate-400",
+      bg: "bg-muted",
+      text: "text-muted-foreground",
+      border: "border-border",
+      dot: "bg-muted-foreground",
     };
   }
 

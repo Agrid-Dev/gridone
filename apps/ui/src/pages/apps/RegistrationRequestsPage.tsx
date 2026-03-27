@@ -21,7 +21,7 @@ import type { RegistrationRequest } from "@/api/apps";
 const statusStyles: Record<string, string> = {
   pending: "border-amber-200 bg-amber-100 text-amber-800",
   accepted: "border-green-200 bg-green-100 text-green-800",
-  discarded: "border-slate-200 bg-slate-100 text-slate-600",
+  discarded: "border-border bg-muted text-muted-foreground",
 };
 
 function RequestStatusBadge({ status }: { status: string }) {
@@ -43,26 +43,26 @@ function RequestsTable({
   const { t } = useTranslation();
   const can = usePermissions();
   return (
-    <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-slate-100 bg-slate-50">
-            <th className="px-4 py-2 text-left font-medium text-slate-500">
+          <tr className="border-b border-border bg-muted">
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">
               {t("apps.requests.username")}
             </th>
-            <th className="px-4 py-2 text-left font-medium text-slate-500">
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">
               {t("apps.requests.appName")}
             </th>
-            <th className="px-4 py-2 text-left font-medium text-slate-500">
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">
               {t("apps.fields.status")}
             </th>
-            <th className="px-4 py-2 text-left font-medium text-slate-500">
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">
               {t("apps.fields.createdAt")}
             </th>
             {can("users:write") && <th className="px-4 py-2" />}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-border">
           {requests.map(renderRow)}
         </tbody>
       </table>
@@ -104,17 +104,17 @@ export default function RegistrationRequestsPage() {
   const renderRow = (req: RegistrationRequest) => {
     const configName = parseConfigName(req.config);
     return (
-      <tr key={req.id} className="hover:bg-slate-50">
-        <td className="px-4 py-3 text-sm font-medium text-slate-900">
+      <tr key={req.id} className="hover:bg-muted/50">
+        <td className="px-4 py-3 text-sm font-medium text-foreground">
           {req.username}
         </td>
-        <td className="px-4 py-3 text-sm text-slate-500">
+        <td className="px-4 py-3 text-sm text-muted-foreground">
           {configName || "-"}
         </td>
         <td className="px-4 py-3">
           <RequestStatusBadge status={req.status} />
         </td>
-        <td className="px-4 py-3 text-sm text-slate-500">
+        <td className="px-4 py-3 text-sm text-muted-foreground">
           {new Date(req.createdAt).toLocaleDateString()}
         </td>
         {can("users:write") && req.status === "pending" && (

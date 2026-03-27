@@ -128,7 +128,7 @@ export function ThermostatControl({
                     changeAndSave("temperatureSetpoint", setpoint + STEP)
                   }
                 >
-                  <ChevronUp className="!h-8 !w-8 text-slate-700 dark:text-slate-300" />
+                  <ChevronUp className="!h-8 !w-8 text-foreground" />
                 </Button>
               )}
               {min != null && (
@@ -142,7 +142,7 @@ export function ThermostatControl({
                     changeAndSave("temperatureSetpoint", setpoint - STEP)
                   }
                 >
-                  <ChevronDown className="!h-8 !w-8 text-slate-700 dark:text-slate-300" />
+                  <ChevronDown className="!h-8 !w-8 text-foreground" />
                 </Button>
               )}
             </div>

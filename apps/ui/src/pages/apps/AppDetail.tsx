@@ -94,46 +94,54 @@ export default function AppDetail() {
       />
 
       {/* Info card */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-y-4 text-sm">
           <div>
-            <span className="text-slate-500">
+            <span className="text-muted-foreground">
               {t("apps.fields.description")}
             </span>
-            <p className="mt-1 text-slate-900">{app.description}</p>
+            <p className="mt-1 text-foreground">{app.description}</p>
           </div>
           <div>
-            <span className="text-slate-500">{t("apps.fields.status")}</span>
+            <span className="text-muted-foreground">
+              {t("apps.fields.status")}
+            </span>
             {/* TODO: display last health check timestamp when backend exposes it */}
             <div className="mt-1">
               <AppStatusBadge status={app.status} />
             </div>
           </div>
           <div>
-            <span className="text-slate-500">{t("apps.fields.apiUrl")}</span>
-            <p className="mt-1 font-mono text-xs text-slate-900">
+            <span className="text-muted-foreground">
+              {t("apps.fields.apiUrl")}
+            </span>
+            <p className="mt-1 font-mono text-xs text-foreground">
               {app.apiUrl}
             </p>
           </div>
           <div>
-            <span className="text-slate-500">{t("apps.fields.createdAt")}</span>
-            <p className="mt-1 text-slate-900">
+            <span className="text-muted-foreground">
+              {t("apps.fields.createdAt")}
+            </span>
+            <p className="mt-1 text-foreground">
               {new Date(app.createdAt).toLocaleDateString()}
             </p>
           </div>
           <div>
-            <span className="text-slate-500">{t("apps.fields.icon")}</span>
+            <span className="text-muted-foreground">
+              {t("apps.fields.icon")}
+            </span>
             <p className="mt-1 text-2xl">{app.icon}</p>
           </div>
         </div>
       </div>
 
       {/* Configuration placeholder */}
-      <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6">
-        <h3 className="text-sm font-medium text-slate-900">
+      <div className="rounded-lg border border-dashed border-border bg-muted p-6">
+        <h3 className="text-sm font-medium text-foreground">
           {t("apps.configuration")}
         </h3>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {t("apps.configPlaceholder")}
         </p>
       </div>

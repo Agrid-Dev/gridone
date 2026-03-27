@@ -101,10 +101,12 @@ export default function AssetDetail() {
       />
 
       {/* Info card */}
-      <div className="rounded-lg border border-slate-200 bg-white p-6">
+      <div className="rounded-lg border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-slate-500">{t("assets.fields.type")}</span>
+            <span className="text-muted-foreground">
+              {t("assets.fields.type")}
+            </span>
             <div className="mt-1">
               <Badge variant="outline">
                 {t(`assets.types.${asset.type}`, { defaultValue: asset.type })}
@@ -113,13 +115,13 @@ export default function AssetDetail() {
           </div>
           {asset.parentId && (
             <div>
-              <span className="text-slate-500">
+              <span className="text-muted-foreground">
                 {t("assets.fields.parent")}
               </span>
               <div className="mt-1">
                 <Link
                   to={`/assets/${asset.parentId}`}
-                  className="text-slate-900 underline underline-offset-2 hover:text-slate-600"
+                  className="text-foreground underline underline-offset-2 hover:text-muted-foreground"
                 >
                   {parent?.name ?? asset.parentId}
                 </Link>
@@ -132,7 +134,7 @@ export default function AssetDetail() {
       {/* Children */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-slate-900">
+          <h3 className="text-sm font-medium text-foreground">
             {t("assets.children")} ({children.length})
           </h3>
           {can("assets:write") && (
@@ -145,17 +147,17 @@ export default function AssetDetail() {
           )}
         </div>
         {children.length > 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {children.map((child) => (
-                  <tr key={child.id} className="hover:bg-slate-50">
+                  <tr key={child.id} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
                       <Link
                         to={`/assets/${child.id}`}
-                        className="flex items-center gap-2 font-medium text-slate-900"
+                        className="flex items-center gap-2 font-medium text-foreground"
                       >
-                        <Building2 className="h-4 w-4 text-slate-400" />
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
                         {child.name}
                       </Link>
                     </td>
@@ -172,14 +174,16 @@ export default function AssetDetail() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">{t("assets.noChildren")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("assets.noChildren")}
+          </p>
         )}
       </div>
 
       {/* Linked devices */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-slate-900">
+          <h3 className="text-sm font-medium text-foreground">
             {t("assets.devices.title")} ({deviceIds.length})
           </h3>
           {can("assets:write") && (
@@ -194,15 +198,15 @@ export default function AssetDetail() {
           )}
         </div>
         {deviceIds.length > 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {deviceIds.map((deviceId) => (
-                  <tr key={deviceId} className="hover:bg-slate-50">
+                  <tr key={deviceId} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
                       <Link
                         to={`/devices/${deviceId}`}
-                        className="font-medium text-slate-900 underline underline-offset-2"
+                        className="font-medium text-foreground underline underline-offset-2"
                       >
                         {deviceNameMap.get(deviceId) || deviceId}
                       </Link>
@@ -226,7 +230,7 @@ export default function AssetDetail() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             {t("assets.devices.noDevices")}
           </p>
         )}

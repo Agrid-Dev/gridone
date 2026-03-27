@@ -96,9 +96,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost/api/health')" || exit 1
-
 # Run database migrations, then start supervisord as PID 1.
 # Supervisord will exit if either child process dies, ensuring the
 # container stops cleanly.
