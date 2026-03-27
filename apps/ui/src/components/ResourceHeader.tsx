@@ -18,10 +18,16 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   backTo,
   actions = null,
 }) => (
-  <div className="flex justify-between items-end mb-4 pb-4 border-b border-muted">
+  <div className="flex justify-between items-end pb-6 border-b border-border">
     <div>
       {resourceNameLinksBack ? (
-        <Link to={backTo ?? ".."}>
+        <Link
+          to={backTo ?? ".."}
+          className="group inline-flex items-center gap-1"
+        >
+          <span className="text-muted-foreground transition-transform group-hover:-translate-x-0.5">
+            &larr;
+          </span>
           <TypographyEyebrow>{resourceName}</TypographyEyebrow>
         </Link>
       ) : (

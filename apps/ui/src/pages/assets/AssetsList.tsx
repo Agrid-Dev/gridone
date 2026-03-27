@@ -138,7 +138,7 @@ export default function AssetsList() {
           ))}
         </div>
       ) : tree.length > 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           <AssetTree
             tree={tree}
             onMove={handleMove}

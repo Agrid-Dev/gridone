@@ -1,4 +1,11 @@
 {
+  "appearance": {
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language"
+  },
   "auth": {
     "login": {
       "username": "Username",
@@ -239,6 +246,8 @@
   "deviceDetails": {
     "title": "Device",
     "attributes": "Attributes",
+    "advancedAttributes": "Advanced attributes",
+    "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",
     "missingDeviceId": "Missing device identifier",
     "unableToLoad": "Unable to load device",

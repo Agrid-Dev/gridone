@@ -14,7 +14,7 @@ import { useAuth } from "./contexts/AuthContext";
 
 function ProtectedLayout() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background bg-grid">
       <Sidebar />
       <main className="ml-64 min-h-screen">
         <div className="mx-auto flex max-w-6xl flex-col px-4 pb-10 lg:px-6 pt-10">
@@ -40,8 +40,13 @@ export default function App() {
 
   if (state.status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-900" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <p className="font-display text-xs font-medium uppercase tracking-[0.3em] text-muted-foreground">
+            Loading
+          </p>
+        </div>
       </div>
     );
   }

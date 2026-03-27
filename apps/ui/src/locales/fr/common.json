@@ -1,4 +1,11 @@
 {
+  "appearance": {
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "system": "Système",
+    "language": "Langue"
+  },
   "auth": {
     "login": {
       "username": "Nom d'utilisateur",
@@ -239,6 +246,8 @@
   "deviceDetails": {
     "title": "Appareil",
     "attributes": "Attributs",
+    "advancedAttributes": "Attributs avancés",
+    "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
     "missingDeviceId": "Identifiant d'appareil manquant",
     "unableToLoad": "Impossible de charger l'appareil",
