@@ -73,6 +73,7 @@
     /* ── Hero section ── */
     .gd-hero {
         position: relative;
+        z-index: 0; /* contain stacking context so mobile sidebar renders above */
         min-height: 100vh;
         background: linear-gradient(
             180deg,
@@ -356,6 +357,7 @@
         position: relative;
         padding: 6rem 2rem;
         background: var(--gd-warm);
+        overflow: hidden;
     }
 
     .gd-section--alt {
@@ -713,6 +715,8 @@
         border-bottom: 2px solid rgba(30, 35, 48, 0.08);
         margin-bottom: 0;
         position: relative;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .gd-tabs__indicator {
@@ -738,6 +742,8 @@
         border-bottom: 2px solid transparent;
         margin-bottom: -2px;
         transition: all 0.2s ease;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 
     .gd-tab:hover {
@@ -785,8 +791,6 @@
         border: 1px solid rgba(30, 35, 48, 0.08);
         border-radius: 0.5rem;
         overflow: hidden;
-        width: 34rem;
-        max-width: 100%;
     }
 
     .gd-driver-block {
@@ -855,6 +859,10 @@
         grid-template-columns: 1fr 1fr;
         gap: 4rem;
         align-items: start;
+    }
+
+    .gd-spotlight > * {
+        min-width: 0;
     }
 
     .gd-spotlight__text {
@@ -969,6 +977,10 @@
         }
         .gd-btn {
             justify-content: center;
+        }
+        .gd-driver-block {
+            font-size: 0.68rem;
+            padding: 1rem 1rem;
         }
     }
 </style>
