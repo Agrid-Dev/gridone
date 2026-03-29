@@ -1,3 +1,9 @@
+## v0.27.4 (2026-03-29)
+
+### Fix
+
+- **docs**: side bar and small layout issues on mobile
+
 ## v0.27.3 (2026-03-27)
 
 ### Refactor
