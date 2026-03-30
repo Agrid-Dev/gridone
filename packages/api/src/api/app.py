@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
-from devices_manager import Attribute, Device, DevicesManager
+from devices_manager import Attribute, DeviceBase, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
 from users import UsersManager
@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
         app.state.assets_manager = None
 
     async def on_attribute_update(
-        device: Device, attribute_name: str, attribute: Attribute
+        device: DeviceBase, attribute_name: str, attribute: Attribute
     ) -> None:
         """On device attribute update:
         - broadcast to websocket

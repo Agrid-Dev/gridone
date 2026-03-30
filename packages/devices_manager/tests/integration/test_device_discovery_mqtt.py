@@ -33,4 +33,5 @@ async def test_discover_devices(
         print(d.id, d.config)
     assert len(devices_manager.list_devices()) == 1
     device = devices_manager.list_devices()[0]
+    assert device.config is not None
     assert device.config["device_id"] == TMK_DEVICE_ID

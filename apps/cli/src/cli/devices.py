@@ -74,6 +74,9 @@ async def _write_device_async(
     value: float,
 ) -> None:
     device = dm.get_device(device_id)
+    if device.driver_id is None:
+        msg = "Cannot write to a virtual device"
+        raise TypeError(msg)
     driver = dm.get_driver(device.driver_id)
     console.print(
         f"Writing value [bold red]{value}[/bold red] to device"

@@ -1,25 +1,23 @@
 import pytest
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.device import PhysicalDevice
 
 from .fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
 
 @pytest.fixture
-def device(thermocktat_http_driver, http_transport) -> Device:
-    base = DeviceBase(
-        id=TMK_DEVICE_ID,
+def device(thermocktat_http_driver, http_transport) -> PhysicalDevice:
+    return PhysicalDevice.from_base(
+        device_id=TMK_DEVICE_ID,
         name="My thermocktat",
         config={"ip": f"http://localhost:{HTTP_PORT}"},
-    )
-
-    return Device.from_base(
-        base, transport=http_transport, driver=thermocktat_http_driver
+        transport=http_transport,
+        driver=thermocktat_http_driver,
     )
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(thermocktat_container_http, device: Device):  # noqa: ARG001
+async def test_read_attributes(thermocktat_container_http, device: PhysicalDevice):  # noqa: ARG001
     await device.update_attributes()
     assert not device.attributes["state"].current_value
     assert device.attributes["temperature_setpoint"].current_value == 22
@@ -34,7 +32,7 @@ async def test_read_attributes(thermocktat_container_http, device: Device):  # n
 )
 async def test_write_attribute(
     thermocktat_container_http,  # noqa: ARG001
-    device: Device,
+    device: PhysicalDevice,
     attribute: str,
     value,
 ):
@@ -50,7 +48,7 @@ async def test_write_attribute(
 )
 async def test_write_attribute_invalid_value(
     thermocktat_container_http,  # noqa: ARG001
-    device: Device,
+    device: PhysicalDevice,
     attribute: str,
     invalid_value,
 ):

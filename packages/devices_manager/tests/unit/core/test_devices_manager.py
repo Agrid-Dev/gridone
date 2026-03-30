@@ -5,10 +5,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 from devices_manager import DevicesManager
-from devices_manager.core.device import Attribute, Device, DeviceBase
+from devices_manager.core.device import Attribute, PhysicalDevice
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
-    DeviceCreateDTO,
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
@@ -18,6 +17,9 @@ from devices_manager.dto import (
     device_core_to_dto,
     driver_core_to_dto,
     transport_core_to_dto,
+)
+from devices_manager.dto import (
+    PhysicalDeviceCreateDTO as DeviceCreateDTO,
 )
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import DeviceConfig, TransportProtocols
@@ -54,14 +56,15 @@ class TestDevicesManagerPolling:
     @pytest.mark.asyncio
     async def test_start_polling_without_polling_enabled(
         self,
-        device_base: DeviceBase,
         mock_transport_client,
         driver: Driver,
     ):
         driver.update_strategy = UpdateStrategy(polling_enabled=False)
 
-        device_no_poll = Device.from_base(
-            device_base,
+        device_no_poll = PhysicalDevice.from_base(
+            device_id="d1",
+            name="My device",
+            config={"some_id": "abc"},
             driver=driver,
             transport=mock_transport_client,
         )
@@ -77,13 +80,17 @@ class TestDevicesManagerPolling:
 
     @pytest.mark.asyncio
     async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
-        device1 = Device.from_base(
-            DeviceBase(id="device1", name="device1", config={}),
+        device1 = PhysicalDevice.from_base(
+            device_id="device1",
+            name="device1",
+            config={},
             transport=mock_transport_client,
             driver=driver,
         )
-        device2 = Device.from_base(
-            DeviceBase(id="device2", name="device2", config={}),
+        device2 = PhysicalDevice.from_base(
+            device_id="device2",
+            name="device2",
+            config={},
             driver=driver,
             transport=mock_transport_client,
         )
@@ -103,13 +110,17 @@ class TestDevicesManagerPolling:
     ):
         """Regression: all devices must be polled, not just the last one."""
         n_readable_attrs = len(driver.attributes)
-        device1 = Device.from_base(
-            DeviceBase(id="device1", name="device1", config={"some_id": "abc"}),
+        device1 = PhysicalDevice.from_base(
+            device_id="device1",
+            name="device1",
+            config={"some_id": "abc"},
             transport=mock_transport_client,
             driver=driver,
         )
-        device2 = Device.from_base(
-            DeviceBase(id="device2", name="device2", config={"some_id": "xyz"}),
+        device2 = PhysicalDevice.from_base(
+            device_id="device2",
+            name="device2",
+            config={"some_id": "xyz"},
             driver=driver,
             transport=mock_transport_client,
         )
@@ -212,6 +223,7 @@ class TestDevicesManagerDiscovery:
         await asyncio.sleep(0.05)
         assert len(dm.list_devices()) == 1
         device = dm.list_devices()[0]
+        assert device.config is not None
         assert device.config["vendor_id"] == "abc"
         assert device.config["gateway_id"] == "gtw"
         # add only once
@@ -231,8 +243,10 @@ class TestDevicesManagerDiscovery:
             "vendor_id": "abc",
             "gateway_id": "gtw",
         }
-        device = Device.from_base(
-            DeviceBase(id="xyz", name="My device", config=config),
+        device = PhysicalDevice.from_base(
+            device_id="xyz",
+            name="My device",
+            config=config,
             driver=driver_w_push_transport,
             transport=mock_push_transport_client,
         )
@@ -490,13 +504,17 @@ class TestDevicesManagerDevices:
     def test_list_devices_filter_by_type(
         self, thermostat_driver, driver, mock_transport_client
     ):
-        device_typed = Device.from_base(
-            DeviceBase(id="d1", name="Typed", config={}),
+        device_typed = PhysicalDevice.from_base(
+            device_id="d1",
+            name="Typed",
+            config={},
             driver=thermostat_driver,
             transport=mock_transport_client,
         )
-        device_untyped = Device.from_base(
-            DeviceBase(id="d2", name="Untyped", config={}),
+        device_untyped = PhysicalDevice.from_base(
+            device_id="d2",
+            name="Untyped",
+            config={},
             driver=driver,
             transport=mock_transport_client,
         )
@@ -1092,13 +1110,17 @@ class TestDevicesManagerRestartPolling:
     async def test_update_transport_restarts_polling_for_affected_devices(
         self, driver, mock_transport_client
     ):
-        device1 = Device.from_base(
-            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+        device1 = PhysicalDevice.from_base(
+            device_id="d1",
+            name="Device 1",
+            config={"some_id": "a"},
             driver=driver,
             transport=mock_transport_client,
         )
-        device2 = Device.from_base(
-            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
+        device2 = PhysicalDevice.from_base(
+            device_id="d2",
+            name="Device 2",
+            config={"some_id": "b"},
             driver=driver,
             transport=mock_transport_client,
         )

@@ -1,22 +1,21 @@
 import pytest
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.device import PhysicalDevice
 
 
 @pytest.fixture
-def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> Device:
-    base = DeviceBase(
-        id="thermocktat-1",
+def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> PhysicalDevice:
+    return PhysicalDevice.from_base(
+        device_id="thermocktat-1",
         name="Thermocktat 1",
         config={"device_id": "test-thermocktat"},
-    )
-    return Device.from_base(
-        base, transport=mqtt_transport, driver=thermocktat_mqtt_driver
+        transport=mqtt_transport,
+        driver=thermocktat_mqtt_driver,
     )
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: Device):  # noqa: ARG001
+async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: PhysicalDevice):  # noqa: ARG001
     await mqtt_device.update_attributes()
     assert not mqtt_device.attributes["state"].current_value
     assert mqtt_device.attributes["temperature_setpoint"].current_value == 22
@@ -31,7 +30,7 @@ async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: Device):
 )
 async def test_write_attribute(
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: Device,
+    mqtt_device: PhysicalDevice,
     attribute: str,
     value,
 ):
@@ -47,7 +46,7 @@ async def test_write_attribute(
 )
 async def test_write_attribute_invalid_value(
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: Device,
+    mqtt_device: PhysicalDevice,
     attribute: str,
     invalid_value,
 ):

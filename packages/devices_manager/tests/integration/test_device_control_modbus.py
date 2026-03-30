@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.core.device import Device, DeviceBase
+from devices_manager.core.device import PhysicalDevice
 from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
@@ -22,13 +22,8 @@ def modbus_driver(
 
 
 @pytest.fixture
-def device(thermocktat_container_modbus, modbus_driver) -> Device:
+def device(thermocktat_container_modbus, modbus_driver) -> PhysicalDevice:
     host, port = thermocktat_container_modbus
-    base = DeviceBase(
-        id=TMK_DEVICE_ID,
-        name="My thermocktat",
-        config={"device_id": 4},
-    )
     modbus_transport = make_transport_client(
         TransportProtocols.MODBUS_TCP,
         make_transport_config(
@@ -36,12 +31,18 @@ def device(thermocktat_container_modbus, modbus_driver) -> Device:
         ),
         TransportMetadata(id="my-transport", name="my-transport"),
     )
-    return Device.from_base(base, transport=modbus_transport, driver=modbus_driver)
+    return PhysicalDevice.from_base(
+        device_id=TMK_DEVICE_ID,
+        name="My thermocktat",
+        config={"device_id": 4},
+        transport=modbus_transport,
+        driver=modbus_driver,
+    )
 
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(thermocktat_container_modbus, device: Device):  # noqa: ARG001
+async def test_read_attributes(thermocktat_container_modbus, device: PhysicalDevice):  # noqa: ARG001
     await device.update_attributes()
     assert "state" in device.attributes
     assert not device.attributes["state"].current_value
@@ -59,7 +60,7 @@ async def test_read_attributes(thermocktat_container_modbus, device: Device):  #
 )
 async def test_write_attribute(
     thermocktat_container_modbus,  # noqa: ARG001
-    device: Device,
+    device: PhysicalDevice,
     attribute: str,
     value,
 ):
@@ -77,7 +78,7 @@ async def test_write_attribute(
 )
 async def test_write_attribute_invalid_value(
     thermocktat_container_modbus,  # noqa: ARG001
-    device: Device,
+    device: PhysicalDevice,
     attribute: str,
     invalid_value,
 ):
