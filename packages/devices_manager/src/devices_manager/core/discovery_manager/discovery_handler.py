@@ -1,14 +1,19 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import hashlib
 import logging
 from collections.abc import Callable, Coroutine
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from devices_manager.core.device import Device, DeviceBase
-from devices_manager.core.driver import DiscoveryListener, Driver
-from devices_manager.core.transports import PushTransportClient, TransportClient
-from devices_manager.types import AttributeValueType, DeviceConfig
+from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.transports import PushTransportClient
+
+if TYPE_CHECKING:
+    from devices_manager.core.driver import DiscoveryListener, Driver
+    from devices_manager.core.transports import TransportClient
+    from devices_manager.types import AttributeValueType, DeviceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +22,7 @@ def _hash_config(device_config: DeviceConfig) -> str:
     return hashlib.sha256(str(device_config).encode("utf-8")).hexdigest()
 
 
-type DiscoveryCallback = Callable[[Device], Coroutine[Any, Any, None]]
+type DiscoveryCallback = Callable[[PhysicalDevice], Coroutine[Any, Any, None]]
 
 
 class DiscoveryHandler:
@@ -75,14 +80,11 @@ class DiscoveryHandler:
             config_hash = _hash_config(device_config)
             if config_hash in seen:
                 return
-            device_base = DeviceBase(
-                id=Device.gen_id(),
+            initial_attribute_values = self.try_parsing_attributes(payload)
+            device = PhysicalDevice.from_base(
+                device_id=DeviceBase.gen_id(),
                 name=self.try_parsing_name(device_config),
                 config=device_config,
-            )
-            initial_attribute_values = self.try_parsing_attributes(payload)
-            device = Device.from_base(
-                device_base,
                 transport=self.transport,
                 driver=self.driver,
                 initial_values=initial_attribute_values,

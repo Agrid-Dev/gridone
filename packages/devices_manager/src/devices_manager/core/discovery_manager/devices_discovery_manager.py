@@ -1,13 +1,18 @@
-import logging
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from typing import TypedDict
+from __future__ import annotations
 
-from devices_manager.core.device import Device
-from devices_manager.core.driver import Driver
-from devices_manager.core.transports import TransportClient
+import logging
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, TypedDict
 
 from .discovery_handler import DiscoveryHandler
+
+if TYPE_CHECKING:
+    import builtins
+    from collections.abc import Awaitable, Callable
+
+    from devices_manager.core.device import PhysicalDevice
+    from devices_manager.core.driver import Driver
+    from devices_manager.core.transports import TransportClient
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +26,11 @@ class DiscoveryConfig(TypedDict):
 class DiscoveryContext:
     get_driver: Callable[[str], Driver]
     get_transport: Callable[[str], TransportClient]
-    device_exists: Callable[[Device], bool]
-    add_device: Callable[[Device], Awaitable[None]]
+    device_exists: Callable[[PhysicalDevice], bool]
+    add_device: Callable[[PhysicalDevice], Awaitable[None]]
 
 
-class DevicesDiscoveryManager:
+class PhysicalDevicesDiscoveryManager:
     """Discovery manager handles registering listeners
     to Push transport clients to discover new devices.
     When discovering a new device, it fires a callback supplied
@@ -66,7 +71,7 @@ class DevicesDiscoveryManager:
             msg = f"Transport not found {transport_id}"
             raise KeyError(msg) from e
 
-        async def on_discover(device: Device) -> None:
+        async def on_discover(device: PhysicalDevice) -> None:
             logger.info(
                 "Discovered device %s with config %s on driver %s x transport %s",
                 device.id,
@@ -78,7 +83,7 @@ class DevicesDiscoveryManager:
                 await self._context.add_device(device)
                 logger.info("Added device %s to context", device.id)
 
-            logger.info("Device %s already exists in context", device.id)
+            logger.info("PhysicalDevice %s already exists in context", device.id)
 
         job = DiscoveryHandler(driver, transport, on_discover)
         await job.start()
@@ -103,7 +108,7 @@ class DevicesDiscoveryManager:
 
     def list(
         self, *, driver_id: str | None = None, transport_id: str | None = None
-    ) -> list[DiscoveryConfig]:
+    ) -> builtins.list[DiscoveryConfig]:
         unpacked_keys = [self._unpack_key(key) for key in self._registry]
 
         def matches_filters(d: DiscoveryConfig) -> bool:

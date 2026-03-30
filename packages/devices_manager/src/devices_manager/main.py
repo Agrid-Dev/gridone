@@ -1,17 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import uuid
-from pathlib import Path
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 
-from .core.device import Attribute, AttributeListener, Device, DeviceBase
+from .core.device import Attribute, AttributeListener, DeviceBase, PhysicalDevice
 from .core.discovery_manager import (
-    DevicesDiscoveryManager,
     DiscoveryContext,
+    PhysicalDevicesDiscoveryManager,
 )
-from .core.driver import Driver
 from .core.standard_schemas.registry import default_registry
 from .core.tasks_registry import TasksRegistry
 from .core.transports import (
@@ -25,20 +25,25 @@ from .dto import (
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
+    PhysicalDeviceCreateDTO,
     StandardAttributeSchemaDTO,
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
     device_core_to_dto,
-    device_dto_to_base,
     driver_core_to_dto,
     driver_dto_to_core,
     standard_schema_core_to_dto,
     transport_core_to_dto,
 )
-from .storage import DevicesManagerStorage
 from .storage.factory import build_storage, make_storage
-from .types import AttributeValueType
+from .types import AttributeValueType, DeviceKind
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from .core.driver import Driver
+    from .storage import DevicesManagerStorage
 
 logger = logging.getLogger(__name__)
 
@@ -49,18 +54,18 @@ def gen_id() -> str:
 
 
 class DevicesManager:
-    _devices: dict[str, Device]
+    _devices: dict[str, DeviceBase]
     _drivers: dict[str, Driver]
     _transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
-    _discovery_manager: DevicesDiscoveryManager
+    _discovery_manager: PhysicalDevicesDiscoveryManager
     _running: bool
     _attribute_listeners: list[AttributeListener]
     _storage: DevicesManagerStorage | None
 
     def __init__(
         self,
-        devices: dict[str, Device],
+        devices: dict[str, DeviceBase],
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
         *,
@@ -81,6 +86,8 @@ class DevicesManager:
     async def start_polling(self) -> None:
         self._running = True
         for device in self._devices.values():
+            if not isinstance(device, PhysicalDevice):
+                continue
             await device.init_listeners()
             if device.driver.update_strategy.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
@@ -92,7 +99,7 @@ class DevicesManager:
         self._running = False
         await self._polling_tasks.shutdown()
 
-    async def _device_poll_loop(self, device: Device) -> None:
+    async def _device_poll_loop(self, device: PhysicalDevice) -> None:
         poll_interval = device.driver.update_strategy.polling_interval
         try:
             while self._running:
@@ -101,7 +108,9 @@ class DevicesManager:
         except asyncio.CancelledError:
             return
 
-    async def _restart_device_polling(self, device: Device) -> None:
+    async def _restart_device_polling(self, device: DeviceBase) -> None:
+        if not isinstance(device, PhysicalDevice):
+            return
         polling_key = ("poll", device.id)
         if self._polling_tasks.has(polling_key):
             await self._polling_tasks.remove(polling_key)
@@ -128,19 +137,24 @@ class DevicesManager:
                 msg = f"Device config misses driver required field '{field.name}'"
                 raise InvalidError(msg)
 
-    def _create_device(self, device_create: DeviceCreateDTO) -> Device:
+    def _create_physical_device(
+        self, device_create: PhysicalDeviceCreateDTO
+    ) -> PhysicalDevice:
         driver = self._get_or_raise(self._drivers, device_create.driver_id, "Driver")
         self._validate_device_config(device_create.config, driver)
         transport = self._get_or_raise(
             self._transports, device_create.transport_id, "Transport"
         )
         self._check_driver_transport_compat(driver, transport)
-        device_base = DeviceBase(
-            id=gen_id(), name=device_create.name, config=device_create.config
+        return PhysicalDevice.from_base(
+            device_id=gen_id(),
+            name=device_create.name,
+            config=device_create.config,
+            driver=driver,
+            transport=transport,
         )
-        return Device.from_base(device_base, driver=driver, transport=transport)
 
-    def _register_device(self, device: Device) -> None:
+    def _register_device(self, device: DeviceBase) -> None:
         """Register device in memory (sync). Does NOT init listeners."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
@@ -148,9 +162,9 @@ class DevicesManager:
         self._devices[device.id] = device
         logger.info("Successfully loaded and registered device '%s'", device.id)
 
-    async def _add_device(self, device: Device) -> None:
+    async def _add_device(self, device: DeviceBase) -> None:
         self._register_device(device)
-        if self._running:
+        if self._running and isinstance(device, PhysicalDevice):
             await device.init_listeners()
             self._attach_listeners(device)
             if device.driver.update_strategy.polling_enabled:
@@ -158,12 +172,19 @@ class DevicesManager:
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
+        elif self._running:
+            self._attach_listeners(device)
         if self._storage:
             dto = device_core_to_dto(device)
             await self._storage.devices.write(dto.id, dto)
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
-        device = self._create_device(device_create)
+        if isinstance(device_create, PhysicalDeviceCreateDTO):
+            device = self._create_physical_device(device_create)
+        else:
+            # VirtualDevice creation handled in sub-issue AGR-381
+            msg = "Virtual device creation not yet implemented"
+            raise NotImplementedError(msg)
         await self._add_device(device)
         logger.info(
             "Successfully created and registered device '%s' (id: %s)",
@@ -181,7 +202,7 @@ class DevicesManager:
         for device in self._devices.values():
             device.add_update_listener(callback)
 
-    def _attach_listeners(self, device: Device) -> None:
+    def _attach_listeners(self, device: DeviceBase) -> None:
         for listener in self._attribute_listeners:
             device.add_update_listener(listener)
 
@@ -190,7 +211,7 @@ class DevicesManager:
         return len(self._polling_tasks)
 
     @property
-    def discovery_manager(self) -> DevicesDiscoveryManager:
+    def discovery_manager(self) -> PhysicalDevicesDiscoveryManager:
         if not hasattr(self, "_discovery_manager"):
             discovery_context = DiscoveryContext(
                 get_driver=lambda driver_id: self._drivers[driver_id],
@@ -200,7 +221,9 @@ class DevicesManager:
                     d == device for d in self._devices.values()
                 ),
             )
-            self._discovery_manager = DevicesDiscoveryManager(context=discovery_context)
+            self._discovery_manager = PhysicalDevicesDiscoveryManager(
+                context=discovery_context
+            )
         return self._discovery_manager
 
     @classmethod
@@ -209,7 +232,7 @@ class DevicesManager:
         devices: list[DeviceDTO],
         drivers: list[DriverDTO],
         transports: list[TransportDTO],
-    ) -> "DevicesManager":
+    ) -> DevicesManager:
         dm = cls(
             devices={},
             drivers={},
@@ -226,15 +249,19 @@ class DevicesManager:
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
+            if d.kind != DeviceKind.PHYSICAL:
+                # Virtual device restore handled in sub-issue AGR-381
+                logger.warning("Skipping non-physical device %s on load", d.id)
+                continue
             try:
-                driver = dm._drivers[d.driver_id]
+                driver = dm._drivers[d.driver_id]  # type: ignore[index]
             except KeyError:
                 logger.exception(
                     "Cannot create device %s: missing driver %s", d.id, d.driver_id
                 )
                 continue
             try:
-                transport = dm._transports[d.transport_id]
+                transport = dm._transports[d.transport_id]  # type: ignore[index]
             except KeyError:
                 logger.exception(
                     "Cannot create device %s: missing transport %s",
@@ -244,15 +271,25 @@ class DevicesManager:
                 continue
             logger.info("Adding device %s", d.id)
             try:
-                base = device_dto_to_base(d)
-                device = Device.from_base(base, transport=transport, driver=driver)
+                device = PhysicalDevice.from_base(
+                    device_id=d.id,
+                    name=d.name,
+                    config=d.config or {},
+                    transport=transport,
+                    driver=driver,
+                    initial_values={
+                        name: attr.current_value
+                        for name, attr in d.attributes.items()
+                        if attr.current_value is not None
+                    },
+                )
                 dm._register_device(device)
             except Exception:
                 logger.exception("Failed to init device %s", d.id)
         return dm
 
     @classmethod
-    async def from_storage(cls, url: str) -> "DevicesManager":
+    async def from_storage(cls, url: str) -> DevicesManager:
         repository = await build_storage(url)
         dm = cls.from_dto(
             devices=await repository.devices.read_all(),
@@ -297,7 +334,12 @@ class DevicesManager:
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
-            (d for d in self._devices.values() if d.transport.id == transport_id), None
+            (
+                d
+                for d in self._devices.values()
+                if isinstance(d, PhysicalDevice) and d.transport.id == transport_id
+            ),
+            None,
         )
         if device is not None:
             msg = f"Transport {transport_id} is used by device {device.id}"
@@ -320,7 +362,10 @@ class DevicesManager:
         if update.config is not None:
             transport.update_config(update.config)
             for device in self._devices.values():
-                if device.transport.id == transport_id:
+                if (
+                    isinstance(device, PhysicalDevice)
+                    and device.transport.id == transport_id
+                ):
                     await device.init_listeners()
                     await self._restart_device_polling(device)
         dto = transport_core_to_dto(transport)
@@ -366,7 +411,12 @@ class DevicesManager:
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
-            (d for d in self._devices.values() if d.driver.id == driver_id), None
+            (
+                d
+                for d in self._devices.values()
+                if isinstance(d, PhysicalDevice) and d.driver.id == driver_id
+            ),
+            None,
         )
         if device is not None:
             msg = f"Driver {driver_id} is used by device {device.id}"
@@ -411,20 +461,21 @@ class DevicesManager:
             msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
             raise ValueError(msg)
 
-    def _rebuild_device(
+    def _rebuild_physical_device(
         self,
-        device: Device,
+        device: PhysicalDevice,
         driver: Driver,
         transport: TransportClient,
-    ) -> Device:
+    ) -> PhysicalDevice:
         initial_values = {
             name: attr.current_value
             for name, attr in device.attributes.items()
             if attr.current_value is not None
         }
-        device_base = DeviceBase(id=device.id, name=device.name, config=device.config)
-        return Device.from_base(
-            device_base,
+        return PhysicalDevice.from_base(
+            device_id=device.id,
+            name=device.name,
+            config=device.config,
             driver=driver,
             transport=transport,
             initial_values=initial_values,
@@ -434,6 +485,10 @@ class DevicesManager:
         self, device_id: str, device_update: DeviceUpdateDTO
     ) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")
+        if not isinstance(device, PhysicalDevice):
+            msg = "Updating virtual devices is not yet supported"
+            raise NotImplementedError(msg)
+
         new_driver = self._resolve_driver(device_update.driver_id)
         new_transport = self._resolve_transport(device_update.transport_id)
         effective_driver = new_driver or device.driver
@@ -452,7 +507,7 @@ class DevicesManager:
             self._validate_device_config(device_update.config, device.driver)
 
         if new_driver is not None or new_transport is not None:
-            self._devices[device_id] = self._rebuild_device(
+            self._devices[device_id] = self._rebuild_physical_device(
                 device, effective_driver, effective_transport
             )
             self._attach_listeners(self._devices[device_id])
@@ -491,7 +546,7 @@ class DevicesManager:
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")
-        if self._running:
+        if self._running or not isinstance(device, PhysicalDevice):
             return device_core_to_dto(device)
         async with device.transport:
             # if not running open and close transport to read once
