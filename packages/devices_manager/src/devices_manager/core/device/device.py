@@ -1,39 +1,37 @@
+from __future__ import annotations
+
 import asyncio
 import logging
-import uuid
-from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
 
 from models.errors import ConfirmationError
 
-from devices_manager.core.driver import Driver
-from devices_manager.core.transports import PushTransportClient, TransportClient
+from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
-from devices_manager.core.value_adapters import FnAdapter
-from devices_manager.types import AttributeValueType
+from devices_manager.types import DeviceKind
 
 from .attribute import Attribute
 from .device_base import DeviceBase
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from devices_manager.core.driver import Driver
+    from devices_manager.core.transports import TransportClient
+    from devices_manager.core.value_adapters import FnAdapter
+    from devices_manager.types import AttributeValueType, DeviceConfig
+
 logger = logging.getLogger(__name__)
 
-AttributeListener = Callable[
-    ["Device", str, Attribute], Coroutine[Any, Any, None] | None
-]
 
-
-@dataclass
-class Device(DeviceBase):
+@dataclass(kw_only=True)
+class PhysicalDevice(DeviceBase):
     driver: Driver
     transport: TransportClient
-    attributes: dict[str, Attribute]
-    _update_listeners: set[AttributeListener] = field(
-        default_factory=set, init=False, repr=False
-    )
-    _background_tasks: set[asyncio.Task[None]] = field(
-        default_factory=set, init=False, repr=False
-    )
+    config: DeviceConfig
+    kind: DeviceKind = field(default=DeviceKind.PHYSICAL, init=False)
+    type: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -42,24 +40,23 @@ class Device(DeviceBase):
                 f" with {self.transport.protocol} transport"
             )
             raise TypeError(msg)
-
-    @property
-    def type(self) -> str | None:
-        return self.driver.type
+        self.type = self.driver.type
 
     @classmethod
-    def from_base(
+    def from_base(  # noqa: PLR0913
         cls,
-        base: DeviceBase,
         *,
+        device_id: str,
+        name: str,
+        config: DeviceConfig,
         transport: TransportClient,
         driver: Driver,
         initial_values: dict[str, AttributeValueType] | None = None,
-    ) -> "Device":
+    ) -> PhysicalDevice:
         return cls(
-            id=base.id,
-            name=base.name,
-            config=base.config,
+            id=device_id,
+            name=name,
+            config=config,
             driver=driver,
             transport=transport,
             attributes={
@@ -105,16 +102,6 @@ class Device(DeviceBase):
             self._update_attribute(attribute, decoded)
 
         return on_message
-
-    def get_attribute(self, attribute_name: str) -> Attribute:
-        try:
-            return self.attributes[attribute_name]
-        except KeyError as ke:
-            msg = f"Attribute '{attribute_name}' not found in device '{self.id}'"
-            raise KeyError(msg) from ke
-
-    def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
-        return self.get_attribute(attribute_name).current_value
 
     async def read_attribute_value(
         self,
@@ -222,42 +209,8 @@ class Device(DeviceBase):
         self._update_attribute(attribute, validated_value)
         return attribute
 
-    def add_update_listener(
-        self,
-        callback: AttributeListener,
-    ) -> None:
-        self._update_listeners.add(callback)
-
-    def _update_attribute(
-        self,
-        attribute: Attribute,
-        new_value: AttributeValueType | None,
-    ) -> None:
-        attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
-        self._execute_update_listeners(attribute.name, attribute)
-
-    def _execute_update_listeners(
-        self, attribute_name: str, attribute: Attribute
-    ) -> None:
-        for callback in self._update_listeners:
-            try:
-                result = callback(self, attribute_name, attribute)
-                if isinstance(result, Coroutine):
-                    task = asyncio.create_task(result)
-                    self._background_tasks.add(task)
-                    task.add_done_callback(self._background_tasks.discard)
-            except Exception:
-                logger.exception(
-                    "Device listener failed for %s.%s", self.id, attribute_name
-                )
-
-    @staticmethod
-    def gen_id() -> str:
-        """Generate an id for a new device"""
-        return str(uuid.uuid4())[:8]
-
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Device):
+        if not isinstance(other, PhysicalDevice):
             return NotImplemented
         return (
             (self.transport.id == other.transport.id)
