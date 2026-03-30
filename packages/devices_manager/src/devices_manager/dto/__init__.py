@@ -1,4 +1,11 @@
-from .device_dto import DeviceCreateDTO, DeviceDTO, DeviceUpdateDTO
+from .device_dto import (
+    AttributeCreateDTO,
+    DeviceCreateDTO,
+    DeviceDTO,
+    DeviceUpdateDTO,
+    PhysicalDeviceCreateDTO,
+    VirtualDeviceCreateDTO,
+)
 from .device_dto import core_to_dto as device_core_to_dto
 from .device_dto import dto_to_base as device_dto_to_base
 from .driver_dto import DriverDTO, DriverYamlDTO
@@ -23,16 +30,19 @@ from .transport_dto import dto_to_core as transport_dto_to_core
 
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
+    "AttributeCreateDTO",
     "DeviceCreateDTO",
     "DeviceDTO",
     "DeviceUpdateDTO",
     "DriverDTO",
     "DriverYamlDTO",
+    "PhysicalDeviceCreateDTO",
     "StandardAttributeSchemaDTO",
     "TransportBaseDTO",
     "TransportCreateDTO",
     "TransportDTO",
     "TransportUpdateDTO",
+    "VirtualDeviceCreateDTO",
     "build_transport_dto",
     "device_core_to_dto",
     "device_dto_to_base",
