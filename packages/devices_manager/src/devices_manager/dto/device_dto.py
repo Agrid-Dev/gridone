@@ -49,7 +49,7 @@ DeviceCreateDTO = Annotated[
 
 class DeviceDTO(BaseModel):
     id: str
-    kind: DeviceKind
+    kind: DeviceKind = DeviceKind.PHYSICAL
     name: str
     type: str | None = None
     attributes: dict[str, Attribute] = Field(default_factory=dict)
