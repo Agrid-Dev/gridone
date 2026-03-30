@@ -4,11 +4,11 @@ import logging
 
 import httpx
 from models.errors import InvalidError, NotFoundError
-from users import UsersManagerInterface
 
 from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
 from apps.storage.storage_backend import AppStorageBackend
+from users import UsersManagerInterface
 
 logger = logging.getLogger(__name__)
 

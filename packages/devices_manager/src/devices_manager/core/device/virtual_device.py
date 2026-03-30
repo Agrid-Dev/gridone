@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING, ClassVar
 
 from devices_manager.types import AttributeValueType, DeviceKind
 
+from .attribute import Attribute
 from .device import Device
 
 if TYPE_CHECKING:
-    from .attribute import Attribute
+    from devices_manager.types import DataType, ReadWriteMode
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,32 @@ logger = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class VirtualDevice(Device):
     kind: ClassVar[DeviceKind] = DeviceKind.VIRTUAL
+
+    @classmethod
+    def from_base(
+        cls,
+        *,
+        device_id: str,
+        name: str,
+        attribute_specs: list[tuple[str, DataType, set[ReadWriteMode]]],
+        device_type: str | None = None,
+        initial_values: dict[str, AttributeValueType] | None = None,
+    ) -> VirtualDevice:
+        """Create a VirtualDevice from attribute specs with optional initial values."""
+        return cls(
+            id=device_id,
+            name=name,
+            type=device_type,
+            attributes={
+                attr_name: Attribute.create(
+                    attr_name,
+                    data_type,
+                    read_write_modes,
+                    (initial_values or {}).get(attr_name),
+                )
+                for attr_name, data_type, read_write_modes in attribute_specs
+            },
+        )
 
     async def read_attribute_value(
         self, attribute_name: str
