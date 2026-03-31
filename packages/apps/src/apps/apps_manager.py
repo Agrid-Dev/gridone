@@ -3,9 +3,10 @@ import contextlib
 import logging
 
 import httpx
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from users import UsersManagerInterface
 
+from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
 from apps.storage.storage_backend import AppStorageBackend
 
@@ -39,6 +40,55 @@ class AppsManager:
             msg = f"App '{app_id}' not found"
             raise NotFoundError(msg)
         return app
+
+    # ── Config proxy ──────────────────────────────────────────────────────
+
+    async def get_config_schema(self, app_id: str) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
+
+    async def get_config(self, app_id: str) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request("GET", f"{app.api_url}/config")
+
+    async def update_config(self, app_id: str, config: dict) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request(
+            "PATCH", f"{app.api_url}/config", json=config
+        )
+
+    async def _proxy_app_request(
+        self, method: str, url: str, json: dict | None = None
+    ) -> dict:
+        """Forward an HTTP request to an app endpoint.
+
+        Raises:
+            AppUnreachableError: if the app cannot be reached.
+            NotFoundError: if the app returns 404.
+            InvalidError: if the app returns a client error (4xx).
+        """
+        try:
+            resp = await self._http_client.request(method, url, timeout=10.0, json=json)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            try:
+                detail = exc.response.json().get("detail", exc.response.text)
+            except (ValueError, KeyError):
+                detail = exc.response.text
+            if status == 404:  # noqa: PLR2004
+                raise NotFoundError(detail) from exc
+            if status >= 500:  # noqa: PLR2004
+                logger.warning("App at %s returned %s: %s", url, status, detail)
+                msg = "App returned an unexpected error"
+                raise AppUnreachableError(msg) from exc
+            msg = f"App returned {status}: {detail}"
+            raise InvalidError(msg) from exc
+        except httpx.HTTPError as exc:
+            logger.warning("App unreachable at %s: %s", url, exc)
+            msg = "App is unreachable"
+            raise AppUnreachableError(msg) from exc
+        return resp.json()
 
     # ── Enable / Disable ─────────────────────────────────────────────────
 

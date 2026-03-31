@@ -1,17 +1,18 @@
 """Unit tests for AppsManager: app CRUD, enable/disable, and health checks."""
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 from apps.apps_manager import AppsManager
+from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
 from apps.registration_service import RegistrationService
 from apps.service import AppsService
 from apps.storage.factory import build_apps_storages
 from conftest import make_app
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 
 pytestmark = pytest.mark.asyncio
 
@@ -43,6 +44,142 @@ class TestGetApp:
     async def test_get_not_found(self, apps_manager):
         with pytest.raises(NotFoundError, match="App 'nonexistent' not found"):
             await apps_manager.get_app("nonexistent")
+
+
+class TestGetConfigSchema:
+    async def test_returns_schema(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        schema = {"type": "object", "properties": {"lat": {"type": "number"}}}
+        response = MagicMock()
+        response.json.return_value = schema
+        http_client.request.return_value = response
+
+        result = await apps_manager.get_config_schema("app-1")
+
+        assert result == schema
+        http_client.request.assert_called_once_with(
+            "GET",
+            "https://myapp.example.com/config/schema",
+            timeout=10.0,
+            json=None,
+        )
+
+    async def test_app_not_found(self, apps_manager):
+        with pytest.raises(NotFoundError):
+            await apps_manager.get_config_schema("nonexistent")
+
+    async def test_app_unreachable(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        http_client.request.side_effect = httpx.ConnectError("unreachable")
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_app_returns_404(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 404
+        resp_mock.text = "Not Found"
+        resp_mock.json.return_value = {"detail": "No config"}
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(NotFoundError, match="No config"):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_app_returns_error_with_unparseable_json(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 422
+        resp_mock.text = "plain text error"
+        resp_mock.json.side_effect = ValueError("not JSON")
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Unprocessable", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(InvalidError, match="plain text error"):
+            await apps_manager.get_config_schema("app-1")
+
+
+class TestGetConfig:
+    async def test_returns_config(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        config = {"lat": 48.8, "lng": 2.3}
+        response = MagicMock()
+        response.json.return_value = config
+        http_client.request.return_value = response
+
+        result = await apps_manager.get_config("app-1")
+
+        assert result == config
+        http_client.request.assert_called_once_with(
+            "GET",
+            "https://myapp.example.com/config",
+            timeout=10.0,
+            json=None,
+        )
+
+    async def test_app_unreachable(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        http_client.request.side_effect = httpx.ConnectError("unreachable")
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.get_config("app-1")
+
+
+class TestUpdateConfig:
+    async def test_returns_updated_config(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        updated = {"lat": 40.7, "lng": -74.0}
+        response = MagicMock()
+        response.json.return_value = updated
+        http_client.request.return_value = response
+
+        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        assert result == updated
+        http_client.request.assert_called_once_with(
+            "PATCH",
+            "https://myapp.example.com/config",
+            timeout=10.0,
+            json={"lat": 40.7, "lng": -74.0},
+        )
+
+    async def test_app_returns_422(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 422
+        resp_mock.text = "Validation error"
+        resp_mock.json.return_value = {"detail": "lat must be between -90 and 90"}
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Unprocessable", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(InvalidError, match="lat must be between"):
+            await apps_manager.update_config("app-1", {"lat": 999})
+
+    async def test_app_returns_500(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 500
+        resp_mock.text = "Internal Server Error"
+        resp_mock.json.return_value = {"detail": "Internal error"}
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.update_config("app-1", {"lat": 40.7})
+
+    async def test_app_unreachable(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        http_client.request.side_effect = httpx.ConnectError("unreachable")
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.update_config("app-1", {"lat": 40.7})
 
 
 class TestEnableApp:

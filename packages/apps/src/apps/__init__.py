@@ -1,3 +1,4 @@
+from apps.errors import AppUnreachableError
 from apps.models import (
     App,
     AppStatus,
@@ -10,6 +11,7 @@ from apps.service import AppsService
 __all__ = [
     "App",
     "AppStatus",
+    "AppUnreachableError",
     "AppsService",
     "RegistrationRequest",
     "RegistrationRequestCreate",

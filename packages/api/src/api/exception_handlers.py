@@ -1,3 +1,4 @@
+from apps import AppUnreachableError
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from models.errors import (
@@ -38,3 +39,9 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "detail": "Your account has been blocked. Contact an administrator."
             },
         )
+
+    @app.exception_handler(AppUnreachableError)
+    async def app_unreachable_handler(
+        request: Request, exc: AppUnreachableError
+    ) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": "App is unreachable"})
