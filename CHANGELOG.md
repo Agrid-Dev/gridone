@@ -1,3 +1,15 @@
+## v0.28.0 (2026-03-31)
+
+### Feat
+
+- pre-push skill
+- enable basic configuration for app
+
+### Fix
+
+- address PR #166 review feedback
+- type-safe kwargs, useMemo schema, 5xx→502, no URL leak in errors
+
 ## v0.27.4 (2026-03-29)
 
 ### Fix
