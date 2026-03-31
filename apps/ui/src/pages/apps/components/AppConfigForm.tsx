@@ -2,7 +2,8 @@ import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -79,6 +80,7 @@ interface ConfigFormProps {
 
 const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
 
   const zodSchema = useMemo(
     () => z.fromJSONSchema(schema) as z.ZodObject,
@@ -94,7 +96,10 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
   const mutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       updateAppConfig(appId, values),
-    onSuccess: () => toast.success(t("apps.configSaved")),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["apps", appId, "config"] });
+      toast.success(t("apps.configSaved"));
+    },
     onError: (err: Error) =>
       toast.error(t("apps.configError") + ": " + err.message),
   });
@@ -153,7 +158,12 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
           form="app-config-form"
           disabled={!formState.isValid || isBusy}
         >
-          {isBusy ? t("apps.configSaving") : t("apps.configSave")}
+          {isBusy ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Check className="mr-2 h-4 w-4" />
+          )}
+          {t("apps.configSave")}
         </Button>
       </CardFooter>
     </Card>

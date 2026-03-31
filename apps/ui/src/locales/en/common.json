@@ -385,11 +385,9 @@
     "disabled": "App disabled",
     "disabledBadge": "Disabled",
     "configuration": "Configuration",
-    "configPlaceholder": "Coming soon — will be powered by the app's config schema.",
     "configSaved": "Configuration saved",
     "configError": "Failed to save configuration",
     "configSave": "Save",
-    "configSaving": "Saving...",
     "noConfig": "No configuration available for this application.",
     "requests": {
       "title": "Registration requests",

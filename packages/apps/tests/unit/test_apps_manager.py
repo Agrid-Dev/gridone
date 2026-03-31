@@ -6,12 +6,13 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from apps.apps_manager import AppsManager
+from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
 from apps.registration_service import RegistrationService
 from apps.service import AppsService
 from apps.storage.factory import build_apps_storages
 from conftest import make_app
-from models.errors import AppUnreachableError, InvalidError, NotFoundError
+from models.errors import InvalidError, NotFoundError
 
 pytestmark = pytest.mark.asyncio
 
@@ -85,6 +86,21 @@ class TestGetConfigSchema:
         )
 
         with pytest.raises(NotFoundError, match="No config"):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_app_returns_error_with_unparseable_json(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 422
+        resp_mock.text = "plain text error"
+        resp_mock.json.side_effect = ValueError("not JSON")
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Unprocessable", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(InvalidError, match="plain text error"):
             await apps_manager.get_config_schema("app-1")
 
 

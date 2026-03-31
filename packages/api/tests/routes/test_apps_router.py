@@ -11,7 +11,8 @@ import pytest
 from apps import App, AppStatus
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from models.errors import AppUnreachableError, InvalidError, NotFoundError
+from apps.errors import AppUnreachableError
+from models.errors import InvalidError, NotFoundError
 from users.auth import TokenPayload
 
 from api.dependencies import get_apps_service, get_current_token_payload
