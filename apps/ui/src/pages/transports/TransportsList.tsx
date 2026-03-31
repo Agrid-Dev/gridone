@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 
 const statusStyles: Record<string, string> = {
   connected: "bg-green-100 text-green-700 border-green-200",
@@ -85,12 +85,11 @@ export default function TransportsList() {
   const {
     data: transports = [],
     isLoading,
-    isFetching,
     error,
-    refetch,
   } = useQuery<Transport[]>({
     queryKey: ["transports"],
     queryFn: listTransports,
+    refetchInterval: 10_000,
   });
 
   const listError = error
@@ -108,14 +107,6 @@ export default function TransportsList() {
         title={t("transports.listTitle", { count: transports.length })}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading || isFetching}
-            >
-              <RefreshCw />
-              {isFetching ? t("common.refreshing") : t("common.refresh")}
-            </Button>
             {can("transports:write") && (
               <Button asChild>
                 <Link to="/transports/new">

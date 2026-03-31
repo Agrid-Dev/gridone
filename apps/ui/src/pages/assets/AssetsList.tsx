@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -22,12 +22,7 @@ export default function AssetsList() {
   const queryClient = useQueryClient();
   const can = usePermissions();
 
-  const {
-    data: tree = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery<AssetTreeNode[]>({
+  const { data: tree = [], isLoading } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree"],
     queryFn: getAssetTreeWithDevices,
   });
@@ -111,14 +106,6 @@ export default function AssetsList() {
         resourceName={t("assets.title")}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => refetch()}
-              disabled={isLoading || isFetching}
-            >
-              <RefreshCw />
-              {isFetching ? t("common.refreshing") : t("common.refresh")}
-            </Button>
             {can("assets:write") && (
               <Button asChild>
                 <Link to="/assets/new">
