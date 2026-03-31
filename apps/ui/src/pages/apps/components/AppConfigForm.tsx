@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -80,10 +80,14 @@ interface ConfigFormProps {
 const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
   const { t } = useTranslation();
 
-  const zodSchema = z.fromJSONSchema(schema) as z.ZodObject;
+  const zodSchema = useMemo(
+    () => z.fromJSONSchema(schema) as z.ZodObject,
+    [schema],
+  );
 
   const { control, handleSubmit, formState } = useForm({
     resolver: zodResolver(zodSchema),
+    mode: "onChange",
     defaultValues: defaultValues as Record<string, string | number | boolean>,
   });
 
@@ -91,7 +95,8 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
     mutationFn: (values: Record<string, unknown>) =>
       updateAppConfig(appId, values),
     onSuccess: () => toast.success(t("apps.configSaved")),
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) =>
+      toast.error(t("apps.configError") + ": " + err.message),
   });
 
   const onSubmit = (values: Record<string, unknown>) => {

@@ -64,7 +64,6 @@ class AppsManager:
             NotFoundError: if the app returns 404.
             InvalidError: if the app returns a client error (4xx).
         """
-        http_not_found = 404
         try:
             resp = await self._http_client.request(method, url, timeout=10.0, **kwargs)
             resp.raise_for_status()
@@ -74,12 +73,17 @@ class AppsManager:
                 detail = exc.response.json().get("detail", exc.response.text)
             except (ValueError, KeyError):
                 detail = exc.response.text
-            if status == http_not_found:
+            if status == 404:  # noqa: PLR2004
                 raise NotFoundError(detail) from exc
+            if status >= 500:  # noqa: PLR2004
+                logger.warning("App at %s returned %s: %s", url, status, detail)
+                msg = "App returned an unexpected error"
+                raise AppUnreachableError(msg) from exc
             msg = f"App returned {status}: {detail}"
             raise InvalidError(msg) from exc
         except httpx.HTTPError as exc:
-            msg = f"App unreachable at {url}"
+            logger.warning("App unreachable at %s: %s", url, exc)
+            msg = "App is unreachable"
             raise AppUnreachableError(msg) from exc
         return resp.json()
 

@@ -391,7 +391,6 @@
     "configSave": "Enregistrer",
     "configSaving": "Enregistrement...",
     "noConfig": "Aucune configuration disponible pour cette application.",
-    "configLoadError": "Erreur lors du chargement de la configuration",
     "requests": {
       "title": "Demandes d'enregistrement",
       "singular": "Demande",

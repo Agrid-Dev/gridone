@@ -143,6 +143,19 @@ class TestUpdateConfig:
         with pytest.raises(InvalidError, match="lat must be between"):
             await apps_manager.update_config("app-1", {"lat": 999})
 
+    async def test_app_returns_500(self, apps_manager, app_storage, http_client):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 500
+        resp_mock.text = "Internal Server Error"
+        resp_mock.json.return_value = {"detail": "Internal error"}
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.update_config("app-1", {"lat": 40.7})
+
     async def test_app_unreachable(self, apps_manager, app_storage, http_client):
         await app_storage.save(make_app())
         http_client.request.side_effect = httpx.ConnectError("unreachable")
