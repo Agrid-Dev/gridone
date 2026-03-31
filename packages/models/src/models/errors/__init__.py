@@ -16,3 +16,7 @@ class ConfirmationError(ValueError):
 
 class BlockedUserError(Exception):
     """Raised when a blocked user attempts to authenticate."""
+
+
+class AppUnreachableError(Exception):
+    """Raised when an app cannot be reached (connection error, timeout, etc.)."""

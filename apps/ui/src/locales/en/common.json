@@ -386,6 +386,12 @@
     "disabledBadge": "Disabled",
     "configuration": "Configuration",
     "configPlaceholder": "Coming soon — will be powered by the app's config schema.",
+    "configSaved": "Configuration saved",
+    "configError": "Failed to save configuration",
+    "configSave": "Save",
+    "configSaving": "Saving...",
+    "noConfig": "No configuration available for this application.",
+    "configLoadError": "Failed to load configuration",
     "requests": {
       "title": "Registration requests",
       "singular": "Request",

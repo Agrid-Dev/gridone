@@ -9,6 +9,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { getApp, enableApp, disableApp } from "@/api/apps";
 import { listUsers } from "@/api/users";
 import { AppStatusBadge } from "./components/AppStatusBadge";
+import AppConfigForm from "./components/AppConfigForm";
 
 export default function AppDetail() {
   const { t } = useTranslation();
@@ -136,15 +137,8 @@ export default function AppDetail() {
         </div>
       </div>
 
-      {/* Configuration placeholder */}
-      <div className="rounded-lg border border-dashed border-border bg-muted p-6">
-        <h3 className="text-sm font-medium text-foreground">
-          {t("apps.configuration")}
-        </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("apps.configPlaceholder")}
-        </p>
-      </div>
+      {/* Configuration */}
+      {can("users:write") && <AppConfigForm appId={appId!} />}
     </section>
   );
 }

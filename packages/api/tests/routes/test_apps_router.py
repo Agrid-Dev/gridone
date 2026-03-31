@@ -11,7 +11,7 @@ import pytest
 from apps import App, AppStatus
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from models.errors import NotFoundError
+from models.errors import AppUnreachableError, InvalidError, NotFoundError
 from users.auth import TokenPayload
 
 from api.dependencies import get_apps_service, get_current_token_payload
@@ -40,6 +40,14 @@ ADMIN_PAYLOAD = TokenPayload(
 )
 
 
+DUMMY_SCHEMA = {
+    "type": "object",
+    "properties": {"lat": {"type": "number"}, "lng": {"type": "number"}},
+    "required": ["lat", "lng"],
+}
+DUMMY_CONFIG = {"lat": 48.8, "lng": 2.3}
+
+
 @pytest.fixture
 def apps_manager() -> AsyncMock:
     am = AsyncMock()
@@ -47,6 +55,9 @@ def apps_manager() -> AsyncMock:
     am.get_app = AsyncMock(return_value=DUMMY_APP)
     am.enable_app = AsyncMock(return_value=DUMMY_APP)
     am.disable_app = AsyncMock(return_value=DUMMY_APP)
+    am.get_config_schema = AsyncMock(return_value=DUMMY_SCHEMA)
+    am.get_config = AsyncMock(return_value=DUMMY_CONFIG)
+    am.update_config = AsyncMock(return_value=DUMMY_CONFIG)
     return am
 
 
@@ -104,6 +115,84 @@ def test_get_app_not_found(app: FastAPI, apps_manager: AsyncMock):
     with TestClient(app) as client:
         resp = client.get("/apps/bad-id")
         assert resp.status_code == 404
+
+
+# ── GET /apps/{app_id}/config/schema ────────────────────────
+
+
+def test_get_config_schema(app: FastAPI):
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config/schema")
+        assert resp.status_code == 200
+        assert resp.json()["type"] == "object"
+        assert "lat" in resp.json()["properties"]
+
+
+def test_get_config_schema_not_found(app: FastAPI, apps_manager: AsyncMock):
+    apps_manager.get_config_schema = AsyncMock(
+        side_effect=NotFoundError("No config schema")
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config/schema")
+        assert resp.status_code == 404
+
+
+def test_get_config_schema_app_unreachable(app: FastAPI, apps_manager: AsyncMock):
+    apps_manager.get_config_schema = AsyncMock(
+        side_effect=AppUnreachableError("App unreachable")
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config/schema")
+        assert resp.status_code == 502
+
+
+# ── GET /apps/{app_id}/config ──────────────────────────────
+
+
+def test_get_config(app: FastAPI):
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config")
+        assert resp.status_code == 200
+        assert resp.json() == {"lat": 48.8, "lng": 2.3}
+
+
+def test_get_config_app_unreachable(app: FastAPI, apps_manager: AsyncMock):
+    apps_manager.get_config = AsyncMock(
+        side_effect=AppUnreachableError("App unreachable")
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config")
+        assert resp.status_code == 502
+
+
+# ── PATCH /apps/{app_id}/config ────────────────────────────
+
+
+def test_update_config(app: FastAPI, apps_manager: AsyncMock):
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json={"lat": 40.7, "lng": -74.0})
+        assert resp.status_code == 200
+        apps_manager.update_config.assert_called_once_with(
+            "app-1", {"lat": 40.7, "lng": -74.0}
+        )
+
+
+def test_update_config_validation_error(app: FastAPI, apps_manager: AsyncMock):
+    apps_manager.update_config = AsyncMock(
+        side_effect=InvalidError("App returned 422: lat must be between -90 and 90")
+    )
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json={"lat": 999})
+        assert resp.status_code == 422
+
+
+def test_update_config_app_unreachable(app: FastAPI, apps_manager: AsyncMock):
+    apps_manager.update_config = AsyncMock(
+        side_effect=AppUnreachableError("App unreachable")
+    )
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json={"lat": 40.7})
+        assert resp.status_code == 502
 
 
 # ── POST /apps/{app_id}/enable ───────────────────────────────

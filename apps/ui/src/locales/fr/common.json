@@ -386,6 +386,12 @@
     "disabledBadge": "Désactivée",
     "configuration": "Configuration",
     "configPlaceholder": "Bientôt disponible — sera alimenté par le schéma de configuration de l'application.",
+    "configSaved": "Configuration enregistrée",
+    "configError": "Erreur lors de l'enregistrement de la configuration",
+    "configSave": "Enregistrer",
+    "configSaving": "Enregistrement...",
+    "noConfig": "Aucune configuration disponible pour cette application.",
+    "configLoadError": "Erreur lors du chargement de la configuration",
     "requests": {
       "title": "Demandes d'enregistrement",
       "singular": "Demande",

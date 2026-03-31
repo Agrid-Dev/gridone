@@ -3,7 +3,7 @@ import contextlib
 import logging
 
 import httpx
-from models.errors import NotFoundError
+from models.errors import AppUnreachableError, InvalidError, NotFoundError
 from users import UsersManagerInterface
 
 from apps.models import App, AppStatus
@@ -39,6 +39,49 @@ class AppsManager:
             msg = f"App '{app_id}' not found"
             raise NotFoundError(msg)
         return app
+
+    # ── Config proxy ──────────────────────────────────────────────────────
+
+    async def get_config_schema(self, app_id: str) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
+
+    async def get_config(self, app_id: str) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request("GET", f"{app.api_url}/config")
+
+    async def update_config(self, app_id: str, config: dict) -> dict:
+        app = await self.get_app(app_id)
+        return await self._proxy_app_request(
+            "PATCH", f"{app.api_url}/config", json=config
+        )
+
+    async def _proxy_app_request(self, method: str, url: str, **kwargs: object) -> dict:
+        """Forward an HTTP request to an app endpoint.
+
+        Raises:
+            AppUnreachableError: if the app cannot be reached.
+            NotFoundError: if the app returns 404.
+            InvalidError: if the app returns a client error (4xx).
+        """
+        http_not_found = 404
+        try:
+            resp = await self._http_client.request(method, url, timeout=10.0, **kwargs)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            try:
+                detail = exc.response.json().get("detail", exc.response.text)
+            except (ValueError, KeyError):
+                detail = exc.response.text
+            if status == http_not_found:
+                raise NotFoundError(detail) from exc
+            msg = f"App returned {status}: {detail}"
+            raise InvalidError(msg) from exc
+        except httpx.HTTPError as exc:
+            msg = f"App unreachable at {url}"
+            raise AppUnreachableError(msg) from exc
+        return resp.json()
 
     # ── Enable / Disable ─────────────────────────────────────────────────
 

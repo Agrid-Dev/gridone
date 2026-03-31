@@ -52,6 +52,52 @@ export function disableApp(appId: string): Promise<App> {
   );
 }
 
+// ── Config ──────────────────────────────────────────────────
+
+export type JsonSchemaProperty = {
+  type?: string;
+  description?: string;
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+};
+
+export type AppConfigSchema = {
+  type?: string;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+};
+
+export function getAppConfigSchema(appId: string): Promise<AppConfigSchema> {
+  return request<AppConfigSchema>(
+    `/apps/${encodeURIComponent(appId)}/config/schema`,
+  );
+}
+
+export function getAppConfig(appId: string): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>(
+    `/apps/${encodeURIComponent(appId)}/config`,
+  );
+}
+
+export function updateAppConfig(
+  appId: string,
+  config: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>(
+    `/apps/${encodeURIComponent(appId)}/config`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    },
+  );
+}
+
+// ── Registration ────────────────────────────────────────────
+
 export function listRegistrationRequests(): Promise<RegistrationRequest[]> {
   return request<RegistrationRequest[]>(
     "/apps/registration-requests",
