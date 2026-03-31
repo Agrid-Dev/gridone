@@ -60,6 +60,7 @@ class TestGetConfigSchema:
             "GET",
             "https://myapp.example.com/config/schema",
             timeout=10.0,
+            json=None,
         )
 
     async def test_app_not_found(self, apps_manager):
@@ -102,6 +103,7 @@ class TestGetConfig:
             "GET",
             "https://myapp.example.com/config",
             timeout=10.0,
+            json=None,
         )
 
     async def test_app_unreachable(self, apps_manager, app_storage, http_client):

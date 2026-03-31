@@ -56,7 +56,9 @@ class AppsManager:
             "PATCH", f"{app.api_url}/config", json=config
         )
 
-    async def _proxy_app_request(self, method: str, url: str, **kwargs: object) -> dict:
+    async def _proxy_app_request(
+        self, method: str, url: str, json: dict | None = None
+    ) -> dict:
         """Forward an HTTP request to an app endpoint.
 
         Raises:
@@ -65,7 +67,7 @@ class AppsManager:
             InvalidError: if the app returns a client error (4xx).
         """
         try:
-            resp = await self._http_client.request(method, url, timeout=10.0, **kwargs)
+            resp = await self._http_client.request(method, url, timeout=10.0, json=json)
             resp.raise_for_status()
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
