@@ -8,12 +8,14 @@ from devices_manager import DevicesManager
 from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
+    AttributeCreateDTO,
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
     TransportBaseDTO,
     TransportCreateDTO,
     TransportUpdateDTO,
+    VirtualDeviceCreateDTO,
     device_core_to_dto,
     driver_core_to_dto,
     transport_core_to_dto,
@@ -22,7 +24,13 @@ from devices_manager.dto import (
     PhysicalDeviceCreateDTO as DeviceCreateDTO,
 )
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from devices_manager.types import DeviceConfig, TransportProtocols
+from devices_manager.types import (
+    DataType,
+    DeviceConfig,
+    DeviceKind,
+    ReadWriteMode,
+    TransportProtocols,
+)
 from models.errors import (
     ForbiddenError,
     InvalidError,
@@ -1028,6 +1036,30 @@ class TestDevicesManagerStorage:
         assert (await storage.devices.read(dto.id)).id == dto.id
 
     @pytest.mark.asyncio
+    async def test_attribute_persisted_and_restored_on_restart(
+        self,
+        seeded_db: Path,
+        device,
+    ):
+        """Attribute value is saved to storage on change and restored after restart."""
+        dm = await DevicesManager.from_storage(str(seeded_db))
+        device_id = device.id
+
+        transport_client = next(iter(dm._transports.values()))
+        transport_client.write = AsyncMock()  # ty: ignore[invalid-assignment]
+        transport_client.read = AsyncMock(return_value=22.0)  # ty: ignore[invalid-assignment]
+
+        await dm.write_device_attribute(device_id, "temperature_setpoint", 22.0)
+        await asyncio.sleep(0.05)
+
+        new_dm = await DevicesManager.from_storage(str(seeded_db))
+        restored = new_dm.get_device(device_id)
+        restored_attr = restored.attributes["temperature_setpoint"]
+
+        assert restored_attr.current_value == 22.0
+        assert restored_attr.last_updated is not None
+
+    @pytest.mark.asyncio
     async def test_delete_device_persists(
         self, tmp_path: Path, driver, mock_transport_client
     ):
@@ -1119,3 +1151,152 @@ class TestDevicesManagerRestartPolling:
 
         assert dm.poll_count == 2
         await dm.stop_polling()
+
+
+def _virtual_attr(
+    name: str, data_type: DataType, mode: ReadWriteMode = "write"
+) -> AttributeCreateDTO:
+    return AttributeCreateDTO(name=name, data_type=data_type, read_write_mode=mode)
+
+
+class TestVirtualDeviceCreation:
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_ok(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        create = VirtualDeviceCreateDTO(
+            name="Occupancy",
+            attributes=[_virtual_attr("occupied", DataType.BOOL)],
+        )
+        dto = await dm.add_device(create)
+        assert dto.kind == DeviceKind.VIRTUAL
+        assert dto.name == "Occupancy"
+        assert "occupied" in dto.attributes
+        assert dto.id in dm.device_ids
+
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_with_type(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        create = VirtualDeviceCreateDTO(
+            name="Energy meter",
+            type="meter",
+            attributes=[_virtual_attr("energy_kwh", DataType.FLOAT)],
+        )
+        dto = await dm.add_device(create)
+        assert dto.type == "meter"
+
+    @pytest.mark.asyncio
+    async def test_virtual_device_not_polled(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        create = VirtualDeviceCreateDTO(
+            name="Sensor",
+            attributes=[_virtual_attr("value", DataType.FLOAT)],
+        )
+        await dm.add_device(create)
+        await dm.start_polling()
+        assert dm.poll_count == 0
+        await dm.stop_polling()
+
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_persists(self, tmp_path: Path):
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        create = VirtualDeviceCreateDTO(
+            name="Switch",
+            attributes=[_virtual_attr("on", DataType.BOOL)],
+        )
+        dto = await dm.add_device(create)
+        storage = CoreFileStorage(tmp_path)
+        stored = await storage.devices.read(dto.id)
+        assert stored.id == dto.id
+        assert stored.kind == DeviceKind.VIRTUAL
+        assert "on" in stored.attributes
+
+    @pytest.mark.asyncio
+    async def test_write_virtual_attribute_value(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        create = VirtualDeviceCreateDTO(
+            name="Thermostat",
+            attributes=[_virtual_attr("setpoint", DataType.FLOAT)],
+        )
+        dto = await dm.add_device(create)
+        result = await dm.write_device_attribute(dto.id, "setpoint", 21.0)
+        assert isinstance(result, Attribute)
+        assert result.current_value == 21.0
+        assert result.last_updated is not None
+
+
+class TestVirtualDeviceRestoreFromStorage:
+    @pytest.mark.asyncio
+    async def test_virtual_device_restored_from_storage(self, tmp_path: Path):
+        """Virtual device with attribute values is restored via from_storage."""
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        create = VirtualDeviceCreateDTO(
+            name="Switch",
+            attributes=[_virtual_attr("on", DataType.BOOL)],
+        )
+        dto = await dm.add_device(create)
+        await dm.write_device_attribute(dto.id, "on", value=True)
+        await asyncio.sleep(0.05)
+
+        new_dm = await DevicesManager.from_storage(str(tmp_path))
+        restored = new_dm.get_device(dto.id)
+
+        assert restored.kind == DeviceKind.VIRTUAL
+        assert restored.attributes["on"].current_value is True
+        assert restored.attributes["on"].last_updated is not None
+
+    @pytest.mark.asyncio
+    async def test_virtual_device_restored_value_not_overwritten_by_polling(
+        self, tmp_path: Path
+    ):
+        """After restart, virtual device value stays untouched (no polling loop)."""
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        create = VirtualDeviceCreateDTO(
+            name="Setpoint",
+            attributes=[_virtual_attr("temp", DataType.FLOAT)],
+        )
+        dto = await dm.add_device(create)
+        await dm.write_device_attribute(dto.id, "temp", 22.5)
+        await asyncio.sleep(0.05)
+
+        new_dm = await DevicesManager.from_storage(str(tmp_path))
+        await new_dm.start_polling()
+        await asyncio.sleep(0.05)
+        await new_dm.stop_polling()
+
+        restored = new_dm.get_device(dto.id)
+        assert restored.attributes["temp"].current_value == 22.5
+
+    @pytest.mark.asyncio
+    async def test_virtual_device_no_attribute_value_restores_none(
+        self, tmp_path: Path
+    ):
+        """Virtual device with no written value restores to None on restart."""
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        create = VirtualDeviceCreateDTO(
+            name="Empty",
+            attributes=[_virtual_attr("level", DataType.INT)],
+        )
+        dto = await dm.add_device(create)
+
+        new_dm = await DevicesManager.from_storage(str(tmp_path))
+        restored = new_dm.get_device(dto.id)
+        assert restored.attributes["level"].current_value is None
+
+    @pytest.mark.asyncio
+    async def test_virtual_device_attribute_persisted_on_write(self, tmp_path: Path):
+        """Attribute write triggers a storage update so the latest value is on disk."""
+        dm = DevicesManager(devices={}, drivers={}, transports={}, db_path=tmp_path)
+        create = VirtualDeviceCreateDTO(
+            name="Counter",
+            attributes=[_virtual_attr("count", DataType.INT)],
+        )
+        dto = await dm.add_device(create)
+
+        await dm.write_device_attribute(dto.id, "count", 5)
+        await asyncio.sleep(0.05)
+        await dm.write_device_attribute(dto.id, "count", 10)
+        await asyncio.sleep(0.05)
+
+        storage = CoreFileStorage(tmp_path)
+        stored = await storage.devices.read(dto.id)
+        assert stored.attributes["count"].current_value == 10

@@ -2,9 +2,10 @@
 
 import pytest
 from models.errors import BlockedUserError, NotFoundError
-from users import UsersManager
 from users.models import Role, UserInDB
 from users.password import hash_password
+
+from users import UsersManager
 
 pytestmark = pytest.mark.asyncio
 

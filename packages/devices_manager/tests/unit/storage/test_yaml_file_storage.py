@@ -1,10 +1,14 @@
 from collections.abc import Generator
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 import yaml
+from devices_manager.core.device import Attribute
+from devices_manager.dto.device_dto import DeviceDTO
 from devices_manager.storage.yaml.yaml_dm_storage import YamlFileStorage
+from devices_manager.types import DataType, DeviceKind
 from pydantic import BaseModel
 
 
@@ -92,3 +96,96 @@ def test_cannot_create_with_mode_than_one_builder():
 
     with pytest.raises(ValueError):  # noqa: PT011
         _ = YamlFileStorage("test", model_cls=Animal, factory=animal_factory)
+
+
+# DeviceDTO attribute round-trip tests
+
+
+@pytest.mark.asyncio
+async def test_device_dto_attribute_state_round_trips_via_yaml() -> None:
+    """DeviceDTO with full Attribute state persists and restores via YAML storage."""
+    with TemporaryDirectory() as tmp:
+        storage = YamlFileStorage[DeviceDTO](root_path=tmp, model_cls=DeviceDTO)
+
+        attr = Attribute(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read_write_modes={"read"},
+            current_value=22.5,
+            last_updated=datetime.now(UTC),
+            last_changed=datetime.now(UTC),
+        )
+        dto = DeviceDTO(
+            id="dev1",
+            kind=DeviceKind.PHYSICAL,
+            name="Chiller",
+            attributes={"temperature": attr},
+        )
+
+        await storage.write(dto.id, dto)
+        restored = await storage.read(dto.id)
+
+        assert restored.id == dto.id
+        restored_attr = restored.attributes["temperature"]
+        assert restored_attr.current_value == 22.5
+        assert restored_attr.last_updated is not None
+        assert restored_attr.last_changed is not None
+
+
+@pytest.mark.asyncio
+async def test_virtual_device_dto_attribute_state_round_trips_via_yaml() -> None:
+    """Virtual DeviceDTO with full Attribute state persists and restores via YAML."""
+    with TemporaryDirectory() as tmp:
+        storage = YamlFileStorage[DeviceDTO](root_path=tmp, model_cls=DeviceDTO)
+
+        attr = Attribute(
+            name="occupied",
+            data_type=DataType.BOOL,
+            read_write_modes={"write"},
+            current_value=True,
+            last_updated=datetime.now(UTC),
+            last_changed=datetime.now(UTC),
+        )
+        dto = DeviceDTO(
+            id="vdev1",
+            kind=DeviceKind.VIRTUAL,
+            name="Occupancy sensor",
+            attributes={"occupied": attr},
+        )
+
+        await storage.write(dto.id, dto)
+        restored = await storage.read(dto.id)
+
+        assert restored.kind == DeviceKind.VIRTUAL
+        restored_attr = restored.attributes["occupied"]
+        assert restored_attr.current_value is True
+        assert restored_attr.last_updated is not None
+        assert restored_attr.last_changed is not None
+
+
+@pytest.mark.asyncio
+async def test_device_dto_without_attribute_values_round_trips_via_yaml() -> None:
+    """Devices with no stored values restore with None — no data corruption."""
+    with TemporaryDirectory() as tmp:
+        storage = YamlFileStorage[DeviceDTO](root_path=tmp, model_cls=DeviceDTO)
+
+        attr = Attribute(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read_write_modes={"read"},
+            current_value=None,
+            last_updated=None,
+            last_changed=None,
+        )
+        dto = DeviceDTO(
+            id="dev_empty",
+            kind=DeviceKind.PHYSICAL,
+            name="Legacy",
+            attributes={"temperature": attr},
+        )
+
+        await storage.write(dto.id, dto)
+        restored = await storage.read(dto.id)
+
+        assert restored.attributes["temperature"].current_value is None
+        assert restored.attributes["temperature"].last_updated is None

@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 
 import yaml
 from models.errors import InvalidError, NotFoundError
-from users import User, UserCreate, UsersManagerInterface
 from users.models import UserType
 from users.password import hash_password
 
@@ -20,6 +19,7 @@ from apps.storage.storage_backend import (
     AppStorageBackend,
     RegistrationRequestStorageBackend,
 )
+from users import User, UserCreate, UsersManagerInterface
 
 logger = logging.getLogger(__name__)
 
