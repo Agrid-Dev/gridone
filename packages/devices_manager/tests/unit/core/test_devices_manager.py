@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from devices_manager import DevicesManager
-from devices_manager.core.device import Attribute, PhysicalDevice
+from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
     DeviceDTO,
@@ -62,9 +62,7 @@ class TestDevicesManagerPolling:
         driver.update_strategy = UpdateStrategy(polling_enabled=False)
 
         device_no_poll = PhysicalDevice.from_base(
-            device_id="d1",
-            name="My device",
-            config={"some_id": "abc"},
+            DeviceBase(id="d1", name="My device", config={"some_id": "abc"}),
             driver=driver,
             transport=mock_transport_client,
         )
@@ -81,16 +79,12 @@ class TestDevicesManagerPolling:
     @pytest.mark.asyncio
     async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
         device1 = PhysicalDevice.from_base(
-            device_id="device1",
-            name="device1",
-            config={},
+            DeviceBase(id="device1", name="device1", config={}),
             transport=mock_transport_client,
             driver=driver,
         )
         device2 = PhysicalDevice.from_base(
-            device_id="device2",
-            name="device2",
-            config={},
+            DeviceBase(id="device2", name="device2", config={}),
             driver=driver,
             transport=mock_transport_client,
         )
@@ -111,16 +105,12 @@ class TestDevicesManagerPolling:
         """Regression: all devices must be polled, not just the last one."""
         n_readable_attrs = len(driver.attributes)
         device1 = PhysicalDevice.from_base(
-            device_id="device1",
-            name="device1",
-            config={"some_id": "abc"},
+            DeviceBase(id="device1", name="device1", config={"some_id": "abc"}),
             transport=mock_transport_client,
             driver=driver,
         )
         device2 = PhysicalDevice.from_base(
-            device_id="device2",
-            name="device2",
-            config={"some_id": "xyz"},
+            DeviceBase(id="device2", name="device2", config={"some_id": "xyz"}),
             driver=driver,
             transport=mock_transport_client,
         )
@@ -244,9 +234,7 @@ class TestDevicesManagerDiscovery:
             "gateway_id": "gtw",
         }
         device = PhysicalDevice.from_base(
-            device_id="xyz",
-            name="My device",
-            config=config,
+            DeviceBase(id="xyz", name="My device", config=config),
             driver=driver_w_push_transport,
             transport=mock_push_transport_client,
         )
@@ -505,16 +493,12 @@ class TestDevicesManagerDevices:
         self, thermostat_driver, driver, mock_transport_client
     ):
         device_typed = PhysicalDevice.from_base(
-            device_id="d1",
-            name="Typed",
-            config={},
+            DeviceBase(id="d1", name="Typed", config={}),
             driver=thermostat_driver,
             transport=mock_transport_client,
         )
         device_untyped = PhysicalDevice.from_base(
-            device_id="d2",
-            name="Untyped",
-            config={},
+            DeviceBase(id="d2", name="Untyped", config={}),
             driver=driver,
             transport=mock_transport_client,
         )
@@ -1111,16 +1095,12 @@ class TestDevicesManagerRestartPolling:
         self, driver, mock_transport_client
     ):
         device1 = PhysicalDevice.from_base(
-            device_id="d1",
-            name="Device 1",
-            config={"some_id": "a"},
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
             driver=driver,
             transport=mock_transport_client,
         )
         device2 = PhysicalDevice.from_base(
-            device_id="d2",
-            name="Device 2",
-            config={"some_id": "b"},
+            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
             driver=driver,
             transport=mock_transport_client,
         )

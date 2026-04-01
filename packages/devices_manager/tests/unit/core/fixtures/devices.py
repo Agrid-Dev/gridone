@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from devices_manager.core.device import PhysicalDevice
+from devices_manager.core.device import DeviceBase, PhysicalDevice
 
 if TYPE_CHECKING:
     from devices_manager.core import Driver, TransportClient
@@ -12,9 +12,7 @@ if TYPE_CHECKING:
 @pytest.fixture
 def device(driver: Driver, mock_transport_client: TransportClient) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id="d1",
-        name="My device",
-        config={"some_id": "abc"},
+        DeviceBase(id="d1", name="My device", config={"some_id": "abc"}),
         driver=driver,
         transport=mock_transport_client,
     )
@@ -26,9 +24,7 @@ def push_device(
     mock_push_transport_client: TransportClient,
 ) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id="d2",
-        name="My push device",
-        config={"some_id": "xyz"},
+        DeviceBase(id="d2", name="My push device", config={"some_id": "xyz"}),
         driver=driver_w_push_transport,
         transport=mock_push_transport_client,
     )

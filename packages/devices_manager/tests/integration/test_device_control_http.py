@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.core.device import PhysicalDevice
+from devices_manager.core.device import DeviceBase, PhysicalDevice
 
 from .fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
@@ -7,9 +7,11 @@ from .fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 @pytest.fixture
 def device(thermocktat_http_driver, http_transport) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id=TMK_DEVICE_ID,
-        name="My thermocktat",
-        config={"ip": f"http://localhost:{HTTP_PORT}"},
+        DeviceBase(
+            id=TMK_DEVICE_ID,
+            name="My thermocktat",
+            config={"ip": f"http://localhost:{HTTP_PORT}"},
+        ),
         transport=http_transport,
         driver=thermocktat_http_driver,
     )

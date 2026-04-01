@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING, TypeVar
 
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 
-from .core.device import Attribute, AttributeListener, DeviceBase, PhysicalDevice
+from .core.device import (
+    Attribute,
+    AttributeListener,
+    Device,
+    DeviceBase,
+    PhysicalDevice,
+)
 from .core.discovery_manager import (
     DiscoveryContext,
     PhysicalDevicesDiscoveryManager,
@@ -54,7 +60,7 @@ def gen_id() -> str:
 
 
 class DevicesManager:
-    _devices: dict[str, DeviceBase]
+    _devices: dict[str, Device]
     _drivers: dict[str, Driver]
     _transports: dict[str, TransportClient]
     _polling_tasks: TasksRegistry
@@ -65,7 +71,7 @@ class DevicesManager:
 
     def __init__(
         self,
-        devices: dict[str, DeviceBase],
+        devices: dict[str, Device],
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
         *,
@@ -86,10 +92,8 @@ class DevicesManager:
     async def start_polling(self) -> None:
         self._running = True
         for device in self._devices.values():
-            if not isinstance(device, PhysicalDevice):
-                continue
             await device.init_listeners()
-            if device.driver.update_strategy.polling_enabled:
+            if device.polling_enabled:
                 logger.info("Starting polling job for device %s", device.id)
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
@@ -99,8 +103,10 @@ class DevicesManager:
         self._running = False
         await self._polling_tasks.shutdown()
 
-    async def _device_poll_loop(self, device: PhysicalDevice) -> None:
-        poll_interval = device.driver.update_strategy.polling_interval
+    async def _device_poll_loop(self, device: Device) -> None:
+        poll_interval = device.poll_interval
+        if poll_interval is None:
+            return
         try:
             while self._running:
                 await device.update_attributes()
@@ -108,13 +114,11 @@ class DevicesManager:
         except asyncio.CancelledError:
             return
 
-    async def _restart_device_polling(self, device: DeviceBase) -> None:
-        if not isinstance(device, PhysicalDevice):
-            return
+    async def _restart_device_polling(self, device: Device) -> None:
         polling_key = ("poll", device.id)
         if self._polling_tasks.has(polling_key):
             await self._polling_tasks.remove(polling_key)
-        if self._running and device.driver.update_strategy.polling_enabled:
+        if self._running and device.polling_enabled:
             self._polling_tasks.add(polling_key, self._device_poll_loop(device))
 
     _T = TypeVar("_T")
@@ -146,15 +150,12 @@ class DevicesManager:
             self._transports, device_create.transport_id, "Transport"
         )
         self._check_driver_transport_compat(driver, transport)
-        return PhysicalDevice.from_base(
-            device_id=gen_id(),
-            name=device_create.name,
-            config=device_create.config,
-            driver=driver,
-            transport=transport,
+        base = DeviceBase(
+            id=gen_id(), name=device_create.name, config=device_create.config
         )
+        return PhysicalDevice.from_base(base, driver=driver, transport=transport)
 
-    def _register_device(self, device: DeviceBase) -> None:
+    def _register_device(self, device: Device) -> None:
         """Register device in memory (sync). Does NOT init listeners."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
@@ -162,18 +163,16 @@ class DevicesManager:
         self._devices[device.id] = device
         logger.info("Successfully loaded and registered device '%s'", device.id)
 
-    async def _add_device(self, device: DeviceBase) -> None:
+    async def _add_device(self, device: Device) -> None:
         self._register_device(device)
-        if self._running and isinstance(device, PhysicalDevice):
+        if self._running:
             await device.init_listeners()
             self._attach_listeners(device)
-            if device.driver.update_strategy.polling_enabled:
+            if device.polling_enabled:
                 logger.info("Starting polling job for new device %s", device.id)
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
-        elif self._running:
-            self._attach_listeners(device)
         if self._storage:
             dto = device_core_to_dto(device)
             await self._storage.devices.write(dto.id, dto)
@@ -202,7 +201,7 @@ class DevicesManager:
         for device in self._devices.values():
             device.add_update_listener(callback)
 
-    def _attach_listeners(self, device: DeviceBase) -> None:
+    def _attach_listeners(self, device: Device) -> None:
         for listener in self._attribute_listeners:
             device.add_update_listener(listener)
 
@@ -272,9 +271,7 @@ class DevicesManager:
             logger.info("Adding device %s", d.id)
             try:
                 device = PhysicalDevice.from_base(
-                    device_id=d.id,
-                    name=d.name,
-                    config=d.config or {},
+                    DeviceBase(id=d.id, name=d.name, config=d.config or {}),
                     transport=transport,
                     driver=driver,
                     initial_values={
@@ -334,11 +331,7 @@ class DevicesManager:
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
-            (
-                d
-                for d in self._devices.values()
-                if isinstance(d, PhysicalDevice) and d.transport.id == transport_id
-            ),
+            (d for d in self._devices.values() if d.transport_id == transport_id),
             None,
         )
         if device is not None:
@@ -362,10 +355,7 @@ class DevicesManager:
         if update.config is not None:
             transport.update_config(update.config)
             for device in self._devices.values():
-                if (
-                    isinstance(device, PhysicalDevice)
-                    and device.transport.id == transport_id
-                ):
+                if device.transport_id == transport_id:
                     await device.init_listeners()
                     await self._restart_device_polling(device)
         dto = transport_core_to_dto(transport)
@@ -411,11 +401,7 @@ class DevicesManager:
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
-            (
-                d
-                for d in self._devices.values()
-                if isinstance(d, PhysicalDevice) and d.driver.id == driver_id
-            ),
+            (d for d in self._devices.values() if d.driver_id == driver_id),
             None,
         )
         if device is not None:
@@ -473,9 +459,7 @@ class DevicesManager:
             if attr.current_value is not None
         }
         return PhysicalDevice.from_base(
-            device_id=device.id,
-            name=device.name,
-            config=device.config,
+            DeviceBase(id=device.id, name=device.name, config=device.config),
             driver=driver,
             transport=transport,
             initial_values=initial_values,
@@ -546,12 +530,9 @@ class DevicesManager:
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._get_or_raise(self._devices, device_id, "Device")
-        if self._running or not isinstance(device, PhysicalDevice):
-            return device_core_to_dto(device)
-        async with device.transport:
-            # if not running open and close transport to read once
-            await device.update_attributes()
-            return device_core_to_dto(device)
+        if not self._running:
+            await device.update_once()
+        return device_core_to_dto(device)
 
     async def stop(self) -> None:
         await self.stop_polling()

@@ -1,5 +1,5 @@
 import pytest
-from devices_manager.core.device import PhysicalDevice
+from devices_manager.core.device import DeviceBase, PhysicalDevice
 from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
@@ -32,9 +32,7 @@ def device(thermocktat_container_modbus, modbus_driver) -> PhysicalDevice:
         TransportMetadata(id="my-transport", name="my-transport"),
     )
     return PhysicalDevice.from_base(
-        device_id=TMK_DEVICE_ID,
-        name="My thermocktat",
-        config={"device_id": 4},
+        DeviceBase(id=TMK_DEVICE_ID, name="My thermocktat", config={"device_id": 4}),
         transport=modbus_transport,
         driver=modbus_driver,
     )

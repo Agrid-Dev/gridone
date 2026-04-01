@@ -6,6 +6,7 @@ from pydantic import BaseModel, Discriminator, Field, Tag
 
 from devices_manager.core.device import (
     Attribute,
+    Device,
     DeviceBase,
     PhysicalDevice,
 )
@@ -66,7 +67,7 @@ class DeviceUpdateDTO(BaseModel):
     driver_id: str | None = None
 
 
-def core_to_dto(device: DeviceBase) -> DeviceDTO:
+def core_to_dto(device: Device) -> DeviceDTO:
     if isinstance(device, PhysicalDevice):
         return DeviceDTO(
             id=device.id,
@@ -88,13 +89,9 @@ def core_to_dto(device: DeviceBase) -> DeviceDTO:
 
 
 def dto_to_base(dto: DeviceDTO) -> DeviceBase:
-    """Convert a DeviceDTO back to a DeviceBase.
-
-    Only keeps id + name (used for physical device bootstrapping).
-    """
+    """Convert a DeviceDTO back to a DeviceBase constructor struct."""
     return DeviceBase(
         id=dto.id,
         name=dto.name,
-        kind=dto.kind,
-        attributes={},
+        config=dto.config or {},
     )

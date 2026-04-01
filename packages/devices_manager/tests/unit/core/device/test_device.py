@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from devices_manager.core import Driver, TransportClient
-from devices_manager.core.device import Attribute, PhysicalDevice
+from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
@@ -19,9 +19,7 @@ from ..fixtures.transport_clients import MockTransportAddress
 @pytest.fixture
 def device(mock_transport_client, driver) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id="d1",
-        name="My pull device",
-        config={"some_id": "abcd"},
+        DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
         driver=driver,
         transport=mock_transport_client,
     )
@@ -32,9 +30,7 @@ def device_w_push_transport(
     mock_push_transport_client, driver_w_push_transport
 ) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id="d2",
-        name="My push device",
-        config={"some_id": "abcd"},
+        DeviceBase(id="d2", name="My push device", config={"some_id": "abcd"}),
         driver=driver_w_push_transport,
         transport=mock_push_transport_client,
     )
@@ -58,9 +54,7 @@ class TestDeviceCreation:
         self, driver: Driver, mock_transport_client: TransportClient
     ):
         device = PhysicalDevice.from_base(
-            device_id="d1",
-            name="my device",
-            config={},
+            DeviceBase(id="d1", name="my device", config={}),
             transport=mock_transport_client,
             driver=driver,
         )
@@ -69,14 +63,21 @@ class TestDeviceCreation:
 
     def test_initialize_attributes(self, driver, mock_transport_client):
         device = PhysicalDevice.from_base(
-            device_id="d1",
-            name="My pull device",
-            config={"some_id": "abcd"},
+            DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
             initial_values={"temperature": 20},
         )
         assert device.get_attribute_value("temperature") == 20
+
+    def test_type_reflects_driver_type(self, driver, mock_transport_client):
+        """Regression: PhysicalDevice.type is a live property from driver.type."""
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="my device", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        assert device.type == driver.type
 
 
 class TestDeviceRead:
@@ -225,9 +226,7 @@ class TestDevicesListeners:
             },
         )
         device = PhysicalDevice.from_base(
-            device_id="d3",
-            name="Multi-attr push device",
-            config={},
+            DeviceBase(id="d3", name="Multi-attr push device", config={}),
             driver=driver,
             transport=mock_push_transport_client,
         )
@@ -250,16 +249,12 @@ class TestDeviceEquality:
 
     def test_device_equals_same_configs(self, mock_transport_client, driver):
         device_1 = PhysicalDevice.from_base(
-            device_id="xxx",
-            name="My device",
-            config={"some_id": "abcd"},
+            DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
         )
         device_2 = PhysicalDevice.from_base(
-            device_id="xxx",
-            name="My device",
-            config={"some_id": "abcd"},
+            DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
         )
@@ -267,16 +262,12 @@ class TestDeviceEquality:
 
     def test_device_not_equals_different_configs(self, mock_transport_client, driver):
         device_1 = PhysicalDevice.from_base(
-            device_id="xxx",
-            name="My device",
-            config={"some_id": "abcd"},
+            DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
         )
         device_2 = PhysicalDevice.from_base(
-            device_id="xxx",
-            name="My device",
-            config={"some_id": "xyz"},
+            DeviceBase(id="xxx", name="My device", config={"some_id": "xyz"}),
             driver=driver,
             transport=mock_transport_client,
         )

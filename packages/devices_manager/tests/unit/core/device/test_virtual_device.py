@@ -39,8 +39,8 @@ class TestVirtualDeviceKind:
         device = _make_virtual_device()
         assert device.kind == DeviceKind.VIRTUAL
 
-    def test_kind_cannot_be_overridden(self):
-        """kind is init=False; passing it to the constructor has no effect."""
+    def test_kind_is_class_variable(self):
+        """kind is a ClassVar; it is not an instance field."""
         device = VirtualDevice(
             id="v1",
             name="test",
@@ -50,11 +50,13 @@ class TestVirtualDeviceKind:
 
 
 class TestVirtualDeviceRead:
-    def test_read_returns_none_when_no_value_set(self):
+    @pytest.mark.asyncio
+    async def test_read_returns_none_when_no_value_set(self):
         device = _make_virtual_device()
-        assert device.read_attribute_value("temperature") is None
+        assert await device.read_attribute_value("temperature") is None
 
-    def test_read_returns_current_value(self):
+    @pytest.mark.asyncio
+    async def test_read_returns_current_value(self):
         device = _make_virtual_device(
             attributes={
                 "temperature": Attribute(
@@ -66,12 +68,13 @@ class TestVirtualDeviceRead:
                 )
             }
         )
-        assert device.read_attribute_value("temperature") == 22.5
+        assert await device.read_attribute_value("temperature") == 22.5
 
-    def test_read_attribute_not_found(self):
+    @pytest.mark.asyncio
+    async def test_read_attribute_not_found(self):
         device = _make_virtual_device()
         with pytest.raises(KeyError):
-            device.read_attribute_value("nonexistent")
+            await device.read_attribute_value("nonexistent")
 
 
 class TestVirtualDeviceWrite:

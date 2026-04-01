@@ -1,5 +1,5 @@
 import pytest
-from devices_manager import PhysicalDevice
+from devices_manager import DeviceBase, PhysicalDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
@@ -96,9 +96,7 @@ def mock_devices(
     device_id = "device1"
     return {
         device_id: PhysicalDevice.from_base(
-            device_id=device_id,
-            name="My device",
-            config={"some_id": "abc"},
+            DeviceBase(id=device_id, name="My device", config={"some_id": "abc"}),
             driver=driver,
             transport=transport,
         )

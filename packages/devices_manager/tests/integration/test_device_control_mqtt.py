@@ -1,13 +1,15 @@
 import pytest
-from devices_manager.core.device import PhysicalDevice
+from devices_manager.core.device import DeviceBase, PhysicalDevice
 
 
 @pytest.fixture
 def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> PhysicalDevice:
     return PhysicalDevice.from_base(
-        device_id="thermocktat-1",
-        name="Thermocktat 1",
-        config={"device_id": "test-thermocktat"},
+        DeviceBase(
+            id="thermocktat-1",
+            name="Thermocktat 1",
+            config={"device_id": "test-thermocktat"},
+        ),
         transport=mqtt_transport,
         driver=thermocktat_mqtt_driver,
     )
