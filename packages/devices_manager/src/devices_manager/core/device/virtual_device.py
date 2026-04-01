@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from devices_manager.types import AttributeValueType, DeviceKind
@@ -17,11 +17,6 @@ logger = logging.getLogger(__name__)
 @dataclass(kw_only=True)
 class VirtualDevice(Device):
     kind: ClassVar[DeviceKind] = DeviceKind.VIRTUAL
-    _type: str | None = field(default=None)
-
-    @property
-    def type(self) -> str | None:
-        return self._type
 
     async def read_attribute_value(
         self, attribute_name: str

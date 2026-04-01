@@ -26,17 +26,13 @@ class Device(ABC):
     name: str
     attributes: dict[str, Attribute]
     kind: ClassVar[DeviceKind]
+    type: str | None = None
     _update_listeners: set[AttributeListener] = field(
         default_factory=set, init=False, repr=False
     )
     _background_tasks: set[asyncio.Task[None]] = field(
         default_factory=set, init=False, repr=False
     )
-
-    @property
-    def type(self) -> str | None:
-        """Device type, derived from driver or user-supplied. None by default."""
-        return None
 
     @property
     def driver_id(self) -> str | None:

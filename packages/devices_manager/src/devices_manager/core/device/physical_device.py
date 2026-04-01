@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
 from models.errors import ConfirmationError
@@ -33,6 +33,7 @@ class PhysicalDevice(Device):
     transport: TransportClient
     config: DeviceConfig
     kind: ClassVar[DeviceKind] = DeviceKind.PHYSICAL
+    type: str | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -41,10 +42,7 @@ class PhysicalDevice(Device):
                 f" with {self.transport.protocol} transport"
             )
             raise TypeError(msg)
-
-    @property
-    def type(self) -> str | None:
-        return self.driver.type
+        self.type = self.driver.type
 
     @property
     def driver_id(self) -> str:
