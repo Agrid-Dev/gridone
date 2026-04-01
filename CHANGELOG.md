@@ -1,3 +1,9 @@
+## v0.30.0 (2026-04-01)
+
+### Feat
+
+- added gridone version in sidebar
+
 ## v0.29.0 (2026-04-01)
 
 ### Feat
