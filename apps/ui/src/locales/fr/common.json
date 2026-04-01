@@ -159,6 +159,7 @@
   "app": {
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
+    "version": "Version {{version}}",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
     "assets": "Zones",
     "devices": "Appareils",
