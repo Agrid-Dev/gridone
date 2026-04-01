@@ -1,3 +1,9 @@
+## v0.29.0 (2026-04-01)
+
+### Feat
+
+- removed refresh buttons
+
 ## v0.28.0 (2026-03-31)
 
 ### Feat
