@@ -75,8 +75,6 @@
     }
   },
   "common": {
-    "refresh": "Actualiser",
-    "refreshing": "Actualisation...",
     "update": "Mettre à jour",
     "updating": "Mise à jour...",
     "back": "Retour",

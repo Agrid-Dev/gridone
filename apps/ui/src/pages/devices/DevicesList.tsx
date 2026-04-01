@@ -9,14 +9,13 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
-import { Plus, RefreshCw, Terminal } from "lucide-react";
+import { Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation();
   const filters = useFilterParams();
   const [, setSearchParams] = useSearchParams();
-  const { devices, loading, error, refreshing, fetchDevices } =
-    useDevicesList(filters);
+  const { devices, loading, error } = useDevicesList(filters);
   const can = usePermissions();
   const hasFilters = !!filters;
 
@@ -27,14 +26,6 @@ export default function DevicesList() {
         resourceName={t("devices.title")}
         actions={
           <>
-            <Button
-              variant="outline"
-              onClick={() => fetchDevices()}
-              disabled={loading || refreshing}
-            >
-              <RefreshCw />
-              {refreshing ? t("common.refreshing") : t("common.refresh")}
-            </Button>
             <Button asChild variant="outline">
               <Link to="/devices/commands">
                 <Terminal />

@@ -9,8 +9,6 @@ export function useDevicesList(filters?: Record<string, string>) {
     data,
     isLoading,
     error: queryError,
-    refetch,
-    isFetching,
   } = useQuery<Device[]>({
     queryKey: ["devices", filters],
     queryFn: () => listDevices(filters),
@@ -27,7 +25,5 @@ export function useDevicesList(filters?: Record<string, string>) {
     devices: data ?? [],
     loading: isLoading,
     error,
-    refreshing: isFetching && !isLoading,
-    fetchDevices: refetch,
   };
 }
