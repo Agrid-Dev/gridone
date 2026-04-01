@@ -6,6 +6,11 @@ from models.types import AttributeValueType, DataType
 ReadWriteMode = Literal["read", "write"]
 
 
+class DeviceKind(StrEnum):
+    PHYSICAL = "physical"
+    VIRTUAL = "virtual"
+
+
 class TransportProtocols(StrEnum):
     BACNET = "bacnet"
     MODBUS_TCP = "modbus-tcp"
@@ -19,6 +24,7 @@ __all__ = [
     "AttributeValueType",
     "DataType",
     "DeviceConfig",
+    "DeviceKind",
     "ReadWriteMode",
     "TransportProtocols",
 ]

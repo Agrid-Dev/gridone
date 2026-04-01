@@ -1,5 +1,5 @@
 import pytest
-from devices_manager import Device, DeviceBase
+from devices_manager import DeviceBase, PhysicalDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
@@ -90,12 +90,17 @@ def mock_drivers(attributes: list[AttributeDriver]) -> dict[str, Driver]:
 @pytest.fixture
 def mock_devices(
     mock_transports: dict[str, TransportClient], mock_drivers: dict[str, Driver]
-) -> dict[str, Device]:
+) -> dict[str, PhysicalDevice]:
     transport = mock_transports["my-http"]
     driver = mock_drivers["test_driver"]
     device_id = "device1"
-    base = DeviceBase(id=device_id, name="My device", config={"some_id": "abc"})
-    return {device_id: Device.from_base(base, driver=driver, transport=transport)}
+    return {
+        device_id: PhysicalDevice.from_base(
+            DeviceBase(id=device_id, name="My device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=transport,
+        )
+    }
 
 
 @pytest.fixture

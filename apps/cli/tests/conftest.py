@@ -11,6 +11,7 @@ from devices_manager.types import TransportProtocols
 TEST_DEVICE = DeviceDTO.model_validate(
     {
         "id": "test_device",
+        "kind": "physical",
         "name": "My test device",
         "driver_id": "test_driver",
         "transport_id": "http_transport",

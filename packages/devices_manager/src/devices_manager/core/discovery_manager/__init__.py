@@ -1,7 +1,7 @@
 from .devices_discovery_manager import (
-    DevicesDiscoveryManager,
     DiscoveryConfig,
     DiscoveryContext,
+    PhysicalDevicesDiscoveryManager,
 )
 
-__all__ = ["DevicesDiscoveryManager", "DiscoveryConfig", "DiscoveryContext"]
+__all__ = ["DiscoveryConfig", "DiscoveryContext", "PhysicalDevicesDiscoveryManager"]

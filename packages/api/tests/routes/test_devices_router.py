@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from devices_manager import Device, DevicesManager
+from devices_manager import DevicesManager, PhysicalDevice
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -91,7 +91,9 @@ class TestGetStandardTypes:
 
 
 class TestGetDevice:
-    def test_get_device_ok(self, client: TestClient, mock_devices: dict[str, Device]):
+    def test_get_device_ok(
+        self, client: TestClient, mock_devices: dict[str, PhysicalDevice]
+    ):
         for device_id in mock_devices:
             response = client.get(f"/{device_id}")
             assert response.status_code == 200

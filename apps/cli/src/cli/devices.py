@@ -23,9 +23,8 @@ console = Console()
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj.setdefault(
-        "dm", asyncio.run(DevicesManager.from_storage(str(get_db_path())))
-    )
+    if "dm" not in ctx.obj:
+        ctx.obj["dm"] = asyncio.run(DevicesManager.from_storage(str(get_db_path())))
 
 
 @app.command("list")
@@ -74,6 +73,9 @@ async def _write_device_async(
     value: float,
 ) -> None:
     device = dm.get_device(device_id)
+    if device.driver_id is None:
+        msg = "Cannot write to a virtual device"
+        raise TypeError(msg)
     driver = dm.get_driver(device.driver_id)
     console.print(
         f"Writing value [bold red]{value}[/bold red] to device"
