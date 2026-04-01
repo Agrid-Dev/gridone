@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
@@ -22,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getHealth } from "@/api/health";
 
 function getInitials(name: string, username: string): string {
   if (name) {
@@ -51,8 +53,16 @@ export function Sidebar() {
   const { state, logout } = useAuth();
   const can = usePermissions();
   const navigate = useNavigate();
+  const { data: health } = useQuery({
+    queryKey: ["health"],
+    queryFn: getHealth,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
   const user = state.status === "authenticated" ? state.user : null;
+  const version = health?.version?.trim() || null;
+  const versionLabel = version ? t("app.version", { version }) : null;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-sidebar-foreground/[0.06] bg-sidebar text-sidebar-foreground">
@@ -142,53 +152,65 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="border-t border-sidebar-foreground/[0.06] p-3">
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-all duration-200 hover:bg-sidebar-foreground/[0.04]">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary">
-                    {getInitials(user.name, user.username)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-sidebar-foreground/90">
-                      {user.name || user.username}
-                    </p>
-                    <p className="truncate text-xs text-sidebar-foreground/60">
-                      {t(`users.roles.${user.role}`)}
-                    </p>
+          <div className="space-y-3">
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex w-full items-center gap-3 rounded-md p-2 text-left transition-all duration-200 hover:bg-sidebar-foreground/[0.04]">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-xs font-semibold text-primary">
+                      {getInitials(user.name, user.username)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-sidebar-foreground/90">
+                        {user.name || user.username}
+                      </p>
+                      <p className="truncate text-xs text-sidebar-foreground/60">
+                        {t(`users.roles.${user.role}`)}
+                      </p>
+                    </div>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/40" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" className="w-56">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium">
+                        {user.name || user.username}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings className="h-4 w-4" />
+                    {t("settings.subtitle")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <div className="space-y-3 px-2 py-2">
+                    <ThemeSwitcher />
+                    <LanguageSwitcher />
                   </div>
-                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/40" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium">
-                      {user.name || user.username}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
-                  <Settings className="h-4 w-4" />
-                  {t("settings.subtitle")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <div className="space-y-3 px-2 py-2">
-                  <ThemeSwitcher />
-                  <LanguageSwitcher />
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
-                  <LogOut className="h-4 w-4" />
-                  {t("auth.logout")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout}>
+                    <LogOut className="h-4 w-4" />
+                    {t("auth.logout")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {version && versionLabel && (
+              <p
+                aria-label={versionLabel}
+                className="px-2 text-[11px] font-mono text-sidebar-foreground/40"
+                title={versionLabel}
+              >
+                {version}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </aside>

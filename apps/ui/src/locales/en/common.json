@@ -159,6 +159,7 @@
   "app": {
     "title": "Gridone",
     "subtitle": "Device control dashboard",
+    "version": "Version {{version}}",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
     "assets": "Zones",
     "devices": "Devices",
