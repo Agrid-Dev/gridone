@@ -9,11 +9,11 @@ const statusStyles: Record<AppStatus, string> = {
 };
 
 export function AppStatusBadge({ status }: { status: AppStatus }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
 
   return (
     <Badge variant="outline" className={statusStyles[status]}>
-      {t(`apps.status.${status}`)}
+      {t(`status.${status}`)}
     </Badge>
   );
 }

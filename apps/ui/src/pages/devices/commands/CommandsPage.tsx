@@ -11,7 +11,7 @@ type CommandsPageProps = {
 };
 
 export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const cmd = useCommands({ deviceId });
 
   return (

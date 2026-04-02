@@ -18,7 +18,7 @@ import type { AssetTreeNode } from "@/api/assets";
 import { AssetTree } from "./components/AssetTree";
 
 export default function AssetsList() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const queryClient = useQueryClient();
   const can = usePermissions();
 
@@ -37,7 +37,7 @@ export default function AssetsList() {
     }) => updateAsset(assetId, { parentId: newParentId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.moved"));
+      toast.success(t("moved"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -54,7 +54,7 @@ export default function AssetsList() {
     }) => createAsset({ name, type, parentId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.created"));
+      toast.success(t("created"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -64,7 +64,7 @@ export default function AssetsList() {
       updateAsset(assetId, { name: newName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.renamed"));
+      toast.success(t("renamed"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -102,15 +102,15 @@ export default function AssetsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("assets.subtitle")}
-        resourceName={t("assets.title")}
+        title={t("subtitle")}
+        resourceName={t("title")}
         actions={
           <>
             {can("assets:write") && (
               <Button asChild>
                 <Link to="/assets/new">
                   <Plus />
-                  {t("assets.create")}
+                  {t("create")}
                 </Link>
               </Button>
             )}
@@ -135,7 +135,7 @@ export default function AssetsList() {
           />
         </div>
       ) : (
-        <ResourceEmpty resourceName={t("assets.singular").toLowerCase()} />
+        <ResourceEmpty resourceName={t("singular").toLowerCase()} />
       )}
     </section>
   );

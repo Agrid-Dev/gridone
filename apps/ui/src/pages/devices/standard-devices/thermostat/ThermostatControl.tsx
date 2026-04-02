@@ -60,13 +60,15 @@ export function ThermostatControl({
           <span
             className={`text-xs font-medium ${isOn ? "text-green-600" : "text-muted-foreground"}`}
           >
-            {isOn ? t("thermostat.on") : t("thermostat.off")}
+            {isOn ? t("controls.thermostat.on") : t("controls.thermostat.off")}
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 aria-label={
-                  isOn ? t("thermostat.turnOff") : t("thermostat.turnOn")
+                  isOn
+                    ? t("controls.thermostat.turnOff")
+                    : t("controls.thermostat.turnOn")
                 }
                 disabled={powerSaving}
                 onClick={() => changeAndSaveNow("onoffState", !isOn)}
@@ -84,7 +86,9 @@ export function ThermostatControl({
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              {isOn ? t("thermostat.turnOff") : t("thermostat.turnOn")}
+              {isOn
+                ? t("controls.thermostat.turnOff")
+                : t("controls.thermostat.turnOn")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -95,7 +99,7 @@ export function ThermostatControl({
         {attrs.temperature != null && (
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              {t("thermostat.current")}
+              {t("controls.thermostat.current")}
             </span>
             <span className="text-sm font-medium tabular-nums">
               {Number(attrs.temperature).toFixed(1)}°
@@ -105,7 +109,7 @@ export function ThermostatControl({
 
         <div>
           <span className="mb-[-6px] block text-xs uppercase tracking-widest text-muted-foreground">
-            {t("thermostat.setpoint")}
+            {t("controls.thermostat.setpoint")}
           </span>
           <div className="flex items-center gap-1">
             <div
@@ -121,7 +125,7 @@ export function ThermostatControl({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={t("thermostat.increaseSetpoint")}
+                  aria-label={t("controls.thermostat.increaseSetpoint")}
                   disabled={!canIncrement || setpointSaving}
                   onClick={() =>
                     setpoint != null &&
@@ -135,7 +139,7 @@ export function ThermostatControl({
                 <Button
                   variant="ghost"
                   size="icon"
-                  aria-label={t("thermostat.decreaseSetpoint")}
+                  aria-label={t("controls.thermostat.decreaseSetpoint")}
                   disabled={!canDecrement || setpointSaving}
                   onClick={() =>
                     setpoint != null &&

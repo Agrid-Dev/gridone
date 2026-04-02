@@ -59,7 +59,7 @@ function getUserInitials(name: string, username: string): string {
 }
 
 export default function UsersPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("users");
   const queryClient = useQueryClient();
   const { state } = useAuth();
   const currentUserId = state.status === "authenticated" ? state.user.id : null;
@@ -78,7 +78,7 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setDialogMode(null);
-      toast.success(t("users.created"));
+      toast.success(t("created"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -89,7 +89,7 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setDialogMode(null);
-      toast.success(t("users.updated"));
+      toast.success(t("updated"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -98,7 +98,7 @@ export default function UsersPage() {
     mutationFn: (id: string) => deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("users.deleted"));
+      toast.success(t("deleted"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -107,7 +107,7 @@ export default function UsersPage() {
     mutationFn: (id: string) => blockUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("users.blocked"));
+      toast.success(t("blocked"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -116,7 +116,7 @@ export default function UsersPage() {
     mutationFn: (id: string) => unblockUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("users.unblocked"));
+      toast.success(t("unblocked"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -171,12 +171,12 @@ export default function UsersPage() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("users.subtitle")}
-        resourceName={t("users.title")}
+        title={t("subtitle")}
+        resourceName={t("title")}
         actions={
           <Button onClick={openCreate}>
             <Plus />
-            {t("users.create")}
+            {t("create")}
           </Button>
         }
       />
@@ -203,7 +203,7 @@ export default function UsersPage() {
                       </p>
                       {user.id === currentUserId && (
                         <span className="text-xs text-muted-foreground">
-                          ({t("users.you")})
+                          ({t("you")})
                         </span>
                       )}
                     </div>
@@ -217,12 +217,10 @@ export default function UsersPage() {
                     )}
                     <div className="mt-2 flex gap-1.5">
                       <Badge variant="secondary">
-                        {t(`users.roles.${user.role}`)}
+                        {t(`users:roles.${user.role}`)}
                       </Badge>
                       {user.isBlocked && (
-                        <Badge variant="destructive">
-                          {t("users.blockedBadge")}
-                        </Badge>
+                        <Badge variant="destructive">{t("blockedBadge")}</Badge>
                       )}
                     </div>
                   </div>
@@ -240,8 +238,8 @@ export default function UsersPage() {
                       variant="outline"
                       size="sm"
                       onConfirm={() => blockMutation.mutate(user.id)}
-                      confirmTitle={t("users.blockConfirmTitle")}
-                      confirmDetails={t("users.blockConfirmDetails", {
+                      confirmTitle={t("blockConfirmTitle")}
+                      confirmDetails={t("blockConfirmDetails", {
                         name: user.name || user.username,
                       })}
                       icon={<Ban />}
@@ -266,8 +264,8 @@ export default function UsersPage() {
                       size="sm"
                       className="text-destructive"
                       onConfirm={() => deleteMutation.mutate(user.id)}
-                      confirmTitle={t("users.deleteConfirmTitle")}
-                      confirmDetails={t("users.deleteConfirmDetails", {
+                      confirmTitle={t("deleteConfirmTitle")}
+                      confirmDetails={t("deleteConfirmDetails", {
                         name: user.name || user.username,
                       })}
                       icon={<Trash2 />}
@@ -290,13 +288,13 @@ export default function UsersPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {dialogMode === "create" ? t("users.create") : t("users.edit")}
+              {dialogMode === "create" ? t("create") : t("edit")}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
-                {t("users.fields.username")}
+                {t("fields.username")}
               </label>
               <Input
                 value={form.username}
@@ -307,8 +305,8 @@ export default function UsersPage() {
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
                 {dialogMode === "edit"
-                  ? t("users.fields.passwordOptional")
-                  : t("users.fields.password")}
+                  ? t("fields.passwordOptional")
+                  : t("fields.password")}
               </label>
               <Input
                 type="password"
@@ -317,14 +315,14 @@ export default function UsersPage() {
                 required={dialogMode === "create"}
                 placeholder={
                   dialogMode === "edit"
-                    ? t("users.fields.passwordPlaceholder")
+                    ? t("fields.passwordPlaceholder")
                     : undefined
                 }
               />
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
-                {t("users.fields.name")}
+                {t("fields.name")}
               </label>
               <Input
                 value={form.name}
@@ -333,7 +331,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
-                {t("users.fields.email")}
+                {t("fields.email")}
               </label>
               <Input
                 type="email"
@@ -343,7 +341,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
-                {t("users.fields.title")}
+                {t("fields.title")}
               </label>
               <Input
                 value={form.title}
@@ -352,7 +350,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium text-foreground">
-                {t("users.fields.role")}
+                {t("fields.role")}
               </label>
               <select
                 value={form.role}
@@ -361,9 +359,9 @@ export default function UsersPage() {
                 }
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="admin">{t("users.roles.admin")}</option>
-                <option value="operator">{t("users.roles.operator")}</option>
-                <option value="viewer">{t("users.roles.viewer")}</option>
+                <option value="admin">{t("roles.admin")}</option>
+                <option value="operator">{t("roles.operator")}</option>
+                <option value="viewer">{t("roles.viewer")}</option>
               </select>
             </div>
             <DialogFooter>
@@ -372,12 +370,12 @@ export default function UsersPage() {
                 variant="outline"
                 onClick={() => setDialogMode(null)}
               >
-                {t("common.cancel")}
+                {t("common:common.cancel")}
               </Button>
               <Button type="submit" disabled={isBusy}>
                 {dialogMode === "create"
-                  ? t("common.create")
-                  : t("common.save")}
+                  ? t("common:common.create")
+                  : t("common:common.save")}
               </Button>
             </DialogFooter>
           </form>

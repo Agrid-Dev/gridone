@@ -32,18 +32,18 @@ type TransportCardProps = {
 };
 
 function TransportCard({ transport }: TransportCardProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const status = transport.connectionState?.status ?? "unknown";
-  const statusLabel = t(`transports.status.${status}`, {
+  const statusLabel = t(`status.${status}`, {
     defaultValue: status.replace(/_/g, " "),
   });
-  const protocolLabel = t(`transports.protocols.${transport.protocol}`, {
+  const protocolLabel = t(`protocols.${transport.protocol}`, {
     defaultValue: transport.protocol,
   });
   const configSummary = useMemo(() => {
     const entries = Object.entries(transport.config);
     if (!entries.length) {
-      return t("common.noConfiguration");
+      return t("common:common.noConfiguration");
     }
     return entries
       .slice(0, 3)
@@ -79,7 +79,7 @@ function TransportCard({ transport }: TransportCardProps) {
 }
 
 export default function TransportsList() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const can = usePermissions();
 
   const {
@@ -95,7 +95,7 @@ export default function TransportsList() {
   const listError = error
     ? error instanceof Error
       ? error.message
-      : t("transports.unableToLoad")
+      : t("unableToLoad")
     : null;
 
   const hasTransports = transports.length > 0;
@@ -103,15 +103,15 @@ export default function TransportsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("transports.title")}
-        title={t("transports.listTitle", { count: transports.length })}
+        resourceName={t("title")}
+        title={t("listTitle", { count: transports.length })}
         actions={
           <>
             {can("transports:write") && (
               <Button asChild>
                 <Link to="/transports/new">
                   <Plus />
-                  {t("transports.createAction")}
+                  {t("createAction")}
                 </Link>
               </Button>
             )}
@@ -122,8 +122,8 @@ export default function TransportsList() {
       {listError && (
         <Alert variant="destructive">
           <AlertTitle>
-            {t("transports.unableToLoadTitle", {
-              defaultValue: t("common.error"),
+            {t("unableToLoadTitle", {
+              defaultValue: t("common:common.error"),
             })}
           </AlertTitle>
           <AlertDescription>{listError}</AlertDescription>

@@ -22,7 +22,7 @@ const Loader = () => (
 );
 
 function DeviceEdit() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { deviceId } = useParams();
   const { device, loading } = useDeviceDetails(deviceId);
   const { handleDelete, isDeleting } = useDeleteDevice();
@@ -53,7 +53,7 @@ function DeviceEdit() {
 }
 
 export default function DeviceEditWrapper() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   return (
     <section className="space-y-6">
       <ResourceHeader

@@ -8,7 +8,7 @@ import { ApiError } from "@/api/apiError";
 export const useDeleteDevice = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const deleteMutation = useMutation({
     mutationFn: deleteDevice,
     onSuccess: () => {
@@ -16,7 +16,7 @@ export const useDeleteDevice = () => {
       toast.success(t("devices.feedback.deleted"));
     },
     onError: (err: ApiError) => {
-      const errorMessage = `${t("errors.default")}: ${err.details || err.message}`;
+      const errorMessage = `${t("common:errors.default")}: ${err.details || err.message}`;
       toast.error(errorMessage);
     },
     onSettled: () => {

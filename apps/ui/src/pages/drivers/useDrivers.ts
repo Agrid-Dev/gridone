@@ -7,7 +7,7 @@ import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
 
 export const useDrivers = (filters?: Record<string, string>) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   const navigate = useNavigate();
   const driversListQuery = useQuery<Driver[]>({
     queryKey: ["drivers", filters],
@@ -15,7 +15,7 @@ export const useDrivers = (filters?: Record<string, string>) => {
     initialData: [],
   });
   const handleApiError = (err: ApiError) => {
-    const errorMessage = `${t("errors.default")}: ${err.details || err.message}`;
+    const errorMessage = `${t("common:errors.default")}: ${err.details || err.message}`;
     toast.error(errorMessage);
   };
   const createMutation = useMutation({
@@ -23,7 +23,7 @@ export const useDrivers = (filters?: Record<string, string>) => {
     onSuccess: async (result: Driver) => {
       await driversListQuery.refetch();
       navigate(`../${result.id}`);
-      toast.success(t("drivers.feedback.created", { driverId: result.id }));
+      toast.success(t("feedback.created", { driverId: result.id }));
     },
     onError: handleApiError,
   });
@@ -32,7 +32,7 @@ export const useDrivers = (filters?: Record<string, string>) => {
   const deleteMutation = useMutation({
     mutationFn: (driverId: string) => deleteDriver(driverId),
     onSuccess: () => {
-      toast.success(t("drivers.feedback.deleted"));
+      toast.success(t("feedback.deleted"));
       navigate("..");
     },
     onError: handleApiError,

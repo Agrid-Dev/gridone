@@ -24,7 +24,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function TransportDetails() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
   const can = usePermissions();
 
@@ -43,17 +43,17 @@ export default function TransportDetails() {
       <section className="space-y-4">
         <Alert variant="destructive">
           <AlertTitle>
-            {t("transports.unableToLoadTitle", {
-              defaultValue: t("common.error"),
+            {t("unableToLoadTitle", {
+              defaultValue: t("common:common.error"),
             })}
           </AlertTitle>
-          <AlertDescription>{t("transports.unableToLoad")}</AlertDescription>
+          <AlertDescription>{t("unableToLoad")}</AlertDescription>
         </Alert>
         <Link
           to="/transports"
           className="inline-block text-sm font-medium text-foreground transition-colors hover:text-foreground"
         >
-          {t("transports.backToList")}
+          {t("backToList")}
         </Link>
       </section>
     );
@@ -70,8 +70,8 @@ export default function TransportDetails() {
   if (error && !isNotFound(error)) {
     return (
       <ErrorFallback
-        title={t("errors.default")}
-        message={t("errors.loadError", { transportId })}
+        title={t("common:errors.default")}
+        message={t("common:errors.loadError", { transportId })}
       />
     );
   }
@@ -79,27 +79,27 @@ export default function TransportDetails() {
   if (!transport) {
     return (
       <NotFoundFallback
-        title={t("errors.notFound")}
-        message={t("transports.notFoundDetails", { transportId })}
+        title={t("common:errors.notFound")}
+        message={t("notFoundDetails", { transportId })}
       />
     );
   }
 
   const status = transport.connectionState?.status ?? "unknown";
-  const statusLabel = t(`transports.status.${status}`, {
+  const statusLabel = t(`status.${status}`, {
     defaultValue: status.replace(/_/g, " "),
   });
 
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("transports.title")}
+        resourceName={t("title")}
         title={transport.name || transport.id}
         actions={
           can("transports:write") ? (
             <Button variant="outline" asChild>
               <Link to={`/transports/${transportId}/edit`}>
-                {t("transports.editAction")}
+                {t("editAction")}
               </Link>
             </Button>
           ) : undefined
@@ -121,16 +121,14 @@ export default function TransportDetails() {
           to="/transports"
           className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          {t("common.back")}
+          {t("common:common.back")}
         </Link>
       </div>
 
       <Card>
         <CardHeader>
-          <TypographyEyebrow>
-            {t("transports.fields.configuration")}
-          </TypographyEyebrow>
-          <TypographyP>{t("transports.fields.configurationHint")}</TypographyP>
+          <TypographyEyebrow>{t("fields.configuration")}</TypographyEyebrow>
+          <TypographyP>{t("fields.configurationHint")}</TypographyP>
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -145,7 +143,7 @@ export default function TransportDetails() {
             ))}
             {Object.keys(transport.config).length === 0 && (
               <p className="text-sm text-muted-foreground">
-                {t("common.noConfigurationData")}
+                {t("common:common.noConfigurationData")}
               </p>
             )}
           </div>

@@ -1,0 +1,46 @@
+{
+  "title": "Apps",
+  "subtitle": "Registered applications",
+  "singular": "App",
+  "fields": {
+    "name": "Name",
+    "description": "Description",
+    "apiUrl": "API URL",
+    "status": "Status",
+    "createdAt": "Registered on",
+    "icon": "Icon"
+  },
+  "status": {
+    "healthy": "Healthy",
+    "unhealthy": "Unhealthy",
+    "registered": "Registered"
+  },
+  "enable": "Enable",
+  "disable": "Disable",
+  "enabled": "App enabled",
+  "disabled": "App disabled",
+  "disabledBadge": "Disabled",
+  "configuration": "Configuration",
+  "configSaved": "Configuration saved",
+  "configError": "Failed to save configuration",
+  "configSave": "Save",
+  "noConfig": "No configuration available for this application.",
+  "requests": {
+    "title": "Registration requests",
+    "singular": "Request",
+    "pendingTitle": "Pending",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "discarded": "Discarded",
+    "accept": "Accept",
+    "discard": "Discard",
+    "username": "Username",
+    "appName": "App name",
+    "acceptedToast": "Request accepted",
+    "discardedToast": "Request discarded",
+    "discardConfirmTitle": "Discard request",
+    "discardConfirmDetails": "Discard registration request from \"{{name}}\"? This action cannot be undone.",
+    "showArchive": "Show processed ({{count}})",
+    "hideArchive": "Hide processed"
+  }
+}

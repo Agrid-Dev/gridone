@@ -190,7 +190,7 @@ export default function SettingsPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">
             <label className="text-sm font-medium text-foreground">
-              {t("users.fields.username")}
+              {t("settings.fields.username")}
             </label>
             <Input
               {...form.register("username")}
@@ -204,7 +204,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-foreground">
-              {t("users.fields.name")}
+              {t("settings.fields.name")}
             </label>
             <Input
               {...form.register("name")}
@@ -213,7 +213,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-foreground">
-              {t("users.fields.email")}
+              {t("settings.fields.email")}
             </label>
             <Input
               type="email"
@@ -228,7 +228,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium text-foreground">
-              {t("users.fields.title")}
+              {t("settings.fields.title")}
             </label>
             <Input
               {...form.register("title")}

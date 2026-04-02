@@ -24,30 +24,30 @@ export function TransportDeleteDialog({
   onConfirm,
   isDeleting,
 }: TransportDeleteDialogProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant="destructive" type="button" disabled={isDeleting}>
           <TrashIcon className="mr-2 h-4 w-4" />
-          {t("transports.deleteAction")}
+          {t("deleteAction")}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {t("transports.deleteDialog.title", {
-              defaultValue: t("transports.deleteAction"),
+            {t("deleteDialog.title", {
+              defaultValue: t("deleteAction"),
             })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {t("transports.deleteConfirm", { name: transportName })}
+            {t("deleteConfirm", { name: transportName })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogCancel>{t("common:common.cancel")}</AlertDialogCancel>
           <AlertDialogAction onClick={onConfirm}>
-            {t("transports.deleteAction")}
+            {t("deleteAction")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

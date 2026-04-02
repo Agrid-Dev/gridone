@@ -23,7 +23,7 @@ const TransportForm: FC<TransportFormProps> = ({
   transport,
   configSchemas,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const {
     baseFormMethods,
     configFormMethods,
@@ -51,20 +51,20 @@ const TransportForm: FC<TransportFormProps> = ({
           <InputController
             name="name"
             control={baseFormMethods.control}
-            label={t("transports.fields.name")}
+            label={t("fields.name")}
             required
           />
           <SelectController
             name="protocol"
             control={baseFormMethods.control}
-            label={t("transports.fields.protocol")}
+            label={t("fields.protocol")}
             options={transportProtocols.map((protocol) => ({
               value: protocol,
               label: protocol,
             }))}
             required
             disabled={!isCreate}
-            title={t("transports.fields.protocolDisabled")}
+            title={t("fields.protocolDisabled")}
           />
           {jsonSchema &&
             Object.entries(jsonSchema.properties || {}).map(
@@ -89,7 +89,7 @@ const TransportForm: FC<TransportFormProps> = ({
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button variant="outline" type="button" onClick={handleCancel}>
-          {t("common.cancel")}
+          {t("common:common.cancel")}
         </Button>
         <Button
           type="submit"
@@ -102,10 +102,10 @@ const TransportForm: FC<TransportFormProps> = ({
           }
         >
           {isSubmitting
-            ? t("transports.saving")
+            ? t("saving")
             : isCreate
-              ? t("transports.createAction")
-              : t("transports.updateAction")}
+              ? t("createAction")
+              : t("updateAction")}
         </Button>
       </CardFooter>
     </Card>
@@ -114,7 +114,7 @@ const TransportForm: FC<TransportFormProps> = ({
 
 const TransportFormWrapper: FC<{ transport?: Transport }> = ({ transport }) => {
   const { isLoading, configSchemas } = useTransportConfigSchemas();
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   if (isLoading) {
     return <p>Loading</p>;
   }
@@ -122,7 +122,9 @@ const TransportFormWrapper: FC<{ transport?: Transport }> = ({ transport }) => {
     return <h1>Oh no error</h1>;
   }
   return (
-    <ErrorBoundary fallback={<ErrorFallback title={t("errors.default")} />}>
+    <ErrorBoundary
+      fallback={<ErrorFallback title={t("common:errors.default")} />}
+    >
       <TransportForm transport={transport} configSchemas={configSchemas} />
     </ErrorBoundary>
   );

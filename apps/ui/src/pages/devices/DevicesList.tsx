@@ -12,7 +12,7 @@ import { TypeFilter } from "@/components/FilterBar";
 import { Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const filters = useFilterParams();
   const [, setSearchParams] = useSearchParams();
   const { devices, loading, error } = useDevicesList(filters);
@@ -72,7 +72,7 @@ export default function DevicesList() {
         </div>
       ) : (
         <ResourceEmpty
-          resourceName={t("common.device").toLowerCase()}
+          resourceName={t("common:common.device").toLowerCase()}
           filtered={hasFilters}
           onClearFilters={() => setSearchParams({})}
         />

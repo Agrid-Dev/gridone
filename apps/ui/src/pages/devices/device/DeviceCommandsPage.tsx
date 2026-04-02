@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import CommandsPage from "@/pages/devices/commands/CommandsPage";
 
 export default function DeviceCommandsPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
 

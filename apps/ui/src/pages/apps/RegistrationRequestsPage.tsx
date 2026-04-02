@@ -25,10 +25,10 @@ const statusStyles: Record<string, string> = {
 };
 
 function RequestStatusBadge({ status }: { status: string }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   return (
     <Badge variant="outline" className={statusStyles[status]}>
-      {t(`apps.requests.${status}`)}
+      {t(`requests.${status}`)}
     </Badge>
   );
 }
@@ -40,7 +40,7 @@ function RequestsTable({
   requests: RegistrationRequest[];
   renderRow: (req: RegistrationRequest) => React.ReactNode;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   const can = usePermissions();
   return (
     <div className="rounded-lg border border-border bg-card overflow-hidden">
@@ -48,16 +48,16 @@ function RequestsTable({
         <thead>
           <tr className="border-b border-border bg-muted">
             <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-              {t("apps.requests.username")}
+              {t("requests.username")}
             </th>
             <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-              {t("apps.requests.appName")}
+              {t("requests.appName")}
             </th>
             <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-              {t("apps.fields.status")}
+              {t("fields.status")}
             </th>
             <th className="px-4 py-2 text-left font-medium text-muted-foreground">
-              {t("apps.fields.createdAt")}
+              {t("fields.createdAt")}
             </th>
             {can("users:write") && <th className="px-4 py-2" />}
           </tr>
@@ -71,7 +71,7 @@ function RequestsTable({
 }
 
 export default function RegistrationRequestsPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
   const can = usePermissions();
   const navigate = useNavigate();
@@ -86,7 +86,7 @@ export default function RegistrationRequestsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
       queryClient.invalidateQueries({ queryKey: ["apps"] });
-      toast.success(t("apps.requests.acceptedToast"));
+      toast.success(t("requests.acceptedToast"));
       navigate("/apps");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -96,7 +96,7 @@ export default function RegistrationRequestsPage() {
     mutationFn: (id: string) => discardRegistrationRequest(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
-      toast.success(t("apps.requests.discardedToast"));
+      toast.success(t("requests.discardedToast"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -127,21 +127,21 @@ export default function RegistrationRequestsPage() {
                 disabled={acceptMutation.isPending}
               >
                 <CheckCircle className="h-3.5 w-3.5" />
-                {t("apps.requests.accept")}
+                {t("requests.accept")}
               </Button>
               <ConfirmButton
                 variant="outline"
                 size="sm"
                 className="text-destructive"
                 onConfirm={() => discardMutation.mutate(req.id)}
-                confirmTitle={t("apps.requests.discardConfirmTitle")}
-                confirmDetails={t("apps.requests.discardConfirmDetails", {
+                confirmTitle={t("requests.discardConfirmTitle")}
+                confirmDetails={t("requests.discardConfirmDetails", {
                   name: req.username,
                 })}
                 icon={<XCircle />}
                 disabled={discardMutation.isPending}
               >
-                {t("apps.requests.discard")}
+                {t("requests.discard")}
               </ConfirmButton>
             </div>
           </td>
@@ -156,8 +156,8 @@ export default function RegistrationRequestsPage() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("apps.requests.title")}
-        resourceName={t("apps.title")}
+        title={t("requests.title")}
+        resourceName={t("title")}
         resourceNameLinksBack
         backTo="/apps"
       />
@@ -170,7 +170,7 @@ export default function RegistrationRequestsPage() {
         </div>
       ) : requests.length === 0 ? (
         <ResourceEmpty
-          resourceName={t("apps.requests.singular").toLowerCase()}
+          resourceName={t("requests.singular").toLowerCase()}
           showCreate={false}
         />
       ) : (

@@ -40,7 +40,7 @@ import {
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
 export default function DeviceHistoryLayout() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
 
@@ -95,7 +95,7 @@ export default function DeviceHistoryLayout() {
 }
 
 function HistoryToolbar() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const location = useLocation();
   const navigate = useNavigate();
   const {
@@ -134,12 +134,12 @@ function HistoryToolbar() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Settings2 className="mr-2 h-4 w-4" />
-                  {t("common.columns")}
+                  {t("common:common.columns")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>
-                  {t("common.toggleColumns")}
+                  {t("common:common.toggleColumns")}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -148,7 +148,9 @@ function HistoryToolbar() {
                     toggleAll(!allVisible);
                   }}
                 >
-                  {allVisible ? t("common.unselectAll") : t("common.selectAll")}
+                  {allVisible
+                    ? t("common:common.unselectAll")
+                    : t("common:common.selectAll")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {availableAttributes.map((attr) => (

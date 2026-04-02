@@ -39,7 +39,7 @@ export function AssetForm({
   isEdit = false,
   excludeId,
 }: AssetFormProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -57,7 +57,7 @@ export function AssetForm({
 
   const typeOptions = ASSET_TYPES.map((type) => ({
     value: type,
-    label: t(`assets.types.${type}`) as string,
+    label: t(`types.${type}`) as string,
   }));
 
   return (
@@ -65,14 +65,14 @@ export function AssetForm({
       <InputController
         name="name"
         control={form.control}
-        label={t("assets.fields.name")}
+        label={t("fields.name")}
         required
       />
 
       <SelectController
         name="type"
         control={form.control}
-        label={t("assets.fields.type")}
+        label={t("fields.type")}
         options={typeOptions}
         required
       />
@@ -80,19 +80,19 @@ export function AssetForm({
       <SelectController
         name="parentId"
         control={form.control}
-        label={t("assets.fields.parent")}
+        label={t("fields.parent")}
         options={parentOptions}
-        placeholder={t("assets.fields.parentPlaceholder")}
+        placeholder={t("fields.parentPlaceholder")}
         required
       />
 
       <div className="flex justify-end gap-2 pt-2">
         <Button type="submit" disabled={isPending}>
           {isPending
-            ? t("common.saving")
+            ? t("common:common.saving")
             : isEdit
-              ? t("common.save")
-              : t("common.create")}
+              ? t("common:common.save")
+              : t("common:common.create")}
         </Button>
       </div>
     </form>

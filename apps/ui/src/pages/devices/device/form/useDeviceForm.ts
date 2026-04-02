@@ -26,7 +26,7 @@ export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isCreate = device === undefined;
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { driversListQuery: driversQuery } = useDrivers();
   const { transportsListQuery: transportsQuery } = useTransports();
 
@@ -73,7 +73,7 @@ export const useDeviceForm = (device?: Device) => {
   const driverOptions = useMemo(
     () =>
       drivers.map((driver) => {
-        const protocolLabel = t(`transports.protocols.${driver.transport}`, {
+        const protocolLabel = t(`transports:protocols.${driver.transport}`, {
           defaultValue: driver.transport,
         });
         const meta = [driver.vendor, driver.model, driver.version]
@@ -99,7 +99,7 @@ export const useDeviceForm = (device?: Device) => {
   const transportOptions = useMemo(
     () =>
       availableTransports.map((transport) => {
-        const protocolLabel = t(`transports.protocols.${transport.protocol}`, {
+        const protocolLabel = t(`transports:protocols.${transport.protocol}`, {
           defaultValue: transport.protocol,
         });
         return {

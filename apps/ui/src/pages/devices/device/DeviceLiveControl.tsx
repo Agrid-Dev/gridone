@@ -20,7 +20,7 @@ import { toLabel } from "@/lib/textFormat";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { deviceId } = useParams<{ deviceId: string }>();
   const { device, draft, savingAttr, feedback, handleDraftChange, handleSave } =
     useDeviceDetails(deviceId);
@@ -140,7 +140,7 @@ function AttributeCards({
   ) => void;
   onSave: (name: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   return (
     <>
@@ -166,14 +166,16 @@ function AttributeCards({
                       : "bg-muted text-muted-foreground border border-border"
                   }`}
                 >
-                  {isEditable ? t("common.editable") : t("common.readOnly")}
+                  {isEditable
+                    ? t("common:common.editable")
+                    : t("common:common.readOnly")}
                 </span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between border-b border-border pb-2 text-sm">
                 <span className="text-muted-foreground">
-                  {t("common.currentValue")}
+                  {t("common:common.currentValue")}
                 </span>
                 <span className="font-mono font-medium text-foreground">
                   {formatAttributeValue(attribute.currentValue)}
@@ -184,7 +186,7 @@ function AttributeCards({
                   {attribute.dataType === "bool" ? (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-foreground">
-                        {t("common.state")}
+                        {t("common:common.state")}
                       </span>
                       <Switch
                         checked={Boolean(currentValue)}
@@ -196,10 +198,10 @@ function AttributeCards({
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
-                          {t("common.min")} {sliderRange.min}
+                          {t("common:common.min")} {sliderRange.min}
                         </span>
                         <span>
-                          {t("common.max")} {sliderRange.max}
+                          {t("common:common.max")} {sliderRange.max}
                         </span>
                       </div>
                       <Slider
@@ -229,13 +231,14 @@ function AttributeCards({
                     disabled={savingAttr === name}
                   >
                     {savingAttr === name
-                      ? t("common.updating")
-                      : t("common.update")}
+                      ? t("common:common.updating")
+                      : t("common:common.update")}
                   </Button>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  {t("common.lastUpdated")}: {attribute.lastUpdated ?? "—"}
+                  {t("common:common.lastUpdated")}:{" "}
+                  {attribute.lastUpdated ?? "—"}
                 </p>
               )}
             </CardContent>

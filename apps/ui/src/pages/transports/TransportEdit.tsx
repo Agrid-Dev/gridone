@@ -15,7 +15,7 @@ import TransportDiscoveryButton from "@/components/TransportDiscoveryButton";
 import { usePermissions } from "@/contexts/AuthContext";
 
 function TransportEdit() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -41,11 +41,11 @@ function TransportEdit() {
       <section className="space-y-4">
         <Alert variant="destructive">
           <AlertTitle>
-            {t("transports.unableToLoadTitle", {
-              defaultValue: t("common.error"),
+            {t("unableToLoadTitle", {
+              defaultValue: t("common:common.error"),
             })}
           </AlertTitle>
-          <AlertDescription>{t("transports.unableToLoad")}</AlertDescription>
+          <AlertDescription>{t("unableToLoad")}</AlertDescription>
         </Alert>
       </section>
     );
@@ -72,11 +72,11 @@ function TransportEdit() {
         <DangerZone
           onDelete={() => deleteMutation.mutate()}
           isDeleting={deleteMutation.isPending}
-          confirmTitle={t("transports.deleteAction")}
-          confirmDetails={t("transports.deleteConfirm", {
+          confirmTitle={t("deleteAction")}
+          confirmDetails={t("deleteConfirm", {
             name: transport.name,
           })}
-          deleteLabel={t("transports.deleteAction")}
+          deleteLabel={t("deleteAction")}
         />
       )}
     </>
@@ -84,12 +84,12 @@ function TransportEdit() {
 }
 
 export default function TransportEditWrapper() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("transports.title")}
-        title={t("transports.editTitle")}
+        resourceName={t("title")}
+        title={t("editTitle")}
         resourceNameLinksBack
         backTo="/transports"
       />

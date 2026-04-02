@@ -15,7 +15,7 @@ import { listUsers } from "@/api/users";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 
 export default function AppsList() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
   const can = usePermissions();
 
@@ -41,7 +41,7 @@ export default function AppsList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("apps.enabled"));
+      toast.success(t("enabled"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -51,7 +51,7 @@ export default function AppsList() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("apps.disabled"));
+      toast.success(t("disabled"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -69,14 +69,14 @@ export default function AppsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("apps.subtitle")}
-        resourceName={t("apps.title")}
+        title={t("subtitle")}
+        resourceName={t("title")}
         actions={
           can("users:write") ? (
             <Button variant="outline" asChild>
               <Link to="/apps/requests">
                 <ClipboardList />
-                {t("apps.requests.title")}
+                {t("requests.title")}
               </Link>
             </Button>
           ) : undefined
@@ -127,7 +127,7 @@ export default function AppsList() {
                             disableMutation.isPending
                           }
                         >
-                          {t("apps.enable")}
+                          {t("enable")}
                         </Button>
                       ) : (
                         <Button
@@ -140,7 +140,7 @@ export default function AppsList() {
                             disableMutation.isPending
                           }
                         >
-                          {t("apps.disable")}
+                          {t("disable")}
                         </Button>
                       )}
                     </div>
@@ -152,7 +152,7 @@ export default function AppsList() {
         </div>
       ) : (
         <ResourceEmpty
-          resourceName={t("apps.singular").toLowerCase()}
+          resourceName={t("singular").toLowerCase()}
           showCreate={false}
         />
       )}

@@ -7,7 +7,7 @@ import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
 
 export const useTransports = () => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const navigate = useNavigate();
   const transportsListQuery = useQuery<Transport[]>({
     queryKey: ["transports"],
@@ -15,7 +15,7 @@ export const useTransports = () => {
     initialData: [],
   });
   const handleApiError = (err: ApiError) => {
-    const errorMessage = `${t("errors.default")}: ${err.details || err.message}`;
+    const errorMessage = `${t("common:errors.default")}: ${err.details || err.message}`;
     toast.error(errorMessage);
   };
   const createMutation = useMutation({
@@ -23,9 +23,7 @@ export const useTransports = () => {
     onSuccess: async (result: Transport) => {
       await transportsListQuery.refetch();
       navigate(`../${result.id}`);
-      toast.success(
-        t("transports.feedback.created", { transportId: result.id }),
-      );
+      toast.success(t("feedback.created", { transportId: result.id }));
     },
     onError: handleApiError,
   });
@@ -34,7 +32,7 @@ export const useTransports = () => {
   const deleteMutation = useMutation({
     mutationFn: (transportId: string) => deleteTransport(transportId),
     onSuccess: () => {
-      toast.success(t("transports.feedback.deleted"));
+      toast.success(t("feedback.deleted"));
       navigate("..");
     },
     onError: handleApiError,

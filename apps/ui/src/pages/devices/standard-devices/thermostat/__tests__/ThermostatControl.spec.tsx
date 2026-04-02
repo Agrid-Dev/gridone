@@ -158,9 +158,9 @@ describe("ThermostatControl", () => {
 
   it("renders power button with ON label when on", () => {
     renderControl();
-    expect(screen.getByText("thermostat.on")).toBeInTheDocument();
+    expect(screen.getByText("controls.thermostat.on")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "thermostat.turnOff" }),
+      screen.getByRole("button", { name: "controls.thermostat.turnOff" }),
     ).toBeInTheDocument();
   });
 
@@ -169,9 +169,9 @@ describe("ThermostatControl", () => {
       onoffState: { currentValue: false },
     });
     renderControl(device);
-    expect(screen.getByText("thermostat.off")).toBeInTheDocument();
+    expect(screen.getByText("controls.thermostat.off")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "thermostat.turnOn" }),
+      screen.getByRole("button", { name: "controls.thermostat.turnOn" }),
     ).toBeInTheDocument();
   });
 
@@ -185,7 +185,7 @@ describe("ThermostatControl", () => {
     renderControl();
 
     const upButton = screen.getByRole("button", {
-      name: "thermostat.increaseSetpoint",
+      name: "controls.thermostat.increaseSetpoint",
     });
     await user.click(upButton);
 
@@ -197,7 +197,7 @@ describe("ThermostatControl", () => {
     renderControl();
 
     const downButton = screen.getByRole("button", {
-      name: "thermostat.decreaseSetpoint",
+      name: "controls.thermostat.decreaseSetpoint",
     });
     await user.click(downButton);
 
@@ -209,7 +209,7 @@ describe("ThermostatControl", () => {
     renderControl();
 
     const powerButton = screen.getByRole("button", {
-      name: "thermostat.turnOff",
+      name: "controls.thermostat.turnOff",
     });
     await user.click(powerButton);
 
@@ -221,7 +221,7 @@ describe("ThermostatControl", () => {
     renderControl();
 
     const powerButton = screen.getByRole("button", {
-      name: "thermostat.turnOff",
+      name: "controls.thermostat.turnOff",
     });
     expect(powerButton).toBeDisabled();
   });
@@ -233,10 +233,14 @@ describe("ThermostatControl", () => {
     renderControl();
 
     expect(
-      screen.getByRole("button", { name: "thermostat.increaseSetpoint" }),
+      screen.getByRole("button", {
+        name: "controls.thermostat.increaseSetpoint",
+      }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "thermostat.decreaseSetpoint" }),
+      screen.getByRole("button", {
+        name: "controls.thermostat.decreaseSetpoint",
+      }),
     ).toBeDisabled();
   });
 
@@ -247,7 +251,9 @@ describe("ThermostatControl", () => {
     renderControl(device);
 
     expect(
-      screen.queryByRole("button", { name: "thermostat.increaseSetpoint" }),
+      screen.queryByRole("button", {
+        name: "controls.thermostat.increaseSetpoint",
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -258,7 +264,9 @@ describe("ThermostatControl", () => {
     renderControl(device);
 
     expect(
-      screen.queryByRole("button", { name: "thermostat.decreaseSetpoint" }),
+      screen.queryByRole("button", {
+        name: "controls.thermostat.decreaseSetpoint",
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -270,7 +278,9 @@ describe("ThermostatControl", () => {
     renderControl(device);
 
     expect(
-      screen.getByRole("button", { name: "thermostat.increaseSetpoint" }),
+      screen.getByRole("button", {
+        name: "controls.thermostat.increaseSetpoint",
+      }),
     ).toBeDisabled();
   });
 
@@ -282,7 +292,9 @@ describe("ThermostatControl", () => {
     renderControl(device);
 
     expect(
-      screen.getByRole("button", { name: "thermostat.decreaseSetpoint" }),
+      screen.getByRole("button", {
+        name: "controls.thermostat.decreaseSetpoint",
+      }),
     ).toBeDisabled();
   });
 

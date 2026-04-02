@@ -12,7 +12,7 @@ import type { AssetFormValues } from "./components/AssetForm";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetEdit() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const { assetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -29,7 +29,7 @@ export default function AssetEdit() {
     mutationFn: (data: AssetUpdatePayload) => updateAsset(assetId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.updated"));
+      toast.success(t("updated"));
       navigate(`/assets/${assetId}`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -39,7 +39,7 @@ export default function AssetEdit() {
     mutationFn: () => deleteAsset(assetId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.deleted"));
+      toast.success(t("deleted"));
       navigate("/assets");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -65,8 +65,8 @@ export default function AssetEdit() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("assets.edit")}
-        resourceName={t("assets.title")}
+        title={t("edit")}
+        resourceName={t("title")}
         resourceNameLinksBack
         backTo="/assets"
       />
@@ -89,8 +89,8 @@ export default function AssetEdit() {
         <DangerZone
           onDelete={() => deleteMutation.mutate()}
           isDeleting={deleteMutation.isPending}
-          confirmTitle={t("assets.deleteConfirmTitle")}
-          confirmDetails={t("assets.deleteConfirmDetails", {
+          confirmTitle={t("deleteConfirmTitle")}
+          confirmDetails={t("deleteConfirmDetails", {
             name: asset.name,
           })}
         />

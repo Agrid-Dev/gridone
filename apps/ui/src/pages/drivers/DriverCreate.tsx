@@ -5,13 +5,13 @@ import { useDrivers } from "./useDrivers";
 import { ResourceHeader } from "@/components/ResourceHeader";
 
 const DriverCreate: FC = () => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   const { handleCreate } = useDrivers();
   return (
     <div>
       <ResourceHeader
-        resourceName={t("drivers.title")}
-        title={t("drivers.actions.create")}
+        resourceName={t("title")}
+        title={t("actions.create")}
         resourceNameLinksBack
         backTo="/drivers"
       />

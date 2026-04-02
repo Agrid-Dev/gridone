@@ -1,0 +1,32 @@
+{
+  "title": "Utilisateurs",
+  "subtitle": "Gestion des utilisateurs",
+  "create": "Ajouter un utilisateur",
+  "edit": "Modifier l'utilisateur",
+  "created": "Utilisateur cr\u00e9\u00e9",
+  "updated": "Utilisateur mis \u00e0 jour",
+  "deleted": "Utilisateur supprim\u00e9",
+  "deleteConfirmTitle": "Supprimer l'utilisateur",
+  "deleteConfirmDetails": "Supprimer l'utilisateur \u00ab {{name}} \u00bb ? Cette action est irr\u00e9versible.",
+  "blockConfirmTitle": "Bloquer l'utilisateur",
+  "blockConfirmDetails": "Bloquer l'utilisateur \u00ab {{name}} \u00bb ? Il sera imm\u00e9diatement d\u00e9connect\u00e9 et ne pourra plus se connecter.",
+  "blocked": "Utilisateur bloqu\u00e9",
+  "unblocked": "Utilisateur d\u00e9bloqu\u00e9",
+  "blockedBadge": "Bloqu\u00e9",
+  "you": "vous",
+  "roles": {
+    "admin": "Administrateur",
+    "operator": "Op\u00e9rateur",
+    "viewer": "Lecteur"
+  },
+  "fields": {
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "passwordOptional": "Mot de passe (laisser vide pour conserver l'actuel)",
+    "passwordPlaceholder": "Laisser vide pour conserver l'actuel",
+    "name": "Nom complet",
+    "email": "Email",
+    "title": "Titre",
+    "role": "R\u00f4le"
+  }
+}

@@ -33,7 +33,7 @@ export function CommandIndicator({
   newValue,
   dataType,
 }: CommandIndicatorProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const initials = user?.name ? getInitials(user.name) : null;
 
   return (

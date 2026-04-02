@@ -28,7 +28,7 @@ export function DeviceLinkDialog({
   onOpenChange,
   existingDeviceIds,
 }: DeviceLinkDialogProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -52,7 +52,7 @@ export function DeviceLinkDialog({
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],
       });
-      toast.success(t("assets.devices.linked"));
+      toast.success(t("devices.linked"));
       setSelectedId(null);
       setSearch("");
       onOpenChange(false);
@@ -64,11 +64,11 @@ export function DeviceLinkDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("assets.devices.selectDevice")}</DialogTitle>
+          <DialogTitle>{t("devices.selectDevice")}</DialogTitle>
         </DialogHeader>
 
         <Input
-          placeholder={t("assets.devices.selectDevice")}
+          placeholder={t("devices.selectDevice")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -92,20 +92,20 @@ export function DeviceLinkDialog({
             ))
           ) : (
             <p className="px-3 py-4 text-sm text-muted-foreground text-center">
-              {t("common.noResults")}
+              {t("common:common.noResults")}
             </p>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t("common.cancel")}
+            {t("common:common.cancel")}
           </Button>
           <Button
             disabled={!selectedId || mutation.isPending}
             onClick={() => selectedId && mutation.mutate(selectedId)}
           >
-            {t("assets.devices.link")}
+            {t("devices.link")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -3,13 +3,13 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import TransportForm from "./form";
 
 export default function TransportCreate() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
 
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("transports.title")}
-        title={t("transports.createTitle")}
+        resourceName={t("title")}
+        title={t("createTitle")}
         resourceNameLinksBack
         backTo="/transports"
       />

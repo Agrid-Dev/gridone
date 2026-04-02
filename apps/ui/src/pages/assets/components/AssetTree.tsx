@@ -146,7 +146,7 @@ function InlineCreateRow({
   onConfirm: (name: string, type: string) => void;
   onCancel: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const inputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState(nextTypeMap[parentType] ?? "zone");
@@ -182,7 +182,7 @@ function InlineCreateRow({
       >
         {ASSET_TYPES.map((at) => (
           <option key={at} value={at}>
-            {t(`assets.types.${at}`, { defaultValue: at })}
+            {t(`types.${at}`, { defaultValue: at })}
           </option>
         ))}
       </select>
@@ -194,7 +194,7 @@ function InlineCreateRow({
           if (e.key === "Enter") submit();
           if (e.key === "Escape") onCancel();
         }}
-        placeholder={t("assets.inlineCreate.placeholder")}
+        placeholder={t("inlineCreate.placeholder")}
         className="h-7 flex-1 rounded border border-border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
       />
     </div>
@@ -228,7 +228,7 @@ function TreeNode({
   onCreateChild?: (parentId: string, name: string, type: string) => void;
   onRename?: (assetId: string, newName: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const expanded = expandedIds.has(node.id);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(node.name);
@@ -355,7 +355,7 @@ function TreeNode({
           variant="outline"
           className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
         >
-          {t(`assets.types.${node.type}`, { defaultValue: node.type })}
+          {t(`types.${node.type}`, { defaultValue: node.type })}
         </Badge>
 
         {/* Hover actions */}
@@ -369,7 +369,7 @@ function TreeNode({
                   setIsRenaming(true);
                 }}
                 className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
-                title={t("assets.edit")}
+                title={t("edit")}
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -381,7 +381,7 @@ function TreeNode({
                   setAddingChildOf(node.id);
                 }}
                 className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
-                title={t("assets.addChild")}
+                title={t("addChild")}
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -444,7 +444,7 @@ function TreeNode({
 
 /** Ghost node shown during drag. */
 function DragOverlayContent({ node }: { node: AssetTreeNode }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const Icon = typeIcons[node.type] ?? Building2;
 
   return (
@@ -456,7 +456,7 @@ function DragOverlayContent({ node }: { node: AssetTreeNode }) {
         variant="outline"
         className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
       >
-        {t(`assets.types.${node.type}`, { defaultValue: node.type })}
+        {t(`types.${node.type}`, { defaultValue: node.type })}
       </Badge>
     </div>
   );
