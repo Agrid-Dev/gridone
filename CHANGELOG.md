@@ -1,3 +1,10 @@
+## v0.31.1 (2026-04-02)
+
+### Refactor
+
+- **devices-manager**: register asyncpg jsonb codec
+- **devices-manager**: refactor postgres storage to prepare attribute persistence
+
 ## v0.31.0 (2026-04-02)
 
 ### Refactor
