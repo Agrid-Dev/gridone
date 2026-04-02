@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from devices_manager.dto import DeviceDTO
 from rich.table import Table
+
+from devices_manager.dto import DeviceDTO
 
 
 def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001

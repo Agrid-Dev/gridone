@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.transports.modbus_tcp_transport.modbus_address import (
     ModbusAddress,
     ModbusAddressType,

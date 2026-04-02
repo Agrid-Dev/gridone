@@ -1,6 +1,7 @@
 import base64
 
 import pytest
+
 from devices_manager.core.value_adapters.factory import value_adapter_entries
 from devices_manager.core.value_adapters.registry.base64_adapter import base64_adapter
 from devices_manager.core.value_adapters.registry.json_pointer_adapter import (

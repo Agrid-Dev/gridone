@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from models.types import DataType
 from timeseries.storage.postgres.deserialize import deserialize_command_value
 

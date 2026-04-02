@@ -1,8 +1,9 @@
 import os
 
-from api import create_app
 from fastapi.middleware.cors import CORSMiddleware
 from logging_config import DEV_LOGGING_CONFIG, PROD_LOGGING_CONFIG
+
+from api import create_app
 
 _env = os.environ.get("GRIDONE_ENV", "development")
 _logging_config = PROD_LOGGING_CONFIG if _env == "production" else DEV_LOGGING_CONFIG

@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_connection_state import (
     ConnectionStatus,

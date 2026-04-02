@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
+
 from devices_manager.dto import DeviceDTO, DriverDTO, build_transport_dto
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import TransportProtocols

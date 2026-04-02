@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+
 from devices_manager.core.device import PhysicalDevice
 from devices_manager.core.discovery_manager.discovery_handler import (
     DiscoveryHandler,

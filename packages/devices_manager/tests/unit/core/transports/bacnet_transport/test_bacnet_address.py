@@ -1,11 +1,12 @@
 import pytest
+from pydantic import ValidationError
+
 from devices_manager.core.transports.bacnet_transport.bacnet_address import (
     BacnetAddress,
     BacnetObjectType,
     bacnet_object_type_from_raw,
     initials,
 )
-from pydantic import ValidationError
 
 
 @pytest.mark.parametrize(

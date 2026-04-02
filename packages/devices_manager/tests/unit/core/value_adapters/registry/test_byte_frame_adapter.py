@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.value_adapters.registry.byte_frame_adapter import (
     byte_frame_adapter,
 )

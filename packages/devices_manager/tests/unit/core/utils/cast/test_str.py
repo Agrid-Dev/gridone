@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.utils.cast.str import cast_as_str
 
 

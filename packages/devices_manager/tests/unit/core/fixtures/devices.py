@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+
 from devices_manager.core.device import DeviceBase, PhysicalDevice
 
 if TYPE_CHECKING:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+
 from devices_manager.core.device.attribute import Attribute
 from devices_manager.core.device.virtual_device import VirtualDevice
 from devices_manager.types import DataType, DeviceKind

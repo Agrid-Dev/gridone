@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+
 from devices_manager.core.tasks_registry import TasksRegistry
 
 

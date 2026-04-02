@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.device import DeviceBase, PhysicalDevice
 from devices_manager.core.transports import (
     TransportMetadata,

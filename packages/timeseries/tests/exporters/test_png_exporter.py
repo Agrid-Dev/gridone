@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import matplotlib.pyplot as plt
 import pytest
+
 from timeseries.domain import DataPoint, DataType, TimeSeries
 from timeseries.exporters.png import to_figure
 

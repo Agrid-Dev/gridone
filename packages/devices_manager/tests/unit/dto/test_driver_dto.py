@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.dto.driver_dto import DriverDTO
 
 

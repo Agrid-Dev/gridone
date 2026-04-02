@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+
 from models.errors import NotFoundError
 from timeseries.domain import DataPoint, DataType
 from timeseries.service import TimeSeriesService

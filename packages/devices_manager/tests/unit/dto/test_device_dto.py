@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import TypeAdapter, ValidationError
+
 from devices_manager.dto.device_dto import (
     AttributeCreateDTO,
     DeviceCreateDTO,
@@ -8,7 +10,6 @@ from devices_manager.dto.device_dto import (
     VirtualDeviceCreateDTO,
 )
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
-from pydantic import TypeAdapter, ValidationError
 
 _dto_adapter: TypeAdapter[DeviceCreateDTO] = TypeAdapter(DeviceCreateDTO)
 

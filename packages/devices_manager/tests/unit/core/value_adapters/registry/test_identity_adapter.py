@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.value_adapters.registry.identity_adapter import (
     identity_adapter,
 )

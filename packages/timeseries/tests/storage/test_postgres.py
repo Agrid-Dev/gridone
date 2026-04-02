@@ -7,6 +7,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 from conftest import make_command
+
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     CommandStatus,

@@ -1,6 +1,5 @@
-from models.errors import InvalidError
-
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from models.errors import InvalidError
 
 
 def _parse_slice_string(argument: str) -> slice:

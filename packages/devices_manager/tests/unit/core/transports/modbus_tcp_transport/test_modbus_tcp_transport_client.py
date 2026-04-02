@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 import pytest
+
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportClient,
     ModbusTCPTransportConfig,

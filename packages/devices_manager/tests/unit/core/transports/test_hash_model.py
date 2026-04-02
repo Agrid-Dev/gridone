@@ -1,5 +1,6 @@
-from devices_manager.core.transports.hash_model import hash_model
 from pydantic import BaseModel
+
+from devices_manager.core.transports.hash_model import hash_model
 
 
 class MockModel(BaseModel):

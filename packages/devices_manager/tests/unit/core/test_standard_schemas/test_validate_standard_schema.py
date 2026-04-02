@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import pytest
+
 from devices_manager.core.standard_schemas import (
     StandardAttributeSchema,
     StandardAttributeSchemaField,

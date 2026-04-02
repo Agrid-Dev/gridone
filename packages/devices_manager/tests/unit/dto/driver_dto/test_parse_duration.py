@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.driver.parse_duration import parse_duration
 
 

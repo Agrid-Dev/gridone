@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+
 from models.errors import InvalidError
 from timeseries.domain import (
     DATA_TYPE_MAP,

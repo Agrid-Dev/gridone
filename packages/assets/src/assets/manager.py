@@ -1,10 +1,9 @@
 import uuid
 
-from models.errors import InvalidError, NotFoundError
-
 from assets.models import Asset, AssetCreate, AssetType, AssetUpdate, DeviceAssetLink
 from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
+from models.errors import InvalidError, NotFoundError
 
 
 class AssetsManager:

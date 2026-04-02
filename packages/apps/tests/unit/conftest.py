@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+
 from apps.models import App, AppStatus, RegistrationRequest
 from users import UsersManagerInterface
 from users.models import User, UserType

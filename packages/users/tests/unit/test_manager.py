@@ -1,6 +1,7 @@
 """Unit tests for UsersManager blocking functionality."""
 
 import pytest
+
 from models.errors import BlockedUserError, NotFoundError
 from users import UsersManager
 from users.models import Role, UserInDB

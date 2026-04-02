@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.transports.http_transport.http_address import (
     HttpAddress,
 )

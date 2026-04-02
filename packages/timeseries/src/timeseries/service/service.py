@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
-
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,

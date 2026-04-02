@@ -5,6 +5,7 @@ import os
 import asyncpg
 import pytest
 import pytest_asyncio
+
 from assets.models import AssetType, DeviceAssetLink
 from assets.storage.models import AssetInDB
 from assets.storage.postgres import run_migrations

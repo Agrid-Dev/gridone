@@ -5,11 +5,10 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
-from models.errors import ConfirmationError
-
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.types import DeviceKind
+from models.errors import ConfirmationError
 
 from .attribute import Attribute
 from .device import Device

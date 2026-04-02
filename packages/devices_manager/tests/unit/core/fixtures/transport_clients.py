@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from pydantic import BaseModel
+
 from devices_manager.core.transports import (
     BaseTransportConfig,
     PushTransportAddress,
@@ -18,7 +20,6 @@ from devices_manager.core.transports.listener_registry import (
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import AttributeValueType, TransportProtocols
-from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from collections.abc import Callable

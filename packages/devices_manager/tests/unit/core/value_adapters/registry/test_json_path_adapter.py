@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+
 from devices_manager.core.value_adapters.registry.json_path_adapter import (
     json_path_adapter,
 )
