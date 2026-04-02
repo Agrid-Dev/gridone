@@ -12,6 +12,8 @@ def make_storage(url: str) -> DevicesManagerStorage:
 
 async def build_storage(url: str) -> DevicesManagerStorage:
     if url.startswith(POSTGRES_PREFIXES):
+        import json  # noqa: PLC0415
+
         import asyncpg  # noqa: PLC0415
 
         from .postgres import (  # noqa: PLC0415
@@ -19,8 +21,18 @@ async def build_storage(url: str) -> DevicesManagerStorage:
             run_migrations,
         )
 
+        async def _init_connection(conn: asyncpg.Connection) -> None:
+            await conn.set_type_codec(
+                "jsonb",
+                encoder=json.dumps,
+                decoder=json.loads,
+                schema="pg_catalog",
+            )
+
         run_migrations(url)
-        pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
+        pool = await asyncpg.create_pool(
+            dsn=url, min_size=1, max_size=3, init=_init_connection
+        )
         return PostgresDevicesManagerStorage(pool)
     return make_storage(url)
 
