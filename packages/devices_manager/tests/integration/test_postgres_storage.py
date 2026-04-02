@@ -540,3 +540,91 @@ class TestComposedStorage:
         assert result.id == device.id
         assert result.driver_id == "d1"
         assert result.transport_id == "t1"
+
+
+# ---------------------------------------------------------------------------
+# Attribute Persistence (save_attribute)
+# ---------------------------------------------------------------------------
+
+
+class TestAttributePersistence:
+    async def test_save_attribute_creates_new(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        await device_storage.write("dev1", _make_device("dev1"))
+
+        attr = Attribute.create("temp", DataType.FLOAT, {"read"}, 23.5)
+        await device_storage.save_attribute("dev1", attr)
+
+        result = await device_storage.read("dev1")
+        assert "temp" in result.attributes
+        assert result.attributes["temp"].current_value == 23.5
+
+    async def test_save_attribute_updates_existing(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        attrs = {
+            "temp": Attribute.create("temp", DataType.FLOAT, {"read"}, 20.0),
+        }
+        await device_storage.write("dev1", _make_device("dev1", attributes=attrs))
+
+        updated = Attribute.create("temp", DataType.FLOAT, {"read"}, 25.0)
+        await device_storage.save_attribute("dev1", updated)
+
+        result = await device_storage.read("dev1")
+        assert result.attributes["temp"].current_value == 25.0
+
+    async def test_save_attribute_via_composed_storage(
+        self,
+        composed_storage: PostgresDevicesManagerStorage,
+    ):
+        await composed_storage.transports.write("t1", _make_transport("t1"))
+        await composed_storage.drivers.write("d1", _make_driver("d1"))
+        await composed_storage.devices.write("dev1", _make_device("dev1"))
+
+        attr = Attribute.create("humidity", DataType.FLOAT, {"read"}, 60.0)
+        await composed_storage.attributes.save_attribute("dev1", attr)
+
+        result = await composed_storage.devices.read("dev1")
+        assert result.attributes["humidity"].current_value == 60.0
+
+    async def test_virtual_device_attribute_round_trip(
+        self,
+        device_storage: PostgresDeviceStorage,
+    ):
+        """Virtual device attributes persist and restore correctly."""
+        device = DeviceDTO(
+            id="vdev1",
+            kind=DeviceKind.VIRTUAL,
+            name="Virtual Sensor",
+            type="sensor",
+            attributes={
+                "value": Attribute.create(
+                    "value",
+                    DataType.FLOAT,
+                    {"read", "write"},
+                    42.0,
+                ),
+            },
+        )
+        await device_storage.write(device.id, device)
+
+        # Update attribute via save_attribute
+        updated = Attribute.create("value", DataType.FLOAT, {"read", "write"}, 99.0)
+        await device_storage.save_attribute("vdev1", updated)
+
+        # Read back and verify
+        result = await device_storage.read("vdev1")
+        assert result.kind == DeviceKind.VIRTUAL
+        assert result.attributes["value"].current_value == 99.0

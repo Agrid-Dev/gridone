@@ -2,6 +2,7 @@ import asyncpg
 
 from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
 from devices_manager.storage.storage_backend import (
+    AttributeStorageBackend,
     DevicesManagerStorage,
     StorageBackend,
 )
@@ -16,12 +17,15 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
     devices: StorageBackend[DeviceDTO]
     drivers: StorageBackend[DriverDTO]
     transports: StorageBackend[TransportDTO]
+    attributes: AttributeStorageBackend
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
-        self.devices = PostgresDeviceStorage(pool)
+        device_storage = PostgresDeviceStorage(pool)
+        self.devices = device_storage
         self.drivers = PostgresDriverStorage(pool)
         self.transports = PostgresTransportStorage(pool)
+        self.attributes = device_storage
 
     @classmethod
     async def from_url(cls, url: str) -> "PostgresDevicesManagerStorage":

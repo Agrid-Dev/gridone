@@ -13,6 +13,7 @@ from .core.device import (
     Device,
     DeviceBase,
     PhysicalDevice,
+    VirtualDevice,
 )
 from .core.discovery_manager import (
     DiscoveryContext,
@@ -248,39 +249,35 @@ class DevicesManager:
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
-            if d.kind != DeviceKind.PHYSICAL:
-                # Virtual device restore handled in sub-issue AGR-381
-                logger.warning("Skipping non-physical device %s on load", d.id)
-                continue
-            try:
-                driver = dm._drivers[d.driver_id]  # type: ignore[index]
-            except KeyError:
-                logger.exception(
-                    "Cannot create device %s: missing driver %s", d.id, d.driver_id
-                )
-                continue
-            try:
-                transport = dm._transports[d.transport_id]  # type: ignore[index]
-            except KeyError:
-                logger.exception(
-                    "Cannot create device %s: missing transport %s",
-                    d.id,
-                    d.transport_id,
-                )
-                continue
             logger.info("Adding device %s", d.id)
             try:
-                device = PhysicalDevice.from_base(
-                    DeviceBase(id=d.id, name=d.name, config=d.config or {}),
-                    transport=transport,
-                    driver=driver,
-                    initial_values={
-                        name: attr.current_value
-                        for name, attr in d.attributes.items()
-                        if attr.current_value is not None
-                    },
-                )
+                if d.kind == DeviceKind.VIRTUAL:
+                    device: Device = VirtualDevice(
+                        id=d.id,
+                        name=d.name,
+                        type=d.type,
+                        attributes=dict(d.attributes),
+                    )
+                else:
+                    driver = dm._drivers[d.driver_id]  # type: ignore[index]
+                    transport = dm._transports[d.transport_id]  # type: ignore[index]
+                    device = PhysicalDevice.from_base(
+                        DeviceBase(
+                            id=d.id,
+                            name=d.name,
+                            config=d.config or {},
+                        ),
+                        transport=transport,
+                        driver=driver,
+                        initial_values={
+                            name: attr.current_value
+                            for name, attr in d.attributes.items()
+                            if attr.current_value is not None
+                        },
+                    )
                 dm._register_device(device)
+            except KeyError:
+                logger.exception("Failed to init device %s", d.id)
             except Exception:
                 logger.exception("Failed to init device %s", d.id)
         return dm
@@ -294,7 +291,35 @@ class DevicesManager:
             transports=await repository.transports.read_all(),
         )
         dm._storage = repository  # noqa: SLF001
+        dm._register_attribute_persistence_listener()  # noqa: SLF001
         return dm
+
+    def _register_attribute_persistence_listener(self) -> None:
+        """Register a listener that persists attribute values on change.
+
+        The listener is async and fire-and-forget: it does not block
+        the polling or write hot path.
+        """
+        if not self._storage:
+            return
+
+        storage = self._storage
+
+        async def _persist_attribute(
+            device: Device,
+            _attribute_name: str,
+            attribute: Attribute,
+        ) -> None:
+            try:
+                await storage.attributes.save_attribute(device.id, attribute)
+            except Exception:
+                logger.exception(
+                    "Failed to persist attribute %s for device %s",
+                    attribute.name,
+                    device.id,
+                )
+
+        self.add_device_attribute_listener(_persist_attribute)
 
     @property
     def transport_ids(self) -> set[str]:
