@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 
@@ -106,7 +107,15 @@ async def pool():
     assert POSTGRES_URL is not None
     run_migrations(POSTGRES_URL)
 
-    pool = await asyncpg.create_pool(POSTGRES_URL)
+    async def _init_connection(conn: asyncpg.Connection) -> None:
+        await conn.set_type_codec(
+            "jsonb",
+            encoder=json.dumps,
+            decoder=json.loads,
+            schema="pg_catalog",
+        )
+
+    pool = await asyncpg.create_pool(POSTGRES_URL, init=_init_connection)
 
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM dm_device_attributes")

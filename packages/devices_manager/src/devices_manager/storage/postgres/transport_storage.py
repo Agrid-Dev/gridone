@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING
 
 from devices_manager.core.transports import (
     ConnectionStatus,
@@ -23,13 +22,8 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
         self._pool = pool
 
     @staticmethod
-    def _parse_jsonb(raw: Any) -> Any:  # noqa: ANN401
-        return json.loads(raw) if isinstance(raw, str) else raw
-
-    @classmethod
-    def _row_to_dto(cls, row: asyncpg.Record) -> TransportDTO:
-        config = cast("dict", cls._parse_jsonb(row["config"]))
-        raw_state = cls._parse_jsonb(row["connection_state"])
+    def _row_to_dto(row: asyncpg.Record) -> TransportDTO:
+        raw_state = row["connection_state"]
         connection_state = (
             TransportConnectionState(
                 status=ConnectionStatus(raw_state["status"]),
@@ -42,7 +36,7 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
             transport_id=row["id"],
             name=row["name"],
             protocol=row["protocol"],
-            config=config,
+            config=row["config"],
             connection_state=connection_state,
         )
 
@@ -60,16 +54,18 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
     async def write(self, item_id: str, data: TransportDTO) -> None:
         dumped = data.model_dump(mode="json")
         await self._pool.execute(
-            "INSERT INTO dm_transports (id, name, protocol, config, connection_state) "
-            "VALUES ($1, $2, $3, $4::jsonb, $5::jsonb) "
+            "INSERT INTO dm_transports "
+            "(id, name, protocol, config, connection_state) "
+            "VALUES ($1, $2, $3, $4, $5) "
             "ON CONFLICT (id) DO UPDATE SET "
             "name = EXCLUDED.name, protocol = EXCLUDED.protocol, "
-            "config = EXCLUDED.config, connection_state = EXCLUDED.connection_state",
+            "config = EXCLUDED.config, "
+            "connection_state = EXCLUDED.connection_state",
             item_id,
             dumped["name"],
             dumped["protocol"],
-            json.dumps(dumped["config"]),
-            json.dumps(dumped.get("connection_state", {})),
+            dumped["config"],
+            dumped.get("connection_state", {}),
         )
 
     async def read_all(self) -> list[TransportDTO]:

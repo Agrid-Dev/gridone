@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import json
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 from devices_manager.core.device import Attribute
 from devices_manager.dto import DeviceDTO
@@ -17,10 +16,6 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    @staticmethod
-    def _parse_jsonb(raw: Any) -> Any:  # noqa: ANN401
-        return json.loads(raw) if isinstance(raw, str) else raw
-
     def _build_dto(
         self,
         row: asyncpg.Record,
@@ -28,20 +23,20 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
     ) -> DeviceDTO:
         attributes: dict[str, Attribute] = {}
         for attr_row in attribute_rows:
-            raw_modes = self._parse_jsonb(attr_row["read_write_modes"])
+            raw_modes = attr_row["read_write_modes"]
             attributes[attr_row["name"]] = Attribute(
                 name=attr_row["name"],
                 data_type=DataType(attr_row["data_type"]),
                 read_write_modes=set(raw_modes) if raw_modes else set(),
                 current_value=cast(
                     "AttributeValueType | None",
-                    self._parse_jsonb(attr_row["current_value"]),
+                    attr_row["current_value"],
                 ),
                 last_updated=attr_row["last_updated"],
                 last_changed=attr_row["last_changed"],
             )
 
-        config = self._parse_jsonb(row["config"])
+        config = row["config"]
         return DeviceDTO(
             id=row["id"],
             kind=DeviceKind(row["kind"]),
@@ -78,7 +73,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
             await conn.execute(
                 "INSERT INTO dm_devices"
                 " (id, kind, name, type, config, driver_id, transport_id)"
-                " VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)"
+                " VALUES ($1, $2, $3, $4, $5, $6, $7)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " kind = EXCLUDED.kind, name = EXCLUDED.name,"
                 " type = EXCLUDED.type, config = EXCLUDED.config,"
@@ -88,7 +83,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
                 dumped["kind"],
                 dumped["name"],
                 dumped.get("type"),
-                json.dumps(dumped["config"]) if dumped.get("config") else None,
+                dumped["config"] if dumped.get("config") else None,
                 dumped.get("driver_id"),
                 dumped.get("transport_id"),
             )
@@ -123,7 +118,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
                 "INSERT INTO dm_device_attributes "
                 "(device_id, name, data_type, read_write_modes, "
                 "current_value, last_updated, last_changed) "
-                "VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7) "
                 "ON CONFLICT (device_id, name) DO UPDATE SET "
                 "data_type = EXCLUDED.data_type, "
                 "read_write_modes = EXCLUDED.read_write_modes, "
@@ -133,13 +128,33 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
                 device_id,
                 attr.name,
                 attr.data_type.value,
-                json.dumps(list(attr.read_write_modes)),
-                json.dumps(
-                    attr.model_dump(mode="json")["current_value"],
-                ),
+                list(attr.read_write_modes),
+                attr.model_dump(mode="json")["current_value"],
                 attr.last_updated,
                 attr.last_changed,
             )
+
+    async def save_attribute(self, device_id: str, attribute: Attribute) -> None:
+        """Persist a single attribute value (upsert)."""
+        await self._pool.execute(
+            "INSERT INTO dm_device_attributes "
+            "(device_id, name, data_type, read_write_modes, "
+            "current_value, last_updated, last_changed) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
+            "ON CONFLICT (device_id, name) DO UPDATE SET "
+            "data_type = EXCLUDED.data_type, "
+            "read_write_modes = EXCLUDED.read_write_modes, "
+            "current_value = EXCLUDED.current_value, "
+            "last_updated = EXCLUDED.last_updated, "
+            "last_changed = EXCLUDED.last_changed",
+            device_id,
+            attribute.name,
+            attribute.data_type.value,
+            list(attribute.read_write_modes),
+            attribute.model_dump(mode="json")["current_value"],
+            attribute.last_updated,
+            attribute.last_changed,
+        )
 
     async def read_all(self) -> list[DeviceDTO]:
         device_rows = await self._pool.fetch(

@@ -1,5 +1,3 @@
-import json
-
 import asyncpg
 
 from devices_manager.dto import DriverDTO
@@ -22,7 +20,6 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
 
     @staticmethod
     def _row_to_dto(row: asyncpg.Record) -> DriverDTO:
-        data = json.loads(row["data"]) if isinstance(row["data"], str) else row["data"]
         return DriverDTO.model_validate(
             {
                 "id": row["id"],
@@ -30,7 +27,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
                 "model": row["model"],
                 "type": row["type"],
                 "transport": row["transport"],
-                **data,
+                **row["data"],
             }
         )
 
@@ -38,7 +35,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
     def _dto_to_columns(
         item_id: str,
         dto: DriverDTO,
-    ) -> tuple[str, str | None, str | None, str | None, str, str]:
+    ) -> tuple[str, str | None, str | None, str | None, str, dict]:
         dumped = dto.model_dump(mode="json")
         jsonb_data = {k: dumped[k] for k in _JSONB_FIELDS if k in dumped}
         return (
@@ -47,7 +44,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
             dumped.get("model"),
             dumped.get("type"),
             dumped["transport"],
-            json.dumps(jsonb_data),
+            jsonb_data,
         )
 
     async def read(self, item_id: str) -> DriverDTO:
@@ -66,7 +63,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
         await self._pool.execute(
             "INSERT INTO dm_drivers"
             " (id, vendor, model, type, transport, data)"
-            " VALUES ($1, $2, $3, $4, $5, $6::jsonb)"
+            " VALUES ($1, $2, $3, $4, $5, $6)"
             " ON CONFLICT (id) DO UPDATE SET"
             " vendor = EXCLUDED.vendor, model = EXCLUDED.model,"
             " type = EXCLUDED.type, transport = EXCLUDED.transport,"
