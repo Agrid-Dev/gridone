@@ -1,3 +1,9 @@
+## v0.31.0 (2026-04-02)
+
+### Refactor
+
+- **ui**: split i18n locales files
+
 ## v0.30.0 (2026-04-01)
 
 ### Feat
