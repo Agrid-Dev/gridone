@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType
 

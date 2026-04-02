@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError
-
 from timeseries.storage.memory import MemoryStorage
 
 if TYPE_CHECKING:

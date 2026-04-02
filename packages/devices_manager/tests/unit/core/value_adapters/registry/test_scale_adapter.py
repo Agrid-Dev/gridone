@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.value_adapters.registry.scale_adapter import scale_adapter
 
 

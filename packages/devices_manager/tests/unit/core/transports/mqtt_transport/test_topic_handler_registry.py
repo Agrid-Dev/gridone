@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from aiomqtt import Topic
+
 from devices_manager.core.transports.mqtt_transport.topic_handler_registry import (
     TopicHandlerRegistry,
 )

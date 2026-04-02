@@ -6,12 +6,12 @@ import asyncio
 from typing import Annotated
 
 import typer
-from devices_manager import DevicesManager
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
 from cli.config import get_db_path
+from devices_manager import DevicesManager
 
 from .formatters import autoformat_value, device_to_table
 

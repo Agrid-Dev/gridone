@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aiomqtt import Topic
+
 from devices_manager.core.transports.mqtt_transport import (
     MqttAddress,
     MqttTransportClient,

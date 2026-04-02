@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from devices_manager.core.driver import Driver
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.core.driver.driver_metadata import DriverMetadata

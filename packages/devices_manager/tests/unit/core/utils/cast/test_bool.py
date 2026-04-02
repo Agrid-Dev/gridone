@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.utils.cast.bool import cast_as_bool
 
 

@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+
 from devices_manager import DevicesManager
 from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import Driver, UpdateStrategy

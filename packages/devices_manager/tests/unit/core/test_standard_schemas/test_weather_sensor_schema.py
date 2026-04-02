@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import pytest
+
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.core.standard_schemas.registry.weather_sensor import (
     WEATHER_SENSOR_KEY,

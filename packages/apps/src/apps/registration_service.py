@@ -3,10 +3,6 @@ import uuid
 from datetime import UTC, datetime
 
 import yaml
-from models.errors import InvalidError, NotFoundError
-from users import User, UserCreate, UsersManagerInterface
-from users.models import UserType
-from users.password import hash_password
 
 from apps.models import (
     REQUIRED_CONFIG_FIELDS,
@@ -20,6 +16,10 @@ from apps.storage.storage_backend import (
     AppStorageBackend,
     RegistrationRequestStorageBackend,
 )
+from models.errors import InvalidError, NotFoundError
+from users import User, UserCreate, UsersManagerInterface
+from users.models import UserType
+from users.password import hash_password
 
 logger = logging.getLogger(__name__)
 

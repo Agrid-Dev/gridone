@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 import pytest
+
 from devices_manager.core.utils.templating.render import (
     Struct,
     TemplatingContext,

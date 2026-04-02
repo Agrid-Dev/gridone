@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
-
 from timeseries.domain import DataPoint, DeviceCommand, SortOrder
 
 if TYPE_CHECKING:

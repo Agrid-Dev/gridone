@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
+
 from devices_manager.core import Driver, TransportClient
 from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import (

@@ -4,8 +4,8 @@ import logging
 from typing import TYPE_CHECKING
 
 import asyncpg
-from models.errors import InvalidError, NotFoundError
 
+from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
     DataType,

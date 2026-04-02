@@ -1,7 +1,6 @@
 import uuid
 
 from models.errors import BlockedUserError, NotFoundError
-
 from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage.storage_backend import UsersStorageBackend

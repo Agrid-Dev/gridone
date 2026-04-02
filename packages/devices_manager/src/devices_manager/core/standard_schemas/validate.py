@@ -1,9 +1,8 @@
 import re
 from typing import Protocol
 
-from models.errors import InvalidError
-
 from devices_manager.types import DataType
+from models.errors import InvalidError
 
 from .registry import default_registry
 from .standard_schema import (

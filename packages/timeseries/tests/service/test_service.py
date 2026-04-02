@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from conftest import make_command
+
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from timeseries.domain import (

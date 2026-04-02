@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 

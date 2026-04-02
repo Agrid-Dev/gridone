@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,

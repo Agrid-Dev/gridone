@@ -1,11 +1,12 @@
 import pytest
+from pydantic import ValidationError
+
 from devices_manager.core.driver.update_strategy import (
     DEFAULT_POLLING_INTERVAL,
     DEFAULT_READ_TIMEOUT,
     MAX_TIMEOUT,
     UpdateStrategy,
 )
-from pydantic import ValidationError
 
 
 def test_instanciate_update_strategy():

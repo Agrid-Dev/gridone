@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import asyncpg
 import pytest
 import pytest_asyncio
+
 from devices_manager.core.device import Attribute
 from devices_manager.dto import DeviceDTO, TransportDTO
 from devices_manager.dto.driver_dto import DriverDTO

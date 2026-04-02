@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 from devices_manager.core.value_adapters.registry.byte_convert_adapter import (
     byte_convert_adapter,

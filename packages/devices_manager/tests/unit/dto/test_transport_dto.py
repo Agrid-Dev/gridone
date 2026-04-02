@@ -1,4 +1,5 @@
 import pytest
+
 from devices_manager.core.transports import TransportConnectionState, TransportMetadata
 from devices_manager.core.transports.http_transport import (
     HTTPTransportClient,

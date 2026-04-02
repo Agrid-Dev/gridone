@@ -1,12 +1,12 @@
 """Unit tests for RegistrationService: create, list, get, accept, discard."""
 
 import pytest
-from apps.registration_service import RegistrationService
 from conftest import VALID_CONFIG
-from models.errors import InvalidError, NotFoundError
-from users.models import User, UserType
 
 from apps import RegistrationRequestCreate, RegistrationRequestStatus
+from apps.registration_service import RegistrationService
+from models.errors import InvalidError, NotFoundError
+from users.models import User, UserType
 
 pytestmark = pytest.mark.asyncio
 

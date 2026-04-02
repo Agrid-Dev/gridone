@@ -1,7 +1,6 @@
 import logging
 
 from models.errors import InvalidError, NotFoundError
-
 from timeseries.domain import DataPoint, DataType, SeriesKey
 from timeseries.service import TimeSeriesService
 from timeseries.storage import build_storage

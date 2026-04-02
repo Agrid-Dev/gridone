@@ -3,9 +3,10 @@ import re
 from typing import Any
 
 from cli.devices import app
+from typer.testing import CliRunner
+
 from devices_manager import DevicesManager
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from typer.testing import CliRunner
 
 from .conftest import TEST_DRIVER
 
