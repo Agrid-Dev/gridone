@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
 
 from devices_manager.core.device import (
     Attribute,
@@ -28,6 +28,7 @@ class PhysicalDeviceCreateDTO(BaseModel):
 
 
 class VirtualDeviceCreateDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     kind: Literal[DeviceKind.VIRTUAL] = DeviceKind.VIRTUAL
     name: Annotated[str, Field(default_factory=lambda: "")]
     attributes: list[AttributeCreateDTO]
@@ -65,6 +66,7 @@ class DeviceUpdateDTO(BaseModel):
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
+    attributes: list[AttributeCreateDTO] | None = None
 
 
 def core_to_dto(device: Device) -> DeviceDTO:
