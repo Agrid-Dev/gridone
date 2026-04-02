@@ -120,7 +120,7 @@ export function Sidebar() {
               <>
                 {activeIndicator(isActive)}
                 <Blocks className="h-4 w-4" />
-                {t("apps.title")}
+                {t("app.apps")}
               </>
             )}
           </NavLink>
@@ -133,7 +133,7 @@ export function Sidebar() {
                 <>
                   {activeIndicator(isActive)}
                   <Users className="h-4 w-4" />
-                  {t("users.title")}
+                  {t("app.users")}
                 </>
               )}
             </NavLink>
@@ -165,12 +165,13 @@ export function Sidebar() {
                         {user.name || user.username}
                       </p>
                       <p className="truncate text-xs text-sidebar-foreground/60">
-                        {t(`users.roles.${user.role}`)}
+                        {t(`users:roles.${user.role}`)}
                       </p>
                     </div>
                     <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/40" />
                   </button>
                 </DropdownMenuTrigger>
+
                 <DropdownMenuContent side="top" align="start" className="w-56">
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
@@ -182,17 +183,23 @@ export function Sidebar() {
                       </p>
                     </div>
                   </DropdownMenuLabel>
+
                   <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="h-4 w-4" />
                     {t("settings.subtitle")}
                   </DropdownMenuItem>
+
                   <DropdownMenuSeparator />
+
                   <div className="space-y-3 px-2 py-2">
                     <ThemeSwitcher />
                     <LanguageSwitcher />
                   </div>
+
                   <DropdownMenuSeparator />
+
                   <DropdownMenuItem onClick={logout}>
                     <LogOut className="h-4 w-4" />
                     {t("auth.logout")}

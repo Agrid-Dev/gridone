@@ -80,7 +80,7 @@ export function DeviceHistoryProvider({
   attributeNames,
   children,
 }: DeviceHistoryProviderProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const [searchParams] = useSearchParams();
 
   const timeRange = useMemo(

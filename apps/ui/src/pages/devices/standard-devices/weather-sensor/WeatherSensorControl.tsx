@@ -25,7 +25,7 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
       <div className="mb-5 flex flex-col items-center gap-1">
         <WeatherIcon className="h-10 w-10 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">
-          {t(`weatherCodes.${weather.labelKey}`)}
+          {t(`controls.weatherCodes.${weather.labelKey}`)}
         </span>
       </div>
 
@@ -43,7 +43,7 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
         <div className="flex flex-col items-center gap-1.5 rounded-xl border bg-muted/30 p-4">
           <Wind className="h-5 w-5 text-muted-foreground" />
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {t("weatherSensor.wind")}
+            {t("controls.weatherSensor.wind")}
           </span>
           <span className="text-lg font-medium tabular-nums">
             {fmt(a.windSpeed, 0)}{" "}
@@ -69,7 +69,7 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
         <div className="flex flex-col items-center gap-1.5 rounded-xl border bg-muted/30 p-4">
           <Droplets className="h-5 w-5 text-muted-foreground" />
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {t("weatherSensor.humidity")}
+            {t("controls.weatherSensor.humidity")}
           </span>
           <span className="text-lg font-medium tabular-nums">
             {fmt(a.humidity, 0)}

@@ -34,7 +34,7 @@ import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 const PAGE_SIZE = 20;
 
 export default function DeviceHistoryTable() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const {
     availableAttributes,
     dataTypes,
@@ -128,7 +128,9 @@ export default function DeviceHistoryTable() {
   if (error) {
     return (
       <ErrorFallback
-        title={error instanceof Error ? error.message : t("errors.default")}
+        title={
+          error instanceof Error ? error.message : t("common:errors.default")
+        }
         showHomeLink={false}
       />
     );
@@ -141,7 +143,7 @@ export default function DeviceHistoryTable() {
           <EmptyMedia variant="icon">
             <History />
           </EmptyMedia>
-          <EmptyTitle>{t("common.noData")}</EmptyTitle>
+          <EmptyTitle>{t("common:common.noData")}</EmptyTitle>
           <EmptyDescription>
             {t("deviceDetails.noHistoryDescription", {
               defaultValue:
@@ -198,7 +200,7 @@ export default function DeviceHistoryTable() {
                   colSpan={table.getAllColumns().length}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  {t("common.noResults")}
+                  {t("common:common.noResults")}
                 </TableCell>
               </TableRow>
             )}
@@ -210,7 +212,7 @@ export default function DeviceHistoryTable() {
       {totalRows > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {t("common.rowsRange", {
+            {t("common:common.rowsRange", {
               from: currentPage * pageSize + 1,
               to: Math.min((currentPage + 1) * pageSize, totalRows),
               total: totalRows,

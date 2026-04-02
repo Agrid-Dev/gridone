@@ -28,7 +28,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     submitDisabled,
   } = useDeviceForm(device);
 
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -84,7 +84,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
           />
           {transportsError && (
             <p className="text-sm text-destructive md:col-span-2">
-              {t("transports.unableToLoad")}
+              {t("devices.fields.transportLoadError")}
             </p>
           )}
           {configFields.map((field) => (
@@ -99,14 +99,14 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
           ))}
           {selectedDriver && configFields.length === 0 && (
             <p className="text-sm text-muted-foreground md:col-span-2">
-              {t("common.noConfiguration")}
+              {t("common:common.noConfiguration")}
             </p>
           )}
         </form>
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button variant="outline" type="button" onClick={handleCancel}>
-          {t("common.cancel")}
+          {t("common:common.cancel")}
         </Button>
         <Button type="submit" form="device-form" disabled={submitDisabled}>
           {isPending

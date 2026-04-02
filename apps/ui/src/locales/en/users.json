@@ -1,0 +1,32 @@
+{
+  "title": "Users",
+  "subtitle": "User management",
+  "create": "Add user",
+  "edit": "Edit user",
+  "created": "User created",
+  "updated": "User updated",
+  "deleted": "User deleted",
+  "deleteConfirmTitle": "Delete user",
+  "deleteConfirmDetails": "Delete user \"{{name}}\"? This action cannot be undone.",
+  "blockConfirmTitle": "Block user",
+  "blockConfirmDetails": "Block user \"{{name}}\"? They will be immediately logged out and unable to sign in.",
+  "blocked": "User blocked",
+  "unblocked": "User unblocked",
+  "blockedBadge": "Blocked",
+  "you": "you",
+  "roles": {
+    "admin": "Admin",
+    "operator": "Operator",
+    "viewer": "Viewer"
+  },
+  "fields": {
+    "username": "Username",
+    "password": "Password",
+    "passwordOptional": "Password (leave blank to keep current)",
+    "passwordPlaceholder": "Leave blank to keep current",
+    "name": "Full name",
+    "email": "Email",
+    "title": "Title",
+    "role": "Role"
+  }
+}

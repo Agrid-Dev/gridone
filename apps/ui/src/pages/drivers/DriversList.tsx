@@ -17,7 +17,7 @@ import { useFilterParams } from "@/hooks/useFilterParams";
 import { TypeFilter } from "@/components/FilterBar";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   return (
     <Link to={driver.id} className="block h-full no-underline">
       <Card>
@@ -29,7 +29,7 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
           <Badge variant="secondary">{driver.transport}</Badge>
           <Badge variant="outline">
             {driver.attributes.length}&nbsp;
-            {t("drivers.attribute", { count: driver.attributes.length })}
+            {t("attribute", { count: driver.attributes.length })}
           </Badge>
         </CardContent>
       </Card>
@@ -41,19 +41,19 @@ const DriversListContainer: FC<{
   driversCount: number;
   children: React.ReactNode;
 }> = ({ driversCount, children }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   const can = usePermissions();
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("drivers.title")}
-        title={t("drivers.list", { count: driversCount })}
+        resourceName={t("title")}
+        title={t("list", { count: driversCount })}
         actions={
           can("drivers:write") ? (
             <Button asChild>
               <Link to="new">
                 <Plus />
-                {t("drivers.actions.create")}
+                {t("actions.create")}
               </Link>
             </Button>
           ) : undefined

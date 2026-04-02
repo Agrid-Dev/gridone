@@ -1,0 +1,27 @@
+{
+  "title": "Drivers",
+  "list": "List of available drivers ({{count}})",
+  "attribute_one": "attribute",
+  "attribute_other": "attributes",
+  "notFoundDetails": "No driver found for id \"{{driverId}}\"",
+  "fields": {
+    "type": "Device type",
+    "vendor": "Vendor",
+    "model": "Model",
+    "version": "Version",
+    "protocol": "Protocol",
+    "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
+    "updateStrategy": "Update strategy",
+    "deviceConfig": "Device configuration"
+  },
+  "actions": {
+    "create": "New driver",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete this driver?",
+    "deleteConfirmDetails": "Driver will be permanently deleted."
+  },
+  "feedback": {
+    "created": "Driver {{driverId}} created",
+    "deleted": "Driver deleted"
+  }
+}

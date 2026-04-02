@@ -3,7 +3,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { useTranslation } from "react-i18next";
 
 export default function DeviceCreate() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   return (
     <section className="space-y-6">
       <ResourceHeader

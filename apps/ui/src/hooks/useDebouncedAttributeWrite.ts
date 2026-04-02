@@ -39,7 +39,7 @@ export function useDebouncedAttributeWrite({
         const updated = await updateDeviceAttribute(deviceId, name, value);
         queryClient.setQueryData<Device>(["device", deviceId], updated);
         toast.success(
-          t("thermostat.attributeUpdated", {
+          t("controls.thermostat.attributeUpdated", {
             name,
             value: String(value ?? "—"),
           }),
@@ -49,7 +49,7 @@ export function useDebouncedAttributeWrite({
           ? err.details || err.message
           : err instanceof Error
             ? err.message
-            : t("common:deviceDetails.updateFailed");
+            : t("deviceDetails.updateFailed");
         toast.error(message);
       } finally {
         setSaving((prev) => {

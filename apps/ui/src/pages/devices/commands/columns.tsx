@@ -27,7 +27,7 @@ export function buildCommandColumns(
   return [
     {
       accessorKey: "timestamp",
-      header: () => t("common.timestamp"),
+      header: () => t("common:common.timestamp"),
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
           {new Date(row.getValue<string>("timestamp")).toLocaleString()}

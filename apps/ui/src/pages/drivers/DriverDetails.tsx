@@ -59,12 +59,12 @@ const DriverDetails: FC<{
   driver: Driver;
   onDelete: (driverId: string) => Promise<void>;
 }> = ({ driver, onDelete }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   const can = usePermissions();
   return (
     <div className="space-y-6">
       <ResourceHeader
-        resourceName={t("drivers.title")}
+        resourceName={t("title")}
         title={driver.id}
         resourceNameLinksBack
         backTo="/drivers"
@@ -75,50 +75,45 @@ const DriverDetails: FC<{
 
           <div className="flex justify-start gap-16 my-4">
             <LabelledProperty
-              label={t("drivers.fields.vendor")}
+              label={t("fields.vendor")}
               value={driver.vendor}
             />
+            <LabelledProperty label={t("fields.model")} value={driver.model} />
             <LabelledProperty
-              label={t("drivers.fields.model")}
-              value={driver.model}
-            />
-            <LabelledProperty
-              label={t("drivers.fields.version")}
+              label={t("fields.version")}
               value={driver.version}
             />
             <LabelledProperty
-              label={t("drivers.fields.protocol")}
+              label={t("fields.protocol")}
               value={driver.transport}
             />
             <LabelledProperty
-              label={t("drivers.fields.type")}
+              label={t("fields.type")}
               value={<DeviceTypeChip type={driver.type} />}
             />
           </div>
-          <TypographyH3>{t("drivers.fields.updateStrategy")}</TypographyH3>
+          <TypographyH3>{t("fields.updateStrategy")}</TypographyH3>
           <div className="flex justify-start gap-16 my-4">
             {Object.entries(driver.updateStrategy).map(([key, value]) => (
               <LabelledProperty key={key} label={toLabel(key)} value={value} />
             ))}
           </div>
           <div className="my-4">
-            <TypographyH3>{t("drivers.fields.deviceConfig")}</TypographyH3>
+            <TypographyH3>{t("fields.deviceConfig")}</TypographyH3>
             <TypographySmall>
-              {t("drivers.fields.deviceConfigDescription")}
+              {t("fields.deviceConfigDescription")}
             </TypographySmall>
             <TypographyP>
               {driver.deviceConfig.length > 0 ? (
                 <b>{driver.deviceConfig.map(({ name }) => name).join(", ")}</b>
               ) : (
-                t("drivers.fields.none")
+                t("fields.none")
               )}
             </TypographyP>
           </div>
           <div className="my-4">
             <TypographyH3>
-              {toLabel(
-                t("drivers.attribute", { count: driver.attributes.length }),
-              )}
+              {toLabel(t("attribute", { count: driver.attributes.length }))}
             </TypographyH3>
             <ul>
               {driver.attributes.map((attribute) => (
@@ -136,9 +131,9 @@ const DriverDetails: FC<{
           onDelete={() => {
             onDelete(driver.id);
           }}
-          confirmTitle={t("drivers.actions.deleteConfirmTitle")}
-          confirmDetails={t("drivers.actions.deleteConfirmDetails")}
-          deleteLabel={t("drivers.actions.delete")}
+          confirmTitle={t("actions.deleteConfirmTitle")}
+          confirmDetails={t("actions.deleteConfirmDetails")}
+          deleteLabel={t("actions.delete")}
         />
       )}
     </div>
@@ -148,7 +143,7 @@ const DriverDetails: FC<{
 const DriverDetailsWrapper: FC = () => {
   const { driversListQuery: query, handleDelete } = useDrivers();
   const { driverId } = useParams();
-  const { t } = useTranslation();
+  const { t } = useTranslation("drivers");
   if (query.isLoading) {
     return (
       <section className="space-y-4">
@@ -162,9 +157,7 @@ const DriverDetailsWrapper: FC = () => {
   }
   const driver = query.data.find((d) => d.id == driverId);
   if (!driver) {
-    return (
-      <NotFoundFallback message={t("drivers.notFoundDetails", { driverId })} />
-    );
+    return <NotFoundFallback message={t("notFoundDetails", { driverId })} />;
   }
   return (
     <ErrorBoundary fallback={<ErrorFallback />}>

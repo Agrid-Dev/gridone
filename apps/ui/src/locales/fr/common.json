@@ -1,9 +1,9 @@
 {
   "appearance": {
-    "theme": "Thème",
+    "theme": "Th\u00e8me",
     "light": "Clair",
     "dark": "Sombre",
-    "system": "Système",
+    "system": "Syst\u00e8me",
     "language": "Langue"
   },
   "auth": {
@@ -12,65 +12,38 @@
       "password": "Mot de passe",
       "signIn": "Se connecter",
       "signingIn": "Connexion...",
-      "error": "Échec de la connexion. Veuillez réessayer.",
+      "error": "\u00c9chec de la connexion. Veuillez r\u00e9essayer.",
       "validation": {
-        "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
-        "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
-        "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
-        "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères."
+        "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caract\u00e8res.",
+        "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caract\u00e8res.",
+        "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caract\u00e8res.",
+        "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caract\u00e8res."
       }
     },
-    "logout": "Se déconnecter"
-  },
-  "users": {
-    "title": "Utilisateurs",
-    "subtitle": "Gestion des utilisateurs",
-    "create": "Ajouter un utilisateur",
-    "edit": "Modifier l'utilisateur",
-    "created": "Utilisateur créé",
-    "updated": "Utilisateur mis à jour",
-    "deleted": "Utilisateur supprimé",
-    "deleteConfirmTitle": "Supprimer l'utilisateur",
-    "deleteConfirmDetails": "Supprimer l'utilisateur « {{name}} » ? Cette action est irréversible.",
-    "blockConfirmTitle": "Bloquer l'utilisateur",
-    "blockConfirmDetails": "Bloquer l'utilisateur « {{name}} » ? Il sera immédiatement déconnecté et ne pourra plus se connecter.",
-    "blocked": "Utilisateur bloqué",
-    "unblocked": "Utilisateur débloqué",
-    "blockedBadge": "Bloqué",
-    "you": "vous",
-    "roles": {
-      "admin": "Administrateur",
-      "operator": "Opérateur",
-      "viewer": "Lecteur"
-    },
-    "fields": {
-      "username": "Nom d'utilisateur",
-      "password": "Mot de passe",
-      "passwordOptional": "Mot de passe (laisser vide pour conserver l'actuel)",
-      "passwordPlaceholder": "Laisser vide pour conserver l'actuel",
-      "name": "Nom complet",
-      "email": "Email",
-      "title": "Titre",
-      "role": "Rôle",
-      "role": "Rôle"
-    }
+    "logout": "Se d\u00e9connecter"
   },
   "settings": {
-    "title": "Paramètres",
+    "title": "Param\u00e8tres",
     "subtitle": "Mon profil",
-    "saved": "Profil enregistré",
-    "mustChangePassword": "Veuillez changer votre mot de passe par défaut avant de continuer.",
+    "saved": "Profil enregistr\u00e9",
+    "mustChangePassword": "Veuillez changer votre mot de passe par d\u00e9faut avant de continuer.",
     "newPassword": "Nouveau mot de passe",
     "newPasswordPlaceholder": "Laisser vide pour conserver l'actuel",
     "confirmPassword": "Confirmer le nouveau mot de passe",
     "confirmPasswordPlaceholder": "Confirmez votre nouveau mot de passe",
     "passwordMismatch": "Les mots de passe ne correspondent pas",
+    "fields": {
+      "username": "Nom d'utilisateur",
+      "name": "Nom",
+      "email": "Email",
+      "title": "Titre"
+    },
     "validation": {
-      "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
-      "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
+      "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caract\u00e8res.",
+      "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caract\u00e8res.",
       "emailInvalid": "Veuillez saisir une adresse email valide.",
-      "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
-      "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères.",
+      "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caract\u00e8res.",
+      "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caract\u00e8res.",
       "confirmPasswordRequired": "Veuillez confirmer votre nouveau mot de passe."
     }
   },
@@ -79,29 +52,29 @@
     "updating": "Mise à jour...",
     "back": "Retour",
     "home": "Accueil",
-    "backToDevices": "← Retour aux appareils",
+    "backToDevices": "\u2190 Retour aux appareils",
     "loading": "Chargement...",
     "error": "Erreur",
-    "success": "Succès",
-    "noData": "Aucune donnée",
+    "success": "Succ\u00e8s",
+    "noData": "Aucune donn\u00e9e",
     "min": "Min",
     "max": "Max",
     "currentValue": "Valeur actuelle",
-    "state": "État",
-    "lastUpdated": "Dernière mise à jour",
-    "tapForDetails": "Appuyer pour les détails",
-    "noLiveMetrics": "Aucune métrique en direct",
+    "state": "\u00c9tat",
+    "lastUpdated": "Derni\u00e8re mise \u00e0 jour",
+    "tapForDetails": "Appuyer pour les d\u00e9tails",
+    "noLiveMetrics": "Aucune m\u00e9trique en direct",
     "noConfiguration": "Aucune configuration",
-    "noConfigurationData": "Aucune donnée de configuration",
+    "noConfigurationData": "Aucune donn\u00e9e de configuration",
     "optional": "Optionnel",
     "true": "Vrai",
     "false": "Faux",
     "cancel": "Annuler",
-    "create": "Créer",
+    "create": "Cr\u00e9er",
     "save": "Enregistrer",
     "delete": "Supprimer",
     "dangerZone": "Zone de danger",
-    "dangerZoneDescription": "Actions irréversibles. Veuillez procéder avec prudence.",
+    "dangerZoneDescription": "Actions irr\u00e9versibles. Veuillez proc\u00e9der avec prudence.",
     "saving": "Enregistrement...",
     "readOnly": "Lecture seule",
     "editable": "Modifiable",
@@ -115,19 +88,19 @@
     "deviceTypes": {
       "thermostat": "Thermostat",
       "awhp": "PAC air-eau",
-      "weather_sensor": "Station météo"
+      "weather_sensor": "Station m\u00e9t\u00e9o"
     },
-    "recentlyUpdated": "Mis à jour récemment",
-    "lastUpdate": "Mis à jour il y a",
+    "recentlyUpdated": "Mis \u00e0 jour r\u00e9cemment",
+    "lastUpdate": "Mis \u00e0 jour il y a",
     "notFound": "Introuvable",
-    "noResults": "Aucun résultat",
+    "noResults": "Aucun r\u00e9sultat",
     "rows": "lignes",
-    "previous": "Précédent",
+    "previous": "Pr\u00e9c\u00e9dent",
     "next": "Suivant",
     "columns": "Attributs",
     "toggleColumns": "Afficher les attributs",
-    "selectAll": "Tout sélectionner",
-    "unselectAll": "Tout désélectionner",
+    "selectAll": "Tout s\u00e9lectionner",
+    "unselectAll": "Tout d\u00e9s\u00e9lectionner",
     "timestamp": "Horodatage",
     "rowsRange": "{{from}}\u2013{{to}} sur {{total}} lignes",
     "timeAgo": {
@@ -150,8 +123,8 @@
   },
   "empty": {
     "title": "Aucun {{resourceName}} pour le moment",
-    "details": "Vous n'avez pas encore créé de {{resourceName}}. Commencez par créer votre premier {{resourceName}}.",
-    "new": "Créer un {{resourceName}}",
+    "details": "Vous n'avez pas encore cr\u00e9\u00e9 de {{resourceName}}. Commencez par cr\u00e9er votre premier {{resourceName}}.",
+    "new": "Cr\u00e9er un {{resourceName}}",
     "noMatch": "Aucun {{resourceName}} correspondant",
     "clearFiltersHint": "Essayez d'ajuster ou de supprimer vos filtres.",
     "clearFilters": "Effacer les filtres"
@@ -164,274 +137,8 @@
     "assets": "Zones",
     "devices": "Appareils",
     "drivers": "Drivers",
-    "transports": "Transports"
-  },
-  "assets": {
-    "title": "Zones",
-    "singular": "Zone",
-    "subtitle": "Hiérarchie des zones",
-    "create": "Créer une zone",
-    "edit": "Modifier la zone",
-    "created": "Zone créée",
-    "updated": "Zone mise à jour",
-    "deleted": "Zone supprimée",
-    "deleteConfirmTitle": "Supprimer la zone",
-    "deleteConfirmDetails": "Supprimer la zone « {{name}} » ? Cette action est irréversible.",
-    "moved": "Zone déplacée",
-    "renamed": "Zone renommée",
-    "children": "Enfants",
-    "addChild": "Ajouter une zone enfant",
-    "noChildren": "Aucune zone enfant",
-    "inlineCreate": {
-      "placeholder": "Nom de la zone..."
-    },
-    "fields": {
-      "name": "Nom",
-      "type": "Type",
-      "parent": "Zone parente",
-      "parentPlaceholder": "Aucun (racine)",
-      "path": "Chemin"
-    },
-    "types": {
-      "org": "Organisation",
-      "building": "Bâtiment",
-      "floor": "Étage",
-      "room": "Salle",
-      "zone": "Zone"
-    },
-    "devices": {
-      "title": "Appareils liés",
-      "link": "Lier un appareil",
-      "unlink": "Délier",
-      "linked": "Appareil lié",
-      "unlinked": "Appareil délié",
-      "selectDevice": "Sélectionner un appareil",
-      "noDevices": "Aucun appareil lié"
-    }
-  },
-  "devices": {
-    "title": "Appareils",
-    "subtitle": "Flotte connectée",
-    "unableToLoad": "Impossible de charger les appareils",
-    "connectedFleet": "Flotte connectée",
-    "create": {
-      "title": "Ajouter un appareil",
-      "description": "Ajoutez les détails pour un nouvel appareil."
-    },
-    "edit": {
-      "title": "Modifier l’appareil"
-    },
-    "fields": {
-      "driver": "Driver",
-      "driverPlaceholder": "Sélectionnez un pilote",
-      "transport": "Transport",
-      "transportPlaceholder": "Sélectionnez un transport",
-      "transportDisabled": "Sélectionnez d'abord un pilote",
-      "name": "Nom de l'appareil"
-    },
-    "actions": {
-      "create": "Créer l'appareil",
-      "delete": "Supprimer",
-      "update": "Mettre à jour",
-      "deleteDialogTitle": "Confirmer la suppression",
-      "deleteDialogContent": "Supprimer l'appareil {{name}} ? Cette action est irréversible.",
-      "edit": "Modifier"
-    },
-    "feedback": {
-      "deleted": "Appareil supprimé"
-    },
-    "saving": "Enregistrement..."
-  },
-  "deviceDetails": {
-    "title": "Appareil",
-    "attributes": "Attributs",
-    "advancedAttributes": "Attributs avancés",
-    "configuration": "Configuration",
-    "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
-    "missingDeviceId": "Identifiant d'appareil manquant",
-    "unableToLoad": "Impossible de charger l'appareil",
-    "updated": "{{name}} mis à jour",
-    "updateFailed": "Échec de la mise à jour",
-    "liveControl": "Contrôle en direct",
-    "history": "Historique",
-    "table": "Tableau",
-    "chart": "Graphique",
-    "selectAttributes": "Sélectionner des attributs...",
-    "searchAttributes": "Rechercher des attributs...",
-    "rangeLastMinutes": "{{count}} dernières min",
-    "rangeLastHours_one": "Dernière heure",
-    "rangeLastHours_other": "{{count}} dernières heures",
-    "rangeLastDays_one": "Dernier jour",
-    "rangeLastDays_other": "{{count}} derniers jours",
-    "rangeAll": "Tout l'historique",
-    "rangeCustom": "Plage personnalisée",
-    "rangeApply": "Appliquer",
-    "downloadCsv": "Télécharger en CSV",
-    "downloadPng": "Télécharger en PNG",
-    "downloadPngSuccess": "PNG exporté",
-    "downloadPngError": "Échec de l'export PNG"
-  },
-  "transports": {
-    "title": "Transports",
-    "listTitle": "Liste des transports ({{count}})",
-    "subtitle": "Canaux d'intégration",
-    "createTitle": "Créer un transport",
-    "editTitle": "Modifier le transport",
-    "createSubtitle": "Configurer une nouvelle connexion",
-    "editSubtitle": "Mettre à jour les paramètres du transport",
-    "notFoundDetails": "Aucun transport trouvé pour l'id \"{{transportId}}\"",
-    "fields": {
-      "name": "Nom",
-      "protocol": "Protocole",
-      "protocolDisabled": "Le protocole d'un transport ne peut être modifié après création.",
-      "configuration": "Configuration",
-      "configurationHint": "Ajustez les paramètres spécifiques au protocole ci-dessous.",
-      "schemaUnavailable": "Aucun schéma n'est disponible pour ce protocole."
-    },
-    "protocols": {
-      "mqtt": "MQTT",
-      "http": "HTTP",
-      "modbus_tcp": "Modbus TCP",
-      "bacnet": "BACnet"
-    },
-    "validation": {
-      "required": "Ce champ est requis.",
-      "integer": "Entrez un nombre entier.",
-      "number": "Entrez un nombre valide."
-    },
-    "saving": "Enregistrement...",
-    "createAction": "Créer un transport",
-    "updateAction": "Mettre à jour",
-    "editAction": "Modifier",
-    "deleteAction": "Supprimer",
-    "deletingAction": "Suppression...",
-    "state": "État",
-    "empty": "Aucun transport pour le moment.",
-    "unableToLoad": "Impossible de charger les transports",
-    "unableToLoadSchemas": "Impossible de charger les schémas de transport",
-    "saveFailed": "Impossible d'enregistrer le transport",
-    "createSuccess": "Transport créé avec succès.",
-    "updateSuccess": "Transport mis à jour avec succès.",
-    "deleteFailed": "Impossible de supprimer le transport",
-    "deleteConfirm": "Supprimer le transport « {{name}} » ?",
-    "discovery": {
-      "title": "Découverte",
-      "description": "Activez ou désactivez la découverte par driver pour ce transport.",
-      "active": "Actif",
-      "inactive": "Inactif",
-      "loadError": "Impossible de charger l’état de la découverte",
-      "action": "Chercher les appareils",
-      "inProgress": "Recherche en cours...",
-      "noDriver": "Aucun driver compatible avec la recherche pour ce transport",
-      "noDriverSelected": "Veuillez sélectionner un driver",
-      "failed": "Échec de la recherche",
-      "modalTitle": "Chercher des appareils",
-      "modalDescription": "Sélectionnez un driver pour découvrir les appareils sur {{transportName}}.",
-      "modalTitleSuccess": "Recherche lancée",
-      "modalDescriptionSuccess": "La recherche a démarré pour {{transportName}} (driver : {{driverId}}). Vous pouvez aller à la liste des appareils.",
-      "selectDriver": "Driver",
-      "selectDriverPlaceholder": "Sélectionnez un driver",
-      "start": "Démarrer la recherche",
-      "viewDevices": "Aller aux appareils",
-      "stay": "Rester sur les transports",
-      "protocolNotSupported": "Ce protocole ne supporte pas la découverte automatique d'appareils."
-    },
-    "status": {
-      "connected": "Connecté",
-      "connecting": "Connexion...",
-      "connection_error": "Erreur de connexion",
-      "idle": "Inactif",
-      "closing": "Fermeture",
-      "closed": "Fermé",
-      "unknown": "Inconnu"
-    }
-  },
-  "commands": {
-    "title": "Commandes",
-    "subtitle": "Historique des commandes",
-    "device": "Appareil",
-    "attribute": "Attribut",
-    "user": "Utilisateur",
-    "value": "Valeur",
-    "status": "Statut",
-    "details": "Détails",
-    "allDevices": "Tous les appareils",
-    "allAttributes": "Tous les attributs",
-    "allUsers": "Tous les utilisateurs",
-    "noCommands": "Aucune commande enregistrée.",
-    "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
-  },
-  "apps": {
-    "title": "Applications",
-    "subtitle": "Applications enregistrées",
-    "singular": "Application",
-    "fields": {
-      "name": "Nom",
-      "description": "Description",
-      "apiUrl": "URL de l'API",
-      "status": "Statut",
-      "createdAt": "Date d'enregistrement",
-      "icon": "Icône"
-    },
-    "status": {
-      "healthy": "En ligne",
-      "unhealthy": "Hors ligne",
-      "registered": "Enregistré"
-    },
-    "enable": "Activer",
-    "disable": "Désactiver",
-    "enabled": "Application activée",
-    "disabled": "Application désactivée",
-    "disabledBadge": "Désactivée",
-    "configuration": "Configuration",
-    "configSaved": "Configuration enregistrée",
-    "configError": "Erreur lors de l'enregistrement de la configuration",
-    "configSave": "Enregistrer",
-    "noConfig": "Aucune configuration disponible pour cette application.",
-    "requests": {
-      "title": "Demandes d'enregistrement",
-      "singular": "Demande",
-      "pendingTitle": "En attente",
-      "pending": "En attente",
-      "accepted": "Acceptée",
-      "discarded": "Rejetée",
-      "accept": "Accepter",
-      "discard": "Rejeter",
-      "username": "Nom d'utilisateur",
-      "appName": "Nom de l'application",
-      "acceptedToast": "Demande acceptée",
-      "discardedToast": "Demande rejetée",
-      "discardConfirmTitle": "Rejeter la demande",
-      "discardConfirmDetails": "Rejeter la demande d'enregistrement de « {{name}} » ? Cette action est irréversible.",
-      "showArchive": "Afficher les traitées ({{count}})",
-      "hideArchive": "Masquer les traitées"
-    }
-  },
-  "drivers": {
-    "title": "Drivers",
-    "list": "Liste des drivers disponibles ({{count}})",
-    "attribute_one": "attribut",
-    "attribute_other": "attributs",
-    "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
-    "fields": {
-      "type": "Type d’appareil",
-      "vendor": "Fabricant",
-      "model": "Modèle",
-      "version": "Version",
-      "protocol": "Protocole",
-      "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
-      "updateStrategy": "Stratégie de mise à jour",
-      "deviceConfig": "Configuration des appareils"
-    },
-    "actions": {
-      "create": "Nouveau driver",
-      "delete": "Supprimer",
-      "deleteConfirmTitle": "Supprimer ce driver ?",
-      "deleteConfirmDetails": "Cette action ne peut pas être annulée."
-    },
-    "feedback": {
-      "created": "Driver {{driverId}} créé",
-      "deleted": "Driver supprimé"
-    }
+    "transports": "Transports",
+    "apps": "Applications",
+    "users": "Utilisateurs"
   }
 }

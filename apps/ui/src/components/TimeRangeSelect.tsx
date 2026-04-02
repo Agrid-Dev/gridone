@@ -25,7 +25,7 @@ type TimeRangeSelectProps = {
 export function TimeRangeSelect({
   onChangeParamsReset = [],
 }: TimeRangeSelectProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
@@ -91,7 +91,9 @@ export function TimeRangeSelect({
               }`}
               onClick={() => handlePreset(option.value)}
             >
-              {t(`deviceDetails.${option.unitKey}`, { count: option.count })}
+              {t(`deviceDetails.${option.unitKey}`, {
+                count: option.count,
+              })}
             </button>
           ))}
         </div>

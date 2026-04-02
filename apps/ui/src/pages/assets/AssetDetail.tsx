@@ -20,7 +20,7 @@ import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetDetail() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const { assetId } = useParams<{ assetId: string }>();
   const queryClient = useQueryClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -67,7 +67,7 @@ export default function AssetDetail() {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],
       });
-      toast.success(t("assets.devices.unlinked"));
+      toast.success(t("devices.unlinked"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -85,7 +85,7 @@ export default function AssetDetail() {
     <section className="space-y-6">
       <ResourceHeader
         title={asset.name}
-        resourceName={t("assets.title")}
+        resourceName={t("title")}
         resourceNameLinksBack
         backTo="/assets"
         actions={
@@ -93,7 +93,7 @@ export default function AssetDetail() {
             <Button variant="outline" asChild>
               <Link to={`/assets/${assetId}/edit`}>
                 <Pencil />
-                {t("common.update")}
+                {t("common:common.update")}
               </Link>
             </Button>
           ) : undefined
@@ -104,19 +104,17 @@ export default function AssetDetail() {
       <div className="rounded-lg border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-muted-foreground">
-              {t("assets.fields.type")}
-            </span>
+            <span className="text-muted-foreground">{t("fields.type")}</span>
             <div className="mt-1">
               <Badge variant="outline">
-                {t(`assets.types.${asset.type}`, { defaultValue: asset.type })}
+                {t(`types.${asset.type}`, { defaultValue: asset.type })}
               </Badge>
             </div>
           </div>
           {asset.parentId && (
             <div>
               <span className="text-muted-foreground">
-                {t("assets.fields.parent")}
+                {t("fields.parent")}
               </span>
               <div className="mt-1">
                 <Link
@@ -135,13 +133,13 @@ export default function AssetDetail() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-foreground">
-            {t("assets.children")} ({children.length})
+            {t("children")} ({children.length})
           </h3>
           {can("assets:write") && (
             <Button size="sm" variant="outline" asChild>
               <Link to={`/assets/new?parentId=${assetId}`}>
                 <Plus className="h-3.5 w-3.5" />
-                {t("assets.addChild")}
+                {t("addChild")}
               </Link>
             </Button>
           )}
@@ -163,7 +161,7 @@ export default function AssetDetail() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="outline">
-                        {t(`assets.types.${child.type}`, {
+                        {t(`types.${child.type}`, {
                           defaultValue: child.type,
                         })}
                       </Badge>
@@ -174,9 +172,7 @@ export default function AssetDetail() {
             </table>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("assets.noChildren")}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("noChildren")}</p>
         )}
       </div>
 
@@ -184,7 +180,7 @@ export default function AssetDetail() {
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-foreground">
-            {t("assets.devices.title")} ({deviceIds.length})
+            {t("devices.title")} ({deviceIds.length})
           </h3>
           {can("assets:write") && (
             <Button
@@ -193,7 +189,7 @@ export default function AssetDetail() {
               onClick={() => setLinkDialogOpen(true)}
             >
               <Plus className="h-3.5 w-3.5" />
-              {t("assets.devices.link")}
+              {t("devices.link")}
             </Button>
           )}
         </div>
@@ -220,7 +216,7 @@ export default function AssetDetail() {
                           onClick={() => unlinkMutation.mutate(deviceId)}
                           disabled={unlinkMutation.isPending}
                         >
-                          {t("assets.devices.unlink")}
+                          {t("devices.unlink")}
                         </Button>
                       </td>
                     )}
@@ -231,7 +227,7 @@ export default function AssetDetail() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            {t("assets.devices.noDevices")}
+            {t("devices.noDevices")}
           </p>
         )}
       </div>

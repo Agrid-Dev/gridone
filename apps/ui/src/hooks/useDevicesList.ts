@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Device, listDevices } from "../api/devices";
 
 export function useDevicesList(filters?: Record<string, string>) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   const {
     data,

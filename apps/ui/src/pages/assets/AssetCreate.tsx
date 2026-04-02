@@ -9,7 +9,7 @@ import { AssetForm } from "./components/AssetForm";
 import type { AssetFormValues } from "./components/AssetForm";
 
 export default function AssetCreate() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("assets");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -28,7 +28,7 @@ export default function AssetCreate() {
     mutationFn: (data: AssetCreatePayload) => createAsset(data),
     onSuccess: (asset) => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
-      toast.success(t("assets.created"));
+      toast.success(t("created"));
       navigate(`/assets/${asset.id}`);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -45,8 +45,8 @@ export default function AssetCreate() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("assets.create")}
-        resourceName={t("assets.title")}
+        title={t("create")}
+        resourceName={t("title")}
         resourceNameLinksBack
         backTo="/assets"
       />

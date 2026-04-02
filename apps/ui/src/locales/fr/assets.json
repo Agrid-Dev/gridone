@@ -1,0 +1,43 @@
+{
+  "title": "Zones",
+  "singular": "Zone",
+  "subtitle": "Hi\u00e9rarchie des zones",
+  "create": "Cr\u00e9er une zone",
+  "edit": "Modifier la zone",
+  "created": "Zone cr\u00e9\u00e9e",
+  "updated": "Zone mise \u00e0 jour",
+  "deleted": "Zone supprim\u00e9e",
+  "deleteConfirmTitle": "Supprimer la zone",
+  "deleteConfirmDetails": "Supprimer la zone \u00ab {{name}} \u00bb ? Cette action est irr\u00e9versible.",
+  "moved": "Zone d\u00e9plac\u00e9e",
+  "renamed": "Zone renomm\u00e9e",
+  "children": "Enfants",
+  "addChild": "Ajouter une zone enfant",
+  "noChildren": "Aucune zone enfant",
+  "inlineCreate": {
+    "placeholder": "Nom de la zone..."
+  },
+  "fields": {
+    "name": "Nom",
+    "type": "Type",
+    "parent": "Zone parente",
+    "parentPlaceholder": "Aucun (racine)",
+    "path": "Chemin"
+  },
+  "types": {
+    "org": "Organisation",
+    "building": "B\u00e2timent",
+    "floor": "\u00c9tage",
+    "room": "Salle",
+    "zone": "Zone"
+  },
+  "devices": {
+    "title": "Appareils li\u00e9s",
+    "link": "Lier un appareil",
+    "unlink": "D\u00e9lier",
+    "linked": "Appareil li\u00e9",
+    "unlinked": "Appareil d\u00e9li\u00e9",
+    "selectDevice": "S\u00e9lectionner un appareil",
+    "noDevices": "Aucun appareil li\u00e9"
+  }
+}

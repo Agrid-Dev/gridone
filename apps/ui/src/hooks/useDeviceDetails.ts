@@ -7,7 +7,7 @@ import { useDevice } from "./useDevice";
 export type Feedback = { type: "success" | "error"; message: string };
 
 export function useDeviceDetails(deviceId: string | undefined) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const queryClient = useQueryClient();
   const {
     data: device,

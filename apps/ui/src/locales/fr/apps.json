@@ -1,0 +1,46 @@
+{
+  "title": "Applications",
+  "subtitle": "Applications enregistr\u00e9es",
+  "singular": "Application",
+  "fields": {
+    "name": "Nom",
+    "description": "Description",
+    "apiUrl": "URL de l'API",
+    "status": "Statut",
+    "createdAt": "Date d'enregistrement",
+    "icon": "Ic\u00f4ne"
+  },
+  "status": {
+    "healthy": "En ligne",
+    "unhealthy": "Hors ligne",
+    "registered": "Enregistr\u00e9"
+  },
+  "enable": "Activer",
+  "disable": "D\u00e9sactiver",
+  "enabled": "Application activ\u00e9e",
+  "disabled": "Application d\u00e9sactiv\u00e9e",
+  "disabledBadge": "D\u00e9sactiv\u00e9e",
+  "configuration": "Configuration",
+  "configSaved": "Configuration enregistr\u00e9e",
+  "configError": "Erreur lors de l'enregistrement de la configuration",
+  "configSave": "Enregistrer",
+  "noConfig": "Aucune configuration disponible pour cette application.",
+  "requests": {
+    "title": "Demandes d'enregistrement",
+    "singular": "Demande",
+    "pendingTitle": "En attente",
+    "pending": "En attente",
+    "accepted": "Accept\u00e9e",
+    "discarded": "Rejet\u00e9e",
+    "accept": "Accepter",
+    "discard": "Rejeter",
+    "username": "Nom d'utilisateur",
+    "appName": "Nom de l'application",
+    "acceptedToast": "Demande accept\u00e9e",
+    "discardedToast": "Demande rejet\u00e9e",
+    "discardConfirmTitle": "Rejeter la demande",
+    "discardConfirmDetails": "Rejeter la demande d'enregistrement de \u00ab {{name}} \u00bb ? Cette action est irr\u00e9versible.",
+    "showArchive": "Afficher les trait\u00e9es ({{count}})",
+    "hideArchive": "Masquer les trait\u00e9es"
+  }
+}

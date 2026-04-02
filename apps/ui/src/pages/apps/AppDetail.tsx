@@ -12,7 +12,7 @@ import { AppStatusBadge } from "./components/AppStatusBadge";
 import AppConfigForm from "./components/AppConfigForm";
 
 export default function AppDetail() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   const { appId } = useParams<{ appId: string }>();
   const queryClient = useQueryClient();
   const can = usePermissions();
@@ -37,7 +37,7 @@ export default function AppDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("apps.enabled"));
+      toast.success(t("enabled"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -47,7 +47,7 @@ export default function AppDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success(t("apps.disabled"));
+      toast.success(t("disabled"));
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -67,7 +67,7 @@ export default function AppDetail() {
     <section className="space-y-6">
       <ResourceHeader
         title={app.name}
-        resourceName={t("apps.title")}
+        resourceName={t("title")}
         resourceNameLinksBack
         backTo="/apps"
         actions={
@@ -78,7 +78,7 @@ export default function AppDetail() {
                 onClick={() => enableMutation.mutate()}
                 disabled={isBusy}
               >
-                {t("apps.enable")}
+                {t("enable")}
               </Button>
             ) : (
               <Button
@@ -87,7 +87,7 @@ export default function AppDetail() {
                 onClick={() => disableMutation.mutate()}
                 disabled={isBusy}
               >
-                {t("apps.disable")}
+                {t("disable")}
               </Button>
             )
           ) : undefined
@@ -99,39 +99,33 @@ export default function AppDetail() {
         <div className="grid grid-cols-2 gap-y-4 text-sm">
           <div>
             <span className="text-muted-foreground">
-              {t("apps.fields.description")}
+              {t("fields.description")}
             </span>
             <p className="mt-1 text-foreground">{app.description}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">
-              {t("apps.fields.status")}
-            </span>
+            <span className="text-muted-foreground">{t("fields.status")}</span>
             {/* TODO: display last health check timestamp when backend exposes it */}
             <div className="mt-1">
               <AppStatusBadge status={app.status} />
             </div>
           </div>
           <div>
-            <span className="text-muted-foreground">
-              {t("apps.fields.apiUrl")}
-            </span>
+            <span className="text-muted-foreground">{t("fields.apiUrl")}</span>
             <p className="mt-1 font-mono text-xs text-foreground">
               {app.apiUrl}
             </p>
           </div>
           <div>
             <span className="text-muted-foreground">
-              {t("apps.fields.createdAt")}
+              {t("fields.createdAt")}
             </span>
             <p className="mt-1 text-foreground">
               {new Date(app.createdAt).toLocaleDateString()}
             </p>
           </div>
           <div>
-            <span className="text-muted-foreground">
-              {t("apps.fields.icon")}
-            </span>
+            <span className="text-muted-foreground">{t("fields.icon")}</span>
             <p className="mt-1 text-2xl">{app.icon}</p>
           </div>
         </div>

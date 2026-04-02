@@ -34,7 +34,7 @@ export function CommandsFilterBar({
   onFilterChange,
   isDeviceFixed = false,
 }: CommandsFilterBarProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   return (
     <div className="flex flex-wrap items-center gap-3">

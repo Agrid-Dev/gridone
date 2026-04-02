@@ -43,12 +43,14 @@ export function CommandsTable({
   prevHref,
   nextHref,
 }: CommandsTableProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
 
   if (error) {
     return (
       <ErrorFallback
-        title={error instanceof Error ? error.message : t("errors.default")}
+        title={
+          error instanceof Error ? error.message : t("common:errors.default")
+        }
         showHomeLink={false}
       />
     );
@@ -125,7 +127,7 @@ export function CommandsTable({
       {/* Pagination */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {t("common.rowsRange", {
+          {t("common:common.rowsRange", {
             from: (page - 1) * size + 1,
             to: Math.min(page * size, total),
             total,

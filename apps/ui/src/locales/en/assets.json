@@ -1,0 +1,43 @@
+{
+  "title": "Zones",
+  "singular": "Zone",
+  "subtitle": "Zone hierarchy",
+  "create": "Create zone",
+  "edit": "Edit zone",
+  "created": "Zone created",
+  "updated": "Zone updated",
+  "deleted": "Zone deleted",
+  "deleteConfirmTitle": "Delete zone",
+  "deleteConfirmDetails": "Delete zone \"{{name}}\"? This action cannot be undone.",
+  "moved": "Zone moved",
+  "renamed": "Zone renamed",
+  "children": "Children",
+  "addChild": "Add child zone",
+  "noChildren": "No child zones",
+  "inlineCreate": {
+    "placeholder": "Zone name..."
+  },
+  "fields": {
+    "name": "Name",
+    "type": "Type",
+    "parent": "Parent zone",
+    "parentPlaceholder": "None (root)",
+    "path": "Path"
+  },
+  "types": {
+    "org": "Organization",
+    "building": "Building",
+    "floor": "Floor",
+    "room": "Room",
+    "zone": "Zone"
+  },
+  "devices": {
+    "title": "Linked devices",
+    "link": "Link device",
+    "unlink": "Unlink",
+    "linked": "Device linked",
+    "unlinked": "Device unlinked",
+    "selectDevice": "Select a device",
+    "noDevices": "No devices linked"
+  }
+}

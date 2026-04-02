@@ -9,13 +9,13 @@ import { getStandardDeviceEntry } from "./standard-devices/registry";
 
 /** Default card content for devices without a registered standard type. */
 function DefaultCardContent({ device }: { device: Device }) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const configEntries = Object.entries(device.config ?? {});
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <Badge variant="outline" className="text-[10px]">
-        {Object.keys(device.attributes).length} {t("common.attributes")}
+        {Object.keys(device.attributes).length} {t("common:common.attributes")}
       </Badge>
       {configEntries.length > 0 && (
         <span className="text-[10px] text-muted-foreground truncate">

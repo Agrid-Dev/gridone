@@ -24,7 +24,7 @@ interface AppConfigFormProps {
 }
 
 const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
 
   const {
     data: schema,
@@ -60,11 +60,9 @@ const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
     return (
       <div className="rounded-lg border border-dashed border-border bg-muted p-6">
         <h3 className="text-sm font-medium text-foreground">
-          {t("apps.configuration")}
+          {t("configuration")}
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("apps.noConfig")}
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t("noConfig")}</p>
       </div>
     );
   }
@@ -79,7 +77,7 @@ interface ConfigFormProps {
 }
 
 const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
 
   const zodSchema = useMemo(
@@ -98,10 +96,9 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
       updateAppConfig(appId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps", appId, "config"] });
-      toast.success(t("apps.configSaved"));
+      toast.success(t("configSaved"));
     },
-    onError: (err: Error) =>
-      toast.error(t("apps.configError") + ": " + err.message),
+    onError: (err: Error) => toast.error(t("configError") + ": " + err.message),
   });
 
   const onSubmit = (values: Record<string, unknown>) => {
@@ -115,7 +112,7 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
     <Card>
       <CardContent className="py-6">
         <h3 className="mb-4 text-sm font-medium text-foreground">
-          {t("apps.configuration")}
+          {t("configuration")}
         </h3>
         <form
           id="app-config-form"
@@ -163,7 +160,7 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
           ) : (
             <Check className="mr-2 h-4 w-4" />
           )}
-          {t("apps.configSave")}
+          {t("configSave")}
         </Button>
       </CardFooter>
     </Card>

@@ -32,7 +32,7 @@ type DiscoveryMutationContext = {
 function TransportDiscoveryButton({
   transport,
 }: TransportDiscoveryButtonProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const queryClient = useQueryClient();
   const [pendingDriverId, setPendingDriverId] = useState<string | null>(null);
 
@@ -68,10 +68,10 @@ function TransportDiscoveryButton({
     },
     onError: (error, _driverId, context) => {
       const message = isApiError(error)
-        ? `${t("errors.default")}: ${error.details || error.message}`
+        ? `${t("common:errors.default")}: ${error.details || error.message}`
         : error instanceof Error
           ? error.message
-          : t("transports.discovery.failed");
+          : t("discovery.failed");
       toast.error(message);
       queryClient.setQueryData(discoveryQueryKey, context?.previous ?? []);
     },
@@ -100,10 +100,10 @@ function TransportDiscoveryButton({
     },
     onError: (error, _driverId, context) => {
       const message = isApiError(error)
-        ? `${t("errors.default")}: ${error.details || error.message}`
+        ? `${t("common:errors.default")}: ${error.details || error.message}`
         : error instanceof Error
           ? error.message
-          : t("transports.discovery.failed");
+          : t("discovery.failed");
       toast.error(message);
       queryClient.setQueryData(discoveryQueryKey, context?.previous ?? []);
     },
@@ -120,7 +120,7 @@ function TransportDiscoveryButton({
       ? loadError.details || loadError.message
       : loadError instanceof Error
         ? loadError.message
-        : t("transports.discovery.loadError")
+        : t("discovery.loadError")
     : null;
 
   const handleToggle = (driverId: string, next: boolean) => {
@@ -138,12 +138,14 @@ function TransportDiscoveryButton({
   return (
     <>
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("common:common.loading")}
+        </p>
       ) : loadErrorMessage ? (
         <p className="text-sm text-destructive">{loadErrorMessage}</p>
       ) : discoveryHandlers.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {t("transports.discovery.noDriver")}
+          {t("discovery.noDriver")}
         </p>
       ) : (
         <div className="space-y-3">
@@ -164,9 +166,7 @@ function TransportDiscoveryButton({
                     {handler.driverId}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {isActive
-                      ? t("transports.discovery.active")
-                      : t("transports.discovery.inactive")}
+                    {isActive ? t("discovery.active") : t("discovery.inactive")}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -191,24 +191,20 @@ function TransportDiscoveryButton({
 }
 
 const DiscoveryNotSupported: FC = () => {
-  const { t } = useTranslation();
-  return (
-    <TypographyP>{t("transports.discovery.protocolNotSupported")}</TypographyP>
-  );
+  const { t } = useTranslation("transports");
+  return <TypographyP>{t("discovery.protocolNotSupported")}</TypographyP>;
 };
 
 const TransportDiscoverButtonWrapper: FC<
   TransportDiscoveryButtonProps & { className?: string }
 > = ({ transport, className }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("transports");
   const supportsDiscovery = transport.protocol === "mqtt";
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>{t("transports.discovery.title")}</CardTitle>
-        <CardDescription>
-          {t("transports.discovery.description")}
-        </CardDescription>
+        <CardTitle>{t("discovery.title")}</CardTitle>
+        <CardDescription>{t("discovery.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         {supportsDiscovery ? (

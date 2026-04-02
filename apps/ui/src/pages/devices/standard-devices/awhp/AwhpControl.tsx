@@ -41,13 +41,14 @@ export function AwhpControl({ device }: StandardControlProps) {
       <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span className="font-medium uppercase">
-            {t("awhp.runStatus")}:{" "}
+            {t("controls.awhp.runStatus")}:{" "}
             <span className="text-foreground">{a.unitRunStatus ?? "—"}</span>
           </span>
         </div>
         {a.mode && (
           <span className="font-medium uppercase">
-            {t("awhp.mode")}: <span className="text-foreground">{a.mode}</span>
+            {t("controls.awhp.mode")}:{" "}
+            <span className="text-foreground">{a.mode}</span>
           </span>
         )}
       </div>
@@ -56,7 +57,7 @@ export function AwhpControl({ device }: StandardControlProps) {
       {a.outdoorTemperature != null && (
         <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{t("awhp.outdoor")}</span>
+          <span>{t("controls.awhp.outdoor")}</span>
           <span className="font-semibold tabular-nums text-foreground">
             {fmt(a.outdoorTemperature)}
           </span>
@@ -72,19 +73,19 @@ export function AwhpControl({ device }: StandardControlProps) {
             <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
               <Wind className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("awhp.evaporator")}
+                {t("controls.awhp.evaporator")}
               </span>
             </div>
             <div className="flex flex-col items-center gap-0.5">
               {a.evaporatorSaturatedRefrigerantTemperature != null && (
                 <Reading
-                  label={t("awhp.satTemp")}
+                  label={t("controls.awhp.satTemp")}
                   value={a.evaporatorSaturatedRefrigerantTemperature}
                 />
               )}
               {a.evaporatorRefrigerantPressure != null && (
                 <Reading
-                  label={t("awhp.pressure")}
+                  label={t("controls.awhp.pressure")}
                   value={a.evaporatorRefrigerantPressure}
                   unit=" bar"
                 />
@@ -107,20 +108,20 @@ export function AwhpControl({ device }: StandardControlProps) {
             <div className="flex items-center gap-1 text-foreground">
               <Fan className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("awhp.compressor")}
+                {t("controls.awhp.compressor")}
               </span>
             </div>
             <div className="flex flex-col items-center gap-0.5">
               {a.compressorSuctionPressure != null && (
                 <Reading
-                  label={t("awhp.suction")}
+                  label={t("controls.awhp.suction")}
                   value={a.compressorSuctionPressure}
                   unit=" bar"
                 />
               )}
               {a.compressorDischargePressure != null && (
                 <Reading
-                  label={t("awhp.discharge")}
+                  label={t("controls.awhp.discharge")}
                   value={a.compressorDischargePressure}
                   unit=" bar"
                 />
@@ -143,19 +144,19 @@ export function AwhpControl({ device }: StandardControlProps) {
             <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
               <Droplets className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("awhp.condenser")}
+                {t("controls.awhp.condenser")}
               </span>
             </div>
             <div className="flex flex-col items-center gap-0.5">
               {a.condenserSaturatedRefrigerantTemperature != null && (
                 <Reading
-                  label={t("awhp.satTemp")}
+                  label={t("controls.awhp.satTemp")}
                   value={a.condenserSaturatedRefrigerantTemperature}
                 />
               )}
               {a.condenserRefrigerantPressure != null && (
                 <Reading
-                  label={t("awhp.pressure")}
+                  label={t("controls.awhp.pressure")}
                   value={a.condenserRefrigerantPressure}
                   unit=" bar"
                 />
@@ -180,7 +181,7 @@ export function AwhpControl({ device }: StandardControlProps) {
         {/* Expansion valve */}
         <div className="rounded-lg border border-dashed border-border px-4 py-1">
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {t("awhp.expansionValve")}
+            {t("controls.awhp.expansionValve")}
           </span>
         </div>
 
@@ -201,7 +202,7 @@ export function AwhpControl({ device }: StandardControlProps) {
         <div className="flex items-center gap-1.5">
           <Droplets className="h-3.5 w-3.5 text-sky-500" />
           <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-            {t("awhp.waterSide")}
+            {t("controls.awhp.waterSide")}
           </span>
         </div>
 
@@ -209,7 +210,7 @@ export function AwhpControl({ device }: StandardControlProps) {
           <div className="flex items-center gap-1">
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">
-              {t("awhp.inlet")}
+              {t("controls.awhp.inlet")}
             </span>
             <span className="text-sm font-semibold tabular-nums text-foreground">
               {fmt(a.inletTemperature)}
@@ -219,7 +220,7 @@ export function AwhpControl({ device }: StandardControlProps) {
           <div className="flex items-center gap-1">
             <ArrowRight className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">
-              {t("awhp.outlet")}
+              {t("controls.awhp.outlet")}
             </span>
             <span className="text-sm font-semibold tabular-nums text-foreground">
               {fmt(a.outletTemperature)}
@@ -229,7 +230,7 @@ export function AwhpControl({ device }: StandardControlProps) {
           {a.setpointTemperature != null && (
             <div className="flex items-center gap-1 border-l border-border pl-4">
               <span className="text-[10px] text-muted-foreground">
-                {t("awhp.setpoint")}
+                {t("controls.awhp.setpoint")}
               </span>
               <span className="text-sm font-semibold tabular-nums">
                 {fmt(a.setpointTemperature)}

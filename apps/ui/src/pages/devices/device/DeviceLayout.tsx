@@ -10,7 +10,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function DeviceLayout() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("devices");
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
   const can = usePermissions();
@@ -55,7 +55,7 @@ export default function DeviceLayout() {
             {/* Meta */}
             <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-muted-foreground">
               <span className="inline-flex items-baseline gap-1.5">
-                {t("common.driver")}
+                {t("common:common.driver")}
                 <Link
                   to={`/drivers/${device.driverId}`}
                   className="font-mono text-xs text-primary transition-colors hover:text-primary/70"
@@ -65,7 +65,7 @@ export default function DeviceLayout() {
               </span>
               <span className="text-border">|</span>
               <span className="inline-flex items-baseline gap-1.5">
-                {t("common.transport")}
+                {t("common:common.transport")}
                 <Link
                   to={`/transports/${device.transportId}`}
                   className="font-mono text-xs text-primary transition-colors hover:text-primary/70"
