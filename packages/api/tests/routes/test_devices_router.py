@@ -3,6 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from devices_manager import DevicesManager, PhysicalDevice
+from devices_manager.core.device import Attribute, VirtualDevice
+from devices_manager.types import DataType
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -420,6 +422,272 @@ class TestGetDeviceCommands:
             sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
+
+
+# ---------------------------------------------------------------------------
+# Virtual device router tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def virtual_device() -> VirtualDevice:
+    return VirtualDevice(
+        id="vd1",
+        name="My Virtual Sensor",
+        attributes={
+            "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+            "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
+        },
+    )
+
+
+@pytest.fixture
+def app_with_virtual(
+    mock_devices,
+    mock_drivers,
+    mock_transports,
+    mock_ts_service,
+    admin_token_payload,
+    virtual_device,
+) -> FastAPI:
+    application = FastAPI()
+    register_exception_handlers(application)
+    application.include_router(router)
+
+    devices_with_virtual = {**mock_devices, virtual_device.id: virtual_device}
+
+    def get_dm() -> DevicesManager:
+        return DevicesManager(
+            devices=devices_with_virtual,
+            drivers=mock_drivers,
+            transports=mock_transports,
+        )
+
+    application.dependency_overrides[get_device_manager] = get_dm
+    application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    application.dependency_overrides[get_current_token_payload] = lambda: (
+        admin_token_payload
+    )
+    application.dependency_overrides[get_current_user_id] = lambda: (
+        admin_token_payload.sub
+    )
+    return application
+
+
+@pytest.fixture
+def virtual_client(app_with_virtual) -> TestClient:
+    return TestClient(app_with_virtual)
+
+
+@pytest.fixture
+def virtual_async_client(app_with_virtual):
+    return AsyncClient(
+        transport=ASGITransport(app=app_with_virtual), base_url="http://test"
+    )
+
+
+class TestVirtualDeviceRouterCreate:
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_returns_201(self, virtual_async_client):
+        payload = {
+            "kind": "virtual",
+            "name": "New Sensor",
+            "attributes": [
+                {"name": "co2", "data_type": "int", "read_write_mode": "read"},
+            ],
+        }
+        async with virtual_async_client as ac:
+            response = await ac.post("/", json=payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["kind"] == "virtual"
+        assert data["name"] == "New Sensor"
+        assert "co2" in data["attributes"]
+        assert data["driver_id"] is None
+        assert data["transport_id"] is None
+        assert data["config"] is None
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_with_driver_id_rejected(
+        self, virtual_async_client
+    ):
+        """Virtual create must reject payloads containing driver_id, transport_id, config."""
+        payload = {
+            "kind": "virtual",
+            "name": "Bad",
+            "attributes": [
+                {"name": "x", "data_type": "float", "read_write_mode": "read"}
+            ],
+            "driver_id": "some-driver",
+        }
+        async with virtual_async_client as ac:
+            response = await ac.post("/", json=payload)
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_empty_attributes_returns_422(
+        self, virtual_async_client
+    ):
+        payload = {"kind": "virtual", "name": "Bad", "attributes": []}
+        async with virtual_async_client as ac:
+            response = await ac.post("/", json=payload)
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_invalid_standard_schema_returns_422(
+        self, virtual_async_client
+    ):
+        payload = {
+            "kind": "virtual",
+            "name": "Bad Thermo",
+            "type": "thermostat",
+            "attributes": [
+                {
+                    "name": "temperature",
+                    "data_type": "float",
+                    "read_write_mode": "read",
+                },
+            ],
+        }
+        async with virtual_async_client as ac:
+            response = await ac.post("/", json=payload)
+        assert response.status_code == 422
+
+
+@pytest.fixture
+def virtual_device_typed() -> VirtualDevice:
+    """A virtual device with type='thermostat' for filter tests."""
+    return VirtualDevice(
+        id="vd2",
+        name="Virtual Thermostat",
+        type="thermostat",
+        attributes={
+            "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+        },
+    )
+
+
+@pytest.fixture
+def client_with_typed_virtual(
+    mock_devices,
+    mock_drivers,
+    mock_transports,
+    mock_ts_service,
+    admin_token_payload,
+    virtual_device,
+    virtual_device_typed,
+) -> TestClient:
+    application = FastAPI()
+    register_exception_handlers(application)
+    application.include_router(router)
+    devices = {
+        **mock_devices,
+        virtual_device.id: virtual_device,
+        virtual_device_typed.id: virtual_device_typed,
+    }
+
+    def get_dm() -> DevicesManager:
+        return DevicesManager(
+            devices=devices, drivers=mock_drivers, transports=mock_transports
+        )
+
+    application.dependency_overrides[get_device_manager] = get_dm
+    application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    application.dependency_overrides[get_current_token_payload] = lambda: (
+        admin_token_payload
+    )
+    application.dependency_overrides[get_current_user_id] = lambda: (
+        admin_token_payload.sub
+    )
+    return TestClient(application)
+
+
+class TestVirtualDeviceRouterRead:
+    def test_list_devices_includes_virtual(self, virtual_client):
+        response = virtual_client.get("/")
+        assert response.status_code == 200
+        kinds = {d["kind"] for d in response.json()}
+        assert "virtual" in kinds
+        assert "physical" in kinds
+
+    def test_get_virtual_device_returns_kind_virtual(self, virtual_client):
+        response = virtual_client.get("/vd1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["kind"] == "virtual"
+        assert data["id"] == "vd1"
+        assert data["driver_id"] is None
+        assert data["transport_id"] is None
+        assert data["config"] is None
+        assert "temperature" in data["attributes"]
+
+    def test_get_virtual_device_not_found(self, virtual_client):
+        response = virtual_client.get("/unknown")
+        assert response.status_code == 404
+
+    def test_list_devices_type_filter_returns_virtual(self, client_with_typed_virtual):
+        """GET /devices?type=thermostat must return virtual devices with that type."""
+        response = client_with_typed_virtual.get("/", params={"type": "thermostat"})
+        assert response.status_code == 200
+        devices = response.json()
+        assert len(devices) == 1
+        assert devices[0]["id"] == "vd2"
+        assert devices[0]["kind"] == "virtual"
+
+
+class TestVirtualDeviceRouterUpdate:
+    def test_update_virtual_device_name(self, virtual_client):
+        response = virtual_client.patch("/vd1", json={"name": "Renamed"})
+        assert response.status_code == 200
+        assert response.json()["name"] == "Renamed"
+
+    def test_update_virtual_device_add_attribute(self, virtual_client):
+        payload = {
+            "attributes": [
+                {
+                    "name": "temperature",
+                    "data_type": "float",
+                    "read_write_mode": "read",
+                },
+                {"name": "setpoint", "data_type": "float", "read_write_mode": "write"},
+                {"name": "pressure", "data_type": "float", "read_write_mode": "read"},
+            ]
+        }
+        response = virtual_client.patch("/vd1", json=payload)
+        assert response.status_code == 200
+        assert "pressure" in response.json()["attributes"]
+
+    def test_update_virtual_device_remove_attribute(self, virtual_client):
+        payload = {
+            "attributes": [
+                {
+                    "name": "temperature",
+                    "data_type": "float",
+                    "read_write_mode": "read",
+                },
+            ]
+        }
+        response = virtual_client.patch("/vd1", json=payload)
+        assert response.status_code == 200
+        attrs = response.json()["attributes"]
+        assert "temperature" in attrs
+        assert "setpoint" not in attrs
+
+    def test_update_virtual_device_reject_data_type_change(self, virtual_client):
+        payload = {
+            "attributes": [
+                {"name": "temperature", "data_type": "int", "read_write_mode": "read"},
+            ]
+        }
+        response = virtual_client.patch("/vd1", json=payload)
+        assert response.status_code == 422
+
+
+class TestVirtualDeviceRouterDelete:
+    def test_delete_virtual_device_ok(self, virtual_client):
+        response = virtual_client.delete("/vd1")
+        assert response.status_code == 204
+        assert virtual_client.get("/vd1").status_code == 404
 
 
 class TestUpdateAttribute:
