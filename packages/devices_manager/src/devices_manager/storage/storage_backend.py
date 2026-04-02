@@ -2,6 +2,7 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from devices_manager.core.device import Attribute
 from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
 
 
@@ -17,12 +18,21 @@ class StorageBackend[M: BaseModel](Protocol):
     async def delete(self, item_id: str) -> None: ...
 
 
+class AttributeStorageBackend(Protocol):
+    async def save_attribute(self, device_id: str, attribute: Attribute) -> None: ...
+
+
 class DevicesManagerStorage(Protocol):
     devices: StorageBackend[DeviceDTO]
     drivers: StorageBackend[DriverDTO]
     transports: StorageBackend[TransportDTO]
+    attributes: AttributeStorageBackend
 
     async def close(self) -> None: ...
 
 
-__all__ = ["DevicesManagerStorage", "StorageBackend"]
+__all__ = [
+    "AttributeStorageBackend",
+    "DevicesManagerStorage",
+    "StorageBackend",
+]

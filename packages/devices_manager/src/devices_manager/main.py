@@ -3,13 +3,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING, TypeVar
+from collections.abc import Callable, Coroutine
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 
 from .core.device import (
     Attribute,
-    AttributeListener,
     Device,
     DeviceBase,
     PhysicalDevice,
@@ -46,16 +46,16 @@ from .dto import (
     standard_schema_core_to_dto,
     transport_core_to_dto,
 )
-from .storage.factory import build_storage, make_storage
+from .storage.factory import build_storage
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from .core.driver import Driver
     from .storage import DevicesManagerStorage
     from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
+
+AttributeListener = Callable[[Device, str, Attribute], Coroutine[Any, Any, None] | None]
 
 
 def gen_id() -> str:
@@ -70,7 +70,8 @@ class DevicesManager:
     _polling_tasks: TasksRegistry
     _discovery_manager: PhysicalDevicesDiscoveryManager
     _running: bool
-    _attribute_listeners: list[AttributeListener]
+    _attribute_update_handlers: list[AttributeListener]
+    _background_tasks: set[asyncio.Task[None]]
     _storage: DevicesManagerStorage | None
 
     def __init__(
@@ -78,20 +79,17 @@ class DevicesManager:
         devices: dict[str, Device],
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
-        *,
-        db_path: str | Path | None = None,
-        attribute_update_listeners: list[AttributeListener] | None = None,
     ) -> None:
         self._devices = devices
         self._drivers = drivers
         self._transports = transports
-        self._storage = make_storage(str(db_path)) if db_path else None
+        self._storage = None
         self._polling_tasks = TasksRegistry()
         self._running = False
-        self._attribute_listeners = attribute_update_listeners or []
-        if self._attribute_listeners:
-            for device in self._devices.values():
-                self._attach_listeners(device)
+        self._attribute_update_handlers = []
+        self._background_tasks = set()
+        for device in self._devices.values():
+            device.on_update = self._on_attribute_update
 
     async def start_polling(self) -> None:
         self._running = True
@@ -166,6 +164,7 @@ class DevicesManager:
             name=device_create.name,
             type=device_create.type,
             attributes=attributes,
+            on_update=self._on_attribute_update,
         )
 
     def _create_physical_device(
@@ -180,59 +179,84 @@ class DevicesManager:
         base = DeviceBase(
             id=gen_id(), name=device_create.name, config=device_create.config
         )
-        return PhysicalDevice.from_base(base, driver=driver, transport=transport)
+        return PhysicalDevice.from_base(
+            base,
+            driver=driver,
+            transport=transport,
+            on_update=self._on_attribute_update,
+        )
 
-    def _register_device(self, device: Device) -> None:
-        """Register device in memory (sync). Does NOT init listeners."""
+    async def _register_device(self, device: Device) -> None:
+        """Register device in memory and start lifecycle if running."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
-        logger.info("Successfully loaded and registered device '%s'", device.id)
-
-    async def _add_device(self, device: Device) -> None:
-        self._register_device(device)
         if self._running:
             await device.init_listeners()
-            self._attach_listeners(device)
             if device.polling_enabled:
-                logger.info("Starting polling job for new device %s", device.id)
+                logger.info("Starting polling job for device %s", device.id)
                 self._polling_tasks.add(
                     ("poll", device.id), self._device_poll_loop(device)
                 )
-        if self._storage:
-            dto = device_core_to_dto(device)
-            await self._storage.devices.write(dto.id, dto)
+        logger.info("Successfully registered device '%s'", device.id)
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         if isinstance(device_create, PhysicalDeviceCreateDTO):
             device = self._create_physical_device(device_create)
         else:
             device = self._create_virtual_device(device_create)
-        await self._add_device(device)
+        await self._register_device(device)
+        if self._storage:
+            dto = device_core_to_dto(device)
+            await self._storage.devices.write(dto.id, dto)
         logger.info(
-            "Successfully created and registered device '%s' (id: %s)",
+            "Successfully created device '%s' (id: %s)",
             device_create.name,
             device.id,
         )
         return device_core_to_dto(device)
 
+    def _on_attribute_update(
+        self, device: Device, attribute_name: str, attribute: Attribute
+    ) -> None:
+        """Dispatch attribute update to all registered handlers."""
+        for handler in self._attribute_update_handlers:
+            try:
+                result = handler(device, attribute_name, attribute)
+                if asyncio.iscoroutine(result):
+                    task = asyncio.create_task(result)
+                    self._background_tasks.add(task)
+                    task.add_done_callback(self._on_handler_task_done)
+            except Exception:
+                logger.exception(
+                    "Attribute update handler failed for %s.%s",
+                    device.id,
+                    attribute_name,
+                )
+
+    def _on_handler_task_done(self, task: asyncio.Task[None]) -> None:
+        self._background_tasks.discard(task)
+        if not task.cancelled() and (exc := task.exception()):
+            logger.error("Async attribute update handler failed", exc_info=exc)
+
     def add_device_attribute_listener(
         self,
         callback: AttributeListener,
     ) -> None:
-        """Attach a callback to every device for attribute updates."""
-        self._attribute_listeners.append(callback)
-        for device in self._devices.values():
-            device.add_update_listener(callback)
-
-    def _attach_listeners(self, device: Device) -> None:
-        for listener in self._attribute_listeners:
-            device.add_update_listener(listener)
+        """Register a handler for attribute updates on all devices."""
+        self._attribute_update_handlers.append(callback)
 
     @property
     def poll_count(self) -> int:
         return len(self._polling_tasks)
+
+    async def _register_and_persist_device(self, device: Device) -> None:
+        """Register device and persist to storage. Used by discovery."""
+        await self._register_device(device)
+        if self._storage:
+            dto = device_core_to_dto(device)
+            await self._storage.devices.write(dto.id, dto)
 
     @property
     def discovery_manager(self) -> PhysicalDevicesDiscoveryManager:
@@ -240,7 +264,7 @@ class DevicesManager:
             discovery_context = DiscoveryContext(
                 get_driver=lambda driver_id: self._drivers[driver_id],
                 get_transport=lambda transport_id: self._transports[transport_id],
-                add_device=self._add_device,
+                add_device=self._register_and_persist_device,
                 device_exists=lambda device: any(
                     d == device for d in self._devices.values()
                 ),
@@ -250,11 +274,16 @@ class DevicesManager:
             )
         return self._discovery_manager
 
-    def _restore_device(self, d: DeviceDTO) -> None:
+    async def _restore_device(self, d: DeviceDTO) -> None:
         logger.info("Adding device %s", d.id)
         try:
-            device = device_dto_to_core(d, self._drivers, self._transports)
-            self._register_device(device)
+            device = device_dto_to_core(
+                d,
+                self._drivers,
+                self._transports,
+                on_update=self._on_attribute_update,
+            )
+            await self._register_device(device)
         except KeyError:
             logger.exception(
                 "Cannot create device %s: missing driver or transport", d.id
@@ -263,7 +292,7 @@ class DevicesManager:
             logger.exception("Failed to init device %s", d.id)
 
     @classmethod
-    def from_dto(
+    async def from_dto(
         cls,
         devices: list[DeviceDTO],
         drivers: list[DriverDTO],
@@ -285,19 +314,40 @@ class DevicesManager:
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
-            dm._restore_device(d)
+            await dm._restore_device(d)
         return dm
 
     @classmethod
     async def from_storage(cls, url: str) -> DevicesManager:
         repository = await build_storage(url)
-        dm = cls.from_dto(
+        dm = await cls.from_dto(
             devices=await repository.devices.read_all(),
             drivers=await repository.drivers.read_all(),
             transports=await repository.transports.read_all(),
         )
         dm._storage = repository  # noqa: SLF001
+        dm._register_attribute_persistence_listener()  # noqa: SLF001
         return dm
+
+    def _register_attribute_persistence_listener(self) -> None:
+        """Register a listener that persists attribute values on change.
+
+        The listener is async and fire-and-forget: it does not block
+        the polling or write hot path.
+        """
+        if not self._storage:
+            return
+
+        storage = self._storage
+
+        async def _persist_attribute(
+            device: Device,
+            _attribute_name: str,
+            attribute: Attribute,
+        ) -> None:
+            await storage.save_attribute(device.id, attribute)
+
+        self.add_device_attribute_listener(_persist_attribute)
 
     @property
     def transport_ids(self) -> set[str]:
@@ -466,6 +516,7 @@ class DevicesManager:
             driver=driver,
             transport=transport,
             initial_values=initial_values,
+            on_update=self._on_attribute_update,
         )
 
     def _mutate_virtual_attributes(
@@ -529,7 +580,7 @@ class DevicesManager:
             self._devices[device_id] = self._rebuild_physical_device(
                 device, effective_driver, effective_transport
             )
-            self._attach_listeners(self._devices[device_id])
+            await self._devices[device_id].init_listeners()
 
         await self._restart_device_polling(self._devices[device_id])
 
