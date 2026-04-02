@@ -1,8 +1,10 @@
 import logging
 from pathlib import Path
 
+from .device_storage import PostgresDeviceStorage
+from .driver_storage import PostgresDriverStorage
 from .postgres_dm_storage import PostgresDevicesManagerStorage
-from .postgres_storage import PostgresStorageBackend
+from .transport_storage import PostgresTransportStorage
 
 logger = logging.getLogger(__name__)
 
@@ -24,4 +26,10 @@ def run_migrations(database_url: str) -> None:
             backend.apply_migrations(to_apply)
 
 
-__all__ = ["PostgresDevicesManagerStorage", "PostgresStorageBackend", "run_migrations"]
+__all__ = [
+    "PostgresDeviceStorage",
+    "PostgresDevicesManagerStorage",
+    "PostgresDriverStorage",
+    "PostgresTransportStorage",
+    "run_migrations",
+]
