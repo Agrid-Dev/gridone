@@ -538,6 +538,29 @@ class DevicesManager:
             await self._storage.devices.write(device_id, dto)
         return dto
 
+    def validate_timeseries_push(
+        self,
+        device_id: str,
+        points: list[tuple[str, AttributeValueType]],
+    ) -> None:
+        """Validate (attribute, value) pairs for a virtual device.
+
+        Raises InvalidError on the first failing point.
+        """
+        device = self._get_or_raise(self._devices, device_id, "Device")
+        if not isinstance(device, VirtualDevice):
+            msg = f"Device {device_id} is not a virtual device"
+            raise InvalidError(msg)
+        for attr_name, value in points:
+            attr = device.attributes.get(attr_name)
+            if attr is None:
+                msg = f"Attribute '{attr_name}' not found on device {device_id}"
+                raise InvalidError(msg)
+            try:
+                attr.ensure_type(value)
+            except TypeError as e:
+                raise InvalidError(str(e)) from e
+
     async def update_device_state(
         self, device_id: str, values: dict[str, AttributeValueType]
     ) -> dict[str, Attribute]:
