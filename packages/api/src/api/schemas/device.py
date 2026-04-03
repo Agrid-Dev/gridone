@@ -12,6 +12,11 @@ class AttributeUpdate(BaseModel):
     value: AttributeValueType
 
 
+class StateUpdate(BaseModel):
+    values: dict[str, AttributeValueType]
+    timestamp: datetime | None = None
+
+
 class CommandsQuery(BaseModel):
     ids: list[int] | None = None
     device_id: str | None = None

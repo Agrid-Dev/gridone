@@ -59,6 +59,13 @@ class Device(ABC):
     async def update_once(self) -> None:  # noqa: B027
         """Open transport, read all attributes, close. No-op for non-physical."""
 
+    def bulk_update_attributes(
+        self, values: dict[str, AttributeValueType]
+    ) -> dict[str, Attribute]:
+        """Bulk-update multiple attribute values atomically. Virtual devices only."""
+        msg = f"Bulk state update is not supported on {self.kind} devices"
+        raise NotImplementedError(msg)
+
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
             return self.attributes[attribute_name]

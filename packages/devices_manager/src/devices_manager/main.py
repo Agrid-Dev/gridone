@@ -538,6 +538,12 @@ class DevicesManager:
             await self._storage.devices.write(device_id, dto)
         return dto
 
+    async def update_device_state(
+        self, device_id: str, values: dict[str, AttributeValueType]
+    ) -> dict[str, Attribute]:
+        device = self._get_or_raise(self._devices, device_id, "Device")
+        return device.bulk_update_attributes(values)
+
     async def write_device_attribute(
         self,
         device_id: str,

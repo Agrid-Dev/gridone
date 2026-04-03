@@ -9,6 +9,7 @@ from devices_manager.dto.device_dto import (
     DeviceDTO,
     DeviceUpdateDTO,
 )
+from devices_manager.types import AttributeValueType, DataType, DeviceKind
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
@@ -29,13 +30,57 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission
-from api.schemas.device import AttributeUpdate, CommandsQuery, get_commands_query
+from api.schemas.device import (
+    AttributeUpdate,
+    CommandsQuery,
+    StateUpdate,
+    get_commands_query,
+)
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from api.websocket.manager import WebSocketManager
+from api.websocket.schemas import DeviceFullUpdateMessage
 
 logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
+
+
+async def _record_write(
+    ts: TimeSeriesService,
+    *,
+    device_id: str,
+    attribute_name: str,
+    value: AttributeValueType,
+    data_type: DataType,
+    user_id: str,
+    timestamp: datetime,
+    command_status: CommandStatus = CommandStatus.SUCCESS,
+    status_details: str | None = None,
+) -> DeviceCommand:
+    """Log a DeviceCommand and upsert its linked timeseries point.
+
+    The command_id written into the DataPoint links the timeseries record back
+    to the command log, enabling audit queries by command.
+    """
+    command = await ts.log_command(
+        DeviceCommandCreate(
+            device_id=device_id,
+            attribute=attribute_name,
+            user_id=user_id,
+            value=value,
+            data_type=data_type,
+            timestamp=timestamp,
+            status=command_status,
+            status_details=status_details,
+        )
+    )
+    await ts.upsert_points(
+        SeriesKey(owner_id=device_id, metric=attribute_name),
+        [DataPoint(timestamp=timestamp, value=value, command_id=command.id)],
+        create_if_not_found=True,
+    )
+    return command
 
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
@@ -167,43 +212,79 @@ async def update_attribute(
     ts: TimeSeriesService = Depends(get_ts_service),
     user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate:
-    data_type = dm.get_device(device_id).attributes[attribute_name].data_type
-
-    def make_command(
-        status: CommandStatus, status_details: str | None = None
-    ) -> DeviceCommandCreate:
-        return DeviceCommandCreate(
-            device_id=device_id,
-            attribute=attribute_name,
-            user_id=user_id,
-            value=update.value,
-            data_type=data_type,
-            timestamp=datetime.now(UTC),
-            status=status,
-            status_details=status_details,
+    device_dto = dm.get_device(device_id)
+    attr = device_dto.attributes.get(attribute_name)
+    if attr is None:
+        raise HTTPException(
+            status_code=404, detail=f"Attribute '{attribute_name}' not found"
         )
+    data_type = attr.data_type
+    timestamp = datetime.now(UTC)
 
     try:
         attribute = await dm.write_device_attribute(
             device_id, attribute_name, update.value, confirm=confirm
         )
-        command = await ts.log_command(make_command(CommandStatus.SUCCESS))
-        await ts.upsert_points(
-            SeriesKey(owner_id=device_id, metric=attribute_name),
-            [
-                DataPoint(
-                    timestamp=attribute.last_changed or datetime.now(UTC),
-                    value=update.value,
-                    command_id=command.id,
-                )
-            ],
-            create_if_not_found=True,
+        await _record_write(
+            ts,
+            device_id=device_id,
+            attribute_name=attribute_name,
+            value=update.value,
+            data_type=data_type,
+            user_id=user_id,
+            timestamp=attribute.last_changed or timestamp,
         )
-
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         if not isinstance(e, (NotFoundError, InvalidError)):
-            await ts.log_command(make_command(CommandStatus.ERROR, str(e)))
+            await _record_write(
+                ts,
+                device_id=device_id,
+                attribute_name=attribute_name,
+                value=update.value,
+                data_type=data_type,
+                user_id=user_id,
+                timestamp=timestamp,
+                command_status=CommandStatus.ERROR,
+                status_details=str(e),
+            )
         raise e
     return update
+
+
+@router.put(
+    "/{device_id}/state",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def update_device_state(
+    device_id: str,
+    update: StateUpdate,
+    request: Request,
+    dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, AttributeValueType]:
+    device_dto = dm.get_device(device_id)
+    if device_dto.kind != DeviceKind.VIRTUAL:
+        raise HTTPException(status_code=405, detail="Only supported on virtual devices")
+    timestamp = update.timestamp or datetime.now(UTC)
+    try:
+        updated = await dm.update_device_state(device_id, update.values)
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except (TypeError, PermissionError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    for attr_name, attr in updated.items():
+        await _record_write(
+            ts,
+            device_id=device_id,
+            attribute_name=attr_name,
+            value=update.values[attr_name],
+            data_type=attr.data_type,
+            user_id=user_id,
+            timestamp=timestamp,
+        )
+    ws: WebSocketManager = request.app.state.websocket_manager
+    await ws.broadcast(DeviceFullUpdateMessage(device=device_dto))
+    return update.values
