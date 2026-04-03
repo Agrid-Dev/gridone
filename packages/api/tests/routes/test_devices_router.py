@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from devices_manager import DevicesManager, PhysicalDevice
@@ -8,7 +8,7 @@ from devices_manager.types import DataType
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from timeseries.domain import DeviceCommandCreate, SortOrder
 
@@ -463,6 +463,10 @@ def app_with_virtual(
             transports=mock_transports,
         )
 
+    ws_manager = MagicMock()
+    ws_manager.broadcast = AsyncMock()
+    application.state.websocket_manager = ws_manager
+
     application.dependency_overrides[get_device_manager] = get_dm
     application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     application.dependency_overrides[get_current_token_payload] = lambda: (
@@ -795,3 +799,239 @@ class TestUpdateAttribute:
                 )
             assert response.status_code == 404
             mock_ts_service.log_command.assert_not_called()
+
+
+_BULK_PUSH_POINT = {
+    "attribute": "temperature",
+    "timestamp": "2026-01-15T12:00:00Z",
+    "value": 22.5,
+}
+_BULK_PUSH_POINT_SETPOINT = {
+    "attribute": "setpoint",
+    "timestamp": "2026-01-15T12:00:00Z",
+    "value": 21.0,
+}
+
+
+class TestBulkPushTimeseries:
+    @pytest.mark.asyncio
+    async def test_success_returns_204(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": [_BULK_PUSH_POINT]},
+            )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_once_per_attribute(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": [_BULK_PUSH_POINT, _BULK_PUSH_POINT_SETPOINT]},
+            )
+        assert mock_ts_service.upsert_points.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_groups_same_attr(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        second_point = {**_BULK_PUSH_POINT, "timestamp": "2026-01-15T13:00:00Z"}
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": [_BULK_PUSH_POINT, second_point]},
+            )
+        mock_ts_service.upsert_points.assert_called_once()
+        _, points, *_ = mock_ts_service.upsert_points.call_args[0]
+        assert len(points) == 2
+
+    @pytest.mark.asyncio
+    async def test_does_not_log_command(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": [_BULK_PUSH_POINT]},
+            )
+        mock_ts_service.log_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_broadcast(
+        self, app_with_virtual, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": [_BULK_PUSH_POINT]},
+            )
+        app_with_virtual.state.websocket_manager.broadcast.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_nonexistent_attribute_returns_404(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={
+                    "data": [
+                        {
+                            "attribute": "nonexistent",
+                            "timestamp": "2026-01-15T12:00:00Z",
+                            "value": 1.0,
+                        }
+                    ]
+                },
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_wrong_type_returns_422(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={
+                    "data": [
+                        {
+                            "attribute": "temperature",
+                            "timestamp": "2026-01-15T12:00:00Z",
+                            "value": "not-a-float",
+                        }
+                    ]
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_unknown_device_returns_404(self, virtual_async_client):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                "/unknown-device/timeseries",
+                json={"data": [_BULK_PUSH_POINT]},
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_empty_data_returns_204(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={"data": []},
+            )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_batch_rejected_on_first_bad_point(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        """If any point fails validation the whole batch is rejected and no upsert fires."""
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries",
+                json={
+                    "data": [
+                        _BULK_PUSH_POINT,
+                        {
+                            "attribute": "nonexistent",
+                            "timestamp": "2026-01-15T13:00:00Z",
+                            "value": 1.0,
+                        },
+                    ]
+                },
+            )
+        assert response.status_code == 404
+        mock_ts_service.upsert_points.assert_not_called()
+
+
+_SINGLE_PUSH_POINT = {"timestamp": "2026-01-15T12:00:00Z", "value": 22.5}
+
+
+class TestSingleAttrPushTimeseries:
+    @pytest.mark.asyncio
+    async def test_success_returns_204(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries/temperature",
+                json={"data": [_SINGLE_PUSH_POINT]},
+            )
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_points(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries/temperature",
+                json={"data": [_SINGLE_PUSH_POINT]},
+            )
+        mock_ts_service.upsert_points.assert_called_once()
+        key, points, *_ = mock_ts_service.upsert_points.call_args[0]
+        assert key.owner_id == virtual_device.id
+        assert key.metric == "temperature"
+        assert len(points) == 1
+        assert points[0].value == 22.5
+
+    @pytest.mark.asyncio
+    async def test_does_not_log_command(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries/temperature",
+                json={"data": [_SINGLE_PUSH_POINT]},
+            )
+        mock_ts_service.log_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_wrong_type_returns_422(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries/temperature",
+                json={"data": [{"timestamp": "2026-01-15T12:00:00Z", "value": "bad"}]},
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_nonexistent_attribute_returns_404(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/timeseries/nonexistent",
+                json={"data": [_SINGLE_PUSH_POINT]},
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_unknown_device_returns_404(self, virtual_async_client):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                "/unknown-device/timeseries/temperature",
+                json={"data": [_SINGLE_PUSH_POINT]},
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_multiple_points_upserted_together(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        second_point = {"timestamp": "2026-01-15T13:00:00Z", "value": 23.0}
+        async with virtual_async_client as ac:
+            await ac.post(
+                f"/{virtual_device.id}/timeseries/temperature",
+                json={"data": [_SINGLE_PUSH_POINT, second_point]},
+            )
+        mock_ts_service.upsert_points.assert_called_once()
+        _, points, *_ = mock_ts_service.upsert_points.call_args[0]
+        assert len(points) == 2

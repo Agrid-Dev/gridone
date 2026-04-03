@@ -29,7 +29,14 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission
-from api.schemas.device import AttributeUpdate, CommandsQuery, get_commands_query
+from api.schemas.device import (
+    AttributeUpdate,
+    CommandsQuery,
+    SingleAttrTimeseriesPushPoint,
+    TimeseriesBulkPushRequest,
+    TimeseriesSingleAttrPushRequest,
+    get_commands_query,
+)
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
 logger = logging.getLogger(__name__)
@@ -152,6 +159,69 @@ async def delete_device(
 ):
     await dm.delete_device(device_id)
     return
+
+
+def _to_data_points(points: list[SingleAttrTimeseriesPushPoint]) -> list[DataPoint]:
+    return [DataPoint(timestamp=p.timestamp, value=p.value) for p in points]
+
+
+@router.post(
+    "/{device_id}/timeseries",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def push_device_timeseries(
+    device_id: str,
+    body: TimeseriesBulkPushRequest,
+    dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> None:
+    device_dto = dm.get_device(device_id)
+    for p in body.data:
+        if p.attribute not in device_dto.attributes:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Attribute '{p.attribute}' not found on device {device_id}",
+            )
+    grouped: dict[str, list[DataPoint]] = {}
+    for p in body.data:
+        grouped.setdefault(p.attribute, []).append(
+            DataPoint(timestamp=p.timestamp, value=p.value)
+        )
+    for attr_name, points in grouped.items():
+        await ts.upsert_points(
+            SeriesKey(owner_id=device_id, metric=attr_name),
+            points,
+            create_if_not_found=True,
+            validate_data_type=device_dto.attributes[attr_name].data_type,
+        )
+
+
+@router.post(
+    "/{device_id}/timeseries/{attr_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def push_device_attribute_timeseries(
+    device_id: str,
+    attr_name: str,
+    body: TimeseriesSingleAttrPushRequest,
+    dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> None:
+    device_dto = dm.get_device(device_id)
+    if attr_name not in device_dto.attributes:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Attribute '{attr_name}' not found on device {device_id}",
+        )
+    points = _to_data_points(body.data)
+    await ts.upsert_points(
+        SeriesKey(owner_id=device_id, metric=attr_name),
+        points,
+        create_if_not_found=True,
+        validate_data_type=device_dto.attributes[attr_name].data_type,
+    )
 
 
 @router.post(
