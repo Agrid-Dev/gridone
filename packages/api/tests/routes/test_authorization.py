@@ -312,6 +312,26 @@ def devices_app() -> FastAPI:
 DEVICES_ACCESS_CONTROL_SCENARIOS = [
     pytest.param("PUT", "/devices/any-id/state", "viewer", 403, id="state-viewer"),
     pytest.param("PUT", "/devices/any-id/state", None, 401, id="state-unauthenticated"),
+    pytest.param(
+        "POST", "/devices/any-id/timeseries", "viewer", 403, id="bulk-push-viewer"
+    ),
+    pytest.param(
+        "POST", "/devices/any-id/timeseries", None, 401, id="bulk-push-unauthenticated"
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/timeseries/attr",
+        "viewer",
+        403,
+        id="single-push-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/timeseries/attr",
+        None,
+        401,
+        id="single-push-unauthenticated",
+    ),
 ]
 
 

@@ -1,5 +1,8 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from devices_manager import DeviceBase, PhysicalDevice
+from users.auth import TokenPayload
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
@@ -146,3 +149,16 @@ attributes:
     read_write: HR3
 
 """.strip()
+
+
+_ADMIN_PAYLOAD = TokenPayload(
+    sub="test-user",
+    role="admin",
+    exp=datetime.now(UTC) + timedelta(hours=1),
+)
+
+
+@pytest.fixture
+def admin_token_payload() -> TokenPayload:
+    """Admin token payload for use in router and integration tests."""
+    return _ADMIN_PAYLOAD
