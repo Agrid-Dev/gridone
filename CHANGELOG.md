@@ -1,3 +1,9 @@
+## v0.33.0 (2026-04-03)
+
+### Feat
+
+- virtual devices timeseries history push endpoints (AGR-383)
+
 ## v0.32.0 (2026-04-03)
 
 ### Feat
