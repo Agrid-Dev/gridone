@@ -86,16 +86,20 @@ class TimeSeriesService:
         points: list[DataPoint],
         *,
         create_if_not_found: bool = False,
+        validate_data_type: DataType | None = None,
     ) -> None:
         series = await self._storage.get_series_by_key(key)
         if series is None and not create_if_not_found:
             msg = f"No series found for {key}"
             raise NotFoundError(msg)
         if series is None:
-            if not points:
+            if validate_data_type is not None:
+                data_type = validate_data_type
+            elif not points:
                 msg = "Cannot infer data_type from empty points list"
                 raise InvalidError(msg)
-            data_type = VALUE_TYPE_MAP[type(points[0].value)]
+            else:
+                data_type = VALUE_TYPE_MAP[type(points[0].value)]
             logger.debug("Creating series %s", key)
             series = await self._storage.create_series(
                 TimeSeries(
