@@ -1,15 +1,21 @@
 """Tests that RBAC permissions are enforced on API endpoints."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_apps_service, get_current_user_id, get_users_manager
+from api.dependencies import (
+    get_apps_service,
+    get_current_user_id,
+    get_device_manager,
+    get_users_manager,
+)
 from api.routes.apps import apps_registration_router
+from api.routes.devices_router import router as devices_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from users import Role, User
@@ -278,4 +284,52 @@ def test_registration_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers)
+        assert resp.status_code == expected_status
+
+
+# --- Devices RBAC ---
+
+
+def _build_devices_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
+    manager = MockUsersManager()
+    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_device_manager] = lambda: AsyncMock()
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def devices_app() -> FastAPI:
+    return _build_devices_app()
+
+
+DEVICES_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param("PUT", "/devices/any-id/state", "viewer", 403, id="state-viewer"),
+    pytest.param("PUT", "/devices/any-id/state", None, 401, id="state-unauthenticated"),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    DEVICES_ACCESS_CONTROL_SCENARIOS,
+)
+def test_devices_access_control(
+    devices_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    with TestClient(devices_app) as client:
+        headers = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, json={"values": {}}, headers=headers)
         assert resp.status_code == expected_status

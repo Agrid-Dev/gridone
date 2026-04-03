@@ -1426,6 +1426,96 @@ class TestVirtualDeviceDelete:
         assert "vd1" not in dm.device_ids
 
 
+def _make_virtual() -> VirtualDevice:
+    return VirtualDevice(
+        id="vd1",
+        name="V",
+        attributes={
+            "temperature": Attribute.create(
+                "temperature", DataType.FLOAT, {"read", "write"}
+            ),
+            "humidity": Attribute.create("humidity", DataType.FLOAT, {"read"}),
+        },
+    )
+
+
+class TestVirtualDeviceWriteAttribute:
+    @pytest.mark.asyncio
+    async def test_write_updates_value(self):
+        vd = _make_virtual()
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        result = await dm.write_device_attribute(vd.id, "temperature", 21.5)
+        assert isinstance(result, Attribute)
+        assert result.current_value == 21.5
+
+    @pytest.mark.asyncio
+    async def test_write_no_transport_interaction(self):
+        vd = _make_virtual()
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        await dm.write_device_attribute(vd.id, "temperature", 30.0)
+        assert dm.get_device(vd.id).attributes["temperature"].current_value == 30.0
+
+    @pytest.mark.asyncio
+    async def test_write_read_only_raises(self):
+        vd = _make_virtual()
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        with pytest.raises(PermissionError):
+            await dm.write_device_attribute(vd.id, "humidity", 55.0)
+
+    @pytest.mark.asyncio
+    async def test_write_unknown_attribute_raises(self):
+        vd = _make_virtual()
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        with pytest.raises(NotFoundError):
+            await dm.write_device_attribute(vd.id, "nonexistent", 1.0)
+
+
+class TestUpdateDeviceState:
+    @pytest.fixture
+    def dm(self) -> DevicesManager:
+        vd = _make_virtual()
+        return DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+
+    @pytest.mark.asyncio
+    async def test_happy_path_updates_all(self, dm):
+        result = await dm.update_device_state("vd1", {"temperature": 25.0})
+        assert result["temperature"].current_value == 25.0
+
+    @pytest.mark.asyncio
+    async def test_returns_attribute_instances(self, dm):
+        result = await dm.update_device_state("vd1", {"temperature": 19.0})
+        assert isinstance(result["temperature"], Attribute)
+
+    @pytest.mark.asyncio
+    async def test_unknown_attribute_raises(self, dm):
+        with pytest.raises(KeyError):
+            await dm.update_device_state("vd1", {"nonexistent": 1.0})
+
+    @pytest.mark.asyncio
+    async def test_wrong_type_raises(self, dm):
+        with pytest.raises(TypeError):
+            await dm.update_device_state("vd1", {"temperature": "not-a-float"})
+
+    @pytest.mark.asyncio
+    async def test_all_or_nothing_bad_attr_leaves_all_unchanged(self, dm):
+        original = dm.get_device("vd1").attributes["temperature"].current_value
+        with pytest.raises(KeyError):
+            await dm.update_device_state(
+                "vd1", {"temperature": 99.0, "nonexistent": 1.0}
+            )
+        assert dm.get_device("vd1").attributes["temperature"].current_value == original
+
+    @pytest.mark.asyncio
+    async def test_physical_device_raises(self, device, mock_transport_client, driver):
+        dm = DevicesManager(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        with pytest.raises(NotImplementedError):
+            await dm.update_device_state(device.id, {"temperature": 20.0})
+
+
 class TestDevicesManagerRestartPolling:
     @pytest.mark.asyncio
     async def test_update_device_transport_restarts_polling(
