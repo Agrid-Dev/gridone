@@ -6,15 +6,22 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager import DevicesManager
-from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
+from devices_manager.core.device import (
+    Attribute,
+    DeviceBase,
+    PhysicalDevice,
+    VirtualDevice,
+)
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
+    AttributeCreateDTO,
     DeviceDTO,
     DeviceUpdateDTO,
     DriverDTO,
     TransportBaseDTO,
     TransportCreateDTO,
     TransportUpdateDTO,
+    VirtualDeviceCreateDTO,
     device_core_to_dto,
     driver_core_to_dto,
     transport_core_to_dto,
@@ -23,7 +30,7 @@ from devices_manager.dto import (
     PhysicalDeviceCreateDTO as DeviceCreateDTO,
 )
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from devices_manager.types import DeviceConfig, TransportProtocols
+from devices_manager.types import DataType, DeviceConfig, DeviceKind, TransportProtocols
 from models.errors import (
     ForbiddenError,
     InvalidError,
@@ -1049,6 +1056,374 @@ class TestDevicesManagerStorage:
         storage = CoreFileStorage(tmp_path)
         devices = await storage.devices.read_all()
         assert len(devices) == 0
+
+
+# Virtual device helpers
+
+_THERMOSTAT_ATTRS = [
+    AttributeCreateDTO(
+        name="temperature", data_type=DataType.FLOAT, read_write_mode="read"
+    ),
+    AttributeCreateDTO(
+        name="temperature_setpoint", data_type=DataType.FLOAT, read_write_mode="write"
+    ),
+    AttributeCreateDTO(
+        name="onoff_state", data_type=DataType.BOOL, read_write_mode="write"
+    ),
+    AttributeCreateDTO(name="mode", data_type=DataType.STRING, read_write_mode="write"),
+    AttributeCreateDTO(
+        name="temperature_setpoint_min",
+        data_type=DataType.FLOAT,
+        read_write_mode="read",
+    ),
+    AttributeCreateDTO(
+        name="temperature_setpoint_max",
+        data_type=DataType.FLOAT,
+        read_write_mode="read",
+    ),
+]
+
+
+def _make_dm() -> DevicesManager:
+    return DevicesManager(devices={}, drivers={}, transports={})
+
+
+class TestVirtualDeviceCreate:
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_ok(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(
+            name="Sensor",
+            attributes=[
+                AttributeCreateDTO(
+                    name="temperature", data_type=DataType.FLOAT, read_write_mode="read"
+                ),
+            ],
+        )
+        result = await dm.add_device(dto)
+        assert result.kind == DeviceKind.VIRTUAL
+        assert result.name == "Sensor"
+        assert "temperature" in result.attributes
+        assert result.driver_id is None
+        assert result.transport_id is None
+        assert result.config is None
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_empty_attributes_raises(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(name="Bad", attributes=[])
+        with pytest.raises(InvalidError):
+            await dm.add_device(dto)
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_duplicate_attribute_names_raises(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(
+            name="Bad",
+            attributes=[
+                AttributeCreateDTO(
+                    name="temp", data_type=DataType.FLOAT, read_write_mode="read"
+                ),
+                AttributeCreateDTO(
+                    name="temp", data_type=DataType.INT, read_write_mode="read"
+                ),
+            ],
+        )
+        with pytest.raises(InvalidError):
+            await dm.add_device(dto)
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_valid_standard_schema(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(
+            name="Thermo", type="thermostat", attributes=_THERMOSTAT_ATTRS
+        )
+        result = await dm.add_device(dto)
+        assert result.type == "thermostat"
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_invalid_standard_schema_raises(self):
+        dm = _make_dm()
+        # Missing required thermostat fields
+        dto = VirtualDeviceCreateDTO(
+            name="Bad Thermo",
+            type="thermostat",
+            attributes=[
+                AttributeCreateDTO(
+                    name="temperature", data_type=DataType.FLOAT, read_write_mode="read"
+                ),
+            ],
+        )
+        with pytest.raises(InvalidError):
+            await dm.add_device(dto)
+
+    @pytest.mark.asyncio
+    async def test_create_virtual_device_unknown_standard_schema_raises(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(
+            name="Bad",
+            type="unknown_schema",
+            attributes=[
+                AttributeCreateDTO(
+                    name="val", data_type=DataType.FLOAT, read_write_mode="read"
+                ),
+            ],
+        )
+        with pytest.raises(InvalidError):
+            await dm.add_device(dto)
+
+    @pytest.mark.asyncio
+    async def test_virtual_device_in_device_ids_after_create(self):
+        dm = _make_dm()
+        dto = VirtualDeviceCreateDTO(
+            name="V1",
+            attributes=[
+                AttributeCreateDTO(
+                    name="x", data_type=DataType.INT, read_write_mode="read"
+                )
+            ],
+        )
+        result = await dm.add_device(dto)
+        assert result.id in dm.device_ids
+
+
+class TestVirtualDevicePolling:
+    @pytest.mark.asyncio
+    async def test_start_polling_skips_virtual_device(self):
+        vd = VirtualDevice(
+            id="vd1",
+            name="V",
+            attributes={
+                "x": Attribute.create("x", DataType.FLOAT, {"read"}),
+            },
+        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        await dm.start_polling()
+        assert dm.poll_count == 0
+        await dm.stop_polling()
+
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_while_running_no_polling_task(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm._running = True
+        dto = VirtualDeviceCreateDTO(
+            name="V",
+            attributes=[
+                AttributeCreateDTO(
+                    name="x", data_type=DataType.INT, read_write_mode="read"
+                )
+            ],
+        )
+        await dm.add_device(dto)
+        assert dm.poll_count == 0
+        dm._running = False
+
+
+class TestVirtualDeviceFromDto:
+    def test_from_dto_restores_virtual_device(self):
+        vd_dto = DeviceDTO(
+            id="vd1",
+            kind=DeviceKind.VIRTUAL,
+            name="Restored",
+            attributes={
+                "temperature": Attribute.create(
+                    "temperature", DataType.FLOAT, {"read"}
+                ),
+            },
+        )
+        dm = DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
+        assert "vd1" in dm.device_ids
+        result = dm.get_device("vd1")
+        assert result.kind == DeviceKind.VIRTUAL
+        assert result.name == "Restored"
+
+    def test_from_dto_virtual_device_no_driver_or_transport(self):
+        vd_dto = DeviceDTO(
+            id="vd2",
+            kind=DeviceKind.VIRTUAL,
+            name="V",
+            attributes={
+                "x": Attribute.create("x", DataType.INT, {"read", "write"}),
+            },
+        )
+        dm = DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
+        result = dm.get_device("vd2")
+        assert result.driver_id is None
+        assert result.transport_id is None
+
+
+class TestVirtualDeviceUpdate:
+    @pytest.fixture
+    def dm_with_virtual(self) -> DevicesManager:
+        vd = VirtualDevice(
+            id="vd1",
+            name="Original",
+            attributes={
+                "temperature": Attribute.create(
+                    "temperature", DataType.FLOAT, {"read"}
+                ),
+                "humidity": Attribute.create("humidity", DataType.FLOAT, {"read"}),
+            },
+        )
+        return DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+
+    @pytest.mark.asyncio
+    async def test_update_name(self, dm_with_virtual):
+        result = await dm_with_virtual.update_device(
+            "vd1", DeviceUpdateDTO(name="New Name")
+        )
+        assert result.name == "New Name"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("incoming", "expected_present", "expected_absent"),
+        [
+            # Add a new attribute
+            (
+                [
+                    AttributeCreateDTO(
+                        name="temperature",
+                        data_type=DataType.FLOAT,
+                        read_write_mode="read",
+                    ),
+                    AttributeCreateDTO(
+                        name="humidity",
+                        data_type=DataType.FLOAT,
+                        read_write_mode="read",
+                    ),
+                    AttributeCreateDTO(
+                        name="pressure",
+                        data_type=DataType.FLOAT,
+                        read_write_mode="read",
+                    ),
+                ],
+                ["temperature", "humidity", "pressure"],
+                [],
+            ),
+            # Remove an attribute
+            (
+                [
+                    AttributeCreateDTO(
+                        name="temperature",
+                        data_type=DataType.FLOAT,
+                        read_write_mode="read",
+                    )
+                ],
+                ["temperature"],
+                ["humidity"],
+            ),
+            # Replace all with single new attribute
+            (
+                [
+                    AttributeCreateDTO(
+                        name="co2", data_type=DataType.INT, read_write_mode="read"
+                    )
+                ],
+                ["co2"],
+                ["temperature", "humidity"],
+            ),
+        ],
+    )
+    async def test_attribute_mutation(
+        self, dm_with_virtual, incoming, expected_present, expected_absent
+    ):
+        result = await dm_with_virtual.update_device(
+            "vd1", DeviceUpdateDTO(attributes=incoming)
+        )
+        for name in expected_present:
+            assert name in result.attributes
+        for name in expected_absent:
+            assert name not in result.attributes
+
+    @pytest.mark.asyncio
+    async def test_reject_data_type_change(self, dm_with_virtual):
+        with pytest.raises(InvalidError):
+            await dm_with_virtual.update_device(
+                "vd1",
+                DeviceUpdateDTO(
+                    attributes=[
+                        AttributeCreateDTO(
+                            name="temperature",
+                            data_type=DataType.INT,
+                            read_write_mode="read",
+                        ),
+                    ]
+                ),
+            )
+
+    @pytest.mark.asyncio
+    async def test_update_with_valid_standard_schema(self):
+        vd = VirtualDevice(id="vd1", name="T", type="thermostat", attributes={})
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        result = await dm.update_device(
+            "vd1", DeviceUpdateDTO(attributes=_THERMOSTAT_ATTRS)
+        )
+        assert result.type == "thermostat"
+        assert "temperature" in result.attributes
+
+    @pytest.mark.asyncio
+    async def test_update_with_invalid_standard_schema_raises(self):
+        vd = VirtualDevice(id="vd1", name="T", type="thermostat", attributes={})
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        with pytest.raises(InvalidError):
+            await dm.update_device(
+                "vd1",
+                DeviceUpdateDTO(
+                    attributes=[
+                        AttributeCreateDTO(
+                            name="temperature",
+                            data_type=DataType.FLOAT,
+                            read_write_mode="read",
+                        ),
+                    ]
+                ),
+            )
+
+    @pytest.mark.asyncio
+    async def test_physical_device_ignores_attributes_field(
+        self, devices_manager, device
+    ):
+        """PATCH with attributes on a physical device must not change attributes."""
+        original_attrs = set(devices_manager.get_device(device.id).attributes.keys())
+        result = await devices_manager.update_device(
+            device.id,
+            DeviceUpdateDTO(
+                attributes=[
+                    AttributeCreateDTO(
+                        name="new_attr", data_type=DataType.INT, read_write_mode="read"
+                    )
+                ]
+            ),
+        )
+        assert set(result.attributes.keys()) == original_attrs
+
+    @pytest.mark.asyncio
+    async def test_update_no_attributes_field_leaves_attributes_unchanged(
+        self, dm_with_virtual
+    ):
+        original_attrs = set(dm_with_virtual.get_device("vd1").attributes.keys())
+        result = await dm_with_virtual.update_device("vd1", DeviceUpdateDTO(name="X"))
+        assert set(result.attributes.keys()) == original_attrs
+
+    @pytest.mark.asyncio
+    async def test_update_virtual_device_persists(self, dm_with_virtual):
+        dm_with_virtual._storage = AsyncMock()
+        dm_with_virtual._storage.devices = AsyncMock()
+        await dm_with_virtual.update_device("vd1", DeviceUpdateDTO(name="Persisted"))
+        dm_with_virtual._storage.devices.write.assert_called_once()
+
+
+class TestVirtualDeviceDelete:
+    @pytest.mark.asyncio
+    async def test_delete_virtual_device_ok(self):
+        vd = VirtualDevice(
+            id="vd1",
+            name="V",
+            attributes={"x": Attribute.create("x", DataType.FLOAT, {"read"})},
+        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
+        await dm.delete_device("vd1")
+        assert "vd1" not in dm.device_ids
 
 
 class TestDevicesManagerRestartPolling:

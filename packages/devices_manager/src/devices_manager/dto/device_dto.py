@@ -1,16 +1,21 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
 
 from devices_manager.core.device import (
     Attribute,
     Device,
     DeviceBase,
     PhysicalDevice,
+    VirtualDevice,
 )
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
+
+if TYPE_CHECKING:
+    from devices_manager.core.driver import Driver
+    from devices_manager.core.transports import TransportClient
 
 
 class AttributeCreateDTO(BaseModel):
@@ -28,6 +33,7 @@ class PhysicalDeviceCreateDTO(BaseModel):
 
 
 class VirtualDeviceCreateDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     kind: Literal[DeviceKind.VIRTUAL] = DeviceKind.VIRTUAL
     name: Annotated[str, Field(default_factory=lambda: "")]
     attributes: list[AttributeCreateDTO]
@@ -65,6 +71,7 @@ class DeviceUpdateDTO(BaseModel):
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
+    attributes: list[AttributeCreateDTO] | None = None
 
 
 def core_to_dto(device: Device) -> DeviceDTO:
@@ -94,4 +101,29 @@ def dto_to_base(dto: DeviceDTO) -> DeviceBase:
         id=dto.id,
         name=dto.name,
         config=dto.config or {},
+    )
+
+
+def dto_to_core(
+    dto: DeviceDTO,
+    drivers: dict[str, Driver],
+    transports: dict[str, TransportClient],
+) -> Device:
+    """Reconstruct a Device domain object from a stored DeviceDTO."""
+    if dto.kind == DeviceKind.VIRTUAL:
+        return VirtualDevice(
+            id=dto.id, name=dto.name, type=dto.type, attributes=dto.attributes
+        )
+    driver = drivers[dto.driver_id]  # type: ignore[index]
+    transport = transports[dto.transport_id]  # type: ignore[index]
+    initial_values = {
+        name: attr.current_value
+        for name, attr in dto.attributes.items()
+        if attr.current_value is not None
+    }
+    return PhysicalDevice.from_base(
+        DeviceBase(id=dto.id, name=dto.name, config=dto.config or {}),
+        driver=driver,
+        transport=transport,
+        initial_values=initial_values or None,
     )
