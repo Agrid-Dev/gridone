@@ -41,6 +41,22 @@ class VirtualDevice(Device):
         )
         return attribute
 
+    def bulk_update_attributes(
+        self, values: dict[str, AttributeValueType]
+    ) -> dict[str, Attribute]:
+        """Validate all names/types atomically; skips writability (sensor push path)."""
+
+        validated: dict[str, tuple[Attribute, AttributeValueType]] = {}
+        for name, value in values.items():
+            attr = self.attributes.get(name)
+            if attr is None:
+                msg = f"Attribute '{name}' not found on device '{self.id}'"
+                raise KeyError(msg)
+            validated[name] = (attr, attr.ensure_type(value))
+        for attr, value in validated.values():
+            attr._update_value(value)  # noqa: SLF001
+        return {name: self.attributes[name] for name in values}
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, VirtualDevice):
             return NotImplemented
