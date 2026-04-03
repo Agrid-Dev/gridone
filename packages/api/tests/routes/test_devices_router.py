@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from devices_manager import DevicesManager, PhysicalDevice
@@ -463,6 +463,10 @@ def app_with_virtual(
             transports=mock_transports,
         )
 
+    ws_manager = MagicMock()
+    ws_manager.broadcast = AsyncMock()
+    application.state.websocket_manager = ws_manager
+
     application.dependency_overrides[get_device_manager] = get_dm
     application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     application.dependency_overrides[get_current_token_payload] = lambda: (
@@ -795,3 +799,190 @@ class TestUpdateAttribute:
                 )
             assert response.status_code == 404
             mock_ts_service.log_command.assert_not_called()
+
+
+class TestUpdateAttributeOnVirtual:
+    @pytest.mark.asyncio
+    async def test_write_returns_200(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/setpoint", json={"value": 22.0}
+            )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_write_logs_command(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(f"/{virtual_device.id}/setpoint", json={"value": 21.0})
+        mock_ts_service.log_command.assert_called_once()
+        cmd = mock_ts_service.log_command.call_args[0][0]
+        assert isinstance(cmd, DeviceCommandCreate)
+        assert cmd.device_id == virtual_device.id
+        assert cmd.attribute == "setpoint"
+        assert cmd.value == 21.0
+
+    @pytest.mark.asyncio
+    async def test_write_upserts_timeseries(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.post(f"/{virtual_device.id}/setpoint", json={"value": 21.0})
+        mock_ts_service.upsert_points.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_write_read_only_returns_400(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/temperature", json={"value": 55.0}
+            )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_write_unknown_attribute_returns_404(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/nonexistent", json={"value": 1.0}
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_write_wrong_type_returns_400(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/setpoint", json={"value": "not-a-float"}
+            )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_confirm_false_ignored_on_virtual(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                f"/{virtual_device.id}/setpoint",
+                json={"value": 22.0},
+                params={"confirm": "false"},
+            )
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_write_triggers_attribute_listener(
+        self, virtual_async_client, virtual_device
+    ):
+        """Listener fires on write — drives WS broadcast in prod via app.py."""
+        fired: list[str] = []
+        virtual_device.add_update_listener(lambda _dev, name, _attr: fired.append(name))
+        async with virtual_async_client as ac:
+            await ac.post(f"/{virtual_device.id}/setpoint", json={"value": 22.0})
+        assert fired == ["setpoint"]
+
+
+class TestUpdateDeviceState:
+    @pytest.mark.asyncio
+    async def test_success_returns_200(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.put(
+                f"/{virtual_device.id}/state", json={"values": {"setpoint": 25.0}}
+            )
+        assert response.status_code == 200
+        assert response.json()["setpoint"] == 25.0
+
+    @pytest.mark.asyncio
+    async def test_success_logs_command_per_attribute(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.put(
+                f"/{virtual_device.id}/state", json={"values": {"setpoint": 20.0}}
+            )
+        mock_ts_service.log_command.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_timeseries_per_attribute(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.put(
+                f"/{virtual_device.id}/state", json={"values": {"setpoint": 20.0}}
+            )
+        mock_ts_service.upsert_points.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_success_broadcasts_once(
+        self, app_with_virtual, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.put(
+                f"/{virtual_device.id}/state", json={"values": {"setpoint": 20.0}}
+            )
+        app_with_virtual.state.websocket_manager.broadcast.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_physical_device_returns_405(self, async_client, device_id):
+        async with async_client as ac:
+            response = await ac.put(
+                f"/{device_id}/state", json={"values": {"temperature": 20.0}}
+            )
+        assert response.status_code == 405
+
+    @pytest.mark.asyncio
+    async def test_unknown_attribute_returns_400(
+        self, virtual_async_client, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            response = await ac.put(
+                f"/{virtual_device.id}/state", json={"values": {"nonexistent": 1.0}}
+            )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_wrong_type_returns_400(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.put(
+                f"/{virtual_device.id}/state",
+                json={"values": {"setpoint": "not-a-float"}},
+            )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_empty_values_returns_200(self, virtual_async_client, virtual_device):
+        async with virtual_async_client as ac:
+            response = await ac.put(f"/{virtual_device.id}/state", json={"values": {}})
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_read_only_attribute_can_be_bulk_updated(
+        self, virtual_async_client, virtual_device
+    ):
+        """Bulk update bypasses writability — sensor push path for read-only attrs."""
+        async with virtual_async_client as ac:
+            response = await ac.put(
+                f"/{virtual_device.id}/state",
+                json={"values": {"temperature": 30.0}},
+            )
+        assert response.status_code == 200
+        assert response.json()["temperature"] == 30.0
+
+    @pytest.mark.asyncio
+    async def test_custom_timestamp_used(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        async with virtual_async_client as ac:
+            await ac.put(
+                f"/{virtual_device.id}/state",
+                json={
+                    "values": {"setpoint": 20.0},
+                    "timestamp": "2026-01-15T12:00:00Z",
+                },
+            )
+        cmd = mock_ts_service.log_command.call_args[0][0]
+        assert cmd.timestamp.year == 2026
+        assert cmd.timestamp.month == 1
