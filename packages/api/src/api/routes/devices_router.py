@@ -218,14 +218,12 @@ async def push_device_timeseries(
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> None:
     device_dto = dm.get_device(device_id)
-    if device_dto.kind != DeviceKind.VIRTUAL:
-        raise HTTPException(status_code=405, detail="Only supported on virtual devices")
-    try:
-        dm.validate_timeseries_push(
-            device_id, [(p.attribute, p.value) for p in body.data]
-        )
-    except InvalidError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    for p in body.data:
+        if p.attribute not in device_dto.attributes:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Attribute '{p.attribute}' not found on device {device_id}",
+            )
     grouped: dict[str, list[DataPoint]] = {}
     for p in body.data:
         grouped.setdefault(p.attribute, []).append(
@@ -236,6 +234,7 @@ async def push_device_timeseries(
             SeriesKey(owner_id=device_id, metric=attr_name),
             points,
             create_if_not_found=True,
+            validate_data_type=device_dto.attributes[attr_name].data_type,
         )
 
 
@@ -252,23 +251,17 @@ async def push_device_attribute_timeseries(
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> None:
     device_dto = dm.get_device(device_id)
-    if device_dto.kind != DeviceKind.VIRTUAL:
-        raise HTTPException(status_code=405, detail="Only supported on virtual devices")
-    if device_dto.attributes.get(attr_name) is None:
+    if attr_name not in device_dto.attributes:
         raise HTTPException(
-            status_code=404, detail=f"Attribute '{attr_name}' not found"
+            status_code=404,
+            detail=f"Attribute '{attr_name}' not found on device {device_id}",
         )
-    try:
-        dm.validate_timeseries_push(
-            device_id, [(attr_name, p.value) for p in body.data]
-        )
-    except InvalidError as e:
-        raise HTTPException(status_code=400, detail=str(e))
     points = _to_data_points(body.data)
     await ts.upsert_points(
         SeriesKey(owner_id=device_id, metric=attr_name),
         points,
         create_if_not_found=True,
+        validate_data_type=device_dto.attributes[attr_name].data_type,
     )
 
 

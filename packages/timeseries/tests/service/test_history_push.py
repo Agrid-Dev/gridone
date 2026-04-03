@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from models.errors import InvalidError
 from timeseries.domain import DataPoint, DataType, SeriesKey
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
@@ -101,3 +102,46 @@ class TestHistoryPush:
         )
         fetched = await service.fetch_points(key)
         assert len(fetched) == 2
+
+    async def test_validate_data_type_creates_series_with_correct_type(
+        self, service: TimeSeriesService
+    ):
+        """validate_data_type is used as the series data_type when creating."""
+        key = SeriesKey(owner_id=DEVICE_ID, metric=SETPOINT)
+        await service.upsert_points(
+            key,
+            [DataPoint(timestamp=_ts(10), value=22.0)],
+            create_if_not_found=True,
+            validate_data_type=DataType.FLOAT,
+        )
+        series = await service.get_series_by_key(key)
+        assert series is not None
+        assert series.data_type == DataType.FLOAT
+
+    async def test_validate_data_type_rejects_wrong_type(
+        self, service: TimeSeriesService
+    ):
+        """validate_data_type causes InvalidError when value type mismatches."""
+        key = SeriesKey(owner_id=DEVICE_ID, metric=TEMPERATURE)
+        with pytest.raises(InvalidError):
+            await service.upsert_points(
+                key,
+                [DataPoint(timestamp=_ts(10), value="not-a-float")],
+                create_if_not_found=True,
+                validate_data_type=DataType.FLOAT,
+            )
+
+    async def test_validate_data_type_allows_empty_points_on_new_series(
+        self, service: TimeSeriesService
+    ):
+        """validate_data_type allows series creation even with no points."""
+        key = SeriesKey(owner_id=DEVICE_ID, metric=SETPOINT)
+        await service.upsert_points(
+            key,
+            [],
+            create_if_not_found=True,
+            validate_data_type=DataType.FLOAT,
+        )
+        series = await service.get_series_by_key(key)
+        assert series is not None
+        assert series.data_type == DataType.FLOAT
