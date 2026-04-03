@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+
 from devices_manager.core.device import Attribute
 from devices_manager.dto import DeviceDTO
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage

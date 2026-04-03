@@ -1249,7 +1249,8 @@ class TestVirtualDevicePolling:
 
 
 class TestVirtualDeviceFromDto:
-    def test_from_dto_restores_virtual_device(self):
+    @pytest.mark.asyncio
+    async def test_from_dto_restores_virtual_device(self):
         vd_dto = DeviceDTO(
             id="vd1",
             kind=DeviceKind.VIRTUAL,
@@ -1260,13 +1261,14 @@ class TestVirtualDeviceFromDto:
                 ),
             },
         )
-        dm = DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
+        dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         assert "vd1" in dm.device_ids
         result = dm.get_device("vd1")
         assert result.kind == DeviceKind.VIRTUAL
         assert result.name == "Restored"
 
-    def test_from_dto_virtual_device_no_driver_or_transport(self):
+    @pytest.mark.asyncio
+    async def test_from_dto_virtual_device_no_driver_or_transport(self):
         vd_dto = DeviceDTO(
             id="vd2",
             kind=DeviceKind.VIRTUAL,
@@ -1275,7 +1277,7 @@ class TestVirtualDeviceFromDto:
                 "x": Attribute.create("x", DataType.INT, {"read", "write"}),
             },
         )
-        dm = DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
+        dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         result = dm.get_device("vd2")
         assert result.driver_id is None
         assert result.transport_id is None
