@@ -33,7 +33,10 @@ from api.permissions import Permission
 from api.schemas.device import (
     AttributeUpdate,
     CommandsQuery,
+    SingleAttrTimeseriesPushPoint,
     StateUpdate,
+    TimeseriesBulkPushRequest,
+    TimeseriesSingleAttrPushRequest,
     get_commands_query,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
@@ -199,6 +202,76 @@ async def delete_device(
     return
 
 
+def _to_data_points(points: list[SingleAttrTimeseriesPushPoint]) -> list[DataPoint]:
+    return [DataPoint(timestamp=p.timestamp, value=p.value) for p in points]
+
+
+@router.post(
+    "/{device_id}/timeseries",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def push_device_timeseries(
+    device_id: str,
+    body: TimeseriesBulkPushRequest,
+    dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> None:
+    device_dto = dm.get_device(device_id)
+    if device_dto.kind != DeviceKind.VIRTUAL:
+        raise HTTPException(status_code=405, detail="Only supported on virtual devices")
+    try:
+        dm.validate_timeseries_push(
+            device_id, [(p.attribute, p.value) for p in body.data]
+        )
+    except InvalidError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    grouped: dict[str, list[DataPoint]] = {}
+    for p in body.data:
+        grouped.setdefault(p.attribute, []).append(
+            DataPoint(timestamp=p.timestamp, value=p.value)
+        )
+    for attr_name, points in grouped.items():
+        await ts.upsert_points(
+            SeriesKey(owner_id=device_id, metric=attr_name),
+            points,
+            create_if_not_found=True,
+        )
+
+
+@router.post(
+    "/{device_id}/timeseries/{attr_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def push_device_attribute_timeseries(
+    device_id: str,
+    attr_name: str,
+    body: TimeseriesSingleAttrPushRequest,
+    dm: DevicesManager = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> None:
+    device_dto = dm.get_device(device_id)
+    if device_dto.kind != DeviceKind.VIRTUAL:
+        raise HTTPException(status_code=405, detail="Only supported on virtual devices")
+    if device_dto.attributes.get(attr_name) is None:
+        raise HTTPException(
+            status_code=404, detail=f"Attribute '{attr_name}' not found"
+        )
+    try:
+        dm.validate_timeseries_push(
+            device_id, [(attr_name, p.value) for p in body.data]
+        )
+    except InvalidError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    points = _to_data_points(body.data)
+    await ts.upsert_points(
+        SeriesKey(owner_id=device_id, metric=attr_name),
+        points,
+        create_if_not_found=True,
+    )
+
+
 @router.post(
     "/{device_id}/{attribute_name}",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
@@ -238,18 +311,19 @@ async def update_attribute(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         if not isinstance(e, (NotFoundError, InvalidError)):
-            await _record_write(
-                ts,
-                device_id=device_id,
-                attribute_name=attribute_name,
-                value=update.value,
-                data_type=data_type,
-                user_id=user_id,
-                timestamp=timestamp,
-                command_status=CommandStatus.ERROR,
-                status_details=str(e),
+            await ts.log_command(
+                DeviceCommandCreate(
+                    device_id=device_id,
+                    attribute=attribute_name,
+                    user_id=user_id,
+                    value=update.value,
+                    data_type=data_type,
+                    timestamp=timestamp,
+                    status=CommandStatus.ERROR,
+                    status_details=str(e),
+                )
             )
-        raise e
+        raise
     return update
 
 

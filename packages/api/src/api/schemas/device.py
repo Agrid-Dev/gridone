@@ -17,6 +17,25 @@ class StateUpdate(BaseModel):
     timestamp: datetime | None = None
 
 
+class TimeseriesPushPoint(BaseModel):
+    attribute: str
+    timestamp: datetime
+    value: AttributeValueType
+
+
+class TimeseriesBulkPushRequest(BaseModel):
+    data: list[TimeseriesPushPoint]
+
+
+class SingleAttrTimeseriesPushPoint(BaseModel):
+    timestamp: datetime
+    value: AttributeValueType
+
+
+class TimeseriesSingleAttrPushRequest(BaseModel):
+    data: list[SingleAttrTimeseriesPushPoint]
+
+
 class CommandsQuery(BaseModel):
     ids: list[int] | None = None
     device_id: str | None = None
