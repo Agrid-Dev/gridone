@@ -14,7 +14,8 @@ from devices_manager.core.device import (
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
 
 if TYPE_CHECKING:
-    from devices_manager.core.device import AttributeUpdateCallback
+    from collections.abc import Callable
+
     from devices_manager.core.driver import Driver
     from devices_manager.core.transports import TransportClient
 
@@ -110,7 +111,7 @@ def dto_to_core(
     drivers: dict[str, Driver],
     transports: dict[str, TransportClient],
     *,
-    on_update: AttributeUpdateCallback | None = None,
+    on_update: Callable[..., None] | None = None,
 ) -> Device:
     """Reconstruct a Device domain object from a stored DeviceDTO."""
     if dto.kind == DeviceKind.VIRTUAL:

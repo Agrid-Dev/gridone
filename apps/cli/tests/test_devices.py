@@ -14,10 +14,12 @@ runner = CliRunner()
 
 
 def test_list_devices(mock_core_file_storage: CoreFileStorage) -> None:
-    dm = DevicesManager.from_dto(
-        devices=asyncio.run(mock_core_file_storage.devices.read_all()),
-        drivers=asyncio.run(mock_core_file_storage.drivers.read_all()),
-        transports=asyncio.run(mock_core_file_storage.transports.read_all()),
+    dm = asyncio.run(
+        DevicesManager.from_dto(
+            devices=asyncio.run(mock_core_file_storage.devices.read_all()),
+            drivers=asyncio.run(mock_core_file_storage.drivers.read_all()),
+            transports=asyncio.run(mock_core_file_storage.transports.read_all()),
+        )
     )
     result = runner.invoke(app, ["list"], obj={"dm": dm})
     assert result.exit_code == 0, result.exception
@@ -31,10 +33,12 @@ def test_read_device(
     patched_driver = TEST_DRIVER.model_copy(
         update={"env": {"base_url": open_meteo_server.url_for("") + "/v1/forecast"}}
     )
-    dm = DevicesManager.from_dto(
-        devices=asyncio.run(mock_core_file_storage.devices.read_all()),
-        drivers=[patched_driver],
-        transports=asyncio.run(mock_core_file_storage.transports.read_all()),
+    dm = asyncio.run(
+        DevicesManager.from_dto(
+            devices=asyncio.run(mock_core_file_storage.devices.read_all()),
+            drivers=[patched_driver],
+            transports=asyncio.run(mock_core_file_storage.transports.read_all()),
+        )
     )
     result = runner.invoke(
         app,

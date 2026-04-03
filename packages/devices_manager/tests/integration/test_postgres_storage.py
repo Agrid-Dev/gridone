@@ -595,7 +595,7 @@ class TestAttributePersistence:
         await composed_storage.devices.write("dev1", _make_device("dev1"))
 
         attr = Attribute.create("humidity", DataType.FLOAT, {"read"}, 60.0)
-        await composed_storage.attributes.save_attribute("dev1", attr)
+        await composed_storage.save_attribute("dev1", attr)
 
         result = await composed_storage.devices.read("dev1")
         assert result.attributes["humidity"].current_value == 60.0
