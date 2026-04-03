@@ -1,3 +1,17 @@
+## v0.32.0 (2026-04-03)
+
+### Feat
+
+- **devices-manager**: attribute persistence
+
+### Fix
+
+- **ci**: pin ruff and ty versions, add version echo step
+
+### Refactor
+
+- **devices-manager**: centralize attribute update handlers and persist on change
+
 ## v0.31.1 (2026-04-02)
 
 ### Refactor
