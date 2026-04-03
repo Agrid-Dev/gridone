@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .device import (
     Attribute,
-    AttributeListener,
+    AttributeUpdateCallback,
     Device,
     DeviceBase,
     PhysicalDevice,
@@ -13,7 +13,7 @@ from .transports import PushTransportClient, TransportClient
 
 __all__ = [
     "Attribute",
-    "AttributeListener",
+    "AttributeUpdateCallback",
     "Device",
     "DeviceBase",
     "Driver",

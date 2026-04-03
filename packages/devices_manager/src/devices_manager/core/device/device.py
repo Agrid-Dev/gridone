@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from .attribute import Attribute
 
@@ -15,9 +14,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeListener = Callable[
-    ["Device", str, Attribute], Coroutine[Any, Any, None] | None
-]
+AttributeUpdateCallback = Callable[["Device", str, Attribute], None]
 
 
 @dataclass(kw_only=True)
@@ -27,12 +24,7 @@ class Device(ABC):
     attributes: dict[str, Attribute]
     kind: ClassVar[DeviceKind]
     type: str | None = None
-    _update_listeners: set[AttributeListener] = field(
-        default_factory=set, init=False, repr=False
-    )
-    _background_tasks: set[asyncio.Task[None]] = field(
-        default_factory=set, init=False, repr=False
-    )
+    on_update: AttributeUpdateCallback | None = field(default=None, repr=False)
 
     @property
     def driver_id(self) -> str | None:
@@ -69,31 +61,14 @@ class Device(ABC):
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
 
-    def add_update_listener(self, callback: AttributeListener) -> None:
-        self._update_listeners.add(callback)
-
     def _update_attribute(
         self,
         attribute: Attribute,
         new_value: AttributeValueType | None,
     ) -> None:
         attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
-        self._execute_update_listeners(attribute.name, attribute)
-
-    def _execute_update_listeners(
-        self, attribute_name: str, attribute: Attribute
-    ) -> None:
-        for callback in self._update_listeners:
-            try:
-                result = callback(self, attribute_name, attribute)
-                if isinstance(result, Coroutine):
-                    task = asyncio.create_task(result)
-                    self._background_tasks.add(task)
-                    task.add_done_callback(self._background_tasks.discard)
-            except Exception:
-                logger.exception(
-                    "Device listener failed for %s.%s", self.id, attribute_name
-                )
+        if self.on_update:
+            self.on_update(self, attribute.name, attribute)
 
     @abstractmethod
     async def read_attribute_value(

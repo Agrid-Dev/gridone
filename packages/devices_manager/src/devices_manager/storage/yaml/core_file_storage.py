@@ -1,4 +1,8 @@
+from __future__ import annotations
+
+import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from devices_manager.dto.device_dto import DeviceDTO
 from devices_manager.dto.driver_dto import DriverDTO
@@ -11,6 +15,11 @@ from devices_manager.dto.transport_dto import (
 from devices_manager.storage.storage_backend import DevicesManagerStorage
 
 from .yaml_dm_storage import YamlFileStorage
+
+if TYPE_CHECKING:
+    from devices_manager.core.device import Attribute
+
+logger = logging.getLogger(__name__)
 
 
 class CoreFileStorage(DevicesManagerStorage):
@@ -41,6 +50,19 @@ class CoreFileStorage(DevicesManagerStorage):
         self.transports = YamlFileStorage[TransportDTO](
             self._root_dir / "transports", factory=transport_dto_factory
         )
+
+    async def save_attribute(self, device_id: str, attribute: Attribute) -> None:
+        """Persist attribute by rewriting the device file."""
+        try:
+            dto = await self.devices.read(device_id)
+        except FileNotFoundError:
+            logger.warning(
+                "Cannot persist attribute for unknown device %s",
+                device_id,
+            )
+            return
+        dto.attributes[attribute.name] = attribute
+        await self.devices.write(device_id, dto)
 
     async def close(self) -> None:
         pass

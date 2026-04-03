@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from devices_manager.core.value_adapters import FnAdapter
     from devices_manager.types import AttributeValueType, DeviceConfig
 
+    from .device import AttributeUpdateCallback
     from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ class PhysicalDevice(Device):
         transport: TransportClient,
         driver: Driver,
         initial_values: dict[str, AttributeValueType] | None = None,
+        on_update: AttributeUpdateCallback | None = None,
     ) -> PhysicalDevice:
         return cls(
             id=base.id,
@@ -74,6 +76,7 @@ class PhysicalDevice(Device):
             config=base.config,
             driver=driver,
             transport=transport,
+            on_update=on_update,
             attributes={
                 a.name: Attribute.create(
                     a.name,

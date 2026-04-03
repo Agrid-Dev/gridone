@@ -23,6 +23,11 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --locked --all-groups --all-packages
 
+      - name: Show tool versions
+        run: |
+          uv run ruff --version
+          uv run ty --version
+
       - name: Run Ruff check
         run: uv run ruff check .
 

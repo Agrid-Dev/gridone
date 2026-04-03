@@ -1,8 +1,12 @@
-from typing import Protocol
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
-from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
+if TYPE_CHECKING:
+    from devices_manager.core.device import Attribute
+    from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
 
 
 class StorageBackend[M: BaseModel](Protocol):
@@ -22,7 +26,12 @@ class DevicesManagerStorage(Protocol):
     drivers: StorageBackend[DriverDTO]
     transports: StorageBackend[TransportDTO]
 
+    async def save_attribute(self, device_id: str, attribute: Attribute) -> None: ...
+
     async def close(self) -> None: ...
 
 
-__all__ = ["DevicesManagerStorage", "StorageBackend"]
+__all__ = [
+    "DevicesManagerStorage",
+    "StorageBackend",
+]
