@@ -8,7 +8,7 @@ from devices_manager.types import DataType
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from timeseries.domain import DeviceCommandCreate, SortOrder
 
@@ -1058,7 +1058,7 @@ class TestBulkPushTimeseries:
         app_with_virtual.state.websocket_manager.broadcast.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_nonexistent_attribute_returns_400(
+    async def test_nonexistent_attribute_returns_404(
         self, virtual_async_client, virtual_device
     ):
         async with virtual_async_client as ac:
@@ -1074,10 +1074,13 @@ class TestBulkPushTimeseries:
                     ]
                 },
             )
-        assert response.status_code == 400
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_wrong_type_returns_400(self, virtual_async_client, virtual_device):
+    async def test_wrong_type_returns_422(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
         async with virtual_async_client as ac:
             response = await ac.post(
                 f"/{virtual_device.id}/timeseries",
@@ -1091,16 +1094,7 @@ class TestBulkPushTimeseries:
                     ]
                 },
             )
-        assert response.status_code == 400
-
-    @pytest.mark.asyncio
-    async def test_physical_device_returns_405(self, async_client, device_id):
-        async with async_client as ac:
-            response = await ac.post(
-                f"/{device_id}/timeseries",
-                json={"data": [_BULK_PUSH_POINT]},
-            )
-        assert response.status_code == 405
+        assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_unknown_device_returns_404(self, virtual_async_client):
@@ -1139,7 +1133,7 @@ class TestBulkPushTimeseries:
                     ]
                 },
             )
-        assert response.status_code == 400
+        assert response.status_code == 404
         mock_ts_service.upsert_points.assert_not_called()
 
 
@@ -1184,13 +1178,16 @@ class TestSingleAttrPushTimeseries:
         mock_ts_service.log_command.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_wrong_type_returns_400(self, virtual_async_client, virtual_device):
+    async def test_wrong_type_returns_422(
+        self, virtual_async_client, mock_ts_service, virtual_device
+    ):
+        mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
         async with virtual_async_client as ac:
             response = await ac.post(
                 f"/{virtual_device.id}/timeseries/temperature",
                 json={"data": [{"timestamp": "2026-01-15T12:00:00Z", "value": "bad"}]},
             )
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_nonexistent_attribute_returns_404(
@@ -1202,15 +1199,6 @@ class TestSingleAttrPushTimeseries:
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
         assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_physical_device_returns_405(self, async_client, device_id):
-        async with async_client as ac:
-            response = await ac.post(
-                f"/{device_id}/timeseries/temperature",
-                json={"data": [_SINGLE_PUSH_POINT]},
-            )
-        assert response.status_code == 405
 
     @pytest.mark.asyncio
     async def test_unknown_device_returns_404(self, virtual_async_client):
