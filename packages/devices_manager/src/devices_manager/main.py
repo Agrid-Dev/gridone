@@ -40,19 +40,20 @@ from .dto import (
     TransportUpdateDTO,
     VirtualDeviceCreateDTO,
     device_core_to_dto,
+    device_dto_to_core,
     driver_core_to_dto,
     driver_dto_to_core,
     standard_schema_core_to_dto,
     transport_core_to_dto,
 )
 from .storage.factory import build_storage, make_storage
-from .types import AttributeValueType, DeviceKind
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from .core.driver import Driver
     from .storage import DevicesManagerStorage
+    from .types import AttributeValueType
 
 logger = logging.getLogger(__name__)
 
@@ -249,49 +250,15 @@ class DevicesManager:
             )
         return self._discovery_manager
 
-    def _restore_virtual_device(self, d: DeviceDTO) -> None:
-        logger.info("Adding virtual device %s", d.id)
-        try:
-            device = VirtualDevice(
-                id=d.id,
-                name=d.name,
-                type=d.type,
-                attributes=d.attributes,
-            )
-            self._register_device(device)
-        except Exception:
-            logger.exception("Failed to init virtual device %s", d.id)
-
-    def _restore_physical_device(self, d: DeviceDTO) -> None:
-        try:
-            driver = self._drivers[d.driver_id]  # type: ignore[index]
-        except KeyError:
-            logger.exception(
-                "Cannot create device %s: missing driver %s", d.id, d.driver_id
-            )
-            return
-        try:
-            transport = self._transports[d.transport_id]  # type: ignore[index]
-        except KeyError:
-            logger.exception(
-                "Cannot create device %s: missing transport %s",
-                d.id,
-                d.transport_id,
-            )
-            return
+    def _restore_device(self, d: DeviceDTO) -> None:
         logger.info("Adding device %s", d.id)
         try:
-            device = PhysicalDevice.from_base(
-                DeviceBase(id=d.id, name=d.name, config=d.config or {}),
-                transport=transport,
-                driver=driver,
-                initial_values={
-                    name: attr.current_value
-                    for name, attr in d.attributes.items()
-                    if attr.current_value is not None
-                },
-            )
+            device = device_dto_to_core(d, self._drivers, self._transports)
             self._register_device(device)
+        except KeyError:
+            logger.exception(
+                "Cannot create device %s: missing driver or transport", d.id
+            )
         except Exception:
             logger.exception("Failed to init device %s", d.id)
 
@@ -318,10 +285,7 @@ class DevicesManager:
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:
-            if d.kind == DeviceKind.VIRTUAL:
-                dm._restore_virtual_device(d)
-            else:
-                dm._restore_physical_device(d)
+            dm._restore_device(d)
         return dm
 
     @classmethod
@@ -515,7 +479,7 @@ class DevicesManager:
             if existing is not None and existing.data_type != attr_dto.data_type:
                 msg = f"Cannot change data_type of existing attribute '{name}'"
                 raise InvalidError(msg)
-        device.attributes = {
+        new_attributes = {
             name: (
                 device.attributes[name]
                 if name in device.attributes
@@ -527,6 +491,7 @@ class DevicesManager:
         }
         if device.type is not None:
             validate_standard_schema(device.type, list(device_update.attributes))
+        device.attributes = new_attributes
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdateDTO

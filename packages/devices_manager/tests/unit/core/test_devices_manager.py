@@ -1405,6 +1405,13 @@ class TestVirtualDeviceUpdate:
         result = await dm_with_virtual.update_device("vd1", DeviceUpdateDTO(name="X"))
         assert set(result.attributes.keys()) == original_attrs
 
+    @pytest.mark.asyncio
+    async def test_update_virtual_device_persists(self, dm_with_virtual):
+        dm_with_virtual._storage = AsyncMock()
+        dm_with_virtual._storage.devices = AsyncMock()
+        await dm_with_virtual.update_device("vd1", DeviceUpdateDTO(name="Persisted"))
+        dm_with_virtual._storage.devices.write.assert_called_once()
+
 
 class TestVirtualDeviceDelete:
     @pytest.mark.asyncio

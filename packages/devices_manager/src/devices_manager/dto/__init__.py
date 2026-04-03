@@ -8,6 +8,7 @@ from .device_dto import (
 )
 from .device_dto import core_to_dto as device_core_to_dto
 from .device_dto import dto_to_base as device_dto_to_base
+from .device_dto import dto_to_core as device_dto_to_core
 from .driver_dto import DriverDTO, DriverYamlDTO
 from .driver_dto import core_to_dto as driver_core_to_dto
 from .driver_dto import dto_to_core as driver_dto_to_core
@@ -46,6 +47,7 @@ __all__ = [
     "build_transport_dto",
     "device_core_to_dto",
     "device_dto_to_base",
+    "device_dto_to_core",
     "driver_core_to_dto",
     "driver_dto_to_core",
     "standard_schema_core_to_dto",
