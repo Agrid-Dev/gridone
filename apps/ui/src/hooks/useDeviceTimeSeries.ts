@@ -11,7 +11,7 @@ export function useDeviceTimeSeries(
 ) {
   const seriesQuery = useQuery<TimeSeries[]>({
     queryKey: ["timeseries", "series", deviceId],
-    queryFn: () => listSeries(deviceId),
+    queryFn: () => listSeries(deviceId!),
     enabled: !!deviceId,
   });
 
@@ -21,7 +21,12 @@ export function useDeviceTimeSeries(
     queries: seriesList.map((series) => ({
       queryKey: ["timeseries", "points", series.id, start, end, last],
       queryFn: () =>
-        getSeriesPoints(series.id, { start, end, last, carryForward: true }),
+        getSeriesPoints(series.ownerId, series.metric, {
+          start,
+          end,
+          last,
+          carryForward: true,
+        }),
     })),
   });
 

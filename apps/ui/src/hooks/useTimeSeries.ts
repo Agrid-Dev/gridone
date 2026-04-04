@@ -31,19 +31,23 @@ export function useTimeSeries<D extends DataType = DataType>({
     enabled: enabled && !!deviceId && !!attributeName,
   });
 
-  const seriesId = seriesQuery.data?.id;
+  const series = seriesQuery.data;
 
   const pointsQuery = useQuery<DataPoint<D>[]>({
-    queryKey: ["timeseries", "points", seriesId, start, end],
+    queryKey: ["timeseries", "points", series?.id, start, end],
     queryFn: () =>
-      getSeriesPoints<D>(seriesId!, { start, end, carryForward: true }),
-    enabled: !!seriesId,
+      getSeriesPoints<D>(series!.ownerId, series!.metric, {
+        start,
+        end,
+        carryForward: true,
+      }),
+    enabled: !!series,
   });
 
   return {
     series: seriesQuery.data ?? null,
     points: pointsQuery.data ?? [],
-    isLoading: seriesQuery.isLoading || (!!seriesId && pointsQuery.isLoading),
+    isLoading: seriesQuery.isLoading || (!!series && pointsQuery.isLoading),
     error: seriesQuery.error ?? pointsQuery.error ?? null,
   };
 }
