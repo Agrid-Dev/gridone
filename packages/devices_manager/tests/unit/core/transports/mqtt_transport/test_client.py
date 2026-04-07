@@ -8,6 +8,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttRequest
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 
@@ -83,12 +84,21 @@ async def test_unsubscribe(mqtt_client, mock_aiomqtt_client):
 
 
 @pytest.fixture
-def mqtt_address() -> MqttAddress:
-    address_dict = {
-        "topic": "test/topic",
-        "request": {"topic": "test/topic", "message": "test_message"},
-    }
-    return MqttAddress(**address_dict)  # ty:ignore[invalid-argument-type]
+def mqtt_listen_address() -> MqttAddress:
+    return MqttAddress(topic="test/topic")
+
+
+@pytest.fixture
+def mqtt_read_request_address() -> MqttAddress:
+    return MqttAddress(
+        topic="test/topic",
+        request=MqttRequest(topic="test/request/topic", message="trigger"),
+    )
+
+
+@pytest.fixture
+def mqtt_write_address() -> MqttAddress:
+    return MqttAddress(topic="test/write/topic", message={"value": "${value}"})
 
 
 class AsyncIteratorMock:
@@ -107,18 +117,90 @@ class AsyncIteratorMock:
 
 
 @pytest.mark.asyncio
-async def test_handle_incoming_messages(mqtt_client, mock_aiomqtt_client, mqtt_address):
-    # Mock a message
+async def test_handle_incoming_messages(
+    mqtt_client, mock_aiomqtt_client, mqtt_listen_address
+):
     mock_message = AsyncMock()
     mock_message.topic = Topic("test/topic")
     mock_message.payload = b'{"value": 42}'
 
-    # Register a handler
     callback = Mock()
-    await mqtt_client.register_listener(mqtt_address.topic, callback)
+    await mqtt_client.register_listener(mqtt_listen_address.topic, callback)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
     await mqtt_client._handle_incoming_messages()
 
-    # Verify the callback was called
     callback.assert_called_once_with('{"value": 42}')
+
+
+@pytest.mark.asyncio
+async def test_read_listen_address_does_not_publish(
+    mqtt_client, mock_aiomqtt_client, mqtt_listen_address
+):
+    """read() on a listen-only address must not publish anything."""
+    await mqtt_client.connect()
+
+    mock_message = AsyncMock()
+    mock_message.topic = Topic("test/topic")
+    mock_message.payload = b'"pushed_value"'
+
+    async def deliver_message(*_args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+        mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
+        await mqtt_client._handle_incoming_messages()
+
+    mock_aiomqtt_client.subscribe.side_effect = deliver_message
+
+    result = await mqtt_client.read(mqtt_listen_address)
+
+    mock_aiomqtt_client.publish.assert_not_awaited()
+    assert result == '"pushed_value"'
+
+
+@pytest.mark.asyncio
+async def test_read_read_request_address_publishes_trigger(
+    mqtt_client, mock_aiomqtt_client, mqtt_read_request_address
+):
+    """read() on a read_request address must publish the trigger before awaiting."""
+    await mqtt_client.connect()
+
+    mock_message = AsyncMock()
+    mock_message.topic = Topic("test/topic")
+    mock_message.payload = b'"triggered_value"'
+
+    async def deliver_message(*_args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+        mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
+        await mqtt_client._handle_incoming_messages()
+
+    mock_aiomqtt_client.subscribe.side_effect = deliver_message
+
+    result = await mqtt_client.read(mqtt_read_request_address)
+
+    mock_aiomqtt_client.publish.assert_awaited_once_with(
+        "test/request/topic", payload="trigger", timeout=10
+    )
+    assert result == '"triggered_value"'
+
+
+@pytest.mark.asyncio
+async def test_write_uses_address_topic_and_message(
+    mqtt_client, mock_aiomqtt_client, mqtt_write_address
+):
+    """write() publishes to address.topic using address.message as template."""
+    await mqtt_client.connect()
+
+    await mqtt_client.write(mqtt_write_address, 42)
+
+    mock_aiomqtt_client.publish.assert_awaited_once()
+    call_args = mock_aiomqtt_client.publish.call_args
+    assert call_args.args[0] == "test/write/topic"
+    assert call_args.kwargs["payload"] == '{"value": 42}'
+
+
+@pytest.mark.asyncio
+async def test_write_raises_when_no_message(mqtt_client, mock_aiomqtt_client):  # noqa: ARG001
+    """write() must raise ValueError when address has no message template."""
+    await mqtt_client.connect()
+    address = MqttAddress(topic="dev/set/temperature")  # no message field
+
+    with pytest.raises(ValueError, match="no message template"):
+        await mqtt_client.write(address, 22.0)

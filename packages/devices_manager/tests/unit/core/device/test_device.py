@@ -205,8 +205,7 @@ class TestDevicesListeners:
                 "temperature": AttributeDriver(
                     name="temperature",
                     data_type=DataType.FLOAT,
-                    read={"topic": "/dev/temperature"},
-                    write=None,
+                    listen="/dev/temperature",
                     value_adapter_specs=[
                         ValueAdapterSpec(
                             adapter="json_pointer", argument="/payload/temperature"
@@ -216,8 +215,7 @@ class TestDevicesListeners:
                 "humidity": AttributeDriver(
                     name="humidity",
                     data_type=DataType.FLOAT,
-                    read={"topic": "/dev/humidity"},
-                    write=None,
+                    listen="/dev/humidity",
                     value_adapter_specs=[
                         ValueAdapterSpec(
                             adapter="json_pointer", argument="/payload/humidity"

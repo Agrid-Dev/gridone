@@ -147,8 +147,7 @@ def push_attributes() -> list[AttributeDriver]:
         AttributeDriver(
             name="temperature",
             data_type=DataType.FLOAT,
-            read={"topic": "/xx/temperature"},
-            write=None,
+            listen="/xx/temperature",
             value_adapter_specs=[
                 ValueAdapterSpec(
                     adapter="json_pointer", argument="/payload/temperature"
