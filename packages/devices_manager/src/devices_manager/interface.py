@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    import builtins
+
     from .core.device import Attribute
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
@@ -34,7 +36,7 @@ class DiscoveryManagerInterface(Protocol):
         *,
         driver_id: str | None = None,
         transport_id: str | None = None,
-    ) -> list[DiscoveryConfig]: ...
+    ) -> builtins.list[DiscoveryConfig]: ...
 
 
 class DevicesManagerInterface(Protocol):
