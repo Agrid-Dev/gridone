@@ -2,12 +2,12 @@ from typing import Annotated
 
 from pydantic import Field, PositiveInt
 
-from devices_manager.core.transports.base_transport_config import BaseTransportConfig
+from devices_manager.core.transports.base_transport_config import (
+    HOST_PATTERN,
+    BaseTransportConfig,
+)
 
 MODBUS_TCP_DEFAULT_PORT = 502
-
-
-HOST_PATTERN = r"^[^\s:/]+(\.[^\s:/]+)*$"
 
 
 class ModbusTCPTransportConfig(BaseTransportConfig):
