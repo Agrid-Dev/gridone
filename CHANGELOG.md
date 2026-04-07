@@ -1,3 +1,9 @@
+## v0.34.1 (2026-04-07)
+
+### Refactor
+
+- extract timeseries routes into a child router
+
 ## v0.34.0 (2026-04-07)
 
 ### Feat
