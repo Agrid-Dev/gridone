@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from devices_manager.dto import DriverDTO, DriverYamlDTO
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DRIVERS_READ))])
 def list_drivers(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     device_type: str | None = Query(None, alias="type"),
 ) -> list[DriverDTO]:
     return dm.list_drivers(device_type=device_type)
@@ -23,7 +23,7 @@ def list_drivers(
 )
 def get_driver(
     driver_id: str,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> DriverDTO:
     return dm.get_driver(driver_id)
 
@@ -35,7 +35,7 @@ def get_driver(
 )
 async def create_driver(
     payload: DriverDTO | DriverYamlDTO,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> DriverDTO:
     driver_dto = (
         payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
@@ -54,6 +54,6 @@ async def create_driver(
 )
 async def delete_driver(
     driver_id: str,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> None:
     await dm.delete_driver(driver_id)

@@ -25,9 +25,11 @@ KEY = SeriesKey(owner_id=DEVICE_ID, metric=ATTR)
 
 
 def _make_dm(known_ids: list[str] | None = None) -> MagicMock:
-    """Return a DevicesManager mock that accepts known device IDs and raises NotFoundError for others."""
+    """Return a DevicesManagerInterface mock that accepts known device IDs and raises NotFoundError for others."""
+    from devices_manager import DevicesManagerInterface
+
     known = set(known_ids or [DEVICE_ID])
-    dm = MagicMock()
+    dm = MagicMock(spec=DevicesManagerInterface)
 
     def get_device(device_id: str):
         if device_id not in known:

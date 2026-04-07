@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from models.errors import NotFoundError
@@ -87,7 +87,7 @@ async def export_timeseries_png(
 async def list_device_timeseries(
     device_id: str,
     metric: str | None = Query(None),
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> list[TimeSeriesResponse]:
     dm.get_device(device_id)
@@ -106,7 +106,7 @@ async def get_device_timeseries_points(
     end: datetime | None = Query(None),
     last: str | None = Query(None),
     carry_forward: bool = Query(False),
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> list[DataPointResponse]:
     dm.get_device(device_id)

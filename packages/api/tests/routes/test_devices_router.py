@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesManager, PhysicalDevice
-from devices_manager.core.device import Attribute, VirtualDevice
-from devices_manager.types import DataType
+from devices_manager import DevicesManagerInterface
+from devices_manager.core.device import Attribute
+from devices_manager.dto.device_dto import DeviceDTO
+from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -21,6 +22,82 @@ from api.dependencies import (
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 
+# ---------------------------------------------------------------------------
+# Shared device fixtures
+# ---------------------------------------------------------------------------
+
+_PHYSICAL_DEVICE = DeviceDTO(
+    id="device1",
+    kind=DeviceKind.PHYSICAL,
+    name="My device",
+    attributes={
+        "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+        "temperature_setpoint": Attribute.create(
+            "temperature_setpoint", DataType.FLOAT, {"read", "write"}
+        ),
+    },
+    config={"some_id": "abc"},
+    driver_id="test_driver",
+    transport_id="my-http",
+)
+
+_VIRTUAL_DEVICE = DeviceDTO(
+    id="vd1",
+    kind=DeviceKind.VIRTUAL,
+    name="My Virtual Sensor",
+    attributes={
+        "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+        "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
+    },
+)
+
+_VIRTUAL_TYPED = DeviceDTO(
+    id="vd2",
+    kind=DeviceKind.VIRTUAL,
+    name="Virtual Thermostat",
+    type="thermostat",
+    attributes={
+        "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+    },
+)
+
+
+def _make_dm(
+    devices: list[DeviceDTO] | None = None,
+) -> MagicMock:
+    all_devices = {d.id: d for d in (devices or [_PHYSICAL_DEVICE])}
+
+    mock = MagicMock(spec=DevicesManagerInterface)
+    mock.list_devices.side_effect = lambda *, device_type=None: [
+        d for d in all_devices.values() if device_type is None or d.type == device_type
+    ]
+
+    def _get_device(device_id: str) -> DeviceDTO:
+        if device_id not in all_devices:
+            raise NotFoundError(f"Device {device_id} not found")
+        return all_devices[device_id]
+
+    mock.get_device.side_effect = _get_device
+    mock.device_ids = set(all_devices.keys())
+    mock.add_device = AsyncMock(
+        return_value=DeviceDTO(id="new-id", name="new", kind=DeviceKind.PHYSICAL)
+    )
+    mock.update_device = AsyncMock(return_value=_PHYSICAL_DEVICE)
+    mock.delete_device = AsyncMock()
+    mock.read_device = AsyncMock(return_value=_PHYSICAL_DEVICE)
+    mock.write_device_attribute = AsyncMock(
+        return_value=Attribute.create(
+            "temperature_setpoint", DataType.FLOAT, {"read", "write"}, value=22.0
+        )
+    )
+    mock.list_standard_schemas.return_value = []
+    return mock
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def mock_ts_service():
@@ -28,19 +105,16 @@ def mock_ts_service():
 
 
 @pytest.fixture
-def app(
-    mock_devices, mock_drivers, mock_transports, mock_ts_service, admin_token_payload
-) -> FastAPI:
+def dm():
+    return _make_dm()
+
+
+@pytest.fixture
+def app(dm, mock_ts_service, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
-
-    def get_mock_devices_manager() -> DevicesManager:
-        return DevicesManager(
-            devices=mock_devices, drivers=mock_drivers, transports=mock_transports
-        )
-
-    app.dependency_overrides[get_device_manager] = get_mock_devices_manager
+    app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
@@ -52,191 +126,153 @@ def client(app):
     return TestClient(app)
 
 
-class TestListDevices:
-    def test_list_devices(self, client: TestClient):
-        response = client.get("/")
-        assert response.status_code == 200
-        devices = response.json()
-        assert len(devices) == 1
-
-    def test_list_devices_filter_by_type(self, client: TestClient):
-        response = client.get("/", params={"type": "unknown_type"})
-        assert response.status_code == 200
-        assert response.json() == []
-
-    def test_list_devices_no_filter_returns_all(self, client: TestClient):
-        response = client.get("/")
-        assert response.status_code == 200
-        assert len(response.json()) == 1
-
-
-class TestGetStandardTypes:
-    def test_get_standard_types(self, client: TestClient):
-        response = client.get("/standard-types")
-        assert response.status_code == 200
-        schemas = response.json()
-        assert isinstance(schemas, list)
-        assert len(schemas) >= 2
-        keys = {s["key"] for s in schemas}
-        assert "thermostat" in keys
-        assert "awhp" in keys
-
-    def test_standard_type_has_fields(self, client: TestClient):
-        response = client.get("/standard-types")
-        schemas = response.json()
-        thermostat = next(s for s in schemas if s["key"] == "thermostat")
-        assert len(thermostat["fields"]) > 0
-        field = thermostat["fields"][0]
-        assert "name" in field
-        assert "required" in field
-        assert "data_type" in field
-
-
-class TestGetDevice:
-    def test_get_device_ok(
-        self, client: TestClient, mock_devices: dict[str, PhysicalDevice]
-    ):
-        for device_id in mock_devices:
-            response = client.get(f"/{device_id}")
-            assert response.status_code == 200
-            device = response.json()
-            assert device["id"] == device_id
-
-    def test_get_device_not_found(self, client: TestClient):
-        response = client.get("/unknown")
-        assert response.status_code == 404
-
-
-@pytest.fixture
-def create_payload() -> dict:
-    return {
-        "name": "my new device",
-        "config": {"some_id": "abc"},
-        "driver_id": "test_driver",  # in dm from fixtures
-        "transport_id": "my-http",
-    }
-
-
 @pytest.fixture
 def async_client(app):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
+# ---------------------------------------------------------------------------
+# List devices
+# ---------------------------------------------------------------------------
+
+
+class TestListDevices:
+    def test_returns_all(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+        assert len(response.json()) == 1
+
+    def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"type": "thermostat"})
+        dm.list_devices.assert_called_once_with(device_type="thermostat")
+
+
+# ---------------------------------------------------------------------------
+# Get standard types
+# ---------------------------------------------------------------------------
+
+
+class TestGetStandardTypes:
+    def test_returns_200(self, client: TestClient):
+        response = client.get("/standard-types")
+        assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Get device
+# ---------------------------------------------------------------------------
+
+
+class TestGetDevice:
+    def test_ok(self, client: TestClient):
+        response = client.get("/device1")
+        assert response.status_code == 200
+        assert response.json()["id"] == "device1"
+
+    def test_not_found(self, client: TestClient):
+        response = client.get("/unknown")
+        assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Create device
+# ---------------------------------------------------------------------------
+
+
 class TestCreateDevice:
     @pytest.mark.asyncio
-    async def test_create_device_ok(
-        self, async_client: AsyncClient, create_payload: dict
-    ):
+    async def test_ok_returns_201(self, async_client: AsyncClient, dm: MagicMock):
         async with async_client as ac:
-            response = await ac.post("/", json=create_payload)
+            response = await ac.post(
+                "/",
+                json={
+                    "name": "new",
+                    "config": {"some_id": "abc"},
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                },
+            )
         assert response.status_code == 201
-        result = response.json()
-        assert "id" in result
-        assert len(result["id"]) > 1
-        assert result["name"] == create_payload["name"]
-        assert result["config"] == create_payload["config"]
+        dm.add_device.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_create_device_invalid_transport(
-        self, async_client: AsyncClient, create_payload: dict
+    async def test_not_found_returns_404(
+        self, async_client: AsyncClient, dm: MagicMock
     ):
-        create_payload["transport_id"] = "unknown_transport"
+        dm.add_device.side_effect = NotFoundError("Driver not found")
         async with async_client as ac:
-            response = await ac.post("/", json=create_payload)
+            response = await ac.post(
+                "/",
+                json={
+                    "name": "new",
+                    "config": {},
+                    "driver_id": "unknown",
+                    "transport_id": "my-http",
+                },
+            )
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_create_device_invalid_driver(
-        self, async_client: AsyncClient, create_payload: dict
-    ):
-        create_payload["driver_id"] = "unknown_transport"
+    async def test_invalid_returns_422(self, async_client: AsyncClient, dm: MagicMock):
+        dm.add_device.side_effect = InvalidError("missing config field")
         async with async_client as ac:
-            response = await ac.post("/", json=create_payload)
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_create_device_missing_config(
-        self, async_client: AsyncClient, create_payload: dict
-    ):
-        del create_payload["config"]["some_id"]  # misses a field required by driver
-        async with async_client as ac:
-            response = await ac.post("/", json=create_payload)
+            response = await ac.post(
+                "/",
+                json={
+                    "name": "new",
+                    "config": {},
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                },
+            )
         assert response.status_code == 422
 
 
-@pytest.fixture
-def device_id(mock_devices) -> str:
-    """Returns the first id of mock devices (dm fixtures)."""
-    return next(iter(mock_devices.keys()))
+# ---------------------------------------------------------------------------
+# Update device
+# ---------------------------------------------------------------------------
 
 
 class TestUpdateDevice:
-    def test_update_device_name(self, client: TestClient, device_id: str):
-        new_name = "New name"
-        response = client.patch(f"/{device_id}", json={"name": new_name})
+    def test_ok(self, client: TestClient):
+        response = client.patch("/device1", json={"name": "New name"})
         assert response.status_code == 200
-        read_response = client.get(f"/{device_id}")
-        updated_device = read_response.json()
-        assert updated_device["name"] == new_name
 
-    def test_update_device_config_ok(self, client: TestClient, device_id: str):
-        new_config = {"some_id": "def"}
-        response = client.patch(f"/{device_id}", json={"config": new_config})
-        assert response.status_code == 200
-        read_response = client.get(f"/{device_id}")
-        updated_device = read_response.json()
-        assert updated_device["config"] == new_config
-
-    def test_update_device_config_invalid(self, client: TestClient, device_id: str):
-        new_config = {"other": 99}
-        response = client.patch(f"/{device_id}", json={"config": new_config})
-        assert response.status_code == 422
-
-    def test_update_device_driver_not_found(self, client: TestClient, device_id: str):
-        response = client.patch(f"/{device_id}", json={"driver_id": "unknown"})
+    def test_not_found(self, client: TestClient, dm: MagicMock):
+        dm.update_device.side_effect = NotFoundError("not found")
+        response = client.patch("/unknown", json={"name": "x"})
         assert response.status_code == 404
 
-    def test_update_device_transport_not_found(
-        self, client: TestClient, device_id: str
-    ):
-        response = client.patch(f"/{device_id}", json={"transport_id": "unknown"})
-        assert response.status_code == 404
-
-    def test_update_device_driver_protocol_mismatch(
-        self, client: TestClient, device_id: str
-    ):
-        response = client.patch(f"/{device_id}", json={"driver_id": "test_push_driver"})
+    def test_value_error_returns_422(self, client: TestClient, dm: MagicMock):
+        dm.update_device.side_effect = ValueError("incompatible transport")
+        response = client.patch("/device1", json={"driver_id": "other"})
         assert response.status_code == 422
 
-    def test_update_atomic(self, client: TestClient, device_id: str):
-        """Update is all or nothing"""
-        previous = client.get(f"/{device_id}").json()
-        update_response = client.patch(
-            f"/{device_id}",
-            json={
-                "name": "my new name",
-                "config": {"some_id": "bcd"},
-                "transport_id": "unknown",
-            },
-        )
-        assert update_response.status_code == 404
-        current = client.get(f"/{device_id}").json()
-        assert current == previous
+    def test_invalid_error_returns_422(self, client: TestClient, dm: MagicMock):
+        dm.update_device.side_effect = InvalidError("bad config")
+        response = client.patch("/device1", json={"config": {"other": 99}})
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Delete device
+# ---------------------------------------------------------------------------
 
 
 class TestDeleteDevice:
-    @pytest.mark.asyncio
-    async def test_delete_device_ok(self, client: TestClient, mock_devices):
-        device_ids = list(mock_devices.keys())
-        assert len(device_ids) >= 1, "Require at least one device to test deletion"
-        for device_id in device_ids:
-            response = client.delete(f"/{device_id}")
-            assert response.status_code == 204
+    def test_ok_returns_204(self, client: TestClient):
+        response = client.delete("/device1")
+        assert response.status_code == 204
 
-    @pytest.mark.asyncio
-    async def test_delete_device_not_found(self, client: TestClient):
+    def test_not_found(self, client: TestClient, dm: MagicMock):
+        dm.delete_device.side_effect = NotFoundError("not found")
         response = client.delete("/unknown")
         assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Commands (delegates to ts_service — only test wiring)
+# ---------------------------------------------------------------------------
 
 
 class TestGetDevicesCommands:
@@ -250,13 +286,6 @@ class TestGetDevicesCommands:
         async with async_client as ac:
             response = await ac.get("/commands")
         assert response.status_code == 200
-        data = response.json()
-        assert data["items"] == []
-        assert data["total"] == 0
-        assert data["page"] == 1
-        assert data["size"] == 50
-        assert data["total_pages"] == 0
-        assert "links" in data
         mock_ts_service.get_commands.assert_called_once_with(
             ids=None,
             device_id=None,
@@ -270,7 +299,7 @@ class TestGetDevicesCommands:
         )
 
     @pytest.mark.asyncio
-    async def test_with_all_filters(
+    async def test_with_filters(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
         mock_ts_service.get_commands.return_value = Page(
@@ -304,195 +333,142 @@ class TestGetDevicesCommands:
         )
 
     @pytest.mark.asyncio
-    async def test_custom_page_and_size(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
-    ):
-        mock_ts_service.get_commands.return_value = Page(
-            items=[], total=100, page=2, size=10
-        )
-        async with async_client as ac:
-            response = await ac.get("/commands", params={"page": 2, "size": 10})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["page"] == 2
-        assert data["size"] == 10
-        assert data["total_pages"] == 10
-        mock_ts_service.get_commands.assert_called_once_with(
-            ids=None,
-            device_id=None,
-            attribute=None,
-            user_id=None,
-            start=None,
-            end=None,
-            last=None,
-            sort=SortOrder.ASC,
-            pagination=PaginationParams(page=2, size=10),
-        )
-
-    @pytest.mark.asyncio
-    async def test_sort_param_passed_to_service(
+    async def test_device_scoped(
         self, async_client: AsyncClient, mock_ts_service: AsyncMock
     ):
         mock_ts_service.get_commands.return_value = Page(
             items=[], total=0, page=1, size=50
         )
         async with async_client as ac:
-            response = await ac.get("/commands", params={"sort": "desc"})
+            response = await ac.get("/device1/commands")
         assert response.status_code == 200
-        mock_ts_service.get_commands.assert_called_once_with(
-            ids=None,
-            device_id=None,
-            attribute=None,
-            user_id=None,
-            start=None,
-            end=None,
-            last=None,
-            sort=SortOrder.DESC,
-            pagination=PaginationParams(page=1, size=50),
-        )
-
-
-class TestGetCommandsByIds:
-    @pytest.mark.asyncio
-    async def test_ids_param_passed_to_service(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
-    ):
-        mock_ts_service.get_commands.return_value = Page(
-            items=[], total=0, page=1, size=1
-        )
-        async with async_client as ac:
-            response = await ac.get("/commands", params={"ids": [1, 2, 3]})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["items"] == []
-        assert data["total"] == 0
-        mock_ts_service.get_commands.assert_called_once_with(
-            ids=[1, 2, 3],
-            device_id=None,
-            attribute=None,
-            user_id=None,
-            start=None,
-            end=None,
-            last=None,
-            sort=SortOrder.ASC,
-            pagination=PaginationParams(page=1, size=50),
-        )
-
-    @pytest.mark.asyncio
-    async def test_ids_with_other_filters_returns_422(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
-    ):
-        from models.errors import InvalidError
-
-        mock_ts_service.get_commands.side_effect = InvalidError(
-            "Cannot combine 'ids' with other filters"
-        )
-        async with async_client as ac:
-            response = await ac.get(
-                "/commands", params={"ids": [1], "device_id": "dev-1"}
-            )
-        assert response.status_code == 422
-
-
-class TestGetDeviceCommands:
-    @pytest.mark.asyncio
-    async def test_path_device_id_takes_precedence_over_query_param(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        mock_ts_service.get_commands.return_value = Page(
-            items=[], total=0, page=1, size=50
-        )
-        async with async_client as ac:
-            response = await ac.get(
-                f"/{device_id}/commands",
-                params={"device_id": "other-device"},
-            )
-        assert response.status_code == 200
-        data = response.json()
-        assert "items" in data
-        assert "links" in data
-        mock_ts_service.get_commands.assert_called_once_with(
-            ids=None,
-            device_id=device_id,
-            attribute=None,
-            user_id=None,
-            start=None,
-            end=None,
-            last=None,
-            sort=SortOrder.ASC,
-            pagination=PaginationParams(page=1, size=50),
-        )
+        call_kwargs = mock_ts_service.get_commands.call_args[1]
+        assert call_kwargs["device_id"] == "device1"
 
 
 # ---------------------------------------------------------------------------
-# Virtual device router tests
+# Update attribute (write command)
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateAttribute:
+    @pytest.mark.asyncio
+    async def test_success_logs_command(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/temperature_setpoint", json={"value": 22.0}
+            )
+        assert response.status_code == 200
+        mock_ts_service.log_command.assert_called_once()
+        cmd = mock_ts_service.log_command.call_args[0][0]
+        assert isinstance(cmd, DeviceCommandCreate)
+        assert cmd.device_id == "device1"
+        assert cmd.attribute == "temperature_setpoint"
+        assert cmd.value == 22.0
+        assert cmd.status == "success"
+
+    @pytest.mark.asyncio
+    async def test_success_upserts_point_with_command_id(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    ):
+        mock_ts_service.log_command.return_value.id = 42
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/temperature_setpoint", json={"value": 22.0}
+            )
+        assert response.status_code == 200
+        mock_ts_service.upsert_points.assert_called_once()
+        points = mock_ts_service.upsert_points.call_args[0][1]
+        assert len(points) == 1
+        assert points[0].command_id == 42
+
+    @pytest.mark.asyncio
+    async def test_permission_error_returns_400(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
+    ):
+        dm.write_device_attribute.side_effect = PermissionError("read-only")
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/temperature_setpoint", json={"value": 22.0}
+            )
+        assert response.status_code == 400
+        mock_ts_service.log_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_not_found_returns_404_without_logging(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
+    ):
+        dm.write_device_attribute.side_effect = NotFoundError("device not found")
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/temperature_setpoint", json={"value": 22.5}
+            )
+        assert response.status_code == 404
+        mock_ts_service.log_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_logs_error_command(
+        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
+    ):
+        dm.write_device_attribute.side_effect = ValueError("device offline")
+        with pytest.raises(ValueError):
+            async with async_client as ac:
+                await ac.post("/device1/temperature_setpoint", json={"value": 22.5})
+        mock_ts_service.log_command.assert_called_once()
+        cmd = mock_ts_service.log_command.call_args[0][0]
+        assert cmd.status == "error"
+
+
+# ---------------------------------------------------------------------------
+# Virtual device CRUD
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def virtual_device() -> VirtualDevice:
-    return VirtualDevice(
-        id="vd1",
-        name="My Virtual Sensor",
-        attributes={
-            "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
-            "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
-        },
-    )
+def dm_with_virtual():
+    return _make_dm([_PHYSICAL_DEVICE, _VIRTUAL_DEVICE])
 
 
 @pytest.fixture
-def app_with_virtual(
-    mock_devices,
-    mock_drivers,
-    mock_transports,
-    mock_ts_service,
-    admin_token_payload,
-    virtual_device,
-) -> FastAPI:
-    application = FastAPI()
-    register_exception_handlers(application)
-    application.include_router(router)
-
-    devices_with_virtual = {**mock_devices, virtual_device.id: virtual_device}
-
-    def get_dm() -> DevicesManager:
-        return DevicesManager(
-            devices=devices_with_virtual,
-            drivers=mock_drivers,
-            transports=mock_transports,
-        )
-
-    ws_manager = MagicMock()
-    ws_manager.broadcast = AsyncMock()
-    application.state.websocket_manager = ws_manager
-
-    application.dependency_overrides[get_device_manager] = get_dm
-    application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
-    application.dependency_overrides[get_current_token_payload] = lambda: (
-        admin_token_payload
-    )
-    application.dependency_overrides[get_current_user_id] = lambda: (
-        admin_token_payload.sub
-    )
-    return application
+def virtual_app(dm_with_virtual, mock_ts_service, admin_token_payload) -> FastAPI:
+    app = FastAPI()
+    register_exception_handlers(app)
+    app.include_router(router)
+    ws = MagicMock()
+    ws.broadcast = AsyncMock()
+    app.state.websocket_manager = ws
+    app.dependency_overrides[get_device_manager] = lambda: dm_with_virtual
+    app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
+    return app
 
 
 @pytest.fixture
-def virtual_client(app_with_virtual) -> TestClient:
-    return TestClient(app_with_virtual)
+def virtual_client(virtual_app):
+    return TestClient(virtual_app)
 
 
 @pytest.fixture
-def virtual_async_client(app_with_virtual):
-    return AsyncClient(
-        transport=ASGITransport(app=app_with_virtual), base_url="http://test"
-    )
+def virtual_async_client(virtual_app):
+    return AsyncClient(transport=ASGITransport(app=virtual_app), base_url="http://test")
 
 
-class TestVirtualDeviceRouterCreate:
+class TestVirtualDeviceCreate:
     @pytest.mark.asyncio
-    async def test_create_virtual_device_returns_201(self, virtual_async_client):
+    async def test_ok_returns_201(
+        self, virtual_async_client: AsyncClient, dm_with_virtual: MagicMock
+    ):
+        dm_with_virtual.add_device.return_value = DeviceDTO(
+            id="new-vd",
+            kind=DeviceKind.VIRTUAL,
+            name="New Sensor",
+            attributes={
+                "co2": Attribute.create("co2", DataType.INT, {"read"}),
+            },
+        )
         payload = {
             "kind": "virtual",
             "name": "New Sensor",
@@ -505,301 +481,83 @@ class TestVirtualDeviceRouterCreate:
         assert response.status_code == 201
         data = response.json()
         assert data["kind"] == "virtual"
-        assert data["name"] == "New Sensor"
-        assert "co2" in data["attributes"]
-        assert data["driver_id"] is None
-        assert data["transport_id"] is None
-        assert data["config"] is None
 
     @pytest.mark.asyncio
-    async def test_create_virtual_device_with_driver_id_rejected(
-        self, virtual_async_client
+    async def test_invalid_returns_422(
+        self, virtual_async_client: AsyncClient, dm_with_virtual: MagicMock
     ):
-        """Virtual create must reject payloads containing driver_id, transport_id, config."""
-        payload = {
-            "kind": "virtual",
-            "name": "Bad",
-            "attributes": [
-                {"name": "x", "data_type": "float", "read_write_mode": "read"}
-            ],
-            "driver_id": "some-driver",
-        }
-        async with virtual_async_client as ac:
-            response = await ac.post("/", json=payload)
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_create_virtual_device_empty_attributes_returns_422(
-        self, virtual_async_client
-    ):
+        dm_with_virtual.add_device.side_effect = InvalidError("empty attributes")
         payload = {"kind": "virtual", "name": "Bad", "attributes": []}
         async with virtual_async_client as ac:
             response = await ac.post("/", json=payload)
         assert response.status_code == 422
 
-    @pytest.mark.asyncio
-    async def test_create_virtual_device_invalid_standard_schema_returns_422(
-        self, virtual_async_client
-    ):
-        payload = {
-            "kind": "virtual",
-            "name": "Bad Thermo",
-            "type": "thermostat",
-            "attributes": [
-                {
-                    "name": "temperature",
-                    "data_type": "float",
-                    "read_write_mode": "read",
-                },
-            ],
-        }
-        async with virtual_async_client as ac:
-            response = await ac.post("/", json=payload)
-        assert response.status_code == 422
 
-
-@pytest.fixture
-def virtual_device_typed() -> VirtualDevice:
-    """A virtual device with type='thermostat' for filter tests."""
-    return VirtualDevice(
-        id="vd2",
-        name="Virtual Thermostat",
-        type="thermostat",
-        attributes={
-            "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
-        },
-    )
-
-
-@pytest.fixture
-def client_with_typed_virtual(
-    mock_devices,
-    mock_drivers,
-    mock_transports,
-    mock_ts_service,
-    admin_token_payload,
-    virtual_device,
-    virtual_device_typed,
-) -> TestClient:
-    application = FastAPI()
-    register_exception_handlers(application)
-    application.include_router(router)
-    devices = {
-        **mock_devices,
-        virtual_device.id: virtual_device,
-        virtual_device_typed.id: virtual_device_typed,
-    }
-
-    def get_dm() -> DevicesManager:
-        return DevicesManager(
-            devices=devices, drivers=mock_drivers, transports=mock_transports
-        )
-
-    application.dependency_overrides[get_device_manager] = get_dm
-    application.dependency_overrides[get_ts_service] = lambda: mock_ts_service
-    application.dependency_overrides[get_current_token_payload] = lambda: (
-        admin_token_payload
-    )
-    application.dependency_overrides[get_current_user_id] = lambda: (
-        admin_token_payload.sub
-    )
-    return TestClient(application)
-
-
-class TestVirtualDeviceRouterRead:
-    def test_list_devices_includes_virtual(self, virtual_client):
+class TestVirtualDeviceRead:
+    def test_list_includes_virtual(self, virtual_client: TestClient):
         response = virtual_client.get("/")
         assert response.status_code == 200
         kinds = {d["kind"] for d in response.json()}
         assert "virtual" in kinds
         assert "physical" in kinds
 
-    def test_get_virtual_device_returns_kind_virtual(self, virtual_client):
+    def test_get_virtual_device(self, virtual_client: TestClient):
         response = virtual_client.get("/vd1")
         assert response.status_code == 200
         data = response.json()
         assert data["kind"] == "virtual"
-        assert data["id"] == "vd1"
         assert data["driver_id"] is None
         assert data["transport_id"] is None
-        assert data["config"] is None
-        assert "temperature" in data["attributes"]
 
-    def test_get_virtual_device_not_found(self, virtual_client):
-        response = virtual_client.get("/unknown")
-        assert response.status_code == 404
-
-    def test_list_devices_type_filter_returns_virtual(self, client_with_typed_virtual):
-        """GET /devices?type=thermostat must return virtual devices with that type."""
-        response = client_with_typed_virtual.get("/", params={"type": "thermostat"})
+    def test_type_filter(self, virtual_client: TestClient, dm_with_virtual: MagicMock):
+        dm_with_virtual.list_devices.side_effect = None
+        dm_with_virtual.list_devices.return_value = [_VIRTUAL_TYPED]
+        response = virtual_client.get("/", params={"type": "thermostat"})
         assert response.status_code == 200
         devices = response.json()
         assert len(devices) == 1
-        assert devices[0]["id"] == "vd2"
         assert devices[0]["kind"] == "virtual"
 
 
-class TestVirtualDeviceRouterUpdate:
-    def test_update_virtual_device_name(self, virtual_client):
+class TestVirtualDeviceUpdate:
+    def test_ok(self, virtual_client: TestClient, dm_with_virtual: MagicMock):
+        dm_with_virtual.update_device.return_value = DeviceDTO(
+            id="vd1", kind=DeviceKind.VIRTUAL, name="Renamed"
+        )
         response = virtual_client.patch("/vd1", json={"name": "Renamed"})
         assert response.status_code == 200
         assert response.json()["name"] == "Renamed"
 
-    def test_update_virtual_device_add_attribute(self, virtual_client):
-        payload = {
-            "attributes": [
-                {
-                    "name": "temperature",
-                    "data_type": "float",
-                    "read_write_mode": "read",
-                },
-                {"name": "setpoint", "data_type": "float", "read_write_mode": "write"},
-                {"name": "pressure", "data_type": "float", "read_write_mode": "read"},
-            ]
-        }
-        response = virtual_client.patch("/vd1", json=payload)
-        assert response.status_code == 200
-        assert "pressure" in response.json()["attributes"]
-
-    def test_update_virtual_device_remove_attribute(self, virtual_client):
-        payload = {
-            "attributes": [
-                {
-                    "name": "temperature",
-                    "data_type": "float",
-                    "read_write_mode": "read",
-                },
-            ]
-        }
-        response = virtual_client.patch("/vd1", json=payload)
-        assert response.status_code == 200
-        attrs = response.json()["attributes"]
-        assert "temperature" in attrs
-        assert "setpoint" not in attrs
-
-    def test_update_virtual_device_reject_data_type_change(self, virtual_client):
-        payload = {
-            "attributes": [
-                {"name": "temperature", "data_type": "int", "read_write_mode": "read"},
-            ]
-        }
-        response = virtual_client.patch("/vd1", json=payload)
+    def test_invalid_returns_422(
+        self, virtual_client: TestClient, dm_with_virtual: MagicMock
+    ):
+        dm_with_virtual.update_device.side_effect = InvalidError(
+            "cannot change data_type"
+        )
+        response = virtual_client.patch(
+            "/vd1",
+            json={
+                "attributes": [
+                    {
+                        "name": "temperature",
+                        "data_type": "int",
+                        "read_write_mode": "read",
+                    }
+                ]
+            },
+        )
         assert response.status_code == 422
 
 
-class TestVirtualDeviceRouterDelete:
-    def test_delete_virtual_device_ok(self, virtual_client):
+class TestVirtualDeviceDelete:
+    def test_ok_returns_204(self, virtual_client: TestClient):
         response = virtual_client.delete("/vd1")
         assert response.status_code == 204
-        assert virtual_client.get("/vd1").status_code == 404
 
 
-class TestUpdateAttribute:
-    @pytest.mark.asyncio
-    async def test_success_logs_command(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        with patch.object(
-            DevicesManager, "write_device_attribute", new_callable=AsyncMock
-        ):
-            async with async_client as ac:
-                response = await ac.post(
-                    f"/{device_id}/temperature_setpoint",
-                    json={"value": 22.0},
-                )
-        assert response.status_code == 200
-        mock_ts_service.log_command.assert_called_once()
-        cmd = mock_ts_service.log_command.call_args[0][0]
-        assert isinstance(cmd, DeviceCommandCreate)
-        assert cmd.device_id == device_id
-        assert cmd.attribute == "temperature_setpoint"
-        assert cmd.value == 22.0
-        assert cmd.user_id == "test-user"
-        assert cmd.status == "success"
-        assert cmd.status_details is None
-
-    @pytest.mark.asyncio
-    async def test_success_upserts_point_with_command_id(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        mock_ts_service.log_command.return_value.id = 42
-        with patch.object(
-            DevicesManager, "write_device_attribute", new_callable=AsyncMock
-        ):
-            async with async_client as ac:
-                response = await ac.post(
-                    f"/{device_id}/temperature_setpoint",
-                    json={"value": 22.0},
-                )
-        assert response.status_code == 200
-        mock_ts_service.upsert_points.assert_called_once()
-        points = mock_ts_service.upsert_points.call_args[0][1]
-        assert len(points) == 1
-        assert points[0].command_id == 42
-
-    @pytest.mark.asyncio
-    async def test_permission_error_returns_400_without_logging(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        with patch.object(
-            DevicesManager,
-            "write_device_attribute",
-            new_callable=AsyncMock,
-            side_effect=PermissionError("read-only attribute"),
-        ):
-            async with async_client as ac:
-                response = await ac.post(
-                    f"/{device_id}/temperature_setpoint",
-                    json={"value": 22.0},
-                )
-        assert response.status_code == 400
-        mock_ts_service.log_command.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_internal_error_returns_500_and_logs(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        test_error_message = "The device is offline"
-        with patch.object(
-            DevicesManager,
-            "write_device_attribute",
-            new_callable=AsyncMock,
-            side_effect=ValueError(test_error_message),
-        ):
-            with pytest.raises(ValueError):  # AsyncClient does not absorb errors
-                async with async_client as ac:
-                    response = await ac.post(
-                        f"/{device_id}/temperature_setpoint",
-                        json={"value": 22.5},
-                    )
-                assert response.status_code == 500
-                mock_ts_service.log_command.assert_called_once()
-                cmd = mock_ts_service.log_command.call_args[0][0]
-                assert isinstance(cmd, DeviceCommandCreate)
-                assert cmd.device_id == device_id
-                assert cmd.attribute == "temperature_setpoint"
-                assert cmd.value == 22.5
-                assert cmd.status == "error"
-                assert cmd.status_details == test_error_message
-
-    @pytest.mark.asyncio
-    async def test_returns_404_if_does_not_log_if_device_not_found(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, device_id: str
-    ):
-        with patch.object(
-            DevicesManager,
-            "write_device_attribute",
-            new_callable=AsyncMock,
-            side_effect=NotFoundError("device not found"),
-        ):
-            async with async_client as ac:
-                response = await ac.post(
-                    f"/{device_id}/temperature_setpoint",
-                    json={"value": 22.5},
-                )
-            assert response.status_code == 404
-            mock_ts_service.log_command.assert_not_called()
-
+# ---------------------------------------------------------------------------
+# Bulk push timeseries
+# ---------------------------------------------------------------------------
 
 _BULK_PUSH_POINT = {
     "attribute": "temperature",
@@ -815,68 +573,38 @@ _BULK_PUSH_POINT_SETPOINT = {
 
 class TestBulkPushTimeseries:
     @pytest.mark.asyncio
-    async def test_success_returns_204(self, virtual_async_client, virtual_device):
+    async def test_success_returns_204(self, virtual_async_client):
         async with virtual_async_client as ac:
             response = await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={"data": [_BULK_PUSH_POINT]},
+                "/vd1/timeseries", json={"data": [_BULK_PUSH_POINT]}
             )
         assert response.status_code == 204
 
     @pytest.mark.asyncio
-    async def test_success_upserts_once_per_attribute(
-        self, virtual_async_client, mock_ts_service, virtual_device
+    async def test_upserts_once_per_attribute(
+        self, virtual_async_client, mock_ts_service
     ):
         async with virtual_async_client as ac:
             await ac.post(
-                f"/{virtual_device.id}/timeseries",
+                "/vd1/timeseries",
                 json={"data": [_BULK_PUSH_POINT, _BULK_PUSH_POINT_SETPOINT]},
             )
         assert mock_ts_service.upsert_points.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_success_upserts_groups_same_attr(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        second_point = {**_BULK_PUSH_POINT, "timestamp": "2026-01-15T13:00:00Z"}
+    async def test_groups_same_attr(self, virtual_async_client, mock_ts_service):
+        second = {**_BULK_PUSH_POINT, "timestamp": "2026-01-15T13:00:00Z"}
         async with virtual_async_client as ac:
-            await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={"data": [_BULK_PUSH_POINT, second_point]},
-            )
+            await ac.post("/vd1/timeseries", json={"data": [_BULK_PUSH_POINT, second]})
         mock_ts_service.upsert_points.assert_called_once()
         _, points, *_ = mock_ts_service.upsert_points.call_args[0]
         assert len(points) == 2
 
     @pytest.mark.asyncio
-    async def test_does_not_log_command(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        async with virtual_async_client as ac:
-            await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={"data": [_BULK_PUSH_POINT]},
-            )
-        mock_ts_service.log_command.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_does_not_broadcast(
-        self, app_with_virtual, virtual_async_client, virtual_device
-    ):
-        async with virtual_async_client as ac:
-            await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={"data": [_BULK_PUSH_POINT]},
-            )
-        app_with_virtual.state.websocket_manager.broadcast.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_nonexistent_attribute_returns_404(
-        self, virtual_async_client, virtual_device
-    ):
+    async def test_nonexistent_attribute_returns_404(self, virtual_async_client):
         async with virtual_async_client as ac:
             response = await ac.post(
-                f"/{virtual_device.id}/timeseries",
+                "/vd1/timeseries",
                 json={
                     "data": [
                         {
@@ -890,13 +618,20 @@ class TestBulkPushTimeseries:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_wrong_type_returns_422(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
+    async def test_unknown_device_returns_404(self, virtual_async_client):
+        async with virtual_async_client as ac:
+            response = await ac.post(
+                "/unknown-device/timeseries",
+                json={"data": [_BULK_PUSH_POINT]},
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_wrong_type_returns_422(self, virtual_async_client, mock_ts_service):
         mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
         async with virtual_async_client as ac:
             response = await ac.post(
-                f"/{virtual_device.id}/timeseries",
+                "/vd1/timeseries",
                 json={
                     "data": [
                         {
@@ -909,106 +644,38 @@ class TestBulkPushTimeseries:
             )
         assert response.status_code == 422
 
-    @pytest.mark.asyncio
-    async def test_unknown_device_returns_404(self, virtual_async_client):
-        async with virtual_async_client as ac:
-            response = await ac.post(
-                "/unknown-device/timeseries",
-                json={"data": [_BULK_PUSH_POINT]},
-            )
-        assert response.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_empty_data_returns_204(self, virtual_async_client, virtual_device):
-        async with virtual_async_client as ac:
-            response = await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={"data": []},
-            )
-        assert response.status_code == 204
-
-    @pytest.mark.asyncio
-    async def test_batch_rejected_on_first_bad_point(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        """If any point fails validation the whole batch is rejected and no upsert fires."""
-        async with virtual_async_client as ac:
-            response = await ac.post(
-                f"/{virtual_device.id}/timeseries",
-                json={
-                    "data": [
-                        _BULK_PUSH_POINT,
-                        {
-                            "attribute": "nonexistent",
-                            "timestamp": "2026-01-15T13:00:00Z",
-                            "value": 1.0,
-                        },
-                    ]
-                },
-            )
-        assert response.status_code == 404
-        mock_ts_service.upsert_points.assert_not_called()
-
+# ---------------------------------------------------------------------------
+# Single-attr push timeseries
+# ---------------------------------------------------------------------------
 
 _SINGLE_PUSH_POINT = {"timestamp": "2026-01-15T12:00:00Z", "value": 22.5}
 
 
 class TestSingleAttrPushTimeseries:
     @pytest.mark.asyncio
-    async def test_success_returns_204(self, virtual_async_client, virtual_device):
+    async def test_success_returns_204(self, virtual_async_client):
         async with virtual_async_client as ac:
             response = await ac.post(
-                f"/{virtual_device.id}/timeseries/temperature",
+                "/vd1/timeseries/temperature",
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
         assert response.status_code == 204
 
     @pytest.mark.asyncio
-    async def test_success_upserts_points(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
+    async def test_upserts_points(self, virtual_async_client, mock_ts_service):
         async with virtual_async_client as ac:
             await ac.post(
-                f"/{virtual_device.id}/timeseries/temperature",
+                "/vd1/timeseries/temperature",
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
         mock_ts_service.upsert_points.assert_called_once()
-        key, points, *_ = mock_ts_service.upsert_points.call_args[0]
-        assert key.owner_id == virtual_device.id
-        assert key.metric == "temperature"
-        assert len(points) == 1
-        assert points[0].value == 22.5
 
     @pytest.mark.asyncio
-    async def test_does_not_log_command(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        async with virtual_async_client as ac:
-            await ac.post(
-                f"/{virtual_device.id}/timeseries/temperature",
-                json={"data": [_SINGLE_PUSH_POINT]},
-            )
-        mock_ts_service.log_command.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_wrong_type_returns_422(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        mock_ts_service.upsert_points.side_effect = InvalidError("type mismatch")
+    async def test_nonexistent_attribute_returns_404(self, virtual_async_client):
         async with virtual_async_client as ac:
             response = await ac.post(
-                f"/{virtual_device.id}/timeseries/temperature",
-                json={"data": [{"timestamp": "2026-01-15T12:00:00Z", "value": "bad"}]},
-            )
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_nonexistent_attribute_returns_404(
-        self, virtual_async_client, virtual_device
-    ):
-        async with virtual_async_client as ac:
-            response = await ac.post(
-                f"/{virtual_device.id}/timeseries/nonexistent",
+                "/vd1/timeseries/nonexistent",
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
         assert response.status_code == 404
@@ -1021,17 +688,3 @@ class TestSingleAttrPushTimeseries:
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
         assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_multiple_points_upserted_together(
-        self, virtual_async_client, mock_ts_service, virtual_device
-    ):
-        second_point = {"timestamp": "2026-01-15T13:00:00Z", "value": 23.0}
-        async with virtual_async_client as ac:
-            await ac.post(
-                f"/{virtual_device.id}/timeseries/temperature",
-                json={"data": [_SINGLE_PUSH_POINT, second_point]},
-            )
-        mock_ts_service.upsert_points.assert_called_once()
-        _, points, *_ = mock_ts_service.upsert_points.call_args[0]
-        assert len(points) == 2

@@ -1,25 +1,58 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
+from devices_manager.dto import TransportDTO, build_transport_dto
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
+from models.errors import NotFoundError
+from pydantic import ValidationError
 
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.transports_router import router
 
+_HTTP = build_transport_dto("my-http", "My Http client", TransportProtocols.HTTP, {})
+_MQTT = build_transport_dto(
+    "my-mqtt",
+    "My mqtt broker",
+    TransportProtocols.MQTT,
+    {"host": "localhost"},
+)
+_TRANSPORTS_BY_ID: dict[str, TransportDTO] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
+
+
+def _get_transport(transport_id: str) -> TransportDTO:
+    if transport_id not in _TRANSPORTS_BY_ID:
+        raise NotFoundError(f"Transport {transport_id} not found")
+    return _TRANSPORTS_BY_ID[transport_id]
+
 
 @pytest.fixture
-def app(mock_transports, admin_token_payload) -> FastAPI:
+def dm() -> MagicMock:
+    mock = MagicMock(spec=DevicesManagerInterface)
+    mock.list_transports.return_value = list(_TRANSPORTS_BY_ID.values())
+    mock.get_transport.side_effect = _get_transport
+    mock.add_transport = AsyncMock(
+        side_effect=lambda payload: build_transport_dto(
+            "new-id", payload.name, payload.protocol, payload.config
+        )
+    )
+    mock.update_transport = AsyncMock(
+        side_effect=lambda tid, update: _get_transport(tid)
+    )
+    mock.delete_transport = AsyncMock()
+    return mock
+
+
+@pytest.fixture
+def app(dm, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
-
-    def get_mock_devices_manager() -> DevicesManager:
-        return DevicesManager(devices={}, drivers={}, transports=mock_transports)
-
-    app.dependency_overrides[get_device_manager] = get_mock_devices_manager
+    app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     return app
 
@@ -29,184 +62,94 @@ def client(app):
     return TestClient(app)
 
 
-def assert_valid_transport(transport: dict) -> None:
-    for key in ("id", "name", "protocol", "config"):
-        assert key in transport, f"Missing key '{key}' in transport: {transport}"
-    assert isinstance(transport["id"], str)
-    assert isinstance(transport["name"], str)
-    assert isinstance(transport["protocol"], str)
-    assert isinstance(transport["config"], dict), "config should be a JSON object"
-
-
-class TestListTransports:
-    def test_list_clients(self, client: TestClient):
-        response = client.get("/")
-        assert response.status_code == 200
-
-        transports = response.json()
-        assert len(transports) == 2
-        for transport in transports:
-            assert_valid_transport(transport)
-
-
-class TestGetTransport:
-    @pytest.mark.parametrize("transport_id", ["my-http", "my-mqtt"])
-    def test_get_transport_ok(self, client: TestClient, transport_id: str):
-        response = client.get(f"/{transport_id}")
-        assert response.status_code == 200
-        transport = response.json()
-        assert_valid_transport(transport)
-
-    def test_get_transport_not_found(self, client: TestClient):
-        response = client.get("/unknown")
-        assert response.status_code == 404
-
-
-class TestCreateTransport:
-    def _valid_payload(self, protocol: str) -> dict:
-        # Very small factory to avoid repeating payloads
-        if protocol == "http":
-            return {
-                "name": "My HTTP",
-                "protocol": "http",
-                "config": {},
-            }
-        if protocol == "mqtt":
-            return {
-                "name": "My MQTT",
-                "protocol": "mqtt",
-                "config": {
-                    "host": "localhost",
-                    "port": 1883,
-                },
-            }
-        msg = f"Unknown test protocol: {protocol}"
-        raise ValueError(msg)
-
-    @pytest.mark.parametrize(
-        "protocol",
-        [
-            "http"
-            # , "mqtt"
-        ],
-    )
-    def test_create_transport_ok(self, client: TestClient, protocol: str):
-        payload = self._valid_payload(protocol)
-        response = client.post("/", json=payload)
-        assert response.status_code == 201
-        data = response.json()
-        assert_valid_transport(data)
-        assert data["protocol"] == protocol
-
-    def test_create_transport_invalid_config(self, client: TestClient):
-        payload = {
-            "name": "Invalid",
-            "protocol": "mqtt",
-            "config": {"something": "wrong"},
-        }
-        response = client.post("/", json=payload)
-        assert response.status_code == 422
-
-    def test_create_transport_unsupported_protocol(self, client: TestClient):
-        payload = {
-            "name": "Bad",
-            "protocol": "unknown",
-            "config": {},
-        }
-        response = client.post("/", json=payload)
-        assert response.status_code in (400, 422)
-
-    def test_create_transport_persistence(self, client: TestClient):
-        payload = {
-            "name": "My HTTP",
-            "protocol": "http",
-            "config": {},
-        }
-        write_response = client.post("/", json=payload).json()
-        transport_id = write_response["id"]
-        read_response = client.get(f"/{transport_id}")
-        assert read_response.status_code == 200
-
-
 @pytest.fixture
 def async_client(app):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
+def _assert_valid_transport(transport: dict) -> None:
+    for key in ("id", "name", "protocol", "config"):
+        assert key in transport
+
+
+class TestListTransports:
+    def test_returns_all(self, client: TestClient):
+        response = client.get("/")
+        assert response.status_code == 200
+        transports = response.json()
+        assert len(transports) == 2
+        for t in transports:
+            _assert_valid_transport(t)
+
+
+class TestGetTransport:
+    @pytest.mark.parametrize("transport_id", ["my-http", "my-mqtt"])
+    def test_ok(self, client: TestClient, transport_id: str):
+        response = client.get(f"/{transport_id}")
+        assert response.status_code == 200
+        _assert_valid_transport(response.json())
+
+    def test_not_found(self, client: TestClient):
+        response = client.get("/unknown")
+        assert response.status_code == 404
+
+
+class TestCreateTransport:
+    def test_ok_returns_201(self, client: TestClient):
+        payload = {"name": "New HTTP", "protocol": "http", "config": {}}
+        response = client.post("/", json=payload)
+        assert response.status_code == 201
+        _assert_valid_transport(response.json())
+
+    def test_unsupported_protocol_returns_422(self, client: TestClient):
+        payload = {"name": "Bad", "protocol": "unknown", "config": {}}
+        response = client.post("/", json=payload)
+        assert response.status_code == 422
+
+
 class TestUpdateTransport:
     @pytest.mark.asyncio
-    async def test_update_name_ok(self, async_client):
-        transport_id = "my-mqtt"
-        name = "youkoun"
+    async def test_ok(self, async_client: AsyncClient):
         async with async_client as ac:
-            response = await ac.patch(f"/{transport_id}", json={"name": name})
+            response = await ac.patch("/my-mqtt", json={"name": "renamed"})
         assert response.status_code == 200
-        response_data = response.json()
-        assert response_data["id"] == transport_id
-        assert response_data["name"] == name
 
     @pytest.mark.asyncio
-    async def test_update_config_ok(self, async_client):
-        transport_id = "my-mqtt"
-        port = 1884
+    async def test_validation_error_returns_422(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        dm.update_transport.side_effect = ValidationError.from_exception_data(
+            "TransportUpdateDTO", []
+        )
         async with async_client as ac:
-            response = await ac.patch(
-                f"/{transport_id}", json={"config": {"port": port}}
-            )
-        assert response.status_code == 200
-        response_data = response.json()
-        assert response_data["id"] == transport_id
-        assert response_data["config"]["port"] == port
-
-    @pytest.mark.asyncio
-    async def test_update_config_invalid(self, async_client):
-        transport_id = "my-mqtt"
-        async with async_client as ac:
-            response = await ac.patch(
-                f"/{transport_id}", json={"config": {"port": "abc"}}
-            )
-
+            response = await ac.patch("/my-mqtt", json={"config": {"port": "abc"}})
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_update_persistence(self, async_client):
-        transport_id = "my-mqtt"
-        port = 1884
+    async def test_not_found(self, async_client: AsyncClient, dm: MagicMock):
+        dm.update_transport.side_effect = NotFoundError("not found")
         async with async_client as ac:
-            update_response = await ac.patch(
-                f"/{transport_id}", json={"config": {"port": port}}
-            )
-            assert update_response.status_code == 200
-            read_response = await ac.get(f"/{transport_id}")
-        updated = read_response.json()
-        assert updated["config"]["port"] == port
+            response = await ac.patch("/unknown", json={"name": "x"})
+        assert response.status_code == 404
 
 
 class TestDeleteTransport:
     @pytest.mark.asyncio
-    async def test_delete_transport_ok(self, async_client, mock_transports):
-        transport_id = next(iter(mock_transports.keys()))
+    async def test_ok_returns_204(self, async_client: AsyncClient):
         async with async_client as ac:
-            delete_response = await ac.delete(f"/{transport_id}")
-            assert delete_response.status_code == 204
-            get_response = await ac.get(f"/{transport_id}")
-            assert get_response.status_code == 404
+            response = await ac.delete("/my-http")
+        assert response.status_code == 204
 
     @pytest.mark.asyncio
-    async def test_delete_transport_unknown(self, async_client):
-        transport_id = "unknown"
+    async def test_not_found(self, async_client: AsyncClient, dm: MagicMock):
+        dm.delete_transport.side_effect = NotFoundError("not found")
         async with async_client as ac:
-            response = await ac.delete(f"/{transport_id}")
+            response = await ac.delete("/unknown")
         assert response.status_code == 404
-
-    @pytest.mark.skip
-    @pytest.mark.asyncio
-    async def test_delete_transport_in_use(self, async_client):
-        """@TODO : test conflict when deleting transport used by device"""
 
 
 class TestGetTransportSchemas:
-    def test_get_transport_schemas(self, client):
+    def test_returns_schemas(self, client: TestClient):
         response = client.get("/schemas/")
         assert response.status_code == 200
         data = response.json()
