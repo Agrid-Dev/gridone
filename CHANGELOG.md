@@ -1,3 +1,14 @@
+## v0.34.0 (2026-04-07)
+
+### Feat
+
+- **ui**: update timeseries API client and hooks to new endpoint paths
+- **api**: migrate timeseries read endpoints under /devices
+
+### Fix
+
+- restore hook behaviour
+
 ## v0.33.0 (2026-04-03)
 
 ### Feat
