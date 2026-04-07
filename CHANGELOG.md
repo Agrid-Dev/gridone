@@ -1,3 +1,15 @@
+## v0.34.2 (2026-04-07)
+
+### Fix
+
+- resolve ty type-check error in DiscoveryManagerInterface
+
+### Refactor
+
+- rewrite router tests to mock DevicesManagerInterface
+- update API layer to depend on DevicesManagerInterface protocol
+- define DevicesManagerInterface and DiscoveryManagerInterface protocols
+
 ## v0.34.1 (2026-04-07)
 
 ### Refactor
