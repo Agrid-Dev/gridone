@@ -123,7 +123,6 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     ) -> AttributeValueType:
         message = None
         message_event = asyncio.Event()
-        await self._subscribe(address.topic)
 
         def update_value(message_received: str) -> None:
             nonlocal message
@@ -133,14 +132,16 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
 
         listener_id = await self.register_listener(address.topic, update_value)
 
-        payload = (
-            json.dumps(address.request.message)
-            if isinstance(address.request.message, dict)
-            else address.request.message
-        )
-        await self._client.publish(
-            address.request.topic, payload=payload, timeout=TIMEOUT
-        )
+        if address.request is not None:
+            payload = (
+                json.dumps(address.request.message)
+                if isinstance(address.request.message, dict)
+                else address.request.message
+            )
+            await self._client.publish(
+                address.request.topic, payload=payload, timeout=TIMEOUT
+            )
+
         try:
             async with asyncio.timeout(TIMEOUT):
                 await message_event.wait()
@@ -156,7 +157,10 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
 
     @connected
     async def write(self, address: MqttAddress, value: AttributeValueType) -> None:
-        message_template = address.request.message
+        if address.message is None:
+            msg = "Cannot write to an MQTT address with no message template"
+            raise ValueError(msg)
+        message_template = address.message
         message = render_struct(
             message_template,
             {
@@ -167,6 +171,4 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         )
         payload = json.dumps(message) if isinstance(message, dict) else message
 
-        await self._client.publish(
-            address.request.topic, payload=payload, timeout=TIMEOUT
-        )
+        await self._client.publish(address.topic, payload=payload, timeout=TIMEOUT)

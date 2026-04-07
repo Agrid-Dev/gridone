@@ -16,7 +16,8 @@ class MqttRequest(BaseModel):
 
 class MqttAddress(BaseModel, TransportAddress):
     topic: str
-    request: MqttRequest
+    message: str | dict | None = None  # write: payload template
+    request: MqttRequest | None = None  # read: trigger to publish before awaiting
 
     @cached_property
     def id(self) -> str:
@@ -24,10 +25,15 @@ class MqttAddress(BaseModel, TransportAddress):
 
     @classmethod
     def from_str(
-        cls, address_str: str, extra_context: dict | None = None
+        cls,
+        address_str: str,
+        extra_context: dict | None = None,  # noqa: ARG003
     ) -> "MqttAddress":
-        msg = "Creating mqtt address from string is not supported."
-        raise NotImplementedError(msg)
+        """Create a listen-only address from a bare topic string.
+
+        Example: "thermocktat/abc123/snapshot" → MqttAddress(topic=...).
+        """
+        return cls(topic=address_str)
 
     @classmethod
     def from_dict(
