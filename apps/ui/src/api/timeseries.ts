@@ -25,19 +25,16 @@ export type DataPoint<D extends DataType = DataType> = {
 };
 
 export function listSeries<D extends DataType = DataType>(
-  ownerId?: string,
+  deviceId: string,
   metric?: string,
 ): Promise<TimeSeries<D>[]> {
   const params = new URLSearchParams();
-  if (ownerId) params.set("owner_id", ownerId);
   if (metric) params.set("metric", metric);
   const qs = params.toString();
   return request<TimeSeries<D>[]>(
-    `/timeseries/${qs ? `?${qs}` : ""}`,
+    `/devices/${encodeURIComponent(deviceId)}/timeseries${qs ? `?${qs}` : ""}`,
     undefined,
-    {
-      camelCase: true,
-    },
+    { camelCase: true },
   );
 }
 
@@ -67,7 +64,9 @@ export async function exportCsv(
   for (const id of seriesIds) {
     params.append("series_ids", id);
   }
-  const blob = await requestBlob(`/timeseries/export/csv?${params.toString()}`);
+  const blob = await requestBlob(
+    `/devices/timeseries/export/csv?${params.toString()}`,
+  );
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -82,7 +81,9 @@ export async function exportPng(
 ): Promise<void> {
   const params = optionsToParams(options);
   for (const id of seriesIds) params.append("series_ids", id);
-  const blob = await requestBlob(`/timeseries/export/png?${params.toString()}`);
+  const blob = await requestBlob(
+    `/devices/timeseries/export/png?${params.toString()}`,
+  );
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -92,13 +93,14 @@ export async function exportPng(
 }
 
 export function getSeriesPoints<D extends DataType = DataType>(
-  seriesId: string,
+  deviceId: string,
+  attr: string,
   options?: GetSeriesPointsOptions,
 ): Promise<DataPoint<D>[]> {
   const params = optionsToParams(options);
   const qs = params.toString();
   return request<DataPoint<D>[]>(
-    `/timeseries/${encodeURIComponent(seriesId)}/points${qs ? `?${qs}` : ""}`,
+    `/devices/${encodeURIComponent(deviceId)}/timeseries/${encodeURIComponent(attr)}${qs ? `?${qs}` : ""}`,
     undefined,
     { camelCase: true },
   );

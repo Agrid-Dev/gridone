@@ -12,6 +12,7 @@ from api.dependencies import (
     get_apps_service,
     get_current_user_id,
     get_device_manager,
+    get_ts_service,
     get_users_manager,
 )
 from api.routes.apps import apps_registration_router
@@ -297,7 +298,8 @@ def _build_devices_app() -> FastAPI:
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
     manager = MockUsersManager()
     app.dependency_overrides[get_users_manager] = lambda: manager
-    app.dependency_overrides[get_device_manager] = lambda: AsyncMock()
+    app.dependency_overrides[get_device_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
@@ -329,6 +331,40 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         None,
         401,
         id="single-push-unauthenticated",
+    ),
+    # Timeseries read endpoints (viewer has TIMESERIES_READ)
+    pytest.param(
+        "GET", "/devices/any-id/timeseries", "viewer", 200, id="list-ts-viewer"
+    ),
+    pytest.param("GET", "/devices/any-id/timeseries", None, 401, id="list-ts-no-auth"),
+    pytest.param(
+        "GET",
+        "/devices/any-id/timeseries/temp",
+        "viewer",
+        200,
+        id="get-ts-points-viewer",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/any-id/timeseries/temp",
+        None,
+        401,
+        id="get-ts-points-no-auth",
+    ),
+    # Export requires series_ids; omitting it returns 422 (before auth on viewer, after auth on no-auth)
+    pytest.param(
+        "GET",
+        "/devices/timeseries/export/csv",
+        "viewer",
+        422,
+        id="export-csv-viewer",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/timeseries/export/csv",
+        None,
+        401,
+        id="export-csv-no-auth",
     ),
 ]
 

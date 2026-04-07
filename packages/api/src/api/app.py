@@ -18,7 +18,6 @@ from api.routes import (
     devices_router,
     drivers_router,
     health_router,
-    timeseries_router,
     transports_router,
 )
 from api.routes import websocket as websocket_routes
@@ -140,12 +139,6 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
     app.include_router(
         drivers_router, prefix="/drivers", tags=["drivers"], dependencies=jwt_dep
-    )
-    app.include_router(
-        timeseries_router,
-        prefix="/timeseries",
-        tags=["timeseries"],
-        dependencies=jwt_dep,
     )
     app.include_router(
         assets_router,
