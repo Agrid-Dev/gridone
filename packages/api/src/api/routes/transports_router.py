@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from devices_manager.dto import (
     TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
     TransportCreateDTO,
@@ -24,7 +24,7 @@ router.include_router(
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))])
 def list_transports(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[TransportDTO]:
     return dm.list_transports()
 
@@ -35,7 +35,8 @@ def list_transports(
     dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))],
 )
 def get_transport(
-    transport_id: str, dm: Annotated[DevicesManager, Depends(get_device_manager)]
+    transport_id: str,
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> TransportDTO:
     return dm.get_transport(transport_id)
 
@@ -47,7 +48,7 @@ def get_transport(
 )
 async def create_transport(
     payload: TransportCreateDTO,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     request: Request,
     response: Response,
 ) -> TransportDTO:
@@ -65,7 +66,7 @@ async def create_transport(
 async def update_transport(
     transport_id: str,
     update_payload: TransportUpdateDTO,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     request: Request,
     response: Response,
 ) -> TransportDTO:
@@ -88,7 +89,7 @@ async def update_transport(
 )
 async def delete_transport(
     transport_id: str,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> None:
     await dm.delete_transport(transport_id)
 

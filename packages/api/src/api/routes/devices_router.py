@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from devices_manager.dto import StandardAttributeSchemaDTO
 from devices_manager.dto.device_dto import (
     DeviceCreateDTO,
@@ -49,7 +49,7 @@ router.include_router(devices_ts_router)
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     device_type: str | None = Query(None, alias="type"),
 ) -> list[DeviceDTO]:
     return dm.list_devices(device_type=device_type)
@@ -60,7 +60,7 @@ def list_devices(
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 def get_standard_types(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[StandardAttributeSchemaDTO]:
     return dm.list_standard_schemas()
 
@@ -93,7 +93,7 @@ async def get_commands(
 )
 def get_device(
     device_id: str,
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
 ) -> DeviceDTO:
     return dm.get_device(device_id)
 
@@ -130,7 +130,7 @@ async def get_device_commands(
 )
 async def create_device(
     dto: DeviceCreateDTO,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> DeviceDTO:
     return await dm.add_device(dto)
 
@@ -141,7 +141,7 @@ async def create_device(
 async def update_device(
     device_id: str,
     payload: DeviceUpdateDTO,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> DeviceDTO:
     try:
         device = await dm.update_device(device_id, payload)
@@ -157,7 +157,7 @@ async def update_device(
 )
 async def delete_device(
     device_id: str,
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ):
     await dm.delete_device(device_id)
     return
@@ -175,7 +175,7 @@ def _to_data_points(points: list[SingleAttrTimeseriesPushPoint]) -> list[DataPoi
 async def push_device_timeseries(
     device_id: str,
     body: TimeseriesBulkPushRequest,
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> None:
     device_dto = dm.get_device(device_id)
@@ -208,7 +208,7 @@ async def push_device_attribute_timeseries(
     device_id: str,
     attr_name: str,
     body: TimeseriesSingleAttrPushRequest,
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> None:
     device_dto = dm.get_device(device_id)
@@ -235,7 +235,7 @@ async def update_attribute(
     attribute_name: str,
     update: AttributeUpdate,
     confirm: bool = True,
-    dm: DevicesManager = Depends(get_device_manager),
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
     user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate:

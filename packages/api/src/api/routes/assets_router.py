@@ -7,7 +7,7 @@ from assets import (
     AssetUpdate,
     get_asset_create_schema,
 )
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, Query, status
 from pydantic import BaseModel
 
@@ -46,7 +46,7 @@ async def get_tree(
 )
 async def get_tree_with_devices(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[dict]:
     tree = await am.get_tree()
     all_links = await am.get_all_device_links()

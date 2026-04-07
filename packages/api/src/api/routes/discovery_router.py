@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 
@@ -26,7 +26,7 @@ def get_transport_id(transport_id: str = Path(...)) -> str:
 
 @router.get("/")
 def list_discoveries(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> list[DiscoveryHandlerDTO]:
     if transport_id not in dm.transport_ids:
@@ -47,7 +47,7 @@ def list_discoveries(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_discovery(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     payload: DiscoveryHandlerCreateDTO,
     transport_id: Annotated[str, Depends(get_transport_id)],
 ) -> DiscoveryHandlerDTO:
@@ -74,7 +74,7 @@ async def create_discovery(
 
 @router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_discovery(
-    dm: Annotated[DevicesManager, Depends(get_device_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
     driver_id: str,
 ):

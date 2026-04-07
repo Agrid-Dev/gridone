@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from apps import AppsService
 from assets import AssetsManager
-from devices_manager import DevicesManager
+from devices_manager import DevicesManagerInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from models.pagination import PaginationParams
@@ -16,7 +16,7 @@ from api.permissions import Permission, get_permissions_for_role
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
-def get_device_manager(request: Request) -> DevicesManager:
+def get_device_manager(request: Request) -> DevicesManagerInterface:
     return request.app.state.device_manager
 
 
