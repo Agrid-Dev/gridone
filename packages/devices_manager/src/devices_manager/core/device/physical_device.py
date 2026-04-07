@@ -16,8 +16,9 @@ from .device import Device
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from devices_manager.core.driver import Driver
+    from devices_manager.core.driver import AttributeDriver, Driver
     from devices_manager.core.transports import TransportClient
+    from devices_manager.core.transports.transport_address import RawTransportAddress
     from devices_manager.core.value_adapters import FnAdapter
     from devices_manager.types import AttributeValueType, DeviceConfig
 
@@ -98,9 +99,11 @@ class PhysicalDevice(Device):
         }
         for attribute in self.attributes.values():
             attribute_driver = self.driver.attributes[attribute.name]
+            if attribute_driver.listen is None:
+                continue
             adapter = attribute_driver.value_adapter
             address = self.transport.build_address(
-                render_struct(attribute_driver.read, context), context
+                render_struct(attribute_driver.listen, context), context
             )
             await self.transport.register_listener(
                 address.topic, self._make_on_message(adapter, attribute)
@@ -131,14 +134,39 @@ class PhysicalDevice(Device):
             **self.config,
         }
         attribute_driver = self.driver.attributes[attribute.name]
-        address = self.transport.build_address(
-            render_struct(attribute_driver.read, context), context
-        )
+        raw_address = self._build_read_raw_address(attribute_driver, context)
+        address = self.transport.build_address(raw_address, context)
         raw_value = await self.transport.read(address)
         adapter = attribute_driver.value_adapter
         decoded_value = adapter.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
+
+    def _build_read_raw_address(
+        self,
+        attribute_driver: AttributeDriver,
+        context: dict,
+    ) -> RawTransportAddress:
+        """Compose the raw read address from driver fields.
+
+        For push transports: uses listen + optional read_request.
+        For pull transports: uses the read field directly.
+        """
+        if (
+            isinstance(self.transport, PushTransportClient)
+            and attribute_driver.listen is not None
+        ):
+            listen_topic = render_struct(attribute_driver.listen, context)
+            if attribute_driver.read_request is not None:
+                return {
+                    "topic": listen_topic,
+                    "request": render_struct(attribute_driver.read_request, context),
+                }
+            return listen_topic  # listen-only: bare string → MqttAddress.from_str
+        if attribute_driver.read is None:
+            msg = f"Attribute '{attribute_driver.name}' has no read address"
+            raise ValueError(msg)
+        return render_struct(attribute_driver.read, context)
 
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
