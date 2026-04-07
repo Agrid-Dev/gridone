@@ -14,6 +14,7 @@ from devices_manager.core.transports.bacnet_transport import (
 )
 from devices_manager.core.transports.factory import make_transport_config
 from devices_manager.core.transports.http_transport import HttpTransportConfig
+from devices_manager.core.transports.knx_transport import KNXTransportConfig
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
@@ -32,6 +33,11 @@ class HttpTransportDTO(TransportBaseDTO):
     config: HttpTransportConfig
 
 
+class KnxTransportDTO(TransportBaseDTO):
+    protocol: Literal[TransportProtocols.KNX]
+    config: KNXTransportConfig
+
+
 class MqttTransportDTO(TransportBaseDTO):
     protocol: Literal[TransportProtocols.MQTT]
     config: MqttTransportConfig
@@ -48,7 +54,11 @@ class BacnetTransportDTO(TransportBaseDTO):
 
 
 TransportDTO = Annotated[
-    HttpTransportDTO | MqttTransportDTO | ModbusTcpTransportDTO | BacnetTransportDTO,
+    HttpTransportDTO
+    | KnxTransportDTO
+    | MqttTransportDTO
+    | ModbusTcpTransportDTO
+    | BacnetTransportDTO,
     Field(discriminator="protocol"),
 ]
 
@@ -66,6 +76,7 @@ def dto_to_core(dto: TransportDTO) -> TransportClient:
 
 DTO_BY_PROTOCOL = {
     TransportProtocols.HTTP: HttpTransportDTO,
+    TransportProtocols.KNX: KnxTransportDTO,
     TransportProtocols.MQTT: MqttTransportDTO,
     TransportProtocols.MODBUS_TCP: ModbusTcpTransportDTO,
     TransportProtocols.BACNET: BacnetTransportDTO,
@@ -110,6 +121,7 @@ def core_to_dto(client: TransportClient) -> TransportDTO:
 
 CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = {
     TransportProtocols.HTTP: HttpTransportConfig,
+    TransportProtocols.KNX: KNXTransportConfig,
     TransportProtocols.MQTT: MqttTransportConfig,
     TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
     TransportProtocols.BACNET: BacnetTransportConfig,
