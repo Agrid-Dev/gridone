@@ -25,14 +25,14 @@ export type DataPoint<D extends DataType = DataType> = {
 };
 
 export function listSeries<D extends DataType = DataType>(
-  ownerId: string,
+  deviceId: string,
   metric?: string,
 ): Promise<TimeSeries<D>[]> {
   const params = new URLSearchParams();
   if (metric) params.set("metric", metric);
   const qs = params.toString();
   return request<TimeSeries<D>[]>(
-    `/devices/${encodeURIComponent(ownerId)}/timeseries${qs ? `?${qs}` : ""}`,
+    `/devices/${encodeURIComponent(deviceId)}/timeseries${qs ? `?${qs}` : ""}`,
     undefined,
     { camelCase: true },
   );
