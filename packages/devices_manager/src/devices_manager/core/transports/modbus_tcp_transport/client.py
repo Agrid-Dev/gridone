@@ -1,6 +1,6 @@
 from pymodbus.client import AsyncModbusTcpClient
 
-from devices_manager.core.transports import TransportClient
+from devices_manager.core.transports import PullTransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.cast.bool import cast_as_bool
@@ -14,7 +14,7 @@ from .modbus_address import (
 from .transport_config import ModbusTCPTransportConfig
 
 
-class ModbusTCPTransportClient(TransportClient[ModbusAddress]):
+class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
     _client: AsyncModbusTcpClient
     _config_builder = ModbusTCPTransportConfig
     protocol = TransportProtocols.MODBUS_TCP

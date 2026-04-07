@@ -4,8 +4,8 @@ from pydantic import BaseModel
 
 from devices_manager.core.transports.hash_model import hash_model
 from devices_manager.core.transports.transport_address import (
+    PushTransportAddress,
     RawTransportAddress,
-    TransportAddress,
 )
 
 
@@ -14,9 +14,10 @@ class MqttRequest(BaseModel):
     message: str | dict
 
 
-class MqttAddress(BaseModel, TransportAddress):
+class MqttAddress(BaseModel, PushTransportAddress):
     topic: str
-    request: MqttRequest
+    request: MqttRequest | None = None
+    message: str | dict | None = None
 
     @cached_property
     def id(self) -> str:
@@ -24,10 +25,12 @@ class MqttAddress(BaseModel, TransportAddress):
 
     @classmethod
     def from_str(
-        cls, address_str: str, extra_context: dict | None = None
+        cls,
+        address_str: str,
+        extra_context: dict | None = None,  # noqa: ARG003
     ) -> "MqttAddress":
-        msg = "Creating mqtt address from string is not supported."
-        raise NotImplementedError(msg)
+        """String address = listen-only (just a topic)."""
+        return cls(topic=address_str)
 
     @classmethod
     def from_dict(

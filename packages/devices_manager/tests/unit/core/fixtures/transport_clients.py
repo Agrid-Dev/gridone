@@ -5,11 +5,11 @@ from pydantic import BaseModel
 
 from devices_manager.core.transports import (
     BaseTransportConfig,
+    PullTransportClient,
     PushTransportAddress,
     PushTransportClient,
     RawTransportAddress,
     TransportAddress,
-    TransportClient,
     TransportMetadata,
 )
 from devices_manager.core.transports.factory import make_transport_config
@@ -62,7 +62,7 @@ class MockTransportAddress(TransportAddress):
         return cls(str(raw_address))
 
 
-class MockTransportClient(TransportClient[MockTransportAddress]):
+class MockTransportClient(PullTransportClient[MockTransportAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = MockTransportAddress
     metadata = mock_metadata

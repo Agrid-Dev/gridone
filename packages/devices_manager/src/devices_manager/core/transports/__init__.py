@@ -1,6 +1,6 @@
 import logging
 
-from .base import PushTransportClient, TransportClient
+from .base import PullTransportClient, PushTransportClient, TransportClient
 from .base_transport_config import BaseTransportConfig
 from .factory import make_transport_client, make_transport_config
 from .transport_address import (
@@ -16,6 +16,7 @@ logging.getLogger(__name__).addHandler(logging.NullHandler())
 __all__ = [
     "BaseTransportConfig",
     "ConnectionStatus",
+    "PullTransportClient",
     "PushTransportAddress",
     "PushTransportClient",
     "RawTransportAddress",
