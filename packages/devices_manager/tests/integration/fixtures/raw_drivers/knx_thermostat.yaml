@@ -1,0 +1,19 @@
+id: knx_thermostat
+transport: knx
+
+device_config:
+  - name: ga_temperature
+    default: "1/0/4"
+  - name: ga_setpoint
+    default: "1/0/1"
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: "${ga_temperature}"
+    knx_dpt: "9.001"
+
+  - name: temperature_setpoint
+    data_type: float
+    read_write: "${ga_setpoint}"
+    knx_dpt: "9.001"
