@@ -1,3 +1,9 @@
+## v0.34.3 (2026-04-08)
+
+### Refactor
+
+- clean up transport hierarchy with explicit pull/push taxonomy
+
 ## v0.34.2 (2026-04-07)
 
 ### Fix
