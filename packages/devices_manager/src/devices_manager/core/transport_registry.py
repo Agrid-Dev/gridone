@@ -33,7 +33,7 @@ class TransportRegistry:
     def ids(self) -> set[str]:
         return set(self._transports.keys())
 
-    def list(self) -> list[TransportDTO]:
+    def list_all(self) -> list[TransportDTO]:
         return [transport_core_to_dto(t) for t in self._transports.values()]
 
     def _get_or_raise(self, transport_id: str) -> TransportClient:

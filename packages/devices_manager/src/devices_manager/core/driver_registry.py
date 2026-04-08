@@ -27,7 +27,7 @@ class DriverRegistry:
     def ids(self) -> set[str]:
         return set(self._drivers.keys())
 
-    def list(self, *, device_type: str | None = None) -> list[DriverDTO]:
+    def list_all(self, *, device_type: str | None = None) -> list[DriverDTO]:
         drivers = self._drivers.values()
         if device_type is not None:
             drivers = [d for d in drivers if d.type == device_type]

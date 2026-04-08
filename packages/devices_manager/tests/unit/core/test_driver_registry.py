@@ -18,11 +18,11 @@ class TestDriverRegistryIds:
 class TestDriverRegistryList:
     def test_list_empty(self):
         registry = DriverRegistry()
-        assert registry.list() == []
+        assert registry.list_all() == []
 
     def test_list_returns_dtos(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = registry.list()
+        result = registry.list_all()
         assert len(result) == 1
         assert isinstance(result[0], DriverDTO)
         assert result[0].id == driver.id
@@ -34,13 +34,13 @@ class TestDriverRegistryList:
                 other_http_driver.id: other_http_driver,
             }
         )
-        result = registry.list(device_type="thermostat")
+        result = registry.list_all(device_type="thermostat")
         assert len(result) == 1
         assert result[0].id == thermostat_driver.id
 
     def test_list_filter_by_type_no_match(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        assert registry.list(device_type="unknown") == []
+        assert registry.list_all(device_type="unknown") == []
 
 
 class TestDriverRegistryGet:

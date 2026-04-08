@@ -24,11 +24,11 @@ class TestTransportRegistryIds:
 class TestTransportRegistryList:
     def test_list_empty(self):
         registry = TransportRegistry()
-        assert registry.list() == []
+        assert registry.list_all() == []
 
     def test_list_returns_dtos(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
-        result = registry.list()
+        result = registry.list_all()
         assert len(result) == 1
         assert isinstance(result[0], TransportBaseDTO)
         assert result[0].id == mock_transport_client.id

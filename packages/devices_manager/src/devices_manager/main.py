@@ -334,7 +334,7 @@ class DevicesManager:
         return self._transport_registry.ids
 
     def list_transports(self) -> list[TransportDTO]:
-        return self._transport_registry.list()
+        return self._transport_registry.list_all()
 
     def get_transport(self, transport_id: str) -> TransportDTO:
         return self._transport_registry.get_dto(transport_id)
@@ -385,7 +385,7 @@ class DevicesManager:
         return self._driver_registry.ids
 
     def list_drivers(self, *, device_type: str | None = None) -> list[DriverDTO]:
-        return self._driver_registry.list(device_type=device_type)
+        return self._driver_registry.list_all(device_type=device_type)
 
     @staticmethod
     def list_standard_schemas() -> list[StandardAttributeSchemaDTO]:
