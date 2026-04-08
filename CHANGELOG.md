@@ -1,3 +1,9 @@
+## v0.36.1 (2026-04-08)
+
+### Fix
+
+- **docker**: enable gzip compression in nginx
+
 ## v0.36.0 (2026-04-08)
 
 ### Feat
