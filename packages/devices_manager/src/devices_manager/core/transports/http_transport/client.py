@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 
-from devices_manager.core.transports import TransportClient
+from devices_manager.core.transports import PullTransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.types import AttributeValueType, TransportProtocols
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 
-class HTTPTransportClient(TransportClient[HttpAddress]):
+class HTTPTransportClient(PullTransportClient[HttpAddress]):
     protocol = TransportProtocols.HTTP
     address_builder = HttpAddress
     config: HttpTransportConfig

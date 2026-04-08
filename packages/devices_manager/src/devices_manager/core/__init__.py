@@ -9,7 +9,7 @@ from .device import (
     VirtualDevice,
 )
 from .driver import Driver
-from .transports import PushTransportClient, TransportClient
+from .transports import PullTransportClient, PushTransportClient, TransportClient
 
 __all__ = [
     "Attribute",
@@ -18,6 +18,7 @@ __all__ = [
     "DeviceBase",
     "Driver",
     "PhysicalDevice",
+    "PullTransportClient",
     "PushTransportClient",
     "TransportClient",
     "VirtualDevice",

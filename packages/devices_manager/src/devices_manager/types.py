@@ -11,6 +11,11 @@ class DeviceKind(StrEnum):
     VIRTUAL = "virtual"
 
 
+class TransportType(StrEnum):
+    PULL = "pull"
+    PUSH = "push"
+
+
 class TransportProtocols(StrEnum):
     BACNET = "bacnet"
     MODBUS_TCP = "modbus-tcp"
@@ -27,4 +32,5 @@ __all__ = [
     "DeviceKind",
     "ReadWriteMode",
     "TransportProtocols",
+    "TransportType",
 ]

@@ -20,7 +20,7 @@ from bacpypes3.primitivedata import (
     Real,
 )
 
-from devices_manager.core.transports.base import TransportClient
+from devices_manager.core.transports.base import PullTransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols
@@ -37,7 +37,7 @@ def get_device_identifier(device_instance: int) -> ObjectIdentifier:
 type DevicesDict = dict[ObjectIdentifier, Address]
 
 
-class BacnetTransportClient(TransportClient[BacnetAddress]):
+class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     protocol = TransportProtocols.BACNET
     _config_builder = BacnetTransportConfig
     address_builder = BacnetAddress

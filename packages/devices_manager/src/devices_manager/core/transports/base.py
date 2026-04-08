@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from asyncio import Lock, Task, create_task
 from typing import ClassVar, TypeVar
 
-from devices_manager.types import AttributeValueType, TransportProtocols
+from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
+    transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
     config: BaseTransportConfig
     metadata: TransportMetadata
@@ -111,12 +112,18 @@ class TransportClient[T_TransportAddress](ABC):
             self.schedule_reconnect()
 
 
+class PullTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
+    transport_type: ClassVar[TransportType] = TransportType.PULL
+
+
 T_PushTransportAddress = TypeVar("T_PushTransportAddress", bound=PushTransportAddress)
 
 
 class PushTransportClient[T_PushTransportAddress](
     TransportClient[T_PushTransportAddress]
 ):
+    transport_type: ClassVar[TransportType] = TransportType.PUSH
+
     @abstractmethod
     async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
         """Register a listener on an address
