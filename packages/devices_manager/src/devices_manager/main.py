@@ -67,12 +67,12 @@ class DevicesManager:
     def __init__(
         self,
         devices: dict[str, Device],
-        transport_registry: TransportRegistry,
-        driver_registry: DriverRegistry,
+        drivers: dict[str, Driver],
+        transports: dict[str, TransportClient],
     ) -> None:
         self._devices = devices
-        self._transport_registry = transport_registry
-        self._driver_registry = driver_registry
+        self._transport_registry = TransportRegistry(transports)
+        self._driver_registry = DriverRegistry(drivers)
         self._storage = None
         self._polling_tasks = TasksRegistry()
         self._running = False
@@ -274,21 +274,19 @@ class DevicesManager:
         drivers: list[DriverDTO],
         transports: list[TransportDTO],
     ) -> DevicesManager:
-        transport_registry = TransportRegistry()
-        driver_registry = DriverRegistry()
         dm = cls(
             devices={},
-            transport_registry=transport_registry,
-            driver_registry=driver_registry,
+            drivers={},
+            transports={},
         )
         for t in transports:
             try:
-                transport_registry.add(t)
+                dm._transport_registry.add(t)
             except Exception:
                 logger.exception("Failed to init transport %s", t.id)
         for d in drivers:
             try:
-                driver_registry.add(d)
+                dm._driver_registry.add(d)
             except Exception:
                 logger.exception("Failed to init driver %s", d.id)
         for d in devices:

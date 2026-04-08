@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from devices_manager import DevicesManager, DriverRegistry, TransportRegistry
+from devices_manager import DevicesManager
 from devices_manager.core.device import (
     Attribute,
     DeviceBase,
@@ -42,20 +42,14 @@ from models.errors import (
 def devices_manager(mock_transport_client, device, driver):
     return DevicesManager(
         devices={device.id: device},
-        transport_registry=TransportRegistry(
-            {mock_transport_client.id: mock_transport_client}
-        ),
-        driver_registry=DriverRegistry({driver.id: driver}),
+        drivers={driver.id: driver},
+        transports={mock_transport_client.id: mock_transport_client},
     )
 
 
 class TestDevicesManagerInit:
     def test_init_empty(self):
-        manager = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        manager = DevicesManager(devices={}, drivers={}, transports={})
         assert isinstance(manager, DevicesManager)
 
 
@@ -82,8 +76,8 @@ class TestDevicesManagerPolling:
         )
         manager = DevicesManager(
             devices={device_no_poll.id: device_no_poll},
-            transport_registry=TransportRegistry({"t1": mock_transport_client}),
-            driver_registry=DriverRegistry({driver.metadata.id: driver}),
+            drivers={driver.metadata.id: driver},
+            transports={"t1": mock_transport_client},
         )
 
         await manager.start_polling()
@@ -104,8 +98,8 @@ class TestDevicesManagerPolling:
         )
         manager = DevicesManager(
             devices={device1.id: device1, device2.id: device2},
-            transport_registry=TransportRegistry({"t1": mock_transport_client}),
-            driver_registry=DriverRegistry({"test_driver": driver}),
+            drivers={"test_driver": driver},
+            transports={"t1": mock_transport_client},
         )
 
         await manager.start_polling()
@@ -130,8 +124,8 @@ class TestDevicesManagerPolling:
         )
         manager = DevicesManager(
             devices={device1.id: device1, device2.id: device2},
-            transport_registry=TransportRegistry({"t1": mock_transport_client}),
-            driver_registry=DriverRegistry({"test_driver": driver}),
+            drivers={"test_driver": driver},
+            transports={"t1": mock_transport_client},
         )
         mock_transport_client.read = AsyncMock(return_value="25.5")
 
@@ -209,10 +203,8 @@ class TestDevicesManagerDiscovery:
         transport_id = mock_push_transport_client.id
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {transport_id: mock_push_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver_id: driver_w_push_transport}),
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
         )
         await dm.discovery_manager.register(
             driver_id=driver_id, transport_id=transport_id
@@ -251,10 +243,8 @@ class TestDevicesManagerDiscovery:
         )
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {transport_id: mock_push_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver_id: driver_w_push_transport}),
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
         )
         assert len(dm.list_devices()) == 1
         await dm.discovery_manager.register(
@@ -274,10 +264,8 @@ class TestDevicesManagerDiscovery:
         transport_id = mock_push_transport_client.id
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {transport_id: mock_push_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver_id: driver_w_push_transport}),
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
         )
 
         await dm.discovery_manager.register(
@@ -337,10 +325,8 @@ class TestDevicesManagerDeleteTransport:
     async def test_delete_transport(self, mock_push_transport_client):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_push_transport_client.id: mock_push_transport_client}
-            ),
-            driver_registry=DriverRegistry(),
+            drivers={},
+            transports={mock_push_transport_client.id: mock_push_transport_client},
         )
         transport_id = mock_push_transport_client.id
         await dm.delete_transport(transport_id)
@@ -371,10 +357,8 @@ class TestDevicesManagerUpdateTransport:
     async def test_update_empty_payload(self, mock_transport_client):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(),
+            drivers={},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         transport_id = mock_transport_client.id
 
@@ -398,10 +382,8 @@ class TestDevicesManagerUpdateTransport:
     async def test_update_transport_config_ok(self, mock_transport_client):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(),
+            drivers={},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         transport_id = mock_transport_client.id
         new_config = {"request_timeout": 5}
@@ -427,13 +409,11 @@ class TestDevicesManagerDrivers:
     def test_list_drivers_filter_by_type(self, thermostat_driver, other_http_driver):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(
-                {
-                    thermostat_driver.id: thermostat_driver,
-                    other_http_driver.id: other_http_driver,
-                }
-            ),
+            drivers={
+                thermostat_driver.id: thermostat_driver,
+                other_http_driver.id: other_http_driver,
+            },
+            transports={},
         )
 
         result = dm.list_drivers(device_type="thermostat")
@@ -442,11 +422,7 @@ class TestDevicesManagerDrivers:
         assert result[0].id == thermostat_driver.id
 
     def test_list_drivers_filter_by_type_no_match(self, driver):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry({driver.id: driver}),
-        )
+        dm = DevicesManager(devices={}, drivers={driver.id: driver}, transports={})
 
         result = dm.list_drivers(device_type="unknown")
 
@@ -464,11 +440,7 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_add_driver_ok(self, driver):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         driver_dto = driver_core_to_dto(driver)
 
         created = await dm.add_driver(driver_dto)
@@ -479,11 +451,7 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_add_driver_conflict(self, driver):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         driver_dto = driver_core_to_dto(driver)
 
         await dm.add_driver(driver_dto)
@@ -495,8 +463,8 @@ class TestDevicesManagerDrivers:
     async def test_delete_driver_ok(self, driver):
         devices_manager = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={},
         )
         await devices_manager.delete_driver(driver.id)
         with pytest.raises(NotFoundError):
@@ -539,15 +507,11 @@ class TestDevicesManagerDevices:
         )
         dm = DevicesManager(
             devices={device_typed.id: device_typed, device_untyped.id: device_untyped},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {
-                    thermostat_driver.id: thermostat_driver,
-                    driver.id: driver,
-                }
-            ),
+            drivers={
+                thermostat_driver.id: thermostat_driver,
+                driver.id: driver,
+            },
+            transports={mock_transport_client.id: mock_transport_client},
         )
 
         result = dm.list_devices(device_type="thermostat")
@@ -620,10 +584,8 @@ class TestDevicesManagerDevices:
     ):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_push_transport_client.id: mock_push_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={mock_push_transport_client.id: mock_push_transport_client},
         )
         device_create = DeviceCreateDTO(
             name="Bad Device",
@@ -723,13 +685,11 @@ class TestDevicesManagerDevices:
     ):
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    second_mock_transport_client.id: second_mock_transport_client,
-                }
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                second_mock_transport_client.id: second_mock_transport_client,
+            },
         )
         update = DeviceUpdateDTO(transport_id=second_mock_transport_client.id)
         result = await dm.update_device(device.id, update)
@@ -749,13 +709,11 @@ class TestDevicesManagerDevices:
         """HTTP driver + MQTT transport → ValueError."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    mock_push_transport_client.id: mock_push_transport_client,
-                }
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                mock_push_transport_client.id: mock_push_transport_client,
+            },
         )
         update = DeviceUpdateDTO(transport_id=mock_push_transport_client.id)
         with pytest.raises(ValueError):  # noqa: PT011
@@ -772,12 +730,8 @@ class TestDevicesManagerDevices:
         """
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {driver.id: driver, other_http_driver.id: other_http_driver}
-            ),
+            drivers={driver.id: driver, other_http_driver.id: other_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(driver_id=other_http_driver.id)
         result = await dm.update_device(device.id, update)
@@ -791,15 +745,11 @@ class TestDevicesManagerDevices:
         """MQTT driver + HTTP transport → ValueError."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {
-                    driver.id: driver,
-                    driver_w_push_transport.id: driver_w_push_transport,
-                }
-            ),
+            drivers={
+                driver.id: driver,
+                driver_w_push_transport.id: driver_w_push_transport,
+            },
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(driver_id=driver_w_push_transport.id)
         with pytest.raises(ValueError):  # noqa: PT011
@@ -812,12 +762,8 @@ class TestDevicesManagerDevices:
         """New driver requires a field not present in existing config → InvalidError."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {driver.id: driver, strict_http_driver.id: strict_http_driver}
-            ),
+            drivers={driver.id: driver, strict_http_driver.id: strict_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(driver_id=strict_http_driver.id)
         with pytest.raises(InvalidError):
@@ -831,12 +777,8 @@ class TestDevicesManagerDevices:
         device.attributes["temperature"]._update_value(42.0)
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {driver.id: driver, other_http_driver.id: other_http_driver}
-            ),
+            drivers={driver.id: driver, other_http_driver.id: other_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(driver_id=other_http_driver.id)
         result = await dm.update_device(device.id, update)
@@ -855,18 +797,14 @@ class TestDevicesManagerDevices:
         """Switch from HTTP driver+transport to MQTT driver+transport."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    mock_push_transport_client.id: mock_push_transport_client,
-                }
-            ),
-            driver_registry=DriverRegistry(
-                {
-                    driver.id: driver,
-                    driver_w_push_transport.id: driver_w_push_transport,
-                }
-            ),
+            drivers={
+                driver.id: driver,
+                driver_w_push_transport.id: driver_w_push_transport,
+            },
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                mock_push_transport_client.id: mock_push_transport_client,
+            },
         )
         update = DeviceUpdateDTO(
             driver_id=driver_w_push_transport.id,
@@ -888,18 +826,14 @@ class TestDevicesManagerDevices:
         """New MQTT driver + new HTTP transport → ValueError."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    second_mock_transport_client.id: second_mock_transport_client,
-                }
-            ),
-            driver_registry=DriverRegistry(
-                {
-                    driver.id: driver,
-                    driver_w_push_transport.id: driver_w_push_transport,
-                }
-            ),
+            drivers={
+                driver.id: driver,
+                driver_w_push_transport.id: driver_w_push_transport,
+            },
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                second_mock_transport_client.id: second_mock_transport_client,
+            },
         )
         update = DeviceUpdateDTO(
             driver_id=driver_w_push_transport.id,
@@ -916,12 +850,8 @@ class TestDevicesManagerDevices:
         """Driver change + new config that satisfies new driver → ok."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {driver.id: driver, strict_http_driver.id: strict_http_driver}
-            ),
+            drivers={driver.id: driver, strict_http_driver.id: strict_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(
             driver_id=strict_http_driver.id,
@@ -938,12 +868,8 @@ class TestDevicesManagerDevices:
         """Driver change + new config that doesn't satisfy new driver → InvalidError."""
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry(
-                {driver.id: driver, strict_http_driver.id: strict_http_driver}
-            ),
+            drivers={driver.id: driver, strict_http_driver.id: strict_http_driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         update = DeviceUpdateDTO(
             driver_id=strict_http_driver.id,
@@ -1068,11 +994,7 @@ class TestDevicesManagerStorage:
 
     @pytest.mark.asyncio
     async def test_add_transport_persists(self, mock_storage):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._storage = mock_storage
         transport = TransportCreateDTO(
             name="Test HTTP",
@@ -1084,11 +1006,7 @@ class TestDevicesManagerStorage:
 
     @pytest.mark.asyncio
     async def test_update_transport_persists(self, mock_storage):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._storage = mock_storage
         transport = TransportCreateDTO(
             name="Test HTTP",
@@ -1101,11 +1019,7 @@ class TestDevicesManagerStorage:
 
     @pytest.mark.asyncio
     async def test_delete_transport_persists(self, mock_storage):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._storage = mock_storage
         transport = TransportCreateDTO(
             name="Test HTTP",
@@ -1118,11 +1032,7 @@ class TestDevicesManagerStorage:
 
     @pytest.mark.asyncio
     async def test_add_driver_persists(self, mock_storage, driver):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._storage = mock_storage
         driver_dto = driver_core_to_dto(driver)
         await dm.add_driver(driver_dto)
@@ -1130,11 +1040,7 @@ class TestDevicesManagerStorage:
 
     @pytest.mark.asyncio
     async def test_delete_driver_persists(self, mock_storage, driver):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._storage = mock_storage
         driver_dto = driver_core_to_dto(driver)
         await dm.add_driver(driver_dto)
@@ -1147,10 +1053,8 @@ class TestDevicesManagerStorage:
     ):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         dm._storage = mock_storage
         device_create = DeviceCreateDTO(
@@ -1168,10 +1072,8 @@ class TestDevicesManagerStorage:
     ):
         dm = DevicesManager(
             devices={},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         dm._storage = mock_storage
         device_create = DeviceCreateDTO(
@@ -1212,11 +1114,7 @@ _THERMOSTAT_ATTRS = [
 
 
 def _make_dm() -> DevicesManager:
-    return DevicesManager(
-        devices={},
-        transport_registry=TransportRegistry(),
-        driver_registry=DriverRegistry(),
-    )
+    return DevicesManager(devices={}, drivers={}, transports={})
 
 
 class TestVirtualDeviceCreate:
@@ -1328,22 +1226,14 @@ class TestVirtualDevicePolling:
                 "x": Attribute.create("x", DataType.FLOAT, {"read"}),
             },
         )
-        dm = DevicesManager(
-            devices={vd.id: vd},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
         await dm.start_polling()
         assert dm.poll_count == 0
         await dm.stop_polling()
 
     @pytest.mark.asyncio
     async def test_add_virtual_device_while_running_no_polling_task(self):
-        dm = DevicesManager(
-            devices={},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={}, drivers={}, transports={})
         dm._running = True
         dto = VirtualDeviceCreateDTO(
             name="V",
@@ -1406,11 +1296,7 @@ class TestVirtualDeviceUpdate:
                 "humidity": Attribute.create("humidity", DataType.FLOAT, {"read"}),
             },
         )
-        return DevicesManager(
-            devices={vd.id: vd},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        return DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
 
     @pytest.mark.asyncio
     async def test_update_name(self, dm_with_virtual):
@@ -1499,11 +1385,7 @@ class TestVirtualDeviceUpdate:
     @pytest.mark.asyncio
     async def test_update_with_valid_standard_schema(self):
         vd = VirtualDevice(id="vd1", name="T", type="thermostat", attributes={})
-        dm = DevicesManager(
-            devices={vd.id: vd},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
         result = await dm.update_device(
             "vd1", DeviceUpdateDTO(attributes=_THERMOSTAT_ATTRS)
         )
@@ -1513,11 +1395,7 @@ class TestVirtualDeviceUpdate:
     @pytest.mark.asyncio
     async def test_update_with_invalid_standard_schema_raises(self):
         vd = VirtualDevice(id="vd1", name="T", type="thermostat", attributes={})
-        dm = DevicesManager(
-            devices={vd.id: vd},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
         with pytest.raises(InvalidError):
             await dm.update_device(
                 "vd1",
@@ -1574,11 +1452,7 @@ class TestVirtualDeviceDelete:
             name="V",
             attributes={"x": Attribute.create("x", DataType.FLOAT, {"read"})},
         )
-        dm = DevicesManager(
-            devices={vd.id: vd},
-            transport_registry=TransportRegistry(),
-            driver_registry=DriverRegistry(),
-        )
+        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
         await dm.delete_device("vd1")
         assert "vd1" not in dm.device_ids
 
@@ -1590,13 +1464,11 @@ class TestDevicesManagerRestartPolling:
     ):
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    second_mock_transport_client.id: second_mock_transport_client,
-                }
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={
+                mock_transport_client.id: mock_transport_client,
+                second_mock_transport_client.id: second_mock_transport_client,
+            },
         )
         await dm.start_polling()
         assert dm.poll_count == 1
@@ -1613,10 +1485,8 @@ class TestDevicesManagerRestartPolling:
     ):
         dm = DevicesManager(
             devices={device.id: device},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         await dm.start_polling()
         assert dm.poll_count == 1
@@ -1643,10 +1513,8 @@ class TestDevicesManagerRestartPolling:
         )
         dm = DevicesManager(
             devices={device1.id: device1, device2.id: device2},
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
-            driver_registry=DriverRegistry({driver.id: driver}),
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
         )
         await dm.start_polling()
         assert dm.poll_count == 2

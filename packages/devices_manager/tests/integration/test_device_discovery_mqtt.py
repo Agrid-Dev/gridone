@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from devices_manager import DevicesManager, DriverRegistry, TransportRegistry
+from devices_manager import DevicesManager
 
 from .fixtures.config import TMK_DEVICE_ID
 
@@ -11,10 +11,8 @@ from .fixtures.config import TMK_DEVICE_ID
 def devices_manager(thermocktat_mqtt_driver, mqtt_transport) -> DevicesManager:
     return DevicesManager(
         devices={},
-        transport_registry=TransportRegistry({mqtt_transport.id: mqtt_transport}),
-        driver_registry=DriverRegistry(
-            {thermocktat_mqtt_driver.id: thermocktat_mqtt_driver}
-        ),
+        drivers={thermocktat_mqtt_driver.id: thermocktat_mqtt_driver},
+        transports={mqtt_transport.id: mqtt_transport},
     )
 
 
