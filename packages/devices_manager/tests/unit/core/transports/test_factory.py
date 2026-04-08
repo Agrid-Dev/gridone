@@ -13,6 +13,10 @@ from devices_manager.core.transports.http_transport import (
     HTTPTransportClient,
     HttpTransportConfig,
 )
+from devices_manager.core.transports.knx_transport import (
+    KNXTransportClient,
+    KNXTransportConfig,
+)
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportClient,
     ModbusTCPTransportConfig,
@@ -68,6 +72,11 @@ def test_mismatched_transport_config_raises(mock_transport_metadata):
                 TransportProtocols.BACNET,
                 BacnetTransportConfig(ip_with_mask="127.0.0.1/24"),
                 BacnetTransportClient,
+            ),
+            (
+                TransportProtocols.KNX,
+                KNXTransportConfig(gateway_ip="localhost"),
+                KNXTransportClient,
             ),
         ]
     ),
