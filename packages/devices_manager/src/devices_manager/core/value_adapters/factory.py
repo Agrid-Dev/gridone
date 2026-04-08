@@ -11,6 +11,7 @@ from .registry.byte_frame_adapter import byte_frame_adapter
 from .registry.identity_adapter import identity_adapter
 from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
+from .registry.knx_dpt_adapter import knx_dpt_adapter
 from .registry.mapping_adapter import mapping_adapter
 from .registry.scale_adapter import scale_adapter
 from .registry.slice_adapter import slice_adapter
@@ -36,6 +37,7 @@ value_adapter_entries: dict[str, AdapterEntry] = {
     "byte_frame": AdapterEntry(builder=byte_frame_adapter, arg_type=str),
     "slice": AdapterEntry(builder=slice_adapter, arg_type=str),
     "mapping": AdapterEntry(builder=mapping_adapter, arg_type=dict),
+    "knx_dpt": AdapterEntry(builder=knx_dpt_adapter, arg_type=str),
 }
 
 supported_value_adapters = list(value_adapter_entries.keys())
