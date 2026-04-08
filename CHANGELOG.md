@@ -1,3 +1,9 @@
+## v0.35.0 (2026-04-08)
+
+### Feat
+
+- added release workflow
+
 ## v0.34.3 (2026-04-08)
 
 ### Refactor
