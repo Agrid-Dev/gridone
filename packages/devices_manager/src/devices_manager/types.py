@@ -20,6 +20,7 @@ class TransportProtocols(StrEnum):
     BACNET = "bacnet"
     MODBUS_TCP = "modbus-tcp"
     HTTP = "http"
+    KNX = "knx"
     MQTT = "mqtt"
 
 
