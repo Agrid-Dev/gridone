@@ -68,6 +68,8 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
 
     async def close(self) -> None:
         async with self._connection_lock:
+            if not self.connection_state.is_connected:
+                return
             if self._xknx_instance is not None:
                 await self._xknx_instance.stop()
                 self._xknx_instance = None

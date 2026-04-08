@@ -65,6 +65,14 @@ class TestConnect:
         mock_xknx.stop.assert_awaited_once()
         assert knx_client.connection_state.is_connected is False
 
+    async def test_close_noop_when_not_connected(
+        self,
+        knx_client: KNXTransportClient,
+        mock_xknx: AsyncMock,
+    ) -> None:
+        await knx_client.close()
+        mock_xknx.stop.assert_not_awaited()
+
     async def test_connect_idempotent(
         self,
         knx_client: KNXTransportClient,
