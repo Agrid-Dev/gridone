@@ -53,7 +53,7 @@ class KNXTransportConfig(BaseTransportConfig):
         return ConnectionType.TUNNELING, None
 
     def to_xknx_connection_config(self) -> ConnectionConfig:
-        """UDP tunnel, plain TCP tunnel, or TCP + IP Secure (if credentials set)."""
+        """Build xknx ConnectionConfig; route_back=True handles NAT/Docker UDP."""
         connection_type, secure_config = self._tunneling_connection_type_and_secure()
         return ConnectionConfig(
             connection_type=connection_type,
@@ -61,4 +61,5 @@ class KNXTransportConfig(BaseTransportConfig):
             gateway_port=int(self.port),
             secure_config=secure_config,
             auto_reconnect=False,
+            route_back=self.tunneling_mode == "udp",
         )

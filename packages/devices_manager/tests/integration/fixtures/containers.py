@@ -10,9 +10,9 @@ from docker.errors import NotFound
 
 import docker
 
-from .config import HTTP_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
+from .config import HTTP_PORT, KNX_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
 
-thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.5.0"
+thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.7.0"
 mosquitto_image = "eclipse-mosquitto:2.0"
 
 thermocktat_initial_state = {
@@ -25,7 +25,7 @@ thermocktat_initial_state = {
     "fan_speed": "auto",
 }
 
-type ControllerKey = Literal["http", "mqtt", "modbus"]
+type ControllerKey = Literal["http", "mqtt", "modbus", "knx"]
 
 
 def build_config(controller: ControllerKey) -> dict:
@@ -45,6 +45,11 @@ def build_config(controller: ControllerKey) -> dict:
             "unit_id": 4,
             "sync_interval": "1s",
             "register_count": 2,
+        },
+        "knx": {
+            "enabled": True,
+            "addr": f"0.0.0.0:{KNX_PORT}",
+            "publish_interval": "0.5s",
         },
     }
     return {
@@ -131,6 +136,32 @@ def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
             remove=True,
         )
         yield ("localhost", MODBUS_PORT)
+    finally:
+        if container is not None:
+            with contextlib.suppress(NotFound):
+                container.stop()
+        Path(config_path).unlink()
+
+
+@pytest.fixture(scope="module")
+def thermocktat_container_knx() -> Generator[None]:
+    """Start a thermocktat container with KNX/IP tunneling server enabled."""
+    client = docker.from_env()
+    config = build_config("knx")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        yaml.dump(config, f)
+        config_path = f.name
+    container = None
+    try:
+        container = client.containers.run(
+            thermocktat_image,
+            command="-config /config.yaml",
+            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
+            ports={f"{KNX_PORT}/udp": KNX_PORT},
+            detach=True,
+            remove=True,
+        )
+        yield
     finally:
         if container is not None:
             with contextlib.suppress(NotFound):

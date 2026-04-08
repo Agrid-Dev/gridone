@@ -8,7 +8,7 @@ from devices_manager.core.transports import (
 )
 from devices_manager.types import TransportProtocols
 
-from .config import MODBUS_PORT, MQTT_PORT
+from .config import KNX_PORT, MODBUS_PORT, MQTT_PORT
 
 
 @pytest.fixture
@@ -39,4 +39,16 @@ def modbus_transport() -> TransportClient:
             TransportProtocols.MODBUS_TCP, {"host": "localhost", "port": MODBUS_PORT}
         ),
         TransportMetadata(id="my-transport", name="my-transport"),
+    )
+
+
+@pytest.fixture
+def knx_transport() -> TransportClient:
+    return make_transport_client(
+        TransportProtocols.KNX,
+        make_transport_config(
+            TransportProtocols.KNX,
+            {"gateway_ip": "127.0.0.1", "port": KNX_PORT},
+        ),
+        TransportMetadata(id="knx-transport", name="knx-transport"),
     )
