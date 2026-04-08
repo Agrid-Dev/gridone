@@ -50,6 +50,11 @@ from devices_manager.core.value_adapters.factory import (
             1,
             "heat",
         ),
+        (
+            [ValueAdapterSpec(adapter="knx_dpt", argument="9.001")],
+            [0x0C, 0x65],
+            22.5,
+        ),
     ],
 )
 def test_build_value_adapter(
