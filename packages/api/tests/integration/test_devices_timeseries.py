@@ -1,5 +1,10 @@
 import pytest
-from devices_manager import DevicesManager, VirtualDevice
+from devices_manager import (
+    DevicesManager,
+    DriverRegistry,
+    TransportRegistry,
+    VirtualDevice,
+)
 from devices_manager.core.device import Attribute
 from devices_manager.types import DataType
 from fastapi import FastAPI
@@ -52,8 +57,8 @@ def integration_app(
     app.include_router(router)
     dm = DevicesManager(
         devices={virtual_device.id: virtual_device},
-        drivers={},
-        transports={},
+        transport_registry=TransportRegistry(),
+        driver_registry=DriverRegistry(),
     )
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: ts_service
