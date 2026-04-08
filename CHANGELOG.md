@@ -1,3 +1,9 @@
+## v0.37.0 (2026-04-08)
+
+### Feat
+
+- agr-410 create knx dpt value adapter (#187)
+
 ## v0.36.1 (2026-04-08)
 
 ### Fix
