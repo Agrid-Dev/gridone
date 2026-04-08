@@ -1,3 +1,14 @@
+## v0.36.0 (2026-04-08)
+
+### Feat
+
+- **devices_manager**: register KNX transport in factory and DTO
+- **devices_manager**: add KNX/IP transport client
+
+### Fix
+
+- add guard when not connected for consistency
+
 ## v0.35.0 (2026-04-08)
 
 ### Feat
