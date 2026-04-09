@@ -1,3 +1,9 @@
+## v0.40.1 (2026-04-09)
+
+### Fix
+
+- **ci**: look for CI run on merge commit, not bump commit
+
 ## v0.40.0 (2026-04-09)
 
 ### Feat
