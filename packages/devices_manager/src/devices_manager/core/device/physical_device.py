@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
@@ -34,6 +35,7 @@ class PhysicalDevice(Device):
     config: DeviceConfig
     kind: ClassVar[DeviceKind] = DeviceKind.PHYSICAL
     type: str | None = field(init=False, default=None)
+    _poll_task: asyncio.Task[None] | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -120,6 +122,33 @@ class PhysicalDevice(Device):
             self._update_attribute(attribute, decoded)
 
         return on_message
+
+    async def start_sync(self) -> None:
+        """Start listeners and polling for this device."""
+        await self.init_listeners()
+        if self.polling_enabled and (self._poll_task is None or self._poll_task.done()):
+            self._poll_task = asyncio.create_task(self._poll_loop())
+        self._syncing = True
+
+    async def stop_sync(self) -> None:
+        """Cancel polling and mark as not syncing."""
+        if self._poll_task is not None and not self._poll_task.done():
+            self._poll_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._poll_task
+        self._poll_task = None
+        self._syncing = False
+
+    async def _poll_loop(self) -> None:
+        interval = self.poll_interval
+        if interval is None:
+            return
+        try:
+            while True:
+                await self.update_attributes()
+                await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            return
 
     async def read_attribute_value(
         self,

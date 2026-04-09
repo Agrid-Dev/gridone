@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
@@ -52,16 +51,16 @@ class TestDevicesManagerInit:
         assert isinstance(manager, DevicesManager)
 
 
-class TestDevicesManagerPolling:
+class TestDevicesManagerSync:
     @pytest.mark.asyncio
-    async def test_start_polling_with_polling_enabled(self, devices_manager):
-        await devices_manager.start_polling()
+    async def test_start_sync_with_polling_enabled(self, devices_manager, device):
+        await devices_manager.start_sync()
 
         assert devices_manager._running is True
-        assert devices_manager.poll_count == 1
+        assert device.syncing is True
 
     @pytest.mark.asyncio
-    async def test_start_polling_without_polling_enabled(
+    async def test_start_sync_without_polling_enabled(
         self,
         mock_transport_client,
         driver: Driver,
@@ -79,12 +78,12 @@ class TestDevicesManagerPolling:
             transports={"t1": mock_transport_client},
         )
 
-        await manager.start_polling()
+        await manager.start_sync()
 
-        assert manager.poll_count == 0
+        assert device_no_poll.syncing is True
 
     @pytest.mark.asyncio
-    async def test_start_polling_multiple_devices(self, mock_transport_client, driver):
+    async def test_start_sync_multiple_devices(self, mock_transport_client, driver):
         device1 = PhysicalDevice.from_base(
             DeviceBase(id="device1", name="device1", config={}),
             transport=mock_transport_client,
@@ -101,12 +100,13 @@ class TestDevicesManagerPolling:
             transports={"t1": mock_transport_client},
         )
 
-        await manager.start_polling()
+        await manager.start_sync()
 
-        assert manager.poll_count == 2
+        assert device1.syncing is True
+        assert device2.syncing is True
 
     @pytest.mark.asyncio
-    async def test_start_polling_all_devices_are_polled(
+    async def test_start_sync_all_devices_are_polled(
         self, mock_transport_client, driver
     ):
         """Regression: all devices must be polled, not just the last one."""
@@ -128,48 +128,38 @@ class TestDevicesManagerPolling:
         )
         mock_transport_client.read = AsyncMock(return_value="25.5")
 
-        await manager.start_polling()
+        await manager.start_sync()
         await asyncio.sleep(0.1)  # Should send first poll for both
-        await manager.stop_polling()
+        await manager.stop_sync()
 
         assert mock_transport_client.read.call_count >= 2 * n_readable_attrs
 
     @pytest.mark.asyncio
-    async def test_stop_polling(self, devices_manager):
-        await devices_manager.start_polling()
+    async def test_stop_sync(self, devices_manager, device):
+        await devices_manager.start_sync()
 
-        await devices_manager.stop_polling()
+        await devices_manager.stop_sync()
 
         assert devices_manager._running is False
-        assert devices_manager.poll_count == 0
+        assert device.syncing is False
 
     @pytest.mark.asyncio
-    async def test_stop_polling_no_tasks(self, devices_manager):
+    async def test_stop_sync_no_tasks(self, devices_manager):
         devices_manager._running = True
 
-        await devices_manager.stop_polling()
+        await devices_manager.stop_sync()
 
         assert devices_manager._running is False
 
     @pytest.mark.asyncio
-    async def test_device_poll_loop(self, devices_manager, mock_transport_client):
-        await devices_manager.start_polling()
+    async def test_devices_are_polled_during_sync(
+        self, devices_manager, mock_transport_client
+    ):
+        await devices_manager.start_sync()
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await asyncio.sleep(0.1)
-        await devices_manager.stop_polling()
+        await devices_manager.stop_sync()
         assert mock_transport_client.read.called
-
-    @pytest.mark.asyncio
-    async def test_device_poll_loop_cancelled(self, devices_manager, device):
-        devices_manager._running = True
-
-        task = asyncio.create_task(devices_manager._device_poll_loop(device))
-        task.cancel()
-
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
-
-        assert task.cancelled()
 
 
 class TestDevicesManagerListeners:
@@ -574,7 +564,7 @@ class TestDevicesManagerDeviceDelegation:
         dm._storage.devices.write.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_add_device_starts_lifecycle_when_running(
+    async def test_add_device_starts_sync_when_running(
         self, driver, mock_transport_client
     ):
         device = _make_physical_device("d1", driver, mock_transport_client)
@@ -593,11 +583,12 @@ class TestDevicesManagerDeviceDelegation:
         )
         await dm.add_device(create)
 
-        assert dm.poll_count == 1
+        assert device.syncing is True
+        await device.stop_sync()
         dm._running = False
 
     @pytest.mark.asyncio
-    async def test_add_virtual_device_while_running_no_polling(self):
+    async def test_add_virtual_device_while_running_not_syncing(self):
         vd = _make_virtual_device()
         mock_reg = _mock_device_registry()
         mock_reg.add.return_value = vd
@@ -618,7 +609,7 @@ class TestDevicesManagerDeviceDelegation:
         )
         await dm.add_device(create)
 
-        assert dm.poll_count == 0
+        assert vd.syncing is False
         dm._running = False
 
     @pytest.mark.asyncio
@@ -685,8 +676,7 @@ class TestDevicesManagerDeviceDelegation:
 
         await dm.update_device("vd1", DeviceUpdateDTO(name="New"))
 
-        # No polling tasks for virtual devices
-        assert dm.poll_count == 0
+        assert vd.syncing is False
 
     @pytest.mark.asyncio
     async def test_delete_device_delegates_to_registry(self):
@@ -715,19 +705,19 @@ class TestDevicesManagerDeviceDelegation:
         dm._storage.devices.delete.assert_called_once_with("vd1")
 
     @pytest.mark.asyncio
-    async def test_delete_device_cancels_polling(self, driver, mock_transport_client):
+    async def test_delete_device_stops_sync(self, driver, mock_transport_client):
         device = _make_physical_device("d1", driver, mock_transport_client)
         dm = DevicesManager(
             devices={device.id: device},
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_polling()
-        assert dm.poll_count == 1
+        await dm.start_sync()
+        assert device.syncing is True
 
         await dm.delete_device("d1")
 
-        assert dm.poll_count == 0
+        assert device.syncing is False
         dm._running = False
 
     @pytest.mark.asyncio
@@ -901,9 +891,9 @@ class TestDevicesManagerStorage:
         mock_storage.drivers.delete.assert_called_once_with(driver_dto.id)
 
 
-class TestVirtualDevicePolling:
+class TestVirtualDeviceSync:
     @pytest.mark.asyncio
-    async def test_start_polling_skips_virtual_device(self):
+    async def test_start_sync_skips_virtual_device(self):
         vd = VirtualDevice(
             id="vd1",
             name="V",
@@ -912,9 +902,9 @@ class TestVirtualDevicePolling:
             },
         )
         dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
-        await dm.start_polling()
-        assert dm.poll_count == 0
-        await dm.stop_polling()
+        await dm.start_sync()
+        assert vd.syncing is False
+        await dm.stop_sync()
 
 
 class TestVirtualDeviceFromDto:
@@ -952,9 +942,9 @@ class TestVirtualDeviceFromDto:
         assert result.transport_id is None
 
 
-class TestDevicesManagerRestartPolling:
+class TestDevicesManagerRestartSync:
     @pytest.mark.asyncio
-    async def test_update_device_transport_restarts_polling(
+    async def test_update_device_transport_restarts_sync(
         self,
         device,
         driver,
@@ -969,17 +959,18 @@ class TestDevicesManagerRestartPolling:
                 second_mock_transport_client.id: second_mock_transport_client,
             },
         )
-        await dm.start_polling()
-        assert dm.poll_count == 1
+        await dm.start_sync()
+        assert device.syncing is True
 
         update = DeviceUpdateDTO(transport_id=second_mock_transport_client.id)
         await dm.update_device(device.id, update)
 
-        assert dm.poll_count == 1
-        await dm.stop_polling()
+        updated = dm._device_registry.get(device.id)
+        assert updated.syncing is True
+        await dm.stop_sync()
 
     @pytest.mark.asyncio
-    async def test_update_device_config_restarts_polling(
+    async def test_update_device_config_restarts_sync(
         self, device, driver, mock_transport_client
     ):
         dm = DevicesManager(
@@ -987,17 +978,18 @@ class TestDevicesManagerRestartPolling:
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_polling()
-        assert dm.poll_count == 1
+        await dm.start_sync()
+        assert device.syncing is True
 
         update = DeviceUpdateDTO(config={"some_id": "new_value"})
         await dm.update_device(device.id, update)
 
-        assert dm.poll_count == 1
-        await dm.stop_polling()
+        updated = dm._device_registry.get(device.id)
+        assert updated.syncing is True
+        await dm.stop_sync()
 
     @pytest.mark.asyncio
-    async def test_update_transport_restarts_polling_for_affected_devices(
+    async def test_update_transport_restarts_sync_for_affected_devices(
         self, driver, mock_transport_client
     ):
         device1 = PhysicalDevice.from_base(
@@ -1015,13 +1007,15 @@ class TestDevicesManagerRestartPolling:
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_polling()
-        assert dm.poll_count == 2
+        await dm.start_sync()
+        assert device1.syncing is True
+        assert device2.syncing is True
 
         await dm.update_transport(
             mock_transport_client.id,
             TransportUpdateDTO(config={"request_timeout": 5}),
         )
 
-        assert dm.poll_count == 2
-        await dm.stop_polling()
+        assert device1.syncing is True
+        assert device2.syncing is True
+        await dm.stop_sync()
