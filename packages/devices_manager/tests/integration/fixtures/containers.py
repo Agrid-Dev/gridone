@@ -27,34 +27,35 @@ thermocktat_initial_state = {
 
 type ControllerKey = Literal["http", "mqtt", "modbus", "knx"]
 
+_CONTROLLER_CONFIGS: dict[ControllerKey, dict] = {
+    "http": {"enabled": True, "addr": ":8080"},
+    "mqtt": {
+        "enabled": True,
+        "addr": f"tcp://host.docker.internal:{MQTT_PORT}",
+        "qos": 0,
+        "retain_snapshot": False,
+        "publish_interval": "0.5s",
+        "publish_mode": "interval",
+    },
+    "modbus": {
+        "enabled": True,
+        "addr": f"0.0.0.0:{MODBUS_PORT}",
+        "unit_id": 4,
+        "sync_interval": "1s",
+        "register_count": 2,
+    },
+    "knx": {
+        "enabled": True,
+        "addr": f"0.0.0.0:{KNX_PORT}",
+        "publish_interval": "0.5s",
+    },
+}
 
-def build_config(controller: ControllerKey) -> dict:
-    controller_configs: dict[ControllerKey, dict] = {
-        "http": {"enabled": True, "addr": ":8080"},
-        "mqtt": {
-            "enabled": True,
-            "addr": f"tcp://host.docker.internal:{MQTT_PORT}",
-            "qos": 0,
-            "retain_snapshot": False,
-            "publish_interval": "0.5s",
-            "publish_mode": "interval",
-        },
-        "modbus": {
-            "enabled": True,
-            "addr": f"0.0.0.0:{MODBUS_PORT}",
-            "unit_id": 4,
-            "sync_interval": "1s",
-            "register_count": 2,
-        },
-        "knx": {
-            "enabled": True,
-            "addr": f"0.0.0.0:{KNX_PORT}",
-            "publish_interval": "0.5s",
-        },
-    }
+
+def build_config(*controllers: ControllerKey) -> dict:
     return {
         "device_id": TMK_DEVICE_ID,
-        "controllers": {controller: controller_configs[controller]},
+        "controllers": {c: _CONTROLLER_CONFIGS[c] for c in controllers},
         "thermostat": thermocktat_initial_state,
     }
 
@@ -143,11 +144,9 @@ def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
         Path(config_path).unlink()
 
 
-@pytest.fixture(scope="module")
-def thermocktat_container_knx() -> Generator[None]:
-    """Start a thermocktat container with KNX/IP tunneling server enabled."""
+def _run_thermocktat(config: dict, ports: dict) -> Generator[None]:
+    """Shared lifecycle for thermocktat containers."""
     client = docker.from_env()
-    config = build_config("knx")
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         yaml.dump(config, f)
         config_path = f.name
@@ -157,7 +156,7 @@ def thermocktat_container_knx() -> Generator[None]:
             thermocktat_image,
             command="-config /config.yaml",
             volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
-            ports={f"{KNX_PORT}/udp": KNX_PORT},
+            ports=ports,
             detach=True,
             remove=True,
         )
@@ -167,3 +166,21 @@ def thermocktat_container_knx() -> Generator[None]:
             with contextlib.suppress(NotFound):
                 container.stop()
         Path(config_path).unlink()
+
+
+@pytest.fixture(scope="module")
+def thermocktat_container_knx() -> Generator[None]:
+    """Start a thermocktat container with KNX/IP tunneling server enabled."""
+    yield from _run_thermocktat(
+        build_config("knx"),
+        ports={f"{KNX_PORT}/udp": KNX_PORT},
+    )
+
+
+@pytest.fixture(scope="module")
+def thermocktat_container_knx_http() -> Generator[None]:
+    """Start a thermocktat container with both KNX and HTTP controllers enabled."""
+    yield from _run_thermocktat(
+        build_config("knx", "http"),
+        ports={f"{KNX_PORT}/udp": KNX_PORT, "8080/tcp": HTTP_PORT},
+    )

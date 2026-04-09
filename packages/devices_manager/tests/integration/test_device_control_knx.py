@@ -6,12 +6,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
+import httpx
 import pytest
 import pytest_asyncio
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
-from devices_manager.core.transports import PushTransportClient
-from devices_manager.core.utils.templating.render import render_struct
+
+from .fixtures.config import HTTP_PORT
 
 
 async def _wait_for_knx_tunnel(device: PhysicalDevice) -> None:
@@ -29,22 +30,9 @@ async def _wait_for_knx_tunnel(device: PhysicalDevice) -> None:
     raise RuntimeError(msg) from last_error
 
 
-async def _register_listener(
-    device: PhysicalDevice, attr_name: str, received: list[object]
-) -> None:
-    """Register a listener on the GA of ``attr_name`` and append to ``received``."""
-    transport = device.transport
-    assert isinstance(transport, PushTransportClient)
-    context = {**device.driver.env, **device.config}
-    address = transport.build_address(
-        render_struct(device.driver.attributes[attr_name].read, context), context
-    )
-    await transport.register_listener(address.topic, received.append)
-
-
 @pytest_asyncio.fixture
 async def connected_knx_device(
-    thermocktat_container_knx,  # noqa: ARG001
+    thermocktat_container_knx_http,  # noqa: ARG001
     knx_device: PhysicalDevice,
 ) -> AsyncGenerator[PhysicalDevice]:
     await _wait_for_knx_tunnel(knx_device)
@@ -95,24 +83,28 @@ async def test_write_attribute(
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_listen_receives_update(connected_knx_device: PhysicalDevice):
-    received: list[object] = []
-    await _register_listener(connected_knx_device, "onoff_state", received)
-    await connected_knx_device.write_attribute_value("onoff_state", value=True)
-    assert received != []
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_listen_receives_temperature(connected_knx_device: PhysicalDevice):
-    """Listener on temperature GA receives GroupValueResponse triggered by a read."""
-    transport = connected_knx_device.transport
-    assert isinstance(transport, PushTransportClient)
-    context = {**connected_knx_device.driver.env, **connected_knx_device.config}
-    attr_read = connected_knx_device.driver.attributes["temperature"].read
-    address = transport.build_address(render_struct(attr_read, context), context)
-    received: list[object] = []
-    await transport.register_listener(address.topic, received.append)
-    # GroupValueRead → GroupValueResponse → listener fires
-    await transport.read(address)
-    assert received != []
+@pytest.mark.parametrize(
+    ("http_endpoint", "attribute", "http_value", "expected"),
+    [
+        ("/v1/temperature_setpoint", "temperature_setpoint", 25.0, pytest.approx(25.0)),
+        ("/v1/enabled", "onoff_state", True, True),
+    ],
+)
+async def test_push_update_received(
+    connected_knx_device: PhysicalDevice,
+    http_endpoint: str,
+    attribute: str,
+    http_value: object,
+    expected: object,
+):
+    """External state change on thermocktat is received by KNX device via push."""
+    await connected_knx_device.init_listeners()
+    async with httpx.AsyncClient() as http_client:
+        resp = await http_client.post(
+            f"http://localhost:{HTTP_PORT}{http_endpoint}",
+            json={"value": http_value},
+        )
+        assert resp.status_code == 200
+    # thermocktat publish_interval is 0.5s — allow margin for delivery
+    await asyncio.sleep(1.0)
+    assert connected_knx_device.attributes[attribute].current_value == expected
