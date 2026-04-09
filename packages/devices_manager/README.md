@@ -39,8 +39,11 @@ graph TD
     DM -->|"start_sync / stop_sync"| D
 
     DR --> D
-    DR --> DrvR
-    DR --> TrR
+    DR -.->|"resolve_driver(id)"| Drv
+    DR -.->|"resolve_transport(id)"| TC
+
+    DrvR --> Drv
+    TrR --> TC
 
     D --> PD
     D --> VD
@@ -59,7 +62,7 @@ graph TD
 - **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`. Physical devices start transport listeners and spawn their own poll task. Virtual devices are no-ops. The facade just calls these methods — no centralized polling manager.
 - **Registries are pure in-memory.** `DeviceRegistry`, `TransportRegistry`, and `DriverRegistry` handle CRUD on in-memory dicts. Persistence is the facade's responsibility.
 - **Facade = orchestration recipes.** `DevicesManager` methods are short sequences: delegate to registry, toggle sync, persist. No business logic lives in the facade.
-- **Protocol-based DI.** `DeviceRegistryInterface` allows the facade to be tested with mocked registries.
+- **Dependency inversion via resolvers.** `DeviceRegistry` doesn't depend on `DriverRegistry` or `TransportRegistry` — it receives `resolve_driver` / `resolve_transport` callables, injected by the facade. `DeviceRegistryInterface` allows the facade itself to be tested with mocks.
 
 ## Storage architecture
 
