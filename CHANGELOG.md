@@ -1,3 +1,13 @@
+## v0.39.0 (2026-04-09)
+
+### Feat
+
+- **devices_manager**: extract DeviceRegistry from DevicesManager
+
+### Refactor
+
+- **tests**: clean up DevicesManager tests, mock DeviceRegistry
+
 ## v0.38.1 (2026-04-09)
 
 ### Fix
