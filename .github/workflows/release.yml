@@ -34,8 +34,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "Looking for successful CI run on commit $COMMIT_SHA (tag: $RELEASE_TAG)"
+          # The bump commit's parent is the merge commit that CI tested.
+          # CI runs on the merge commit (push to main), not the bump commit
+          # (pushed by BUMP_TOKEN which doesn't trigger workflows).
+          COMMIT_SHA=$(git rev-parse HEAD~1)
+          echo "Looking for successful CI run on commit $COMMIT_SHA (parent of tag $RELEASE_TAG)"
 
           for i in $(seq 1 30); do
             RUN_ID=$(gh api \
