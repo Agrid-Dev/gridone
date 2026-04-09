@@ -1,3 +1,13 @@
+## v0.40.0 (2026-04-09)
+
+### Feat
+
+- **devices_manager**: move sync lifecycle into Device, thin out facade
+
+### Fix
+
+- **devices_manager**: use resolver callables in DeviceRegistry constructor
+
 ## v0.39.1 (2026-04-09)
 
 ### Fix
