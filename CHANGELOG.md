@@ -1,3 +1,9 @@
+## v0.39.1 (2026-04-09)
+
+### Fix
+
+- **ci**: trigger release workflow from bump via workflow_dispatch
+
 ## v0.39.0 (2026-04-09)
 
 ### Feat
