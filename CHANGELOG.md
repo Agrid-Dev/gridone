@@ -1,3 +1,9 @@
+## v0.38.1 (2026-04-09)
+
+### Fix
+
+- **devices_manager**: agr-412 raise InvalidError instead of ValueError in value adapter factory (#190)
+
 ## v0.38.0 (2026-04-09)
 
 ### Feat
