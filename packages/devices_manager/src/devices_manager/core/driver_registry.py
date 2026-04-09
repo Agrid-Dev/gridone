@@ -3,21 +3,30 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import DriverDTO, driver_core_to_dto, driver_dto_to_core
+from devices_manager.storage import NullStorageBackend
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
+    from devices_manager.storage import StorageBackend
 
     from .driver import Driver
 
 
 class DriverRegistry:
-    """Pure in-memory registry for drivers."""
+    """In-memory registry for drivers with optional persistence."""
 
     _drivers: dict[str, Driver]
+    _storage: StorageBackend[DriverDTO]
 
-    def __init__(self, drivers: dict[str, Driver] | None = None) -> None:
+    def __init__(
+        self,
+        drivers: dict[str, Driver] | None = None,
+        *,
+        storage: StorageBackend[DriverDTO] | None = None,
+    ) -> None:
         self._drivers = drivers if drivers is not None else {}
+        self._storage = storage or NullStorageBackend()
 
     @property
     def all(self) -> dict[str, Driver]:
@@ -47,17 +56,20 @@ class DriverRegistry:
         driver = self._get_or_raise(driver_id)
         return driver_core_to_dto(driver)
 
-    def add(self, driver_dto: DriverDTO) -> DriverDTO:
+    async def add(self, driver_dto: DriverDTO) -> DriverDTO:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)
         driver = driver_dto_to_core(driver_dto)
         self._drivers[driver_dto.id] = driver
-        return driver_core_to_dto(driver)
+        dto = driver_core_to_dto(driver)
+        await self._storage.write(dto.id, dto)
+        return dto
 
-    def remove(self, driver_id: str) -> None:
+    async def remove(self, driver_id: str) -> None:
         self._get_or_raise(driver_id)
         del self._drivers[driver_id]
+        await self._storage.delete(driver_id)
 
     @staticmethod
     def check_transport_compat(driver: Driver, transport: TransportClient) -> None:

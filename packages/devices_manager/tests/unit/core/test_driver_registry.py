@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.dto import DriverDTO, driver_core_to_dto
+from devices_manager.storage import StorageBackend
 from models.errors import NotFoundError
 
 
@@ -67,32 +70,36 @@ class TestDriverRegistryGet:
 
 
 class TestDriverRegistryAdd:
-    def test_add_ok(self, driver):
+    @pytest.mark.asyncio
+    async def test_add_ok(self, driver):
         registry = DriverRegistry()
         driver_dto = driver_core_to_dto(driver)
-        created = registry.add(driver_dto)
+        created = await registry.add(driver_dto)
         assert isinstance(created, DriverDTO)
         assert created.id == driver_dto.id
         assert driver_dto.id in registry.ids
 
-    def test_add_duplicate_raises(self, driver):
+    @pytest.mark.asyncio
+    async def test_add_duplicate_raises(self, driver):
         registry = DriverRegistry()
         driver_dto = driver_core_to_dto(driver)
-        registry.add(driver_dto)
+        await registry.add(driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
-            registry.add(driver_dto)
+            await registry.add(driver_dto)
 
 
 class TestDriverRegistryRemove:
-    def test_remove_existing(self, driver):
+    @pytest.mark.asyncio
+    async def test_remove_existing(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        registry.remove(driver.id)
+        await registry.remove(driver.id)
         assert driver.id not in registry.ids
 
-    def test_remove_not_found(self):
+    @pytest.mark.asyncio
+    async def test_remove_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
-            registry.remove("unknown")
+            await registry.remove("unknown")
 
 
 class TestDriverRegistryCheckCompat:
@@ -102,3 +109,29 @@ class TestDriverRegistryCheckCompat:
     def test_incompatible(self, driver, mock_push_transport_client):
         with pytest.raises(ValueError):  # noqa: PT011
             DriverRegistry.check_transport_compat(driver, mock_push_transport_client)
+
+
+class TestDriverRegistryPersistence:
+    @pytest.mark.asyncio
+    async def test_add_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry(storage=storage)
+        driver_dto = driver_core_to_dto(driver)
+        await registry.add(driver_dto)
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_remove_deletes_from_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        await registry.remove(driver.id)
+        storage.delete.assert_called_once_with(driver.id)
+
+    @pytest.mark.asyncio
+    async def test_no_storage_does_not_raise(self, driver):
+        registry = DriverRegistry()
+        driver_dto = driver_core_to_dto(driver)
+        created = await registry.add(driver_dto)
+        assert created.id == driver_dto.id
+        await registry.remove(driver_dto.id)
+        assert driver_dto.id not in registry.ids

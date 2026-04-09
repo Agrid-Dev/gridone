@@ -8,6 +8,7 @@ from devices_manager.dto import (
     PhysicalDeviceCreateDTO,
     device_core_to_dto,
 )
+from devices_manager.storage import NullStorageBackend
 from models.errors import InvalidError, NotFoundError
 
 from .device import Attribute, Device, DeviceBase, PhysicalDevice, VirtualDevice
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
         DeviceUpdateDTO,
         VirtualDeviceCreateDTO,
     )
+    from devices_manager.storage import StorageBackend
     from devices_manager.types import AttributeValueType
 
     from .driver import Driver
@@ -36,12 +38,13 @@ TransportResolver = Callable[[str], "TransportClient"]
 
 
 class DeviceRegistry:
-    """Pure in-memory registry for devices."""
+    """In-memory registry for devices with optional persistence."""
 
     _devices: dict[str, Device]
     _resolve_driver: DriverResolver
     _resolve_transport: TransportResolver
     _on_attribute_update: AttributeUpdateCallback | None
+    _storage: StorageBackend[DeviceDTO]
 
     def __init__(
         self,
@@ -50,11 +53,13 @@ class DeviceRegistry:
         resolve_driver: DriverResolver,
         resolve_transport: TransportResolver,
         on_attribute_update: AttributeUpdateCallback | None = None,
+        storage: StorageBackend[DeviceDTO] | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
         self._resolve_transport = resolve_transport
         self._on_attribute_update = on_attribute_update
+        self._storage = storage or NullStorageBackend()
         for device in self._devices.values():
             device.on_update = self._on_attribute_update
 
@@ -86,12 +91,13 @@ class DeviceRegistry:
             devices = [d for d in devices if d.type == device_type]
         return [device_core_to_dto(device) for device in devices]
 
-    def register(self, device: Device) -> None:
-        """Register device in memory."""
+    async def register(self, device: Device) -> None:
+        """Register device in memory and persist."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
+        await self._storage.write(device.id, device_core_to_dto(device))
         logger.info("Successfully registered device '%s'", device.id)
 
     def _validate_device_config(self, device_config: dict, driver: Driver) -> None:
@@ -147,17 +153,16 @@ class DeviceRegistry:
             on_update=self._on_attribute_update,
         )
 
-    def add(self, device_create: DeviceCreateDTO) -> Device:
-        """Create a device and register it in memory.
+    async def add(self, device_create: DeviceCreateDTO) -> Device:
+        """Create a device, register it in memory, and persist.
 
-        Returns the core Device so the caller can handle lifecycle
-        and persistence.
+        Returns the core Device so the caller can handle lifecycle.
         """
         if isinstance(device_create, PhysicalDeviceCreateDTO):
             device = self._create_physical_device(device_create)
         else:
             device = self._create_virtual_device(device_create)
-        self.register(device)
+        await self.register(device)
         logger.info(
             "Successfully created device '%s' (id: %s)",
             device_create.name,
@@ -225,11 +230,11 @@ class DeviceRegistry:
             validate_standard_schema(device.type, list(device_update.attributes))
         device.attributes = new_attributes
 
-    def update(self, device_id: str, device_update: DeviceUpdateDTO) -> Device:
-        """Update a device in-place, rebuild if needed.
+    async def update(self, device_id: str, device_update: DeviceUpdateDTO) -> Device:
+        """Update a device in-place, rebuild if needed, and persist.
 
         Returns the (potentially rebuilt) Device so the caller can
-        handle lifecycle side-effects (polling restart, listener init, persistence).
+        handle lifecycle side-effects (polling restart, listener init).
         """
         device = self._get_or_raise(device_id)
 
@@ -237,6 +242,7 @@ class DeviceRegistry:
             if device_update.name is not None:
                 device.name = device_update.name
             self._mutate_virtual_attributes(device, device_update)
+            await self._storage.write(device_id, device_core_to_dto(device))
             return device
 
         assert isinstance(device, PhysicalDevice)  # noqa: S101
@@ -263,12 +269,15 @@ class DeviceRegistry:
             )
             self._devices[device_id] = device
 
-        return self._devices[device_id]
+        result = self._devices[device_id]
+        await self._storage.write(device_id, device_core_to_dto(result))
+        return result
 
-    def remove(self, device_id: str) -> None:
-        """Remove a device from memory."""
+    async def remove(self, device_id: str) -> None:
+        """Remove a device from memory and storage."""
         self._get_or_raise(device_id)
         del self._devices[device_id]
+        await self._storage.delete(device_id)
 
     async def write_attribute(
         self,

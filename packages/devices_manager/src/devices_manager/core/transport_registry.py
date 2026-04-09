@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from devices_manager.dto import (
     TransportCreateDTO,
     TransportDTO,
     TransportUpdateDTO,
     transport_core_to_dto,
 )
+from devices_manager.storage import NullStorageBackend
 from models.errors import NotFoundError
 
 from .id import gen_id
@@ -16,14 +19,24 @@ from .transports import (
     make_transport_config,
 )
 
+if TYPE_CHECKING:
+    from devices_manager.storage import StorageBackend
+
 
 class TransportRegistry:
-    """Pure in-memory registry for transport clients."""
+    """In-memory registry for transport clients with optional persistence."""
 
     _transports: dict[str, TransportClient]
+    _storage: StorageBackend[TransportDTO]
 
-    def __init__(self, transports: dict[str, TransportClient] | None = None) -> None:
+    def __init__(
+        self,
+        transports: dict[str, TransportClient] | None = None,
+        *,
+        storage: StorageBackend[TransportDTO] | None = None,
+    ) -> None:
         self._transports = transports if transports is not None else {}
+        self._storage = storage or NullStorageBackend()
 
     @property
     def all(self) -> dict[str, TransportClient]:
@@ -50,7 +63,7 @@ class TransportRegistry:
         client = self._get_or_raise(transport_id)
         return transport_core_to_dto(client)
 
-    def add(self, transport: TransportCreateDTO | TransportDTO) -> TransportDTO:
+    async def add(self, transport: TransportCreateDTO | TransportDTO) -> TransportDTO:
         config = make_transport_config(
             transport.protocol, transport.config.model_dump()
         )
@@ -58,18 +71,26 @@ class TransportRegistry:
         metadata = TransportMetadata(id=transport_id, name=transport.name)
         client = make_transport_client(transport.protocol, config, metadata)
         self._transports[metadata.id] = client
-        return transport_core_to_dto(client)
+        dto = transport_core_to_dto(client)
+        await self._storage.write(dto.id, dto)
+        return dto
 
-    def remove(self, transport_id: str) -> TransportClient:
+    async def remove(self, transport_id: str) -> TransportClient:
         """Remove and return the client. Caller is responsible for closing it."""
         self._get_or_raise(transport_id)
-        return self._transports.pop(transport_id)
+        client = self._transports.pop(transport_id)
+        await self._storage.delete(transport_id)
+        return client
 
-    def update(self, transport_id: str, update: TransportUpdateDTO) -> TransportClient:
+    async def update(
+        self, transport_id: str, update: TransportUpdateDTO
+    ) -> TransportClient:
         """Apply name/config mutation to the client and return it."""
         transport = self._get_or_raise(transport_id)
         if update.name is not None:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
+        dto = transport_core_to_dto(transport)
+        await self._storage.write(transport_id, dto)
         return transport

@@ -450,14 +450,10 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_delete_driver_ok(self, driver):
-        devices_manager = DevicesManager(
-            devices={},
-            drivers={driver.id: driver},
-            transports={},
-        )
-        await devices_manager.delete_driver(driver.id)
+        dm = DevicesManager(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.delete_driver(driver.id)
         with pytest.raises(NotFoundError):
-            devices_manager.get_driver(driver.id)
+            dm.get_driver(driver.id)
 
     @pytest.mark.asyncio
     async def test_delete_driver_not_found(self, devices_manager):
@@ -506,8 +502,19 @@ def _mock_device_registry(
     registry.list_all = MagicMock(
         return_value=[device_core_to_dto(d) for d in devices.values()]
     )
+    registry.add = AsyncMock()
+    registry.update = AsyncMock()
+    registry.remove = AsyncMock()
+    registry.register = AsyncMock()
     registry.write_attribute = AsyncMock()
     return registry
+
+
+def _dm_with_mock_registry(mock_reg: MagicMock) -> DevicesManager:
+    """Build a DevicesManager and swap in a mock device registry."""
+    dm = DevicesManager(devices={}, drivers={}, transports={})
+    dm._device_registry = mock_reg
+    return dm
 
 
 class TestDevicesManagerDeviceDelegation:
@@ -519,8 +526,7 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry()
         mock_reg.add.return_value = vd
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         create = VirtualDeviceCreateDTO(
             name="V",
@@ -539,31 +545,6 @@ class TestDevicesManagerDeviceDelegation:
         assert result.id == vd.id
 
     @pytest.mark.asyncio
-    async def test_add_device_persists_to_storage(self):
-        vd = _make_virtual_device()
-        mock_reg = _mock_device_registry()
-        mock_reg.add.return_value = vd
-
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
-        dm._storage = AsyncMock()
-        dm._storage.devices = AsyncMock()
-
-        create = VirtualDeviceCreateDTO(
-            name="V",
-            attributes=[
-                AttributeCreateDTO(
-                    name="value",
-                    data_type=DataType.FLOAT,
-                    read_write_mode="read",
-                )
-            ],
-        )
-        await dm.add_device(create)
-
-        dm._storage.devices.write.assert_called_once()
-
-    @pytest.mark.asyncio
     async def test_add_device_starts_sync_when_running(
         self, driver, mock_transport_client
     ):
@@ -571,8 +552,7 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry()
         mock_reg.add.return_value = device
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
         dm._running = True
 
         create = DeviceCreateDTO(
@@ -593,8 +573,7 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry()
         mock_reg.add.return_value = vd
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
         dm._running = True
 
         create = VirtualDeviceCreateDTO(
@@ -620,31 +599,13 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry({"d1": device})
         mock_reg.update.return_value = device
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         update = DeviceUpdateDTO(name="New Name")
         result = await dm.update_device("d1", update)
 
         mock_reg.update.assert_called_once_with("d1", update)
         assert isinstance(result, DeviceDTO)
-
-    @pytest.mark.asyncio
-    async def test_update_device_persists_to_storage(
-        self, driver, mock_transport_client
-    ):
-        device = _make_physical_device("d1", driver, mock_transport_client)
-        mock_reg = _mock_device_registry({"d1": device})
-        mock_reg.update.return_value = device
-
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
-        dm._storage = AsyncMock()
-        dm._storage.devices = AsyncMock()
-
-        await dm.update_device("d1", DeviceUpdateDTO(name="X"))
-
-        dm._storage.devices.write.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_update_device_inits_listeners_on_rebuild(
@@ -657,12 +618,11 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry({"d1": old_device})
         mock_reg.update.return_value = new_device
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         await dm.update_device("d1", DeviceUpdateDTO(driver_id="other"))
 
-        # new_device is not old_device → init_listeners should fire
+        # new_device is not old_device -> init_listeners should fire
         # (we can't easily assert on the device mock, but no error = ok)
 
     @pytest.mark.asyncio
@@ -671,8 +631,7 @@ class TestDevicesManagerDeviceDelegation:
         mock_reg = _mock_device_registry({"vd1": vd})
         mock_reg.update.return_value = vd
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         await dm.update_device("vd1", DeviceUpdateDTO(name="New"))
 
@@ -683,26 +642,11 @@ class TestDevicesManagerDeviceDelegation:
         vd = _make_virtual_device()
         mock_reg = _mock_device_registry({"vd1": vd})
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         await dm.delete_device("vd1")
 
         mock_reg.remove.assert_called_once_with("vd1")
-
-    @pytest.mark.asyncio
-    async def test_delete_device_persists_to_storage(self):
-        vd = _make_virtual_device()
-        mock_reg = _mock_device_registry({"vd1": vd})
-
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
-        dm._storage = AsyncMock()
-        dm._storage.devices = AsyncMock()
-
-        await dm.delete_device("vd1")
-
-        dm._storage.devices.delete.assert_called_once_with("vd1")
 
     @pytest.mark.asyncio
     async def test_delete_device_stops_sync(self, driver, mock_transport_client):
@@ -725,8 +669,7 @@ class TestDevicesManagerDeviceDelegation:
         vd = _make_virtual_device()
         mock_reg = _mock_device_registry({"vd1": vd})
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         result = await dm.read_device("vd1")
 
@@ -738,8 +681,7 @@ class TestDevicesManagerDeviceDelegation:
         vd = _make_virtual_device()
         mock_reg = _mock_device_registry({"vd1": vd})
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         result = dm.list_devices()
 
@@ -751,8 +693,7 @@ class TestDevicesManagerDeviceDelegation:
         vd = _make_virtual_device()
         mock_reg = _mock_device_registry({"vd1": vd})
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         result = dm.get_device("vd1")
 
@@ -765,8 +706,7 @@ class TestDevicesManagerDeviceDelegation:
         mock_attr = Attribute.create("value", DataType.FLOAT, {"read", "write"}, 42.0)
         mock_reg.write_attribute.return_value = mock_attr
 
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._device_registry = mock_reg
+        dm = _dm_with_mock_registry(mock_reg)
 
         result = await dm.write_device_attribute("d1", "value", 42.0)
 
@@ -777,15 +717,7 @@ class TestDevicesManagerDeviceDelegation:
 
 
 class TestDevicesManagerStorage:
-    """Tests that mutations delegate to storage when storage is set."""
-
-    @pytest.fixture
-    def mock_storage(self):
-        storage = AsyncMock()
-        storage.devices = AsyncMock()
-        storage.drivers = AsyncMock()
-        storage.transports = AsyncMock()
-        return storage
+    """Tests for storage integration (from_storage, attribute persistence)."""
 
     @pytest.fixture
     def seeded_db(self, tmp_path: Path, device, driver, mock_transport_client) -> Path:
@@ -834,61 +766,6 @@ class TestDevicesManagerStorage:
         dm2 = await DevicesManager.from_storage(str(tmp_path))
         restored = dm2.get_device("vd1")
         assert restored.attributes["value"].current_value == 42.0
-
-    @pytest.mark.asyncio
-    async def test_add_transport_persists(self, mock_storage):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._storage = mock_storage
-        transport = TransportCreateDTO(
-            name="Test HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
-        )
-        await dm.add_transport(transport)
-        mock_storage.transports.write.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_transport_persists(self, mock_storage):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._storage = mock_storage
-        transport = TransportCreateDTO(
-            name="Test HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
-        )
-        dto = await dm.add_transport(transport)
-        await dm.update_transport(dto.id, TransportUpdateDTO(name="Updated"))
-        assert mock_storage.transports.write.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_delete_transport_persists(self, mock_storage):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._storage = mock_storage
-        transport = TransportCreateDTO(
-            name="Test HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
-        )
-        dto = await dm.add_transport(transport)
-        await dm.delete_transport(dto.id)
-        mock_storage.transports.delete.assert_called_once_with(dto.id)
-
-    @pytest.mark.asyncio
-    async def test_add_driver_persists(self, mock_storage, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._storage = mock_storage
-        driver_dto = driver_core_to_dto(driver)
-        await dm.add_driver(driver_dto)
-        mock_storage.drivers.write.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_delete_driver_persists(self, mock_storage, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
-        dm._storage = mock_storage
-        driver_dto = driver_core_to_dto(driver)
-        await dm.add_driver(driver_dto)
-        await dm.delete_driver(driver_dto.id)
-        mock_storage.drivers.delete.assert_called_once_with(driver_dto.id)
 
 
 class TestVirtualDeviceSync:

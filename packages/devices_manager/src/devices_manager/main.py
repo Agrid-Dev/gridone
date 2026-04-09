@@ -38,7 +38,6 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from .core.driver import Driver
     from .core.transports import TransportClient
-    from .interface import DeviceRegistryInterface
     from .storage import DevicesManagerStorage
     from .types import AttributeValueType
 
@@ -48,7 +47,7 @@ AttributeListener = Callable[[Device, str, Attribute], Coroutine[Any, Any, None]
 
 
 class DevicesManager:
-    _device_registry: DeviceRegistryInterface
+    _device_registry: DeviceRegistry
     _transport_registry: TransportRegistry
     _driver_registry: DriverRegistry
     _discovery_manager: PhysicalDevicesDiscoveryManager
@@ -62,18 +61,27 @@ class DevicesManager:
         devices: dict[str, Device],
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
+        *,
+        storage: DevicesManagerStorage | None = None,
     ) -> None:
-        self._transport_registry = TransportRegistry(transports)
-        self._driver_registry = DriverRegistry(drivers)
-        self._storage = None
+        self._storage = storage
         self._running = False
         self._attribute_update_handlers = []
         self._background_tasks = set()
+        self._transport_registry = TransportRegistry(
+            transports,
+            storage=storage.transports if storage else None,
+        )
+        self._driver_registry = DriverRegistry(
+            drivers,
+            storage=storage.drivers if storage else None,
+        )
         self._device_registry = DeviceRegistry(
             devices,
             resolve_driver=self._driver_registry.get,
             resolve_transport=self._transport_registry.get,
             on_attribute_update=self._on_attribute_update,
+            storage=storage.devices if storage else None,
         )
 
     # -- Sync lifecycle --
@@ -103,33 +111,25 @@ class DevicesManager:
         return self._device_registry.get_dto(device_id)
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
-        device = self._device_registry.add(device_create)
+        device = await self._device_registry.add(device_create)
         if self._running:
             await device.start_sync()
-        dto = device_core_to_dto(device)
-        if self._storage:
-            await self._storage.devices.write(dto.id, dto)
-        return dto
+        return device_core_to_dto(device)
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdateDTO
     ) -> DeviceDTO:
         old_device = self._device_registry.get(device_id)
         await old_device.stop_sync()
-        device = self._device_registry.update(device_id, device_update)
+        device = await self._device_registry.update(device_id, device_update)
         if self._running:
             await device.start_sync()
-        dto = device_core_to_dto(device)
-        if self._storage:
-            await self._storage.devices.write(device_id, dto)
-        return dto
+        return device_core_to_dto(device)
 
     async def delete_device(self, device_id: str) -> None:
         device = self._device_registry.get(device_id)
         await device.stop_sync()
-        self._device_registry.remove(device_id)
-        if self._storage:
-            await self._storage.devices.delete(device_id)
+        await self._device_registry.remove(device_id)
 
     async def read_device(self, device_id: str) -> DeviceDTO:
         device = self._device_registry.get(device_id)
@@ -185,10 +185,7 @@ class DevicesManager:
 
     async def _register_and_persist_device(self, device: Device) -> None:
         """Register device and persist to storage. Used by discovery."""
-        self._device_registry.register(device)
-        if self._storage:
-            dto = device_core_to_dto(device)
-            await self._storage.devices.write(dto.id, dto)
+        await self._device_registry.register(device)
 
     @property
     def discovery_manager(self) -> PhysicalDevicesDiscoveryManager:
@@ -219,7 +216,7 @@ class DevicesManager:
                 self._transport_registry.all,
                 on_update=self._on_attribute_update,
             )
-            self._device_registry.register(device)
+            await self._device_registry.register(device)
         except KeyError:
             logger.exception(
                 "Cannot create device %s: missing driver or transport", d.id
@@ -228,41 +225,49 @@ class DevicesManager:
             logger.exception("Failed to init device %s", d.id)
 
     @classmethod
+    async def _populate(
+        cls,
+        dm: DevicesManager,
+        devices: list[DeviceDTO],
+        drivers: list[DriverDTO],
+        transports: list[TransportDTO],
+    ) -> None:
+        """Populate registries from DTOs during bootstrap."""
+        for t in transports:
+            try:
+                await dm._transport_registry.add(t)
+            except Exception:
+                logger.exception("Failed to init transport %s", t.id)
+        for d in drivers:
+            try:
+                await dm._driver_registry.add(d)
+            except Exception:
+                logger.exception("Failed to init driver %s", d.id)
+        for d in devices:
+            await dm._restore_device(d)
+
+    @classmethod
     async def from_dto(
         cls,
         devices: list[DeviceDTO],
         drivers: list[DriverDTO],
         transports: list[TransportDTO],
     ) -> DevicesManager:
-        dm = cls(
-            devices={},
-            drivers={},
-            transports={},
-        )
-        for t in transports:
-            try:
-                dm._transport_registry.add(t)
-            except Exception:
-                logger.exception("Failed to init transport %s", t.id)
-        for d in drivers:
-            try:
-                dm._driver_registry.add(d)
-            except Exception:
-                logger.exception("Failed to init driver %s", d.id)
-        for d in devices:
-            await dm._restore_device(d)
+        dm = cls(devices={}, drivers={}, transports={})
+        await cls._populate(dm, devices, drivers, transports)
         return dm
 
     @classmethod
     async def from_storage(cls, url: str) -> DevicesManager:
         repository = await build_storage(url)
-        dm = await cls.from_dto(
+        dm = cls(devices={}, drivers={}, transports={}, storage=repository)
+        await cls._populate(
+            dm,
             devices=await repository.devices.read_all(),
             drivers=await repository.drivers.read_all(),
             transports=await repository.transports.read_all(),
         )
-        dm._storage = repository  # noqa: SLF001
-        dm._register_attribute_persistence_listener()  # noqa: SLF001
+        dm._register_attribute_persistence_listener()
         return dm
 
     def _register_attribute_persistence_listener(self) -> None:
@@ -300,10 +305,7 @@ class DevicesManager:
     async def add_transport(
         self, transport: TransportCreateDTO | TransportDTO
     ) -> TransportDTO:
-        dto = self._transport_registry.add(transport)
-        if self._storage:
-            await self._storage.transports.write(dto.id, dto)
-        return dto
+        return await self._transport_registry.add(transport)
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
@@ -321,25 +323,20 @@ class DevicesManager:
     async def delete_transport(self, transport_id: str) -> None:
         self._transport_registry.get(transport_id)
         self._assert_transport_not_used(transport_id)
-        transport = self._transport_registry.remove(transport_id)
+        transport = await self._transport_registry.remove(transport_id)
         await transport.close()
-        if self._storage:
-            await self._storage.transports.delete(transport_id)
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdateDTO
     ) -> TransportDTO:
-        transport = self._transport_registry.update(transport_id, update)
+        transport = await self._transport_registry.update(transport_id, update)
         if update.config is not None:
             for device in self._device_registry.all.values():
                 if device.transport_id == transport_id:
                     await device.stop_sync()
                     if self._running:
                         await device.start_sync()
-        dto = transport_core_to_dto(transport)
-        if self._storage:
-            await self._storage.transports.write(transport_id, dto)
-        return dto
+        return transport_core_to_dto(transport)
 
     # -- Drivers (delegated to DriverRegistry) --
 
@@ -360,10 +357,7 @@ class DevicesManager:
         return self._driver_registry.get_dto(driver_id)
 
     async def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
-        created = self._driver_registry.add(driver_dto)
-        if self._storage:
-            await self._storage.drivers.write(created.id, created)
-        return created
+        return await self._driver_registry.add(driver_dto)
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
@@ -377,9 +371,7 @@ class DevicesManager:
     async def delete_driver(self, driver_id: str) -> None:
         self._driver_registry.get(driver_id)
         self._assert_driver_not_used(driver_id)
-        self._driver_registry.remove(driver_id)
-        if self._storage:
-            await self._storage.drivers.delete(driver_id)
+        await self._driver_registry.remove(driver_id)
 
     async def stop(self) -> None:
         await self.stop_sync()
