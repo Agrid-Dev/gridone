@@ -87,7 +87,7 @@ async def test_write_attribute(
     ("http_endpoint", "attribute", "http_value", "expected"),
     [
         ("/v1/temperature_setpoint", "temperature_setpoint", 25.0, pytest.approx(25.0)),
-        ("/v1/enabled", "onoff_state", True, True),
+        ("/v1/enabled", "onoff_state", False, False),
     ],
 )
 async def test_push_update_received(

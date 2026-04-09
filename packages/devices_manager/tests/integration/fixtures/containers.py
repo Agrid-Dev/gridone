@@ -62,28 +62,8 @@ def build_config(*controllers: ControllerKey) -> dict:
 
 @pytest.fixture(scope="module")
 def thermocktat_container_http() -> Generator[str]:
-    client = docker.from_env()
-    config = build_config("http")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
-        config_path = f.name
-    container = None
-    try:
-        # Run the container with the custom config
-        container = client.containers.run(
-            thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
-            ports={"8080/tcp": HTTP_PORT},
-            detach=True,
-            remove=True,
-        )
+    with _run_thermocktat(build_config("http"), ports={"8080/tcp": HTTP_PORT}):
         yield f"http://localhost:{HTTP_PORT}"
-    finally:
-        if container is not None:
-            with contextlib.suppress(NotFound):
-                container.stop()
-        Path(config_path).unlink()
 
 
 @pytest.fixture(scope="module")
@@ -91,29 +71,17 @@ def thermocktat_container_mqtt() -> Generator[str]:
     """Start a thermocktat container with MQTT enabled.
     Requires mosquitto_container to be running.
     """
-    client = docker.from_env()
     config = build_config("mqtt")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
-        config_path = f.name
-    container = None
-    try:
-        # Use the same Docker network as mosquitto for internal communication
-        container = client.containers.run(
-            thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
-            detach=True,
-            remove=True,
-            network_mode="bridge",
-            extra_hosts={"host.docker.internal": "host-gateway"},
-        )
+    # Use the same Docker network as mosquitto for internal communication.
+    with _run_thermocktat(
+        config,
+        ports={},
+        run_kwargs={
+            "network_mode": "bridge",
+            "extra_hosts": {"host.docker.internal": "host-gateway"},
+        },
+    ):
         yield config["device_id"]
-    finally:
-        if container is not None:
-            with contextlib.suppress(NotFound):
-                container.stop()
-        Path(config_path).unlink()
 
 
 @pytest.fixture(scope="module")
@@ -121,30 +89,14 @@ def thermocktat_container_modbus() -> Generator[tuple[str, int]]:
     """Start a thermocktat container with Modbus TCP enabled.
     Yields (host, port) for connecting to the modbus server.
     """
-    client = docker.from_env()
-    config = build_config("modbus")
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config, f)
-        config_path = f.name
-    container = None
-    try:
-        container = client.containers.run(
-            thermocktat_image,
-            command="-config /config.yaml",
-            volumes={config_path: {"bind": "/config.yaml", "mode": "ro"}},
-            ports={"1502/tcp": MODBUS_PORT},
-            detach=True,
-            remove=True,
-        )
+    with _run_thermocktat(build_config("modbus"), ports={"1502/tcp": MODBUS_PORT}):
         yield ("localhost", MODBUS_PORT)
-    finally:
-        if container is not None:
-            with contextlib.suppress(NotFound):
-                container.stop()
-        Path(config_path).unlink()
 
 
-def _run_thermocktat(config: dict, ports: dict) -> Generator[None]:
+@contextlib.contextmanager
+def _run_thermocktat(
+    config: dict, ports: dict, *, run_kwargs: dict | None = None
+) -> Generator[None]:
     """Shared lifecycle for thermocktat containers."""
     client = docker.from_env()
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -159,6 +111,7 @@ def _run_thermocktat(config: dict, ports: dict) -> Generator[None]:
             ports=ports,
             detach=True,
             remove=True,
+            **(run_kwargs or {}),
         )
         yield
     finally:
@@ -169,18 +122,10 @@ def _run_thermocktat(config: dict, ports: dict) -> Generator[None]:
 
 
 @pytest.fixture(scope="module")
-def thermocktat_container_knx() -> Generator[None]:
-    """Start a thermocktat container with KNX/IP tunneling server enabled."""
-    yield from _run_thermocktat(
-        build_config("knx"),
-        ports={f"{KNX_PORT}/udp": KNX_PORT},
-    )
-
-
-@pytest.fixture(scope="module")
 def thermocktat_container_knx_http() -> Generator[None]:
     """Start a thermocktat container with both KNX and HTTP controllers enabled."""
-    yield from _run_thermocktat(
+    with _run_thermocktat(
         build_config("knx", "http"),
         ports={f"{KNX_PORT}/udp": KNX_PORT, "8080/tcp": HTTP_PORT},
-    )
+    ):
+        yield
