@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     import builtins
 
-    from .core.device import Attribute
+    from .core.device import Attribute, Device
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
         DeviceCreateDTO,
@@ -20,6 +20,39 @@ if TYPE_CHECKING:
         TransportUpdateDTO,
     )
     from .types import AttributeValueType
+
+
+class DeviceRegistryInterface(Protocol):
+    """Protocol for device registry operations used by DevicesManager."""
+
+    @property
+    def all(self) -> dict[str, Device]: ...
+
+    @property
+    def ids(self) -> set[str]: ...
+
+    def get(self, device_id: str) -> Device: ...
+
+    def get_dto(self, device_id: str) -> DeviceDTO: ...
+
+    def list_all(self, *, device_type: str | None = None) -> list[DeviceDTO]: ...
+
+    def register(self, device: Device) -> None: ...
+
+    def add(self, device_create: DeviceCreateDTO) -> Device: ...
+
+    def update(self, device_id: str, device_update: DeviceUpdateDTO) -> Device: ...
+
+    def remove(self, device_id: str) -> None: ...
+
+    async def write_attribute(
+        self,
+        device_id: str,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+    ) -> Attribute: ...
 
 
 class DiscoveryManagerInterface(Protocol):
@@ -112,4 +145,8 @@ class DevicesManagerInterface(Protocol):
     def list_standard_schemas(self) -> list[StandardAttributeSchemaDTO]: ...
 
 
-__all__ = ["DevicesManagerInterface", "DiscoveryManagerInterface"]
+__all__ = [
+    "DeviceRegistryInterface",
+    "DevicesManagerInterface",
+    "DiscoveryManagerInterface",
+]
