@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -21,6 +21,7 @@ from devices_manager.dto import (
 from devices_manager.dto import (
     PhysicalDeviceCreateDTO as DeviceCreateDTO,
 )
+from devices_manager.storage import StorageBackend
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 
@@ -181,17 +182,20 @@ class TestDeviceRegistryList:
 
 
 class TestDeviceRegistryRegister:
-    def test_register_ok(self, empty_registry, device):
-        empty_registry.register(device)
+    @pytest.mark.asyncio
+    async def test_register_ok(self, empty_registry, device):
+        await empty_registry.register(device)
         assert device.id in empty_registry.ids
 
-    def test_register_duplicate_raises(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_register_duplicate_raises(self, device_registry, device):
         with pytest.raises(ValueError):  # noqa: PT011
-            device_registry.register(device)
+            await device_registry.register(device)
 
 
 class TestDeviceRegistryAddPhysical:
-    def test_add_physical_device_ok(
+    @pytest.mark.asyncio
+    async def test_add_physical_device_ok(
         self, empty_registry, driver, mock_transport_client
     ):
         create = DeviceCreateDTO(
@@ -200,12 +204,13 @@ class TestDeviceRegistryAddPhysical:
             driver_id=driver.id,
             transport_id=mock_transport_client.id,
         )
-        device = empty_registry.add(create)
+        device = await empty_registry.add(create)
         assert isinstance(device, PhysicalDevice)
         assert device.name == "New Device"
         assert device.id in empty_registry.ids
 
-    def test_add_physical_device_driver_not_found(
+    @pytest.mark.asyncio
+    async def test_add_physical_device_driver_not_found(
         self, empty_registry, mock_transport_client
     ):
         create = DeviceCreateDTO(
@@ -215,9 +220,12 @@ class TestDeviceRegistryAddPhysical:
             transport_id=mock_transport_client.id,
         )
         with pytest.raises(NotFoundError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_physical_device_transport_not_found(self, empty_registry, driver):
+    @pytest.mark.asyncio
+    async def test_add_physical_device_transport_not_found(
+        self, empty_registry, driver
+    ):
         create = DeviceCreateDTO(
             name="Bad",
             config={"some_id": "abc"},
@@ -225,9 +233,10 @@ class TestDeviceRegistryAddPhysical:
             transport_id="unknown_transport",
         )
         with pytest.raises(NotFoundError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_physical_device_incompatible_transport(
+    @pytest.mark.asyncio
+    async def test_add_physical_device_incompatible_transport(
         self, driver, mock_push_transport_client, on_attribute_update
     ):
         registry = DeviceRegistry(
@@ -242,9 +251,10 @@ class TestDeviceRegistryAddPhysical:
             transport_id=mock_push_transport_client.id,
         )
         with pytest.raises(ValueError):  # noqa: PT011
-            registry.add(create)
+            await registry.add(create)
 
-    def test_add_physical_device_invalid_config(
+    @pytest.mark.asyncio
+    async def test_add_physical_device_invalid_config(
         self, empty_registry, driver, mock_transport_client
     ):
         create = DeviceCreateDTO(
@@ -254,9 +264,10 @@ class TestDeviceRegistryAddPhysical:
             transport_id=mock_transport_client.id,
         )
         with pytest.raises(InvalidError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_sets_on_update_callback(
+    @pytest.mark.asyncio
+    async def test_add_sets_on_update_callback(
         self,
         empty_registry,
         driver,
@@ -269,12 +280,13 @@ class TestDeviceRegistryAddPhysical:
             driver_id=driver.id,
             transport_id=mock_transport_client.id,
         )
-        device = empty_registry.add(create)
+        device = await empty_registry.add(create)
         assert device.on_update is on_attribute_update
 
 
 class TestDeviceRegistryAddVirtual:
-    def test_add_virtual_device_ok(self, empty_registry):
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_ok(self, empty_registry):
         create = VirtualDeviceCreateDTO(
             name="Sensor",
             attributes=[
@@ -285,18 +297,20 @@ class TestDeviceRegistryAddVirtual:
                 ),
             ],
         )
-        device = empty_registry.add(create)
+        device = await empty_registry.add(create)
         assert isinstance(device, VirtualDevice)
         assert device.name == "Sensor"
         assert "temperature" in device.attributes
         assert device.id in empty_registry.ids
 
-    def test_add_virtual_device_empty_attributes_raises(self, empty_registry):
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_empty_attributes_raises(self, empty_registry):
         create = VirtualDeviceCreateDTO(name="Bad", attributes=[])
         with pytest.raises(InvalidError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_virtual_device_duplicate_attributes_raises(self, empty_registry):
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_duplicate_attributes_raises(self, empty_registry):
         create = VirtualDeviceCreateDTO(
             name="Bad",
             attributes=[
@@ -313,9 +327,12 @@ class TestDeviceRegistryAddVirtual:
             ],
         )
         with pytest.raises(InvalidError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_virtual_device_invalid_standard_schema_raises(self, empty_registry):
+    @pytest.mark.asyncio
+    async def test_add_virtual_device_invalid_standard_schema_raises(
+        self, empty_registry
+    ):
         create = VirtualDeviceCreateDTO(
             name="Bad Thermo",
             type="thermostat",
@@ -328,9 +345,12 @@ class TestDeviceRegistryAddVirtual:
             ],
         )
         with pytest.raises(InvalidError):
-            empty_registry.add(create)
+            await empty_registry.add(create)
 
-    def test_add_sets_on_update_callback(self, empty_registry, on_attribute_update):
+    @pytest.mark.asyncio
+    async def test_add_sets_on_update_callback(
+        self, empty_registry, on_attribute_update
+    ):
         create = VirtualDeviceCreateDTO(
             name="V",
             attributes=[
@@ -341,43 +361,59 @@ class TestDeviceRegistryAddVirtual:
                 ),
             ],
         )
-        device = empty_registry.add(create)
+        device = await empty_registry.add(create)
         assert device.on_update is on_attribute_update
 
 
 class TestDeviceRegistryUpdate:
-    def test_update_name(self, device_registry, device):
-        result = device_registry.update(device.id, DeviceUpdateDTO(name="New Name"))
+    @pytest.mark.asyncio
+    async def test_update_name(self, device_registry, device):
+        result = await device_registry.update(
+            device.id, DeviceUpdateDTO(name="New Name")
+        )
         assert result.name == "New Name"
 
-    def test_update_empty_payload(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_update_empty_payload(self, device_registry, device):
         original_name = device.name
-        result = device_registry.update(device.id, DeviceUpdateDTO())
+        result = await device_registry.update(device.id, DeviceUpdateDTO())
         assert result.name == original_name
 
-    def test_update_not_found(self, device_registry):
+    @pytest.mark.asyncio
+    async def test_update_not_found(self, device_registry):
         with pytest.raises(NotFoundError):
-            device_registry.update("unknown", DeviceUpdateDTO(name="X"))
+            await device_registry.update("unknown", DeviceUpdateDTO(name="X"))
 
-    def test_update_config_ok(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_update_config_ok(self, device_registry, device):
         new_config = {"some_id": "xyz"}
-        result = device_registry.update(device.id, DeviceUpdateDTO(config=new_config))
+        result = await device_registry.update(
+            device.id, DeviceUpdateDTO(config=new_config)
+        )
         assert isinstance(result, PhysicalDevice)
         assert result.config == new_config
 
-    def test_update_config_invalid(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_update_config_invalid(self, device_registry, device):
         with pytest.raises(InvalidError):
-            device_registry.update(device.id, DeviceUpdateDTO(config={}))
+            await device_registry.update(device.id, DeviceUpdateDTO(config={}))
 
-    def test_update_driver_not_found(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_update_driver_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
-            device_registry.update(device.id, DeviceUpdateDTO(driver_id="unknown"))
+            await device_registry.update(
+                device.id, DeviceUpdateDTO(driver_id="unknown")
+            )
 
-    def test_update_transport_not_found(self, device_registry, device):
+    @pytest.mark.asyncio
+    async def test_update_transport_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
-            device_registry.update(device.id, DeviceUpdateDTO(transport_id="unknown"))
+            await device_registry.update(
+                device.id, DeviceUpdateDTO(transport_id="unknown")
+            )
 
-    def test_update_driver_ok(
+    @pytest.mark.asyncio
+    async def test_update_driver_ok(
         self,
         device,
         driver,
@@ -391,7 +427,7 @@ class TestDeviceRegistryUpdate:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.update(
+        result = await registry.update(
             device.id,
             DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
@@ -399,7 +435,8 @@ class TestDeviceRegistryUpdate:
         assert result.driver_id == other_http_driver.id
         assert "power" in result.attributes
 
-    def test_update_driver_incompatible(
+    @pytest.mark.asyncio
+    async def test_update_driver_incompatible(
         self,
         device,
         driver,
@@ -414,12 +451,13 @@ class TestDeviceRegistryUpdate:
             on_attribute_update=on_attribute_update,
         )
         with pytest.raises(ValueError):  # noqa: PT011
-            registry.update(
+            await registry.update(
                 device.id,
                 DeviceUpdateDTO(driver_id=driver_w_push_transport.id),
             )
 
-    def test_update_transport_ok(
+    @pytest.mark.asyncio
+    async def test_update_transport_ok(
         self,
         device,
         driver,
@@ -435,14 +473,15 @@ class TestDeviceRegistryUpdate:
             ),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.update(
+        result = await registry.update(
             device.id,
             DeviceUpdateDTO(transport_id=second_mock_transport_client.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.transport_id == second_mock_transport_client.id
 
-    def test_update_driver_preserves_attribute_values(
+    @pytest.mark.asyncio
+    async def test_update_driver_preserves_attribute_values(
         self,
         device,
         driver,
@@ -457,14 +496,15 @@ class TestDeviceRegistryUpdate:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.update(
+        result = await registry.update(
             device.id,
             DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.attributes["temperature"].current_value == 42.0
 
-    def test_rebuild_replaces_device_in_registry(
+    @pytest.mark.asyncio
+    async def test_rebuild_replaces_device_in_registry(
         self,
         device,
         driver,
@@ -478,7 +518,7 @@ class TestDeviceRegistryUpdate:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        result = registry.update(
+        result = await registry.update(
             device.id,
             DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
@@ -506,12 +546,16 @@ class TestDeviceRegistryUpdateVirtual:
             on_attribute_update=on_attribute_update,
         )
 
-    def test_update_virtual_name(self, registry_with_virtual):
-        result = registry_with_virtual.update("vd1", DeviceUpdateDTO(name="New Name"))
+    @pytest.mark.asyncio
+    async def test_update_virtual_name(self, registry_with_virtual):
+        result = await registry_with_virtual.update(
+            "vd1", DeviceUpdateDTO(name="New Name")
+        )
         assert result.name == "New Name"
 
-    def test_update_virtual_add_attribute(self, registry_with_virtual):
-        result = registry_with_virtual.update(
+    @pytest.mark.asyncio
+    async def test_update_virtual_add_attribute(self, registry_with_virtual):
+        result = await registry_with_virtual.update(
             "vd1",
             DeviceUpdateDTO(
                 attributes=[
@@ -535,8 +579,9 @@ class TestDeviceRegistryUpdateVirtual:
         )
         assert "pressure" in result.attributes
 
-    def test_update_virtual_remove_attribute(self, registry_with_virtual):
-        result = registry_with_virtual.update(
+    @pytest.mark.asyncio
+    async def test_update_virtual_remove_attribute(self, registry_with_virtual):
+        result = await registry_with_virtual.update(
             "vd1",
             DeviceUpdateDTO(
                 attributes=[
@@ -550,9 +595,10 @@ class TestDeviceRegistryUpdateVirtual:
         )
         assert "humidity" not in result.attributes
 
-    def test_update_virtual_reject_type_change(self, registry_with_virtual):
+    @pytest.mark.asyncio
+    async def test_update_virtual_reject_type_change(self, registry_with_virtual):
         with pytest.raises(InvalidError):
-            registry_with_virtual.update(
+            await registry_with_virtual.update(
                 "vd1",
                 DeviceUpdateDTO(
                     attributes=[
@@ -567,13 +613,15 @@ class TestDeviceRegistryUpdateVirtual:
 
 
 class TestDeviceRegistryRemove:
-    def test_remove_ok(self, device_registry, device):
-        device_registry.remove(device.id)
+    @pytest.mark.asyncio
+    async def test_remove_ok(self, device_registry, device):
+        await device_registry.remove(device.id)
         assert device.id not in device_registry.ids
 
-    def test_remove_not_found(self, device_registry):
+    @pytest.mark.asyncio
+    async def test_remove_not_found(self, device_registry):
         with pytest.raises(NotFoundError):
-            device_registry.remove("unknown")
+            await device_registry.remove("unknown")
 
 
 class TestDeviceRegistryWriteAttribute:
@@ -641,3 +689,78 @@ class TestDeviceRegistryRebuild:
             device, other_http_driver, mock_transport_client
         )
         assert result.attributes["temperature"].current_value == 25.5
+
+
+class TestDeviceRegistryPersistence:
+    @pytest.mark.asyncio
+    async def test_add_persists_to_storage(
+        self, driver, mock_transport_client, on_attribute_update
+    ):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DeviceRegistry(
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        create = VirtualDeviceCreateDTO(
+            name="V",
+            attributes=[
+                AttributeCreateDTO(
+                    name="x", data_type=DataType.FLOAT, read_write_mode="read"
+                ),
+            ],
+        )
+        await registry.add(create)
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_register_persists_to_storage(
+        self, driver, mock_transport_client, on_attribute_update
+    ):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DeviceRegistry(
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        vd = VirtualDevice(
+            id="vd1",
+            name="V",
+            attributes={
+                "x": Attribute.create("x", DataType.FLOAT, {"read"}),
+            },
+        )
+        await registry.register(vd)
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_persists_to_storage(
+        self, device, driver, mock_transport_client, on_attribute_update
+    ):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        await registry.update(device.id, DeviceUpdateDTO(name="New"))
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_remove_deletes_from_storage(
+        self, device, driver, mock_transport_client, on_attribute_update
+    ):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        await registry.remove(device.id)
+        storage.delete.assert_called_once_with(device.id)
