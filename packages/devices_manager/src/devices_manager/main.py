@@ -71,8 +71,8 @@ class DevicesManager:
         self._background_tasks = set()
         self._device_registry = DeviceRegistry(
             devices,
-            driver_registry=self._driver_registry,
-            transport_registry=self._transport_registry,
+            resolve_driver=self._driver_registry.get,
+            resolve_transport=self._transport_registry.get,
             on_attribute_update=self._on_attribute_update,
         )
 
