@@ -9,7 +9,7 @@ from models.errors import ForbiddenError
 
 from .core.device import (
     Attribute,
-    Device,
+    CoreDevice,
 )
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
@@ -20,18 +20,18 @@ from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry
 from .dto import (
-    DeviceCreateDTO,
-    DeviceDTO,
-    DeviceUpdateDTO,
-    DriverDTO,
-    StandardAttributeSchemaDTO,
-    TransportCreateDTO,
-    TransportDTO,
-    TransportUpdateDTO,
-    device_core_to_dto,
-    device_dto_to_core,
-    standard_schema_core_to_dto,
-    transport_core_to_dto,
+    Device,
+    DeviceCreate,
+    DeviceUpdate,
+    DriverSpec,
+    StandardAttributeSchema,
+    Transport,
+    TransportCreate,
+    TransportUpdate,
+    device_from_public,
+    device_to_public,
+    standard_schema_to_public,
+    transport_to_public,
 )
 from .storage.factory import build_storage
 
@@ -43,7 +43,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeListener = Callable[[Device, str, Attribute], Coroutine[Any, Any, None] | None]
+AttributeListener = Callable[
+    [CoreDevice, str, Attribute], Coroutine[Any, Any, None] | None
+]
 
 
 class DevicesManager:
@@ -58,7 +60,7 @@ class DevicesManager:
 
     def __init__(
         self,
-        devices: dict[str, Device],
+        devices: dict[str, CoreDevice],
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
         *,
@@ -104,38 +106,38 @@ class DevicesManager:
     def device_ids(self) -> set[str]:
         return self._device_registry.ids
 
-    def list_devices(self, *, device_type: str | None = None) -> list[DeviceDTO]:
+    def list_devices(self, *, device_type: str | None = None) -> list[Device]:
         return self._device_registry.list_all(device_type=device_type)
 
-    def get_device(self, device_id: str) -> DeviceDTO:
+    def get_device(self, device_id: str) -> Device:
         return self._device_registry.get_dto(device_id)
 
-    async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
+    async def add_device(self, device_create: DeviceCreate) -> Device:
         device = await self._device_registry.add(device_create)
         if self._running:
             await device.start_sync()
-        return device_core_to_dto(device)
+        return device_to_public(device)
 
     async def update_device(
-        self, device_id: str, device_update: DeviceUpdateDTO
-    ) -> DeviceDTO:
+        self, device_id: str, device_update: DeviceUpdate
+    ) -> Device:
         old_device = self._device_registry.get(device_id)
         await old_device.stop_sync()
         device = await self._device_registry.update(device_id, device_update)
         if self._running:
             await device.start_sync()
-        return device_core_to_dto(device)
+        return device_to_public(device)
 
     async def delete_device(self, device_id: str) -> None:
         device = self._device_registry.get(device_id)
         await device.stop_sync()
         await self._device_registry.remove(device_id)
 
-    async def read_device(self, device_id: str) -> DeviceDTO:
+    async def read_device(self, device_id: str) -> Device:
         device = self._device_registry.get(device_id)
         if not self._running:
             await device.update_once()
-        return device_core_to_dto(device)
+        return device_to_public(device)
 
     async def write_device_attribute(
         self,
@@ -152,7 +154,7 @@ class DevicesManager:
     # -- Attribute listeners --
 
     def _on_attribute_update(
-        self, device: Device, attribute_name: str, attribute: Attribute
+        self, device: CoreDevice, attribute_name: str, attribute: Attribute
     ) -> None:
         """Dispatch attribute update to all registered handlers."""
         for handler in self._attribute_update_handlers:
@@ -183,7 +185,7 @@ class DevicesManager:
 
     # -- Discovery --
 
-    async def _register_and_persist_device(self, device: Device) -> None:
+    async def _register_and_persist_device(self, device: CoreDevice) -> None:
         """Register device and persist to storage. Used by discovery."""
         await self._device_registry.register(device)
 
@@ -207,10 +209,10 @@ class DevicesManager:
 
     # -- Bootstrap --
 
-    async def _restore_device(self, d: DeviceDTO) -> None:
+    async def _restore_device(self, d: Device) -> None:
         logger.info("Adding device %s", d.id)
         try:
-            device = device_dto_to_core(
+            device = device_from_public(
                 d,
                 self._driver_registry.all,
                 self._transport_registry.all,
@@ -228,9 +230,9 @@ class DevicesManager:
     async def _populate(
         cls,
         dm: DevicesManager,
-        devices: list[DeviceDTO],
-        drivers: list[DriverDTO],
-        transports: list[TransportDTO],
+        devices: list[Device],
+        drivers: list[DriverSpec],
+        transports: list[Transport],
     ) -> None:
         """Populate registries from DTOs during bootstrap."""
         for t in transports:
@@ -249,9 +251,9 @@ class DevicesManager:
     @classmethod
     async def from_dto(
         cls,
-        devices: list[DeviceDTO],
-        drivers: list[DriverDTO],
-        transports: list[TransportDTO],
+        devices: list[Device],
+        drivers: list[DriverSpec],
+        transports: list[Transport],
     ) -> DevicesManager:
         dm = cls(devices={}, drivers={}, transports={})
         await cls._populate(dm, devices, drivers, transports)
@@ -282,7 +284,7 @@ class DevicesManager:
         storage = self._storage
 
         async def _persist_attribute(
-            device: Device,
+            device: CoreDevice,
             _attribute_name: str,
             attribute: Attribute,
         ) -> None:
@@ -296,15 +298,13 @@ class DevicesManager:
     def transport_ids(self) -> set[str]:
         return self._transport_registry.ids
 
-    def list_transports(self) -> list[TransportDTO]:
+    def list_transports(self) -> list[Transport]:
         return self._transport_registry.list_all()
 
-    def get_transport(self, transport_id: str) -> TransportDTO:
+    def get_transport(self, transport_id: str) -> Transport:
         return self._transport_registry.get_dto(transport_id)
 
-    async def add_transport(
-        self, transport: TransportCreateDTO | TransportDTO
-    ) -> TransportDTO:
+    async def add_transport(self, transport: TransportCreate | Transport) -> Transport:
         return await self._transport_registry.add(transport)
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
@@ -327,8 +327,8 @@ class DevicesManager:
         await transport.close()
 
     async def update_transport(
-        self, transport_id: str, update: TransportUpdateDTO
-    ) -> TransportDTO:
+        self, transport_id: str, update: TransportUpdate
+    ) -> Transport:
         transport = await self._transport_registry.update(transport_id, update)
         if update.config is not None:
             for device in self._device_registry.all.values():
@@ -336,7 +336,7 @@ class DevicesManager:
                     await device.stop_sync()
                     if self._running:
                         await device.start_sync()
-        return transport_core_to_dto(transport)
+        return transport_to_public(transport)
 
     # -- Drivers (delegated to DriverRegistry) --
 
@@ -344,19 +344,19 @@ class DevicesManager:
     def driver_ids(self) -> set[str]:
         return self._driver_registry.ids
 
-    def list_drivers(self, *, device_type: str | None = None) -> list[DriverDTO]:
+    def list_drivers(self, *, device_type: str | None = None) -> list[DriverSpec]:
         return self._driver_registry.list_all(device_type=device_type)
 
     @staticmethod
-    def list_standard_schemas() -> list[StandardAttributeSchemaDTO]:
+    def list_standard_schemas() -> list[StandardAttributeSchema]:
         return [
-            standard_schema_core_to_dto(schema) for schema in default_registry.values()
+            standard_schema_to_public(schema) for schema in default_registry.values()
         ]
 
-    def get_driver(self, driver_id: str) -> DriverDTO:
+    def get_driver(self, driver_id: str) -> DriverSpec:
         return self._driver_registry.get_dto(driver_id)
 
-    async def add_driver(self, driver_dto: DriverDTO) -> DriverDTO:
+    async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec:
         return await self._driver_registry.add(driver_dto)
 
     def _assert_driver_not_used(self, driver_id: str) -> None:

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from rich.table import Table
 
-from devices_manager.dto import DeviceDTO
+from devices_manager.dto import Device
 
 
 def autoformat_value(value: float | bool | str | None) -> str:  # noqa: FBT001
@@ -22,7 +22,7 @@ def is_recent(dt: datetime | None, treshold: float = RECENT_TRESHOLD) -> bool:
     return (datetime.now(tz=dt.tzinfo) - dt).total_seconds() < treshold
 
 
-def device_to_table(device: DeviceDTO) -> Table:
+def device_to_table(device: Device) -> Table:
     table = Table(show_header=True, header_style="bold blue")
     table.add_column("Attribute")
     table.add_column("Value")

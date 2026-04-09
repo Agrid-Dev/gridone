@@ -1,6 +1,6 @@
 import pytest
 
-from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto.driver_dto import DriverSpec
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ attributes:
 
 
 def test_driver_dto_from_yaml(yaml_payload):
-    dto = DriverDTO.from_yaml(yaml_payload)
-    assert isinstance(dto, DriverDTO)
+    dto = DriverSpec.from_yaml(yaml_payload)
+    assert isinstance(dto, DriverSpec)
     assert dto.id == "thermocktat_modbus"
     assert len(dto.attributes) == 7

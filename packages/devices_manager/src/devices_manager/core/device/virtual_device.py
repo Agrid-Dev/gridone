@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from devices_manager.types import AttributeValueType, DeviceKind
 
-from .device import Device
+from .device import CoreDevice
 
 if TYPE_CHECKING:
     from .attribute import Attribute
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
-class VirtualDevice(Device):
+class VirtualDevice(CoreDevice):
     kind: ClassVar[DeviceKind] = DeviceKind.VIRTUAL
 
     async def start_sync(self) -> None:

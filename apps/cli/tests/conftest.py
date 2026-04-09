@@ -5,11 +5,11 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
-from devices_manager.dto import DeviceDTO, DriverDTO, build_transport_dto
+from devices_manager.dto import Device, DriverSpec, build_transport
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import TransportProtocols
 
-TEST_DEVICE = DeviceDTO.model_validate(
+TEST_DEVICE = Device.model_validate(
     {
         "id": "test_device",
         "kind": "physical",
@@ -20,7 +20,7 @@ TEST_DEVICE = DeviceDTO.model_validate(
     }
 )
 
-TEST_DRIVER = DriverDTO.model_validate(
+TEST_DRIVER = DriverSpec.model_validate(
     {
         "id": "test_driver",
         "transport": "http",
@@ -44,7 +44,7 @@ TEST_DRIVER = DriverDTO.model_validate(
     }
 )
 
-TEST_TRANSPORT = build_transport_dto(
+TEST_TRANSPORT = build_transport(
     transport_id="http_transport",
     name="my transport",
     protocol=TransportProtocols.HTTP,

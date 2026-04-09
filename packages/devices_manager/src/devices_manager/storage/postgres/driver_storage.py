@@ -1,6 +1,6 @@
 import asyncpg
 
-from devices_manager.dto import DriverDTO
+from devices_manager.dto import DriverSpec
 from devices_manager.storage.storage_backend import StorageBackend
 
 # Fields that stay in the JSONB data column
@@ -14,13 +14,13 @@ _JSONB_FIELDS = {
 }
 
 
-class PostgresDriverStorage(StorageBackend[DriverDTO]):
+class PostgresDriverStorage(StorageBackend[DriverSpec]):
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     @staticmethod
-    def _row_to_dto(row: asyncpg.Record) -> DriverDTO:
-        return DriverDTO.model_validate(
+    def _row_to_dto(row: asyncpg.Record) -> DriverSpec:
+        return DriverSpec.model_validate(
             {
                 "id": row["id"],
                 "vendor": row["vendor"],
@@ -34,7 +34,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
     @staticmethod
     def _dto_to_columns(
         item_id: str,
-        dto: DriverDTO,
+        dto: DriverSpec,
     ) -> tuple[str, str | None, str | None, str | None, str, dict]:
         dumped = dto.model_dump(mode="json")
         jsonb_data = {k: dumped[k] for k in _JSONB_FIELDS if k in dumped}
@@ -47,7 +47,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
             jsonb_data,
         )
 
-    async def read(self, item_id: str) -> DriverDTO:
+    async def read(self, item_id: str) -> DriverSpec:
         row = await self._pool.fetchrow(
             "SELECT id, vendor, model, type, transport, data "
             "FROM dm_drivers WHERE id = $1",
@@ -58,7 +58,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
             raise FileNotFoundError(msg)
         return self._row_to_dto(row)
 
-    async def write(self, item_id: str, data: DriverDTO) -> None:
+    async def write(self, item_id: str, data: DriverSpec) -> None:
         params = self._dto_to_columns(item_id, data)
         await self._pool.execute(
             "INSERT INTO dm_drivers"
@@ -71,7 +71,7 @@ class PostgresDriverStorage(StorageBackend[DriverDTO]):
             *params,
         )
 
-    async def read_all(self) -> list[DriverDTO]:
+    async def read_all(self) -> list[DriverSpec]:
         rows = await self._pool.fetch(
             "SELECT id, vendor, model, type, transport, data "
             "FROM dm_drivers ORDER BY id",

@@ -4,13 +4,13 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from devices_manager.dto.device_dto import DeviceDTO
-from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto.device_dto import Device
+from devices_manager.dto.driver_dto import DriverSpec
 from devices_manager.dto.transport_dto import (
-    TransportDTO,
+    Transport,
 )
 from devices_manager.dto.transport_dto import (
-    build_dto as build_transport_dto,
+    build_dto as build_transport,
 )
 from devices_manager.storage.storage_backend import DevicesManagerStorage
 
@@ -26,28 +26,28 @@ class CoreFileStorage(DevicesManagerStorage):
     """A basic file storage system for the core."""
 
     _root_dir: Path
-    devices: YamlFileStorage[DeviceDTO]
-    drivers: YamlFileStorage[DriverDTO]
-    transports: YamlFileStorage[TransportDTO]
+    devices: YamlFileStorage[Device]
+    drivers: YamlFileStorage[DriverSpec]
+    transports: YamlFileStorage[Transport]
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
-        self.devices = YamlFileStorage[DeviceDTO](
-            self._root_dir / "devices", model_cls=DeviceDTO
+        self.devices = YamlFileStorage[Device](
+            self._root_dir / "devices", model_cls=Device
         )
-        self.drivers = YamlFileStorage[DriverDTO](
-            self._root_dir / "drivers", model_cls=DriverDTO
+        self.drivers = YamlFileStorage[DriverSpec](
+            self._root_dir / "drivers", model_cls=DriverSpec
         )
 
-        def transport_dto_factory(data: dict) -> TransportDTO:
-            return build_transport_dto(
+        def transport_dto_factory(data: dict) -> Transport:
+            return build_transport(
                 transport_id=data["id"],
                 name=data.get("name", ""),
                 protocol=data["protocol"],
                 config=data.get("config", {}),
             )
 
-        self.transports = YamlFileStorage[TransportDTO](
+        self.transports = YamlFileStorage[Transport](
             self._root_dir / "transports", factory=transport_dto_factory
         )
 

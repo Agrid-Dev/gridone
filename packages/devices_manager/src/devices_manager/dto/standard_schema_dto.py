@@ -1,28 +1,32 @@
 from pydantic import BaseModel
 
 from devices_manager.core.standard_schemas import (
-    StandardAttributeSchema,
-    StandardAttributeSchemaField,
+    StandardAttributeSchema as CoreStandardAttributeSchema,
+)
+from devices_manager.core.standard_schemas import (
+    StandardAttributeSchemaField as CoreStandardAttributeSchemaField,
 )
 from devices_manager.types import DataType
 
 
-class StandardAttributeSchemaFieldDTO(BaseModel):
+class StandardAttributeSchemaField(BaseModel):
     name: str
     required: bool
     data_type: DataType
     multiple: bool = False
 
 
-class StandardAttributeSchemaDTO(BaseModel):
+class StandardAttributeSchema(BaseModel):
     key: str
     name: str
-    fields: list[StandardAttributeSchemaFieldDTO]
+    fields: list[StandardAttributeSchemaField]
     description: str | None = None
 
 
-def core_to_dto(schema: StandardAttributeSchema) -> StandardAttributeSchemaDTO:
-    return StandardAttributeSchemaDTO(
+def core_to_dto(
+    schema: CoreStandardAttributeSchema,
+) -> StandardAttributeSchema:
+    return StandardAttributeSchema(
         key=schema.key,
         name=schema.name,
         description=schema.description,
@@ -31,9 +35,9 @@ def core_to_dto(schema: StandardAttributeSchema) -> StandardAttributeSchemaDTO:
 
 
 def _field_to_dto(
-    field: StandardAttributeSchemaField,
-) -> StandardAttributeSchemaFieldDTO:
-    return StandardAttributeSchemaFieldDTO(
+    field: CoreStandardAttributeSchemaField,
+) -> StandardAttributeSchemaField:
+    return StandardAttributeSchemaField(
         name=field.name,
         required=field.required,
         data_type=field.data_type,

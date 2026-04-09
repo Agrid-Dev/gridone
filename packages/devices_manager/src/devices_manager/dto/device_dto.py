@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
 
 from devices_manager.core.device import (
     Attribute,
-    Device,
+    CoreDevice,
     DeviceBase,
     PhysicalDevice,
     VirtualDevice,
@@ -20,13 +20,13 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
 
 
-class AttributeCreateDTO(BaseModel):
+class AttributeCreate(BaseModel):
     name: str
     data_type: DataType
     read_write_mode: ReadWriteMode
 
 
-class PhysicalDeviceCreateDTO(BaseModel):
+class PhysicalDeviceCreate(BaseModel):
     kind: Literal[DeviceKind.PHYSICAL] = DeviceKind.PHYSICAL
     name: Annotated[str, Field(default_factory=lambda: "")]
     config: dict
@@ -34,11 +34,11 @@ class PhysicalDeviceCreateDTO(BaseModel):
     transport_id: str
 
 
-class VirtualDeviceCreateDTO(BaseModel):
+class VirtualDeviceCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal[DeviceKind.VIRTUAL] = DeviceKind.VIRTUAL
     name: Annotated[str, Field(default_factory=lambda: "")]
-    attributes: list[AttributeCreateDTO]
+    attributes: list[AttributeCreate]
     type: str | None = None
 
 
@@ -49,14 +49,14 @@ def _device_kind_discriminator(v: Any) -> str:  # noqa: ANN401
     return getattr(v, "kind", DeviceKind.PHYSICAL)
 
 
-DeviceCreateDTO = Annotated[
-    Annotated[PhysicalDeviceCreateDTO, Tag(DeviceKind.PHYSICAL)]
-    | Annotated[VirtualDeviceCreateDTO, Tag(DeviceKind.VIRTUAL)],
+DeviceCreate = Annotated[
+    Annotated[PhysicalDeviceCreate, Tag(DeviceKind.PHYSICAL)]
+    | Annotated[VirtualDeviceCreate, Tag(DeviceKind.VIRTUAL)],
     Discriminator(_device_kind_discriminator),
 ]
 
 
-class DeviceDTO(BaseModel):
+class Device(BaseModel):
     id: str
     kind: DeviceKind = DeviceKind.PHYSICAL
     name: str
@@ -68,17 +68,17 @@ class DeviceDTO(BaseModel):
     transport_id: str | None = None
 
 
-class DeviceUpdateDTO(BaseModel):
+class DeviceUpdate(BaseModel):
     name: str | None = None
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
-    attributes: list[AttributeCreateDTO] | None = None
+    attributes: list[AttributeCreate] | None = None
 
 
-def core_to_dto(device: Device) -> DeviceDTO:
+def core_to_dto(device: CoreDevice) -> Device:
     if isinstance(device, PhysicalDevice):
-        return DeviceDTO(
+        return Device(
             id=device.id,
             kind=device.kind,
             name=device.name,
@@ -88,7 +88,7 @@ def core_to_dto(device: Device) -> DeviceDTO:
             type=device.type,
             attributes=device.attributes,
         )
-    return DeviceDTO(
+    return Device(
         id=device.id,
         kind=device.kind,
         name=device.name,
@@ -97,8 +97,8 @@ def core_to_dto(device: Device) -> DeviceDTO:
     )
 
 
-def dto_to_base(dto: DeviceDTO) -> DeviceBase:
-    """Convert a DeviceDTO back to a DeviceBase constructor struct."""
+def dto_to_base(dto: Device) -> DeviceBase:
+    """Convert a Device back to a DeviceBase constructor struct."""
     return DeviceBase(
         id=dto.id,
         name=dto.name,
@@ -107,13 +107,13 @@ def dto_to_base(dto: DeviceDTO) -> DeviceBase:
 
 
 def dto_to_core(
-    dto: DeviceDTO,
+    dto: Device,
     drivers: dict[str, Driver],
     transports: dict[str, TransportClient],
     *,
     on_update: Callable[..., None] | None = None,
-) -> Device:
-    """Reconstruct a Device domain object from a stored DeviceDTO."""
+) -> CoreDevice:
+    """Reconstruct a Device domain object from a stored Device."""
     if dto.kind == DeviceKind.VIRTUAL:
         return VirtualDevice(
             id=dto.id,

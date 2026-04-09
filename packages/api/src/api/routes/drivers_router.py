@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from devices_manager import DevicesManagerInterface
-from devices_manager.dto import DriverDTO, DriverYamlDTO
+from devices_manager.dto import DriverSpec, DriverYaml
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_device_manager, require_permission
@@ -14,7 +14,7 @@ router = APIRouter()
 def list_drivers(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     device_type: str | None = Query(None, alias="type"),
-) -> list[DriverDTO]:
+) -> list[DriverSpec]:
     return dm.list_drivers(device_type=device_type)
 
 
@@ -24,7 +24,7 @@ def list_drivers(
 def get_driver(
     driver_id: str,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> DriverDTO:
+) -> DriverSpec:
     return dm.get_driver(driver_id)
 
 
@@ -34,11 +34,13 @@ def get_driver(
     dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
 )
 async def create_driver(
-    payload: DriverDTO | DriverYamlDTO,
+    payload: DriverSpec | DriverYaml,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> DriverDTO:
+) -> DriverSpec:
     driver_dto = (
-        payload if isinstance(payload, DriverDTO) else DriverDTO.from_yaml(payload.yaml)
+        payload
+        if isinstance(payload, DriverSpec)
+        else DriverSpec.from_yaml(payload.yaml)
     )
     try:
         created_driver = await dm.add_driver(driver_dto)

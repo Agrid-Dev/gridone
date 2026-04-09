@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.dto import DriverDTO, driver_core_to_dto, driver_dto_to_core
+from devices_manager.dto import DriverSpec, driver_from_public, driver_to_public
 from devices_manager.storage import NullStorageBackend
 from models.errors import NotFoundError
 
@@ -17,13 +17,13 @@ class DriverRegistry:
     """In-memory registry for drivers with optional persistence."""
 
     _drivers: dict[str, Driver]
-    _storage: StorageBackend[DriverDTO]
+    _storage: StorageBackend[DriverSpec]
 
     def __init__(
         self,
         drivers: dict[str, Driver] | None = None,
         *,
-        storage: StorageBackend[DriverDTO] | None = None,
+        storage: StorageBackend[DriverSpec] | None = None,
     ) -> None:
         self._drivers = drivers if drivers is not None else {}
         self._storage = storage or NullStorageBackend()
@@ -36,11 +36,11 @@ class DriverRegistry:
     def ids(self) -> set[str]:
         return set(self._drivers.keys())
 
-    def list_all(self, *, device_type: str | None = None) -> list[DriverDTO]:
+    def list_all(self, *, device_type: str | None = None) -> list[DriverSpec]:
         drivers = self._drivers.values()
         if device_type is not None:
             drivers = [d for d in drivers if d.type == device_type]
-        return [driver_core_to_dto(driver) for driver in drivers]
+        return [driver_to_public(driver) for driver in drivers]
 
     def _get_or_raise(self, driver_id: str) -> Driver:
         try:
@@ -52,17 +52,17 @@ class DriverRegistry:
     def get(self, driver_id: str) -> Driver:
         return self._get_or_raise(driver_id)
 
-    def get_dto(self, driver_id: str) -> DriverDTO:
+    def get_dto(self, driver_id: str) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
-        return driver_core_to_dto(driver)
+        return driver_to_public(driver)
 
-    async def add(self, driver_dto: DriverDTO) -> DriverDTO:
+    async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)
-        driver = driver_dto_to_core(driver_dto)
+        driver = driver_from_public(driver_dto)
         self._drivers[driver_dto.id] = driver
-        dto = driver_core_to_dto(driver)
+        dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from .device import (
     Attribute,
     AttributeUpdateCallback,
-    Device,
+    CoreDevice,
     DeviceBase,
     PhysicalDevice,
     VirtualDevice,
@@ -14,7 +14,7 @@ from .transports import PullTransportClient, PushTransportClient, TransportClien
 __all__ = [
     "Attribute",
     "AttributeUpdateCallback",
-    "Device",
+    "CoreDevice",
     "DeviceBase",
     "Driver",
     "PhysicalDevice",

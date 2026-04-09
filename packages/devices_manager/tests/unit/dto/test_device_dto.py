@@ -4,17 +4,17 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from devices_manager.dto.device_dto import (
-    AttributeCreateDTO,
-    DeviceCreateDTO,
-    PhysicalDeviceCreateDTO,
-    VirtualDeviceCreateDTO,
+    AttributeCreate,
+    DeviceCreate,
+    PhysicalDeviceCreate,
+    VirtualDeviceCreate,
 )
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
 
-_dto_adapter: TypeAdapter[DeviceCreateDTO] = TypeAdapter(DeviceCreateDTO)
+_dto_adapter: TypeAdapter[DeviceCreate] = TypeAdapter(DeviceCreate)
 
 
-class TestPhysicalDeviceCreateDTO:
+class TestPhysicalDeviceCreate:
     def test_parse_explicit_physical_kind(self):
         payload = {
             "kind": "physical",
@@ -24,7 +24,7 @@ class TestPhysicalDeviceCreateDTO:
             "transport_id": "t1",
         }
         dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, PhysicalDeviceCreateDTO)
+        assert isinstance(dto, PhysicalDeviceCreate)
         assert dto.kind == DeviceKind.PHYSICAL
         assert dto.driver_id == "thermostat-http"
 
@@ -37,7 +37,7 @@ class TestPhysicalDeviceCreateDTO:
             "transport_id": "t1",
         }
         dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, PhysicalDeviceCreateDTO)
+        assert isinstance(dto, PhysicalDeviceCreate)
         assert dto.kind == DeviceKind.PHYSICAL
 
     def test_missing_driver_id_rejected(self):
@@ -63,7 +63,7 @@ class TestPhysicalDeviceCreateDTO:
             )
 
 
-class TestVirtualDeviceCreateDTO:
+class TestVirtualDeviceCreate:
     def test_parse_virtual_kind(self):
         payload = {
             "kind": "virtual",
@@ -73,7 +73,7 @@ class TestVirtualDeviceCreateDTO:
             ],
         }
         dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, VirtualDeviceCreateDTO)
+        assert isinstance(dto, VirtualDeviceCreate)
         assert dto.kind == DeviceKind.VIRTUAL
         assert len(dto.attributes) == 1
         assert dto.attributes[0].name == "occupied"
@@ -89,11 +89,11 @@ class TestVirtualDeviceCreateDTO:
             ],
         }
         dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, VirtualDeviceCreateDTO)
+        assert isinstance(dto, VirtualDeviceCreate)
         assert dto.type == "meter"
 
     def test_type_defaults_to_none(self):
-        dto = VirtualDeviceCreateDTO(name="Sensor", attributes=[])
+        dto = VirtualDeviceCreate(name="Sensor", attributes=[])
         assert dto.type is None
 
     def test_invalid_kind_rejected(self):
@@ -109,7 +109,7 @@ class TestVirtualDeviceCreateDTO:
             )
 
 
-class TestAttributeCreateDTO:
+class TestAttributeCreate:
     @pytest.mark.parametrize(
         ("data_type", "mode"),
         [
@@ -120,7 +120,7 @@ class TestAttributeCreateDTO:
         ],
     )
     def test_valid_combinations(self, data_type: DataType, mode: ReadWriteMode):
-        dto = AttributeCreateDTO(
+        dto = AttributeCreate(
             name="temperature", data_type=data_type, read_write_mode=mode
         )
         assert dto.name == "temperature"
@@ -128,7 +128,7 @@ class TestAttributeCreateDTO:
 
     def test_invalid_read_write_mode_rejected(self):
         with pytest.raises(ValidationError):
-            AttributeCreateDTO(
+            AttributeCreate(
                 name="temperature",
                 data_type=DataType.FLOAT,
                 read_write_mode="readwrite",  # ty:ignore[invalid-argument-type]

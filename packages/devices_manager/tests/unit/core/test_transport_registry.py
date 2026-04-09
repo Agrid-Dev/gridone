@@ -4,10 +4,10 @@ import pytest
 
 from devices_manager.core.transport_registry import TransportRegistry
 from devices_manager.dto import (
-    TransportBaseDTO,
-    TransportCreateDTO,
-    TransportUpdateDTO,
-    transport_core_to_dto,
+    TransportBase,
+    TransportCreate,
+    TransportUpdate,
+    transport_to_public,
 )
 from devices_manager.storage import StorageBackend
 from devices_manager.types import TransportProtocols
@@ -33,7 +33,7 @@ class TestTransportRegistryList:
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
         result = registry.list_all()
         assert len(result) == 1
-        assert isinstance(result[0], TransportBaseDTO)
+        assert isinstance(result[0], TransportBase)
         assert result[0].id == mock_transport_client.id
 
 
@@ -51,7 +51,7 @@ class TestTransportRegistryGet:
     def test_get_dto_existing(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
         dto = registry.get_dto(mock_transport_client.id)
-        assert isinstance(dto, TransportBaseDTO)
+        assert isinstance(dto, TransportBase)
         assert dto.id == mock_transport_client.id
 
     def test_get_dto_not_found(self):
@@ -64,7 +64,7 @@ class TestTransportRegistryAdd:
     @pytest.mark.asyncio
     async def test_add_from_create_dto(self):
         registry = TransportRegistry()
-        create = TransportCreateDTO(
+        create = TransportCreate(
             name="New Transport",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
@@ -77,7 +77,7 @@ class TestTransportRegistryAdd:
     @pytest.mark.asyncio
     async def test_add_from_transport_dto(self, mock_transport_client):
         registry = TransportRegistry()
-        existing_dto = transport_core_to_dto(mock_transport_client)
+        existing_dto = transport_to_public(mock_transport_client)
         dto = await registry.add(existing_dto)
         assert dto.id == existing_dto.id
         assert dto.id in registry.ids
@@ -103,7 +103,7 @@ class TestTransportRegistryUpdate:
     async def test_update_name(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
         updated = await registry.update(
-            mock_transport_client.id, TransportUpdateDTO(name="New Name")
+            mock_transport_client.id, TransportUpdate(name="New Name")
         )
         assert updated.metadata.name == "New Name"
 
@@ -112,7 +112,7 @@ class TestTransportRegistryUpdate:
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
         new_config = {"request_timeout": 5}
         updated = await registry.update(
-            mock_transport_client.id, TransportUpdateDTO(config=new_config)
+            mock_transport_client.id, TransportUpdate(config=new_config)
         )
         assert updated.config.model_dump() == new_config
 
@@ -120,7 +120,7 @@ class TestTransportRegistryUpdate:
     async def test_update_not_found(self):
         registry = TransportRegistry()
         with pytest.raises(NotFoundError):
-            await registry.update("unknown", TransportUpdateDTO(name="x"))
+            await registry.update("unknown", TransportUpdate(name="x"))
 
 
 class TestTransportRegistryPersistence:
@@ -128,7 +128,7 @@ class TestTransportRegistryPersistence:
     async def test_add_persists_to_storage(self):
         storage = AsyncMock(spec=StorageBackend)
         registry = TransportRegistry(storage=storage)
-        create = TransportCreateDTO(
+        create = TransportCreate(
             name="Test",
             protocol=TransportProtocols.HTTP,
             config={},  # ty: ignore[invalid-argument-type]
@@ -151,7 +151,5 @@ class TestTransportRegistryPersistence:
         registry = TransportRegistry(
             {mock_transport_client.id: mock_transport_client}, storage=storage
         )
-        await registry.update(
-            mock_transport_client.id, TransportUpdateDTO(name="Updated")
-        )
+        await registry.update(mock_transport_client.id, TransportUpdate(name="Updated"))
         storage.write.assert_called_once()
