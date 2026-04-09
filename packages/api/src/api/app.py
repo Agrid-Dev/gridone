@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI):
 
     dm.add_device_attribute_listener(on_attribute_update)
 
-    await dm.start_polling()
+    await dm.start_sync()
     try:
         yield
     finally:

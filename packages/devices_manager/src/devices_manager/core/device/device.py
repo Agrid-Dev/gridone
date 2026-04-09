@@ -25,6 +25,12 @@ class Device(ABC):
     kind: ClassVar[DeviceKind]
     type: str | None = None
     on_update: AttributeUpdateCallback | None = field(default=None, repr=False)
+    _syncing: bool = field(init=False, default=False, repr=False)
+
+    @property
+    def syncing(self) -> bool:
+        """Whether this device is actively synchronizing."""
+        return self._syncing
 
     @property
     def driver_id(self) -> str | None:
@@ -41,6 +47,14 @@ class Device(ABC):
     @property
     def poll_interval(self) -> float | None:
         return None
+
+    @abstractmethod
+    async def start_sync(self) -> None:
+        """Start synchronizing this device (listeners + polling)."""
+
+    @abstractmethod
+    async def stop_sync(self) -> None:
+        """Stop synchronizing this device."""
 
     async def init_listeners(self) -> None:  # noqa: B027
         """Attach transport listeners. No-op for non-physical devices."""

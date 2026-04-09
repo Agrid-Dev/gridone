@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 class VirtualDevice(Device):
     kind: ClassVar[DeviceKind] = DeviceKind.VIRTUAL
 
+    async def start_sync(self) -> None:
+        """No-op — virtual devices have no transport to sync."""
+
+    async def stop_sync(self) -> None:
+        """No-op — virtual devices have no transport to sync."""
+
     async def read_attribute_value(
         self, attribute_name: str
     ) -> AttributeValueType | None:

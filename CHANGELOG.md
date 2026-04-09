@@ -1,3 +1,31 @@
+## v0.40.2 (2026-04-09)
+
+### Fix
+
+- **ci**: integrate release into CI workflow, eliminate cross-workflow polling
+
+## v0.40.1 (2026-04-09)
+
+### Fix
+
+- **ci**: look for CI run on merge commit, not bump commit
+
+## v0.40.0 (2026-04-09)
+
+### Feat
+
+- **devices_manager**: move sync lifecycle into Device, thin out facade
+
+### Fix
+
+- **devices_manager**: use resolver callables in DeviceRegistry constructor
+
+## v0.39.1 (2026-04-09)
+
+### Fix
+
+- **ci**: trigger release workflow from bump via workflow_dispatch
+
 ## v0.39.0 (2026-04-09)
 
 ### Feat

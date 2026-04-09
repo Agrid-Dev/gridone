@@ -11,7 +11,6 @@ from devices_manager.dto import (
 from models.errors import InvalidError, NotFoundError
 
 from .device import Attribute, Device, DeviceBase, PhysicalDevice, VirtualDevice
-from .driver_registry import DriverRegistry
 from .id import gen_id
 from .standard_schemas.validate import validate_standard_schema
 
@@ -25,7 +24,6 @@ if TYPE_CHECKING:
     from devices_manager.types import AttributeValueType
 
     from .driver import Driver
-    from .transport_registry import TransportRegistry
     from .transports import TransportClient
 
 logger = logging.getLogger(__name__)
@@ -33,25 +31,29 @@ logger = logging.getLogger(__name__)
 AttributeUpdateCallback = Callable[[Device, str, Attribute], None]
 
 
+DriverResolver = Callable[[str], "Driver"]
+TransportResolver = Callable[[str], "TransportClient"]
+
+
 class DeviceRegistry:
     """Pure in-memory registry for devices."""
 
     _devices: dict[str, Device]
-    _driver_registry: DriverRegistry
-    _transport_registry: TransportRegistry
+    _resolve_driver: DriverResolver
+    _resolve_transport: TransportResolver
     _on_attribute_update: AttributeUpdateCallback | None
 
     def __init__(
         self,
         devices: dict[str, Device] | None = None,
         *,
-        driver_registry: DriverRegistry,
-        transport_registry: TransportRegistry,
+        resolve_driver: DriverResolver,
+        resolve_transport: TransportResolver,
         on_attribute_update: AttributeUpdateCallback | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
-        self._driver_registry = driver_registry
-        self._transport_registry = transport_registry
+        self._resolve_driver = resolve_driver
+        self._resolve_transport = resolve_transport
         self._on_attribute_update = on_attribute_update
         for device in self._devices.values():
             device.on_update = self._on_attribute_update
@@ -98,13 +100,19 @@ class DeviceRegistry:
                 msg = f"Device config misses driver required field '{field.name}'"
                 raise InvalidError(msg)
 
+    @staticmethod
+    def _check_transport_compat(driver: Driver, transport: TransportClient) -> None:
+        if driver.transport != transport.protocol:
+            msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
+            raise ValueError(msg)
+
     def _create_physical_device(
         self, device_create: PhysicalDeviceCreateDTO
     ) -> PhysicalDevice:
-        driver = self._driver_registry.get(device_create.driver_id)
+        driver = self._resolve_driver(device_create.driver_id)
         self._validate_device_config(device_create.config, driver)
-        transport = self._transport_registry.get(device_create.transport_id)
-        DriverRegistry.check_transport_compat(driver, transport)
+        transport = self._resolve_transport(device_create.transport_id)
+        self._check_transport_compat(driver, transport)
         base = DeviceBase(
             id=gen_id(), name=device_create.name, config=device_create.config
         )
@@ -157,15 +165,17 @@ class DeviceRegistry:
         )
         return device
 
-    def _resolve_driver(self, driver_id: str | None) -> Driver | None:
+    def _resolve_driver_or_none(self, driver_id: str | None) -> Driver | None:
         if driver_id is None:
             return None
-        return self._driver_registry.get(driver_id)
+        return self._resolve_driver(driver_id)
 
-    def _resolve_transport(self, transport_id: str | None) -> TransportClient | None:
+    def _resolve_transport_or_none(
+        self, transport_id: str | None
+    ) -> TransportClient | None:
         if transport_id is None:
             return None
-        return self._transport_registry.get(transport_id)
+        return self._resolve_transport(transport_id)
 
     def rebuild_physical_device(
         self,
@@ -230,12 +240,12 @@ class DeviceRegistry:
             return device
 
         assert isinstance(device, PhysicalDevice)  # noqa: S101
-        new_driver = self._resolve_driver(device_update.driver_id)
-        new_transport = self._resolve_transport(device_update.transport_id)
+        new_driver = self._resolve_driver_or_none(device_update.driver_id)
+        new_transport = self._resolve_transport_or_none(device_update.transport_id)
         effective_driver = new_driver or device.driver
         effective_transport = new_transport or device.transport
 
-        DriverRegistry.check_transport_compat(effective_driver, effective_transport)
+        self._check_transport_compat(effective_driver, effective_transport)
 
         if device_update.name is not None:
             device.name = device_update.name
