@@ -1,3 +1,9 @@
+## v0.40.2 (2026-04-09)
+
+### Fix
+
+- **ci**: integrate release into CI workflow, eliminate cross-workflow polling
+
 ## v0.40.1 (2026-04-09)
 
 ### Fix
