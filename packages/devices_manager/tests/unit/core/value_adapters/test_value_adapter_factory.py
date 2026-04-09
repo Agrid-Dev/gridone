@@ -1,12 +1,14 @@
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from devices_manager.core.value_adapters.factory import (
     ValueAdapterSpec,
     build_value_adapter,
     spec_from_raw,
 )
+from models.errors import InvalidError
 
 
 @pytest.mark.parametrize(
@@ -65,12 +67,12 @@ def test_build_value_adapter(
 
 
 def test_build_value_adapter_invalid_adapter():
-    with pytest.raises(ValueError, match="not supported"):
+    with pytest.raises(ValidationError, match="not supported"):
         build_value_adapter([ValueAdapterSpec(adapter="unknown", argument="arg")])
 
 
 def test_build_value_adapter_wrong_arg_type():
-    with pytest.raises(TypeError, match="expects argument of type"):
+    with pytest.raises(InvalidError, match="expects argument of type"):
         build_value_adapter([ValueAdapterSpec(adapter="scale", argument={1: 2})])
 
 
@@ -85,5 +87,5 @@ def test_spec_from_raw(raw: dict[str, str]):
     ("raw"), [({}), ({"json_pointer": "/path/to/value", "extra": "not permitted"})]
 )
 def test_spec_from_raw_invalid_input(raw: dict) -> None:
-    with pytest.raises(ValueError):  # noqa: PT011
+    with pytest.raises(InvalidError):
         spec_from_raw(raw)

@@ -3,6 +3,8 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator
 
+from models.errors import InvalidError
+
 from .fn_adapter import FnAdapter
 from .registry.base64_adapter import base64_adapter
 from .registry.bool_format_adapter import bool_format_adapter
@@ -48,7 +50,7 @@ def is_supported(adapter: str) -> str:
         return adapter
     supported = ", ".join(supported_value_adapters)
     msg = f"Adapter '{adapter} not supported. Supported adapters: {supported}"
-    raise ValueError(msg)
+    raise InvalidError(msg)
 
 
 class ValueAdapterSpec(BaseModel):
@@ -59,7 +61,7 @@ class ValueAdapterSpec(BaseModel):
 def spec_from_raw(raw: dict[str, str]) -> ValueAdapterSpec:
     if len(raw) != 1:
         msg = "One adapter spec exactly needs to be defined"
-        raise ValueError(msg)
+        raise InvalidError(msg)
     adpater, argument = next(iter(raw.items()))
     return ValueAdapterSpec(adapter=adpater, argument=argument)
 
@@ -68,7 +70,7 @@ def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:
     entry = value_adapter_entries.get(raw_adapter.adapter)
     if not entry:
         msg = f"Unknown value adapter: {raw_adapter.adapter}"
-        raise ValueError(msg)
+        raise InvalidError(msg)
     if not isinstance(raw_adapter.argument, entry.arg_type):
         expected = (
             entry.arg_type.__name__
@@ -79,7 +81,7 @@ def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:
             f"Adapter '{raw_adapter.adapter}' expects argument of type {expected}, "
             f"got {type(raw_adapter.argument).__name__}"
         )
-        raise TypeError(msg)
+        raise InvalidError(msg)
     return entry.builder(raw_adapter.argument)
 
 
