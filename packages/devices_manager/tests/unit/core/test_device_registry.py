@@ -12,8 +12,6 @@ from devices_manager.core.device import (
     VirtualDevice,
 )
 from devices_manager.core.device_registry import DeviceRegistry
-from devices_manager.core.driver_registry import DriverRegistry
-from devices_manager.core.transport_registry import TransportRegistry
 from devices_manager.dto import (
     AttributeCreateDTO,
     DeviceDTO,
@@ -27,17 +25,42 @@ from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from devices_manager.core.driver import Driver
+    from devices_manager.core.transports import TransportClient
 
 
-@pytest.fixture
-def driver_registry(driver: Driver) -> DriverRegistry:
-    return DriverRegistry({driver.id: driver})
+def _make_driver_resolver(
+    *drivers: Driver,
+) -> Callable[[str], Driver]:
+    """Build a resolver from driver instances."""
+    by_id = {d.id: d for d in drivers}
+
+    def _resolve(did: str) -> Driver:
+        try:
+            return by_id[did]
+        except KeyError as e:
+            msg = f"Driver {did} not found"
+            raise NotFoundError(msg) from e
+
+    return _resolve
 
 
-@pytest.fixture
-def transport_registry(mock_transport_client) -> TransportRegistry:
-    return TransportRegistry({mock_transport_client.id: mock_transport_client})
+def _make_transport_resolver(
+    *transports: TransportClient,
+) -> Callable[[str], TransportClient]:
+    """Build a resolver from transport instances."""
+    by_id = {t.id: t for t in transports}
+
+    def _resolve(tid: str) -> TransportClient:
+        try:
+            return by_id[tid]
+        except KeyError as e:
+            msg = f"Transport {tid} not found"
+            raise NotFoundError(msg) from e
+
+    return _resolve
 
 
 @pytest.fixture
@@ -47,32 +70,32 @@ def on_attribute_update():
 
 @pytest.fixture
 def device_registry(
-    device, driver_registry, transport_registry, on_attribute_update
+    device, driver, mock_transport_client, on_attribute_update
 ) -> DeviceRegistry:
     return DeviceRegistry(
         {device.id: device},
-        driver_registry=driver_registry,
-        transport_registry=transport_registry,
+        resolve_driver=_make_driver_resolver(driver),
+        resolve_transport=_make_transport_resolver(mock_transport_client),
         on_attribute_update=on_attribute_update,
     )
 
 
 @pytest.fixture
 def empty_registry(
-    driver_registry, transport_registry, on_attribute_update
+    driver, mock_transport_client, on_attribute_update
 ) -> DeviceRegistry:
     return DeviceRegistry(
-        driver_registry=driver_registry,
-        transport_registry=transport_registry,
+        resolve_driver=_make_driver_resolver(driver),
+        resolve_transport=_make_transport_resolver(mock_transport_client),
         on_attribute_update=on_attribute_update,
     )
 
 
 class TestDeviceRegistryInit:
-    def test_init_empty(self, driver_registry, transport_registry):
+    def test_init_empty(self, driver, mock_transport_client):
         registry = DeviceRegistry(
-            driver_registry=driver_registry,
-            transport_registry=transport_registry,
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
         )
         assert registry.ids == set()
 
@@ -80,12 +103,16 @@ class TestDeviceRegistryInit:
         assert device.id in device_registry.ids
 
     def test_sets_on_update_callback_on_devices(
-        self, device, driver_registry, transport_registry, on_attribute_update
+        self,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
     ):
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=driver_registry,
-            transport_registry=transport_registry,
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         assert registry.all[device.id].on_update is on_attribute_update
@@ -117,7 +144,11 @@ class TestDeviceRegistryList:
         assert all(isinstance(d, DeviceDTO) for d in devices)
 
     def test_list_filter_by_type(
-        self, thermostat_driver, driver, mock_transport_client, on_attribute_update
+        self,
+        thermostat_driver,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
     ):
         device_typed = PhysicalDevice.from_base(
             DeviceBase(id="d1", name="Typed", config={}),
@@ -130,13 +161,12 @@ class TestDeviceRegistryList:
             transport=mock_transport_client,
         )
         registry = DeviceRegistry(
-            {device_typed.id: device_typed, device_untyped.id: device_untyped},
-            driver_registry=DriverRegistry(
-                {thermostat_driver.id: thermostat_driver, driver.id: driver}
-            ),
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
+            {
+                device_typed.id: device_typed,
+                device_untyped.id: device_untyped,
+            },
+            resolve_driver=_make_driver_resolver(thermostat_driver, driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
 
@@ -201,10 +231,8 @@ class TestDeviceRegistryAddPhysical:
         self, driver, mock_push_transport_client, on_attribute_update
     ):
         registry = DeviceRegistry(
-            driver_registry=DriverRegistry({driver.id: driver}),
-            transport_registry=TransportRegistry(
-                {mock_push_transport_client.id: mock_push_transport_client}
-            ),
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_push_transport_client),
             on_attribute_update=on_attribute_update,
         )
         create = DeviceCreateDTO(
@@ -229,7 +257,11 @@ class TestDeviceRegistryAddPhysical:
             empty_registry.add(create)
 
     def test_add_sets_on_update_callback(
-        self, empty_registry, driver, mock_transport_client, on_attribute_update
+        self,
+        empty_registry,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
     ):
         create = DeviceCreateDTO(
             name="Device",
@@ -247,7 +279,9 @@ class TestDeviceRegistryAddVirtual:
             name="Sensor",
             attributes=[
                 AttributeCreateDTO(
-                    name="temperature", data_type=DataType.FLOAT, read_write_mode="read"
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_mode="read",
                 ),
             ],
         )
@@ -267,10 +301,14 @@ class TestDeviceRegistryAddVirtual:
             name="Bad",
             attributes=[
                 AttributeCreateDTO(
-                    name="temp", data_type=DataType.FLOAT, read_write_mode="read"
+                    name="temp",
+                    data_type=DataType.FLOAT,
+                    read_write_mode="read",
                 ),
                 AttributeCreateDTO(
-                    name="temp", data_type=DataType.INT, read_write_mode="read"
+                    name="temp",
+                    data_type=DataType.INT,
+                    read_write_mode="read",
                 ),
             ],
         )
@@ -283,7 +321,9 @@ class TestDeviceRegistryAddVirtual:
             type="thermostat",
             attributes=[
                 AttributeCreateDTO(
-                    name="temperature", data_type=DataType.FLOAT, read_write_mode="read"
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_mode="read",
                 ),
             ],
         )
@@ -295,7 +335,9 @@ class TestDeviceRegistryAddVirtual:
             name="V",
             attributes=[
                 AttributeCreateDTO(
-                    name="x", data_type=DataType.INT, read_write_mode="read"
+                    name="x",
+                    data_type=DataType.INT,
+                    read_write_mode="read",
                 ),
             ],
         )
@@ -345,16 +387,13 @@ class TestDeviceRegistryUpdate:
     ):
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=DriverRegistry(
-                {driver.id: driver, other_http_driver.id: other_http_driver}
-            ),
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
+            resolve_driver=_make_driver_resolver(driver, other_http_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         result = registry.update(
-            device.id, DeviceUpdateDTO(driver_id=other_http_driver.id)
+            device.id,
+            DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.driver_id == other_http_driver.id
@@ -370,17 +409,14 @@ class TestDeviceRegistryUpdate:
     ):
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=DriverRegistry(
-                {driver.id: driver, driver_w_push_transport.id: driver_w_push_transport}
-            ),
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
+            resolve_driver=_make_driver_resolver(driver, driver_w_push_transport),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         with pytest.raises(ValueError):  # noqa: PT011
             registry.update(
-                device.id, DeviceUpdateDTO(driver_id=driver_w_push_transport.id)
+                device.id,
+                DeviceUpdateDTO(driver_id=driver_w_push_transport.id),
             )
 
     def test_update_transport_ok(
@@ -393,17 +429,15 @@ class TestDeviceRegistryUpdate:
     ):
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=DriverRegistry({driver.id: driver}),
-            transport_registry=TransportRegistry(
-                {
-                    mock_transport_client.id: mock_transport_client,
-                    second_mock_transport_client.id: second_mock_transport_client,
-                }
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(
+                mock_transport_client, second_mock_transport_client
             ),
             on_attribute_update=on_attribute_update,
         )
         result = registry.update(
-            device.id, DeviceUpdateDTO(transport_id=second_mock_transport_client.id)
+            device.id,
+            DeviceUpdateDTO(transport_id=second_mock_transport_client.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.transport_id == second_mock_transport_client.id
@@ -419,16 +453,13 @@ class TestDeviceRegistryUpdate:
         device.attributes["temperature"]._update_value(42.0)
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=DriverRegistry(
-                {driver.id: driver, other_http_driver.id: other_http_driver}
-            ),
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
+            resolve_driver=_make_driver_resolver(driver, other_http_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         result = registry.update(
-            device.id, DeviceUpdateDTO(driver_id=other_http_driver.id)
+            device.id,
+            DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.attributes["temperature"].current_value == 42.0
@@ -443,16 +474,13 @@ class TestDeviceRegistryUpdate:
     ):
         registry = DeviceRegistry(
             {device.id: device},
-            driver_registry=DriverRegistry(
-                {driver.id: driver, other_http_driver.id: other_http_driver}
-            ),
-            transport_registry=TransportRegistry(
-                {mock_transport_client.id: mock_transport_client}
-            ),
+            resolve_driver=_make_driver_resolver(driver, other_http_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         result = registry.update(
-            device.id, DeviceUpdateDTO(driver_id=other_http_driver.id)
+            device.id,
+            DeviceUpdateDTO(driver_id=other_http_driver.id),
         )
         assert registry.get(device.id) is result
         assert result is not device
@@ -460,9 +488,7 @@ class TestDeviceRegistryUpdate:
 
 class TestDeviceRegistryUpdateVirtual:
     @pytest.fixture
-    def registry_with_virtual(
-        self, driver_registry, transport_registry, on_attribute_update
-    ):
+    def registry_with_virtual(self, driver, mock_transport_client, on_attribute_update):
         vd = VirtualDevice(
             id="vd1",
             name="Original",
@@ -475,8 +501,8 @@ class TestDeviceRegistryUpdateVirtual:
         )
         return DeviceRegistry(
             {vd.id: vd},
-            driver_registry=driver_registry,
-            transport_registry=transport_registry,
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
 
@@ -568,7 +594,7 @@ class TestDeviceRegistryWriteAttribute:
 
     @pytest.mark.asyncio
     async def test_write_virtual_attribute_ok(
-        self, driver_registry, transport_registry, on_attribute_update
+        self, driver, mock_transport_client, on_attribute_update
     ):
         vd = VirtualDevice(
             id="vd1",
@@ -579,8 +605,8 @@ class TestDeviceRegistryWriteAttribute:
         )
         registry = DeviceRegistry(
             {vd.id: vd},
-            driver_registry=driver_registry,
-            transport_registry=transport_registry,
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
         result = await registry.write_attribute("vd1", "value", 42.0)
@@ -590,7 +616,11 @@ class TestDeviceRegistryWriteAttribute:
 
 class TestDeviceRegistryRebuild:
     def test_rebuild_physical_device(
-        self, device_registry, device, other_http_driver, mock_transport_client
+        self,
+        device_registry,
+        device,
+        other_http_driver,
+        mock_transport_client,
     ):
         result = device_registry.rebuild_physical_device(
             device, other_http_driver, mock_transport_client
@@ -600,7 +630,11 @@ class TestDeviceRegistryRebuild:
         assert result.driver_id == other_http_driver.id
 
     def test_rebuild_preserves_values(
-        self, device_registry, device, other_http_driver, mock_transport_client
+        self,
+        device_registry,
+        device,
+        other_http_driver,
+        mock_transport_client,
     ):
         device.attributes["temperature"]._update_value(25.5)
         result = device_registry.rebuild_physical_device(

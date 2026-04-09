@@ -10,7 +10,6 @@ from models.errors import ForbiddenError
 from .core.device import (
     Attribute,
     Device,
-    PhysicalDevice,
 )
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
@@ -19,7 +18,6 @@ from .core.discovery_manager import (
 )
 from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
-from .core.tasks_registry import TasksRegistry
 from .core.transport_registry import TransportRegistry
 from .dto import (
     DeviceCreateDTO,
@@ -53,7 +51,6 @@ class DevicesManager:
     _device_registry: DeviceRegistryInterface
     _transport_registry: TransportRegistry
     _driver_registry: DriverRegistry
-    _polling_tasks: TasksRegistry
     _discovery_manager: PhysicalDevicesDiscoveryManager
     _running: bool
     _attribute_update_handlers: list[AttributeListener]
@@ -69,7 +66,6 @@ class DevicesManager:
         self._transport_registry = TransportRegistry(transports)
         self._driver_registry = DriverRegistry(drivers)
         self._storage = None
-        self._polling_tasks = TasksRegistry()
         self._running = False
         self._attribute_update_handlers = []
         self._background_tasks = set()
@@ -80,47 +76,19 @@ class DevicesManager:
             on_attribute_update=self._on_attribute_update,
         )
 
-    async def start_polling(self) -> None:
+    # -- Sync lifecycle --
+
+    async def start_sync(self) -> None:
+        """Start synchronizing all devices."""
         self._running = True
         for device in self._device_registry.all.values():
-            await device.init_listeners()
-            if device.polling_enabled:
-                logger.info("Starting polling job for device %s", device.id)
-                self._polling_tasks.add(
-                    ("poll", device.id), self._device_poll_loop(device)
-                )
+            await device.start_sync()
 
-    async def stop_polling(self) -> None:
+    async def stop_sync(self) -> None:
+        """Stop synchronizing all devices."""
+        for device in self._device_registry.all.values():
+            await device.stop_sync()
         self._running = False
-        await self._polling_tasks.shutdown()
-
-    async def _device_poll_loop(self, device: Device) -> None:
-        poll_interval = device.poll_interval
-        if poll_interval is None:
-            return
-        try:
-            while self._running:
-                await device.update_attributes()
-                await asyncio.sleep(poll_interval)
-        except asyncio.CancelledError:
-            return
-
-    async def _restart_device_polling(self, device: Device) -> None:
-        polling_key = ("poll", device.id)
-        if self._polling_tasks.has(polling_key):
-            await self._polling_tasks.remove(polling_key)
-        if self._running and device.polling_enabled:
-            self._polling_tasks.add(polling_key, self._device_poll_loop(device))
-
-    async def _start_device_lifecycle(self, device: Device) -> None:
-        """Start listeners and polling for a device if manager is running."""
-        if self._running:
-            await device.init_listeners()
-            if device.polling_enabled:
-                logger.info("Starting polling job for device %s", device.id)
-                self._polling_tasks.add(
-                    ("poll", device.id), self._device_poll_loop(device)
-                )
 
     # -- Devices (delegated to DeviceRegistry) --
 
@@ -136,7 +104,8 @@ class DevicesManager:
 
     async def add_device(self, device_create: DeviceCreateDTO) -> DeviceDTO:
         device = self._device_registry.add(device_create)
-        await self._start_device_lifecycle(device)
+        if self._running:
+            await device.start_sync()
         dto = device_core_to_dto(device)
         if self._storage:
             await self._storage.devices.write(dto.id, dto)
@@ -146,24 +115,18 @@ class DevicesManager:
         self, device_id: str, device_update: DeviceUpdateDTO
     ) -> DeviceDTO:
         old_device = self._device_registry.get(device_id)
-        was_physical = isinstance(old_device, PhysicalDevice)
-
+        await old_device.stop_sync()
         device = self._device_registry.update(device_id, device_update)
-
-        if isinstance(device, PhysicalDevice):
-            if was_physical and device is not old_device:
-                await device.init_listeners()
-            await self._restart_device_polling(device)
-
+        if self._running:
+            await device.start_sync()
         dto = device_core_to_dto(device)
         if self._storage:
             await self._storage.devices.write(device_id, dto)
         return dto
 
     async def delete_device(self, device_id: str) -> None:
-        polling_key = ("poll", device_id)
-        if self._polling_tasks.has(polling_key):
-            await self._polling_tasks.remove(polling_key)
+        device = self._device_registry.get(device_id)
+        await device.stop_sync()
         self._device_registry.remove(device_id)
         if self._storage:
             await self._storage.devices.delete(device_id)
@@ -217,10 +180,6 @@ class DevicesManager:
     ) -> None:
         """Register a handler for attribute updates on all devices."""
         self._attribute_update_handlers.append(callback)
-
-    @property
-    def poll_count(self) -> int:
-        return len(self._polling_tasks)
 
     # -- Discovery --
 
@@ -374,8 +333,9 @@ class DevicesManager:
         if update.config is not None:
             for device in self._device_registry.all.values():
                 if device.transport_id == transport_id:
-                    await device.init_listeners()
-                    await self._restart_device_polling(device)
+                    await device.stop_sync()
+                    if self._running:
+                        await device.start_sync()
         dto = transport_core_to_dto(transport)
         if self._storage:
             await self._storage.transports.write(transport_id, dto)
@@ -422,7 +382,7 @@ class DevicesManager:
             await self._storage.drivers.delete(driver_id)
 
     async def stop(self) -> None:
-        await self.stop_polling()
+        await self.stop_sync()
         await asyncio.gather(
             *(t.close() for t in self._transport_registry.all.values())
         )

@@ -107,7 +107,7 @@ def write(
 
 
 async def _watch_device(dm: DevicesManager, device_id: str) -> None:
-    await dm.start_polling()
+    await dm.start_sync()
     device = dm.get_device(device_id)
     console.print(
         f"Watching device [bold blue]{device_id}[/bold blue] using driver "
@@ -125,7 +125,7 @@ async def _watch_device(dm: DevicesManager, device_id: str) -> None:
                     current = new
                 await asyncio.sleep(0.2)
     except KeyboardInterrupt:
-        await dm.stop_polling()
+        await dm.stop_sync()
         console.print("\n👋 Goodbye")
 
 

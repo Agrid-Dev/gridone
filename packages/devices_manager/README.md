@@ -1,12 +1,65 @@
 # Gridone Devices Manager
 
-`gridone-devices-manager` contains the core domain logic for:
+`gridone-devices-manager` contains the core domain logic for managing building devices, drivers, and transports.
 
-- devices
-- drivers
-- transports
+## Architecture
 
-It also defines a storage abstraction and multiple storage backends.
+```mermaid
+graph TD
+    subgraph Facade
+        DM[DevicesManager]
+    end
+
+    subgraph Registries
+        DR[DeviceRegistry]
+        TrR[TransportRegistry]
+        DrvR[DriverRegistry]
+    end
+
+    subgraph "Device hierarchy"
+        D[Device]
+        PD[PhysicalDevice]
+        VD[VirtualDevice]
+    end
+
+    subgraph Core
+        Drv[Driver]
+        TC[TransportClient]
+    end
+
+    subgraph Storage
+        SB[StorageBackend]
+        YAML[YAML Backend]
+        PG[Postgres Backend]
+    end
+
+    DM --> DR
+    DM --> TrR
+    DM --> DrvR
+    DM -->|"start_sync / stop_sync"| D
+
+    DR --> D
+    DR --> DrvR
+    DR --> TrR
+
+    D --> PD
+    D --> VD
+
+    PD -->|"uses"| Drv
+    PD -->|"uses"| TC
+    PD -->|"start_sync: init_listeners + poll loop"| PD
+
+    SB --> YAML
+    SB --> PG
+    DM -->|"persists via"| SB
+```
+
+### Key design decisions
+
+- **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`. Physical devices start transport listeners and spawn their own poll task. Virtual devices are no-ops. The facade just calls these methods — no centralized polling manager.
+- **Registries are pure in-memory.** `DeviceRegistry`, `TransportRegistry`, and `DriverRegistry` handle CRUD on in-memory dicts. Persistence is the facade's responsibility.
+- **Facade = orchestration recipes.** `DevicesManager` methods are short sequences: delegate to registry, toggle sync, persist. No business logic lives in the facade.
+- **Protocol-based DI.** `DeviceRegistryInterface` allows the facade to be tested with mocked registries.
 
 ## Storage architecture
 
@@ -45,28 +98,9 @@ Resolution rules:
 - `postgresql://...` or `postgres://...` -> PostgreSQL backend
 - Any other value -> YAML backend path
 
-## Folder structure
-
-```text
-storage/
-├── __init__.py
-├── storage_backend.py
-├── factory.py
-├── yaml/
-│   ├── __init__.py
-│   ├── yaml_dm_storage.py
-│   └── core_file_storage.py
-└── postgres/
-    ├── __init__.py
-    ├── postgres_storage.py
-    └── postgres_dm_storage.py
-```
-
 ## Clean architecture boundary
 
 `DevicesManager` is storage-agnostic: it only depends on `DevicesManagerStorage`, never on concrete backend classes.
-
-Typical initialization:
 
 ```python
 dm = await DevicesManager.from_storage("postgresql://user:pass@host/db")
