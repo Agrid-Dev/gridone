@@ -1,3 +1,9 @@
+## v0.41.1 (2026-04-09)
+
+### Refactor
+
+- give registries ownership of their persistence
+
 ## v0.41.0 (2026-04-09)
 
 ### Feat
