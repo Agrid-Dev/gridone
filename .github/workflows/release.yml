@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.39.0)"
+        required: true
 
 permissions:
   contents: write
@@ -14,10 +19,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
 
       - name: Find CI run that tested this commit
@@ -25,8 +34,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          COMMIT_SHA="${{ github.sha }}"
-          echo "Looking for successful CI run on commit $COMMIT_SHA"
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Looking for successful CI run on commit $COMMIT_SHA (tag: $RELEASE_TAG)"
 
           for i in $(seq 1 30); do
             RUN_ID=$(gh api \
@@ -86,7 +95,7 @@ jobs:
       - name: Push platform images
         run: |
           IMAGE="${{ steps.meta.outputs.image }}"
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
 
           for arch in amd64 arm64; do
             skopeo copy \
@@ -99,8 +108,8 @@ jobs:
         id: manifest
         run: |
           IMAGE="${{ steps.meta.outputs.image }}"
-          VERSION="${GITHUB_REF_NAME#v}"
-          TAG="${GITHUB_REF_NAME}"
+          VERSION="${RELEASE_TAG#v}"
+          TAG="${RELEASE_TAG}"
 
           docker buildx imagetools create \
             -t "${IMAGE}:${TAG}" \
@@ -121,7 +130,7 @@ jobs:
 
       - name: Generate changelog
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
           PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | sed -n '2p')
 
           {
@@ -144,6 +153,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
             --notes-file /tmp/changelog.md

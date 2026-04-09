@@ -19,9 +19,17 @@ jobs:
           fetch-depth: 0
 
       - name: Create bump and changelog
+        id: cz
         uses: commitizen-tools/commitizen-action@master
         with:
           github_token: ${{ secrets.BUMP_TOKEN }}
           changelog_increment_filename: body.md
           extra_requirements: uv
           no_raise: 21
+
+      - name: Trigger release workflow
+        if: steps.cz.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.BUMP_TOKEN }}
+        run: |
+          gh workflow run release.yml --field tag="v${{ steps.cz.outputs.version }}"
