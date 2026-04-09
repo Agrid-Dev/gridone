@@ -1,3 +1,9 @@
+## v0.41.0 (2026-04-09)
+
+### Feat
+
+- build inside release workflow
+
 ## v0.40.2 (2026-04-09)
 
 ### Fix
