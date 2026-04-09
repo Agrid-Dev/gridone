@@ -1,3 +1,14 @@
+## v0.38.0 (2026-04-09)
+
+### Feat
+
+- **devices_manager**: extract TransportRegistry and DriverRegistry from DevicesManager
+
+### Fix
+
+- keep DevicesManager public API unchanged
+- rename registry list -> list_all to avoid shadowing builtin
+
 ## v0.37.0 (2026-04-08)
 
 ### Feat
