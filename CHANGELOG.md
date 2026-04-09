@@ -1,3 +1,9 @@
+## v0.41.2 (2026-04-09)
+
+### Refactor
+
+- drop DTO suffix from public models
+
 ## v0.41.1 (2026-04-09)
 
 ### Refactor
