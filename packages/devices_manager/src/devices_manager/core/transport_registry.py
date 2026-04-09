@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
-    TransportCreateDTO,
-    TransportDTO,
-    TransportUpdateDTO,
-    transport_core_to_dto,
+    Transport,
+    TransportCreate,
+    TransportUpdate,
+    transport_to_public,
 )
 from devices_manager.storage import NullStorageBackend
 from models.errors import NotFoundError
@@ -27,13 +27,13 @@ class TransportRegistry:
     """In-memory registry for transport clients with optional persistence."""
 
     _transports: dict[str, TransportClient]
-    _storage: StorageBackend[TransportDTO]
+    _storage: StorageBackend[Transport]
 
     def __init__(
         self,
         transports: dict[str, TransportClient] | None = None,
         *,
-        storage: StorageBackend[TransportDTO] | None = None,
+        storage: StorageBackend[Transport] | None = None,
     ) -> None:
         self._transports = transports if transports is not None else {}
         self._storage = storage or NullStorageBackend()
@@ -46,8 +46,8 @@ class TransportRegistry:
     def ids(self) -> set[str]:
         return set(self._transports.keys())
 
-    def list_all(self) -> list[TransportDTO]:
-        return [transport_core_to_dto(t) for t in self._transports.values()]
+    def list_all(self) -> list[Transport]:
+        return [transport_to_public(t) for t in self._transports.values()]
 
     def _get_or_raise(self, transport_id: str) -> TransportClient:
         try:
@@ -59,11 +59,11 @@ class TransportRegistry:
     def get(self, transport_id: str) -> TransportClient:
         return self._get_or_raise(transport_id)
 
-    def get_dto(self, transport_id: str) -> TransportDTO:
+    def get_dto(self, transport_id: str) -> Transport:
         client = self._get_or_raise(transport_id)
-        return transport_core_to_dto(client)
+        return transport_to_public(client)
 
-    async def add(self, transport: TransportCreateDTO | TransportDTO) -> TransportDTO:
+    async def add(self, transport: TransportCreate | Transport) -> Transport:
         config = make_transport_config(
             transport.protocol, transport.config.model_dump()
         )
@@ -71,7 +71,7 @@ class TransportRegistry:
         metadata = TransportMetadata(id=transport_id, name=transport.name)
         client = make_transport_client(transport.protocol, config, metadata)
         self._transports[metadata.id] = client
-        dto = transport_core_to_dto(client)
+        dto = transport_to_public(client)
         await self._storage.write(dto.id, dto)
         return dto
 
@@ -83,7 +83,7 @@ class TransportRegistry:
         return client
 
     async def update(
-        self, transport_id: str, update: TransportUpdateDTO
+        self, transport_id: str, update: TransportUpdate
     ) -> TransportClient:
         """Apply name/config mutation to the client and return it."""
         transport = self._get_or_raise(transport_id)
@@ -91,6 +91,6 @@ class TransportRegistry:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
-        dto = transport_core_to_dto(transport)
+        dto = transport_to_public(transport)
         await self._storage.write(transport_id, dto)
         return transport

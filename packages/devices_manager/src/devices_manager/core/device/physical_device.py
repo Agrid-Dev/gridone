@@ -12,7 +12,7 @@ from devices_manager.types import DeviceKind
 from models.errors import ConfirmationError
 
 from .attribute import Attribute
-from .device import Device
+from .device import CoreDevice
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(kw_only=True)
-class PhysicalDevice(Device):
+class PhysicalDevice(CoreDevice):
     driver: Driver
     transport: TransportClient
     config: DeviceConfig

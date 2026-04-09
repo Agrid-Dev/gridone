@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 
 from devices_manager.core.device import Attribute
-from devices_manager.dto import DeviceDTO
+from devices_manager.dto import Device
 from devices_manager.storage.storage_backend import StorageBackend
 from devices_manager.types import AttributeValueType, DataType, DeviceKind
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     import asyncpg
 
 
-class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
+class PostgresDeviceStorage(StorageBackend[Device]):
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
@@ -20,7 +20,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
         self,
         row: asyncpg.Record,
         attribute_rows: list[asyncpg.Record],
-    ) -> DeviceDTO:
+    ) -> Device:
         attributes: dict[str, Attribute] = {}
         for attr_row in attribute_rows:
             raw_modes = attr_row["read_write_modes"]
@@ -37,7 +37,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
             )
 
         config = row["config"]
-        return DeviceDTO(
+        return Device(
             id=row["id"],
             kind=DeviceKind(row["kind"]),
             name=row["name"],
@@ -48,7 +48,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
             attributes=attributes,
         )
 
-    async def read(self, item_id: str) -> DeviceDTO:
+    async def read(self, item_id: str) -> Device:
         row = await self._pool.fetchrow(
             "SELECT id, kind, name, type, config, driver_id, transport_id "
             "FROM dm_devices WHERE id = $1",
@@ -66,7 +66,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
         )
         return self._build_dto(row, attr_rows)
 
-    async def write(self, item_id: str, data: DeviceDTO) -> None:
+    async def write(self, item_id: str, data: Device) -> None:
         dumped = data.model_dump(mode="json")
 
         async with self._pool.acquire() as conn, conn.transaction():
@@ -156,7 +156,7 @@ class PostgresDeviceStorage(StorageBackend[DeviceDTO]):
             attribute.last_changed,
         )
 
-    async def read_all(self) -> list[DeviceDTO]:
+    async def read_all(self) -> list[Device]:
         device_rows = await self._pool.fetch(
             "SELECT id, kind, name, type, config, driver_id, transport_id "
             "FROM dm_devices ORDER BY id",

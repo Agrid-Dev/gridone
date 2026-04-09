@@ -9,12 +9,12 @@ import pytest
 import pytest_asyncio
 
 from devices_manager.core.device import Attribute
-from devices_manager.dto import DeviceDTO, TransportDTO
-from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto import Device, Transport
+from devices_manager.dto.driver_dto import DriverSpec
 from devices_manager.dto.driver_dto.attribute_driver_dto import (
-    AttributeDriverDTO,
+    AttributeDriverSpec,
 )
-from devices_manager.dto.transport_dto import build_dto as build_transport_dto
+from devices_manager.dto.transport_dto import build_dto as build_transport
 from devices_manager.storage.postgres import (
     PostgresDevicesManagerStorage,
     PostgresDeviceStorage,
@@ -46,8 +46,8 @@ def _make_transport(
     transport_id: str = "t1",
     name: str = "Test Transport",
     protocol: TransportProtocols = TransportProtocols.HTTP,
-) -> TransportDTO:
-    return build_transport_dto(
+) -> Transport:
+    return build_transport(
         transport_id=transport_id,
         name=name,
         protocol=protocol,
@@ -60,15 +60,15 @@ def _make_driver(
     vendor: str | None = "acme",
     model: str | None = "thermostat-v2",
     driver_type: str | None = "hvac/thermostat",
-) -> DriverDTO:
-    return DriverDTO(  # ty: ignore[missing-argument]
+) -> DriverSpec:
+    return DriverSpec(  # ty: ignore[missing-argument]
         id=driver_id,
         vendor=vendor,
         model=model,
         transport=TransportProtocols.HTTP,
         device_config=[],
         attributes=[
-            AttributeDriverDTO(  # ty: ignore[missing-argument]
+            AttributeDriverSpec(  # ty: ignore[missing-argument]
                 name="temperature",
                 data_type=DataType.FLOAT,
                 read={"path": "/api/temp"},
@@ -85,8 +85,8 @@ def _make_device(  # noqa: PLR0913
     kind: DeviceKind = DeviceKind.PHYSICAL,
     name: str = "Test Device",
     attributes: dict[str, Attribute] | None = None,
-) -> DeviceDTO:
-    return DeviceDTO(
+) -> Device:
+    return Device(
         id=device_id,
         kind=kind,
         name=name,
@@ -450,7 +450,7 @@ class TestDeviceStorage:
         self,
         device_storage: PostgresDeviceStorage,
     ):
-        device = DeviceDTO(
+        device = Device(
             id="vdev1",
             kind=DeviceKind.VIRTUAL,
             name="Virtual Sensor",
@@ -605,7 +605,7 @@ class TestAttributePersistence:
         device_storage: PostgresDeviceStorage,
     ):
         """Virtual device attributes persist and restore correctly."""
-        device = DeviceDTO(
+        device = Device(
             id="vdev1",
             kind=DeviceKind.VIRTUAL,
             name="Virtual Sensor",

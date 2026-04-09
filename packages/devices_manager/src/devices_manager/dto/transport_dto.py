@@ -22,48 +22,44 @@ from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import TransportProtocols
 
 
-class TransportBaseDTO(BaseModel):
+class TransportBase(BaseModel):
     id: str
     name: str
     connection_state: TransportConnectionState
 
 
-class HttpTransportDTO(TransportBaseDTO):
+class HttpTransport(TransportBase):
     protocol: Literal[TransportProtocols.HTTP]
     config: HttpTransportConfig
 
 
-class KnxTransportDTO(TransportBaseDTO):
+class KnxTransport(TransportBase):
     protocol: Literal[TransportProtocols.KNX]
     config: KNXTransportConfig
 
 
-class MqttTransportDTO(TransportBaseDTO):
+class MqttTransport(TransportBase):
     protocol: Literal[TransportProtocols.MQTT]
     config: MqttTransportConfig
 
 
-class ModbusTcpTransportDTO(TransportBaseDTO):
+class ModbusTcpTransport(TransportBase):
     protocol: Literal[TransportProtocols.MODBUS_TCP]
     config: ModbusTCPTransportConfig
 
 
-class BacnetTransportDTO(TransportBaseDTO):
+class BacnetTransport(TransportBase):
     protocol: Literal[TransportProtocols.BACNET]
     config: BacnetTransportConfig
 
 
-TransportDTO = Annotated[
-    HttpTransportDTO
-    | KnxTransportDTO
-    | MqttTransportDTO
-    | ModbusTcpTransportDTO
-    | BacnetTransportDTO,
+Transport = Annotated[
+    HttpTransport | KnxTransport | MqttTransport | ModbusTcpTransport | BacnetTransport,
     Field(discriminator="protocol"),
 ]
 
 
-def dto_to_core(dto: TransportDTO) -> TransportClient:
+def dto_to_core(dto: Transport) -> TransportClient:
     return make_transport_client(
         dto.protocol,
         dto.config,
@@ -75,11 +71,11 @@ def dto_to_core(dto: TransportDTO) -> TransportClient:
 
 
 DTO_BY_PROTOCOL = {
-    TransportProtocols.HTTP: HttpTransportDTO,
-    TransportProtocols.KNX: KnxTransportDTO,
-    TransportProtocols.MQTT: MqttTransportDTO,
-    TransportProtocols.MODBUS_TCP: ModbusTcpTransportDTO,
-    TransportProtocols.BACNET: BacnetTransportDTO,
+    TransportProtocols.HTTP: HttpTransport,
+    TransportProtocols.KNX: KnxTransport,
+    TransportProtocols.MQTT: MqttTransport,
+    TransportProtocols.MODBUS_TCP: ModbusTcpTransport,
+    TransportProtocols.BACNET: BacnetTransport,
 }
 
 DEFAULT_CONNECTION_STATE = TransportConnectionState.idle()
@@ -91,7 +87,7 @@ def build_dto(
     protocol: TransportProtocols,
     config: BaseTransportConfig | dict,
     connection_state: TransportConnectionState = DEFAULT_CONNECTION_STATE,
-) -> TransportDTO:
+) -> Transport:
     dto_class = DTO_BY_PROTOCOL.get(protocol)
     if not dto_class:
         msg = (
@@ -109,7 +105,7 @@ def build_dto(
     )
 
 
-def core_to_dto(client: TransportClient) -> TransportDTO:
+def core_to_dto(client: TransportClient) -> Transport:
     return build_dto(
         client.metadata.id,
         client.metadata.name,
@@ -128,7 +124,7 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
 }
 
 
-class TransportCreateDTO(BaseModel):
+class TransportCreate(BaseModel):
     name: str
     protocol: TransportProtocols
     config: BaseTransportConfig
@@ -164,6 +160,6 @@ class TransportCreateDTO(BaseModel):
         raise TypeError(msg)
 
 
-class TransportUpdateDTO(BaseModel):
+class TransportUpdate(BaseModel):
     name: str | None = None
     config: dict | None = None

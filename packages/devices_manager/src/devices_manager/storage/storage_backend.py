@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute
-    from devices_manager.dto import DeviceDTO, DriverDTO, TransportDTO
+    from devices_manager.dto import Device, DriverSpec, Transport
 
 
 class StorageBackend[M: BaseModel](Protocol):
@@ -22,9 +22,9 @@ class StorageBackend[M: BaseModel](Protocol):
 
 
 class DevicesManagerStorage(Protocol):
-    devices: StorageBackend[DeviceDTO]
-    drivers: StorageBackend[DriverDTO]
-    transports: StorageBackend[TransportDTO]
+    devices: StorageBackend[Device]
+    drivers: StorageBackend[DriverSpec]
+    transports: StorageBackend[Transport]
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None: ...
 

@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from devices_manager import DevicesManagerInterface
-from devices_manager.dto import StandardAttributeSchemaDTO
+from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
-    DeviceCreateDTO,
-    DeviceDTO,
-    DeviceUpdateDTO,
+    DeviceCreate,
+    Device,
+    DeviceUpdate,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
@@ -51,7 +51,7 @@ router.include_router(devices_ts_router)
 def list_devices(
     dm: DevicesManagerInterface = Depends(get_device_manager),
     device_type: str | None = Query(None, alias="type"),
-) -> list[DeviceDTO]:
+) -> list[Device]:
     return dm.list_devices(device_type=device_type)
 
 
@@ -61,7 +61,7 @@ def list_devices(
 )
 def get_standard_types(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> list[StandardAttributeSchemaDTO]:
+) -> list[StandardAttributeSchema]:
     return dm.list_standard_schemas()
 
 
@@ -94,7 +94,7 @@ async def get_commands(
 def get_device(
     device_id: str,
     dm: DevicesManagerInterface = Depends(get_device_manager),
-) -> DeviceDTO:
+) -> Device:
     return dm.get_device(device_id)
 
 
@@ -129,9 +129,9 @@ async def get_device_commands(
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
 async def create_device(
-    dto: DeviceCreateDTO,
+    dto: DeviceCreate,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> DeviceDTO:
+) -> Device:
     return await dm.add_device(dto)
 
 
@@ -140,9 +140,9 @@ async def create_device(
 )
 async def update_device(
     device_id: str,
-    payload: DeviceUpdateDTO,
+    payload: DeviceUpdate,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> DeviceDTO:
+) -> Device:
     try:
         device = await dm.update_device(device_id, payload)
     except ValueError as e:

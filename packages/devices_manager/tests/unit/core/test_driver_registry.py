@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager.core.driver_registry import DriverRegistry
-from devices_manager.dto import DriverDTO, driver_core_to_dto
+from devices_manager.dto import DriverSpec, driver_to_public
 from devices_manager.storage import StorageBackend
 from models.errors import NotFoundError
 
@@ -27,7 +27,7 @@ class TestDriverRegistryList:
         registry = DriverRegistry({driver.id: driver})
         result = registry.list_all()
         assert len(result) == 1
-        assert isinstance(result[0], DriverDTO)
+        assert isinstance(result[0], DriverSpec)
         assert result[0].id == driver.id
 
     def test_list_filter_by_type(self, thermostat_driver, other_http_driver):
@@ -60,7 +60,7 @@ class TestDriverRegistryGet:
     def test_get_dto_existing(self, driver):
         registry = DriverRegistry({driver.id: driver})
         dto = registry.get_dto(driver.id)
-        assert isinstance(dto, DriverDTO)
+        assert isinstance(dto, DriverSpec)
         assert dto.id == driver.id
 
     def test_get_dto_not_found(self):
@@ -73,16 +73,16 @@ class TestDriverRegistryAdd:
     @pytest.mark.asyncio
     async def test_add_ok(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_core_to_dto(driver)
+        driver_dto = driver_to_public(driver)
         created = await registry.add(driver_dto)
-        assert isinstance(created, DriverDTO)
+        assert isinstance(created, DriverSpec)
         assert created.id == driver_dto.id
         assert driver_dto.id in registry.ids
 
     @pytest.mark.asyncio
     async def test_add_duplicate_raises(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_core_to_dto(driver)
+        driver_dto = driver_to_public(driver)
         await registry.add(driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
             await registry.add(driver_dto)
@@ -116,7 +116,7 @@ class TestDriverRegistryPersistence:
     async def test_add_persists_to_storage(self, driver):
         storage = AsyncMock(spec=StorageBackend)
         registry = DriverRegistry(storage=storage)
-        driver_dto = driver_core_to_dto(driver)
+        driver_dto = driver_to_public(driver)
         await registry.add(driver_dto)
         storage.write.assert_called_once()
 
@@ -130,7 +130,7 @@ class TestDriverRegistryPersistence:
     @pytest.mark.asyncio
     async def test_no_storage_does_not_raise(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_core_to_dto(driver)
+        driver_dto = driver_to_public(driver)
         created = await registry.add(driver_dto)
         assert created.id == driver_dto.id
         await registry.remove(driver_dto.id)

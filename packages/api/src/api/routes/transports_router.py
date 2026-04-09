@@ -3,9 +3,9 @@ from typing import Annotated
 from devices_manager import DevicesManagerInterface
 from devices_manager.dto import (
     TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
-    TransportCreateDTO,
-    TransportDTO,
-    TransportUpdateDTO,
+    TransportCreate,
+    Transport,
+    TransportUpdate,
 )
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
@@ -25,7 +25,7 @@ router.include_router(
 @router.get("/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))])
 def list_transports(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> list[TransportDTO]:
+) -> list[Transport]:
     return dm.list_transports()
 
 
@@ -37,7 +37,7 @@ def list_transports(
 def get_transport(
     transport_id: str,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
-) -> TransportDTO:
+) -> Transport:
     return dm.get_transport(transport_id)
 
 
@@ -47,11 +47,11 @@ def get_transport(
     dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
 )
 async def create_transport(
-    payload: TransportCreateDTO,
+    payload: TransportCreate,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     request: Request,
     response: Response,
-) -> TransportDTO:
+) -> Transport:
     dto = await dm.add_transport(payload)
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=dto.id)
@@ -65,11 +65,11 @@ async def create_transport(
 )
 async def update_transport(
     transport_id: str,
-    update_payload: TransportUpdateDTO,
+    update_payload: TransportUpdate,
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     request: Request,
     response: Response,
-) -> TransportDTO:
+) -> Transport:
     try:
         transport = await dm.update_transport(transport_id, update_payload)
     except ValidationError as e:

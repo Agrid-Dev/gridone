@@ -13,13 +13,13 @@ from devices_manager.core.device import (
 )
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.dto import (
-    AttributeCreateDTO,
-    DeviceDTO,
-    DeviceUpdateDTO,
-    VirtualDeviceCreateDTO,
+    AttributeCreate,
+    Device,
+    DeviceUpdate,
+    VirtualDeviceCreate,
 )
 from devices_manager.dto import (
-    PhysicalDeviceCreateDTO as DeviceCreateDTO,
+    PhysicalDeviceCreate as DeviceCreate,
 )
 from devices_manager.storage import StorageBackend
 from devices_manager.types import DataType
@@ -130,7 +130,7 @@ class TestDeviceRegistryGet:
 
     def test_get_dto(self, device_registry, device):
         dto = device_registry.get_dto(device.id)
-        assert isinstance(dto, DeviceDTO)
+        assert isinstance(dto, Device)
         assert dto.id == device.id
 
     def test_get_dto_not_found(self, device_registry):
@@ -142,7 +142,7 @@ class TestDeviceRegistryList:
     def test_list_all(self, device_registry):
         devices = device_registry.list_all()
         assert len(devices) == 1
-        assert all(isinstance(d, DeviceDTO) for d in devices)
+        assert all(isinstance(d, Device) for d in devices)
 
     def test_list_filter_by_type(
         self,
@@ -198,7 +198,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_ok(
         self, empty_registry, driver, mock_transport_client
     ):
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="New Device",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -213,7 +213,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_driver_not_found(
         self, empty_registry, mock_transport_client
     ):
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="Bad",
             config={"some_id": "abc"},
             driver_id="unknown_driver",
@@ -226,7 +226,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_transport_not_found(
         self, empty_registry, driver
     ):
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="Bad",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -244,7 +244,7 @@ class TestDeviceRegistryAddPhysical:
             resolve_transport=_make_transport_resolver(mock_push_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="Bad",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -257,7 +257,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_invalid_config(
         self, empty_registry, driver, mock_transport_client
     ):
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="Bad",
             config={},
             driver_id=driver.id,
@@ -274,7 +274,7 @@ class TestDeviceRegistryAddPhysical:
         mock_transport_client,
         on_attribute_update,
     ):
-        create = DeviceCreateDTO(
+        create = DeviceCreate(
             name="Device",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -287,10 +287,10 @@ class TestDeviceRegistryAddPhysical:
 class TestDeviceRegistryAddVirtual:
     @pytest.mark.asyncio
     async def test_add_virtual_device_ok(self, empty_registry):
-        create = VirtualDeviceCreateDTO(
+        create = VirtualDeviceCreate(
             name="Sensor",
             attributes=[
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="temperature",
                     data_type=DataType.FLOAT,
                     read_write_mode="read",
@@ -305,21 +305,21 @@ class TestDeviceRegistryAddVirtual:
 
     @pytest.mark.asyncio
     async def test_add_virtual_device_empty_attributes_raises(self, empty_registry):
-        create = VirtualDeviceCreateDTO(name="Bad", attributes=[])
+        create = VirtualDeviceCreate(name="Bad", attributes=[])
         with pytest.raises(InvalidError):
             await empty_registry.add(create)
 
     @pytest.mark.asyncio
     async def test_add_virtual_device_duplicate_attributes_raises(self, empty_registry):
-        create = VirtualDeviceCreateDTO(
+        create = VirtualDeviceCreate(
             name="Bad",
             attributes=[
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="temp",
                     data_type=DataType.FLOAT,
                     read_write_mode="read",
                 ),
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="temp",
                     data_type=DataType.INT,
                     read_write_mode="read",
@@ -333,11 +333,11 @@ class TestDeviceRegistryAddVirtual:
     async def test_add_virtual_device_invalid_standard_schema_raises(
         self, empty_registry
     ):
-        create = VirtualDeviceCreateDTO(
+        create = VirtualDeviceCreate(
             name="Bad Thermo",
             type="thermostat",
             attributes=[
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="temperature",
                     data_type=DataType.FLOAT,
                     read_write_mode="read",
@@ -351,10 +351,10 @@ class TestDeviceRegistryAddVirtual:
     async def test_add_sets_on_update_callback(
         self, empty_registry, on_attribute_update
     ):
-        create = VirtualDeviceCreateDTO(
+        create = VirtualDeviceCreate(
             name="V",
             attributes=[
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="x",
                     data_type=DataType.INT,
                     read_write_mode="read",
@@ -368,27 +368,25 @@ class TestDeviceRegistryAddVirtual:
 class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_name(self, device_registry, device):
-        result = await device_registry.update(
-            device.id, DeviceUpdateDTO(name="New Name")
-        )
+        result = await device_registry.update(device.id, DeviceUpdate(name="New Name"))
         assert result.name == "New Name"
 
     @pytest.mark.asyncio
     async def test_update_empty_payload(self, device_registry, device):
         original_name = device.name
-        result = await device_registry.update(device.id, DeviceUpdateDTO())
+        result = await device_registry.update(device.id, DeviceUpdate())
         assert result.name == original_name
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, device_registry):
         with pytest.raises(NotFoundError):
-            await device_registry.update("unknown", DeviceUpdateDTO(name="X"))
+            await device_registry.update("unknown", DeviceUpdate(name="X"))
 
     @pytest.mark.asyncio
     async def test_update_config_ok(self, device_registry, device):
         new_config = {"some_id": "xyz"}
         result = await device_registry.update(
-            device.id, DeviceUpdateDTO(config=new_config)
+            device.id, DeviceUpdate(config=new_config)
         )
         assert isinstance(result, PhysicalDevice)
         assert result.config == new_config
@@ -396,20 +394,18 @@ class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_config_invalid(self, device_registry, device):
         with pytest.raises(InvalidError):
-            await device_registry.update(device.id, DeviceUpdateDTO(config={}))
+            await device_registry.update(device.id, DeviceUpdate(config={}))
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
-            await device_registry.update(
-                device.id, DeviceUpdateDTO(driver_id="unknown")
-            )
+            await device_registry.update(device.id, DeviceUpdate(driver_id="unknown"))
 
     @pytest.mark.asyncio
     async def test_update_transport_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
             await device_registry.update(
-                device.id, DeviceUpdateDTO(transport_id="unknown")
+                device.id, DeviceUpdate(transport_id="unknown")
             )
 
     @pytest.mark.asyncio
@@ -429,7 +425,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdateDTO(driver_id=other_http_driver.id),
+            DeviceUpdate(driver_id=other_http_driver.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.driver_id == other_http_driver.id
@@ -453,7 +449,7 @@ class TestDeviceRegistryUpdate:
         with pytest.raises(ValueError):  # noqa: PT011
             await registry.update(
                 device.id,
-                DeviceUpdateDTO(driver_id=driver_w_push_transport.id),
+                DeviceUpdate(driver_id=driver_w_push_transport.id),
             )
 
     @pytest.mark.asyncio
@@ -475,7 +471,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdateDTO(transport_id=second_mock_transport_client.id),
+            DeviceUpdate(transport_id=second_mock_transport_client.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.transport_id == second_mock_transport_client.id
@@ -498,7 +494,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdateDTO(driver_id=other_http_driver.id),
+            DeviceUpdate(driver_id=other_http_driver.id),
         )
         assert isinstance(result, PhysicalDevice)
         assert result.attributes["temperature"].current_value == 42.0
@@ -520,7 +516,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdateDTO(driver_id=other_http_driver.id),
+            DeviceUpdate(driver_id=other_http_driver.id),
         )
         assert registry.get(device.id) is result
         assert result is not device
@@ -549,7 +545,7 @@ class TestDeviceRegistryUpdateVirtual:
     @pytest.mark.asyncio
     async def test_update_virtual_name(self, registry_with_virtual):
         result = await registry_with_virtual.update(
-            "vd1", DeviceUpdateDTO(name="New Name")
+            "vd1", DeviceUpdate(name="New Name")
         )
         assert result.name == "New Name"
 
@@ -557,19 +553,19 @@ class TestDeviceRegistryUpdateVirtual:
     async def test_update_virtual_add_attribute(self, registry_with_virtual):
         result = await registry_with_virtual.update(
             "vd1",
-            DeviceUpdateDTO(
+            DeviceUpdate(
                 attributes=[
-                    AttributeCreateDTO(
+                    AttributeCreate(
                         name="temperature",
                         data_type=DataType.FLOAT,
                         read_write_mode="read",
                     ),
-                    AttributeCreateDTO(
+                    AttributeCreate(
                         name="humidity",
                         data_type=DataType.FLOAT,
                         read_write_mode="read",
                     ),
-                    AttributeCreateDTO(
+                    AttributeCreate(
                         name="pressure",
                         data_type=DataType.FLOAT,
                         read_write_mode="read",
@@ -583,9 +579,9 @@ class TestDeviceRegistryUpdateVirtual:
     async def test_update_virtual_remove_attribute(self, registry_with_virtual):
         result = await registry_with_virtual.update(
             "vd1",
-            DeviceUpdateDTO(
+            DeviceUpdate(
                 attributes=[
-                    AttributeCreateDTO(
+                    AttributeCreate(
                         name="temperature",
                         data_type=DataType.FLOAT,
                         read_write_mode="read",
@@ -600,9 +596,9 @@ class TestDeviceRegistryUpdateVirtual:
         with pytest.raises(InvalidError):
             await registry_with_virtual.update(
                 "vd1",
-                DeviceUpdateDTO(
+                DeviceUpdate(
                     attributes=[
-                        AttributeCreateDTO(
+                        AttributeCreate(
                             name="temperature",
                             data_type=DataType.INT,
                             read_write_mode="read",
@@ -703,10 +699,10 @@ class TestDeviceRegistryPersistence:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        create = VirtualDeviceCreateDTO(
+        create = VirtualDeviceCreate(
             name="V",
             attributes=[
-                AttributeCreateDTO(
+                AttributeCreate(
                     name="x", data_type=DataType.FLOAT, read_write_mode="read"
                 ),
             ],
@@ -747,7 +743,7 @@ class TestDeviceRegistryPersistence:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        await registry.update(device.id, DeviceUpdateDTO(name="New"))
+        await registry.update(device.id, DeviceUpdate(name="New"))
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio

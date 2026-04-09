@@ -4,7 +4,7 @@ from devices_manager.core.driver.update_strategy import (
     DEFAULT_POLLING_INTERVAL,
     DEFAULT_READ_TIMEOUT,
 )
-from devices_manager.dto.driver_dto import DriverDTO
+from devices_manager.dto.driver_dto import DriverSpec
 from devices_manager.types import TransportProtocols
 
 
@@ -33,7 +33,7 @@ def driver_schema_raw():
 
 
 def test_from_dict(driver_schema_raw: dict):
-    dto = DriverDTO.model_validate(driver_schema_raw)
+    dto = DriverSpec.model_validate(driver_schema_raw)
     assert dto.id == "test_driver"
     assert dto.transport == TransportProtocols.HTTP
     assert dto.update_strategy.polling_enabled
@@ -44,7 +44,7 @@ def test_from_dict(driver_schema_raw: dict):
 
 def test_from_dict_empty_update_strategy(driver_schema_raw: dict):
     del driver_schema_raw["update_strategy"]
-    dto = DriverDTO.model_validate(driver_schema_raw)
+    dto = DriverSpec.model_validate(driver_schema_raw)
     assert dto.update_strategy.polling_enabled
     assert dto.update_strategy.polling_interval == DEFAULT_POLLING_INTERVAL
     assert dto.update_strategy.read_timeout == DEFAULT_READ_TIMEOUT

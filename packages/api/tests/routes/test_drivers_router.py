@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from devices_manager import DevicesManagerInterface
-from devices_manager.dto import DriverDTO
+from devices_manager.dto import DriverSpec
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -13,7 +13,7 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 
 _DRIVERS = [
-    DriverDTO.model_validate(
+    DriverSpec.model_validate(
         {
             "id": "test_driver",
             "transport": "http",
@@ -24,7 +24,7 @@ _DRIVERS = [
             ],
         }
     ),
-    DriverDTO.model_validate(
+    DriverSpec.model_validate(
         {
             "id": "test_push_driver",
             "transport": "mqtt",
@@ -48,7 +48,7 @@ def dm() -> MagicMock:
     mock = MagicMock(spec=DevicesManagerInterface)
     mock.list_drivers.return_value = list(_DRIVERS)
 
-    def _get_driver(driver_id: str) -> DriverDTO:
+    def _get_driver(driver_id: str) -> DriverSpec:
         if driver_id not in _DRIVERS_BY_ID:
             raise NotFoundError(f"Driver {driver_id} not found")
         return _DRIVERS_BY_ID[driver_id]

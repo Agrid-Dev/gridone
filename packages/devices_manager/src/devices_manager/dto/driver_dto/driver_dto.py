@@ -11,12 +11,12 @@ from devices_manager.core.driver import (
 )
 from devices_manager.types import TransportProtocols
 
-from .attribute_driver_dto import AttributeDriverDTO
+from .attribute_driver_dto import AttributeDriverSpec
 from .attribute_driver_dto import core_to_dto as attribute_core_to_dto
 from .attribute_driver_dto import dto_to_core as attribute_dto_to_core
 
 
-class DriverDTO(BaseModel):
+class DriverSpec(BaseModel):
     id: Annotated[str, Field(min_length=1)]
     vendor: str | None = None
     model: str | None = None
@@ -25,22 +25,22 @@ class DriverDTO(BaseModel):
     env: Annotated[dict, Field(default_factory=dict)]
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config: list[DeviceConfigField]
-    attributes: list[AttributeDriverDTO]
+    attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
     type: str | None = None
 
     @classmethod
-    def from_yaml(cls, yaml: str) -> "DriverDTO":
+    def from_yaml(cls, yaml: str) -> "DriverSpec":
         data = pyyaml.safe_load(yaml)
         return cls.model_validate(data)
 
 
-class DriverYamlDTO(BaseModel):
+class DriverYaml(BaseModel):
     yaml: str
 
 
-def core_to_dto(driver: Driver) -> DriverDTO:
-    return DriverDTO(
+def core_to_dto(driver: Driver) -> DriverSpec:
+    return DriverSpec(
         id=driver.metadata.id,
         vendor=driver.metadata.vendor,
         model=driver.metadata.model,
@@ -57,7 +57,7 @@ def core_to_dto(driver: Driver) -> DriverDTO:
     )
 
 
-def dto_to_core(dto: DriverDTO) -> Driver:
+def dto_to_core(dto: DriverSpec) -> Driver:
     return Driver(
         metadata=DriverMetadata.model_validate(dto.model_dump()),
         transport=dto.transport,

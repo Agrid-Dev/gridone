@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from devices_manager import DevicesManagerInterface, DiscoveryManagerInterface
-from devices_manager.dto import DriverDTO, build_transport_dto
+from devices_manager.dto import DriverSpec, build_transport
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -12,7 +12,7 @@ from models.errors import NotFoundError
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.routes.discovery_router import get_transport_id, router
 
-_MQTT_DRIVER = DriverDTO.model_validate(
+_MQTT_DRIVER = DriverSpec.model_validate(
     {
         "id": "test_push_driver",
         "transport": "mqtt",
@@ -28,7 +28,7 @@ _MQTT_DRIVER = DriverDTO.model_validate(
     }
 )
 
-_MQTT_TRANSPORT = build_transport_dto(
+_MQTT_TRANSPORT = build_transport(
     "my-mqtt", "My mqtt", TransportProtocols.MQTT, {"host": "localhost"}
 )
 

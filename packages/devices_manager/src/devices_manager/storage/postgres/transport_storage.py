@@ -8,7 +8,7 @@ from devices_manager.core.transports import (
 )
 from devices_manager.dto.transport_dto import (
     DEFAULT_CONNECTION_STATE,
-    TransportDTO,
+    Transport,
     build_dto,
 )
 from devices_manager.storage.storage_backend import StorageBackend
@@ -17,12 +17,12 @@ if TYPE_CHECKING:
     import asyncpg
 
 
-class PostgresTransportStorage(StorageBackend[TransportDTO]):
+class PostgresTransportStorage(StorageBackend[Transport]):
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     @staticmethod
-    def _row_to_dto(row: asyncpg.Record) -> TransportDTO:
+    def _row_to_dto(row: asyncpg.Record) -> Transport:
         raw_state = row["connection_state"]
         connection_state = (
             TransportConnectionState(
@@ -40,7 +40,7 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
             connection_state=connection_state,
         )
 
-    async def read(self, item_id: str) -> TransportDTO:
+    async def read(self, item_id: str) -> Transport:
         row = await self._pool.fetchrow(
             "SELECT id, name, protocol, config, connection_state "
             "FROM dm_transports WHERE id = $1",
@@ -51,7 +51,7 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
             raise FileNotFoundError(msg)
         return self._row_to_dto(row)
 
-    async def write(self, item_id: str, data: TransportDTO) -> None:
+    async def write(self, item_id: str, data: Transport) -> None:
         dumped = data.model_dump(mode="json")
         await self._pool.execute(
             "INSERT INTO dm_transports "
@@ -68,7 +68,7 @@ class PostgresTransportStorage(StorageBackend[TransportDTO]):
             dumped.get("connection_state", {}),
         )
 
-    async def read_all(self) -> list[TransportDTO]:
+    async def read_all(self) -> list[Transport]:
         rows = await self._pool.fetch(
             "SELECT id, name, protocol, config, connection_state "
             "FROM dm_transports ORDER BY id",

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from devices_manager.core.device import Attribute
-from devices_manager.dto import DeviceDTO
+from devices_manager.dto import Device
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import DataType, DeviceKind
 
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 def _make_device(
     device_id: str = "dev1",
     attributes: dict[str, Attribute] | None = None,
-) -> DeviceDTO:
-    return DeviceDTO(
+) -> Device:
+    return Device(
         id=device_id,
         kind=DeviceKind.VIRTUAL,
         name="Test Device",

@@ -14,11 +14,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeUpdateCallback = Callable[["Device", str, Attribute], None]
+AttributeUpdateCallback = Callable[["CoreDevice", str, Attribute], None]
 
 
 @dataclass(kw_only=True)
-class Device(ABC):
+class CoreDevice(ABC):
     id: str
     name: str
     attributes: dict[str, Attribute]

@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from devices_manager import DevicesManagerInterface
-from devices_manager.dto import TransportDTO, build_transport_dto
+from devices_manager.dto import Transport, build_transport
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -14,17 +14,17 @@ from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.transports_router import router
 
-_HTTP = build_transport_dto("my-http", "My Http client", TransportProtocols.HTTP, {})
-_MQTT = build_transport_dto(
+_HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
+_MQTT = build_transport(
     "my-mqtt",
     "My mqtt broker",
     TransportProtocols.MQTT,
     {"host": "localhost"},
 )
-_TRANSPORTS_BY_ID: dict[str, TransportDTO] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
+_TRANSPORTS_BY_ID: dict[str, Transport] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
 
 
-def _get_transport(transport_id: str) -> TransportDTO:
+def _get_transport(transport_id: str) -> Transport:
     if transport_id not in _TRANSPORTS_BY_ID:
         raise NotFoundError(f"Transport {transport_id} not found")
     return _TRANSPORTS_BY_ID[transport_id]
@@ -36,7 +36,7 @@ def dm() -> MagicMock:
     mock.list_transports.return_value = list(_TRANSPORTS_BY_ID.values())
     mock.get_transport.side_effect = _get_transport
     mock.add_transport = AsyncMock(
-        side_effect=lambda payload: build_transport_dto(
+        side_effect=lambda payload: build_transport(
             "new-id", payload.name, payload.protocol, payload.config
         )
     )
@@ -119,7 +119,7 @@ class TestUpdateTransport:
         self, async_client: AsyncClient, dm: MagicMock
     ):
         dm.update_transport.side_effect = ValidationError.from_exception_data(
-            "TransportUpdateDTO", []
+            "TransportUpdate", []
         )
         async with async_client as ac:
             response = await ac.patch("/my-mqtt", json={"config": {"port": "abc"}})

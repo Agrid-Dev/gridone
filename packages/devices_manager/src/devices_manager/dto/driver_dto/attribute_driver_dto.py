@@ -11,7 +11,7 @@ from devices_manager.core.value_adapters.factory import (
 from devices_manager.types import DataType
 
 
-class AttributeDriverDTO(BaseModel):
+class AttributeDriverSpec(BaseModel):
     name: str  # core side - the target attribute name
     data_type: DataType
     read: RawTransportAddress
@@ -44,8 +44,8 @@ class AttributeDriverDTO(BaseModel):
         return data
 
 
-def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
-    return AttributeDriverDTO(
+def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverSpec:
+    return AttributeDriverSpec(
         name=attribute_driver.name,
         data_type=attribute_driver.data_type,
         read=attribute_driver.read,
@@ -54,7 +54,7 @@ def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverDTO:
     )
 
 
-def dto_to_core(dto: AttributeDriverDTO) -> AttributeDriver:
+def dto_to_core(dto: AttributeDriverSpec) -> AttributeDriver:
     return AttributeDriver(
         name=dto.name,
         data_type=dto.data_type,

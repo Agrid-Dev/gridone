@@ -9,7 +9,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
-from devices_manager.dto.transport_dto import MqttTransportDTO, core_to_dto, dto_to_core
+from devices_manager.dto.transport_dto import MqttTransport, core_to_dto, dto_to_core
 from devices_manager.types import TransportProtocols
 
 
@@ -29,7 +29,7 @@ def test_core_to_dto(mock_metadata):
 
 
 def test_dto_to_core(mock_metadata):
-    dto = MqttTransportDTO(
+    dto = MqttTransport(
         id=mock_metadata.id,
         name=mock_metadata.name,
         protocol=TransportProtocols.MQTT,

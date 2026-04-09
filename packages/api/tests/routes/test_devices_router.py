@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
-from devices_manager.dto.device_dto import DeviceDTO
+from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -26,7 +26,7 @@ from api.routes.devices_router import router
 # Shared device fixtures
 # ---------------------------------------------------------------------------
 
-_PHYSICAL_DEVICE = DeviceDTO(
+_PHYSICAL_DEVICE = Device(
     id="device1",
     kind=DeviceKind.PHYSICAL,
     name="My device",
@@ -41,7 +41,7 @@ _PHYSICAL_DEVICE = DeviceDTO(
     transport_id="my-http",
 )
 
-_VIRTUAL_DEVICE = DeviceDTO(
+_VIRTUAL_DEVICE = Device(
     id="vd1",
     kind=DeviceKind.VIRTUAL,
     name="My Virtual Sensor",
@@ -51,7 +51,7 @@ _VIRTUAL_DEVICE = DeviceDTO(
     },
 )
 
-_VIRTUAL_TYPED = DeviceDTO(
+_VIRTUAL_TYPED = Device(
     id="vd2",
     kind=DeviceKind.VIRTUAL,
     name="Virtual Thermostat",
@@ -63,7 +63,7 @@ _VIRTUAL_TYPED = DeviceDTO(
 
 
 def _make_dm(
-    devices: list[DeviceDTO] | None = None,
+    devices: list[Device] | None = None,
 ) -> MagicMock:
     all_devices = {d.id: d for d in (devices or [_PHYSICAL_DEVICE])}
 
@@ -72,7 +72,7 @@ def _make_dm(
         d for d in all_devices.values() if device_type is None or d.type == device_type
     ]
 
-    def _get_device(device_id: str) -> DeviceDTO:
+    def _get_device(device_id: str) -> Device:
         if device_id not in all_devices:
             raise NotFoundError(f"Device {device_id} not found")
         return all_devices[device_id]
@@ -80,7 +80,7 @@ def _make_dm(
     mock.get_device.side_effect = _get_device
     mock.device_ids = set(all_devices.keys())
     mock.add_device = AsyncMock(
-        return_value=DeviceDTO(id="new-id", name="new", kind=DeviceKind.PHYSICAL)
+        return_value=Device(id="new-id", name="new", kind=DeviceKind.PHYSICAL)
     )
     mock.update_device = AsyncMock(return_value=_PHYSICAL_DEVICE)
     mock.delete_device = AsyncMock()
@@ -461,7 +461,7 @@ class TestVirtualDeviceCreate:
     async def test_ok_returns_201(
         self, virtual_async_client: AsyncClient, dm_with_virtual: MagicMock
     ):
-        dm_with_virtual.add_device.return_value = DeviceDTO(
+        dm_with_virtual.add_device.return_value = Device(
             id="new-vd",
             kind=DeviceKind.VIRTUAL,
             name="New Sensor",
@@ -521,7 +521,7 @@ class TestVirtualDeviceRead:
 
 class TestVirtualDeviceUpdate:
     def test_ok(self, virtual_client: TestClient, dm_with_virtual: MagicMock):
-        dm_with_virtual.update_device.return_value = DeviceDTO(
+        dm_with_virtual.update_device.return_value = Device(
             id="vd1", kind=DeviceKind.VIRTUAL, name="Renamed"
         )
         response = virtual_client.patch("/vd1", json={"name": "Renamed"})

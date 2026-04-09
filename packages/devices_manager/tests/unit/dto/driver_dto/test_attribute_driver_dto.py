@@ -1,7 +1,7 @@
 import pytest
 
 from devices_manager.dto.driver_dto.attribute_driver_dto import (
-    AttributeDriverDTO,
+    AttributeDriverSpec,
     RawTransportAddress,
 )
 from devices_manager.types import DataType
@@ -14,7 +14,7 @@ def test_attribute_schema_from_dict() -> None:
         "read": "GET {base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
         "json_pointer": "/current_weather/temperature",
     }
-    attribute_dto = AttributeDriverDTO.model_validate(data)
+    attribute_dto = AttributeDriverSpec.model_validate(data)
     assert attribute_dto.name == "temperature"
     assert attribute_dto.data_type == DataType.FLOAT
     assert attribute_dto.value_adapters is not None
@@ -57,6 +57,6 @@ def test_attribute_schema_read_write_addresses(
         "data_type": "float",
         "json_pointer": "/current_weather/temperature",
     }
-    attribute_to = AttributeDriverDTO.model_validate({**base_data, **addresses})
+    attribute_to = AttributeDriverSpec.model_validate({**base_data, **addresses})
     assert attribute_to.read == expected_read
     assert attribute_to.write == expected_write

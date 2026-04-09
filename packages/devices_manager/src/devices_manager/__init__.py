@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from .core.device import Attribute, Device, DeviceBase, PhysicalDevice, VirtualDevice
+from .core.device import (
+    Attribute,
+    CoreDevice,
+    DeviceBase,
+    PhysicalDevice,
+    VirtualDevice,
+)
 from .core.device_registry import DeviceRegistry
 from .core.driver import Driver
 from .interface import (
@@ -12,7 +18,7 @@ from .main import DevicesManager
 
 __all__ = [
     "Attribute",
-    "Device",
+    "CoreDevice",
     "DeviceBase",
     "DeviceRegistry",
     "DeviceRegistryInterface",
