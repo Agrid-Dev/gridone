@@ -88,9 +88,15 @@ write:
 
 ### MQTT
 
-Both read and write addresses are objects. `topic` is the topic to subscribe to or publish on. The `request` field triggers a message before reading, or sends an update when writing.
+Read and write addresses each have a `topic` to subscribe to or publish on.
 
-Read address:
+**Read — listen-only** (string): subscribe to a topic and consume whatever arrives, no outgoing trigger.
+
+```yaml
+read: agrid/${device_id}/snapshot
+```
+
+**Read — with request trigger** (object): subscribe to `topic` and publish a trigger message on `request.topic` before waiting for a response.
 
 ```yaml
 read:
@@ -101,15 +107,13 @@ read:
       input: request
 ```
 
-Write address:
+**Write**: publish `message` to `topic`.
 
 ```yaml
 write:
   topic: agrid/${device_id}/set/setpoint
-  request:
-    topic: agrid/${device_id}/set/setpoint
-    message:
-      value: ${value}
+  message:
+    value: ${value}
 ```
 
 ---
@@ -165,4 +169,20 @@ read:
   object_type: analog-value
   object_instance: 4
   property_name: present-value
+```
+
+---
+
+### KNX
+
+The address is a KNX group address string in three-level notation (`main/middle/sub`). Supports `${key}` templating from `device_config`.
+
+On write, no payload is configured in the address — the value is sent as a KNX telegram encoded by the `knx_dpt` adapter.
+
+```yaml
+read: "${ga_main}/${ga_middle}/4"        # listen-only
+read_write: "${ga_main}/${ga_middle}/1"  # read and write
+
+read:
+  topic: "${ga_main}/${ga_middle}/4"     # object form
 ```
