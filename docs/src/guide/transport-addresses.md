@@ -177,11 +177,11 @@ read:
 
 The address is a KNX group address string in three-level notation (`main/middle/sub`). Supports `${key}` templating from `device_config`.
 
-On write, no payload is configured in the address — the value is sent as a KNX telegram encoded by the `knx_dpt` adapter.
+Unlike MQTT, there is no `request` field. A `GroupValueRead` telegram is always sent automatically on every read — no configuration is needed. On write, a `GroupValueWrite` telegram is sent with no payload configured in the address.
 
 ```yaml
-read: "${ga_main}/${ga_middle}/4"        # listen-only
-read_write: "${ga_main}/${ga_middle}/1"  # read and write
+read: "${ga_main}/${ga_middle}/4"
+read_write: "${ga_main}/${ga_middle}/1"
 
 read:
   topic: "${ga_main}/${ga_middle}/4"     # object form

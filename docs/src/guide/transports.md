@@ -85,7 +85,7 @@ BACnet creates a local BACnet/IP application bound to the specified network inte
 
 ### KNX
 
-KNX uses the KNX/IP tunneling protocol to communicate with a KNX/IP gateway. It is push-based: on connect, a background listener dispatches incoming telegrams to registered attribute listeners. Any telegram received on a group address registered to an attribute — including unsolicited `GroupValueWrite` telegrams from other KNX devices — is dispatched to that attribute's listeners.
+KNX uses the KNX/IP tunneling protocol to communicate with a KNX/IP gateway. It is push-based: on connect, a background listener processes all incoming telegrams. Any `GroupValueResponse` or `GroupValueWrite` received on a registered group address is immediately dispatched and updates the corresponding attribute value.
 
 **Read flow** — sends a `GroupValueRead` telegram to the group address and awaits a `GroupValueResponse`. If no response is received within **5 seconds**, the read times out.
 
