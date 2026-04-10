@@ -29,6 +29,7 @@ A **non-reversible** adapter only implements decode. It is skipped on write (fal
 | `json_pointer` | no |
 | `json_path` | no |
 | `slice` | no |
+| `knx_dpt` | yes |
 
 ---
 
@@ -229,6 +230,30 @@ slice: "0:4"
 |---|---|---|
 | `b'\x41\xAC\x00\x00\xFF\xFF'` | `"0:4"` | `b'\x41\xAC\x00\x00'` |
 | `[10, 20, 30, 40]` | `"1:3"` | `[20, 30]` |
+
+---
+
+### `knx_dpt`
+
+Decodes a raw KNX wire value using a KNX Datapoint Type. Only applicable with `transport: knx`.
+
+| | |
+|---|---|
+| Argument | DPT identifier — `"main.sub"` notation (e.g. `"9.001"`) |
+| Input | `bool` (1-bit DPTs) or `list[int]` (multi-byte DPTs) |
+| Output | typed value (`float`, `int`, `bool`, …) |
+| Reversible | yes |
+
+```yaml
+knx_dpt: "9.001"  # (e.g. "1.001", "20.102", "5.001")
+```
+
+**Decode / encode examples:**
+
+| DPT | Input | Decoded | Encoded back |
+|---|---|---|---|
+| `1.001` | `true` | `true` | `true` |
+| `9.001` | `[0x0F, 0xE8]` | `20.0` | `[0x0F, 0xE8]` |
 
 ---
 
