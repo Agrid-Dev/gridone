@@ -43,7 +43,7 @@ MQTT maintains a persistent connection to a broker. It is push-based: on connect
 
 **Read flow** — the transport publishes a request message to `request.topic`, subscribes to the response `topic`, and waits up to **10 seconds** for a message to arrive. If no message is received within that window, the read times out. The `request` field in the transport address controls what is published and where.
 
-**Write flow** — the transport publishes a message to `request.topic`, passing in the target value as defined in the write address of the attribute driver.
+**Write flow** — the transport publishes the rendered `message` to `topic` as defined in the write address.
 
 | Field | Required | Default | Description |
 |---|---|---|---|
@@ -80,4 +80,29 @@ BACnet creates a local BACnet/IP application bound to the specified network inte
 | `read_property_timeout` | no | `5.0` | Timeout in seconds for read operations |
 | `write_property_timeout` | no | `5.0` | Timeout in seconds for write operations |
 | `default_write_priority` | no | `8` | Default BACnet write priority (`5`–`16`) used when no priority is specified in the address |
+
+---
+
+### KNX
+
+KNX uses the KNX/IP tunneling protocol to communicate with a KNX/IP gateway. It is push-based: on connect, a background listener processes all incoming telegrams. Any `GroupValueResponse` or `GroupValueWrite` received on a registered group address is immediately dispatched and updates the corresponding attribute value.
+
+**Read flow** — sends a `GroupValueRead` telegram to the group address and awaits a `GroupValueResponse`. If no response is received within **5 seconds**, the read times out.
+
+**Write flow** — sends a `GroupValueWrite` telegram to the group address.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `gateway_ip` | yes | — | Hostname or IP address of the KNX/IP gateway (no protocol prefix) |
+| `port` | no | `3671` | UDP or TCP port of the KNX/IP gateway |
+| `tunneling_mode` | no | `"udp"` | Tunneling transport: `"udp"` or `"tcp"` |
+| `secure_credentials` | no | — | KNX Secure credentials — if set, always uses TCP Secure regardless of `tunneling_mode` |
+
+**`secure_credentials` fields:**
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `device_authentication_password` | yes | — | KNX Secure device authentication password |
+| `user_password` | yes | — | KNX Secure user password |
+| `user_id` | no | `2` | KNX Secure user ID |
 
