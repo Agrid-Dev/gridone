@@ -1300,7 +1300,7 @@
                 <div class="gd-problem__icon">&#x1f500;</div>
                 <h3 class="gd-problem__title">Protocol fragmentation</h3>
                 <p class="gd-problem__desc">
-                    BACnet, Modbus, MQTT, HTTP &mdash; each requires a
+                    BACnet, Modbus, MQTT, HTTP, KNX &mdash; each requires a
                     completely different integration stack. The glue code keeps
                     growing, project after project.
                 </p>
@@ -1396,6 +1396,9 @@
                         </button>
                         <button class="gd-tab" data-tab="mqtt" role="tab">
                             MQTT
+                        </button>
+                        <button class="gd-tab" data-tab="knx" role="tab">
+                            KNX
                         </button>
                     </div>
 
@@ -1561,6 +1564,43 @@
         <span class="k">message:</span>
           <span class="k">value:</span> <span class="v">${value}</span>
     <span class="k">json_pointer:</span> <span class="s">/temperature_setpoint</span></pre>
+                    </div>
+
+                    <div class="gd-tab-panel" data-panel="knx">
+                        <pre
+                            class="gd-driver-block"
+                        ><span class="k">id:</span> <span class="v">thermocktat_knx</span>
+<span class="k">transport:</span> <span class="v">knx</span>
+<span class="k">type:</span> <span class="v">thermostat</span>
+
+<span class="k">device_config:</span>
+  - <span class="k">name:</span> <span class="v">ga_main</span>
+  - <span class="k">name:</span> <span class="v">ga_middle</span>
+
+<span class="k">attributes:</span>
+  - <span class="k">name:</span> <span class="v">temperature</span>
+    <span class="k">data_type:</span> <span class="v">float</span>
+    <span class="k">read:</span> <span class="s">"${ga_main}/${ga_middle}/4"</span>
+    <span class="k">knx_dpt:</span> <span class="s">"9.001"</span>
+
+  - <span class="k">name:</span> <span class="v">temperature_setpoint</span>
+    <span class="k">data_type:</span> <span class="v">float</span>
+    <span class="k">read_write:</span> <span class="s">"${ga_main}/${ga_middle}/1"</span>
+    <span class="k">knx_dpt:</span> <span class="s">"9.001"</span>
+
+  - <span class="k">name:</span> <span class="v">onoff_state</span>
+    <span class="k">data_type:</span> <span class="v">bool</span>
+    <span class="k">read_write:</span> <span class="s">"${ga_main}/${ga_middle}/0"</span>
+    <span class="k">knx_dpt:</span> <span class="s">"1.001"</span>
+
+  - <span class="k">name:</span> <span class="v">mode</span>
+    <span class="k">data_type:</span> <span class="v">str</span>
+    <span class="k">read_write:</span> <span class="s">"${ga_main}/${ga_middle}/5"</span>
+    <span class="k">value_adapters:</span>
+      - <span class="k">adapter:</span> <span class="v">knx_dpt</span>
+        <span class="k">argument:</span> <span class="s">"5.010"</span>
+      - <span class="k">adapter:</span> <span class="v">mapping</span>
+        <span class="k">argument:</span> {<span class="v">1</span>: <span class="s">heat</span>, <span class="v">2</span>: <span class="s">cool</span>, <span class="v">3</span>: <span class="s">fan</span>, <span class="v">4</span>: <span class="s">auto</span>}</pre>
                     </div>
                 </div>
             </div>
