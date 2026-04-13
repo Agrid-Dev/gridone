@@ -16,15 +16,15 @@ def identity(x: Any) -> Any:  # noqa: ANN401
 
 
 @runtime_checkable
-class Adapter(Protocol[InT, OutT]):
+class Codec(Protocol[InT, OutT]):
     def decode(self, value: InT) -> OutT: ...
     def encode(self, value: OutT) -> InT: ...
 
-    def __add__(self, other: Adapter[OutT, MidT]) -> Adapter[InT, MidT]: ...
+    def __add__(self, other: Codec[OutT, MidT]) -> Codec[InT, MidT]: ...
 
 
 @dataclass(frozen=True, slots=True)
-class FnAdapter(Adapter[InT, OutT]):
+class FnCodec(Codec[InT, OutT]):
     decoder: Callable[[InT], OutT]
     encoder: Callable[[OutT], InT] = identity
 
@@ -34,11 +34,11 @@ class FnAdapter(Adapter[InT, OutT]):
     def encode(self, value: OutT) -> InT:
         return self.encoder(value)
 
-    def __add__(self, other: Adapter[OutT, MidT]) -> FnAdapter[InT, MidT]:
+    def __add__(self, other: Codec[OutT, MidT]) -> FnCodec[InT, MidT]:
         def chained_decode(v: InT) -> MidT:
             return other.decode(self.decode(v))
 
         def chained_encode(v: MidT) -> InT:
             return self.encode(other.encode(v))
 
-        return FnAdapter(decoder=chained_decode, encoder=chained_encode)
+        return FnCodec(decoder=chained_decode, encoder=chained_encode)

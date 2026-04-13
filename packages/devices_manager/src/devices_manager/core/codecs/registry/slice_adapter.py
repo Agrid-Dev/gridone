@@ -1,4 +1,4 @@
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 from models.errors import InvalidError
 
 
@@ -10,7 +10,7 @@ def _parse_slice_string(argument: str) -> slice:
     return slice(*[int(p) if p else None for p in stripped_arg.split(":")])
 
 
-def slice_adapter(argument: str) -> FnAdapter:
+def slice_adapter(argument: str) -> FnCodec:
     try:
         s = _parse_slice_string(argument)
     except Exception as e:
@@ -20,4 +20,4 @@ def slice_adapter(argument: str) -> FnAdapter:
         )
         raise InvalidError(msg) from e
 
-    return FnAdapter(decoder=lambda value: value[s])
+    return FnCodec(decoder=lambda value: value[s])

@@ -2,9 +2,9 @@ import base64
 
 import pytest
 
-from devices_manager.core.value_adapters.factory import value_adapter_entries
-from devices_manager.core.value_adapters.registry.base64_adapter import base64_adapter
-from devices_manager.core.value_adapters.registry.json_pointer_adapter import (
+from devices_manager.core.codecs.factory import codec_entries
+from devices_manager.core.codecs.registry.base64_adapter import base64_adapter
+from devices_manager.core.codecs.registry.json_pointer_adapter import (
     json_pointer_adapter,
 )
 
@@ -26,8 +26,8 @@ def test_chained_with_json_pointer() -> None:
 
 
 def test_factory_key_exists() -> None:
-    assert "base64" in value_adapter_entries
+    assert "base64" in codec_entries
 
 
 def test_factory_builds_adapter() -> None:
-    assert value_adapter_entries["base64"].builder is base64_adapter
+    assert codec_entries["base64"].builder is base64_adapter

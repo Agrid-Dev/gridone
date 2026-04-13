@@ -1,12 +1,12 @@
+from devices_manager.core.codecs.fn_codec import FnCodec
 from devices_manager.core.utils.cast.bool import cast_as_bool
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
 
 SUPPORTED_FORMAT = "0/1"
 
 
-def bool_format_adapter(raw: str) -> FnAdapter[int, bool]:
+def bool_format_adapter(raw: str) -> FnCodec[int, bool]:
     if raw != SUPPORTED_FORMAT:
         msg = f"Unsupported bool format: {raw}"
         raise ValueError(msg)
 
-    return FnAdapter(decoder=cast_as_bool, encoder=int)  # ty: ignore[invalid-return-type]
+    return FnCodec(decoder=cast_as_bool, encoder=int)  # ty: ignore[invalid-return-type]

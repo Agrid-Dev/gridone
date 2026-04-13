@@ -7,10 +7,10 @@ from xknx.dpt import DPTBase
 from xknx.dpt.payload import DPTArray
 from xknx.dpt.payload import DPTBinary as DPTBinaryPayload
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 
 
-def knx_dpt_adapter(dpt_id: str) -> FnAdapter[bool | list[int], Any]:
+def knx_dpt_adapter(dpt_id: str) -> FnCodec[bool | list[int], Any]:
     """Decode/encode KNX wire values via xknx DPT classes.
 
     ``dpt_id``: e.g. ``"9.001"`` or ``"9.1"`` (both forms accepted).
@@ -36,4 +36,4 @@ def knx_dpt_adapter(dpt_id: str) -> FnAdapter[bool | list[int], Any]:
             return bool(payload.value)
         return list(payload.value)  # list[int]
 
-    return FnAdapter(decoder=decode, encoder=encode)
+    return FnCodec(decoder=decode, encoder=encode)

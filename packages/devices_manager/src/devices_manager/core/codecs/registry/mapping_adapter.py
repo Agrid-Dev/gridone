@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 
 
 def _coerce(value: str) -> int | float | str:
@@ -15,7 +15,7 @@ def _coerce(value: str) -> int | float | str:
     return value
 
 
-def _build(raw_mapping: dict[str, Any]) -> FnAdapter[Any, Any]:
+def _build(raw_mapping: dict[str, Any]) -> FnCodec[Any, Any]:
     forward: dict[str, Any] = {str(k): v for k, v in raw_mapping.items()}
 
     reverse: dict[str, str] = {}
@@ -40,10 +40,10 @@ def _build(raw_mapping: dict[str, Any]) -> FnAdapter[Any, Any]:
             msg = f"No reverse mapping found for internal value: {value!r}"
             raise ValueError(msg) from None
 
-    return FnAdapter(decoder=decode, encoder=encode)
+    return FnCodec(decoder=decode, encoder=encode)
 
 
-def mapping_adapter(raw: str | dict[Any, Any]) -> FnAdapter[Any, Any]:
+def mapping_adapter(raw: str | dict[Any, Any]) -> FnCodec[Any, Any]:
     if isinstance(raw, dict):
         return _build(raw)
 

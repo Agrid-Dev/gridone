@@ -5,13 +5,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager.core import Driver, TransportClient
+from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
     UpdateStrategy,
 )
-from devices_manager.core.value_adapters.factory import ValueAdapterSpec
 from devices_manager.types import DataType, TransportProtocols
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -207,8 +207,8 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/temperature"},
                     write=None,
-                    value_adapter_specs=[
-                        ValueAdapterSpec(
+                    codec_specs=[
+                        CodecSpec(
                             adapter="json_pointer", argument="/payload/temperature"
                         )
                     ],
@@ -218,10 +218,8 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/humidity"},
                     write=None,
-                    value_adapter_specs=[
-                        ValueAdapterSpec(
-                            adapter="json_pointer", argument="/payload/humidity"
-                        )
+                    codec_specs=[
+                        CodecSpec(adapter="json_pointer", argument="/payload/humidity")
                     ],
                 ),
             },

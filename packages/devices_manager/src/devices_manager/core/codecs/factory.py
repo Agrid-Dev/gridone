@@ -5,7 +5,7 @@ from pydantic import BaseModel, BeforeValidator
 
 from models.errors import InvalidError
 
-from .fn_adapter import FnAdapter
+from .fn_codec import FnCodec
 from .registry.base64_adapter import base64_adapter
 from .registry.bool_format_adapter import bool_format_adapter
 from .registry.byte_convert_adapter import byte_convert_adapter
@@ -23,73 +23,73 @@ RawArg = str | int | float | dict[Any, Any]
 
 
 @dataclass(frozen=True, slots=True)
-class AdapterEntry:
-    builder: Any  # Callable[[arg_type], FnAdapter]
+class CodecEntry:
+    builder: Any  # Callable[[arg_type], FnCodec]
     arg_type: type | tuple[type, ...]
 
 
-value_adapter_entries: dict[str, AdapterEntry] = {
-    "identity": AdapterEntry(builder=identity_adapter, arg_type=RawArgTypes),
-    "scale": AdapterEntry(builder=scale_adapter, arg_type=(int, float)),
-    "json_pointer": AdapterEntry(builder=json_pointer_adapter, arg_type=str),
-    "json_path": AdapterEntry(builder=json_path_adapter, arg_type=str),
-    "bool_format": AdapterEntry(builder=bool_format_adapter, arg_type=str),
-    "byte_convert": AdapterEntry(builder=byte_convert_adapter, arg_type=str),
-    "base64": AdapterEntry(builder=base64_adapter, arg_type=str),
-    "byte_frame": AdapterEntry(builder=byte_frame_adapter, arg_type=str),
-    "slice": AdapterEntry(builder=slice_adapter, arg_type=str),
-    "mapping": AdapterEntry(builder=mapping_adapter, arg_type=dict),
-    "knx_dpt": AdapterEntry(builder=knx_dpt_adapter, arg_type=str),
+codec_entries: dict[str, CodecEntry] = {
+    "identity": CodecEntry(builder=identity_adapter, arg_type=RawArgTypes),
+    "scale": CodecEntry(builder=scale_adapter, arg_type=(int, float)),
+    "json_pointer": CodecEntry(builder=json_pointer_adapter, arg_type=str),
+    "json_path": CodecEntry(builder=json_path_adapter, arg_type=str),
+    "bool_format": CodecEntry(builder=bool_format_adapter, arg_type=str),
+    "byte_convert": CodecEntry(builder=byte_convert_adapter, arg_type=str),
+    "base64": CodecEntry(builder=base64_adapter, arg_type=str),
+    "byte_frame": CodecEntry(builder=byte_frame_adapter, arg_type=str),
+    "slice": CodecEntry(builder=slice_adapter, arg_type=str),
+    "mapping": CodecEntry(builder=mapping_adapter, arg_type=dict),
+    "knx_dpt": CodecEntry(builder=knx_dpt_adapter, arg_type=str),
 }
 
-supported_value_adapters = list(value_adapter_entries.keys())
+supported_codecs = list(codec_entries.keys())
 
 
-def is_supported(adapter: str) -> str:
-    if adapter in supported_value_adapters:
-        return adapter
-    supported = ", ".join(supported_value_adapters)
-    msg = f"Adapter '{adapter} not supported. Supported adapters: {supported}"
+def is_supported_codec(name: str) -> str:
+    if name in supported_codecs:
+        return name
+    supported = ", ".join(supported_codecs)
+    msg = f"Codec '{name}' is not supported. Supported codecs: {supported}"
     raise InvalidError(msg)
 
 
-class ValueAdapterSpec(BaseModel):
-    adapter: Annotated[str, BeforeValidator(is_supported)]
+class CodecSpec(BaseModel):
+    adapter: Annotated[str, BeforeValidator(is_supported_codec)]
     argument: RawArg
 
 
-def spec_from_raw(raw: dict[str, str]) -> ValueAdapterSpec:
+def codec_spec_from_raw(raw: dict[str, Any]) -> CodecSpec:
     if len(raw) != 1:
-        msg = "One adapter spec exactly needs to be defined"
+        msg = "Exactly one codec entry must be defined per list item"
         raise InvalidError(msg)
-    adpater, argument = next(iter(raw.items()))
-    return ValueAdapterSpec(adapter=adpater, argument=argument)
+    codec_name, argument = next(iter(raw.items()))
+    return CodecSpec(adapter=codec_name, argument=argument)
 
 
-def _build_one_value_adapter(raw_adapter: ValueAdapterSpec) -> FnAdapter:
-    entry = value_adapter_entries.get(raw_adapter.adapter)
+def _build_one_codec(spec: CodecSpec) -> FnCodec:
+    entry = codec_entries.get(spec.adapter)
     if not entry:
-        msg = f"Unknown value adapter: {raw_adapter.adapter}"
+        msg = f"Unknown codec: {spec.adapter}"
         raise InvalidError(msg)
-    if not isinstance(raw_adapter.argument, entry.arg_type):
+    if not isinstance(spec.argument, entry.arg_type):
         expected = (
             entry.arg_type.__name__
             if isinstance(entry.arg_type, type)
             else " | ".join(t.__name__ for t in entry.arg_type)
         )
         msg = (
-            f"Adapter '{raw_adapter.adapter}' expects argument of type {expected}, "
-            f"got {type(raw_adapter.argument).__name__}"
+            f"Codec '{spec.adapter}' expects argument of type {expected}, "
+            f"got {type(spec.argument).__name__}"
         )
         raise InvalidError(msg)
-    return entry.builder(raw_adapter.argument)
+    return entry.builder(spec.argument)
 
 
-def build_value_adapter(raw_adapters: list[ValueAdapterSpec]) -> FnAdapter:
-    if not raw_adapters:
+def build_codec(specs: list[CodecSpec]) -> FnCodec:
+    if not specs:
         return identity_adapter("")
-    built = [_build_one_value_adapter(adapter) for adapter in raw_adapters]
+    built = [_build_one_codec(spec) for spec in specs]
     pipeline = built[0]
-    for adapter in built[1:]:
-        pipeline += adapter
+    for c in built[1:]:
+        pipeline += c
     return pipeline

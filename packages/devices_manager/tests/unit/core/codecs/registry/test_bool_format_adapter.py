@@ -2,15 +2,15 @@ from typing import Any
 
 import pytest
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
-from devices_manager.core.value_adapters.registry.bool_format_adapter import (
+from devices_manager.core.codecs.fn_codec import FnCodec
+from devices_manager.core.codecs.registry.bool_format_adapter import (
     SUPPORTED_FORMAT,
     bool_format_adapter,
 )
 
 
 @pytest.fixture
-def adapter() -> FnAdapter:
+def adapter() -> FnCodec:
     return bool_format_adapter(SUPPORTED_FORMAT)
 
 
@@ -21,7 +21,7 @@ def test_bool_format_parser_invalid_format():
 
 @pytest.mark.parametrize(("raw", "expected"), [(1, True), (0, False)])
 def test_bool_format_parser_valid_input(
-    adapter: FnAdapter, raw: int, expected: bool
+    adapter: FnCodec, raw: int, expected: bool
 ) -> None:
     decoded = adapter.decode(raw)
     assert decoded == expected
@@ -29,6 +29,6 @@ def test_bool_format_parser_valid_input(
 
 
 @pytest.mark.parametrize(("raw"), [(12.5), ("abc"), (None), (-1)])
-def test_bool_format_invalid_input(adapter: FnAdapter, raw: Any) -> None:
+def test_bool_format_invalid_input(adapter: FnCodec, raw: Any) -> None:
     with pytest.raises(TypeError):
         adapter.decode(raw)

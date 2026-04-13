@@ -1,5 +1,5 @@
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 
 
-def scale_adapter(scale: float) -> FnAdapter[float, float]:
-    return FnAdapter(decoder=lambda x: x * scale, encoder=lambda x: x / scale)
+def scale_adapter(scale: float) -> FnCodec[float, float]:
+    return FnCodec(decoder=lambda x: x * scale, encoder=lambda x: x / scale)

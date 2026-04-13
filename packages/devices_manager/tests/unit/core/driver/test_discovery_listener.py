@@ -8,8 +8,8 @@ def listener_raw() -> dict:
     return {
         "topic": "/my/topic",
         "field_getters": [
-            {"name": "vendor_id", "adapters": [{"json_pointer": "/id"}]},
-            {"name": "gateway_id", "adapters": [{"json_pointer": "/gateway_id"}]},
+            {"name": "vendor_id", "codecs": [{"json_pointer": "/id"}]},
+            {"name": "gateway_id", "codecs": [{"json_pointer": "/gateway_id"}]},
         ],
     }
 

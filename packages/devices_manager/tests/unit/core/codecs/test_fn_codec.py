@@ -1,16 +1,16 @@
 import pytest
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
-from devices_manager.core.value_adapters.registry.byte_convert_adapter import (
+from devices_manager.core.codecs.fn_codec import FnCodec
+from devices_manager.core.codecs.registry.byte_convert_adapter import (
     byte_convert_adapter,
 )
-from devices_manager.core.value_adapters.registry.scale_adapter import scale_adapter
-from devices_manager.core.value_adapters.registry.slice_adapter import slice_adapter
+from devices_manager.core.codecs.registry.scale_adapter import scale_adapter
+from devices_manager.core.codecs.registry.slice_adapter import slice_adapter
 
-times_two = FnAdapter[float, float](decoder=lambda x: x * 2, encoder=lambda x: x / 2)
-square = FnAdapter[float, float](decoder=lambda x: x**2, encoder=lambda x: x**0.5)
+times_two = FnCodec[float, float](decoder=lambda x: x * 2, encoder=lambda x: x / 2)
+square = FnCodec[float, float](decoder=lambda x: x**2, encoder=lambda x: x**0.5)
 
-plus_one_one_way = FnAdapter[float, float](decoder=lambda x: x + 1)
+plus_one_one_way = FnCodec[float, float](decoder=lambda x: x + 1)
 
 
 def test_add_fn_adapter():

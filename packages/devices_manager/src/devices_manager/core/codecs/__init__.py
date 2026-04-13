@@ -1,10 +1,9 @@
-from .factory import ValueAdapterSpec, build_value_adapter
-from .fn_adapter import Adapter, FnAdapter
+from .factory import CodecSpec, build_codec
+from .fn_codec import Codec, FnCodec
 
 __all__ = [
-    "Adapter",
-    "FnAdapter",
-    "ValueAdapterSpec",
-    "ValueAdapterSpecFnAdapter",
-    "build_value_adapter",
+    "Codec",
+    "CodecSpec",
+    "FnCodec",
+    "build_codec",
 ]

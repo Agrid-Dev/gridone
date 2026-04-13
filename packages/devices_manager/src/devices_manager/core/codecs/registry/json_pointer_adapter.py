@@ -2,13 +2,13 @@ import json
 
 from jsonpath import pointer
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 from devices_manager.types import AttributeValueType
 
 
 def json_pointer_adapter(
     json_pointer_str: str,
-) -> FnAdapter[dict | str | bytes, AttributeValueType]:
+) -> FnCodec[dict | str | bytes, AttributeValueType]:
     """
     Retrieve a value from a dict (or a JSON string) using a JSON pointer.
     (RFC 6901 standard)
@@ -20,4 +20,4 @@ def json_pointer_adapter(
             d = json.loads(d)
         return pointer.resolve(json_pointer_str, d)  # ty: ignore[invalid-return-type]
 
-    return FnAdapter(decoder=decode)
+    return FnCodec(decoder=decode)

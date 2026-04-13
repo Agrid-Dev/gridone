@@ -2,7 +2,7 @@ import struct
 from collections.abc import Callable, Sequence
 from functools import partial
 
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 
 # Logical value types produced by decode / accepted by encode.
 ByteConvertOutput = int | float | str | bool
@@ -351,7 +351,7 @@ def _parse_type_spec(type_spec: str) -> tuple[str, str]:
 
 def byte_convert_adapter(
     type_spec: str,
-) -> FnAdapter[ByteConvertInput, ByteConvertOutput]:
+) -> FnCodec[ByteConvertInput, ByteConvertOutput]:
     """Reversible adapter for converting between registers/bytes and typed values.
 
     type_spec examples:
@@ -377,8 +377,8 @@ def byte_convert_adapter(
     if endian == "big_endian":
         big_endian_decoder = decoder
         big_endian_encoder = encoder
-        return FnAdapter(decoder=big_endian_decoder, encoder=big_endian_encoder)  # ty: ignore[invalid-argument-type]
+        return FnCodec(decoder=big_endian_decoder, encoder=big_endian_encoder)  # ty: ignore[invalid-argument-type]
 
     little_endian_decoder = partial(_little_endian_decode, decoder)
     little_endian_encoder = partial(_little_endian_encode, encoder)
-    return FnAdapter(decoder=little_endian_decoder, encoder=little_endian_encoder)
+    return FnCodec(decoder=little_endian_decoder, encoder=little_endian_encoder)

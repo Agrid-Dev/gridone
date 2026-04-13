@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from devices_manager.core.value_adapters.registry.mapping_adapter import mapping_adapter
+from devices_manager.core.codecs.registry.mapping_adapter import mapping_adapter
 
 _MODBUS_MODES = {1: "heat", 2: "cool", 3: "fan", 4: "auto"}  # int → str
 _LOCALE = {"chaleur": "heat", "froid": "cool"}  # str → str

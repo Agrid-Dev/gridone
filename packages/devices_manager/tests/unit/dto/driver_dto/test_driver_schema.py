@@ -20,13 +20,13 @@ def driver_schema_raw():
                 "name": "temperature",
                 "data_type": "float",
                 "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
-                "json_pointer": "/current_weather/temperature",
+                "codecs": [{"json_pointer": "/current_weather/temperature"}],
             },
             {
                 "name": "wind_speed",
                 "data_type": "float",
                 "read": "GET ${base_url}/?latitude=${lattitude}&longitude=${longitude}&current_weather=true",  # noqa: E501
-                "json_pointer": "/current_weather/wind_speed",
+                "codecs": [{"json_pointer": "/current_weather/wind_speed"}],
             },
         ],
     }

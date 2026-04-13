@@ -1,6 +1,6 @@
 import pytest
 
-from devices_manager.core.value_adapters.registry.identity_adapter import (
+from devices_manager.core.codecs.registry.identity_adapter import (
     identity_adapter,
 )
 from devices_manager.types import AttributeValueType

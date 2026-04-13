@@ -2,13 +2,11 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, model_validator
 
+from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
 from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.transports import RawTransportAddress
-from devices_manager.core.value_adapters.factory import (
-    ValueAdapterSpec,
-    supported_value_adapters,
-)
 from devices_manager.types import DataType
+from models.errors import InvalidError
 
 
 class AttributeDriverSpec(BaseModel):
@@ -16,7 +14,7 @@ class AttributeDriverSpec(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
-    value_adapters: Annotated[list[ValueAdapterSpec], Field(default_factory=list)]
+    codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
 
     @model_validator(mode="before")
     @classmethod
@@ -33,14 +31,35 @@ class AttributeDriverSpec(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def parse_value_adapter_specs(cls, data: dict) -> dict:
-        if data.get("value_adapters"):
+    def parse_codec_specs(cls, data: Any) -> Any:  # noqa: ANN401
+        if not isinstance(data, dict):
             return data
-        value_adapters = []
-        for key, val in data.items():
-            if key in supported_value_adapters:
-                value_adapters.append({"adapter": key, "argument": val})
-        data["value_adapters"] = value_adapters
+        raw_codecs = data.get("codecs")
+        if raw_codecs is None:
+            data["codecs"] = []
+            return data
+        if not isinstance(raw_codecs, list):
+            msg = "Field 'codecs' must be a list"
+            raise InvalidError(msg)
+        parsed: list[CodecSpec] = []
+        for item in raw_codecs:
+            if isinstance(item, CodecSpec):
+                parsed.append(item)
+                continue
+            if not isinstance(item, dict):
+                msg = "Each codecs entry must be an object or CodecSpec"
+                raise InvalidError(msg)
+            if set(item.keys()) == {"adapter", "argument"}:
+                parsed.append(CodecSpec.model_validate(item))
+            elif len(item) == 1:
+                parsed.append(codec_spec_from_raw(item))
+            else:
+                msg = (
+                    "Each codecs entry must be a single-key object "
+                    "(e.g. {json_pointer: /path}) or {adapter, argument}"
+                )
+                raise InvalidError(msg)
+        data["codecs"] = parsed
         return data
 
 
@@ -50,7 +69,7 @@ def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverSpec:
         data_type=attribute_driver.data_type,
         read=attribute_driver.read,
         write=attribute_driver.write,
-        value_adapters=attribute_driver.value_adapter_specs,
+        codecs=attribute_driver.codec_specs,
     )
 
 
@@ -60,5 +79,5 @@ def dto_to_core(dto: AttributeDriverSpec) -> AttributeDriver:
         data_type=dto.data_type,
         read=dto.read,
         write=dto.write,
-        value_adapter_specs=dto.value_adapters,
+        codec_specs=dto.codecs,
     )

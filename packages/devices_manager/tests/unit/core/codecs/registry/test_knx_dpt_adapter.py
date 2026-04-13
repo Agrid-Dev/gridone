@@ -1,6 +1,6 @@
 import pytest
 
-from devices_manager.core.value_adapters.registry.knx_dpt_adapter import knx_dpt_adapter
+from devices_manager.core.codecs.registry.knx_dpt_adapter import knx_dpt_adapter
 
 # (dpt_id, wire_value, decoded_value) — used for decode, encode, and round-trip
 CASES = [

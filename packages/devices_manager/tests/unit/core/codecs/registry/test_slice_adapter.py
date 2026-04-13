@@ -1,6 +1,6 @@
 import pytest
 
-from devices_manager.core.value_adapters.registry.slice_adapter import (
+from devices_manager.core.codecs.registry.slice_adapter import (
     slice_adapter,
 )
 from models.errors import InvalidError

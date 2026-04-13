@@ -1,4 +1,4 @@
-from devices_manager.core.value_adapters.fn_adapter import FnAdapter
+from devices_manager.core.codecs.fn_codec import FnCodec
 from models.errors import InvalidError
 
 
@@ -10,7 +10,7 @@ def _parse_argument(argument: str) -> bytes:
         raise ValueError(msg) from e
 
 
-def byte_frame_adapter(argument: str) -> FnAdapter:
+def byte_frame_adapter(argument: str) -> FnCodec:
     """Decode: byte right after prefix -> int. Encode: prefix + bytes([int]).
     Argument format: hex prefix bytes e.g. '11 05 00 13 00 55 20'
     """
@@ -28,4 +28,4 @@ def byte_frame_adapter(argument: str) -> FnAdapter:
     def encode(value: int) -> bytes:
         return prefix + bytes([value])
 
-    return FnAdapter(decoder=decode, encoder=encode)
+    return FnCodec(decoder=decode, encoder=encode)
