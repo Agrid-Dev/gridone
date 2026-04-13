@@ -69,6 +69,6 @@ nav:
     - Driver Schema Reference:
       - General Layout: guide/general-layout.md
       - Transport Addresses: guide/transport-addresses.md
-      - Value Adapters: guide/value-adapters.md
+      - Codecs: guide/codecs.md
     - Transports: guide/transports.md
   - API Reference: api-reference.md

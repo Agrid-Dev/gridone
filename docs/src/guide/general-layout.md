@@ -30,9 +30,10 @@ attributes:                   # (required) list of attribute drivers
     # or:
     read_write: ...           # shorthand when read and write share the same address
 
-    # Value adapters (optional) — applied in order on read, reversed on write, if reversible
-    json_pointer: /path       # extract a value from a JSON payload
-    byte_convert: float32 big_endian
+    # Codecs (optional) — applied in order on read, reversed on write, if reversible
+    codecs:
+      - json_pointer: /path       # extract a value from a JSON payload
+      - byte_convert: float32 big_endian
 ```
 
 ## Field reference

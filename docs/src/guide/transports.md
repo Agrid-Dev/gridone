@@ -39,7 +39,7 @@ HTTP is stateless — each read or write sends a new HTTP request. The transport
 
 ### MQTT
 
-MQTT maintains a persistent connection to a broker. It is push-based: on connect, the transport starts a background message loop that dispatches incoming messages to registered attribute listeners. Any message arriving on a topic that matches a registered attribute's read topic will be parsed through that attribute's value adapters and used to update its value — regardless of whether the message was triggered by a read request. In practice, the MQTT transport largely works by listening to topics corresponding to registered device attributes.
+MQTT maintains a persistent connection to a broker. It is push-based: on connect, the transport starts a background message loop that dispatches incoming messages to registered attribute listeners. Any message arriving on a topic that matches a registered attribute's read topic will be parsed through that attribute's codecs and used to update its value — regardless of whether the message was triggered by a read request. In practice, the MQTT transport largely works by listening to topics corresponding to registered device attributes.
 
 **Read flow** — the transport publishes a request message to `request.topic`, subscribes to the response `topic`, and waits up to **10 seconds** for a message to arrive. If no message is received within that window, the read times out. The `request` field in the transport address controls what is published and where.
 
