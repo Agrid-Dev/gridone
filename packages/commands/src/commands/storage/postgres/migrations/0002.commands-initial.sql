@@ -1,22 +1,4 @@
--- depends:
-
-DO $$ BEGIN
-    CREATE TYPE data_type AS ENUM ('int', 'float', 'str', 'bool');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-    CREATE TYPE command_status AS ENUM ('pending', 'success', 'error');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- If the old enum exists without 'pending', add it.
--- This handles the case where timeseries was initialized first with
--- command_status = ('success', 'error').
-DO $$ BEGIN
-    ALTER TYPE command_status ADD VALUE IF NOT EXISTS 'pending' BEFORE 'success';
-EXCEPTION WHEN others THEN NULL;
-END $$;
+-- depends: 0001.commands-enum-setup
 
 CREATE TABLE IF NOT EXISTS commands (
     id              SERIAL          PRIMARY KEY,
@@ -56,10 +38,8 @@ BEGIN
 
         -- Sync the serial sequence to avoid ID conflicts.
         PERFORM setval('commands_id_seq',
-            GREATEST(
-                (SELECT COALESCE(MAX(id), 0) FROM commands),
-                currval('commands_id_seq')
-            )
+            (SELECT COALESCE(MAX(id), 1) FROM commands),
+            (SELECT MAX(id) IS NOT NULL FROM commands)
         );
 
         -- Update ts_data_points FK to reference the new commands table.

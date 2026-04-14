@@ -1,0 +1,3 @@
+-- Rollback: enum values cannot be removed in PostgreSQL without recreating
+-- the type. This is intentionally a no-op since the enum values are harmless
+-- and may be shared with timeseries.
