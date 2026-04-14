@@ -129,7 +129,7 @@ Addresses are compact strings: `<type><instance>` or `<type><instance>:<count>` 
 | Input Register | `IR` | read only | `int`, `float`, `str` |
 | Holding Register | `HR` | read / write | `int`, `float`, `str` |
 
-`IR` and `HR` support a register count suffix (`:2` for 32-bit values). Use `byte_convert` to specify how multi-register values are decoded — see [Value Adapters](value-adapters.md).
+`IR` and `HR` support a register count suffix (`:2` for 32-bit values). Use `byte_convert` to specify how multi-register values are decoded — see [Codecs](codecs.md).
 
 ```yaml
 read: IR0:2       # Input Register 0, 2 registers (32-bit)

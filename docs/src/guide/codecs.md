@@ -1,25 +1,26 @@
-# Value Adapters
+# Codecs
 
-Value adapters **decode** the raw value exchanged with a device into the internal typed value Gridone works with — and **encode** it back for writing.
+Codecs **decode** the raw value exchanged with a device into the internal typed value Gridone works with — and **encode** it back for writing.
 
-They are declared as keys directly on an attribute, alongside `read`/`write`. Each key is the adapter's identifier and its value is the argument:
+They are declared as an explicit `codecs` list on an attribute. Each entry is a single-key object whose key is the codec identifier and whose value is the argument:
 
 ```yaml
 - name: temperature
   data_type: float
   read_write: HR0:2
-  byte_convert: "float32 big_endian"  # key: byte_convert, argument: "float32 big_endian"
+  codecs:
+    - byte_convert: "float32 big_endian"
 ```
 
 ---
 
 ## Reversible vs non-reversible
 
-An adapter is **reversible** if it implements both directions: **decode** (transport → Gridone) on read, and **encode** (Gridone → transport) on write. Both are applied automatically.
+A codec is **reversible** if it implements both directions: **decode** (transport → Gridone) on read, and **encode** (Gridone → transport) on write. Both are applied automatically.
 
-A **non-reversible** adapter only implements decode. It is skipped on write (falls back to identity) — meaning it should not be used on writable attributes where the write path depends on that transformation.
+A **non-reversible** codec only implements decode. It is skipped on write (falls back to identity) — meaning it should not be used on writable attributes where the write path depends on that transformation.
 
-| Adapter | Reversible |
+| Codec | Reversible |
 |---|---|
 | `scale` | yes |
 | `bool_format` | yes |
@@ -33,7 +34,7 @@ A **non-reversible** adapter only implements decode. It is skipped on write (fal
 
 ---
 
-## Supported adapters
+## Supported codecs
 
 ### `json_pointer`
 
@@ -47,7 +48,8 @@ Decodes a value from a JSON object or string using an [RFC 6901](https://datatra
 | Reversible | no |
 
 ```yaml
-json_pointer: /data/temperature
+codecs:
+  - json_pointer: /data/temperature
 ```
 
 **Decode examples:**
@@ -72,7 +74,8 @@ Decodes a value from a JSON object using a [JSONPath](https://goessner.net/artic
 | Reversible | no |
 
 ```yaml
-json_path: "$.sensors[0].temperature"
+codecs:
+  - json_path: "$.sensors[0].temperature"
 ```
 
 **Decode examples:**
@@ -95,7 +98,8 @@ Decodes by multiplying the raw value by a factor. Encodes by dividing. Use when 
 | Reversible | yes |
 
 ```yaml
-scale: 0.1
+codecs:
+  - scale: 0.1
 ```
 
 **Decode / encode examples:**
@@ -120,7 +124,8 @@ Decodes an integer `0`/`1` to a boolean. Encodes a boolean back to `0`/`1`. Only
 | Reversible | yes |
 
 ```yaml
-bool_format: "0/1"
+codecs:
+  - bool_format: "0/1"
 ```
 
 **Decode / encode examples:**
@@ -148,7 +153,8 @@ Supported types: `uint8`, `int8`, `uint16`, `int16`, `bool`, `uint32`, `int32`, 
 | Reversible | yes |
 
 ```yaml
-byte_convert: "float32 big_endian"
+codecs:
+  - byte_convert: "float32 big_endian"
 ```
 
 **Decode / encode examples:**
@@ -173,7 +179,8 @@ Decodes a base64-encoded string to raw bytes. Encodes bytes back to a base64 str
 | Reversible | yes |
 
 ```yaml
-base64: "standard"
+codecs:
+  - base64: "standard"
 ```
 
 **Decode / encode examples:**
@@ -197,7 +204,8 @@ Decodes the byte immediately after a known prefix. Encodes by prepending the pre
 | Reversible | yes |
 
 ```yaml
-byte_frame: "11 05 00 13 00 55"
+codecs:
+  - byte_frame: "11 05 00 13 00 55"
 ```
 
 **Decode / encode examples (prefix `"11 05"`):**
@@ -221,7 +229,8 @@ Decodes a subsequence from bytes or a list using Python slice notation (0-indexe
 | Reversible | no |
 
 ```yaml
-slice: "0:4"
+codecs:
+  - slice: "0:4"
 ```
 
 **Decode examples:**
@@ -245,7 +254,8 @@ Decodes a raw KNX wire value using a KNX Datapoint Type. Only applicable with `t
 | Reversible | yes |
 
 ```yaml
-knx_dpt: "9.001"  # (e.g. "1.001", "20.102", "5.001")
+codecs:
+  - knx_dpt: "9.001"  # (e.g. "1.001", "20.102", "5.001")
 ```
 
 **Decode / encode examples:**
@@ -259,22 +269,23 @@ knx_dpt: "9.001"  # (e.g. "1.001", "20.102", "5.001")
 
 ## Chaining
 
-Multiple adapters can be declared on the same attribute. They run in the order they appear in the YAML.
+Multiple codecs can be declared on the same attribute. They run in the order they appear in the `codecs` list.
 
-**On read (decode):** top-to-bottom — each adapter's output becomes the next one's input.
+**On read (decode):** top-to-bottom — each codec's output becomes the next one's input.
 
 **On write (encode):** bottom-to-top — encoders run in reverse order.
 
-Non-reversible adapters are skipped on write (identity encoder).
+Non-reversible codecs are skipped on write (identity encoder).
 
-**Integration example** — a single attribute with two chained adapters:
+**Integration example** — a single attribute with two chained codecs:
 
 ```yaml
 - name: temperature
   data_type: float
   read_write: HR0
-  byte_convert: "int16 big_endian"
-  scale: 0.1
+  codecs:
+    - byte_convert: "int16 big_endian"
+    - scale: 0.1
 ```
 
 ### Example — integer register with scaling
@@ -282,8 +293,9 @@ Non-reversible adapters are skipped on write (identity encoder).
 A device reports temperature as a signed 16-bit integer in tenths of a degree (`215` = 21.5 °C).
 
 ```yaml
-byte_convert: "int16 big_endian"  # step 1: registers → int
-scale: 0.1                        # step 2: int → float (÷10)
+codecs:
+  - byte_convert: "int16 big_endian"  # step 1: registers → int
+  - scale: 0.1                        # step 2: int → float (÷10)
 ```
 
 | Direction | Steps | Result |
@@ -296,10 +308,11 @@ scale: 0.1                        # step 2: int → float (÷10)
 A device returns a base64 string in a JSON response. The float value is packed at bytes 0–3.
 
 ```yaml
-json_pointer: /data                 # step 1: extract base64 string from JSON (non-reversible)
-base64: "standard"                  # step 2: decode to bytes
-slice: "0:4"                        # step 3: take first 4 bytes (non-reversible)
-byte_convert: "float32 big_endian"  # step 4: bytes → float
+codecs:
+  - json_pointer: /data                 # step 1: extract base64 string from JSON (non-reversible)
+  - base64: "standard"                  # step 2: decode to bytes
+  - slice: "0:4"                        # step 3: take first 4 bytes (non-reversible)
+  - byte_convert: "float32 big_endian"  # step 4: bytes → float
 ```
 
 | Direction | Steps | Note |
