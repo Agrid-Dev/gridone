@@ -4,21 +4,16 @@ import logging
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
-from models.pagination import Page, PaginationParams
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
     DataPoint,
     DataType,
-    DeviceCommand,
-    DeviceCommandCreate,
     SeriesKey,
-    SortOrder,
     TimeSeries,
     resolve_last,
     validate_value_type,
 )
-from timeseries.domain.filters import CommandsQueryFilters
 from timeseries.exporters.csv import to_csv
 from timeseries.exporters.png import to_png
 
@@ -155,9 +150,6 @@ class TimeSeriesService:
 
         return to_csv(all_series)
 
-    async def log_command(self, command: DeviceCommandCreate) -> DeviceCommand:
-        return await self._storage.save_command(command)
-
     async def export_png(  # noqa: PLR0913
         self,
         series_ids: list[str],
@@ -180,51 +172,3 @@ class TimeSeriesService:
             all_series.append(series)
 
         return to_png(all_series, title=title, end=end)
-
-    async def get_commands(  # noqa: PLR0913
-        self,
-        *,
-        ids: list[int] | None = None,
-        device_id: str | None = None,
-        attribute: str | None = None,
-        user_id: str | None = None,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        last: str | None = None,
-        sort: SortOrder = SortOrder.ASC,
-        pagination: PaginationParams | None = None,
-    ) -> Page[DeviceCommand]:
-        if ids is not None:
-            other = (device_id, attribute, user_id, start, end, last)
-            if any(f is not None for f in other):
-                msg = "Cannot combine 'ids' with other filters"
-                raise InvalidError(msg)
-            items = await self._storage.query_commands_by_ids(ids)
-            return Page(
-                items=items,
-                total=len(items),
-                page=1,
-                size=max(len(items), 1),
-            )
-        if last is not None and start is None:
-            start = resolve_last(last)
-        filters = CommandsQueryFilters(
-            device_id=device_id,
-            attribute=attribute,
-            user_id=user_id,
-            start=start,
-            end=end,
-        )
-        total = await self._storage.count_commands(filters)
-        if pagination is not None:
-            items = await self._storage.query_commands(
-                filters,
-                sort=sort,
-                limit=pagination.limit,
-                offset=pagination.offset,
-            )
-            return Page(
-                items=items, total=total, page=pagination.page, size=pagination.size
-            )
-        items = await self._storage.query_commands(filters, sort=sort)
-        return Page(items=items, total=total, page=1, size=max(total, 1))

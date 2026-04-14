@@ -2,77 +2,23 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from copy import deepcopy
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint, DeviceCommand, SortOrder
+from timeseries.domain import DataPoint
 
 if TYPE_CHECKING:
     from timeseries.domain import (
-        DeviceCommandCreate,
         SeriesKey,
         TimeSeries,
     )
-    from timeseries.domain.filters import CommandsQueryFilters
-
-
-@dataclass
-class CommandMemoryStorage:
-    _history: list[DeviceCommand] = field(default_factory=list)
-    _current_index = 0
-
-    def add(self, command: DeviceCommandCreate) -> DeviceCommand:
-        self._current_index += 1
-        new_command = DeviceCommand(id=self._current_index, **command.__dict__)
-        self._history.append(new_command)
-        return new_command
-
-    def _apply_filters(self, filters: CommandsQueryFilters) -> list[DeviceCommand]:
-        results = list(self._history)
-        if filters.device_id is not None:
-            results = [c for c in results if c.device_id == filters.device_id]
-        if filters.attribute is not None:
-            results = [c for c in results if c.attribute == filters.attribute]
-        if filters.user_id is not None:
-            results = [c for c in results if c.user_id == filters.user_id]
-        if filters.start is not None:
-            results = [c for c in results if c.timestamp >= filters.start]
-        if filters.end is not None:
-            results = [c for c in results if c.timestamp < filters.end]
-        return results
-
-    def query(
-        self,
-        filters: CommandsQueryFilters,
-        *,
-        sort: SortOrder = SortOrder.ASC,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> list[DeviceCommand]:
-        results = self._apply_filters(filters)
-        if sort == SortOrder.DESC:
-            results = list(reversed(results))
-        if offset is not None:
-            results = results[offset:]
-        if limit is not None:
-            results = results[:limit]
-        return results
-
-    def query_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
-        id_set = set(ids)
-        return [c for c in self._history if c.id in id_set]
-
-    def count(self, filters: CommandsQueryFilters) -> int:
-        return len(self._apply_filters(filters))
 
 
 class MemoryStorage:
     def __init__(self) -> None:
         self._series: dict[str, TimeSeries] = {}
         self._key_index: dict[SeriesKey, str] = {}
-        self._command_history = CommandMemoryStorage()
 
     async def create_series(self, series: TimeSeries) -> TimeSeries:
         if series.id in self._series:
@@ -166,27 +112,6 @@ class MemoryStorage:
             )
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
-
-    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
-        return self._command_history.add(command)
-
-    async def query_commands(
-        self,
-        filters: CommandsQueryFilters,
-        *,
-        sort: SortOrder = SortOrder.ASC,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> list[DeviceCommand]:
-        return self._command_history.query(
-            filters, sort=sort, limit=limit, offset=offset
-        )
-
-    async def query_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
-        return self._command_history.query_by_ids(ids)
-
-    async def count_commands(self, filters: CommandsQueryFilters) -> int:
-        return self._command_history.count(filters)
 
     async def close(self) -> None:
         pass

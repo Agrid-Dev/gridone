@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
+from commands import CommandsService, WriteResult
+from models.types import AttributeValueType, DataType
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
@@ -52,6 +54,45 @@ async def lifespan(app: FastAPI):
     um = await UsersManager.from_storage(settings.storage_url)
     await um.ensure_default_admin()
     app.state.users_manager = um
+
+    async def _write_device(
+        device_id: str,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+    ) -> WriteResult:
+        attr = await dm.write_device_attribute(
+            device_id, attribute_name, value, confirm=confirm
+        )
+        return WriteResult(last_changed=attr.last_changed)
+
+    async def _on_command_success(
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        data_type: DataType,
+        command_id: int,
+        last_changed: datetime | None,
+    ) -> None:
+        await ts_service.upsert_points(
+            SeriesKey(owner_id=device_id, metric=attribute),
+            [
+                DataPoint(
+                    timestamp=last_changed or datetime.now(UTC),
+                    value=value,
+                    command_id=command_id,
+                )
+            ],
+            create_if_not_found=True,
+        )
+
+    commands_service = await CommandsService.from_storage(
+        settings.storage_url,
+        device_writer=_write_device,
+        result_handler=_on_command_success,
+    )
+    app.state.commands_service = commands_service
 
     apps_svc = None
     try:
@@ -103,6 +144,7 @@ async def lifespan(app: FastAPI):
     finally:
         await dm.stop()
         await ts_service.close()
+        await commands_service.close()
         await um.close()
         if apps_svc is not None:
             await apps_svc.close()

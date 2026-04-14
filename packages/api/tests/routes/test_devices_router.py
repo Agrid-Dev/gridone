@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from commands import CommandsServiceInterface
+from models.types import SortOrder
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
@@ -11,9 +13,9 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
-from timeseries.domain import DeviceCommandCreate, SortOrder
 
 from api.dependencies import (
+    get_commands_service,
     get_current_token_payload,
     get_current_user_id,
     get_device_manager,
@@ -105,17 +107,23 @@ def mock_ts_service():
 
 
 @pytest.fixture
+def mock_commands_service():
+    return AsyncMock(spec=CommandsServiceInterface)
+
+
+@pytest.fixture
 def dm():
     return _make_dm()
 
 
 @pytest.fixture
-def app(dm, mock_ts_service, admin_token_payload) -> FastAPI:
+def app(dm, mock_ts_service, mock_commands_service, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
@@ -278,31 +286,30 @@ class TestDeleteDevice:
 class TestGetDevicesCommands:
     @pytest.mark.asyncio
     async def test_no_filters(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_ts_service.get_commands.return_value = Page(
+        mock_commands_service.get_commands.return_value = Page(
             items=[], total=0, page=1, size=50
         )
         async with async_client as ac:
             response = await ac.get("/commands")
         assert response.status_code == 200
-        mock_ts_service.get_commands.assert_called_once_with(
+        mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
             device_id=None,
             attribute=None,
             user_id=None,
             start=None,
             end=None,
-            last=None,
             sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
 
     @pytest.mark.asyncio
     async def test_with_filters(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_ts_service.get_commands.return_value = Page(
+        mock_commands_service.get_commands.return_value = Page(
             items=[], total=0, page=1, size=50
         )
         start = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -316,33 +323,31 @@ class TestGetDevicesCommands:
                     "user_id": "user-42",
                     "start": start.isoformat(),
                     "end": end.isoformat(),
-                    "last": "7d",
                 },
             )
         assert response.status_code == 200
-        mock_ts_service.get_commands.assert_called_once_with(
+        mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
             device_id="dev-1",
             attribute="temperature",
             user_id="user-42",
             start=start,
             end=end,
-            last="7d",
             sort=SortOrder.ASC,
             pagination=PaginationParams(page=1, size=50),
         )
 
     @pytest.mark.asyncio
     async def test_device_scoped(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_ts_service.get_commands.return_value = Page(
+        mock_commands_service.get_commands.return_value = Page(
             items=[], total=0, page=1, size=50
         )
         async with async_client as ac:
             response = await ac.get("/device1/commands")
         assert response.status_code == 200
-        call_kwargs = mock_ts_service.get_commands.call_args[1]
+        call_kwargs = mock_commands_service.get_commands.call_args[1]
         assert call_kwargs["device_id"] == "device1"
 
 
@@ -353,72 +358,41 @@ class TestGetDevicesCommands:
 
 class TestUpdateAttribute:
     @pytest.mark.asyncio
-    async def test_success_logs_command(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
+    async def test_success_dispatches_command(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         async with async_client as ac:
             response = await ac.post(
                 "/device1/temperature_setpoint", json={"value": 22.0}
             )
         assert response.status_code == 200
-        mock_ts_service.log_command.assert_called_once()
-        cmd = mock_ts_service.log_command.call_args[0][0]
-        assert isinstance(cmd, DeviceCommandCreate)
-        assert cmd.device_id == "device1"
-        assert cmd.attribute == "temperature_setpoint"
-        assert cmd.value == 22.0
-        assert cmd.status == "success"
-
-    @pytest.mark.asyncio
-    async def test_success_upserts_point_with_command_id(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock
-    ):
-        mock_ts_service.log_command.return_value.id = 42
-        async with async_client as ac:
-            response = await ac.post(
-                "/device1/temperature_setpoint", json={"value": 22.0}
-            )
-        assert response.status_code == 200
-        mock_ts_service.upsert_points.assert_called_once()
-        points = mock_ts_service.upsert_points.call_args[0][1]
-        assert len(points) == 1
-        assert points[0].command_id == 42
+        mock_commands_service.dispatch.assert_awaited_once()
+        call_kwargs = mock_commands_service.dispatch.call_args[1]
+        assert call_kwargs["device_id"] == "device1"
+        assert call_kwargs["attribute"] == "temperature_setpoint"
+        assert call_kwargs["value"] == 22.0
 
     @pytest.mark.asyncio
     async def test_permission_error_returns_400(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        dm.write_device_attribute.side_effect = PermissionError("read-only")
+        mock_commands_service.dispatch.side_effect = PermissionError("read-only")
         async with async_client as ac:
             response = await ac.post(
                 "/device1/temperature_setpoint", json={"value": 22.0}
             )
         assert response.status_code == 400
-        mock_ts_service.log_command.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_not_found_returns_404_without_logging(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
+    async def test_not_found_returns_404(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock, dm: MagicMock
     ):
-        dm.write_device_attribute.side_effect = NotFoundError("device not found")
+        mock_commands_service.dispatch.side_effect = NotFoundError("device not found")
         async with async_client as ac:
             response = await ac.post(
                 "/device1/temperature_setpoint", json={"value": 22.5}
             )
         assert response.status_code == 404
-        mock_ts_service.log_command.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_unexpected_error_logs_error_command(
-        self, async_client: AsyncClient, mock_ts_service: AsyncMock, dm: MagicMock
-    ):
-        dm.write_device_attribute.side_effect = ValueError("device offline")
-        with pytest.raises(ValueError):
-            async with async_client as ac:
-                await ac.post("/device1/temperature_setpoint", json={"value": 22.5})
-        mock_ts_service.log_command.assert_called_once()
-        cmd = mock_ts_service.log_command.call_args[0][0]
-        assert cmd.status == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +406,9 @@ def dm_with_virtual():
 
 
 @pytest.fixture
-def virtual_app(dm_with_virtual, mock_ts_service, admin_token_payload) -> FastAPI:
+def virtual_app(
+    dm_with_virtual, mock_ts_service, mock_commands_service, admin_token_payload
+) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
@@ -441,6 +417,7 @@ def virtual_app(dm_with_virtual, mock_ts_service, admin_token_payload) -> FastAP
     app.state.websocket_manager = ws
     app.dependency_overrides[get_device_manager] = lambda: dm_with_virtual
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
+    app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app

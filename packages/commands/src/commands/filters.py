@@ -4,6 +4,7 @@ from pydantic import BaseModel, model_validator
 
 
 class CommandsQueryFilters(BaseModel):
+    group_id: str | None = None
     device_id: str | None = None
     attribute: str | None = None
     user_id: str | None = None

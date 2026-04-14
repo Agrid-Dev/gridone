@@ -5,7 +5,7 @@ from datetime import datetime
 from devices_manager.types import AttributeValueType
 from fastapi import Query
 from pydantic import BaseModel
-from timeseries.domain import SortOrder
+from models.types import SortOrder
 
 
 class AttributeUpdate(BaseModel):

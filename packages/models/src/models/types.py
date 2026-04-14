@@ -10,6 +10,11 @@ class DataType(StrEnum):
     BOOL = "bool"
 
 
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
 DATA_TYPE_MAP: dict[DataType, type] = {
     DataType.INT: int,
     DataType.FLOAT: float,
