@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
             self,
             device_id: str,
             attribute_name: str,
-            value: object,
+            value: DataPointValue,
             *,
             confirm: bool = True,
         ) -> WriteResult:

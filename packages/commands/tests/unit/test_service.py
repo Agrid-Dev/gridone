@@ -84,6 +84,7 @@ class TestDispatch:
         page = await service.get_commands(device_id="d1")
         assert len(page.items) == 1
         assert page.items[0].status == CommandStatus.ERROR
+        assert page.items[0].status_details is not None
         assert "timeout" in page.items[0].status_details
 
     async def test_group_id_stored(
