@@ -3,17 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import make_command
 
 from models.errors import InvalidError, NotFoundError
-from models.pagination import PaginationParams
 from timeseries.domain import (
-    CommandStatus,
     DataPoint,
     DataType,
-    DeviceCommandCreate,
     SeriesKey,
-    SortOrder,
 )
 from timeseries.service import TimeSeriesService
 from timeseries.storage import MemoryStorage
@@ -319,143 +314,3 @@ class TestFetchPoints:
     async def test_empty_result(self, service: TimeSeriesService):
         points = await service.fetch_points(KEY)
         assert points == []
-
-
-class TestLogCommand:
-    async def test_log_command(self, service: TimeSeriesService):
-        command_create = DeviceCommandCreate(
-            device_id="device1",
-            attribute="mode",
-            user_id="user1",
-            value="auto",
-            data_type=DataType.STRING,
-            status=CommandStatus.SUCCESS,
-            timestamp=datetime.now(tz=UTC),
-            status_details=None,
-        )
-        command = await service.log_command(command_create)
-        assert command.id is not None
-        assert command.device_id == "device1"
-        assert command.attribute == "mode"
-        assert command.value == "auto"
-
-
-class TestGetCommands:
-    async def test_empty(self, service: TimeSeriesService):
-        page = await service.get_commands()
-        assert page.items == []
-        assert page.total == 0
-
-    async def test_no_filters_returns_all(self, service: TimeSeriesService):
-        await service.log_command(make_command(device_id="d1"))
-        await service.log_command(make_command(device_id="d2"))
-        page = await service.get_commands()
-        assert len(page.items) == 2
-        assert page.total == 2
-
-    async def test_filter_device_id(self, service: TimeSeriesService):
-        await service.log_command(make_command(device_id="d1"))
-        await service.log_command(make_command(device_id="d2"))
-        page = await service.get_commands(device_id="d1")
-        assert len(page.items) == 1
-        assert page.items[0].device_id == "d1"
-
-    async def test_filter_with_last(self, service: TimeSeriesService):
-        now = datetime.now(tz=UTC)
-        old = now - timedelta(hours=5)
-        await service.log_command(make_command(timestamp=old))
-        await service.log_command(make_command(timestamp=now))
-        page = await service.get_commands(last="3h")
-        assert len(page.items) == 1
-
-    async def test_last_ignored_when_start_is_set(self, service: TimeSeriesService):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        await service.log_command(make_command(timestamp=t1))
-        await service.log_command(make_command(timestamp=t2))
-        page = await service.get_commands(start=t1, last="1s")
-        assert len(page.items) == 2
-
-    async def test_combined_filters(self, service: TimeSeriesService):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        await service.log_command(
-            make_command(device_id="d1", user_id="u1", timestamp=t1),
-        )
-        await service.log_command(
-            make_command(device_id="d1", user_id="u2", timestamp=t2),
-        )
-        await service.log_command(
-            make_command(device_id="d2", user_id="u1", timestamp=t2),
-        )
-        page = await service.get_commands(device_id="d1", user_id="u1")
-        assert len(page.items) == 1
-        assert page.items[0].device_id == "d1"
-        assert page.items[0].user_id == "u1"
-
-    async def test_end_before_start_raises(self, service: TimeSeriesService):
-        with pytest.raises(ValueError, match="start must be before end"):
-            await service.get_commands(
-                start=datetime(2026, 1, 2, tzinfo=UTC),
-                end=datetime(2026, 1, 1, tzinfo=UTC),
-            )
-
-    async def test_pagination_page_1(self, service: TimeSeriesService):
-        for i in range(5):
-            await service.log_command(make_command(device_id=f"d{i}"))
-        page = await service.get_commands(pagination=PaginationParams(page=1, size=2))
-        assert len(page.items) == 2
-        assert page.total == 5
-        assert page.page == 1
-        assert page.size == 2
-        assert page.has_next is True
-
-    async def test_pagination_page_2(self, service: TimeSeriesService):
-        for i in range(5):
-            await service.log_command(make_command(device_id=f"d{i}"))
-        page = await service.get_commands(pagination=PaginationParams(page=2, size=2))
-        assert len(page.items) == 2
-        assert page.items[0].device_id == "d2"
-        assert page.page == 2
-        assert page.has_prev is True
-
-    async def test_pagination_no_params_returns_all(self, service: TimeSeriesService):
-        for i in range(3):
-            await service.log_command(make_command(device_id=f"d{i}"))
-        page = await service.get_commands()
-        assert len(page.items) == 3
-        assert page.total == 3
-        assert page.page == 1
-
-    async def test_sort_desc(self, service: TimeSeriesService):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await service.log_command(make_command(timestamp=t1))
-        await service.log_command(make_command(timestamp=t2))
-        await service.log_command(make_command(timestamp=t3))
-        page = await service.get_commands(sort=SortOrder.DESC)
-        assert [c.timestamp for c in page.items] == [t3, t2, t1]
-
-    async def test_ids_returns_matching(self, service: TimeSeriesService):
-        cmd1 = await service.log_command(make_command(device_id="d1"))
-        await service.log_command(make_command(device_id="d2"))
-        cmd3 = await service.log_command(make_command(device_id="d3"))
-        page = await service.get_commands(ids=[cmd1.id, cmd3.id])
-        assert {c.id for c in page.items} == {cmd1.id, cmd3.id}
-        assert page.total == 2
-
-    async def test_ids_empty_returns_empty(self, service: TimeSeriesService):
-        page = await service.get_commands(ids=[])
-        assert page.items == []
-        assert page.total == 0
-
-    async def test_ids_missing_are_ignored(self, service: TimeSeriesService):
-        cmd = await service.log_command(make_command(device_id="d1"))
-        page = await service.get_commands(ids=[cmd.id, 9999])
-        assert len(page.items) == 1
-        assert page.items[0].id == cmd.id
-
-    async def test_ids_with_other_filters_raises(self, service: TimeSeriesService):
-        with pytest.raises(InvalidError, match="Cannot combine"):
-            await service.get_commands(ids=[1], device_id="d1")

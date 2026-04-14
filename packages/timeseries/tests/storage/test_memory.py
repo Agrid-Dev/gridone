@@ -3,19 +3,14 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import make_command
 
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
-    CommandStatus,
     DataPoint,
     DataType,
-    DeviceCommandCreate,
     SeriesKey,
-    SortOrder,
     TimeSeries,
 )
-from timeseries.domain.filters import CommandsQueryFilters
 from timeseries.storage import MemoryStorage
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
@@ -304,168 +299,3 @@ class TestFetchPoints:
             end=base + timedelta(days=3),
         )
         assert [p.value for p in fetched] == [1.0, 2.0, 3.0]
-
-
-class TestSaveDeviceCommand:
-    async def test_adds_command(self, storage: MemoryStorage):
-        command_create = DeviceCommandCreate(
-            device_id="device1",
-            attribute="mode",
-            user_id="user1",
-            value="auto",
-            data_type=DataType.STRING,
-            status=CommandStatus.SUCCESS,
-            timestamp=datetime.now(tz=UTC),
-            status_details=None,
-        )
-        command = await storage.save_command(command_create)
-        assert command.id is not None
-        assert command.device_id == command_create.device_id
-
-
-class TestQueryCommands:
-    async def test_empty(self, storage: MemoryStorage):
-        results = await storage.query_commands(CommandsQueryFilters())
-        assert results == []
-
-    async def test_no_filters_returns_all(self, storage: MemoryStorage):
-        await storage.save_command(make_command(device_id="d1"))
-        await storage.save_command(make_command(device_id="d2"))
-        results = await storage.query_commands(CommandsQueryFilters())
-        assert len(results) == 2
-
-    async def test_filter_device_id(self, storage: MemoryStorage):
-        await storage.save_command(make_command(device_id="d1"))
-        await storage.save_command(make_command(device_id="d2"))
-        results = await storage.query_commands(
-            CommandsQueryFilters(device_id="d1"),
-        )
-        assert len(results) == 1
-        assert results[0].device_id == "d1"
-
-    async def test_filter_attribute(self, storage: MemoryStorage):
-        await storage.save_command(make_command(attribute="mode"))
-        await storage.save_command(make_command(attribute="setpoint"))
-        results = await storage.query_commands(
-            CommandsQueryFilters(attribute="setpoint"),
-        )
-        assert len(results) == 1
-        assert results[0].attribute == "setpoint"
-
-    async def test_filter_user_id(self, storage: MemoryStorage):
-        await storage.save_command(make_command(user_id="u1"))
-        await storage.save_command(make_command(user_id="u2"))
-        results = await storage.query_commands(
-            CommandsQueryFilters(user_id="u1"),
-        )
-        assert len(results) == 1
-        assert results[0].user_id == "u1"
-
-    async def test_filter_start(self, storage: MemoryStorage):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(make_command(timestamp=t1))
-        await storage.save_command(make_command(timestamp=t2))
-        await storage.save_command(make_command(timestamp=t3))
-        results = await storage.query_commands(
-            CommandsQueryFilters(start=t2),
-        )
-        assert len(results) == 2
-
-    async def test_filter_end(self, storage: MemoryStorage):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(make_command(timestamp=t1))
-        await storage.save_command(make_command(timestamp=t2))
-        await storage.save_command(make_command(timestamp=t3))
-        results = await storage.query_commands(
-            CommandsQueryFilters(end=t2),
-        )
-        assert len(results) == 1
-
-    async def test_combined_filters(self, storage: MemoryStorage):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        await storage.save_command(
-            make_command(device_id="d1", user_id="u1", timestamp=t1),
-        )
-        await storage.save_command(
-            make_command(device_id="d1", user_id="u2", timestamp=t2),
-        )
-        await storage.save_command(
-            make_command(device_id="d2", user_id="u1", timestamp=t2),
-        )
-        results = await storage.query_commands(
-            CommandsQueryFilters(device_id="d1", user_id="u1"),
-        )
-        assert len(results) == 1
-        assert results[0].device_id == "d1"
-        assert results[0].user_id == "u1"
-
-    async def test_limit(self, storage: MemoryStorage):
-        for i in range(5):
-            await storage.save_command(make_command(device_id=f"d{i}"))
-        results = await storage.query_commands(CommandsQueryFilters(), limit=3)
-        assert len(results) == 3
-
-    async def test_offset(self, storage: MemoryStorage):
-        for i in range(5):
-            await storage.save_command(make_command(device_id=f"d{i}"))
-        results = await storage.query_commands(CommandsQueryFilters(), offset=2)
-        assert len(results) == 3
-        assert results[0].device_id == "d2"
-
-    async def test_limit_and_offset(self, storage: MemoryStorage):
-        for i in range(5):
-            await storage.save_command(make_command(device_id=f"d{i}"))
-        results = await storage.query_commands(
-            CommandsQueryFilters(), limit=2, offset=1
-        )
-        assert len(results) == 2
-        assert results[0].device_id == "d1"
-        assert results[1].device_id == "d2"
-
-    async def test_sort_asc(self, storage: MemoryStorage):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(make_command(timestamp=t1))
-        await storage.save_command(make_command(timestamp=t2))
-        await storage.save_command(make_command(timestamp=t3))
-        results = await storage.query_commands(
-            CommandsQueryFilters(), sort=SortOrder.ASC
-        )
-        assert [r.timestamp for r in results] == [t1, t2, t3]
-
-    async def test_sort_desc(self, storage: MemoryStorage):
-        t1 = datetime(2026, 1, 1, tzinfo=UTC)
-        t2 = datetime(2026, 1, 2, tzinfo=UTC)
-        t3 = datetime(2026, 1, 3, tzinfo=UTC)
-        await storage.save_command(make_command(timestamp=t1))
-        await storage.save_command(make_command(timestamp=t2))
-        await storage.save_command(make_command(timestamp=t3))
-        results = await storage.query_commands(
-            CommandsQueryFilters(), sort=SortOrder.DESC
-        )
-        assert [r.timestamp for r in results] == [t3, t2, t1]
-
-
-class TestCountCommands:
-    async def test_count_empty(self, storage: MemoryStorage):
-        count = await storage.count_commands(CommandsQueryFilters())
-        assert count == 0
-
-    async def test_count_all(self, storage: MemoryStorage):
-        await storage.save_command(make_command(device_id="d1"))
-        await storage.save_command(make_command(device_id="d2"))
-        count = await storage.count_commands(CommandsQueryFilters())
-        assert count == 2
-
-    async def test_count_with_filters(self, storage: MemoryStorage):
-        await storage.save_command(make_command(device_id="d1"))
-        await storage.save_command(make_command(device_id="d2"))
-        await storage.save_command(make_command(device_id="d1"))
-        count = await storage.count_commands(CommandsQueryFilters(device_id="d1"))
-        assert count == 2

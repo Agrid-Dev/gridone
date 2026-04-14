@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from apps import AppsService
 from assets import AssetsManager
+from commands import CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -26,6 +27,10 @@ def get_ts_service(request: Request) -> TimeSeriesService:
 
 def get_users_manager(request: Request) -> UsersManager:
     return request.app.state.users_manager
+
+
+def get_commands_service(request: Request) -> CommandsServiceInterface:
+    return request.app.state.commands_service
 
 
 def get_apps_service(request: Request) -> AppsService:

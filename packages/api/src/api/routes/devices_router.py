@@ -1,7 +1,7 @@
 import logging
-from datetime import UTC, datetime
 from typing import Annotated
 
+from commands import Command, CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
@@ -13,15 +13,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from timeseries.domain import (
-    CommandStatus,
     DataPoint,
-    DeviceCommand,
-    DeviceCommandCreate,
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
 
 from api.dependencies import (
+    get_commands_service,
     get_current_user_id,
     get_device_manager,
     get_pagination_params,
@@ -72,16 +70,20 @@ async def get_commands(
     request: Request,
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
-    ts: TimeSeriesService = Depends(get_ts_service),
-) -> PaginatedResponse[DeviceCommand]:
-    page = await ts.get_commands(
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> PaginatedResponse[Command]:
+    start = query.start
+    if query.last is not None and start is None:
+        from timeseries.domain import resolve_last  # noqa: PLC0415
+
+        start = resolve_last(query.last)
+    page = await commands_svc.get_commands(
         ids=query.ids,
         device_id=query.device_id,
         attribute=query.attribute,
         user_id=query.user_id,
-        start=query.start,
+        start=start,
         end=query.end,
-        last=query.last,
         sort=query.sort,
         pagination=pagination,
     )
@@ -107,16 +109,20 @@ async def get_device_commands(
     request: Request,
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
-    ts: TimeSeriesService = Depends(get_ts_service),
-) -> PaginatedResponse[DeviceCommand]:
-    page = await ts.get_commands(
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> PaginatedResponse[Command]:
+    start = query.start
+    if query.last is not None and start is None:
+        from timeseries.domain import resolve_last  # noqa: PLC0415
+
+        start = resolve_last(query.last)
+    page = await commands_svc.get_commands(
         ids=query.ids,
         device_id=device_id,
         attribute=query.attribute,
         user_id=query.user_id,
-        start=query.start,
+        start=start,
         end=query.end,
-        last=query.last,
         sort=query.sort,
         pagination=pagination,
     )
@@ -236,46 +242,22 @@ async def update_attribute(
     update: AttributeUpdate,
     confirm: bool = True,
     dm: DevicesManagerInterface = Depends(get_device_manager),
-    ts: TimeSeriesService = Depends(get_ts_service),
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> AttributeUpdate:
     data_type = dm.get_device(device_id).attributes[attribute_name].data_type
 
-    def make_command(
-        status: CommandStatus, status_details: str | None = None
-    ) -> DeviceCommandCreate:
-        return DeviceCommandCreate(
+    try:
+        await commands_svc.dispatch(
             device_id=device_id,
             attribute=attribute_name,
-            user_id=user_id,
             value=update.value,
             data_type=data_type,
-            timestamp=datetime.now(UTC),
-            status=status,
-            status_details=status_details,
+            user_id=user_id,
+            confirm=confirm,
         )
-
-    try:
-        attribute = await dm.write_device_attribute(
-            device_id, attribute_name, update.value, confirm=confirm
-        )
-        command = await ts.log_command(make_command(CommandStatus.SUCCESS))
-        await ts.upsert_points(
-            SeriesKey(owner_id=device_id, metric=attribute_name),
-            [
-                DataPoint(
-                    timestamp=attribute.last_changed or datetime.now(UTC),
-                    value=update.value,
-                    command_id=command.id,
-                )
-            ],
-            create_if_not_found=True,
-        )
-
     except (TypeError, PermissionError) as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        if not isinstance(e, (NotFoundError, InvalidError)):
-            await ts.log_command(make_command(CommandStatus.ERROR, str(e)))
-        raise e
+    except (NotFoundError, InvalidError):
+        raise
     return update

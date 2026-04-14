@@ -9,18 +9,12 @@ from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
     DataType,
-    DeviceCommand,
     SeriesKey,
-    SortOrder,
     TimeSeries,
 )
-from timeseries.storage.postgres.deserialize import deserialize_command_value
 
 if TYPE_CHECKING:
     from datetime import datetime
-
-    from timeseries.domain import DeviceCommandCreate
-    from timeseries.domain.filters import CommandsQueryFilters
 
 logger = logging.getLogger(__name__)
 
@@ -221,121 +215,6 @@ class PostgresStorage:
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",
                 series.id,
             )
-
-    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand:
-        row = await self._pool.fetchrow(
-            """
-            INSERT INTO ts_device_commands
-                (device_id, attribute, user_id, value, data_type,
-                 status, timestamp, status_details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING id
-            """,
-            command.device_id,
-            command.attribute,
-            command.user_id,
-            str(command.value),
-            command.data_type.value,
-            command.status,
-            command.timestamp,
-            command.status_details,
-        )
-        return DeviceCommand(id=row["id"], **command.__dict__)
-
-    def _build_commands_where(
-        self, filters: CommandsQueryFilters
-    ) -> tuple[str, list[object]]:
-        clauses: list[str] = []
-        params: list[object] = []
-        idx = 1
-
-        if filters.device_id is not None:
-            clauses.append(f"device_id = ${idx}")
-            params.append(filters.device_id)
-            idx += 1
-        if filters.attribute is not None:
-            clauses.append(f"attribute = ${idx}")
-            params.append(filters.attribute)
-            idx += 1
-        if filters.user_id is not None:
-            clauses.append(f"user_id = ${idx}")
-            params.append(filters.user_id)
-            idx += 1
-        if filters.start is not None:
-            clauses.append(f"timestamp >= ${idx}")
-            params.append(filters.start)
-            idx += 1
-        if filters.end is not None:
-            clauses.append(f"timestamp < ${idx}")
-            params.append(filters.end)
-
-        where = ""
-        if clauses:
-            where = " WHERE " + " AND ".join(clauses)
-        return where, params
-
-    async def query_commands(
-        self,
-        filters: CommandsQueryFilters,
-        *,
-        sort: SortOrder = SortOrder.ASC,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> list[DeviceCommand]:
-        where, params = self._build_commands_where(filters)
-        idx = len(params) + 1
-
-        order = sort.value
-        query = f"SELECT * FROM ts_device_commands{where} ORDER BY timestamp {order}"  # noqa: S608
-        if limit is not None:
-            query += f" LIMIT ${idx}"
-            params.append(limit)
-            idx += 1
-        if offset is not None:
-            query += f" OFFSET ${idx}"
-            params.append(offset)
-
-        rows = await self._pool.fetch(query, *params)
-        return [
-            DeviceCommand(
-                id=r["id"],
-                device_id=r["device_id"],
-                attribute=r["attribute"],
-                user_id=r["user_id"],
-                value=deserialize_command_value(r["value"], DataType(r["data_type"])),
-                data_type=DataType(r["data_type"]),
-                status=r["status"],
-                timestamp=r["timestamp"],
-                status_details=r["status_details"],
-            )
-            for r in rows
-        ]
-
-    async def query_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]:
-        if not ids:
-            return []
-        rows = await self._pool.fetch(
-            "SELECT * FROM ts_device_commands WHERE id = ANY($1)", ids
-        )
-        return [
-            DeviceCommand(
-                id=r["id"],
-                device_id=r["device_id"],
-                attribute=r["attribute"],
-                user_id=r["user_id"],
-                value=deserialize_command_value(r["value"], DataType(r["data_type"])),
-                data_type=DataType(r["data_type"]),
-                status=r["status"],
-                timestamp=r["timestamp"],
-                status_details=r["status_details"],
-            )
-            for r in rows
-        ]
-
-    async def count_commands(self, filters: CommandsQueryFilters) -> int:
-        where, params = self._build_commands_where(filters)
-        query = f"SELECT COUNT(*) FROM ts_device_commands{where}"  # noqa: S608
-        return await self._pool.fetchval(query, *params)
 
     async def close(self) -> None:
         await self._pool.close()

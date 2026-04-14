@@ -55,25 +55,3 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
 class SortOrder(StrEnum):
     ASC = "asc"
     DESC = "desc"
-
-
-class CommandStatus(StrEnum):
-    SUCCESS = "success"
-    ERROR = "error"
-
-
-@dataclass
-class DeviceCommandCreate:
-    device_id: str
-    attribute: str
-    user_id: str
-    value: DataPointValue
-    data_type: DataType
-    status: CommandStatus
-    timestamp: datetime
-    status_details: str | None
-
-
-@dataclass
-class DeviceCommand(DeviceCommandCreate):
-    id: int

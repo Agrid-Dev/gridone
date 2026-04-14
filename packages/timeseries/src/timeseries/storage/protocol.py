@@ -2,19 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from timeseries.domain import SortOrder
-
 if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.domain import (
         DataPoint,
-        DeviceCommand,
-        DeviceCommandCreate,
         SeriesKey,
         TimeSeries,
     )
-    from timeseries.domain.filters import CommandsQueryFilters
 
 
 class TimeSeriesStorage(Protocol):
@@ -51,23 +46,5 @@ class TimeSeriesStorage(Protocol):
         key: SeriesKey,
         points: list[DataPoint],
     ) -> None: ...
-
-    async def save_command(self, command: DeviceCommandCreate) -> DeviceCommand: ...
-
-    async def query_commands(
-        self,
-        filters: CommandsQueryFilters,
-        *,
-        sort: SortOrder = SortOrder.ASC,
-        limit: int | None = None,
-        offset: int | None = None,
-    ) -> list[DeviceCommand]: ...
-
-    async def query_commands_by_ids(self, ids: list[int]) -> list[DeviceCommand]: ...
-
-    async def count_commands(
-        self,
-        filters: CommandsQueryFilters,
-    ) -> int: ...
 
     async def close(self) -> None: ...

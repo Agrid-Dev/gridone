@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
+from commands import CommandsService, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
@@ -52,6 +53,54 @@ async def lifespan(app: FastAPI):
     um = await UsersManager.from_storage(settings.storage_url)
     await um.ensure_default_admin()
     app.state.users_manager = um
+
+    # Adapt DevicesManager to return WriteResult for the commands package.
+    class _DeviceWriterAdapter:
+        def __init__(self, dm: DevicesManager) -> None:
+            self._dm = dm
+
+        async def write_device_attribute(
+            self,
+            device_id: str,
+            attribute_name: str,
+            value: object,
+            *,
+            confirm: bool = True,
+        ) -> WriteResult:
+            attr = await self._dm.write_device_attribute(
+                device_id, attribute_name, value, confirm=confirm
+            )
+            return WriteResult(last_changed=attr.last_changed)
+
+    # Wire command success to timeseries data point creation.
+    class _CommandResultHandler:
+        async def on_command_success(
+            self,
+            device_id: str,
+            attribute: str,
+            value: object,
+            data_type: object,
+            command_id: int,
+            last_changed: datetime | None,
+        ) -> None:
+            await ts_service.upsert_points(
+                SeriesKey(owner_id=device_id, metric=attribute),
+                [
+                    DataPoint(
+                        timestamp=last_changed or datetime.now(UTC),
+                        value=value,
+                        command_id=command_id,
+                    )
+                ],
+                create_if_not_found=True,
+            )
+
+    commands_service = await CommandsService.from_storage(
+        settings.storage_url,
+        device_writer=_DeviceWriterAdapter(dm),
+        result_handler=_CommandResultHandler(),
+    )
+    app.state.commands_service = commands_service
 
     apps_svc = None
     try:
@@ -103,6 +152,7 @@ async def lifespan(app: FastAPI):
     finally:
         await dm.stop()
         await ts_service.close()
+        await commands_service.close()
         await um.close()
         if apps_svc is not None:
             await apps_svc.close()
