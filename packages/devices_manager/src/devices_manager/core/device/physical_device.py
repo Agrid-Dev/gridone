@@ -256,7 +256,7 @@ class PhysicalDevice(CoreDevice):
             validated_value,
             self.id,
         )
-        if confirm:
+        if confirm and attribute_driver.confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
         self._update_attribute(attribute, validated_value)
         return attribute
