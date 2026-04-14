@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
 from devices_manager.core.driver import AttributeDriver
-from devices_manager.core.transports import RawTransportAddress
-from devices_manager.types import DataType
+from devices_manager.core.transports import RawTransportAddress  # noqa: TC001
+from devices_manager.types import DataType  # noqa: TC001
 from models.errors import InvalidError
 
 
@@ -14,11 +16,12 @@ class AttributeDriverSpec(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
+    confirm: bool = True
     codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
 
     @model_validator(mode="before")
     @classmethod
-    def use_read_write_as_fallback(cls, data: Any):  # noqa: ANN206, ANN401
+    def use_read_write_as_fallback(cls, data: Any) -> Any:  # noqa: ANN401
         if not isinstance(data, dict):
             return data
         rw = data.get("read_write")
@@ -26,7 +29,6 @@ class AttributeDriverSpec(BaseModel):
             # Only fill if not already provided
             data.setdefault("read", rw)
             data.setdefault("write", rw)
-
         return data
 
     @model_validator(mode="before")
@@ -69,6 +71,7 @@ def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverSpec:
         data_type=attribute_driver.data_type,
         read=attribute_driver.read,
         write=attribute_driver.write,
+        confirm=attribute_driver.confirm,
         codecs=attribute_driver.codec_specs,
     )
 
@@ -80,4 +83,5 @@ def dto_to_core(dto: AttributeDriverSpec) -> AttributeDriver:
         read=dto.read,
         write=dto.write,
         codec_specs=dto.codecs,
+        confirm=dto.confirm,
     )
