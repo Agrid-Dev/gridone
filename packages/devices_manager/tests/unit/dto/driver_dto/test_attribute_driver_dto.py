@@ -1,9 +1,7 @@
 import pytest
 
-from devices_manager.dto.driver_dto.attribute_driver_dto import (
-    AttributeDriverSpec,
-    RawTransportAddress,
-)
+from devices_manager.core.transports import RawTransportAddress
+from devices_manager.dto.driver_dto.attribute_driver_dto import AttributeDriverSpec
 from devices_manager.types import DataType
 
 
@@ -12,14 +10,14 @@ def test_attribute_schema_from_dict() -> None:
         "name": "temperature",
         "data_type": "float",
         "read": "GET {base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
-        "json_pointer": "/current_weather/temperature",
+        "codecs": [{"json_pointer": "/current_weather/temperature"}],
     }
     attribute_dto = AttributeDriverSpec.model_validate(data)
     assert attribute_dto.name == "temperature"
     assert attribute_dto.data_type == DataType.FLOAT
-    assert attribute_dto.value_adapters is not None
-    assert attribute_dto.value_adapters[0].adapter == "json_pointer"
-    assert attribute_dto.value_adapters[0].argument == "/current_weather/temperature"
+    assert attribute_dto.codecs is not None
+    assert attribute_dto.codecs[0].name == "json_pointer"
+    assert attribute_dto.codecs[0].argument == "/current_weather/temperature"
     assert attribute_dto.read == data["read"]
     assert attribute_dto.write is None
 
@@ -55,7 +53,7 @@ def test_attribute_schema_read_write_addresses(
     base_data = {  # everything in attribute_schema except read/write addresses
         "name": "temperature",
         "data_type": "float",
-        "json_pointer": "/current_weather/temperature",
+        "codecs": [{"json_pointer": "/current_weather/temperature"}],
     }
     attribute_to = AttributeDriverSpec.model_validate({**base_data, **addresses})
     assert attribute_to.read == expected_read

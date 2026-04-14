@@ -12,42 +12,51 @@ attributes:
   - name: onoff_state
     data_type: bool
     read_write: "${ga_main}/${ga_middle}/0"
-    knx_dpt: "1.001"
+    codecs:
+      - knx_dpt: "1.001"
 
   - name: temperature_setpoint
     data_type: float
     read_write: "${ga_main}/${ga_middle}/1"
-    knx_dpt: "9.001"
+    codecs:
+      - knx_dpt: "9.001"
 
   - name: temperature_setpoint_min
     data_type: float
     read_write: "${ga_main}/${ga_middle}/2"
-    knx_dpt: "9.001"
+    codecs:
+      - knx_dpt: "9.001"
 
   - name: temperature_setpoint_max
     data_type: float
     read_write: "${ga_main}/${ga_middle}/3"
-    knx_dpt: "9.001"
+    codecs:
+      - knx_dpt: "9.001"
 
   - name: temperature
     data_type: float
     read: "${ga_main}/${ga_middle}/4"
-    knx_dpt: "9.001"
+    codecs:
+      - knx_dpt: "9.001"
 
   - name: mode
     data_type: str
     read_write: "${ga_main}/${ga_middle}/5"
-    value_adapters:
-      - adapter: knx_dpt
-        argument: "5.010"
-      - adapter: mapping
-        argument: {1: "heat", 2: "cool", 3: "fan", 4: "auto"}
+    codecs:
+      - knx_dpt: "5.010"
+      - mapping:
+          1: "heat"
+          2: "cool"
+          3: "fan"
+          4: "auto"
 
   - name: fan_speed
     data_type: str
     read_write: "${ga_main}/${ga_middle}/6"
-    value_adapters:
-      - adapter: knx_dpt
-        argument: "5.010"
-      - adapter: mapping
-        argument: {1: "auto", 2: "low", 3: "medium", 4: "high"}
+    codecs:
+      - knx_dpt: "5.010"
+      - mapping:
+          1: "auto"
+          2: "low"
+          3: "medium"
+          4: "high"

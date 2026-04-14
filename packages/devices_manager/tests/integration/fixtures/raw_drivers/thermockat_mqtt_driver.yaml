@@ -7,7 +7,7 @@ discovery:
   topic: thermocktat/#
   field_getters:
     - name: device_id
-      adapters:
+      codecs:
         - json_pointer: /device_id
 
 attributes:
@@ -19,7 +19,8 @@ attributes:
         topic: thermocktat/${device_id}/get/snapshot
         message:
           input: hello
-    json_pointer: /ambient_temperature
+    codecs:
+      - json_pointer: /ambient_temperature
   - name: temperature_setpoint
     data_type: float
     read:
@@ -32,7 +33,8 @@ attributes:
       topic: thermocktat/${device_id}/set/temperature_setpoint
       message:
         value: ${value}
-    json_pointer: /temperature_setpoint
+    codecs:
+      - json_pointer: /temperature_setpoint
   - name: state
     data_type: bool
     read:
@@ -45,7 +47,8 @@ attributes:
       topic: thermocktat/${device_id}/set/enabled
       message:
         value: ${value}
-    json_pointer: /enabled
+    codecs:
+      - json_pointer: /enabled
   - name: temperature_setpoint_min
     data_type: float
     read:
@@ -58,7 +61,8 @@ attributes:
       topic: thermocktat/${device_id}/set/temperature_setpoint_min
       message:
         value: ${value}
-    json_pointer: /temperature_setpoint_min
+    codecs:
+      - json_pointer: /temperature_setpoint_min
   - name: temperature_setpoint_max
     data_type: float
     read:
@@ -71,7 +75,8 @@ attributes:
       topic: thermocktat/${device_id}/set/temperature_setpoint_max
       message:
         value: ${value}
-    json_pointer: /temperature_setpoint_max
+    codecs:
+      - json_pointer: /temperature_setpoint_max
   - name: fan_speed
     data_type: str
     read:
@@ -84,7 +89,8 @@ attributes:
       topic: thermocktat/${device_id}/set/fan_speed
       message:
         value: ${value}
-    json_pointer: /fan_speed
+    codecs:
+      - json_pointer: /fan_speed
   - name: mode
     data_type: str
     read:
@@ -97,4 +103,5 @@ attributes:
       topic: thermocktat/${device_id}/set/mode
       message:
         value: ${value}
-    json_pointer: /mode
+    codecs:
+      - json_pointer: /mode

@@ -8,12 +8,14 @@ attributes:
   - name: temperature
     data_type: float
     read: "GET ${ip}/v1"
-    json_pointer: /ambient_temperature
+    codecs:
+      - json_pointer: /ambient_temperature
 
   - name: temperature_setpoint
     data_type: float
     read: "GET ${ip}/v1"
-    json_pointer: /temperature_setpoint
+    codecs:
+      - json_pointer: /temperature_setpoint
     write:
       method: "POST"
       path: "${ip}/v1/temperature_setpoint"
@@ -23,7 +25,8 @@ attributes:
   - name: state
     data_type: bool
     read: "GET ${ip}/v1"
-    json_pointer: /enabled
+    codecs:
+      - json_pointer: /enabled
     write:
       method: "POST"
       path: "${ip}/v1/enabled"
@@ -33,7 +36,8 @@ attributes:
   - name: temperature_setpoint_min
     data_type: float
     read: "GET ${ip}/v1"
-    json_pointer: /temperature_setpoint_min
+    codecs:
+      - json_pointer: /temperature_setpoint_min
     write:
       method: "POST"
       path: "${ip}/v1/temperature_setpoint_min"
@@ -43,7 +47,8 @@ attributes:
   - name: temperature_setpoint_max
     data_type: float
     read: "GET ${ip}/v1"
-    json_pointer: /temperature_setpoint_max
+    codecs:
+      - json_pointer: /temperature_setpoint_max
     write:
       method: "POST"
       path: "${ip}/v1/temperature_setpoint_max"
@@ -53,7 +58,8 @@ attributes:
   - name: fan_speed
     data_type: str
     read: "GET ${ip}/v1"
-    json_pointer: /fan_speed
+    codecs:
+      - json_pointer: /fan_speed
     write:
       method: "POST"
       path: "${ip}/v1/fan_speed"
@@ -63,7 +69,8 @@ attributes:
   - name: mode
     data_type: str
     read: "GET ${ip}/v1"
-    json_pointer: /fan_speed
+    codecs:
+      - json_pointer: /fan_speed
     write:
       method: "POST"
       path: "${ip}/v1/mode"

@@ -17,9 +17,9 @@ from .device import CoreDevice
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import Driver
     from devices_manager.core.transports import TransportClient
-    from devices_manager.core.value_adapters import FnAdapter
     from devices_manager.types import AttributeValueType, DeviceConfig
 
     from .device import AttributeUpdateCallback
@@ -100,19 +100,19 @@ class PhysicalDevice(CoreDevice):
         }
         for attribute in self.attributes.values():
             attribute_driver = self.driver.attributes[attribute.name]
-            adapter = attribute_driver.value_adapter
+            codec = attribute_driver.codec
             address = self.transport.build_address(
                 render_struct(attribute_driver.read, context), context
             )
             await self.transport.register_listener(
-                address.topic, self._make_on_message(adapter, attribute)
+                address.topic, self._make_on_message(codec, attribute)
             )
 
     def _make_on_message(
-        self, adapter: FnAdapter, attribute: Attribute
+        self, codec: FnCodec, attribute: Attribute
     ) -> Callable[[object], None]:
         def on_message(v: object) -> None:
-            decoded = adapter.decode(v)
+            decoded = codec.decode(v)
             logger.debug(
                 "Attribute %s of device %s updated to value %s by listener",
                 attribute.name,
@@ -164,8 +164,8 @@ class PhysicalDevice(CoreDevice):
             render_struct(attribute_driver.read, context), context
         )
         raw_value = await self.transport.read(address)
-        adapter = attribute_driver.value_adapter
-        decoded_value = adapter.decode(raw_value)
+        codec = attribute_driver.codec
+        decoded_value = codec.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
@@ -237,14 +237,14 @@ class PhysicalDevice(CoreDevice):
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
         attribute_driver = self.driver.attributes[attribute.name]
-        adapter = attribute_driver.value_adapter
+        codec = attribute_driver.codec
         if attribute_driver.write is None:
             msg = (
                 f"Driver '{self.driver.metadata.id}' has no write address"
                 " for attribute'{attribute_name}'"
             )
             raise PermissionError(msg)
-        encoded_value = adapter.encode(value)
+        encoded_value = codec.encode(value)
         context = {**self.driver.env, **self.config, "value": encoded_value}
         address = self.transport.build_address(
             render_struct(attribute_driver.write, context), context

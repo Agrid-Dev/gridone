@@ -8,31 +8,38 @@ attributes:
   - name: temperature
     data_type: float
     read: IR0:2
-    byte_convert: "float32"
+    codecs:
+      - byte_convert: "float32"
 
   - name: temperature_setpoint
     data_type: float
     read_write: HR0:2
-    byte_convert: "float32"
+    codecs:
+      - byte_convert: "float32"
 
   - name: state
     data_type: bool
     read_write: C0
+    codecs: []
 
   - name: temperature_setpoint_min
     data_type: float
     read_write: HR2:2
-    byte_convert: "float32"
+    codecs:
+      - byte_convert: "float32"
 
   - name: temperature_setpoint_max
     data_type: float
     read_write: HR4:2
-    byte_convert: "float32"
+    codecs:
+      - byte_convert: "float32"
 
   - name: mode
     data_type: int
     read_write: HR6
+    codecs: []
 
   - name: fan_speed
     data_type: int
     read_write: HR8
+    codecs: []

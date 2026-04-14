@@ -1,5 +1,6 @@
 import pytest
 
+from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.driver import (
     AttributeDriver,
     DeviceConfigField,
@@ -7,7 +8,6 @@ from devices_manager.core.driver import (
     DriverMetadata,
     UpdateStrategy,
 )
-from devices_manager.core.value_adapters.factory import ValueAdapterSpec
 from devices_manager.types import DataType, TransportProtocols
 
 
@@ -19,37 +19,35 @@ def attributes() -> list[AttributeDriver]:
             data_type=DataType.FLOAT,
             read="GET /temperature",
             write=None,
-            value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="temperature_setpoint",
             data_type=DataType.FLOAT,
             read="GET /${some_id}/setpoint",
             write="POST /${some_id}/setpoint",
-            value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="humidity",
             data_type=DataType.FLOAT,
             read="GET /humidity",
             write=None,
-            value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="temperature_w_adapter",
             data_type=DataType.FLOAT,
             read="GET /temperature_w_adapter",
             write=None,
-            value_adapter_specs=[
-                ValueAdapterSpec(adapter="json_pointer", argument="/data/temperature")
-            ],
+            codec_specs=[CodecSpec(name="json_pointer", argument="/data/temperature")],
         ),
         AttributeDriver(
             name="temperature_setpoint_w_reversible_adapter",
             data_type=DataType.FLOAT,
             read="GET /temperature_setpoint_w_reversible_adapter",
             write="POST /temperature_setpoint_w_reversible_adapter",
-            value_adapter_specs=[ValueAdapterSpec(adapter="scale", argument=0.1)],
+            codec_specs=[CodecSpec(name="scale", argument=0.1)],
         ),
     ]
 
@@ -74,7 +72,7 @@ def _make_identity_attr(
         data_type=data_type,
         read=f"GET /{name}",
         write=f"POST /{name}" if writable else None,
-        value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+        codec_specs=[CodecSpec(name="identity", argument="")],
     )
 
 
@@ -114,14 +112,14 @@ def other_http_driver() -> Driver:
                 data_type=DataType.FLOAT,
                 read="GET /power",
                 write=None,
-                value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+                codec_specs=[CodecSpec(name="identity", argument="")],
             ),
             "temperature": AttributeDriver(
                 name="temperature",
                 data_type=DataType.FLOAT,
                 read="GET /temp",
                 write=None,
-                value_adapter_specs=[ValueAdapterSpec(adapter="identity", argument="")],
+                codec_specs=[CodecSpec(name="identity", argument="")],
             ),
         },
     )
@@ -149,10 +147,8 @@ def push_attributes() -> list[AttributeDriver]:
             data_type=DataType.FLOAT,
             read={"topic": "/xx/temperature"},
             write=None,
-            value_adapter_specs=[
-                ValueAdapterSpec(
-                    adapter="json_pointer", argument="/payload/temperature"
-                )
+            codec_specs=[
+                CodecSpec(name="json_pointer", argument="/payload/temperature")
             ],
         )
     ]
@@ -170,8 +166,8 @@ def driver_w_push_transport(push_attributes: list[AttributeDriver]) -> Driver:
         discovery_schema={
             "topic": "/xx",
             "field_getters": [
-                {"name": "vendor_id", "adapters": [{"json_pointer": "/id"}]},
-                {"name": "gateway_id", "adapters": [{"json_pointer": "/gateway_id"}]},
+                {"name": "vendor_id", "codecs": [{"json_pointer": "/id"}]},
+                {"name": "gateway_id", "codecs": [{"json_pointer": "/gateway_id"}]},
             ],
         },
     )

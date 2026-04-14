@@ -21,6 +21,7 @@ class TestDriverFromDict:
                     "name": "temperature",
                     "data_type": "float",
                     "read": "GET /temperature",
+                    "codecs": [],
                 },
             ],
         }
@@ -74,7 +75,7 @@ def _make_attribute(name: str, data_type: DataType = DataType.FLOAT) -> Attribut
         data_type=data_type,
         read="GET /test",
         write=None,
-        value_adapter_specs=[],
+        codec_specs=[],
     )
 
 
