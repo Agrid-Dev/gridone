@@ -18,9 +18,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture
 def device_writer() -> AsyncMock:
     mock = AsyncMock()
-    mock.write_device_attribute.return_value = WriteResult(
-        last_changed=datetime(2026, 1, 2, tzinfo=UTC)
-    )
+    mock.return_value = WriteResult(last_changed=datetime(2026, 1, 2, tzinfo=UTC))
     return mock
 
 
@@ -56,10 +54,8 @@ class TestDispatch:
         assert cmd.device_id == "d1"
         assert cmd.completed_at is not None
 
-        device_writer.write_device_attribute.assert_awaited_once_with(
-            "d1", "mode", "auto", confirm=True
-        )
-        result_handler.on_command_success.assert_awaited_once()
+        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
+        result_handler.assert_awaited_once()
 
     async def test_error_marks_command_failed(
         self,
@@ -67,7 +63,7 @@ class TestDispatch:
         device_writer: AsyncMock,
         result_handler: AsyncMock,
     ):
-        device_writer.write_device_attribute.side_effect = RuntimeError("timeout")
+        device_writer.side_effect = RuntimeError("timeout")
 
         with pytest.raises(RuntimeError, match="timeout"):
             await service.dispatch(
@@ -78,7 +74,7 @@ class TestDispatch:
                 user_id="u1",
             )
 
-        result_handler.on_command_success.assert_not_awaited()
+        result_handler.assert_not_awaited()
 
         # The command should be stored with ERROR status.
         page = await service.get_commands(device_id="d1")
@@ -114,12 +110,17 @@ class TestDispatch:
             user_id="u1",
             confirm=False,
         )
-        device_writer.write_device_attribute.assert_awaited_once_with(
-            "d1", "mode", "auto", confirm=False
-        )
+        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=False)
 
 
 class TestGetCommands:
+    async def test_end_before_start_raises(self, service: CommandsService):
+        with pytest.raises(ValueError, match="start must be before end"):
+            await service.get_commands(
+                start=datetime(2026, 2, 1, tzinfo=UTC),
+                end=datetime(2026, 1, 1, tzinfo=UTC),
+            )
+
     async def test_empty(self, service: CommandsService):
         page = await service.get_commands()
         assert page.items == []

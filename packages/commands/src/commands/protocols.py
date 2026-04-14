@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING, Any, Protocol
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import DataPointValue, DataType, WriteResult
+    from commands.models import WriteResult
+    from models.types import AttributeValueType, DataType
 
 
 class DeviceWriter(Protocol):
-    async def write_device_attribute(
+    async def __call__(
         self,
         device_id: str,
         attribute_name: str,
@@ -20,11 +21,11 @@ class DeviceWriter(Protocol):
 
 
 class CommandResultHandler(Protocol):
-    async def on_command_success(  # noqa: PLR0913
+    async def __call__(  # noqa: PLR0913
         self,
         device_id: str,
         attribute: str,
-        value: DataPointValue,
+        value: AttributeValueType,
         data_type: DataType,
         command_id: int,
         last_changed: datetime | None,

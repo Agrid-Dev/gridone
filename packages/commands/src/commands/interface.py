@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from commands.models import SortOrder
+from models.types import SortOrder
 
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import Command, DataPointValue
+    from commands.models import Command
     from models.pagination import Page, PaginationParams
-    from models.types import DataType
+    from models.types import AttributeValueType, DataType
 
 
 class CommandsServiceInterface(Protocol):
@@ -18,7 +18,7 @@ class CommandsServiceInterface(Protocol):
         *,
         device_id: str,
         attribute: str,
-        value: DataPointValue,
+        value: AttributeValueType,
         data_type: DataType,
         user_id: str,
         confirm: bool = True,

@@ -4,20 +4,13 @@ from dataclasses import dataclass
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
 
-from models.types import AttributeValueType, DataType
-
-DataPointValue = AttributeValueType
+from models.types import AttributeValueType, DataType  # noqa: TC001
 
 
 class CommandStatus(StrEnum):
     PENDING = "pending"
     SUCCESS = "success"
     ERROR = "error"
-
-
-class SortOrder(StrEnum):
-    ASC = "asc"
-    DESC = "desc"
 
 
 @dataclass
@@ -32,7 +25,7 @@ class CommandCreate:
     group_id: str | None
     device_id: str
     attribute: str
-    value: DataPointValue
+    value: AttributeValueType
     data_type: DataType
     status: CommandStatus
     status_details: str | None

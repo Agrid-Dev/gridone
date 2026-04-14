@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from commands.models import Command, SortOrder
+from commands.models import Command
+from models.types import SortOrder
 
 if TYPE_CHECKING:
     from datetime import datetime

@@ -6,9 +6,9 @@ from typing import Any
 import pytest
 
 from commands.filters import CommandsQueryFilters
-from commands.models import CommandCreate, CommandStatus, SortOrder
+from commands.models import CommandCreate, CommandStatus
 from commands.storage.memory import MemoryStorage
-from models.types import DataType
+from models.types import DataType, SortOrder
 
 
 def make_command(  # noqa: PLR0913

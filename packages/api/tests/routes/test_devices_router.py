@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from commands import CommandsServiceInterface
-from commands.models import SortOrder
+from models.types import SortOrder
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device

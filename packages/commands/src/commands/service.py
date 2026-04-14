@@ -5,15 +5,16 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from commands.filters import CommandsQueryFilters
-from commands.models import Command, CommandCreate, CommandStatus, SortOrder
+from commands.models import Command, CommandCreate, CommandStatus
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
+from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import DataPointValue, WriteResult
+    from commands.models import WriteResult
     from commands.protocols import CommandResultHandler, DeviceWriter
     from commands.storage.protocol import CommandsStorage
-    from models.types import DataType
+    from models.types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class CommandsService:
         *,
         device_id: str,
         attribute: str,
-        value: DataPointValue,
+        value: AttributeValueType,
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
@@ -73,7 +74,7 @@ class CommandsService:
         )
 
         try:
-            result: WriteResult = await self._device_writer.write_device_attribute(
+            result: WriteResult = await self._device_writer(
                 device_id, attribute, value, confirm=confirm
             )
             completed_at = datetime.now(UTC)
@@ -82,7 +83,7 @@ class CommandsService:
                 CommandStatus.SUCCESS,
                 completed_at=completed_at,
             )
-            await self._result_handler.on_command_success(
+            await self._result_handler(
                 device_id=device_id,
                 attribute=attribute,
                 value=value,

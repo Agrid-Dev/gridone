@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from commands.models import SortOrder
+from models.types import SortOrder
 
 if TYPE_CHECKING:
     from datetime import datetime

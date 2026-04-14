@@ -1,8 +1,13 @@
-from models.types import DATA_TYPE_MAP, VALUE_TYPE_MAP, AttributeValueType, DataType
+from models.types import (
+    DATA_TYPE_MAP,
+    VALUE_TYPE_MAP,
+    AttributeValueType,
+    DataType,
+    SortOrder,
+)
 from timeseries.domain.models import (
     DataPoint,
     SeriesKey,
-    SortOrder,
     TimeSeries,
     validate_value_type,
 )

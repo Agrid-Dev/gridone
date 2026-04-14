@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from commands.models import Command, CommandStatus, SortOrder
+from commands.models import Command, CommandStatus
 from commands.storage.postgres.deserialize import deserialize_command_value
 from models.errors import NotFoundError
-from models.types import DataType
+from models.types import DataType, SortOrder
 
 if TYPE_CHECKING:
     from datetime import datetime

@@ -2,13 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import StrEnum
 from secrets import token_hex
 
 from models.errors import InvalidError
-from models.types import AttributeValueType, DataType
-
-DataPointValue = AttributeValueType
+from models.types import AttributeValueType, DataType  # noqa: TC001
 
 
 @dataclass(frozen=True)
@@ -20,7 +17,7 @@ class SeriesKey:
 @dataclass(frozen=True)
 class DataPoint:
     timestamp: datetime
-    value: DataPointValue
+    value: AttributeValueType
     command_id: int | None = None
 
 
@@ -42,7 +39,7 @@ class TimeSeries:
         )
 
 
-def validate_value_type(value: DataPointValue, expected: type) -> None:
+def validate_value_type(value: AttributeValueType, expected: type) -> None:
     actual = type(value)
     if actual is expected:
         return
@@ -50,8 +47,3 @@ def validate_value_type(value: DataPointValue, expected: type) -> None:
         return
     msg = f"Expected {expected.__name__}, got {actual.__name__}"
     raise InvalidError(msg)
-
-
-class SortOrder(StrEnum):
-    ASC = "asc"
-    DESC = "desc"
