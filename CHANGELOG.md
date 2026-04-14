@@ -1,3 +1,9 @@
+## v0.41.3 (2026-04-14)
+
+### Fix
+
+- add confirm flag on driver attributes (#204)
+
 ## v0.41.2 (2026-04-09)
 
 ### Refactor
