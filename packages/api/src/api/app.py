@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
-from commands import CommandsService, WriteResult
+from commands import CommandsService, DataPointValue, WriteResult
+from commands.models import DataType
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
 from timeseries import DataPoint, SeriesKey, create_service
@@ -78,8 +79,8 @@ async def lifespan(app: FastAPI):
             self,
             device_id: str,
             attribute: str,
-            value: object,
-            data_type: object,
+            value: DataPointValue,
+            data_type: DataType,
             command_id: int,
             last_changed: datetime | None,
         ) -> None:

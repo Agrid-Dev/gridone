@@ -37,10 +37,8 @@ class MemoryStorage:
         for cmd in self._history:
             if cmd.id == command_id:
                 cmd.status = status
-                if status_details is not None:
-                    cmd.status_details = status_details
-                if completed_at is not None:
-                    cmd.completed_at = completed_at
+                cmd.status_details = status_details
+                cmd.completed_at = completed_at
                 return cmd
         msg = f"Command {command_id} not found"
         raise ValueError(msg)
