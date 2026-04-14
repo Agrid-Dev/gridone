@@ -208,9 +208,7 @@ class TestDevicesListeners:
                     read={"topic": "/dev/temperature"},
                     write=None,
                     codec_specs=[
-                        CodecSpec(
-                            adapter="json_pointer", argument="/payload/temperature"
-                        )
+                        CodecSpec(name="json_pointer", argument="/payload/temperature")
                     ],
                 ),
                 "humidity": AttributeDriver(
@@ -219,7 +217,7 @@ class TestDevicesListeners:
                     read={"topic": "/dev/humidity"},
                     write=None,
                     codec_specs=[
-                        CodecSpec(adapter="json_pointer", argument="/payload/humidity")
+                        CodecSpec(name="json_pointer", argument="/payload/humidity")
                     ],
                 ),
             },

@@ -19,37 +19,35 @@ def attributes() -> list[AttributeDriver]:
             data_type=DataType.FLOAT,
             read="GET /temperature",
             write=None,
-            codec_specs=[CodecSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="temperature_setpoint",
             data_type=DataType.FLOAT,
             read="GET /${some_id}/setpoint",
             write="POST /${some_id}/setpoint",
-            codec_specs=[CodecSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="humidity",
             data_type=DataType.FLOAT,
             read="GET /humidity",
             write=None,
-            codec_specs=[CodecSpec(adapter="identity", argument="")],
+            codec_specs=[CodecSpec(name="identity", argument="")],
         ),
         AttributeDriver(
             name="temperature_w_adapter",
             data_type=DataType.FLOAT,
             read="GET /temperature_w_adapter",
             write=None,
-            codec_specs=[
-                CodecSpec(adapter="json_pointer", argument="/data/temperature")
-            ],
+            codec_specs=[CodecSpec(name="json_pointer", argument="/data/temperature")],
         ),
         AttributeDriver(
             name="temperature_setpoint_w_reversible_adapter",
             data_type=DataType.FLOAT,
             read="GET /temperature_setpoint_w_reversible_adapter",
             write="POST /temperature_setpoint_w_reversible_adapter",
-            codec_specs=[CodecSpec(adapter="scale", argument=0.1)],
+            codec_specs=[CodecSpec(name="scale", argument=0.1)],
         ),
     ]
 
@@ -74,7 +72,7 @@ def _make_identity_attr(
         data_type=data_type,
         read=f"GET /{name}",
         write=f"POST /{name}" if writable else None,
-        codec_specs=[CodecSpec(adapter="identity", argument="")],
+        codec_specs=[CodecSpec(name="identity", argument="")],
     )
 
 
@@ -114,14 +112,14 @@ def other_http_driver() -> Driver:
                 data_type=DataType.FLOAT,
                 read="GET /power",
                 write=None,
-                codec_specs=[CodecSpec(adapter="identity", argument="")],
+                codec_specs=[CodecSpec(name="identity", argument="")],
             ),
             "temperature": AttributeDriver(
                 name="temperature",
                 data_type=DataType.FLOAT,
                 read="GET /temp",
                 write=None,
-                codec_specs=[CodecSpec(adapter="identity", argument="")],
+                codec_specs=[CodecSpec(name="identity", argument="")],
             ),
         },
     )
@@ -150,7 +148,7 @@ def push_attributes() -> list[AttributeDriver]:
             read={"topic": "/xx/temperature"},
             write=None,
             codec_specs=[
-                CodecSpec(adapter="json_pointer", argument="/payload/temperature")
+                CodecSpec(name="json_pointer", argument="/payload/temperature")
             ],
         )
     ]

@@ -14,46 +14,46 @@ from models.errors import InvalidError
 @pytest.mark.parametrize(
     ("specs", "input_value", "output_expected"),
     [
-        ([CodecSpec(adapter="identity", argument="")], 1, 1),
-        ([CodecSpec(adapter="scale", argument=0.1)], 10, 1),
+        ([CodecSpec(name="identity", argument="")], 1, 1),
+        ([CodecSpec(name="scale", argument=0.1)], 10, 1),
         (
-            [CodecSpec(adapter="byte_frame", argument="11 05 00 13 00 55 20")],
+            [CodecSpec(name="byte_frame", argument="11 05 00 13 00 55 20")],
             bytes([0x11, 0x05, 0x00, 0x13, 0x00, 0x55, 0x20, 0x01]),
             1,
         ),
         (
             [
-                CodecSpec(adapter="scale", argument=0.1),
-                CodecSpec(adapter="scale", argument=0.1),
+                CodecSpec(name="scale", argument=0.1),
+                CodecSpec(name="scale", argument=0.1),
             ],
             10,
             0.1,
         ),
         (
             [
-                CodecSpec(adapter="json_pointer", argument="/my/nested/value"),
-                CodecSpec(adapter="scale", argument=0.1),
+                CodecSpec(name="json_pointer", argument="/my/nested/value"),
+                CodecSpec(name="scale", argument=0.1),
             ],
             {"my": {"nested": {"value": 10}}},
             1,
         ),
         (
             [
-                CodecSpec(adapter="json_pointer", argument="/my/nested/value"),
-                CodecSpec(adapter="scale", argument=0.1),
-                CodecSpec(adapter="bool_format", argument="0/1"),
+                CodecSpec(name="json_pointer", argument="/my/nested/value"),
+                CodecSpec(name="scale", argument=0.1),
+                CodecSpec(name="bool_format", argument="0/1"),
             ],
             {"my": {"nested": {"value": 10}}},
             True,
         ),
         ([], 1, 1),
         (
-            [CodecSpec(adapter="mapping", argument={1: "heat", 2: "cool"})],
+            [CodecSpec(name="mapping", argument={1: "heat", 2: "cool"})],
             1,
             "heat",
         ),
         (
-            [CodecSpec(adapter="knx_dpt", argument="9.001")],
+            [CodecSpec(name="knx_dpt", argument="9.001")],
             [0x0C, 0x65],
             22.5,
         ),
@@ -68,18 +68,18 @@ def test_build_codec(
 
 def test_build_codec_invalid_adapter():
     with pytest.raises(ValidationError, match="not supported"):
-        build_codec([CodecSpec(adapter="unknown", argument="arg")])
+        build_codec([CodecSpec(name="unknown", argument="arg")])
 
 
 def test_build_codec_wrong_arg_type():
     with pytest.raises(InvalidError, match="expects argument of type"):
-        build_codec([CodecSpec(adapter="scale", argument={1: 2})])
+        build_codec([CodecSpec(name="scale", argument={1: 2})])
 
 
 @pytest.mark.parametrize(("raw"), [({"json_pointer": "/path/to/value"})])
 def test_codec_spec_from_raw(raw: dict[str, str]):
     spec = codec_spec_from_raw(raw)
-    assert spec.adapter == next(iter(raw.keys()))
+    assert spec.name == next(iter(raw.keys()))
     assert spec.argument == next(iter(raw.values()))
 
 

@@ -49,14 +49,14 @@ class AttributeDriverSpec(BaseModel):
             if not isinstance(item, dict):
                 msg = "Each codecs entry must be an object or CodecSpec"
                 raise InvalidError(msg)
-            if set(item.keys()) == {"adapter", "argument"}:
+            if set(item.keys()) == {"name", "argument"}:
                 parsed.append(CodecSpec.model_validate(item))
             elif len(item) == 1:
                 parsed.append(codec_spec_from_raw(item))
             else:
                 msg = (
                     "Each codecs entry must be a single-key object "
-                    "(e.g. {json_pointer: /path}) or {adapter, argument}"
+                    "(e.g. {json_pointer: /path}) or {name, argument}"
                 )
                 raise InvalidError(msg)
         data["codecs"] = parsed

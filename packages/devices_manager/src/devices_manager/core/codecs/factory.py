@@ -54,7 +54,7 @@ def is_supported_codec(name: str) -> str:
 
 
 class CodecSpec(BaseModel):
-    adapter: Annotated[str, BeforeValidator(is_supported_codec)]
+    name: Annotated[str, BeforeValidator(is_supported_codec)]
     argument: RawArg
 
 
@@ -63,13 +63,13 @@ def codec_spec_from_raw(raw: dict[str, Any]) -> CodecSpec:
         msg = "Exactly one codec entry must be defined per list item"
         raise InvalidError(msg)
     codec_name, argument = next(iter(raw.items()))
-    return CodecSpec(adapter=codec_name, argument=argument)
+    return CodecSpec(name=codec_name, argument=argument)
 
 
 def _build_one_codec(spec: CodecSpec) -> FnCodec:
-    entry = codec_entries.get(spec.adapter)
+    entry = codec_entries.get(spec.name)
     if not entry:
-        msg = f"Unknown codec: {spec.adapter}"
+        msg = f"Unknown codec: {spec.name}"
         raise InvalidError(msg)
     if not isinstance(spec.argument, entry.arg_type):
         expected = (
@@ -78,7 +78,7 @@ def _build_one_codec(spec: CodecSpec) -> FnCodec:
             else " | ".join(t.__name__ for t in entry.arg_type)
         )
         msg = (
-            f"Codec '{spec.adapter}' expects argument of type {expected}, "
+            f"Codec '{spec.name}' expects argument of type {expected}, "
             f"got {type(spec.argument).__name__}"
         )
         raise InvalidError(msg)

@@ -16,7 +16,7 @@ def test_attribute_schema_from_dict() -> None:
     assert attribute_dto.name == "temperature"
     assert attribute_dto.data_type == DataType.FLOAT
     assert attribute_dto.codecs is not None
-    assert attribute_dto.codecs[0].adapter == "json_pointer"
+    assert attribute_dto.codecs[0].name == "json_pointer"
     assert attribute_dto.codecs[0].argument == "/current_weather/temperature"
     assert attribute_dto.read == data["read"]
     assert attribute_dto.write is None
