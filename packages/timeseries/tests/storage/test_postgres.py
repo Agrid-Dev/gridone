@@ -7,6 +7,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
+from commands.storage.postgres import run_migrations as run_commands_migrations
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
@@ -42,12 +43,14 @@ def _make_series(
 async def storage():
     assert POSTGRES_URL is not None
     run_migrations(POSTGRES_URL)
+    run_commands_migrations(POSTGRES_URL)
 
     pool = await asyncpg.create_pool(POSTGRES_URL)
 
     # Clean data between tests (preserve tables so yoyo tracking stays valid)
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM ts_data_points")
+        await conn.execute("DELETE FROM commands")
         await conn.execute("DELETE FROM ts_series")
 
     store = PostgresStorage(pool)
