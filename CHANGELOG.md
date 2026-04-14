@@ -1,3 +1,21 @@
+## v0.42.0 (2026-04-14)
+
+### Feat
+
+- added commands package
+
+### Fix
+
+- reviews addressed
+- run commands migrations in timeseries integration tests
+- remove test __init__.py files causing namespace collision
+- resolve pre-push hook failures
+- migrations compatible with postgres
+
+### Refactor
+
+- address pre-push review findings
+
 ## v0.41.3 (2026-04-14)
 
 ### Fix
