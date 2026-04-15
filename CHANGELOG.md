@@ -1,3 +1,9 @@
+## v0.43.0 (2026-04-15)
+
+### Feat
+
+- add filter compatibility method for a given command (#206)
+
 ## v0.42.0 (2026-04-14)
 
 ### Feat
