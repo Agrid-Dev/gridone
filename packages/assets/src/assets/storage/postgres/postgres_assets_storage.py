@@ -141,6 +141,19 @@ class PostgresAssetsStorage:
         )
         return [row["asset_id"] for row in rows]
 
+    async def get_device_ids_for_subtree(self, asset_id: str) -> list[str]:
+        rows = await self._pool.fetch(
+            """
+            SELECT DISTINCT dal.device_id
+            FROM device_asset_links dal
+            JOIN assets a ON a.id = dal.asset_id
+            WHERE a.path <@ (SELECT path FROM assets WHERE id = $1)
+            ORDER BY dal.device_id
+            """,
+            asset_id,
+        )
+        return [row["device_id"] for row in rows]
+
     async def get_all_device_links(self) -> dict[str, list[str]]:
         rows = await self._pool.fetch(
             "SELECT asset_id, device_id FROM device_asset_links"

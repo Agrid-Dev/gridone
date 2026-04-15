@@ -179,6 +179,28 @@ class AssetsManager:
         await self._get_or_raise(asset_id)
         return await self._storage.get_device_ids_for_asset(asset_id)
 
+    async def resolve_device_ids(
+        self,
+        asset_id: str,
+        *,
+        recursive: bool = False,
+        allowed_device_ids: set[str] | None = None,
+    ) -> list[str]:
+        """Resolve device IDs linked to an asset.
+
+        When *recursive* is True, includes devices from all descendant assets.
+        When *allowed_device_ids* is provided, the result is intersected with
+        that set (useful for the caller to pre-filter by device type).
+        """
+        await self._get_or_raise(asset_id)
+        if recursive:
+            ids = await self._storage.get_device_ids_for_subtree(asset_id)
+        else:
+            ids = await self._storage.get_device_ids_for_asset(asset_id)
+        if allowed_device_ids is not None:
+            ids = [d for d in ids if d in allowed_device_ids]
+        return ids
+
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
         await self._storage.reorder_siblings(parent_id, ordered_ids)
