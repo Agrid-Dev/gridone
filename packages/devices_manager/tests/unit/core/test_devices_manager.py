@@ -674,15 +674,23 @@ class TestDevicesManagerDeviceDelegation:
 
     @pytest.mark.asyncio
     async def test_list_devices_delegates_to_registry(self):
-        vd = _make_virtual_device()
-        mock_reg = _mock_device_registry({"vd1": vd})
+        mock_reg = _mock_device_registry()
+        mock_reg.list_all.return_value = []
 
         dm = _dm_with_mock_registry(mock_reg)
+        dm.list_devices(
+            ids=["d1"],
+            device_type="thermostat",
+            writable_attribute="temperature_setpoint",
+            writable_attribute_type=DataType.FLOAT,
+        )
 
-        result = dm.list_devices()
-
-        mock_reg.list_all.assert_called_once_with(device_type=None)
-        assert len(result) == 1
+        mock_reg.list_all.assert_called_once_with(
+            ids=["d1"],
+            device_type="thermostat",
+            writable_attribute="temperature_setpoint",
+            writable_attribute_type=DataType.FLOAT,
+        )
 
     @pytest.mark.asyncio
     async def test_get_device_delegates_to_registry(self):
@@ -695,20 +703,6 @@ class TestDevicesManagerDeviceDelegation:
 
         mock_reg.get_dto.assert_called_once_with("vd1")
         assert isinstance(result, Device)
-
-    def test_filter_compatible_delegates_to_registry(self):
-        mock_reg = _mock_device_registry()
-        mock_reg.filter_compatible.return_value = ["d1"]
-
-        dm = _dm_with_mock_registry(mock_reg)
-        result = dm.filter_compatible(
-            ["d1", "d2"], "temperature_setpoint", device_type="thermostat"
-        )
-
-        mock_reg.filter_compatible.assert_called_once_with(
-            ["d1", "d2"], "temperature_setpoint", device_type="thermostat"
-        )
-        assert result == ["d1"]
 
     @pytest.mark.asyncio
     async def test_write_attribute_delegates_to_registry(self):

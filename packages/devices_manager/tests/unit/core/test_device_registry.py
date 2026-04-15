@@ -180,84 +180,179 @@ class TestDeviceRegistryList:
         result = device_registry.list_all(device_type="unknown")
         assert result == []
 
-
-class TestDeviceRegistryFilterCompatible:
-    @pytest.fixture
-    def registry(
+    def test_list_filter_by_ids(
         self,
         thermostat_driver,
         driver,
         mock_transport_client,
         on_attribute_update,
-    ) -> DeviceRegistry:
-        thermostat_device = PhysicalDevice.from_base(
+    ):
+        d_thermo = PhysicalDevice.from_base(
             DeviceBase(id="d_thermo", name="Thermostat", config={}),
             driver=thermostat_driver,
             transport=mock_transport_client,
         )
-        other_device = PhysicalDevice.from_base(
+        d_other = PhysicalDevice.from_base(
             DeviceBase(id="d_other", name="Other", config={}),
             driver=driver,
             transport=mock_transport_client,
         )
-        return DeviceRegistry(
-            {thermostat_device.id: thermostat_device, other_device.id: other_device},
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo, d_other.id: d_other},
             resolve_driver=_make_driver_resolver(thermostat_driver, driver),
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
 
-    def test_empty_input_returns_empty(self, registry):
-        assert registry.filter_compatible([], "temperature_setpoint") == []
+        result = registry.list_all(ids=["d_thermo"])
+        assert len(result) == 1
+        assert result[0].id == "d_thermo"
 
-    def test_unknown_id_silently_skipped(self, registry):
-        assert registry.filter_compatible(["unknown"], "temperature_setpoint") == []
-
-    def test_wrong_device_type_excluded(self, registry):
-        result = registry.filter_compatible(
-            ["d_other"], "temperature_setpoint", device_type="thermostat"
+    def test_list_ids_unknown_silently_skipped(
+        self,
+        thermostat_driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
         )
-        assert result == []
-
-    def test_missing_attribute_excluded(self, registry):
-        result = registry.filter_compatible(
-            ["d_thermo"], "humidity", device_type="thermostat"
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo},
+            resolve_driver=_make_driver_resolver(thermostat_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
         )
-        assert result == []
+        assert registry.list_all(ids=["unknown"]) == []
 
-    def test_read_only_attribute_excluded(self, registry):
-        result = registry.filter_compatible(
-            ["d_thermo"], "temperature", device_type="thermostat"
+    def test_list_filter_writable_attribute(
+        self,
+        thermostat_driver,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
         )
-        assert result == []
-
-    def test_matching_type_and_writable_attribute_included(self, registry):
-        result = registry.filter_compatible(
-            ["d_thermo"], "temperature_setpoint", device_type="thermostat"
+        d_other = PhysicalDevice.from_base(
+            DeviceBase(id="d_other", name="Other", config={}),
+            driver=driver,
+            transport=mock_transport_client,
         )
-        assert result == ["d_thermo"]
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo, d_other.id: d_other},
+            resolve_driver=_make_driver_resolver(thermostat_driver, driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
 
-    def test_no_type_filter_writable_attribute_included(self, registry):
-        result = registry.filter_compatible(["d_other"], "temperature_setpoint")
-        assert result == ["d_other"]
+        result = registry.list_all(writable_attribute="temperature_setpoint")
+        ids = {d.id for d in result}
+        assert ids == {"d_thermo", "d_other"}
 
-    def test_no_type_filter_read_only_excluded(self, registry):
-        result = registry.filter_compatible(["d_other"], "temperature")
-        assert result == []
+    def test_list_filter_read_only_attribute_excluded(
+        self,
+        thermostat_driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo},
+            resolve_driver=_make_driver_resolver(thermostat_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        assert registry.list_all(writable_attribute="temperature") == []
 
-    def test_mixed_ids_returns_only_compatible(self, registry):
-        result = registry.filter_compatible(
-            ["d_thermo", "d_other", "unknown"],
-            "temperature_setpoint",
+    def test_list_filters_stacked(
+        self,
+        thermostat_driver,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        d_other = PhysicalDevice.from_base(
+            DeviceBase(id="d_other", name="Other", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo, d_other.id: d_other},
+            resolve_driver=_make_driver_resolver(thermostat_driver, driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+
+        result = registry.list_all(
+            ids=["d_thermo", "d_other"],
             device_type="thermostat",
+            writable_attribute="temperature_setpoint",
         )
-        assert result == ["d_thermo"]
+        assert len(result) == 1
+        assert result[0].id == "d_thermo"
 
-    def test_preserves_input_order(self, registry):
-        result = registry.filter_compatible(
-            ["d_thermo", "d_other"], "temperature_setpoint"
+    def test_list_filter_writable_attribute_type_match(
+        self,
+        thermostat_driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
         )
-        assert result == ["d_thermo", "d_other"]
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo},
+            resolve_driver=_make_driver_resolver(thermostat_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        result = registry.list_all(
+            writable_attribute="temperature_setpoint",
+            writable_attribute_type=DataType.FLOAT,
+        )
+        assert len(result) == 1
+
+    def test_list_filter_writable_attribute_type_mismatch(
+        self,
+        thermostat_driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d_thermo = PhysicalDevice.from_base(
+            DeviceBase(id="d_thermo", name="Thermostat", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        registry = DeviceRegistry(
+            {d_thermo.id: d_thermo},
+            resolve_driver=_make_driver_resolver(thermostat_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        assert (
+            registry.list_all(
+                writable_attribute="temperature_setpoint",
+                writable_attribute_type=DataType.BOOL,
+            )
+            == []
+        )
 
 
 class TestDeviceRegistryRegister:

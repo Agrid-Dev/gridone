@@ -240,6 +240,30 @@ class TestDevicesListeners:
         assert device.attributes["humidity"].current_value == 65.0
 
 
+class TestCoreDeviceCanWrite:
+    def test_writable_attribute_returns_true(self, device: PhysicalDevice):
+        assert device.can_write("temperature_setpoint") is True
+
+    def test_read_only_attribute_returns_false(self, device: PhysicalDevice):
+        assert device.can_write("temperature") is False
+
+    def test_unknown_attribute_returns_false(self, device: PhysicalDevice):
+        assert device.can_write("nonexistent") is False
+
+    def test_writable_with_matching_data_type(self, device: PhysicalDevice):
+        assert (
+            device.can_write("temperature_setpoint", data_type=DataType.FLOAT) is True
+        )
+
+    def test_writable_with_mismatched_data_type(self, device: PhysicalDevice):
+        assert (
+            device.can_write("temperature_setpoint", data_type=DataType.BOOL) is False
+        )
+
+    def test_data_type_ignored_when_none(self, device: PhysicalDevice):
+        assert device.can_write("temperature_setpoint", data_type=None) is True
+
+
 class TestDeviceEquality:
     def test_device_equals_to_itself(self, device: PhysicalDevice):
         assert device == device  # noqa: PLR0124
