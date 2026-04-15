@@ -674,15 +674,23 @@ class TestDevicesManagerDeviceDelegation:
 
     @pytest.mark.asyncio
     async def test_list_devices_delegates_to_registry(self):
-        vd = _make_virtual_device()
-        mock_reg = _mock_device_registry({"vd1": vd})
+        mock_reg = _mock_device_registry()
+        mock_reg.list_all.return_value = []
 
         dm = _dm_with_mock_registry(mock_reg)
+        dm.list_devices(
+            ids=["d1"],
+            device_type="thermostat",
+            writable_attribute="temperature_setpoint",
+            writable_attribute_type=DataType.FLOAT,
+        )
 
-        result = dm.list_devices()
-
-        mock_reg.list_all.assert_called_once_with(device_type=None)
-        assert len(result) == 1
+        mock_reg.list_all.assert_called_once_with(
+            ids=["d1"],
+            device_type="thermostat",
+            writable_attribute="temperature_setpoint",
+            writable_attribute_type=DataType.FLOAT,
+        )
 
     @pytest.mark.asyncio
     async def test_get_device_delegates_to_registry(self):

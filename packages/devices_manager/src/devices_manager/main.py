@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Iterable
 from typing import TYPE_CHECKING, Any
 
 from models.errors import ForbiddenError
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from .core.driver import Driver
     from .core.transports import TransportClient
     from .storage import DevicesManagerStorage
-    from .types import AttributeValueType
+    from .types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +106,20 @@ class DevicesManager:
     def device_ids(self) -> set[str]:
         return self._device_registry.ids
 
-    def list_devices(self, *, device_type: str | None = None) -> list[Device]:
-        return self._device_registry.list_all(device_type=device_type)
+    def list_devices(
+        self,
+        *,
+        ids: Iterable[str] | None = None,
+        device_type: str | None = None,
+        writable_attribute: str | None = None,
+        writable_attribute_type: DataType | None = None,
+    ) -> list[Device]:
+        return self._device_registry.list_all(
+            ids=ids,
+            device_type=device_type,
+            writable_attribute=writable_attribute,
+            writable_attribute_type=writable_attribute_type,
+        )
 
     def get_device(self, device_id: str) -> Device:
         return self._device_registry.get_dto(device_id)

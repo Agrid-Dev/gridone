@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar
 from .attribute import Attribute
 
 if TYPE_CHECKING:
-    from devices_manager.types import AttributeValueType, DeviceKind
+    from devices_manager.types import AttributeValueType, DataType, DeviceKind
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,17 @@ class CoreDevice(ABC):
 
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
+
+    def can_write(
+        self,
+        attribute_name: str,
+        *,
+        data_type: DataType | None = None,
+    ) -> bool:
+        attribute = self.attributes.get(attribute_name)
+        if attribute is None or "write" not in attribute.read_write_modes:
+            return False
+        return data_type is None or attribute.data_type == data_type
 
     def _update_attribute(
         self,
