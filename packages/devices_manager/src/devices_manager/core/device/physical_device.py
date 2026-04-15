@@ -232,7 +232,7 @@ class PhysicalDevice(CoreDevice):
         self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
     ) -> Attribute:
         attribute = self.get_attribute(attribute_name)
-        if "write" not in attribute.read_write_modes:
+        if not self.can_write(attribute_name):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)

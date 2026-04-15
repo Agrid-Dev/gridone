@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
         VirtualDeviceCreate,
     )
     from devices_manager.storage import StorageBackend
-    from devices_manager.types import AttributeValueType
+    from devices_manager.types import AttributeValueType, DataType
 
     from .driver import Driver
     from .transports import TransportClient
@@ -85,31 +85,27 @@ class DeviceRegistry:
         device = self._get_or_raise(device_id)
         return device_to_public(device)
 
-    def list_all(self, *, device_type: str | None = None) -> list[Device]:
-        devices = list(self._devices.values())
+    def list_all(
+        self,
+        *,
+        ids: Iterable[str] | None = None,
+        device_type: str | None = None,
+        writable_attribute: str | None = None,
+        writable_attribute_type: DataType | None = None,
+    ) -> list[Device]:
+        devices: Iterable[CoreDevice] = self._devices.values()
+        if ids is not None:
+            ids_set = set(ids)
+            devices = [d for d in devices if d.id in ids_set]
         if device_type is not None:
             devices = [d for d in devices if d.type == device_type]
-        return [device_to_public(device) for device in devices]
-
-    def filter_compatible(
-        self,
-        device_ids: list[str],
-        attribute: str,
-        *,
-        device_type: str | None = None,
-    ) -> list[str]:
-        result = []
-        for device_id in device_ids:
-            device = self._devices.get(device_id)
-            if device is None:
-                continue
-            if device_type is not None and device.type != device_type:
-                continue
-            attr = device.attributes.get(attribute)
-            if attr is None or "write" not in attr.read_write_modes:
-                continue
-            result.append(device_id)
-        return result
+        if writable_attribute is not None:
+            devices = [
+                d
+                for d in devices
+                if d.can_write(writable_attribute, data_type=writable_attribute_type)
+            ]
+        return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Iterable
 
     from .core.device import Attribute, CoreDevice
     from .core.discovery_manager import DiscoveryConfig
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
         TransportCreate,
         TransportUpdate,
     )
-    from .types import AttributeValueType
+    from .types import AttributeValueType, DataType
 
 
 class DeviceRegistryInterface(Protocol):
@@ -35,15 +36,14 @@ class DeviceRegistryInterface(Protocol):
 
     def get_dto(self, device_id: str) -> Device: ...
 
-    def list_all(self, *, device_type: str | None = None) -> list[Device]: ...
-
-    def filter_compatible(
+    def list_all(
         self,
-        device_ids: list[str],
-        attribute: str,
         *,
+        ids: Iterable[str] | None = None,
         device_type: str | None = None,
-    ) -> list[str]: ...
+        writable_attribute: str | None = None,
+        writable_attribute_type: DataType | None = None,
+    ) -> list[Device]: ...
 
     async def register(self, device: CoreDevice) -> None: ...
 
@@ -101,15 +101,14 @@ class DevicesManagerInterface(Protocol):
 
     # -- devices --
 
-    def list_devices(self, *, device_type: str | None = None) -> list[Device]: ...
-
-    def filter_compatible(
+    def list_devices(
         self,
-        device_ids: list[str],
-        attribute: str,
         *,
+        ids: Iterable[str] | None = None,
         device_type: str | None = None,
-    ) -> list[str]: ...
+        writable_attribute: str | None = None,
+        writable_attribute_type: DataType | None = None,
+    ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...
 
