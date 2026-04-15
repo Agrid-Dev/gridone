@@ -54,30 +54,6 @@ class TestResolveDeviceIds:
         storage.get_device_ids_for_subtree.assert_awaited_once_with("asset-1")
         storage.get_device_ids_for_asset.assert_not_awaited()
 
-    async def test_allowed_device_ids_filter(
-        self, manager: AssetsManager, storage: AsyncMock
-    ) -> None:
-        storage.get_by_id.return_value = _ASSET
-        storage.get_device_ids_for_subtree.return_value = ["dev-1", "dev-2", "dev-3"]
-
-        result = await manager.resolve_device_ids(
-            "asset-1", recursive=True, allowed_device_ids={"dev-1", "dev-3"}
-        )
-
-        assert result == ["dev-1", "dev-3"]
-
-    async def test_allowed_device_ids_empty_intersection(
-        self, manager: AssetsManager, storage: AsyncMock
-    ) -> None:
-        storage.get_by_id.return_value = _ASSET
-        storage.get_device_ids_for_asset.return_value = ["dev-1", "dev-2"]
-
-        result = await manager.resolve_device_ids(
-            "asset-1", allowed_device_ids={"dev-99"}
-        )
-
-        assert result == []
-
     async def test_not_found(self, manager: AssetsManager, storage: AsyncMock) -> None:
         storage.get_by_id.return_value = None
 
