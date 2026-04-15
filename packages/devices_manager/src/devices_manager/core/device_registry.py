@@ -91,6 +91,26 @@ class DeviceRegistry:
             devices = [d for d in devices if d.type == device_type]
         return [device_to_public(device) for device in devices]
 
+    def filter_compatible(
+        self,
+        device_ids: list[str],
+        attribute: str,
+        *,
+        device_type: str | None = None,
+    ) -> list[str]:
+        result = []
+        for device_id in device_ids:
+            device = self._devices.get(device_id)
+            if device is None:
+                continue
+            if device_type is not None and device.type != device_type:
+                continue
+            attr = device.attributes.get(attribute)
+            if attr is None or "write" not in attr.read_write_modes:
+                continue
+            result.append(device_id)
+        return result
+
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
         if device.id in self._devices:

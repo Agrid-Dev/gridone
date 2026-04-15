@@ -37,6 +37,14 @@ class DeviceRegistryInterface(Protocol):
 
     def list_all(self, *, device_type: str | None = None) -> list[Device]: ...
 
+    def filter_compatible(
+        self,
+        device_ids: list[str],
+        attribute: str,
+        *,
+        device_type: str | None = None,
+    ) -> list[str]: ...
+
     async def register(self, device: CoreDevice) -> None: ...
 
     async def add(self, device_create: DeviceCreate) -> CoreDevice: ...
@@ -94,6 +102,14 @@ class DevicesManagerInterface(Protocol):
     # -- devices --
 
     def list_devices(self, *, device_type: str | None = None) -> list[Device]: ...
+
+    def filter_compatible(
+        self,
+        device_ids: list[str],
+        attribute: str,
+        *,
+        device_type: str | None = None,
+    ) -> list[str]: ...
 
     def get_device(self, device_id: str) -> Device: ...
 

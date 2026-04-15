@@ -109,6 +109,17 @@ class DevicesManager:
     def list_devices(self, *, device_type: str | None = None) -> list[Device]:
         return self._device_registry.list_all(device_type=device_type)
 
+    def filter_compatible(
+        self,
+        device_ids: list[str],
+        attribute: str,
+        *,
+        device_type: str | None = None,
+    ) -> list[str]:
+        return self._device_registry.filter_compatible(
+            device_ids, attribute, device_type=device_type
+        )
+
     def get_device(self, device_id: str) -> Device:
         return self._device_registry.get_dto(device_id)
 
