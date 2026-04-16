@@ -152,7 +152,7 @@ async def list_asset_devices(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
 ) -> list[str]:
-    return await am.get_device_ids(asset_id)
+    return await am.resolve_device_ids(asset_id)
 
 
 @router.post(

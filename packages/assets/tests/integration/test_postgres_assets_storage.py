@@ -432,6 +432,53 @@ class TestDeviceLinks:
         assert links[root.id] == ["dev-1", "dev-2"]
         assert links[b1.id] == ["dev-3"]
 
+    async def test_get_device_ids_for_subtree(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        """Devices linked across the subtree are returned."""
+        root, b1 = await self._make_root_and_building(storage)
+        f1 = _make_asset("f1", parent_id=b1.id, asset_type=AssetType.FLOOR, name="F1")
+        await storage.save(f1)
+
+        await storage.link_device(DeviceAssetLink(device_id="dev-1", asset_id=root.id))
+        await storage.link_device(DeviceAssetLink(device_id="dev-2", asset_id=b1.id))
+        await storage.link_device(DeviceAssetLink(device_id="dev-3", asset_id=f1.id))
+
+        # Subtree of root includes everything
+        ids = await storage.get_device_ids_for_subtree(root.id)
+        assert set(ids) == {"dev-1", "dev-2", "dev-3"}
+
+        # Subtree of b1 includes b1 + f1
+        ids = await storage.get_device_ids_for_subtree(b1.id)
+        assert set(ids) == {"dev-2", "dev-3"}
+
+    async def test_get_device_ids_for_subtree_leaf(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        """A leaf asset returns only its own devices."""
+        _, b1 = await self._make_root_and_building(storage)
+        await storage.link_device(DeviceAssetLink(device_id="dev-1", asset_id=b1.id))
+
+        ids = await storage.get_device_ids_for_subtree(b1.id)
+        assert ids == ["dev-1"]
+
+    async def test_get_device_ids_for_subtree_no_devices(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        root, _ = await self._make_root_and_building(storage)
+        assert await storage.get_device_ids_for_subtree(root.id) == []
+
+    async def test_get_device_ids_for_subtree_deduplication(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        """A device linked to multiple assets in the subtree appears once."""
+        root, b1 = await self._make_root_and_building(storage)
+        await storage.link_device(DeviceAssetLink(device_id="dev-1", asset_id=root.id))
+        await storage.link_device(DeviceAssetLink(device_id="dev-1", asset_id=b1.id))
+
+        ids = await storage.get_device_ids_for_subtree(root.id)
+        assert ids == ["dev-1"]
+
     async def test_cascade_delete_removes_links(
         self, storage: PostgresAssetsStorage
     ) -> None:
