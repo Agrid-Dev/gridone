@@ -1,3 +1,10 @@
+## v0.45.1 (2026-04-16)
+
+### Fix
+
+- **devices-manager**: fix mqtt control integration test
+- devices manager device control integration tests not collected
+
 ## v0.45.0 (2026-04-16)
 
 ### Feat
