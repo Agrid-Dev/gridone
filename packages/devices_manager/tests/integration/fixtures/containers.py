@@ -68,14 +68,14 @@ def thermocktat_container_http() -> Generator[str]:
 
 @pytest.fixture(scope="module")
 def thermocktat_container_mqtt() -> Generator[str]:
-    """Start a thermocktat container with MQTT enabled.
+    """Start a thermocktat container with MQTT and HTTP enabled.
     Requires mosquitto_container to be running.
     """
-    config = build_config("mqtt")
+    config = build_config("mqtt", "http")
     # Use the same Docker network as mosquitto for internal communication.
     with _run_thermocktat(
         config,
-        ports={},
+        ports={"8080/tcp": HTTP_PORT},
         run_kwargs={
             "network_mode": "bridge",
             "extra_hosts": {"host.docker.internal": "host-gateway"},

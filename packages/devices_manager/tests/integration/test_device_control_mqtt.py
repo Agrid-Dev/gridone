@@ -1,6 +1,28 @@
+from __future__ import annotations
+
+import asyncio
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncGenerator
+
 import pytest
+import pytest_asyncio
+from thermocktat_client import ThermocktatAsync
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
+
+from .fixtures.config import HTTP_PORT
+
+
+@pytest_asyncio.fixture
+async def thermocktat_http(
+    thermocktat_container_mqtt,  # noqa: ARG001
+) -> AsyncGenerator[ThermocktatAsync]:
+    async with await ThermocktatAsync.connect(
+        f"http://localhost:{HTTP_PORT}"
+    ) as client:
+        yield client
 
 
 @pytest.fixture
@@ -55,3 +77,29 @@ async def test_write_attribute_invalid_value(
 ):
     with pytest.raises(TypeError):
         await mqtt_device.write_attribute_value(attribute, invalid_value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("setter", "attribute", "value", "expected"),
+    [
+        ("set_temperature_setpoint", "temperature_setpoint", 25.0, pytest.approx(25.0)),
+        ("set_enabled", "state", False, False),
+    ],
+)
+async def test_push_update_received(  # noqa: PLR0913
+    thermocktat_container_mqtt,  # noqa: ARG001
+    mqtt_device: PhysicalDevice,
+    thermocktat_http: ThermocktatAsync,
+    setter: str,
+    attribute: str,
+    value: object,
+    expected: object,
+):
+    """External state change on thermocktat is received by MQTT device via push."""
+    await mqtt_device.init_listeners()
+    await getattr(thermocktat_http, setter)(value)
+    # thermocktat publish_interval is 0.5s — allow margin for delivery
+    await asyncio.sleep(1.0)
+    assert mqtt_device.attributes[attribute].current_value == expected
