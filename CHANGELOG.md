@@ -1,3 +1,13 @@
+## v0.44.0 (2026-04-16)
+
+### Feat
+
+- recursive subtree
+
+### Refactor
+
+- address PR #205 review
+
 ## v0.43.0 (2026-04-15)
 
 ### Feat
