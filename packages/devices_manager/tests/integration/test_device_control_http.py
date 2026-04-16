@@ -1,8 +1,7 @@
 import pytest
+from fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
-
-from .fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
 
 @pytest.fixture

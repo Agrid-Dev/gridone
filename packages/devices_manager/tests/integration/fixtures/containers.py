@@ -9,8 +9,7 @@ import yaml
 from docker.errors import NotFound
 
 import docker
-
-from .config import HTTP_PORT, KNX_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
+from fixtures.config import HTTP_PORT, KNX_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
 
 thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.7.0"
 mosquitto_image = "eclipse-mosquitto:2.0"

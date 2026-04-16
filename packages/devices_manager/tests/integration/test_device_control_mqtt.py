@@ -8,11 +8,10 @@ if TYPE_CHECKING:
 
 import pytest
 import pytest_asyncio
+from fixtures.config import HTTP_PORT
 from thermocktat_client import ThermocktatAsync
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
-
-from .fixtures.config import HTTP_PORT
 
 
 @pytest_asyncio.fixture

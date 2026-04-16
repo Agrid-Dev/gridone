@@ -7,8 +7,7 @@ from devices_manager.core.transports import (
     make_transport_config,
 )
 from devices_manager.types import TransportProtocols
-
-from .config import KNX_PORT, MODBUS_PORT, MQTT_PORT
+from fixtures.config import KNX_PORT, MODBUS_PORT, MQTT_PORT
 
 
 @pytest.fixture
