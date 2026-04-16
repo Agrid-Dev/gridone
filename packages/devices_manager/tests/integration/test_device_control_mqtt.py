@@ -40,9 +40,12 @@ def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> PhysicalDevice:
 @pytest.mark.asyncio
 @pytest.mark.integration
 async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: PhysicalDevice):  # noqa: ARG001
-    await mqtt_device.update_attributes()
+    await mqtt_device.init_listeners()
+    # thermocktat publish_interval is 0.5s — allow margin for delivery
+    await asyncio.sleep(1.0)
     assert not mqtt_device.attributes["state"].current_value
-    assert mqtt_device.attributes["temperature_setpoint"].current_value == 22
+    setpoint = mqtt_device.attributes["temperature_setpoint"].current_value
+    assert setpoint == pytest.approx(22.0)
     assert mqtt_device.attributes["fan_speed"].current_value == "auto"
 
 

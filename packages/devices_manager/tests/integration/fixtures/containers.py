@@ -1,9 +1,11 @@
 import contextlib
 import tempfile
+import time
 from collections.abc import Generator
 from pathlib import Path
 from typing import Literal
 
+import httpx
 import pytest
 import yaml
 from docker.errors import NotFound
@@ -112,12 +114,28 @@ def _run_thermocktat(
             remove=True,
             **(run_kwargs or {}),
         )
+        if "8080/tcp" in ports:
+            _wait_for_http(ports["8080/tcp"])
         yield
     finally:
         if container is not None:
             with contextlib.suppress(NotFound):
                 container.stop()
         Path(config_path).unlink()
+
+
+def _wait_for_http(port: int, *, retries: int = 30, interval: float = 0.5) -> None:
+    """Block until the thermocktat HTTP controller responds."""
+    for _ in range(retries):
+        try:
+            resp = httpx.get(f"http://localhost:{port}/v1", timeout=1.0)
+            if resp.is_success:
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(interval)
+    msg = f"Thermocktat HTTP on port {port} did not become ready"
+    raise RuntimeError(msg)
 
 
 @pytest.fixture(scope="module")
