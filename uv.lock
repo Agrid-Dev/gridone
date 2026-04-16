@@ -862,6 +862,11 @@ dependencies = [
     { name = "xknx" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "thermocktat-client" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "aiomqtt", specifier = ">=2.4.0" },
@@ -875,6 +880,9 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "xknx", specifier = ">=3.0.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "thermocktat-client", specifier = ">=0.2.0" }]
 
 [[package]]
 name = "gridone-migrations"
@@ -1889,6 +1897,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284Z" },
+]
+
+[[package]]
+name = "thermocktat-client"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ce/22/31fdffa44fec0acf2dd437cf59e64986fcbf8d9582f81f9617a67a91e9c5/thermocktat_client-0.2.0.tar.gz", hash = "sha256:74bbd7987f8a0d6c1b350ab28f15a26364758d362e2ba96261a3651db55dc514", size = 4335, upload-time = "2026-04-16T07:55:12.929Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/cc/43ef58a5931df6d89066364286fe2af1ab1ea08f040a8af66c9049672aaf/thermocktat_client-0.2.0-py3-none-any.whl", hash = "sha256:f66581aede497a8653499547cb88d641c210a0d862eec3b5c40badaacc4e9e65", size = 7045, upload-time = "2026-04-16T07:55:11.498Z" },
 ]
 
 [[package]]
