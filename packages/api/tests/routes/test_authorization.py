@@ -10,12 +10,15 @@ from fastapi.testclient import TestClient
 
 from api.dependencies import (
     get_apps_service,
+    get_assets_manager,
+    get_commands_service,
     get_current_user_id,
     get_device_manager,
     get_ts_service,
     get_users_manager,
 )
 from api.routes.apps import apps_registration_router
+from api.routes.assets_router import router as assets_router
 from api.routes.devices_router import router as devices_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -386,4 +389,118 @@ def test_devices_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, json={"values": {}}, headers=headers)
+        assert resp.status_code == expected_status
+
+
+# --- Commands and asset-command RBAC ---
+
+
+def _build_commands_app() -> FastAPI:
+    """App with the devices_router and assets_router mounted.
+
+    Used to verify that the permission decorators on the command endpoints
+    reject viewers and unauthenticated requests before any service is invoked.
+    """
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersManager()
+    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_device_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
+    app.dependency_overrides[get_assets_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_commands_service] = lambda: AsyncMock()
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
+    app.include_router(assets_router, prefix="/assets", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def commands_app() -> FastAPI:
+    return _build_commands_app()
+
+
+COMMANDS_ACCESS_CONTROL_SCENARIOS = [
+    # Viewer is forbidden from any device-write endpoint.
+    pytest.param(
+        "POST",
+        "/devices/commands",
+        "viewer",
+        403,
+        {"device_ids": ["x"], "attribute": "a", "value": 1},
+        id="batch-cmd-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/commands",
+        None,
+        401,
+        {"device_ids": ["x"], "attribute": "a", "value": 1},
+        id="batch-cmd-no-auth",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/commands",
+        "viewer",
+        403,
+        {"attribute": "a", "value": 1},
+        id="single-cmd-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/commands",
+        None,
+        401,
+        {"attribute": "a", "value": 1},
+        id="single-cmd-no-auth",
+    ),
+    pytest.param(
+        "POST",
+        "/assets/any-id/commands",
+        "viewer",
+        403,
+        {"attribute": "a", "value": 1, "device_type": "thermostat"},
+        id="asset-cmd-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/assets/any-id/commands",
+        None,
+        401,
+        {"attribute": "a", "value": 1, "device_type": "thermostat"},
+        id="asset-cmd-no-auth",
+    ),
+    # GET /devices/commands requires DEVICES_READ — all roles can read, but no-auth is 401.
+    pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),
+    pytest.param(
+        "GET",
+        "/devices/any-id/commands",
+        None,
+        401,
+        None,
+        id="get-device-cmds-no-auth",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status", "body"),
+    COMMANDS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_commands_access_control(
+    commands_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+    body: dict | None,
+) -> None:
+    with TestClient(commands_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status

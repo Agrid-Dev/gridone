@@ -242,14 +242,14 @@ export async function updateDeviceAttribute(
       [attributeName]: value,
     }),
   )[0];
-  await request<Device>(
-    `/devices/${encodeURIComponent(deviceId)}/${encodeURIComponent(snakecaseAttribute)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value }),
-    },
-  );
+  // The server exposes attribute writes as a Command. We dispatch a single
+  // synchronous command and refetch the device — the caller still sees the
+  // (deviceId, attributeName, value) → Device contract it had before.
+  await request(`/devices/${encodeURIComponent(deviceId)}/commands`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ attribute: snakecaseAttribute, value }),
+  });
   return getDevice(deviceId);
 }
 

@@ -7,12 +7,25 @@ from assets import (
     AssetUpdate,
     get_asset_create_schema,
 )
+from commands import CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, Query, status
+from models.errors import NotFoundError
 from pydantic import BaseModel
 
-from api.dependencies import get_assets_manager, get_device_manager, require_permission
+from api.dependencies import (
+    get_assets_manager,
+    get_commands_service,
+    get_current_user_id,
+    get_device_manager,
+    require_permission,
+)
 from api.permissions import Permission
+from api.routes._command_helpers import (
+    resolve_attribute_data_type,
+    to_batch_dispatch_response,
+)
+from api.schemas.command import AssetCommand, BatchDispatchResponse
 
 router = APIRouter()
 
@@ -179,3 +192,37 @@ async def unlink_device(
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
 ) -> None:
     await am.unlink_device(asset_id, device_id)
+
+
+@router.post(
+    "/{asset_id}/commands",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def dispatch_asset_command(
+    asset_id: str,
+    body: AssetCommand,
+    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+    commands_svc: Annotated[CommandsServiceInterface, Depends(get_commands_service)],
+    user_id: Annotated[str, Depends(get_current_user_id)],
+) -> BatchDispatchResponse:
+    all_ids = await am.resolve_device_ids(asset_id, recursive=body.recursive)
+    matching = dm.list_devices(ids=all_ids, device_type=body.device_type)
+    device_ids = [d.id for d in matching]
+    if not device_ids:
+        msg = (
+            f"No devices of type '{body.device_type}' found "
+            f"in asset '{asset_id}' subtree"
+        )
+        raise NotFoundError(msg)
+    data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
+    commands = await commands_svc.dispatch_batch(
+        device_ids=device_ids,
+        attribute=body.attribute,
+        value=body.value,
+        data_type=data_type,
+        user_id=user_id,
+        confirm=body.confirm,
+    )
+    return to_batch_dispatch_response(commands)

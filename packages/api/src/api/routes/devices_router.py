@@ -13,7 +13,6 @@ from devices_manager.dto.device_dto import (
     DeviceUpdate,
 )
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from timeseries.domain import (
     DataPoint,
@@ -30,14 +29,22 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission
+from api.routes._command_helpers import (
+    resolve_attribute_data_type,
+    to_batch_dispatch_response,
+)
 from api.routes.devices_timeseries_router import router as devices_ts_router
-from api.schemas.device import (
-    AttributeUpdate,
+from api.schemas.command import (
+    BatchDeviceCommand,
+    BatchDispatchResponse,
     CommandsQuery,
+    SingleDeviceCommand,
+    get_commands_query,
+)
+from api.schemas.device import (
     SingleAttrTimeseriesPushPoint,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
-    get_commands_query,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
@@ -76,9 +83,10 @@ def get_standard_types(
 
 
 @router.get(
-    "/commands", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+    "/commands",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
-async def get_commands(
+async def list_commands(
     request: Request,
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
@@ -86,6 +94,7 @@ async def get_commands(
 ) -> PaginatedResponse[Command]:
     page = await commands_svc.get_commands(
         ids=query.ids,
+        group_id=query.group_id,
         device_id=query.device_id,
         attribute=query.attribute,
         user_id=query.user_id,
@@ -97,6 +106,29 @@ async def get_commands(
     return to_paginated_response(page, str(request.url))
 
 
+@router.post(
+    "/commands",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def dispatch_batch_command(
+    body: BatchDeviceCommand,
+    dm: DevicesManagerInterface = Depends(get_device_manager),
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+    user_id: str = Depends(get_current_user_id),
+) -> BatchDispatchResponse:
+    data_type = resolve_attribute_data_type(dm, body.device_ids, body.attribute)
+    commands = await commands_svc.dispatch_batch(
+        device_ids=body.device_ids,
+        attribute=body.attribute,
+        value=body.value,
+        data_type=data_type,
+        user_id=user_id,
+        confirm=body.confirm,
+    )
+    return to_batch_dispatch_response(commands)
+
+
 @router.get(
     "/{device_id}", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
 )
@@ -105,30 +137,6 @@ def get_device(
     dm: DevicesManagerInterface = Depends(get_device_manager),
 ) -> Device:
     return dm.get_device(device_id)
-
-
-@router.get(
-    "/{device_id}/commands",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
-)
-async def get_device_commands(
-    device_id: str,
-    request: Request,
-    query: CommandsQuery = Depends(get_commands_query),
-    pagination: PaginationParams = Depends(get_pagination_params),
-    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
-) -> PaginatedResponse[Command]:
-    page = await commands_svc.get_commands(
-        ids=query.ids,
-        device_id=device_id,
-        attribute=query.attribute,
-        user_id=query.user_id,
-        start=_resolve_start(query),
-        end=query.end,
-        sort=query.sort,
-        pagination=pagination,
-    )
-    return to_paginated_response(page, str(request.url))
 
 
 @router.post(
@@ -234,32 +242,50 @@ async def push_device_attribute_timeseries(
     )
 
 
+@router.get(
+    "/{device_id}/commands",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+async def list_device_commands(
+    device_id: str,
+    request: Request,
+    query: CommandsQuery = Depends(get_commands_query),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> PaginatedResponse[Command]:
+    # Path parameter always wins over a query-string device_id.
+    page = await commands_svc.get_commands(
+        ids=query.ids,
+        group_id=query.group_id,
+        device_id=device_id,
+        attribute=query.attribute,
+        user_id=query.user_id,
+        start=_resolve_start(query),
+        end=query.end,
+        sort=query.sort,
+        pagination=pagination,
+    )
+    return to_paginated_response(page, str(request.url))
+
+
 @router.post(
-    "/{device_id}/{attribute_name}",
+    "/{device_id}/commands",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
-async def update_attribute(
+async def dispatch_single_command(
     device_id: str,
-    attribute_name: str,
-    update: AttributeUpdate,
-    confirm: bool = True,
+    body: SingleDeviceCommand,
     dm: DevicesManagerInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
-) -> AttributeUpdate:
-    data_type = dm.get_device(device_id).attributes[attribute_name].data_type
-
-    try:
-        await commands_svc.dispatch(
-            device_id=device_id,
-            attribute=attribute_name,
-            value=update.value,
-            data_type=data_type,
-            user_id=user_id,
-            confirm=confirm,
-        )
-    except (TypeError, PermissionError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except (NotFoundError, InvalidError):
-        raise
-    return update
+) -> Command:
+    dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
+    data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
+    return await commands_svc.dispatch(
+        device_id=device_id,
+        attribute=body.attribute,
+        value=body.value,
+        data_type=data_type,
+        user_id=user_id,
+        confirm=body.confirm,
+    )

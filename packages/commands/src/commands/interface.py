@@ -25,6 +25,19 @@ class CommandsServiceInterface(Protocol):
         group_id: str | None = None,
     ) -> Command: ...
 
+    async def dispatch_batch(  # noqa: PLR0913
+        self,
+        *,
+        device_ids: list[str],
+        attribute: str,
+        value: AttributeValueType,
+        data_type: DataType,
+        user_id: str,
+        confirm: bool = True,
+    ) -> list[Command]: ...
+
+    async def await_pending(self) -> None: ...
+
     async def get_commands(  # noqa: PLR0913
         self,
         *,
