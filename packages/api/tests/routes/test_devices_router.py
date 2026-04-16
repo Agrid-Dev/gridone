@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import CommandsServiceInterface
-from models.types import SortOrder
+from commands import Command, CommandsServiceInterface
+from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
@@ -12,7 +12,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from models.errors import InvalidError, NotFoundError
-from models.pagination import Page, PaginationParams
 
 from api.dependencies import (
     get_commands_service,
@@ -70,9 +69,30 @@ def _make_dm(
     all_devices = {d.id: d for d in (devices or [_PHYSICAL_DEVICE])}
 
     mock = MagicMock(spec=DevicesManagerInterface)
-    mock.list_devices.side_effect = lambda *, device_type=None: [
-        d for d in all_devices.values() if device_type is None or d.type == device_type
-    ]
+
+    def _list_devices(
+        *,
+        ids=None,
+        device_type=None,
+        writable_attribute=None,
+        writable_attribute_type=None,  # noqa: ARG001
+    ):
+        results = list(all_devices.values())
+        if ids is not None:
+            id_set = set(ids)
+            results = [d for d in results if d.id in id_set]
+        if device_type is not None:
+            results = [d for d in results if d.type == device_type]
+        if writable_attribute is not None:
+            results = [
+                d
+                for d in results
+                if writable_attribute in d.attributes
+                and "write" in d.attributes[writable_attribute].read_write_modes
+            ]
+        return results
+
+    mock.list_devices.side_effect = _list_devices
 
     def _get_device(device_id: str) -> Device:
         if device_id not in all_devices:
@@ -153,6 +173,12 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(device_type="thermostat")
+
+
+# ---------------------------------------------------------------------------
+# Type filter side_effect on virtual_client uses the legacy single-keyword
+# signature, so reset before each test that wants to override the result.
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -279,120 +305,183 @@ class TestDeleteDevice:
 
 
 # ---------------------------------------------------------------------------
-# Commands (delegates to ts_service — only test wiring)
+# Single-device command — POST /devices/{device_id}/commands
 # ---------------------------------------------------------------------------
 
 
-class TestGetDevicesCommands:
+def _completed_command(
+    *,
+    device_id: str = "device1",
+    attribute: str = "temperature_setpoint",
+    value: float = 22.0,
+    status: CommandStatus = CommandStatus.SUCCESS,
+) -> Command:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    return Command(
+        id=1,
+        group_id=None,
+        device_id=device_id,
+        attribute=attribute,
+        value=value,
+        data_type=DataType.FLOAT,
+        status=status,
+        status_details=None,
+        user_id="test-user",
+        created_at=now,
+        executed_at=now,
+        completed_at=now,
+    )
+
+
+class TestDispatchSingleCommand:
     @pytest.mark.asyncio
-    async def test_no_filters(
+    async def test_success_returns_200_with_command(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.get_commands.return_value = Page(
-            items=[], total=0, page=1, size=50
-        )
+        mock_commands_service.dispatch.return_value = _completed_command()
         async with async_client as ac:
-            response = await ac.get("/commands")
+            response = await ac.post(
+                "/device1/commands",
+                json={"attribute": "temperature_setpoint", "value": 22.0},
+            )
         assert response.status_code == 200
-        mock_commands_service.get_commands.assert_called_once_with(
-            ids=None,
-            device_id=None,
-            attribute=None,
-            user_id=None,
-            start=None,
-            end=None,
-            sort=SortOrder.ASC,
-            pagination=PaginationParams(page=1, size=50),
-        )
+        body = response.json()
+        assert body["device_id"] == "device1"
+        assert body["status"] == "success"
+
+        mock_commands_service.dispatch.assert_awaited_once()
+        kwargs = mock_commands_service.dispatch.call_args.kwargs
+        assert kwargs["device_id"] == "device1"
+        assert kwargs["attribute"] == "temperature_setpoint"
+        assert kwargs["value"] == 22.0
+        assert kwargs["data_type"] == DataType.FLOAT
+        assert kwargs["confirm"] is True
 
     @pytest.mark.asyncio
-    async def test_with_filters(
+    async def test_confirm_false_passed_through(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.get_commands.return_value = Page(
-            items=[], total=0, page=1, size=50
-        )
-        start = datetime(2026, 1, 1, tzinfo=timezone.utc)
-        end = datetime(2026, 1, 31, tzinfo=timezone.utc)
+        mock_commands_service.dispatch.return_value = _completed_command()
         async with async_client as ac:
-            response = await ac.get(
-                "/commands",
-                params={
-                    "device_id": "dev-1",
-                    "attribute": "temperature",
-                    "user_id": "user-42",
-                    "start": start.isoformat(),
-                    "end": end.isoformat(),
+            await ac.post(
+                "/device1/commands",
+                json={
+                    "attribute": "temperature_setpoint",
+                    "value": 22.0,
+                    "confirm": False,
                 },
             )
-        assert response.status_code == 200
-        mock_commands_service.get_commands.assert_called_once_with(
-            ids=None,
-            device_id="dev-1",
-            attribute="temperature",
-            user_id="user-42",
-            start=start,
-            end=end,
-            sort=SortOrder.ASC,
-            pagination=PaginationParams(page=1, size=50),
-        )
+        kwargs = mock_commands_service.dispatch.call_args.kwargs
+        assert kwargs["confirm"] is False
 
     @pytest.mark.asyncio
-    async def test_device_scoped(
+    async def test_writer_failure_returns_200_with_error_status(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.get_commands.return_value = Page(
-            items=[], total=0, page=1, size=50
+        # dispatch() absorbs writer exceptions and returns the ERROR command,
+        # so the route should still return 200.
+        mock_commands_service.dispatch.return_value = _completed_command(
+            status=CommandStatus.ERROR,
         )
         async with async_client as ac:
-            response = await ac.get("/device1/commands")
-        assert response.status_code == 200
-        call_kwargs = mock_commands_service.get_commands.call_args[1]
-        assert call_kwargs["device_id"] == "device1"
-
-
-# ---------------------------------------------------------------------------
-# Update attribute (write command)
-# ---------------------------------------------------------------------------
-
-
-class TestUpdateAttribute:
-    @pytest.mark.asyncio
-    async def test_success_dispatches_command(
-        self, async_client: AsyncClient, mock_commands_service: AsyncMock
-    ):
-        async with async_client as ac:
             response = await ac.post(
-                "/device1/temperature_setpoint", json={"value": 22.0}
+                "/device1/commands",
+                json={"attribute": "temperature_setpoint", "value": 22.0},
             )
         assert response.status_code == 200
-        mock_commands_service.dispatch.assert_awaited_once()
-        call_kwargs = mock_commands_service.dispatch.call_args[1]
-        assert call_kwargs["device_id"] == "device1"
-        assert call_kwargs["attribute"] == "temperature_setpoint"
-        assert call_kwargs["value"] == 22.0
+        assert response.json()["status"] == "error"
 
     @pytest.mark.asyncio
-    async def test_permission_error_returns_400(
-        self, async_client: AsyncClient, mock_commands_service: AsyncMock
-    ):
-        mock_commands_service.dispatch.side_effect = PermissionError("read-only")
+    async def test_unknown_device_returns_404(self, async_client: AsyncClient):
         async with async_client as ac:
             response = await ac.post(
-                "/device1/temperature_setpoint", json={"value": 22.0}
-            )
-        assert response.status_code == 400
-
-    @pytest.mark.asyncio
-    async def test_not_found_returns_404(
-        self, async_client: AsyncClient, mock_commands_service: AsyncMock, dm: MagicMock
-    ):
-        mock_commands_service.dispatch.side_effect = NotFoundError("device not found")
-        async with async_client as ac:
-            response = await ac.post(
-                "/device1/temperature_setpoint", json={"value": 22.5}
+                "/unknown/commands",
+                json={"attribute": "temperature_setpoint", "value": 22.0},
             )
         assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_unknown_attribute_returns_422(self, async_client: AsyncClient):
+        # device1 doesn't have a writable 'nonexistent' attribute → 422 from
+        # resolve_attribute_data_type, not 500 from a raw KeyError.
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/commands",
+                json={"attribute": "nonexistent", "value": 1},
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_read_only_attribute_returns_422(self, async_client: AsyncClient):
+        # 'temperature' on device1 is read-only — no device exposes it as
+        # writable, so the helper raises InvalidError (422).
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/commands",
+                json={"attribute": "temperature", "value": 22.0},
+            )
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Batch command — POST /devices/commands
+# ---------------------------------------------------------------------------
+
+
+class TestDispatchBatchCommand:
+    @pytest.mark.asyncio
+    async def test_success_returns_202_with_group_id(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.dispatch_batch.return_value = ("abc123", 2)
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_ids": ["device1", "device1"],
+                    "attribute": "temperature_setpoint",
+                    "value": 22.5,
+                },
+            )
+        assert response.status_code == 202
+        assert response.json() == {"group_id": "abc123", "total": 2}
+
+        kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
+        assert kwargs["device_ids"] == ["device1", "device1"]
+        assert kwargs["attribute"] == "temperature_setpoint"
+        assert kwargs["value"] == 22.5
+        assert kwargs["data_type"] == DataType.FLOAT
+        assert kwargs["confirm"] is True
+
+    @pytest.mark.asyncio
+    async def test_empty_device_ids_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_ids": [],
+                    "attribute": "temperature_setpoint",
+                    "value": 22.5,
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_no_device_writes_attribute_returns_422(
+        self, async_client: AsyncClient
+    ):
+        # 'temperature' on device1 is read-only, so no device can write it.
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_ids": ["device1"],
+                    "attribute": "temperature",
+                    "value": 22.5,
+                },
+            )
+        # InvalidError -> 422 by global exception handler.
+        assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -57,7 +58,7 @@ class TestDispatch:
         device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
         result_handler.assert_awaited_once()
 
-    async def test_error_marks_command_failed(
+    async def test_error_returns_command_with_error_status(
         self,
         service: CommandsService,
         device_writer: AsyncMock,
@@ -65,23 +66,20 @@ class TestDispatch:
     ):
         device_writer.side_effect = RuntimeError("timeout")
 
-        with pytest.raises(RuntimeError, match="timeout"):
-            await service.dispatch(
-                device_id="d1",
-                attribute="mode",
-                value="auto",
-                data_type=DataType.STRING,
-                user_id="u1",
-            )
+        cmd = await service.dispatch(
+            device_id="d1",
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
 
+        # dispatch absorbs the writer exception and returns the ERROR command.
+        assert cmd.status == CommandStatus.ERROR
+        assert cmd.status_details is not None
+        assert "timeout" in cmd.status_details
+        assert cmd.completed_at is not None
         result_handler.assert_not_awaited()
-
-        # The command should be stored with ERROR status.
-        page = await service.get_commands(device_id="d1")
-        assert len(page.items) == 1
-        assert page.items[0].status == CommandStatus.ERROR
-        assert page.items[0].status_details is not None
-        assert "timeout" in page.items[0].status_details
 
     async def test_group_id_stored(
         self,
@@ -182,3 +180,173 @@ class TestGetCommands:
         assert page.total == 5
         assert page.page == 2
         assert page.size == 2
+
+
+async def _drain_tasks(service: CommandsService) -> None:
+    """Wait for all in-flight background tasks spawned by dispatch_batch."""
+    pending = list(service._tasks)
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
+
+
+class TestDispatchBatch:
+    async def test_returns_group_id_and_total_immediately(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+    ):
+        # Block the writer so the background task is still pending when we
+        # inspect the return value.
+        gate = asyncio.Event()
+
+        async def slow_writer(*_args: object, **_kwargs: object) -> WriteResult:
+            await gate.wait()
+            return WriteResult(last_changed=datetime(2026, 1, 2, tzinfo=UTC))
+
+        device_writer.side_effect = slow_writer
+
+        group_id, total = await service.dispatch_batch(
+            device_ids=["d1", "d2", "d3"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+
+        assert isinstance(group_id, str)
+        assert len(group_id) == 16
+        assert total == 3
+
+        # All commands should be persisted as PENDING right away.
+        page = await service.get_commands(group_id=group_id)
+        assert len(page.items) == 3
+        assert all(c.status == CommandStatus.PENDING for c in page.items)
+        assert all(c.group_id == group_id for c in page.items)
+
+        gate.set()
+        await _drain_tasks(service)
+
+    async def test_all_success(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+    ):
+        group_id, _ = await service.dispatch_batch(
+            device_ids=["d1", "d2", "d3"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+        await _drain_tasks(service)
+
+        page = await service.get_commands(group_id=group_id)
+        assert len(page.items) == 3
+        assert all(c.status == CommandStatus.SUCCESS for c in page.items)
+        assert device_writer.await_count == 3
+        assert result_handler.await_count == 3
+
+    async def test_partial_failure(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+    ):
+        async def writer(
+            device_id: str, *_args: object, **_kwargs: object
+        ) -> WriteResult:
+            if device_id == "d2":
+                msg = "device unreachable"
+                raise RuntimeError(msg)
+            return WriteResult(last_changed=datetime(2026, 1, 2, tzinfo=UTC))
+
+        device_writer.side_effect = writer
+
+        group_id, _ = await service.dispatch_batch(
+            device_ids=["d1", "d2", "d3"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+        await _drain_tasks(service)
+
+        page = await service.get_commands(group_id=group_id)
+        by_device = {c.device_id: c for c in page.items}
+        assert by_device["d1"].status == CommandStatus.SUCCESS
+        assert by_device["d2"].status == CommandStatus.ERROR
+        assert by_device["d2"].status_details is not None
+        assert "unreachable" in by_device["d2"].status_details
+        assert by_device["d3"].status == CommandStatus.SUCCESS
+        # result_handler is only called on success.
+        assert result_handler.await_count == 2
+
+    async def test_all_fail(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+    ):
+        device_writer.side_effect = RuntimeError("nope")
+
+        group_id, _ = await service.dispatch_batch(
+            device_ids=["d1", "d2"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+        await _drain_tasks(service)
+
+        page = await service.get_commands(group_id=group_id)
+        assert all(c.status == CommandStatus.ERROR for c in page.items)
+        result_handler.assert_not_awaited()
+
+    async def test_close_awaits_in_flight_tasks(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+    ):
+        gate = asyncio.Event()
+
+        async def slow_writer(*_args: object, **_kwargs: object) -> WriteResult:
+            await gate.wait()
+            return WriteResult(last_changed=datetime(2026, 1, 2, tzinfo=UTC))
+
+        device_writer.side_effect = slow_writer
+
+        group_id, _ = await service.dispatch_batch(
+            device_ids=["d1", "d2"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+
+        # Release the writer slightly after kicking off close().
+        async def releaser() -> None:
+            await asyncio.sleep(0)
+            gate.set()
+
+        release_task = asyncio.create_task(releaser())
+        await service.close()
+        await release_task
+
+        page = await service.get_commands(group_id=group_id)
+        assert all(c.status == CommandStatus.SUCCESS for c in page.items)
+
+    async def test_task_is_discarded_on_completion(
+        self,
+        service: CommandsService,
+    ):
+        await service.dispatch_batch(
+            device_ids=["d1"],
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+        await _drain_tasks(service)
+        # The done_callback should have removed the task from the set.
+        assert service._tasks == set()

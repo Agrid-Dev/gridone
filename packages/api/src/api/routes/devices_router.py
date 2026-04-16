@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime  # noqa: TC003
 from typing import Annotated
 
 from commands import Command, CommandsServiceInterface
@@ -12,9 +11,7 @@ from devices_manager.dto.device_dto import (
     Device,
     DeviceUpdate,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from models.errors import InvalidError, NotFoundError
-from models.pagination import PaginationParams
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from timeseries.domain import (
     DataPoint,
     SeriesKey,
@@ -25,32 +22,24 @@ from api.dependencies import (
     get_commands_service,
     get_current_user_id,
     get_device_manager,
-    get_pagination_params,
     get_ts_service,
     require_permission,
 )
 from api.permissions import Permission
+from api.routes._command_helpers import resolve_attribute_data_type
 from api.routes.devices_timeseries_router import router as devices_ts_router
+from api.schemas.command import (
+    BatchDeviceCommand,
+    BatchDispatchResponse,
+    SingleDeviceCommand,
+)
 from api.schemas.device import (
-    AttributeUpdate,
-    CommandsQuery,
     SingleAttrTimeseriesPushPoint,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
-    get_commands_query,
 )
-from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_start(query: CommandsQuery) -> datetime | None:
-    """Resolve the ``last`` duration shorthand into a ``start`` timestamp."""
-    if query.last is not None and query.start is None:
-        from timeseries.domain import resolve_last  # noqa: PLC0415
-
-        return resolve_last(query.last)
-    return query.start
 
 
 router = APIRouter()
@@ -75,26 +64,27 @@ def get_standard_types(
     return dm.list_standard_schemas()
 
 
-@router.get(
-    "/commands", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+@router.post(
+    "/commands",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
-async def get_commands(
-    request: Request,
-    query: CommandsQuery = Depends(get_commands_query),
-    pagination: PaginationParams = Depends(get_pagination_params),
+async def dispatch_batch_command(
+    body: BatchDeviceCommand,
+    dm: DevicesManagerInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
-) -> PaginatedResponse[Command]:
-    page = await commands_svc.get_commands(
-        ids=query.ids,
-        device_id=query.device_id,
-        attribute=query.attribute,
-        user_id=query.user_id,
-        start=_resolve_start(query),
-        end=query.end,
-        sort=query.sort,
-        pagination=pagination,
+    user_id: str = Depends(get_current_user_id),
+) -> BatchDispatchResponse:
+    data_type = resolve_attribute_data_type(dm, body.device_ids, body.attribute)
+    group_id, total = await commands_svc.dispatch_batch(
+        device_ids=body.device_ids,
+        attribute=body.attribute,
+        value=body.value,
+        data_type=data_type,
+        user_id=user_id,
+        confirm=body.confirm,
     )
-    return to_paginated_response(page, str(request.url))
+    return BatchDispatchResponse(group_id=group_id, total=total)
 
 
 @router.get(
@@ -105,30 +95,6 @@ def get_device(
     dm: DevicesManagerInterface = Depends(get_device_manager),
 ) -> Device:
     return dm.get_device(device_id)
-
-
-@router.get(
-    "/{device_id}/commands",
-    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
-)
-async def get_device_commands(
-    device_id: str,
-    request: Request,
-    query: CommandsQuery = Depends(get_commands_query),
-    pagination: PaginationParams = Depends(get_pagination_params),
-    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
-) -> PaginatedResponse[Command]:
-    page = await commands_svc.get_commands(
-        ids=query.ids,
-        device_id=device_id,
-        attribute=query.attribute,
-        user_id=query.user_id,
-        start=_resolve_start(query),
-        end=query.end,
-        sort=query.sort,
-        pagination=pagination,
-    )
-    return to_paginated_response(page, str(request.url))
 
 
 @router.post(
@@ -235,31 +201,23 @@ async def push_device_attribute_timeseries(
 
 
 @router.post(
-    "/{device_id}/{attribute_name}",
+    "/{device_id}/commands",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
-async def update_attribute(
+async def dispatch_single_command(
     device_id: str,
-    attribute_name: str,
-    update: AttributeUpdate,
-    confirm: bool = True,
+    body: SingleDeviceCommand,
     dm: DevicesManagerInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
-) -> AttributeUpdate:
-    data_type = dm.get_device(device_id).attributes[attribute_name].data_type
-
-    try:
-        await commands_svc.dispatch(
-            device_id=device_id,
-            attribute=attribute_name,
-            value=update.value,
-            data_type=data_type,
-            user_id=user_id,
-            confirm=confirm,
-        )
-    except (TypeError, PermissionError) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except (NotFoundError, InvalidError):
-        raise
-    return update
+) -> Command:
+    dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
+    data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
+    return await commands_svc.dispatch(
+        device_id=device_id,
+        attribute=body.attribute,
+        value=body.value,
+        data_type=data_type,
+        user_id=user_id,
+        confirm=body.confirm,
+    )
