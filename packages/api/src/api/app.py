@@ -17,6 +17,7 @@ from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     assets_router,
+    commands_router,
     devices_router,
     drivers_router,
     health_router,
@@ -172,6 +173,9 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
     app.include_router(
         devices_router, prefix="/devices", tags=["devices"], dependencies=jwt_dep
+    )
+    app.include_router(
+        commands_router, prefix="/commands", tags=["commands"], dependencies=jwt_dep
     )
     app.include_router(
         transports_router,
