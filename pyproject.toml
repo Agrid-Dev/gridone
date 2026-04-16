@@ -102,4 +102,3 @@ omit = [
 markers = [
     "integration: mark a test as an integration test",
 ]
-norecursedirs = ["packages/devices_manager/tests/integration"]

@@ -39,3 +39,4 @@ node_modules
 apps/ui/dist/
 /scripts
 .claude/
+.user_docs

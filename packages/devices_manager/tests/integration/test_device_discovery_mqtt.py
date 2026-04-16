@@ -1,10 +1,9 @@
 import asyncio
 
 import pytest
+from fixtures.config import TMK_DEVICE_ID
 
 from devices_manager import DevicesManager
-
-from .fixtures.config import TMK_DEVICE_ID
 
 
 @pytest.fixture

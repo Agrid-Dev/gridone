@@ -1,4 +1,5 @@
 import pytest
+from fixtures.config import TMK_DEVICE_ID
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
 from devices_manager.core.transports import (
@@ -7,8 +8,6 @@ from devices_manager.core.transports import (
     make_transport_config,
 )
 from devices_manager.types import TransportProtocols
-
-from .fixtures.config import TMK_DEVICE_ID
 
 
 @pytest.fixture(params=["single", "multi"])

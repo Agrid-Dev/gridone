@@ -6,13 +6,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-import httpx
 import pytest
 import pytest_asyncio
+from fixtures.config import HTTP_PORT
+from thermocktat_client import ThermocktatAsync
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
-
-from .fixtures.config import HTTP_PORT
 
 
 async def _wait_for_knx_tunnel(device: PhysicalDevice) -> None:
@@ -40,6 +39,16 @@ async def connected_knx_device(
         yield knx_device
     finally:
         await knx_device.transport.close()
+
+
+@pytest_asyncio.fixture
+async def thermocktat_http(
+    thermocktat_container_knx_http,  # noqa: ARG001
+) -> AsyncGenerator[ThermocktatAsync]:
+    async with await ThermocktatAsync.connect(
+        f"http://localhost:{HTTP_PORT}"
+    ) as client:
+        yield client
 
 
 @pytest.fixture
@@ -84,27 +93,23 @@ async def test_write_attribute(
 @pytest.mark.asyncio
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("http_endpoint", "attribute", "http_value", "expected"),
+    ("setter", "attribute", "value", "expected"),
     [
-        ("/v1/temperature_setpoint", "temperature_setpoint", 25.0, pytest.approx(25.0)),
-        ("/v1/enabled", "onoff_state", False, False),
+        ("set_temperature_setpoint", "temperature_setpoint", 25.0, pytest.approx(25.0)),
+        ("set_enabled", "onoff_state", False, False),
     ],
 )
-async def test_push_update_received(
+async def test_push_update_received(  # noqa: PLR0913
     connected_knx_device: PhysicalDevice,
-    http_endpoint: str,
+    thermocktat_http: ThermocktatAsync,
+    setter: str,
     attribute: str,
-    http_value: object,
+    value: object,
     expected: object,
 ):
     """External state change on thermocktat is received by KNX device via push."""
     await connected_knx_device.init_listeners()
-    async with httpx.AsyncClient() as http_client:
-        resp = await http_client.post(
-            f"http://localhost:{HTTP_PORT}{http_endpoint}",
-            json={"value": http_value},
-        )
-        assert resp.status_code == 200
+    await getattr(thermocktat_http, setter)(value)
     # thermocktat publish_interval is 0.5s — allow margin for delivery
     await asyncio.sleep(1.0)
     assert connected_knx_device.attributes[attribute].current_value == expected
