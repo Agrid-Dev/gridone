@@ -1,3 +1,9 @@
+## v0.45.0 (2026-04-16)
+
+### Feat
+
+- API endpoints for grouped commands (AGR-407)
+
 ## v0.44.0 (2026-04-16)
 
 ### Feat
