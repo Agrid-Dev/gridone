@@ -10,7 +10,7 @@ from assets import (
 from commands import CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, Query, status
-from models.errors import InvalidError
+from models.errors import NotFoundError
 from pydantic import BaseModel
 
 from api.dependencies import (
@@ -21,7 +21,10 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission
-from api.routes._command_helpers import resolve_attribute_data_type
+from api.routes._command_helpers import (
+    resolve_attribute_data_type,
+    to_batch_dispatch_response,
+)
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 
 router = APIRouter()
@@ -212,9 +215,9 @@ async def dispatch_asset_command(
             f"No devices of type '{body.device_type}' found "
             f"in asset '{asset_id}' subtree"
         )
-        raise InvalidError(msg)
+        raise NotFoundError(msg)
     data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
-    group_id, total = await commands_svc.dispatch_batch(
+    commands = await commands_svc.dispatch_batch(
         device_ids=device_ids,
         attribute=body.attribute,
         value=body.value,
@@ -222,4 +225,4 @@ async def dispatch_asset_command(
         user_id=user_id,
         confirm=body.confirm,
     )
-    return BatchDispatchResponse(group_id=group_id, total=total)
+    return to_batch_dispatch_response(commands)

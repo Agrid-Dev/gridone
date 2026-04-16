@@ -13,7 +13,6 @@ from models.pagination import Page, PaginationParams
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import WriteResult
     from commands.protocols import CommandResultHandler, DeviceWriter
     from commands.storage.protocol import CommandsStorage
     from models.types import AttributeValueType, DataType
@@ -31,11 +30,19 @@ class CommandsService:
         self._storage = storage
         self._device_writer = device_writer
         self._result_handler = result_handler
-        self._tasks: set[asyncio.Task[None]] = set()
+        self._tasks: set[asyncio.Task[object]] = set()
 
-    async def close(self) -> None:
+    async def await_pending(self) -> None:
+        """Wait for all in-flight background tasks spawned by ``dispatch_batch``.
+
+        Safe to call repeatedly and when no tasks are pending. Does not close
+        the service — use :meth:`close` for shutdown.
+        """
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
+
+    async def close(self) -> None:
+        await self.await_pending()
         await self._storage.close()
 
     @classmethod
@@ -61,15 +68,17 @@ class CommandsService:
         confirm: bool = True,
         group_id: str | None = None,
     ) -> Command:
-        """Dispatch a command to a single device synchronously.
+        """Dispatch a command to a single device, awaiting the result before returning.
 
-        Always returns the persisted :class:`Command` — its ``status`` reflects
-        the outcome (``SUCCESS`` or ``ERROR``) and ``status_details`` carries
-        the failure reason when the writer raises. Writer exceptions are
-        absorbed so callers can rely on the returned record instead of error
-        handling at every call site.
+        The method is a coroutine (it yields to the event loop while the write
+        and status updates are in flight), but the caller is guaranteed to
+        receive the fully resolved :class:`Command` before ``await`` completes.
+
+        Writer exceptions are absorbed: on failure the command is marked as
+        ``ERROR`` (with ``status_details`` carrying the failure reason) and the
+        updated record is returned. Callers inspect ``command.status`` instead
+        of wrapping every call site in ``try/except``.
         """
-        now = datetime.now(UTC)
         command = await self._storage.save_command(
             CommandCreate(
                 group_id=group_id,
@@ -80,40 +89,18 @@ class CommandsService:
                 status=CommandStatus.PENDING,
                 status_details=None,
                 user_id=user_id,
-                created_at=now,
-                executed_at=now,
+                created_at=datetime.now(UTC),
+                executed_at=datetime.now(UTC),
                 completed_at=None,
             )
         )
-
-        try:
-            result: WriteResult = await self._device_writer(
-                device_id, attribute, value, confirm=confirm
-            )
-        except Exception as exc:  # noqa: BLE001
-            completed_at = datetime.now(UTC)
-            return await self._storage.update_command_status(
-                command.id,
-                CommandStatus.ERROR,
-                status_details=str(exc),
-                completed_at=completed_at,
-            )
-
-        completed_at = datetime.now(UTC)
-        command = await self._storage.update_command_status(
-            command.id,
-            CommandStatus.SUCCESS,
-            completed_at=completed_at,
-        )
-        await self._result_handler(
-            device_id=device_id,
+        return await self._execute_command(
+            command,
             attribute=attribute,
             value=value,
             data_type=data_type,
-            command_id=command.id,
-            last_changed=result.last_changed,
+            confirm=confirm,
         )
-        return command
 
     async def dispatch_batch(  # noqa: PLR0913
         self,
@@ -124,16 +111,18 @@ class CommandsService:
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-    ) -> tuple[str, int]:
+    ) -> list[Command]:
         """Fan-out a command to many devices as a single group.
 
-        Persists pending command rows for each device, spawns a single background
-        task that runs all per-device writes concurrently, and returns
-        ``(group_id, total)`` immediately. The background task updates each
-        command's status as results come in. Per-device exceptions are absorbed
-        into ``ERROR`` status without affecting other devices in the batch. If
-        the wrapping task itself fails unexpectedly, any commands still in
-        ``PENDING`` are marked as ``ERROR``.
+        Persists a ``PENDING`` command row per device, spawns a single
+        background task that runs all per-device writes concurrently, and
+        returns the persisted commands immediately. Per-device exceptions are
+        absorbed into ``ERROR`` status without affecting other devices in the
+        batch — callers poll the returned commands (by id or group_id) to
+        observe completion.
+
+        All commands share the same ``group_id`` and are returned in the order
+        of the input ``device_ids``.
         """
         group_id = uuid4().hex[:16]
         now = datetime.now(UTC)
@@ -157,61 +146,67 @@ class CommandsService:
         )
 
         task = asyncio.create_task(
-            self._execute_batch(commands, attribute, value, data_type, confirm=confirm)
+            self._execute_all(
+                commands,
+                attribute=attribute,
+                value=value,
+                data_type=data_type,
+                confirm=confirm,
+            )
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-        return group_id, len(commands)
+        return commands
 
-    async def _execute_batch(
+    async def _execute_all(
         self,
         commands: list[Command],
+        *,
         attribute: str,
         value: AttributeValueType,
         data_type: DataType,
-        *,
         confirm: bool,
     ) -> None:
-        try:
-            await asyncio.gather(
-                *(
-                    self._execute_one(cmd, attribute, value, data_type, confirm=confirm)
-                    for cmd in commands
-                ),
-                return_exceptions=True,
-            )
-        except Exception:
-            logger.exception("Unexpected failure during batch command execution")
-            await self._fail_remaining_pending(commands)
+        """Run ``_execute_command`` concurrently over every command in a batch.
 
-    async def _execute_one(
+        Per-command exceptions are absorbed by ``_execute_command`` itself;
+        ``return_exceptions=True`` is a belt-and-braces guard against anything
+        bubbling up from the storage layer.
+        """
+        await asyncio.gather(
+            *(
+                self._execute_command(
+                    cmd,
+                    attribute=attribute,
+                    value=value,
+                    data_type=data_type,
+                    confirm=confirm,
+                )
+                for cmd in commands
+            ),
+            return_exceptions=True,
+        )
+
+    async def _execute_command(
         self,
         command: Command,
+        *,
         attribute: str,
         value: AttributeValueType,
         data_type: DataType,
-        *,
         confirm: bool,
-    ) -> None:
-        """Execute a single command, absorbing exceptions into ERROR status."""
+    ) -> Command:
+        """Write to the device, update command status, and fire the result handler.
+
+        Writer exceptions are absorbed: the command is marked as ``ERROR`` and
+        the updated record is returned. Status-update failures after a writer
+        error are logged but not re-raised — the caller always receives a
+        :class:`Command`.
+        """
         try:
-            result: WriteResult = await self._device_writer(
+            result = await self._device_writer(
                 command.device_id, attribute, value, confirm=confirm
-            )
-            completed_at = datetime.now(UTC)
-            updated = await self._storage.update_command_status(
-                command.id,
-                CommandStatus.SUCCESS,
-                completed_at=completed_at,
-            )
-            await self._result_handler(
-                device_id=command.device_id,
-                attribute=attribute,
-                value=value,
-                data_type=data_type,
-                command_id=updated.id,
-                last_changed=result.last_changed,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -220,42 +215,27 @@ class CommandsService:
                 command.device_id,
                 exc,
             )
-            completed_at = datetime.now(UTC)
-            try:
-                await self._storage.update_command_status(
-                    command.id,
-                    CommandStatus.ERROR,
-                    status_details=str(exc),
-                    completed_at=completed_at,
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to mark command %s as ERROR after writer failure",
-                    command.id,
-                )
-
-    async def _fail_remaining_pending(self, commands: list[Command]) -> None:
-        """Mark any commands still in PENDING as ERROR after a wrapper failure."""
-        completed_at = datetime.now(UTC)
-        try:
-            refreshed = await self._storage.get_commands_by_ids(
-                [c.id for c in commands]
+            return await self._storage.update_command_status(
+                command.id,
+                CommandStatus.ERROR,
+                status_details=str(exc),
+                completed_at=datetime.now(UTC),
             )
-        except Exception:
-            logger.exception("Failed to re-read commands after batch failure")
-            return
-        for cmd in refreshed:
-            if cmd.status != CommandStatus.PENDING:
-                continue
-            try:
-                await self._storage.update_command_status(
-                    cmd.id,
-                    CommandStatus.ERROR,
-                    status_details="batch execution failed unexpectedly",
-                    completed_at=completed_at,
-                )
-            except Exception:
-                logger.exception("Failed to mark stalled command %s as ERROR", cmd.id)
+
+        updated = await self._storage.update_command_status(
+            command.id,
+            CommandStatus.SUCCESS,
+            completed_at=datetime.now(UTC),
+        )
+        await self._result_handler(
+            device_id=command.device_id,
+            attribute=attribute,
+            value=value,
+            data_type=data_type,
+            command_id=updated.id,
+            last_changed=result.last_changed,
+        )
+        return updated
 
     async def get_commands(  # noqa: PLR0913
         self,

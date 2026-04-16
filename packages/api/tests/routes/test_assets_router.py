@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import CommandsServiceInterface
+from commands import Command, CommandsServiceInterface
+from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
@@ -124,6 +126,27 @@ def async_client(app):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
+def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    return [
+        Command(
+            id=i,
+            group_id=group_id,
+            device_id=device_id,
+            attribute="setpoint",
+            value=21.5,
+            data_type=DataType.FLOAT,
+            status=CommandStatus.PENDING,
+            status_details=None,
+            user_id="test-user",
+            created_at=now,
+            executed_at=now,
+            completed_at=None,
+        )
+        for i, device_id in enumerate(device_ids, start=1)
+    ]
+
+
 class TestDispatchAssetCommand:
     @pytest.mark.asyncio
     async def test_filters_by_device_type_and_dispatches(
@@ -132,7 +155,9 @@ class TestDispatchAssetCommand:
         assets_manager: MagicMock,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_batch.return_value = ("group01", 2)
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "group01", ["t-a", "t-b"]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/asset-1/commands",
@@ -164,7 +189,9 @@ class TestDispatchAssetCommand:
         assets_manager: MagicMock,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_batch.return_value = ("g", 2)
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "g", ["t-a", "t-b"]
+        )
         async with async_client as ac:
             await ac.post(
                 "/asset-1/commands",
@@ -179,7 +206,7 @@ class TestDispatchAssetCommand:
         )
 
     @pytest.mark.asyncio
-    async def test_no_devices_of_type_returns_422(
+    async def test_no_devices_of_type_returns_404(
         self,
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
@@ -193,7 +220,7 @@ class TestDispatchAssetCommand:
                     "device_type": "boiler",
                 },
             )
-        assert response.status_code == 422
+        assert response.status_code == 404
         mock_commands_service.dispatch_batch.assert_not_awaited()
 
     @pytest.mark.asyncio

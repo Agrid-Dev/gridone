@@ -12,6 +12,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from models.errors import InvalidError, NotFoundError
+from models.pagination import Page, PaginationParams
+from models.types import SortOrder
 
 from api.dependencies import (
     get_commands_service,
@@ -428,12 +430,35 @@ class TestDispatchSingleCommand:
 # ---------------------------------------------------------------------------
 
 
+def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    return [
+        Command(
+            id=i,
+            group_id=group_id,
+            device_id=device_id,
+            attribute="temperature_setpoint",
+            value=22.5,
+            data_type=DataType.FLOAT,
+            status=CommandStatus.PENDING,
+            status_details=None,
+            user_id="test-user",
+            created_at=now,
+            executed_at=now,
+            completed_at=None,
+        )
+        for i, device_id in enumerate(device_ids, start=1)
+    ]
+
+
 class TestDispatchBatchCommand:
     @pytest.mark.asyncio
     async def test_success_returns_202_with_group_id(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch_batch.return_value = ("abc123", 2)
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "abc123", ["device1", "device1"]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/commands",
@@ -482,6 +507,109 @@ class TestDispatchBatchCommand:
             )
         # InvalidError -> 422 by global exception handler.
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# List commands — GET /devices/commands and GET /devices/{device_id}/commands
+# ---------------------------------------------------------------------------
+
+
+def _empty_page() -> Page:
+    return Page(items=[], total=0, page=1, size=50)
+
+
+class TestListCommands:
+    @pytest.mark.asyncio
+    async def test_no_filters(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = _empty_page()
+        async with async_client as ac:
+            response = await ac.get("/commands")
+        assert response.status_code == 200
+        mock_commands_service.get_commands.assert_called_once_with(
+            ids=None,
+            group_id=None,
+            device_id=None,
+            attribute=None,
+            user_id=None,
+            start=None,
+            end=None,
+            sort=SortOrder.ASC,
+            pagination=PaginationParams(page=1, size=50),
+        )
+
+    @pytest.mark.asyncio
+    async def test_with_full_filters(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = _empty_page()
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 31, tzinfo=UTC)
+        async with async_client as ac:
+            response = await ac.get(
+                "/commands",
+                params={
+                    "group_id": "abc1234567890def",
+                    "device_id": "dev-1",
+                    "attribute": "temperature",
+                    "user_id": "user-42",
+                    "start": start.isoformat(),
+                    "end": end.isoformat(),
+                    "sort": "desc",
+                },
+            )
+        assert response.status_code == 200
+        mock_commands_service.get_commands.assert_called_once_with(
+            ids=None,
+            group_id="abc1234567890def",
+            device_id="dev-1",
+            attribute="temperature",
+            user_id="user-42",
+            start=start,
+            end=end,
+            sort=SortOrder.DESC,
+            pagination=PaginationParams(page=1, size=50),
+        )
+
+    @pytest.mark.asyncio
+    async def test_pagination_passed_through(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = Page(
+            items=[], total=0, page=2, size=10
+        )
+        async with async_client as ac:
+            response = await ac.get("/commands", params={"page": 2, "size": 10})
+        assert response.status_code == 200
+        kwargs = mock_commands_service.get_commands.call_args.kwargs
+        assert kwargs["pagination"] == PaginationParams(page=2, size=10)
+
+
+class TestListDeviceCommands:
+    @pytest.mark.asyncio
+    async def test_path_device_id_takes_precedence(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = _empty_page()
+        async with async_client as ac:
+            # A query-string device_id is ignored in favor of the path.
+            response = await ac.get("/device1/commands", params={"device_id": "other"})
+        assert response.status_code == 200
+        kwargs = mock_commands_service.get_commands.call_args.kwargs
+        assert kwargs["device_id"] == "device1"
+
+    @pytest.mark.asyncio
+    async def test_forwards_group_id_filter(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = _empty_page()
+        async with async_client as ac:
+            response = await ac.get("/device1/commands", params={"group_id": "grp"})
+        assert response.status_code == 200
+        kwargs = mock_commands_service.get_commands.call_args.kwargs
+        assert kwargs["group_id"] == "grp"
+        assert kwargs["device_id"] == "device1"
 
 
 # ---------------------------------------------------------------------------

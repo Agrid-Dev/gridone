@@ -19,7 +19,6 @@ from api.dependencies import (
 )
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
-from api.routes.commands_router import router as commands_router
 from api.routes.devices_router import router as devices_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -397,9 +396,9 @@ def test_devices_access_control(
 
 
 def _build_commands_app() -> FastAPI:
-    """App with the commands_router, devices_router and assets_router mounted.
+    """App with the devices_router and assets_router mounted.
 
-    Used to verify that the permission decorators on the new command endpoints
+    Used to verify that the permission decorators on the command endpoints
     reject viewers and unauthenticated requests before any service is invoked.
     """
     app = FastAPI()
@@ -414,7 +413,6 @@ def _build_commands_app() -> FastAPI:
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
-    app.include_router(commands_router, prefix="/commands", dependencies=jwt_dep)
     app.include_router(assets_router, prefix="/assets", dependencies=jwt_dep)
     return app
 
@@ -474,8 +472,16 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         {"attribute": "a", "value": 1, "device_type": "thermostat"},
         id="asset-cmd-no-auth",
     ),
-    # GET /commands requires DEVICES_READ — all roles can read, but no-auth is 401.
-    pytest.param("GET", "/commands/", None, 401, None, id="get-cmds-no-auth"),
+    # GET /devices/commands requires DEVICES_READ — all roles can read, but no-auth is 401.
+    pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),
+    pytest.param(
+        "GET",
+        "/devices/any-id/commands",
+        None,
+        401,
+        None,
+        id="get-device-cmds-no-auth",
+    ),
 ]
 
 

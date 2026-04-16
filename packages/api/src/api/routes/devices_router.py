@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime  # noqa: TC003
 from typing import Annotated
 
 from commands import Command, CommandsServiceInterface
@@ -11,7 +12,8 @@ from devices_manager.dto.device_dto import (
     Device,
     DeviceUpdate,
 )
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from models.pagination import PaginationParams
 from timeseries.domain import (
     DataPoint,
     SeriesKey,
@@ -22,24 +24,40 @@ from api.dependencies import (
     get_commands_service,
     get_current_user_id,
     get_device_manager,
+    get_pagination_params,
     get_ts_service,
     require_permission,
 )
 from api.permissions import Permission
-from api.routes._command_helpers import resolve_attribute_data_type
+from api.routes._command_helpers import (
+    resolve_attribute_data_type,
+    to_batch_dispatch_response,
+)
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.schemas.command import (
     BatchDeviceCommand,
     BatchDispatchResponse,
+    CommandsQuery,
     SingleDeviceCommand,
+    get_commands_query,
 )
 from api.schemas.device import (
     SingleAttrTimeseriesPushPoint,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
+from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_start(query: CommandsQuery) -> datetime | None:
+    """Resolve the ``last`` duration shorthand into a ``start`` timestamp."""
+    if query.last is not None and query.start is None:
+        from timeseries.domain import resolve_last  # noqa: PLC0415
+
+        return resolve_last(query.last)
+    return query.start
 
 
 router = APIRouter()
@@ -64,6 +82,30 @@ def get_standard_types(
     return dm.list_standard_schemas()
 
 
+@router.get(
+    "/commands",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+async def list_commands(
+    request: Request,
+    query: CommandsQuery = Depends(get_commands_query),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> PaginatedResponse[Command]:
+    page = await commands_svc.get_commands(
+        ids=query.ids,
+        group_id=query.group_id,
+        device_id=query.device_id,
+        attribute=query.attribute,
+        user_id=query.user_id,
+        start=_resolve_start(query),
+        end=query.end,
+        sort=query.sort,
+        pagination=pagination,
+    )
+    return to_paginated_response(page, str(request.url))
+
+
 @router.post(
     "/commands",
     status_code=status.HTTP_202_ACCEPTED,
@@ -76,7 +118,7 @@ async def dispatch_batch_command(
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     data_type = resolve_attribute_data_type(dm, body.device_ids, body.attribute)
-    group_id, total = await commands_svc.dispatch_batch(
+    commands = await commands_svc.dispatch_batch(
         device_ids=body.device_ids,
         attribute=body.attribute,
         value=body.value,
@@ -84,7 +126,7 @@ async def dispatch_batch_command(
         user_id=user_id,
         confirm=body.confirm,
     )
-    return BatchDispatchResponse(group_id=group_id, total=total)
+    return to_batch_dispatch_response(commands)
 
 
 @router.get(
@@ -198,6 +240,32 @@ async def push_device_attribute_timeseries(
         create_if_not_found=True,
         validate_data_type=device_dto.attributes[attr_name].data_type,
     )
+
+
+@router.get(
+    "/{device_id}/commands",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+async def list_device_commands(
+    device_id: str,
+    request: Request,
+    query: CommandsQuery = Depends(get_commands_query),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> PaginatedResponse[Command]:
+    # Path parameter always wins over a query-string device_id.
+    page = await commands_svc.get_commands(
+        ids=query.ids,
+        group_id=query.group_id,
+        device_id=device_id,
+        attribute=query.attribute,
+        user_id=query.user_id,
+        start=_resolve_start(query),
+        end=query.end,
+        sort=query.sort,
+        pagination=pagination,
+    )
+    return to_paginated_response(page, str(request.url))
 
 
 @router.post(

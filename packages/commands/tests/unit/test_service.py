@@ -182,15 +182,8 @@ class TestGetCommands:
         assert page.size == 2
 
 
-async def _drain_tasks(service: CommandsService) -> None:
-    """Wait for all in-flight background tasks spawned by dispatch_batch."""
-    pending = list(service._tasks)
-    if pending:
-        await asyncio.gather(*pending, return_exceptions=True)
-
-
 class TestDispatchBatch:
-    async def test_returns_group_id_and_total_immediately(
+    async def test_returns_pending_commands_immediately(
         self,
         service: CommandsService,
         device_writer: AsyncMock,
@@ -205,7 +198,7 @@ class TestDispatchBatch:
 
         device_writer.side_effect = slow_writer
 
-        group_id, total = await service.dispatch_batch(
+        commands = await service.dispatch_batch(
             device_ids=["d1", "d2", "d3"],
             attribute="mode",
             value="auto",
@@ -213,18 +206,24 @@ class TestDispatchBatch:
             user_id="u1",
         )
 
-        assert isinstance(group_id, str)
+        assert len(commands) == 3
+        # Commands are returned in the input order with a shared group_id and
+        # PENDING status before the background task has a chance to run.
+        assert [c.device_id for c in commands] == ["d1", "d2", "d3"]
+        group_ids = {c.group_id for c in commands}
+        assert len(group_ids) == 1
+        group_id = commands[0].group_id
+        assert group_id is not None
         assert len(group_id) == 16
-        assert total == 3
+        assert all(c.status == CommandStatus.PENDING for c in commands)
 
-        # All commands should be persisted as PENDING right away.
+        # Storage reflects the same PENDING state while the writer is blocked.
         page = await service.get_commands(group_id=group_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.PENDING for c in page.items)
-        assert all(c.group_id == group_id for c in page.items)
 
         gate.set()
-        await _drain_tasks(service)
+        await service.await_pending()
 
     async def test_all_success(
         self,
@@ -232,15 +231,16 @@ class TestDispatchBatch:
         device_writer: AsyncMock,
         result_handler: AsyncMock,
     ):
-        group_id, _ = await service.dispatch_batch(
+        commands = await service.dispatch_batch(
             device_ids=["d1", "d2", "d3"],
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
             user_id="u1",
         )
-        await _drain_tasks(service)
+        await service.await_pending()
 
+        group_id = commands[0].group_id
         page = await service.get_commands(group_id=group_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
@@ -263,15 +263,16 @@ class TestDispatchBatch:
 
         device_writer.side_effect = writer
 
-        group_id, _ = await service.dispatch_batch(
+        commands = await service.dispatch_batch(
             device_ids=["d1", "d2", "d3"],
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
             user_id="u1",
         )
-        await _drain_tasks(service)
+        await service.await_pending()
 
+        group_id = commands[0].group_id
         page = await service.get_commands(group_id=group_id)
         by_device = {c.device_id: c for c in page.items}
         assert by_device["d1"].status == CommandStatus.SUCCESS
@@ -290,18 +291,27 @@ class TestDispatchBatch:
     ):
         device_writer.side_effect = RuntimeError("nope")
 
-        group_id, _ = await service.dispatch_batch(
+        commands = await service.dispatch_batch(
             device_ids=["d1", "d2"],
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
             user_id="u1",
         )
-        await _drain_tasks(service)
+        await service.await_pending()
 
+        group_id = commands[0].group_id
         page = await service.get_commands(group_id=group_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
         result_handler.assert_not_awaited()
+
+    async def test_await_pending_noop_when_no_tasks(
+        self,
+        service: CommandsService,
+    ):
+        # Safe to call on a freshly-constructed service that has no in-flight
+        # background tasks.
+        await service.await_pending()
 
     async def test_close_awaits_in_flight_tasks(
         self,
@@ -316,7 +326,7 @@ class TestDispatchBatch:
 
         device_writer.side_effect = slow_writer
 
-        group_id, _ = await service.dispatch_batch(
+        commands = await service.dispatch_batch(
             device_ids=["d1", "d2"],
             attribute="mode",
             value="auto",
@@ -333,13 +343,16 @@ class TestDispatchBatch:
         await service.close()
         await release_task
 
+        group_id = commands[0].group_id
         page = await service.get_commands(group_id=group_id)
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
 
-    async def test_task_is_discarded_on_completion(
+    async def test_await_pending_is_idempotent(
         self,
         service: CommandsService,
     ):
+        # After the batch completes, await_pending should return instantly on
+        # subsequent calls (no tasks pending).
         await service.dispatch_batch(
             device_ids=["d1"],
             attribute="mode",
@@ -347,6 +360,6 @@ class TestDispatchBatch:
             data_type=DataType.STRING,
             user_id="u1",
         )
-        await _drain_tasks(service)
-        # The done_callback should have removed the task from the set.
-        assert service._tasks == set()
+        await service.await_pending()
+        # A second call should be a no-op and not hang.
+        await service.await_pending()

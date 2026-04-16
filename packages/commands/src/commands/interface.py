@@ -34,7 +34,9 @@ class CommandsServiceInterface(Protocol):
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-    ) -> tuple[str, int]: ...
+    ) -> list[Command]: ...
+
+    async def await_pending(self) -> None: ...
 
     async def get_commands(  # noqa: PLR0913
         self,

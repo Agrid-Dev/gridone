@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 
 from models.errors import InvalidError
 
+from api.schemas.command import BatchDispatchResponse
+
 if TYPE_CHECKING:
+    from commands import Command
     from devices_manager import DevicesManagerInterface
     from models.types import DataType
 
@@ -29,3 +32,18 @@ def resolve_attribute_data_type(
         msg = f"No device exposes '{attribute}' as a writable attribute"
         raise InvalidError(msg)
     return matching[0].attributes[attribute].data_type
+
+
+def to_batch_dispatch_response(commands: list[Command]) -> BatchDispatchResponse:
+    """Project a ``dispatch_batch`` return into the HTTP response schema.
+
+    ``dispatch_batch`` guarantees a non-empty list of commands that all share
+    the same generated ``group_id``. This helper narrows ``Command.group_id``
+    (whose type allows ``None`` for single-command dispatches) for the HTTP
+    layer and documents the invariant in a single place.
+    """
+    group_id = commands[0].group_id
+    if group_id is None:
+        msg = "dispatch_batch returned commands without a group_id"
+        raise RuntimeError(msg)
+    return BatchDispatchResponse(group_id=group_id, total=len(commands))
