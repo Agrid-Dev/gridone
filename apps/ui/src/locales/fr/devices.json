@@ -18,7 +18,8 @@
       "transportPlaceholder": "Sélectionnez un transport",
       "transportDisabled": "Sélectionnez d'abord un pilote",
       "transportLoadError": "Impossible de charger les transports",
-      "name": "Nom de l'appareil"
+      "name": "Nom de l'appareil",
+      "type": "Type"
     },
     "actions": {
       "create": "Créer l'appareil",
@@ -83,7 +84,56 @@
       "error": "erreur"
     },
     "noCommands": "Aucune commande enregistrée.",
-    "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
+    "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils.",
+    "new": {
+      "title": "Nouvelle commande",
+      "steps": {
+        "target": "Cible",
+        "command": "Commande",
+        "review": "Vérification"
+      },
+      "searchDevicesPlaceholder": "Rechercher un appareil…",
+      "allTypes": "Tous les types",
+      "allAssets": "Toutes les zones",
+      "selectionCount": "{{count}} sur {{total}} sélectionnés",
+      "subtitle": {
+        "target": "Sélectionnez les appareils auxquels vous souhaitez envoyer la commande.",
+        "command": "Choisissez un attribut et la valeur à écrire.",
+        "review": "Vérifiez les changements et envoyez la commande."
+      },
+      "toggleVisible": "Cocher les appareils visibles",
+      "noDevicesMatch": "Aucun appareil ne correspond au filtre.",
+      "noDevicesResolved": "Aucun appareil sélectionné.",
+      "pickAttributePlaceholder": "Choisir un attribut",
+      "noCompatibleTitle": "Aucun attribut inscriptible compatible",
+      "noCompatibleDescription": "Les appareils sélectionnés ne partagent aucun attribut inscriptible avec le même type de données. Restreignez la sélection.",
+      "valueHint": {
+        "int": "Valeur entière",
+        "float": "Valeur numérique",
+        "str": "Valeur texte",
+        "bool": "Marche / arrêt"
+      },
+      "currentValue": "Valeur actuelle",
+      "affectedDevices": "Appareils ({{count}})",
+      "next": "Suivant",
+      "back": "Retour",
+      "dispatch": "Envoyer",
+      "dispatching": "Envoi…",
+      "valueChange": "Valeur",
+      "on": "ON",
+      "off": "OFF",
+      "summary": {
+        "deviceCount_one": "{{count}} appareil",
+        "deviceCount_other": "{{count}} appareils",
+        "andMore_one": "et {{count}} de plus",
+        "andMore_other": "et {{count}} de plus"
+      },
+      "feedback": {
+        "dispatched": "Commande envoyée",
+        "batchDispatched": "Commandes envoyées",
+        "dispatchFailed": "Échec de l'envoi de la commande"
+      }
+    }
   },
   "controls": {
     "thermostat": {
