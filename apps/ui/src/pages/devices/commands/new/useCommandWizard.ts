@@ -149,12 +149,12 @@ export function useCommandWizard({
       queryClient.invalidateQueries({ queryKey: ["commands"] });
       if (result.kind === "batch") {
         toast.success(t("commands.new.feedback.batchDispatched"));
-        navigate(`/devices/commands?group_id=${result.groupId}`);
+        navigate(`/devices/history?group_id=${result.groupId}`);
       } else {
         toast.success(t("commands.new.feedback.dispatched"));
         const listUrl = lockedDeviceId
-          ? `/devices/${encodeURIComponent(lockedDeviceId)}/commands`
-          : "/devices/commands";
+          ? `/devices/${encodeURIComponent(lockedDeviceId)}/history/commands`
+          : "/devices/history";
         navigate(listUrl);
       }
     },

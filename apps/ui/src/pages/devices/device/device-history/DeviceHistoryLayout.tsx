@@ -21,9 +21,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useDevice } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
-import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
+import {
+  BarChart3,
+  Download,
+  Loader2,
+  Settings2,
+  Table,
+  Terminal,
+} from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -41,6 +49,7 @@ import { TimeRangeSelect } from "./TimeRangeSelect";
 
 export default function DeviceHistoryLayout() {
   const { t } = useTranslation("devices");
+  const can = usePermissions();
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
 
@@ -86,6 +95,16 @@ export default function DeviceHistoryLayout() {
               {t("deviceDetails.history")}
             </>
           }
+          actions={
+            can("devices:write") ? (
+              <Button asChild size="sm">
+                <Link to={`/devices/${deviceId}/commands/new`}>
+                  <Terminal />
+                  {t("commands.newCommand")}
+                </Link>
+              </Button>
+            ) : null
+          }
         />
 
         <HistoryToolbar />
@@ -108,7 +127,11 @@ function HistoryToolbar() {
     handleDownload,
   } = useDeviceHistoryContext();
 
-  const activeTab = location.pathname.endsWith("/chart") ? "chart" : "table";
+  const activeTab = location.pathname.endsWith("/commands")
+    ? "commands"
+    : location.pathname.endsWith("/chart")
+      ? "chart"
+      : "table";
 
   const visibleCount = availableAttributes.filter(
     (attr) => columnVisibility[attr] !== false,
@@ -125,10 +148,13 @@ function HistoryToolbar() {
 
   if (isLoading) return null;
 
+  const showTelemetryTools =
+    activeTab !== "commands" && availableAttributes.length > 0;
+
   return (
     <>
       <div className="flex items-center justify-between">
-        {availableAttributes.length > 0 && (
+        {showTelemetryTools ? (
           <div className="flex items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -204,15 +230,14 @@ function HistoryToolbar() {
               </TooltipContent>
             </Tooltip>
           </div>
+        ) : (
+          <span />
         )}
 
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
-            navigate(value === "chart" ? "chart" : "table", {
-              replace: true,
-              relative: "path",
-            });
+            navigate(value, { replace: true, relative: "path" });
           }}
         >
           <TabsList>
@@ -223,6 +248,10 @@ function HistoryToolbar() {
             <TabsTrigger value="chart">
               <BarChart3 className="mr-1.5 h-4 w-4" />
               {t("deviceDetails.chart")}
+            </TabsTrigger>
+            <TabsTrigger value="commands">
+              <Terminal className="mr-1.5 h-4 w-4" />
+              {t("commands.title")}
             </TabsTrigger>
           </TabsList>
         </Tabs>

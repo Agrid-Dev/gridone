@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
+import { Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -26,7 +26,7 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
   const newCommandButton = can("devices:write") ? (
     <Button asChild size="sm">
       <Link to={newCommandHref}>
-        <Plus className="h-4 w-4" />
+        <Terminal />
         {t("commands.newCommand")}
       </Link>
     </Button>

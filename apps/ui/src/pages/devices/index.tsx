@@ -10,7 +10,7 @@ const Devices: FC = () => (
   <Routes>
     <Route index element={<DevicesList />} />
     <Route
-      path="commands"
+      path="history"
       element={
         <Suspense>
           <CommandsPage />

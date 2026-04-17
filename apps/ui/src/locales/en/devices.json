@@ -23,6 +23,7 @@
     },
     "actions": {
       "create": "Create device",
+      "add": "Add",
       "delete": "Delete",
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",

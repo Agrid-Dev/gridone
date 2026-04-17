@@ -21,8 +21,8 @@ const Device: FC = () => (
       <Route index element={<Navigate to="table" replace />} />
       <Route path="table" element={<DeviceHistoryTable />} />
       <Route path="chart" element={<DeviceHistoryChart />} />
+      <Route path="commands" element={<DeviceCommandsPage />} />
     </Route>
-    <Route path=":deviceId/commands" element={<DeviceCommandsPage />} />
     <Route
       path=":deviceId/commands/new"
       element={

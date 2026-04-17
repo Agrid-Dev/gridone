@@ -23,6 +23,7 @@
     },
     "actions": {
       "create": "Créer l'appareil",
+      "add": "Ajouter",
       "delete": "Supprimer",
       "update": "Mettre à jour",
       "deleteDialogTitle": "Confirmer la suppression",

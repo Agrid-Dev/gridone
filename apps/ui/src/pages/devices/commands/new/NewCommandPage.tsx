@@ -52,10 +52,10 @@ export default function NewCommandPage({ context }: NewCommandPageProps) {
 
   const backHref =
     resolvedContext === "device"
-      ? `/devices/${deviceId}/commands`
+      ? `/devices/${deviceId}/history/commands`
       : resolvedContext === "asset"
         ? `/assets/${assetId}`
-        : "/devices/commands";
+        : "/devices/history";
 
   const backResource =
     resolvedContext === "asset" ? t("assets:title") : t("commands.title");
