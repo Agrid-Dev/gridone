@@ -74,6 +74,14 @@
     "allDevices": "Tous les appareils",
     "allAttributes": "Tous les attributs",
     "allUsers": "Tous les utilisateurs",
+    "group": "Groupe",
+    "clearGroup": "Effacer le filtre de groupe",
+    "newCommand": "Nouvelle commande",
+    "statusLabels": {
+      "pending": "en cours",
+      "success": "succès",
+      "error": "erreur"
+    },
     "noCommands": "Aucune commande enregistrée.",
     "noCommandsDescription": "Les commandes apparaîtront ici lorsque les utilisateurs contrôleront les attributs des appareils."
   },

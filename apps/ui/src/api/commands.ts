@@ -1,15 +1,20 @@
 import { request } from "./request";
 import type { Page } from "./pagination";
 
+export type CommandStatus = "pending" | "success" | "error";
+
 export type DeviceCommand = {
   id: number;
+  groupId: string | null;
   deviceId: string;
   attribute: string;
   userId: string;
   value: string | number | boolean;
   dataType: "int" | "float" | "str" | "bool";
-  status: "success" | "error";
-  timestamp: string;
+  status: CommandStatus;
+  createdAt: string;
+  executedAt: string;
+  completedAt: string | null;
   statusDetails: string | null;
 };
 

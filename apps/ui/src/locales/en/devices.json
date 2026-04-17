@@ -74,6 +74,14 @@
     "allDevices": "All devices",
     "allAttributes": "All attributes",
     "allUsers": "All users",
+    "group": "Group",
+    "clearGroup": "Clear group filter",
+    "newCommand": "New command",
+    "statusLabels": {
+      "pending": "pending",
+      "success": "success",
+      "error": "error"
+    },
     "noCommands": "No commands recorded yet.",
     "noCommandsDescription": "Commands will appear here when users control device attributes."
   },

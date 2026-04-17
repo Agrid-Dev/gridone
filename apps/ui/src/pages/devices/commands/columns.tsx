@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router";
 import { TFunction } from "i18next";
-import { Check, X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Popover,
@@ -10,7 +11,19 @@ import {
 } from "@/components/ui/popover";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { DeviceCommand } from "@/api/commands";
+import type { CommandStatus, DeviceCommand } from "@/api/commands";
+
+const STATUS_STYLES: Record<CommandStatus, string> = {
+  pending: "border-amber-200 text-amber-700",
+  success: "border-green-200 text-green-700",
+  error: "border-red-200 text-red-700",
+};
+
+const STATUS_ICONS: Record<CommandStatus, ReactNode> = {
+  pending: <Loader2 className="mr-1 h-3 w-3 animate-spin" />,
+  success: <Check className="mr-1 h-3 w-3" />,
+  error: <X className="mr-1 h-3 w-3" />,
+};
 
 type Lookups = {
   deviceNames: Record<string, string>;
@@ -26,11 +39,11 @@ export function buildCommandColumns(
 
   return [
     {
-      accessorKey: "timestamp",
+      accessorKey: "createdAt",
       header: () => t("common:common.timestamp"),
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
-          {new Date(row.getValue<string>("timestamp")).toLocaleString()}
+          {new Date(row.getValue<string>("createdAt")).toLocaleString()}
         </span>
       ),
     },
@@ -83,23 +96,11 @@ export function buildCommandColumns(
       accessorKey: "status",
       header: () => t("commands.status"),
       cell: ({ row }) => {
-        const status = row.getValue<"success" | "error">("status");
-        const isOk = status === "success";
+        const status = row.getValue<CommandStatus>("status");
         return (
-          <Badge
-            variant="outline"
-            className={
-              isOk
-                ? "border-green-200 text-green-700"
-                : "border-red-200 text-red-700"
-            }
-          >
-            {isOk ? (
-              <Check className="mr-1 h-3 w-3" />
-            ) : (
-              <X className="mr-1 h-3 w-3" />
-            )}
-            {status}
+          <Badge variant="outline" className={STATUS_STYLES[status]}>
+            {STATUS_ICONS[status]}
+            {t(`commands.statusLabels.${status}`)}
           </Badge>
         );
       },
