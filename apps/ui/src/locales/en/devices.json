@@ -18,10 +18,12 @@
       "transportPlaceholder": "Select a transport",
       "transportDisabled": "Select a driver first",
       "transportLoadError": "Unable to load transports",
-      "name": "Device name"
+      "name": "Device name",
+      "type": "Type"
     },
     "actions": {
       "create": "Create device",
+      "add": "Add",
       "delete": "Delete",
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",
@@ -74,8 +76,65 @@
     "allDevices": "All devices",
     "allAttributes": "All attributes",
     "allUsers": "All users",
+    "group": "Group",
+    "clearGroup": "Clear group filter",
+    "newCommand": "New command",
+    "statusLabels": {
+      "pending": "pending",
+      "success": "success",
+      "error": "error"
+    },
     "noCommands": "No commands recorded yet.",
-    "noCommandsDescription": "Commands will appear here when users control device attributes."
+    "noCommandsDescription": "Commands will appear here when users control device attributes.",
+    "new": {
+      "title": "New command",
+      "steps": {
+        "target": "Target",
+        "command": "Command",
+        "review": "Review"
+      },
+      "searchDevicesPlaceholder": "Search devices…",
+      "allTypes": "All types",
+      "allAssets": "All zones",
+      "selectionCount": "{{count}} of {{total}} selected",
+      "subtitle": {
+        "target": "Select the devices you want to send the command to.",
+        "command": "Pick an attribute and the value to write.",
+        "review": "Review the pending changes and dispatch."
+      },
+      "toggleVisible": "Toggle visible devices",
+      "noDevicesMatch": "No devices match your filter.",
+      "noDevicesResolved": "No devices selected.",
+      "pickAttributePlaceholder": "Select an attribute",
+      "noCompatibleTitle": "No compatible writable attribute",
+      "noCompatibleDescription": "The selected devices do not share any writable attribute with matching data types. Narrow your selection.",
+      "valueHint": {
+        "int": "Integer value",
+        "float": "Numeric value",
+        "str": "Text value",
+        "bool": "On / off"
+      },
+      "currentValue": "Current value",
+      "affectedDevices": "Devices ({{count}})",
+      "next": "Next",
+      "back": "Back",
+      "dispatch": "Dispatch",
+      "dispatching": "Dispatching…",
+      "valueChange": "Value",
+      "on": "ON",
+      "off": "OFF",
+      "summary": {
+        "deviceCount_one": "{{count}} device",
+        "deviceCount_other": "{{count}} devices",
+        "andMore_one": "and {{count}} more",
+        "andMore_other": "and {{count}} more"
+      },
+      "feedback": {
+        "dispatched": "Command dispatched",
+        "batchDispatched": "Commands dispatched",
+        "dispatchFailed": "Failed to dispatch command"
+      }
+    }
   },
   "controls": {
     "thermostat": {

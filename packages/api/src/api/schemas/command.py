@@ -7,7 +7,7 @@ from datetime import datetime
 from devices_manager.types import AttributeValueType
 from fastapi import Query
 from models.types import SortOrder
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, model_validator
 
 
 class CommandsQuery(BaseModel):
@@ -57,12 +57,31 @@ class SingleDeviceCommand(BaseModel):
 
 
 class BatchDeviceCommand(BaseModel):
-    """Request body for ``POST /devices/commands`` (explicit device list)."""
+    """Request body for ``POST /devices/commands``.
 
-    device_ids: list[str] = Field(min_length=1)
+    Target selection is one of (exactly one required):
+
+    * ``device_ids`` — explicit, non-empty list of device IDs
+    * ``device_type`` — resolved server-side to all devices of that type
+    """
+
+    device_ids: list[str] | None = None
+    device_type: str | None = None
     attribute: str
     value: AttributeValueType
     confirm: bool = True
+
+    @model_validator(mode="after")
+    def _exactly_one_target(self) -> "BatchDeviceCommand":
+        has_ids = self.device_ids is not None
+        has_type = self.device_type is not None
+        if has_ids == has_type:
+            msg = "Exactly one of 'device_ids' or 'device_type' must be provided"
+            raise ValueError(msg)
+        if has_ids and len(self.device_ids or []) == 0:
+            msg = "'device_ids' must not be empty"
+            raise ValueError(msg)
+        return self
 
 
 class AssetCommand(BaseModel):

@@ -451,7 +451,24 @@ def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
     ]
 
 
+_TYPED_WRITABLE_DEVICE = Device(
+    id="thermo1",
+    kind=DeviceKind.PHYSICAL,
+    name="Thermostat 1",
+    type="thermostat",
+    attributes={
+        "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
+    },
+)
+
+
 class TestDispatchBatchCommand:
+    @pytest.fixture
+    def dm(self):
+        # Include a typed, writable device so the device_type-resolution tests
+        # below can exercise the dm.list_devices(device_type=...) path.
+        return _make_dm([_PHYSICAL_DEVICE, _TYPED_WRITABLE_DEVICE])
+
     @pytest.mark.asyncio
     async def test_success_returns_202_with_group_id(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
@@ -477,6 +494,70 @@ class TestDispatchBatchCommand:
         assert kwargs["value"] == 22.5
         assert kwargs["data_type"] == DataType.FLOAT
         assert kwargs["confirm"] is True
+
+    @pytest.mark.asyncio
+    async def test_device_type_resolves_to_matching_devices(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "grp-t", ["thermo1"]
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_type": "thermostat",
+                    "attribute": "setpoint",
+                    "value": 21.0,
+                },
+            )
+        assert response.status_code == 202
+        assert response.json() == {"group_id": "grp-t", "total": 1}
+
+        kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
+        assert kwargs["device_ids"] == ["thermo1"]
+
+    @pytest.mark.asyncio
+    async def test_device_type_with_no_matching_devices_returns_422(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_type": "unknown_type",
+                    "attribute": "setpoint",
+                    "value": 21.0,
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_both_device_ids_and_device_type_returns_422(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "device_ids": ["thermo1"],
+                    "device_type": "thermostat",
+                    "attribute": "setpoint",
+                    "value": 21.0,
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_neither_device_ids_nor_device_type_returns_422(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={"attribute": "setpoint", "value": 21.0},
+            )
+        assert response.status_code == 422
 
     @pytest.mark.asyncio
     async def test_empty_device_ids_returns_422(self, async_client: AsyncClient):

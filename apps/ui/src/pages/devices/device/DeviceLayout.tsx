@@ -103,17 +103,19 @@ export default function DeviceLayout() {
               </Button>
             )}
             <Button asChild variant="outline" size="sm">
-              <Link to="commands">
-                <Terminal className="h-3.5 w-3.5" />
-                {t("commands.title")}
-              </Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
               <Link to="history">
                 <History className="h-3.5 w-3.5" />
                 {t("deviceDetails.history")}
               </Link>
             </Button>
+            {can("devices:write") && (
+              <Button asChild size="sm">
+                <Link to="commands/new">
+                  <Terminal className="h-3.5 w-3.5" />
+                  {t("commands.newCommand")}
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
       </div>
