@@ -600,6 +600,61 @@ class TestAttributePersistence:
         result = await composed_storage.devices.read("dev1")
         assert result.attributes["humidity"].current_value == 60.0
 
+    async def test_tags_write_and_read_roundtrip(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        device = _make_device("dev1")
+        device.tags = {"asset_id": "asset-abc", "zone": "north"}
+        await device_storage.write(device.id, device)
+
+        result = await device_storage.read(device.id)
+        assert result.tags == {"asset_id": "asset-abc", "zone": "north"}
+
+    async def test_tags_overwrite_on_write(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        device = _make_device("dev1")
+        device.tags = {"asset_id": "old-asset"}
+        await device_storage.write(device.id, device)
+
+        device.tags = {"asset_id": "new-asset"}
+        await device_storage.write(device.id, device)
+
+        result = await device_storage.read(device.id)
+        assert result.tags == {"asset_id": "new-asset"}
+
+    async def test_tags_cascade_delete(
+        self,
+        pool: asyncpg.Pool,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        device = _make_device("dev1")
+        device.tags = {"asset_id": "asset-abc"}
+        await device_storage.write(device.id, device)
+        await device_storage.delete("dev1")
+
+        count = await pool.fetchval(
+            "SELECT COUNT(*) FROM dm_device_tags WHERE device_id = $1", "dev1"
+        )
+        assert count == 0
+
     async def test_virtual_device_attribute_round_trip(
         self,
         device_storage: PostgresDeviceStorage,

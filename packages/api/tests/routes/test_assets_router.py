@@ -33,7 +33,7 @@ _THERMOSTAT_A = Device(
     kind=DeviceKind.PHYSICAL,
     name="Thermostat A",
     type="thermostat",
-    tags={"asset_id": [_ASSET_ID]},
+    tags={"asset_id": _ASSET_ID},
     attributes={
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
@@ -46,7 +46,7 @@ _THERMOSTAT_B = Device(
     kind=DeviceKind.PHYSICAL,
     name="Thermostat B",
     type="thermostat",
-    tags={"asset_id": [_CHILD_ASSET_ID]},
+    tags={"asset_id": _CHILD_ASSET_ID},
     attributes={
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
@@ -59,7 +59,7 @@ _LIGHT = Device(
     kind=DeviceKind.PHYSICAL,
     name="Light",
     type="light",
-    tags={"asset_id": [_ASSET_ID]},
+    tags={"asset_id": _ASSET_ID},
     attributes={
         "power": Attribute.create("power", DataType.BOOL, {"read", "write"}),
     },
@@ -92,9 +92,7 @@ def _make_dm() -> MagicMock:
         if tags is not None:
             for key, values in tags.items():
                 values_set = set(values)
-                results = [
-                    d for d in results if values_set.issubset(set(d.tags.get(key, [])))
-                ]
+                results = [d for d in results if d.tags.get(key) in values_set]
         if writable_attribute is not None:
             results = [
                 d
@@ -105,6 +103,7 @@ def _make_dm() -> MagicMock:
         return results
 
     mock.list_devices.side_effect = _list_devices
+    mock.delete_device_tag = AsyncMock()
     return mock
 
 

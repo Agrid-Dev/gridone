@@ -117,6 +117,12 @@ def _make_dm(
         )
     )
     mock.list_standard_schemas.return_value = []
+
+    updated = _PHYSICAL_DEVICE.model_copy(update={"tags": {"asset_id": "a1"}})
+    mock.set_device_tag = AsyncMock(return_value=updated)
+    mock.delete_device_tag = AsyncMock(
+        return_value=_PHYSICAL_DEVICE.model_copy(update={"tags": {}})
+    )
     return mock
 
 
@@ -966,4 +972,33 @@ class TestSingleAttrPushTimeseries:
                 "/unknown-device/timeseries/temperature",
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
+        assert response.status_code == 404
+
+
+# Device tag sub-resource
+
+
+class TestDeviceTags:
+    def test_set_tag_returns_updated_device(self, client: TestClient, dm: MagicMock):
+        response = client.put("/device1/tags/asset_id", json={"value": "a1"})
+        assert response.status_code == 200
+        dm.set_device_tag.assert_called_once_with("device1", "asset_id", "a1")
+
+    def test_set_tag_unknown_device_returns_404(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.set_device_tag.side_effect = NotFoundError("Device unknown not found")
+        response = client.put("/unknown/tags/asset_id", json={"value": "a1"})
+        assert response.status_code == 404
+
+    def test_delete_tag_returns_204(self, client: TestClient, dm: MagicMock):
+        response = client.delete("/device1/tags/asset_id")
+        assert response.status_code == 204
+        dm.delete_device_tag.assert_called_once_with("device1", "asset_id")
+
+    def test_delete_tag_unknown_device_returns_404(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.delete_device_tag.side_effect = NotFoundError("Device unknown not found")
+        response = client.delete("/unknown/tags/asset_id")
         assert response.status_code == 404

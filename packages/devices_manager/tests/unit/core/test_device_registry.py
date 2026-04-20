@@ -340,13 +340,13 @@ class TestDeviceRegistryList:
             driver=driver,
             transport=mock_transport_client,
         )
-        d1.tags = {"asset_id": ["floor1"]}
+        d1.tags = {"asset_id": "floor1"}
         d2 = PhysicalDevice.from_base(
             DeviceBase(id="d2", name="D2", config={}),
             driver=driver,
             transport=mock_transport_client,
         )
-        d2.tags = {"asset_id": ["floor2"]}
+        d2.tags = {"asset_id": "floor2"}
         registry = DeviceRegistry(
             {d1.id: d1, d2.id: d2},
             resolve_driver=_make_driver_resolver(driver),
@@ -368,7 +368,7 @@ class TestDeviceRegistryList:
             driver=driver,
             transport=mock_transport_client,
         )
-        d1.tags = {"asset_id": ["floor1"]}
+        d1.tags = {"asset_id": "floor1"}
         registry = DeviceRegistry(
             {d1.id: d1},
             resolve_driver=_make_driver_resolver(driver),
@@ -388,13 +388,13 @@ class TestDeviceRegistryList:
             driver=driver,
             transport=mock_transport_client,
         )
-        d1.tags = {"asset_id": ["floor1"], "region": ["north"]}
+        d1.tags = {"asset_id": "floor1", "region": "north"}
         d2 = PhysicalDevice.from_base(
             DeviceBase(id="d2", name="D2", config={}),
             driver=driver,
             transport=mock_transport_client,
         )
-        d2.tags = {"asset_id": ["floor1"], "region": ["south"]}
+        d2.tags = {"asset_id": "floor1", "region": "south"}
         registry = DeviceRegistry(
             {d1.id: d1, d2.id: d2},
             resolve_driver=_make_driver_resolver(driver),
@@ -632,19 +632,26 @@ class TestDeviceRegistryUpdate:
         assert result.name == original_name
 
     @pytest.mark.asyncio
-    async def test_update_tags(self, device_registry, device):
-        result = await device_registry.update(
-            device.id, DeviceUpdate(tags={"asset_id": ["floor1"]})
-        )
-        assert result.tags == {"asset_id": ["floor1"]}
+    async def test_set_tag(self, device_registry, device):
+        result = await device_registry.set_tag(device.id, "asset_id", "floor1")
+        assert result.tags == {"asset_id": "floor1"}
 
     @pytest.mark.asyncio
-    async def test_update_tags_replace(self, device_registry, device):
-        device.tags = {"asset_id": ["floor1"]}
-        result = await device_registry.update(
-            device.id, DeviceUpdate(tags={"asset_id": []})
-        )
-        assert result.tags == {"asset_id": []}
+    async def test_set_tag_overwrite(self, device_registry, device):
+        await device_registry.set_tag(device.id, "asset_id", "floor1")
+        result = await device_registry.set_tag(device.id, "asset_id", "floor2")
+        assert result.tags == {"asset_id": "floor2"}
+
+    @pytest.mark.asyncio
+    async def test_delete_tag(self, device_registry, device):
+        device.tags = {"asset_id": "floor1"}
+        result = await device_registry.delete_tag(device.id, "asset_id")
+        assert "asset_id" not in result.tags
+
+    @pytest.mark.asyncio
+    async def test_delete_tag_noop_if_missing(self, device_registry, device):
+        result = await device_registry.delete_tag(device.id, "nonexistent")
+        assert result.tags == {}
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, device_registry):
