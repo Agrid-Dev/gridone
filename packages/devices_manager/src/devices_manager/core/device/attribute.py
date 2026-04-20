@@ -1,12 +1,22 @@
 from datetime import UTC, datetime
+from enum import StrEnum
+from typing import ClassVar
 
 from pydantic import BaseModel, model_validator
 
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
+from models.types import Severity
+
+
+class AttributeKind(StrEnum):
+    STANDARD = "standard"
+    FAULT = "fault"
 
 
 class Attribute(BaseModel):
+    kind: ClassVar[AttributeKind] = AttributeKind.STANDARD
+
     name: str
     data_type: DataType
     read_write_modes: set[ReadWriteMode]
@@ -64,3 +74,10 @@ class Attribute(BaseModel):
             current_value=value,
             last_updated=datetime.now(UTC) if value is not None else None,
         )
+
+
+class FaultAttribute(Attribute):
+    kind: ClassVar[AttributeKind] = AttributeKind.FAULT
+
+    severity: Severity = Severity.WARNING
+    is_faulty: bool = False
