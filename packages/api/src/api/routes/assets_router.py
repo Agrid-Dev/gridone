@@ -30,10 +30,6 @@ from api.schemas.command import AssetCommand, BatchDispatchResponse
 router = APIRouter()
 
 
-class DeviceLinkRequest(BaseModel):
-    device_id: str
-
-
 class ReorderRequest(BaseModel):
     ordered_ids: list[str]
 
@@ -62,12 +58,16 @@ async def get_tree_with_devices(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[dict]:
     tree = await am.get_tree()
-    all_links = await am.get_all_device_links()
-    name_map = {d.id: d.name for d in dm.list_devices()}
+    all_devices = dm.list_devices()
+    name_map = {d.id: d.name for d in all_devices}
+    links: dict[str, list[str]] = {}
+    for device in all_devices:
+        for asset_id in device.tags.get("asset_id", []):
+            links.setdefault(asset_id, []).append(device.id)
 
     def enrich(nodes: list[dict]) -> None:
         for node in nodes:
-            device_ids = all_links.get(node["id"], [])
+            device_ids = links.get(node["id"], [])
             node["devices"] = [
                 {"id": did, "name": name_map.get(did, did)} for did in device_ids
             ]
@@ -153,9 +153,6 @@ async def reorder_children(
     await am.reorder_siblings(asset_id, body.ordered_ids)
 
 
-# Device linking endpoints
-
-
 @router.get(
     "/{asset_id}/devices",
     response_model=list[str],
@@ -164,34 +161,10 @@ async def reorder_children(
 async def list_asset_devices(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[str]:
-    return await am.resolve_device_ids(asset_id)
-
-
-@router.post(
-    "/{asset_id}/devices",
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
-)
-async def link_device(
-    asset_id: str,
-    body: DeviceLinkRequest,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
-) -> None:
-    await am.link_device(asset_id, body.device_id)
-
-
-@router.delete(
-    "/{asset_id}/devices/{device_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
-)
-async def unlink_device(
-    asset_id: str,
-    device_id: str,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
-) -> None:
-    await am.unlink_device(asset_id, device_id)
+    await am.get_by_id(asset_id)
+    return [d.id for d in dm.list_devices(tags={"asset_id": [asset_id]})]
 
 
 @router.post(
@@ -207,14 +180,25 @@ async def dispatch_asset_command(
     commands_svc: Annotated[CommandsServiceInterface, Depends(get_commands_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> BatchDispatchResponse:
-    all_ids = await am.resolve_device_ids(asset_id, recursive=body.recursive)
-    matching = dm.list_devices(ids=all_ids, device_type=body.device_type)
-    device_ids = [d.id for d in matching]
+    await am.get_by_id(asset_id)
+    types = [body.device_type]
+    if body.recursive:
+        # One list_devices call per asset in the subtree — acceptable at current scale.
+        descendants = await am.get_descendants(asset_id)
+        all_asset_ids = [asset_id] + [a.id for a in descendants]
+        seen: set[str] = set()
+        device_ids: list[str] = []
+        for aid in all_asset_ids:
+            for d in dm.list_devices(tags={"asset_id": [aid]}, types=types):
+                if d.id not in seen:
+                    seen.add(d.id)
+                    device_ids.append(d.id)
+    else:
+        device_ids = [
+            d.id for d in dm.list_devices(tags={"asset_id": [asset_id]}, types=types)
+        ]
     if not device_ids:
-        msg = (
-            f"No devices of type '{body.device_type}' found "
-            f"in asset '{asset_id}' subtree"
-        )
+        msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
         raise NotFoundError(msg)
     data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
     commands = await commands_svc.dispatch_batch(

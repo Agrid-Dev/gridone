@@ -60,6 +60,22 @@ def _resolve_start(query: CommandsQuery) -> datetime | None:
     return query.start
 
 
+def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
+    """Parse ``?tags=key:val1,val2`` query params into a tags filter dict.
+
+    Each entry must be ``key:value`` or ``key:v1,v2``.
+    Multiple entries with the same key are merged (OR within key).
+    """
+    if not raw:
+        return None
+    result: dict[str, list[str]] = {}
+    for item in raw:
+        key, _, values_str = item.partition(":")
+        values = [v for v in values_str.split(",") if v]
+        result.setdefault(key, []).extend(values)
+    return result or None
+
+
 router = APIRouter()
 router.include_router(devices_ts_router)
 
@@ -67,9 +83,12 @@ router.include_router(devices_ts_router)
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
     dm: DevicesManagerInterface = Depends(get_device_manager),
-    device_type: str | None = Query(None, alias="type"),
+    types: list[str] | None = Query(None, alias="type"),
+    ids: list[str] | None = Query(None),
+    tags: list[str] | None = Query(None),
 ) -> list[Device]:
-    return dm.list_devices(device_type=device_type)
+    parsed_tags = _parse_tags(tags)
+    return dm.list_devices(ids=ids, types=types, tags=parsed_tags)
 
 
 @router.get(
@@ -118,7 +137,7 @@ async def dispatch_batch_command(
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     if body.device_type is not None:
-        device_ids = [d.id for d in dm.list_devices(device_type=body.device_type)]
+        device_ids = [d.id for d in dm.list_devices(types=[body.device_type])]
         if not device_ids:
             raise HTTPException(
                 status_code=422,
