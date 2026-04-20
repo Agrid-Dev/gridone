@@ -24,6 +24,7 @@ class CoreDevice(ABC):
     attributes: dict[str, Attribute]
     kind: ClassVar[DeviceKind]
     type: str | None = None
+    tags: dict[str, list[str]] = field(default_factory=dict)
     on_update: AttributeUpdateCallback | None = field(default=None, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
 

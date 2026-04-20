@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 
@@ -37,11 +38,13 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             )
 
         config = row["config"]
+        raw_tags = row["tags"]
         return Device(
             id=row["id"],
             kind=DeviceKind(row["kind"]),
             name=row["name"],
             type=row["type"],
+            tags=cast("dict[str, list[str]]", raw_tags) if raw_tags else {},
             config=cast("dict | None", config) if config else None,
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
@@ -50,7 +53,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read(self, item_id: str) -> Device:
         row = await self._pool.fetchrow(
-            "SELECT id, kind, name, type, config, driver_id, transport_id "
+            "SELECT id, kind, name, type, tags, config, driver_id, transport_id "
             "FROM dm_devices WHERE id = $1",
             item_id,
         )
@@ -72,17 +75,19 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "INSERT INTO dm_devices"
-                " (id, kind, name, type, config, driver_id, transport_id)"
-                " VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                " (id, kind, name, type, tags, config, driver_id, transport_id)"
+                " VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " kind = EXCLUDED.kind, name = EXCLUDED.name,"
-                " type = EXCLUDED.type, config = EXCLUDED.config,"
+                " type = EXCLUDED.type, tags = EXCLUDED.tags,"
+                " config = EXCLUDED.config,"
                 " driver_id = EXCLUDED.driver_id,"
                 " transport_id = EXCLUDED.transport_id",
                 item_id,
                 dumped["kind"],
                 dumped["name"],
                 dumped.get("type"),
+                json.dumps(dumped.get("tags") or {}),
                 dumped["config"] if dumped.get("config") else None,
                 dumped.get("driver_id"),
                 dumped.get("transport_id"),
@@ -158,7 +163,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read_all(self) -> list[Device]:
         device_rows = await self._pool.fetch(
-            "SELECT id, kind, name, type, config, driver_id, transport_id "
+            "SELECT id, kind, name, type, tags, config, driver_id, transport_id "
             "FROM dm_devices ORDER BY id",
         )
         if not device_rows:

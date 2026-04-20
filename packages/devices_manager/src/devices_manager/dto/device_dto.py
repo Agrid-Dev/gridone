@@ -61,6 +61,7 @@ class Device(BaseModel):
     kind: DeviceKind = DeviceKind.PHYSICAL
     name: str
     type: str | None = None
+    tags: dict[str, list[str]] = Field(default_factory=dict)
     attributes: dict[str, Attribute] = Field(default_factory=dict)
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
@@ -74,6 +75,7 @@ class DeviceUpdate(BaseModel):
     transport_id: str | None = None
     driver_id: str | None = None
     attributes: list[AttributeCreate] | None = None
+    tags: dict[str, list[str]] | None = None
 
 
 def core_to_dto(device: CoreDevice) -> Device:
@@ -86,6 +88,7 @@ def core_to_dto(device: CoreDevice) -> Device:
             driver_id=device.driver.id,
             transport_id=device.transport.id,
             type=device.type,
+            tags=device.tags,
             attributes=device.attributes,
         )
     return Device(
@@ -93,6 +96,7 @@ def core_to_dto(device: CoreDevice) -> Device:
         kind=device.kind,
         name=device.name,
         type=device.type,
+        tags=device.tags,
         attributes=device.attributes,
     )
 
@@ -119,6 +123,7 @@ def dto_to_core(
             id=dto.id,
             name=dto.name,
             type=dto.type,
+            tags=dto.tags,
             attributes=dto.attributes,
             on_update=on_update,
         )
@@ -129,10 +134,12 @@ def dto_to_core(
         for name, attr in dto.attributes.items()
         if attr.current_value is not None
     }
-    return PhysicalDevice.from_base(
+    device = PhysicalDevice.from_base(
         DeviceBase(id=dto.id, name=dto.name, config=dto.config or {}),
         driver=driver,
         transport=transport,
         initial_values=initial_values or None,
         on_update=on_update,
     )
+    device.tags = dto.tags
+    return device
