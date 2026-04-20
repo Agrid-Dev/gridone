@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { listDevices, updateDevice } from "@/api/devices";
+import { listDevices, setDeviceTag } from "@/api/devices";
 import type { Device } from "@/api/devices";
 
 type DeviceLinkDialogProps = {
@@ -47,7 +47,7 @@ export function DeviceLinkDialog({
 
   const mutation = useMutation({
     mutationFn: (deviceId: string) =>
-      updateDevice(deviceId, { tags: { asset_id: [assetId] } }),
+      setDeviceTag(deviceId, "asset_id", assetId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],

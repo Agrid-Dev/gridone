@@ -19,7 +19,7 @@ export type Device = {
   id: string;
   name: string;
   type: DeviceType | null;
-  tags: Record<string, string[]>;
+  tags: Record<string, string>;
   driverId: string;
   transportId: string;
   config: Record<string, unknown>;
@@ -230,6 +230,29 @@ export function updateDevice(
       body: JSON.stringify(snakecaseKeys(payload, { deep: true })),
     },
     { camelCase: true },
+  );
+}
+
+export function setDeviceTag(
+  deviceId: string,
+  key: string,
+  value: string,
+): Promise<Device> {
+  return request<Device>(
+    `/devices/${encodeURIComponent(deviceId)}/tags/${encodeURIComponent(key)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ value }),
+    },
+    { camelCase: true },
+  );
+}
+
+export function deleteDeviceTag(deviceId: string, key: string): Promise<void> {
+  return request<void>(
+    `/devices/${encodeURIComponent(deviceId)}/tags/${encodeURIComponent(key)}`,
+    { method: "DELETE" },
   );
 }
 
