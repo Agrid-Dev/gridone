@@ -17,8 +17,12 @@ const DEFAULT_SORT = "desc";
 const DEFAULT_SIZE = "20";
 
 // Polling cadence — fast while any command is pending, slow otherwise.
+// Fast polling is capped: once the oldest pending command has been pending
+// longer than POLL_FAST_CAP_MS (e.g. the device is offline or the broker is
+// stuck), fall back to slow polling to avoid hammering the API indefinitely.
 const POLL_FAST_MS = 1500;
 const POLL_SLOW_MS = 15_000;
+const POLL_FAST_CAP_MS = 5 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Build the URLSearchParams sent to the API (and used as query key)
@@ -104,9 +108,13 @@ export function useCommands({
     staleTime: 5000,
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
-      return items.some((c) => c.status === "pending")
-        ? POLL_FAST_MS
-        : POLL_SLOW_MS;
+      const pending = items.filter((c) => c.status === "pending");
+      if (pending.length === 0) return POLL_SLOW_MS;
+      const oldestPendingMs = Math.min(
+        ...pending.map((c) => new Date(c.createdAt).getTime()),
+      );
+      const age = Date.now() - oldestPendingMs;
+      return age > POLL_FAST_CAP_MS ? POLL_SLOW_MS : POLL_FAST_MS;
     },
   });
 

@@ -9,12 +9,14 @@ export type SingleCommandPayload = {
   value: AttributeValue;
 };
 
-export type BatchCommandPayload = {
+type BatchCommandBase = {
   attribute: string;
   value: AttributeValue;
-  deviceIds?: string[];
-  deviceType?: string;
 };
+
+export type BatchCommandPayload =
+  | (BatchCommandBase & { deviceIds: string[]; deviceType?: never })
+  | (BatchCommandBase & { deviceType: string; deviceIds?: never });
 
 export type AssetCommandPayload = {
   attribute: string;
