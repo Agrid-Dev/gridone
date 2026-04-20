@@ -19,6 +19,7 @@ export type Device = {
   id: string;
   name: string;
   type: DeviceType | null;
+  tags: Record<string, string[]>;
   driverId: string;
   transportId: string;
   config: Record<string, unknown>;
