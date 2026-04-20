@@ -171,13 +171,13 @@ class TestDeviceRegistryList:
             on_attribute_update=on_attribute_update,
         )
 
-        result = registry.list_all(device_type="thermostat")
+        result = registry.list_all(types=["thermostat"])
 
         assert len(result) == 1
         assert result[0].id == "d1"
 
     def test_list_filter_no_match(self, device_registry):
-        result = device_registry.list_all(device_type="unknown")
+        result = device_registry.list_all(types=["unknown"])
         assert result == []
 
     def test_list_filter_by_ids(
@@ -300,7 +300,7 @@ class TestDeviceRegistryList:
 
         result = registry.list_all(
             ids=["d_thermo", "d_other"],
-            device_type="thermostat",
+            types=["thermostat"],
             writable_attribute="temperature_setpoint",
         )
         assert len(result) == 1
@@ -327,6 +327,86 @@ class TestDeviceRegistryList:
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
         )
+        assert len(result) == 1
+
+    def test_list_filter_by_tags_match(
+        self,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="D1", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        d1.tags = {"asset_id": ["floor1"]}
+        d2 = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="D2", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        d2.tags = {"asset_id": ["floor2"]}
+        registry = DeviceRegistry(
+            {d1.id: d1, d2.id: d2},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        result = registry.list_all(tags={"asset_id": ["floor1"]})
+        assert len(result) == 1
+        assert result[0].id == "d1"
+
+    def test_list_filter_by_tags_no_match(
+        self,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="D1", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        d1.tags = {"asset_id": ["floor1"]}
+        registry = DeviceRegistry(
+            {d1.id: d1},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        assert registry.list_all(tags={"asset_id": ["floor2"]}) == []
+
+    def test_list_filter_tags_and_across_keys(
+        self,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        d1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="D1", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        d1.tags = {"asset_id": ["floor1"], "region": ["north"]}
+        d2 = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="D2", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        d2.tags = {"asset_id": ["floor1"], "region": ["south"]}
+        registry = DeviceRegistry(
+            {d1.id: d1, d2.id: d2},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        result = registry.list_all(tags={"asset_id": ["floor1"], "region": ["north"]})
+        assert len(result) == 1
+        assert result[0].id == "d1"
+
+    def test_list_filter_tags_empty_returns_all(self, device_registry):
+        result = device_registry.list_all(tags={})
         assert len(result) == 1
 
     def test_list_filter_writable_attribute_type_mismatch(
@@ -550,6 +630,21 @@ class TestDeviceRegistryUpdate:
         original_name = device.name
         result = await device_registry.update(device.id, DeviceUpdate())
         assert result.name == original_name
+
+    @pytest.mark.asyncio
+    async def test_update_tags(self, device_registry, device):
+        result = await device_registry.update(
+            device.id, DeviceUpdate(tags={"asset_id": ["floor1"]})
+        )
+        assert result.tags == {"asset_id": ["floor1"]}
+
+    @pytest.mark.asyncio
+    async def test_update_tags_replace(self, device_registry, device):
+        device.tags = {"asset_id": ["floor1"]}
+        result = await device_registry.update(
+            device.id, DeviceUpdate(tags={"asset_id": []})
+        )
+        assert result.tags == {"asset_id": []}
 
     @pytest.mark.asyncio
     async def test_update_not_found(self, device_registry):

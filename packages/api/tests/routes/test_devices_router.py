@@ -75,7 +75,8 @@ def _make_dm(
     def _list_devices(
         *,
         ids=None,
-        device_type=None,
+        types=None,
+        tags=None,  # noqa: ARG001
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
     ):
@@ -83,8 +84,9 @@ def _make_dm(
         if ids is not None:
             id_set = set(ids)
             results = [d for d in results if d.id in id_set]
-        if device_type is not None:
-            results = [d for d in results if d.type == device_type]
+        if types is not None:
+            types_set = set(types)
+            results = [d for d in results if d.type in types_set]
         if writable_attribute is not None:
             results = [
                 d
@@ -174,7 +176,9 @@ class TestListDevices:
 
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
-        dm.list_devices.assert_called_once_with(device_type="thermostat")
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=["thermostat"], tags=None
+        )
 
 
 # ---------------------------------------------------------------------------

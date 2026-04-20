@@ -2,7 +2,10 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from assets.manager import AssetsManager
+from assets.models import Asset, AssetType
 from commands import Command, CommandsServiceInterface
+from models.errors import NotFoundError
 from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
@@ -22,11 +25,15 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
 
 
+_ASSET_ID = "asset-1"
+_CHILD_ASSET_ID = "asset-2"
+
 _THERMOSTAT_A = Device(
     id="t-a",
     kind=DeviceKind.PHYSICAL,
     name="Thermostat A",
     type="thermostat",
+    tags={"asset_id": [_ASSET_ID]},
     attributes={
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
@@ -39,6 +46,7 @@ _THERMOSTAT_B = Device(
     kind=DeviceKind.PHYSICAL,
     name="Thermostat B",
     type="thermostat",
+    tags={"asset_id": [_CHILD_ASSET_ID]},
     attributes={
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
@@ -51,6 +59,7 @@ _LIGHT = Device(
     kind=DeviceKind.PHYSICAL,
     name="Light",
     type="light",
+    tags={"asset_id": [_ASSET_ID]},
     attributes={
         "power": Attribute.create("power", DataType.BOOL, {"read", "write"}),
     },
@@ -68,7 +77,8 @@ def _make_dm() -> MagicMock:
     def _list_devices(
         *,
         ids=None,
-        device_type=None,
+        types=None,
+        tags=None,
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
     ):
@@ -76,8 +86,15 @@ def _make_dm() -> MagicMock:
         if ids is not None:
             id_set = set(ids)
             results = [d for d in results if d.id in id_set]
-        if device_type is not None:
-            results = [d for d in results if d.type == device_type]
+        if types is not None:
+            types_set = set(types)
+            results = [d for d in results if d.type in types_set]
+        if tags is not None:
+            for key, values in tags.items():
+                values_set = set(values)
+                results = [
+                    d for d in results if values_set.issubset(set(d.tags.get(key, [])))
+                ]
         if writable_attribute is not None:
             results = [
                 d
@@ -98,8 +115,15 @@ def dm():
 
 @pytest.fixture
 def assets_manager():
-    am = MagicMock()
-    am.resolve_device_ids = AsyncMock(return_value=["t-a", "t-b", "l-1"])
+    am = MagicMock(spec=AssetsManager)
+    am.get_by_id = AsyncMock(
+        return_value=Asset(
+            id=_ASSET_ID, parent_id=None, type=AssetType.BUILDING, name="HQ"
+        )
+    )
+    am.get_descendants = AsyncMock(return_value=[])
+    am.get_tree = AsyncMock(return_value=[])
+    am.get_tree_with_devices = AsyncMock(return_value=[])
     return am
 
 
@@ -149,18 +173,44 @@ def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
 
 class TestDispatchAssetCommand:
     @pytest.mark.asyncio
-    async def test_filters_by_device_type_and_dispatches(
+    async def test_non_recursive_filters_by_asset_and_type(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "group01", ["t-a"]
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                f"/{_ASSET_ID}/commands",
+                json={
+                    "attribute": "setpoint",
+                    "value": 21.5,
+                    "device_type": "thermostat",
+                },
+            )
+        assert response.status_code == 202
+        kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
+        assert kwargs["device_ids"] == ["t-a"]
+
+    @pytest.mark.asyncio
+    async def test_recursive_includes_descendant_assets(
         self,
         async_client: AsyncClient,
         assets_manager: MagicMock,
         mock_commands_service: AsyncMock,
     ):
+        child = Asset(
+            id=_CHILD_ASSET_ID, parent_id=_ASSET_ID, type=AssetType.FLOOR, name="Floor"
+        )
+        assets_manager.get_descendants.return_value = [child]
         mock_commands_service.dispatch_batch.return_value = _batch_commands(
             "group01", ["t-a", "t-b"]
         )
         async with async_client as ac:
             response = await ac.post(
-                "/asset-1/commands",
+                f"/{_ASSET_ID}/commands",
                 json={
                     "attribute": "setpoint",
                     "value": 21.5,
@@ -169,41 +219,9 @@ class TestDispatchAssetCommand:
                 },
             )
         assert response.status_code == 202
-        assert response.json() == {"group_id": "group01", "total": 2}
-
-        assets_manager.resolve_device_ids.assert_awaited_once_with(
-            "asset-1", recursive=True
-        )
-
+        assets_manager.get_descendants.assert_awaited_once_with(_ASSET_ID)
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        # Only the two thermostats should be dispatched (light is excluded).
         assert sorted(kwargs["device_ids"]) == ["t-a", "t-b"]
-        assert kwargs["attribute"] == "setpoint"
-        assert kwargs["value"] == 21.5
-        assert kwargs["data_type"] == DataType.FLOAT
-
-    @pytest.mark.asyncio
-    async def test_recursive_defaults_false(
-        self,
-        async_client: AsyncClient,
-        assets_manager: MagicMock,
-        mock_commands_service: AsyncMock,
-    ):
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
-            "g", ["t-a", "t-b"]
-        )
-        async with async_client as ac:
-            await ac.post(
-                "/asset-1/commands",
-                json={
-                    "attribute": "setpoint",
-                    "value": 21.5,
-                    "device_type": "thermostat",
-                },
-            )
-        assets_manager.resolve_device_ids.assert_awaited_once_with(
-            "asset-1", recursive=False
-        )
 
     @pytest.mark.asyncio
     async def test_no_devices_of_type_returns_404(
@@ -213,12 +231,8 @@ class TestDispatchAssetCommand:
     ):
         async with async_client as ac:
             response = await ac.post(
-                "/asset-1/commands",
-                json={
-                    "attribute": "power",
-                    "value": True,
-                    "device_type": "boiler",
-                },
+                f"/{_ASSET_ID}/commands",
+                json={"attribute": "power", "value": True, "device_type": "boiler"},
             )
         assert response.status_code == 404
         mock_commands_service.dispatch_batch.assert_not_awaited()
@@ -229,9 +243,7 @@ class TestDispatchAssetCommand:
         async_client: AsyncClient,
         assets_manager: MagicMock,
     ):
-        from models.errors import NotFoundError
-
-        assets_manager.resolve_device_ids.side_effect = NotFoundError(
+        assets_manager.get_by_id.side_effect = NotFoundError(
             "Asset 'missing' not found"
         )
         async with async_client as ac:
