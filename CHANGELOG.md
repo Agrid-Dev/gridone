@@ -1,3 +1,16 @@
+## v0.46.0 (2026-04-20)
+
+### Feat
+
+- **ui**: harmonize header actions and promote "New command" (AGR-408)
+- **ui**: 3-step wizard to initiate device commands (AGR-408)
+- **ui**: turn commands list into a progress view (AGR-408)
+- **api**: accept device_type on batch command dispatch (AGR-408)
+
+### Fix
+
+- **ui**: address review feedback on command dispatch (AGR-408)
+
 ## v0.45.1 (2026-04-16)
 
 ### Fix
