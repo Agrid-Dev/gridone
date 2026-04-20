@@ -186,6 +186,24 @@ class TestListDevices:
             ids=None, types=["thermostat"], tags=None
         )
 
+    def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"tags": "asset_id:asset-1"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["asset-1"]}
+        )
+
+    def test_filter_by_tags_multiple_values_and_keys(
+        self, client: TestClient, dm: MagicMock
+    ):
+        client.get("/", params=[("tags", "asset_id:a1,a2"), ("tags", "zone:north")])  # ty: ignore[invalid-argument-type]
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["a1", "a2"], "zone": ["north"]}
+        )
+
+    def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
+        client.get("/")
+        dm.list_devices.assert_called_once_with(ids=None, types=None, tags=None)
+
 
 # ---------------------------------------------------------------------------
 # Type filter side_effect on virtual_client uses the legacy single-keyword

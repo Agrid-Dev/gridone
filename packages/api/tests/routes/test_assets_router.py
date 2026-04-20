@@ -255,3 +255,82 @@ class TestDispatchAssetCommand:
                 },
             )
         assert response.status_code == 404
+
+
+class TestListAssetDevices:
+    @pytest.mark.asyncio
+    async def test_returns_device_ids_for_asset(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(f"/{_ASSET_ID}/devices")
+        assert response.status_code == 200
+        assert sorted(response.json()) == ["l-1", "t-a"]
+
+    @pytest.mark.asyncio
+    async def test_unknown_asset_returns_404(
+        self, async_client: AsyncClient, assets_manager: MagicMock
+    ):
+        assets_manager.get_by_id.side_effect = NotFoundError("not found")
+        async with async_client as ac:
+            response = await ac.get("/missing/devices")
+        assert response.status_code == 404
+
+
+class TestDeleteAsset:
+    @pytest.mark.asyncio
+    async def test_cleans_up_linked_device_tags(
+        self, async_client: AsyncClient, assets_manager: MagicMock, dm: MagicMock
+    ):
+        assets_manager.delete_asset = AsyncMock()
+        async with async_client as ac:
+            response = await ac.delete(f"/{_ASSET_ID}")
+        assert response.status_code == 204
+        # Two devices are linked to _ASSET_ID (t-a and l-1)
+        assert dm.delete_device_tag.await_count == 2
+        called_device_ids = {
+            call.args[0] for call in dm.delete_device_tag.await_args_list
+        }
+        assert called_device_ids == {"t-a", "l-1"}
+        assets_manager.delete_asset.assert_awaited_once_with(_ASSET_ID)
+
+    @pytest.mark.asyncio
+    async def test_no_linked_devices_still_deletes(
+        self, async_client: AsyncClient, assets_manager: MagicMock, dm: MagicMock
+    ):
+        assets_manager.delete_asset = AsyncMock()
+        async with async_client as ac:
+            response = await ac.delete(f"/{_CHILD_ASSET_ID}")
+        assert response.status_code == 204
+        # Only t-b is linked to _CHILD_ASSET_ID
+        assert dm.delete_device_tag.await_count == 1
+        assets_manager.delete_asset.assert_awaited_once_with(_CHILD_ASSET_ID)
+
+
+class TestGetTreeWithDevices:
+    @pytest.mark.asyncio
+    async def test_enriches_nodes_with_linked_devices(
+        self, async_client: AsyncClient, assets_manager: MagicMock
+    ):
+        assets_manager.get_tree.return_value = [
+            {"id": _ASSET_ID, "name": "HQ", "children": []}
+        ]
+        async with async_client as ac:
+            response = await ac.get("/tree-with-devices")
+        assert response.status_code == 200
+        node = response.json()[0]
+        assert node["id"] == _ASSET_ID
+        linked = {d["id"] for d in node["devices"]}
+        assert linked == {"t-a", "l-1"}
+
+    @pytest.mark.asyncio
+    async def test_device_without_asset_tag_not_linked(
+        self, async_client: AsyncClient, assets_manager: MagicMock
+    ):
+        assets_manager.get_tree.return_value = [
+            {"id": _ASSET_ID, "name": "HQ", "children": []}
+        ]
+        async with async_client as ac:
+            response = await ac.get("/tree-with-devices")
+        node = response.json()[0]
+        linked_ids = {d["id"] for d in node["devices"]}
+        # t-b is linked to _CHILD_ASSET_ID, not _ASSET_ID
+        assert "t-b" not in linked_ids
