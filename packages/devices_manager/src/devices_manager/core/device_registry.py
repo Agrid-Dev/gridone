@@ -89,22 +89,30 @@ class DeviceRegistry:
         self,
         *,
         ids: Iterable[str] | None = None,
-        device_type: str | None = None,
+        types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
+        tags: dict[str, list[str]] | None = None,
     ) -> list[Device]:
         devices: Iterable[CoreDevice] = self._devices.values()
         if ids is not None:
             ids_set = set(ids)
             devices = [d for d in devices if d.id in ids_set]
-        if device_type is not None:
-            devices = [d for d in devices if d.type == device_type]
+        if types is not None:
+            types_set = set(types)
+            devices = [d for d in devices if d.type in types_set]
         if writable_attribute is not None:
             devices = [
                 d
                 for d in devices
                 if d.can_write(writable_attribute, data_type=writable_attribute_type)
             ]
+        if tags is not None:
+            for key, values in tags.items():
+                values_set = set(values)
+                devices = [
+                    d for d in devices if values_set.issubset(set(d.tags.get(key, [])))
+                ]
         return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:
@@ -206,20 +214,22 @@ class DeviceRegistry:
     ) -> PhysicalDevice:
         """Rebuild a device with new driver/transport.
 
-        Preserves existing attribute values when possible.
+        Preserves existing attribute values and tags.
         """
         initial_values = {
             name: attr.current_value
             for name, attr in device.attributes.items()
             if attr.current_value is not None
         }
-        return PhysicalDevice.from_base(
+        new_device = PhysicalDevice.from_base(
             DeviceBase(id=device.id, name=device.name, config=device.config),
             driver=driver,
             transport=transport,
             initial_values=initial_values,
             on_update=self._on_attribute_update,
         )
+        new_device.tags = device.tags
+        return new_device
 
     def _mutate_virtual_attributes(
         self, device: VirtualDevice, device_update: DeviceUpdate
@@ -257,6 +267,8 @@ class DeviceRegistry:
         if isinstance(device, VirtualDevice):
             if device_update.name is not None:
                 device.name = device_update.name
+            if device_update.tags is not None:
+                device.tags = device_update.tags
             self._mutate_virtual_attributes(device, device_update)
             await self._storage.write(device_id, device_to_public(device))
             return device
@@ -273,6 +285,8 @@ class DeviceRegistry:
             device.name = device_update.name
         if device_update.config is not None:
             device.config = device_update.config
+        if device_update.tags is not None:
+            device.tags = device_update.tags
 
         if new_driver is not None:
             self._validate_device_config(device.config, new_driver)

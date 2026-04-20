@@ -110,15 +110,17 @@ class DevicesManager:
         self,
         *,
         ids: Iterable[str] | None = None,
-        device_type: str | None = None,
+        types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
+        tags: dict[str, list[str]] | None = None,
     ) -> list[Device]:
         return self._device_registry.list_all(
             ids=ids,
-            device_type=device_type,
+            types=types,
             writable_attribute=writable_attribute,
             writable_attribute_type=writable_attribute_type,
+            tags=tags,
         )
 
     def get_device(self, device_id: str) -> Device:
