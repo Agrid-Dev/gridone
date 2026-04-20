@@ -107,7 +107,7 @@ export default function AssetsList() {
         actions={
           <>
             {can("assets:write") && (
-              <Button asChild>
+              <Button asChild size="sm">
                 <Link to="/assets/new">
                   <Plus />
                   {t("create")}

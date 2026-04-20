@@ -117,9 +117,18 @@ async def dispatch_batch_command(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    data_type = resolve_attribute_data_type(dm, body.device_ids, body.attribute)
+    if body.device_type is not None:
+        device_ids = [d.id for d in dm.list_devices(device_type=body.device_type)]
+        if not device_ids:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No devices found with type '{body.device_type}'",
+            )
+    else:
+        device_ids = body.device_ids or []
+    data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
     commands = await commands_svc.dispatch_batch(
-        device_ids=body.device_ids,
+        device_ids=device_ids,
         attribute=body.attribute,
         value=body.value,
         data_type=data_type,

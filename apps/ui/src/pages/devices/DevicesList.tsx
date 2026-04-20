@@ -9,7 +9,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
-import { Plus, Terminal } from "lucide-react";
+import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation("devices");
@@ -26,17 +26,25 @@ export default function DevicesList() {
         resourceName={t("devices.title")}
         actions={
           <>
-            <Button asChild variant="outline">
-              <Link to="/devices/commands">
-                <Terminal />
-                {t("commands.title")}
+            <Button asChild variant="outline" size="sm">
+              <Link to="/devices/history">
+                <History />
+                {t("deviceDetails.history")}
               </Link>
             </Button>
             {can("devices:write") && (
-              <Button asChild>
+              <Button asChild variant="outline" size="sm">
                 <Link to="/devices/new">
                   <Plus />
-                  {t("devices.create.title")}
+                  {t("devices.actions.add")}
+                </Link>
+              </Button>
+            )}
+            {can("devices:write") && (
+              <Button asChild size="sm">
+                <Link to="/devices/commands/new">
+                  <Terminal />
+                  {t("commands.newCommand")}
                 </Link>
               </Button>
             )}

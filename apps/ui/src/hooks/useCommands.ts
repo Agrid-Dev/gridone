@@ -16,6 +16,14 @@ import { DEFAULT_PRESET } from "@/lib/timeRange";
 const DEFAULT_SORT = "desc";
 const DEFAULT_SIZE = "20";
 
+// Polling cadence — fast while any command is pending, slow otherwise.
+// Fast polling is capped: once the oldest pending command has been pending
+// longer than POLL_FAST_CAP_MS (e.g. the device is offline or the broker is
+// stuck), fall back to slow polling to avoid hammering the API indefinitely.
+const POLL_FAST_MS = 1500;
+const POLL_SLOW_MS = 15_000;
+const POLL_FAST_CAP_MS = 5 * 60 * 1000;
+
 // ---------------------------------------------------------------------------
 // Build the URLSearchParams sent to the API (and used as query key)
 // ---------------------------------------------------------------------------
@@ -70,6 +78,7 @@ export function useCommands({
   const deviceId = fixedDeviceId ?? searchParams.get("device_id") ?? undefined;
   const attribute = searchParams.get("attribute") ?? undefined;
   const userId = searchParams.get("user_id") ?? undefined;
+  const groupId = searchParams.get("group_id") ?? undefined;
 
   // Data sources for filter dropdowns
   const { devices } = useDevicesList();
@@ -85,7 +94,8 @@ export function useCommands({
   }, [searchParams, fixedDeviceId]);
   const queryKey = apiParams.toString();
 
-  // Fetch commands
+  // Fetch commands. Polling is always on: fast when any row is still pending,
+  // slow otherwise. The function form lets it self-adjust as rows transition.
   const { data, isLoading, isPlaceholderData, error } = useQuery<
     Page<DeviceCommand>
   >({
@@ -96,6 +106,16 @@ export function useCommands({
         : getCommands(apiParams),
     placeholderData: keepPreviousData,
     staleTime: 5000,
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? [];
+      const pending = items.filter((c) => c.status === "pending");
+      if (pending.length === 0) return POLL_SLOW_MS;
+      const oldestPendingMs = Math.min(
+        ...pending.map((c) => new Date(c.createdAt).getTime()),
+      );
+      const age = Date.now() - oldestPendingMs;
+      return age > POLL_FAST_CAP_MS ? POLL_SLOW_MS : POLL_FAST_MS;
+    },
   });
 
   // Lookups for display names
@@ -168,6 +188,7 @@ export function useCommands({
     deviceId,
     attribute,
     userId,
+    groupId,
     attributeOptions,
     devices,
     users,

@@ -2,7 +2,7 @@ import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Pencil, Plus } from "lucide-react";
+import { Building2, Pencil, Plus, Terminal } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,14 +89,24 @@ export default function AssetDetail() {
         resourceNameLinksBack
         backTo="/assets"
         actions={
-          can("assets:write") ? (
-            <Button variant="outline" asChild>
-              <Link to={`/assets/${assetId}/edit`}>
-                <Pencil />
-                {t("common:common.update")}
-              </Link>
-            </Button>
-          ) : undefined
+          <>
+            {can("assets:write") && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/assets/${assetId}/edit`}>
+                  <Pencil />
+                  {t("common:common.update")}
+                </Link>
+              </Button>
+            )}
+            {can("devices:write") && deviceIds.length > 0 && (
+              <Button asChild size="sm">
+                <Link to={`/assets/${assetId}/commands/new`}>
+                  <Terminal />
+                  {t("devices:commands.newCommand")}
+                </Link>
+              </Button>
+            )}
+          </>
         }
       />
 
