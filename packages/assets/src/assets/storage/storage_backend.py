@@ -1,6 +1,5 @@
 from typing import Protocol
 
-from assets.models import DeviceAssetLink
 from assets.storage.models import AssetInDB
 
 
@@ -29,19 +28,6 @@ class AssetsStorageBackend(Protocol):
 
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         """Set position values for the given sibling IDs in order (0, 1, 2, ...)."""
-        ...
-
-    # Device-asset linking
-    async def link_device(self, link: DeviceAssetLink) -> None: ...
-    async def unlink_device(self, device_id: str, asset_id: str) -> None: ...
-    async def get_device_ids_for_asset(self, asset_id: str) -> list[str]: ...
-    async def get_asset_ids_for_device(self, device_id: str) -> list[str]: ...
-    async def get_device_ids_for_subtree(self, asset_id: str) -> list[str]:
-        """Return deduplicated device IDs linked to *asset_id* or any descendant."""
-        ...
-
-    async def get_all_device_links(self) -> dict[str, list[str]]:
-        """Return a mapping of asset_id -> list of device_ids for every link."""
         ...
 
     async def close(self) -> None: ...

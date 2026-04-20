@@ -1,6 +1,5 @@
 import asyncpg
 
-from assets.models import DeviceAssetLink
 from assets.storage.models import AssetInDB
 
 
@@ -104,65 +103,6 @@ class PostgresAssetsStorage:
                     asset_id,
                     parent_id,
                 )
-
-    # Device-asset linking
-
-    async def link_device(self, link: DeviceAssetLink) -> None:
-        await self._pool.execute(
-            """
-            INSERT INTO device_asset_links (device_id, asset_id)
-            VALUES ($1, $2)
-            ON CONFLICT (device_id, asset_id) DO NOTHING
-            """,
-            link.device_id,
-            link.asset_id,
-        )
-
-    async def unlink_device(self, device_id: str, asset_id: str) -> None:
-        await self._pool.execute(
-            "DELETE FROM device_asset_links WHERE device_id = $1 AND asset_id = $2",
-            device_id,
-            asset_id,
-        )
-
-    async def get_device_ids_for_asset(self, asset_id: str) -> list[str]:
-        rows = await self._pool.fetch(
-            "SELECT device_id FROM device_asset_links"
-            " WHERE asset_id = $1 ORDER BY device_id",
-            asset_id,
-        )
-        return [row["device_id"] for row in rows]
-
-    async def get_asset_ids_for_device(self, device_id: str) -> list[str]:
-        rows = await self._pool.fetch(
-            "SELECT asset_id FROM device_asset_links"
-            " WHERE device_id = $1 ORDER BY asset_id",
-            device_id,
-        )
-        return [row["asset_id"] for row in rows]
-
-    async def get_device_ids_for_subtree(self, asset_id: str) -> list[str]:
-        rows = await self._pool.fetch(
-            """
-            SELECT DISTINCT dal.device_id
-            FROM device_asset_links dal
-            JOIN assets a ON a.id = dal.asset_id
-            WHERE a.path <@ (SELECT path FROM assets WHERE id = $1)
-            ORDER BY dal.device_id
-            """,
-            asset_id,
-        )
-        return [row["device_id"] for row in rows]
-
-    async def get_all_device_links(self) -> dict[str, list[str]]:
-        rows = await self._pool.fetch(
-            "SELECT asset_id, device_id FROM device_asset_links"
-            " ORDER BY asset_id, device_id"
-        )
-        result: dict[str, list[str]] = {}
-        for row in rows:
-            result.setdefault(row["asset_id"], []).append(row["device_id"])
-        return result
 
     async def close(self) -> None:
         await self._pool.close()

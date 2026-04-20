@@ -4,7 +4,6 @@ from assets.models import (
     AssetCreate,
     AssetType,
     AssetUpdate,
-    DeviceAssetLink,
     get_asset_create_schema,
 )
 
@@ -14,6 +13,5 @@ __all__ = [
     "AssetType",
     "AssetUpdate",
     "AssetsManager",
-    "DeviceAssetLink",
     "get_asset_create_schema",
 ]

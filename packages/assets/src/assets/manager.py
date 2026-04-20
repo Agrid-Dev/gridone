@@ -1,6 +1,6 @@
 import uuid
 
-from assets.models import Asset, AssetCreate, AssetType, AssetUpdate, DeviceAssetLink
+from assets.models import Asset, AssetCreate, AssetType, AssetUpdate
 from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
 from models.errors import InvalidError, NotFoundError
@@ -164,41 +164,14 @@ class AssetsManager:
             raise InvalidError(msg)
         await self._storage.delete(asset_id)
 
-    # Device linking
-
-    async def link_device(self, asset_id: str, device_id: str) -> None:
+    async def get_descendants(self, asset_id: str) -> list[Asset]:
         await self._get_or_raise(asset_id)
-        link = DeviceAssetLink(device_id=device_id, asset_id=asset_id)
-        await self._storage.link_device(link)
-
-    async def unlink_device(self, asset_id: str, device_id: str) -> None:
-        await self._get_or_raise(asset_id)
-        await self._storage.unlink_device(device_id, asset_id)
-
-    async def resolve_device_ids(
-        self,
-        asset_id: str,
-        *,
-        recursive: bool = False,
-    ) -> list[str]:
-        """Resolve device IDs linked to an asset.
-
-        When *recursive* is True, includes devices from all descendant assets.
-        """
-        await self._get_or_raise(asset_id)
-        query_fn = (
-            self._storage.get_device_ids_for_subtree
-            if recursive
-            else self._storage.get_device_ids_for_asset
-        )
-        return await query_fn(asset_id)
+        assets = await self._storage.get_descendants(asset_id)
+        return [self._to_public(a) for a in assets]
 
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
         await self._storage.reorder_siblings(parent_id, ordered_ids)
-
-    async def get_all_device_links(self) -> dict[str, list[str]]:
-        return await self._storage.get_all_device_links()
 
 
 __all__ = ["AssetsManager"]
