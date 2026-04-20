@@ -2,10 +2,13 @@ import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.driver import AttributeDriver, FaultAttributeDriver
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.dto.driver_dto.attribute_driver_dto import (
     AttributeDriverSpec,
     FaultAttributeDriverSpec,
+    core_to_dto,
+    dto_to_core,
 )
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
@@ -179,3 +182,63 @@ def test_fault_spec_rejects_standard_kind() -> None:
                 "kind": "standard",
             },
         )
+
+
+def test_attribute_driver_kind_classvar():
+    assert AttributeDriver.kind == AttributeKind.STANDARD
+    assert FaultAttributeDriver.kind == AttributeKind.FAULT
+
+
+def test_dto_to_core_standard_spec_returns_attribute_driver():
+    dto = AttributeDriverSpec.model_validate(
+        {"name": "temp", "data_type": "float", "read": mock_address},
+    )
+    driver = dto_to_core(dto)
+    assert type(driver) is AttributeDriver
+    assert driver.kind == AttributeKind.STANDARD
+
+
+def test_dto_to_core_fault_spec_returns_fault_attribute_driver():
+    dto = FaultAttributeDriverSpec.model_validate(
+        {
+            "name": "alarm",
+            "data_type": "bool",
+            "read": mock_address,
+            "severity": "alert",
+            "healthy_values": [False],
+        },
+    )
+    driver = dto_to_core(dto)
+    assert isinstance(driver, FaultAttributeDriver)
+    assert driver.kind == AttributeKind.FAULT
+    assert driver.severity == Severity.ALERT
+    assert driver.healthy_values == [False]
+
+
+def test_core_to_dto_fault_driver_roundtrips_severity_and_healthy_values():
+    driver = FaultAttributeDriver(
+        name="alarm",
+        data_type=DataType.INT,
+        read=mock_address,
+        write=None,
+        codec_specs=[],
+        severity=Severity.ALERT,
+        healthy_values=[0, 10],
+    )
+    dto = core_to_dto(driver)
+    assert isinstance(dto, FaultAttributeDriverSpec)
+    assert dto.severity == Severity.ALERT
+    assert dto.healthy_values == [0, 10]
+
+
+def test_core_to_dto_standard_driver_returns_base_spec():
+    driver = AttributeDriver(
+        name="temp",
+        data_type=DataType.FLOAT,
+        read=mock_address,
+        write=None,
+        codec_specs=[],
+    )
+    dto = core_to_dto(driver)
+    assert type(dto) is AttributeDriverSpec
+    assert dto.kind == AttributeKind.STANDARD

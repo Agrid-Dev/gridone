@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.driver import AttributeDriver
+from devices_manager.core.driver import AttributeDriver, FaultAttributeDriver
 from devices_manager.core.transports import RawTransportAddress  # noqa: TC001
 from devices_manager.types import AttributeValueType, DataType
 from models.errors import InvalidError
@@ -109,6 +109,17 @@ class FaultAttributeDriverSpec(AttributeDriverSpec):
 
 
 def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverSpec:
+    if isinstance(attribute_driver, FaultAttributeDriver):
+        return FaultAttributeDriverSpec(
+            name=attribute_driver.name,
+            data_type=attribute_driver.data_type,
+            read=attribute_driver.read,
+            write=attribute_driver.write,
+            confirm=attribute_driver.confirm,
+            codecs=attribute_driver.codec_specs,
+            severity=attribute_driver.severity,
+            healthy_values=attribute_driver.healthy_values,
+        )
     return AttributeDriverSpec(
         name=attribute_driver.name,
         data_type=attribute_driver.data_type,
@@ -120,6 +131,17 @@ def core_to_dto(attribute_driver: AttributeDriver) -> AttributeDriverSpec:
 
 
 def dto_to_core(dto: AttributeDriverSpec) -> AttributeDriver:
+    if isinstance(dto, FaultAttributeDriverSpec):
+        return FaultAttributeDriver(
+            name=dto.name,
+            data_type=dto.data_type,
+            read=dto.read,
+            write=dto.write,
+            codec_specs=dto.codecs,
+            confirm=dto.confirm,
+            severity=dto.severity,
+            healthy_values=dto.healthy_values,
+        )
     return AttributeDriver(
         name=dto.name,
         data_type=dto.data_type,

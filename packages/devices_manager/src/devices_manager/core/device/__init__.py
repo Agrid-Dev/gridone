@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from models.errors import ConfirmationError
 
-from .attribute import Attribute
+from .attribute import Attribute, FaultAttribute
 from .device import AttributeUpdateCallback, CoreDevice
 from .device_base import DeviceBase
 from .physical_device import PhysicalDevice
@@ -14,6 +14,7 @@ __all__ = [
     "ConfirmationError",
     "CoreDevice",
     "DeviceBase",
+    "FaultAttribute",
     "PhysicalDevice",
     "VirtualDevice",
 ]

@@ -4,21 +4,23 @@ import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, ClassVar
 
+from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
-from devices_manager.types import DeviceKind
+from devices_manager.types import DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError
 
-from .attribute import Attribute
+from .attribute import Attribute, FaultAttribute
 from .device import CoreDevice
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from devices_manager.core.codecs import FnCodec
-    from devices_manager.core.driver import Driver
+    from devices_manager.core.driver import AttributeDriver, Driver
     from devices_manager.core.transports import TransportClient
     from devices_manager.types import AttributeValueType, DeviceConfig
 
@@ -26,6 +28,37 @@ if TYPE_CHECKING:
     from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
+
+
+def _build_attribute(
+    attribute_driver: AttributeDriver,
+    initial_value: AttributeValueType | None,
+) -> Attribute:
+    """Construct the runtime Attribute that matches the driver's kind.
+
+    FaultAttributeDriver → FaultAttribute (carries healthy_values + severity
+    so the is_faulty computed property has what it needs).
+    """
+    modes: set[ReadWriteMode] = (
+        {"read", "write"} if attribute_driver.write is not None else {"read"}
+    )
+    last_updated = datetime.now(UTC) if initial_value is not None else None
+    if isinstance(attribute_driver, FaultAttributeDriver):
+        return FaultAttribute(
+            name=attribute_driver.name,
+            data_type=attribute_driver.data_type,
+            read_write_modes=modes,
+            current_value=initial_value,
+            last_updated=last_updated,
+            healthy_values=attribute_driver.healthy_values,
+            severity=attribute_driver.severity,
+        )
+    return Attribute.create(
+        attribute_driver.name,
+        attribute_driver.data_type,
+        modes,
+        initial_value,
+    )
 
 
 @dataclass(kw_only=True)
@@ -80,12 +113,7 @@ class PhysicalDevice(CoreDevice):
             transport=transport,
             on_update=on_update,
             attributes={
-                a.name: Attribute.create(
-                    a.name,
-                    a.data_type,
-                    {"read", "write"} if a.write is not None else {"read"},
-                    (initial_values or {}).get(a.name),
-                )
+                a.name: _build_attribute(a, (initial_values or {}).get(a.name))
                 for a in driver.attributes.values()
             },
         )

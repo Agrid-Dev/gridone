@@ -101,16 +101,16 @@ def test_attribute_kind_classvar_is_standard():
     assert "kind" not in attr.model_dump()
 
 
-def test_fault_attribute_kind_and_defaults():
+def test_fault_attribute_kind_and_default_severity():
     attr = FaultAttribute(
         name="alarm",
         data_type=DataType.BOOL,
         read_write_modes={"read"},
         current_value=False,
+        healthy_values=[False],
     )
     assert attr.kind == AttributeKind.FAULT
     assert attr.severity == Severity.WARNING
-    assert attr.is_faulty is False
 
 
 def test_fault_attribute_is_a_subclass_of_attribute():
@@ -119,18 +119,93 @@ def test_fault_attribute_is_a_subclass_of_attribute():
         data_type=DataType.BOOL,
         read_write_modes={"read"},
         current_value=False,
+        healthy_values=[False],
     )
     assert isinstance(attr, Attribute)
 
 
-def test_fault_attribute_accepts_custom_severity_and_flag():
+def test_fault_attribute_accepts_custom_severity():
     attr = FaultAttribute(
         name="alarm",
         data_type=DataType.BOOL,
         read_write_modes={"read"},
         current_value=True,
+        healthy_values=[False],
         severity=Severity.ALERT,
-        is_faulty=True,
     )
     assert attr.severity == Severity.ALERT
+
+
+@pytest.mark.parametrize(
+    ("data_type", "healthy_values", "current_value", "expected_is_faulty"),
+    [
+        # bool fault: False healthy, True faulty
+        (DataType.BOOL, [False], False, False),
+        (DataType.BOOL, [False], True, True),
+        # int fault: 0 healthy, non-zero faulty
+        (DataType.INT, [0], 0, False),
+        (DataType.INT, [0], 1, True),
+        # str fault with multiple healthy values
+        (DataType.STRING, ["OK", "IDLE"], "OK", False),
+        (DataType.STRING, ["OK", "IDLE"], "IDLE", False),
+        (DataType.STRING, ["OK", "IDLE"], "ALARM", True),
+        # str fault default "": "" healthy, anything else faulty
+        (DataType.STRING, [""], "", False),
+        (DataType.STRING, [""], "ALARM", True),
+    ],
+)
+def test_fault_attribute_is_faulty_computation(
+    data_type: DataType,
+    healthy_values: list,
+    current_value: Any,
+    expected_is_faulty: bool,
+):
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=data_type,
+        read_write_modes={"read"},
+        current_value=current_value,
+        healthy_values=healthy_values,
+    )
+    assert attr.is_faulty is expected_is_faulty
+
+
+def test_fault_attribute_is_faulty_false_when_current_value_none():
+    """Unknown != faulty per the spec."""
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=None,
+        healthy_values=[False],
+    )
+    assert attr.is_faulty is False
+
+
+def test_fault_attribute_is_faulty_reacts_to_value_update():
+    """The property recomputes when current_value changes (no stale caching)."""
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=False,
+        healthy_values=[False],
+    )
+    assert attr.is_faulty is False
+    attr._update_value(new_value=True)
     assert attr.is_faulty is True
+    attr._update_value(new_value=False)
+    assert attr.is_faulty is False
+
+
+def test_fault_attribute_is_faulty_serialized_in_model_dump():
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=True,
+        healthy_values=[False],
+    )
+    dumped = attr.model_dump()
+    assert dumped["is_faulty"] is True
+    assert dumped["healthy_values"] == [False]

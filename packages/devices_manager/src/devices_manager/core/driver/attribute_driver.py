@@ -1,19 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from devices_manager.core.codecs import (
     CodecSpec,
     FnCodec,
     build_codec,
 )
+from devices_manager.core.device.attribute import AttributeKind
+from models.types import Severity
 
 if TYPE_CHECKING:
     from devices_manager.core.transports import RawTransportAddress
-    from devices_manager.types import DataType
+    from devices_manager.types import AttributeValueType, DataType
 
 
 class AttributeDriver:
+    kind: ClassVar[AttributeKind] = AttributeKind.STANDARD
     name: str
     data_type: DataType
     read: RawTransportAddress
@@ -50,3 +53,33 @@ class AttributeDriver:
         )
 
         return dto_to_core(AttributeDriverSpec.model_validate(data))
+
+
+class FaultAttributeDriver(AttributeDriver):
+    kind: ClassVar[AttributeKind] = AttributeKind.FAULT
+
+    severity: Severity
+    healthy_values: list[AttributeValueType]
+
+    def __init__(  # noqa: PLR0913
+        self,
+        name: str,
+        data_type: DataType,
+        read: RawTransportAddress,
+        write: RawTransportAddress | None,
+        codec_specs: list[CodecSpec],
+        healthy_values: list[AttributeValueType],
+        *,
+        severity: Severity = Severity.WARNING,
+        confirm: bool = True,
+    ) -> None:
+        super().__init__(
+            name=name,
+            data_type=data_type,
+            read=read,
+            write=write,
+            codec_specs=codec_specs,
+            confirm=confirm,
+        )
+        self.severity = severity
+        self.healthy_values = healthy_values
