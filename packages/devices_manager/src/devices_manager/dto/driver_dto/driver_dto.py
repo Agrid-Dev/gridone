@@ -1,8 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 import yaml as pyyaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
     DeviceConfigField,
     Driver,
@@ -11,7 +12,7 @@ from devices_manager.core.driver import (
 )
 from devices_manager.types import TransportProtocols
 
-from .attribute_driver_dto import AttributeDriverSpec
+from .attribute_driver_dto import AttributeDriverSpec, FaultAttributeDriverSpec
 from .attribute_driver_dto import core_to_dto as attribute_core_to_dto
 from .attribute_driver_dto import dto_to_core as attribute_dto_to_core
 
@@ -28,6 +29,32 @@ class DriverSpec(BaseModel):
     attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
     type: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def fork_attributes_on_kind(cls, data: Any) -> Any:  # noqa: ANN401
+        """Route each raw attribute entry to Standard/FaultAttributeDriverSpec.
+
+        The `kind:` key in the YAML selects the concrete spec class so that
+        fault-specific fields (severity, healthy_values) are only validated
+        on fault entries. Pre-validated model instances and non-list inputs
+        pass through untouched.
+        """
+        if not isinstance(data, dict):
+            return data
+        raw_attributes = data.get("attributes")
+        if not isinstance(raw_attributes, list):
+            return data
+        parsed: list[AttributeDriverSpec] = []
+        for item in raw_attributes:
+            if isinstance(item, AttributeDriverSpec):
+                parsed.append(item)
+            elif isinstance(item, dict) and item.get("kind") == AttributeKind.FAULT:
+                parsed.append(FaultAttributeDriverSpec.model_validate(item))
+            else:
+                parsed.append(AttributeDriverSpec.model_validate(item))
+        data["attributes"] = parsed
+        return data
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverSpec":
