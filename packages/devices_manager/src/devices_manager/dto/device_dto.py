@@ -61,7 +61,7 @@ class Device(BaseModel):
     kind: DeviceKind = DeviceKind.PHYSICAL
     name: str
     type: str | None = None
-    tags: dict[str, list[str]] = Field(default_factory=dict)
+    tags: dict[str, str] = Field(default_factory=dict)
     attributes: dict[str, Attribute] = Field(default_factory=dict)
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
@@ -70,12 +70,13 @@ class Device(BaseModel):
 
 
 class DeviceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
     attributes: list[AttributeCreate] | None = None
-    tags: dict[str, list[str]] | None = None
 
 
 def core_to_dto(device: CoreDevice) -> Device:

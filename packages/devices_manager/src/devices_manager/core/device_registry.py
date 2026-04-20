@@ -110,9 +110,7 @@ class DeviceRegistry:
         if tags is not None:
             for key, values in tags.items():
                 values_set = set(values)
-                devices = [
-                    d for d in devices if values_set.issubset(set(d.tags.get(key, [])))
-                ]
+                devices = [d for d in devices if d.tags.get(key) in values_set]
         return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:
@@ -267,8 +265,6 @@ class DeviceRegistry:
         if isinstance(device, VirtualDevice):
             if device_update.name is not None:
                 device.name = device_update.name
-            if device_update.tags is not None:
-                device.tags = device_update.tags
             self._mutate_virtual_attributes(device, device_update)
             await self._storage.write(device_id, device_to_public(device))
             return device
@@ -285,8 +281,6 @@ class DeviceRegistry:
             device.name = device_update.name
         if device_update.config is not None:
             device.config = device_update.config
-        if device_update.tags is not None:
-            device.tags = device_update.tags
 
         if new_driver is not None:
             self._validate_device_config(device.config, new_driver)
@@ -308,6 +302,18 @@ class DeviceRegistry:
         self._get_or_raise(device_id)
         del self._devices[device_id]
         await self._storage.delete(device_id)
+
+    async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice:
+        device = self._get_or_raise(device_id)
+        device.tags[key] = value
+        await self._storage.write(device_id, device_to_public(device))
+        return device
+
+    async def delete_tag(self, device_id: str, key: str) -> CoreDevice:
+        device = self._get_or_raise(device_id)
+        device.tags.pop(key, None)
+        await self._storage.write(device_id, device_to_public(device))
+        return device
 
     async def write_attribute(
         self,

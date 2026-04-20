@@ -147,6 +147,14 @@ class DevicesManager:
         await device.stop_sync()
         await self._device_registry.remove(device_id)
 
+    async def set_device_tag(self, device_id: str, key: str, value: str) -> Device:
+        device = await self._device_registry.set_tag(device_id, key, value)
+        return device_to_public(device)
+
+    async def delete_device_tag(self, device_id: str, key: str) -> Device:
+        device = await self._device_registry.delete_tag(device_id, key)
+        return device_to_public(device)
+
     async def read_device(self, device_id: str) -> Device:
         device = self._device_registry.get(device_id)
         if not self._running:
