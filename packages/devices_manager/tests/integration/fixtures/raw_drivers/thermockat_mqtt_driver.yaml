@@ -105,3 +105,16 @@ attributes:
         value: ${value}
     codecs:
       - json_pointer: /mode
+  - name: fault_code
+    kind: fault
+    data_type: int
+    severity: alert
+    healthy_values: [0]
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    codecs:
+      - json_pointer: /fault_code
