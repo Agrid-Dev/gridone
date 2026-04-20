@@ -75,7 +75,7 @@ def _make_attribute(name: str, data_type: DataType = DataType.FLOAT) -> Attribut
         data_type=data_type,
         read="GET /test",
         write=None,
-        codec_specs=[],
+        codecs=[],
     )
 
 

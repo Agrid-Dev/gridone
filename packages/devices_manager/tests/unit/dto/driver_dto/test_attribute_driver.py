@@ -4,12 +4,6 @@ from pydantic import ValidationError
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import AttributeDriver, FaultAttributeDriver
 from devices_manager.core.transports import RawTransportAddress
-from devices_manager.dto.driver_dto.attribute_driver_dto import (
-    AttributeDriverSpec,
-    FaultAttributeDriverSpec,
-    core_to_dto,
-    dto_to_core,
-)
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
 
@@ -21,7 +15,7 @@ def test_attribute_schema_from_dict() -> None:
         "read": "GET {base_url}/?latitude={lattitude}&longitude={longitude}&current_weather=true",  # noqa: E501
         "codecs": [{"json_pointer": "/current_weather/temperature"}],
     }
-    attribute_dto = AttributeDriverSpec.model_validate(data)
+    attribute_dto = AttributeDriver.model_validate(data)
     assert attribute_dto.name == "temperature"
     assert attribute_dto.data_type == DataType.FLOAT
     assert attribute_dto.codecs is not None
@@ -64,13 +58,13 @@ def test_attribute_schema_read_write_addresses(
         "data_type": "float",
         "codecs": [{"json_pointer": "/current_weather/temperature"}],
     }
-    attribute_to = AttributeDriverSpec.model_validate({**base_data, **addresses})
+    attribute_to = AttributeDriver.model_validate({**base_data, **addresses})
     assert attribute_to.read == expected_read
     assert attribute_to.write == expected_write
 
 
 def test_standard_spec_kind_defaults_to_standard() -> None:
-    spec = AttributeDriverSpec.model_validate(
+    spec = AttributeDriver.model_validate(
         {"name": "t", "data_type": "float", "read": mock_address},
     )
     assert spec.kind == AttributeKind.STANDARD
@@ -88,7 +82,7 @@ def test_fault_spec_applies_healthy_values_defaults_per_data_type(
     data_type: str,
     expected: list[AttributeValueType],
 ) -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {"name": "alarm", "data_type": data_type, "read": mock_address},
     )
     assert spec.kind == AttributeKind.FAULT
@@ -97,14 +91,14 @@ def test_fault_spec_applies_healthy_values_defaults_per_data_type(
 
 
 def test_fault_spec_float_has_no_default_healthy_values() -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {"name": "t", "data_type": "float", "read": mock_address},
     )
     assert spec.healthy_values == []
 
 
 def test_fault_spec_normalizes_scalar_healthy_value_to_list() -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {
             "name": "code",
             "data_type": "int",
@@ -116,7 +110,7 @@ def test_fault_spec_normalizes_scalar_healthy_value_to_list() -> None:
 
 
 def test_fault_spec_preserves_explicit_healthy_values_list() -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {
             "name": "code",
             "data_type": "int",
@@ -129,7 +123,7 @@ def test_fault_spec_preserves_explicit_healthy_values_list() -> None:
 
 def test_fault_spec_rejects_both_scalar_and_list() -> None:
     with pytest.raises(ValidationError):
-        FaultAttributeDriverSpec.model_validate(
+        FaultAttributeDriver.model_validate(
             {
                 "name": "x",
                 "data_type": "int",
@@ -141,7 +135,7 @@ def test_fault_spec_rejects_both_scalar_and_list() -> None:
 
 
 def test_fault_spec_accepts_custom_severity() -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {
             "name": "alarm",
             "data_type": "bool",
@@ -153,7 +147,7 @@ def test_fault_spec_accepts_custom_severity() -> None:
 
 
 def test_fault_spec_inherits_read_write_fallback() -> None:
-    spec = FaultAttributeDriverSpec.model_validate(
+    spec = FaultAttributeDriver.model_validate(
         {"name": "alarm", "data_type": "bool", "read_write": mock_address},
     )
     assert spec.read == mock_address
@@ -162,7 +156,7 @@ def test_fault_spec_inherits_read_write_fallback() -> None:
 
 def test_base_spec_rejects_fault_kind() -> None:
     with pytest.raises(ValidationError):
-        AttributeDriverSpec.model_validate(
+        AttributeDriver.model_validate(
             {
                 "name": "x",
                 "data_type": "int",
@@ -174,7 +168,7 @@ def test_base_spec_rejects_fault_kind() -> None:
 
 def test_fault_spec_rejects_standard_kind() -> None:
     with pytest.raises(ValidationError):
-        FaultAttributeDriverSpec.model_validate(
+        FaultAttributeDriver.model_validate(
             {
                 "name": "x",
                 "data_type": "int",
@@ -184,22 +178,15 @@ def test_fault_spec_rejects_standard_kind() -> None:
         )
 
 
-def test_attribute_driver_kind_classvar():
-    assert AttributeDriver.kind == AttributeKind.STANDARD
-    assert FaultAttributeDriver.kind == AttributeKind.FAULT
-
-
-def test_dto_to_core_standard_spec_returns_attribute_driver():
-    dto = AttributeDriverSpec.model_validate(
+def test_attribute_driver_spec_kind_default():
+    spec = AttributeDriver.model_validate(
         {"name": "temp", "data_type": "float", "read": mock_address},
     )
-    driver = dto_to_core(dto)
-    assert type(driver) is AttributeDriver
-    assert driver.kind == AttributeKind.STANDARD
+    assert spec.kind == AttributeKind.STANDARD
 
 
-def test_dto_to_core_fault_spec_returns_fault_attribute_driver():
-    dto = FaultAttributeDriverSpec.model_validate(
+def test_fault_attribute_driver_spec_kind():
+    spec = FaultAttributeDriver.model_validate(
         {
             "name": "alarm",
             "data_type": "bool",
@@ -208,37 +195,21 @@ def test_dto_to_core_fault_spec_returns_fault_attribute_driver():
             "healthy_values": [False],
         },
     )
-    driver = dto_to_core(dto)
-    assert isinstance(driver, FaultAttributeDriver)
-    assert driver.kind == AttributeKind.FAULT
-    assert driver.severity == Severity.ALERT
-    assert driver.healthy_values == [False]
+    assert spec.kind == AttributeKind.FAULT
 
 
-def test_core_to_dto_fault_driver_roundtrips_severity_and_healthy_values():
-    driver = FaultAttributeDriver(
-        name="alarm",
-        data_type=DataType.INT,
-        read=mock_address,
-        write=None,
-        codec_specs=[],
-        severity=Severity.ALERT,
-        healthy_values=[0, 10],
+def test_spec_codec_is_built_lazily_from_codecs():
+    """The `codec` cached_property derives from `codecs` on first access and is
+    excluded from model_dump.
+    """
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "temp",
+            "data_type": "float",
+            "read": mock_address,
+            "codecs": [{"json_pointer": "/value"}],
+        },
     )
-    dto = core_to_dto(driver)
-    assert isinstance(dto, FaultAttributeDriverSpec)
-    assert dto.severity == Severity.ALERT
-    assert dto.healthy_values == [0, 10]
-
-
-def test_core_to_dto_standard_driver_returns_base_spec():
-    driver = AttributeDriver(
-        name="temp",
-        data_type=DataType.FLOAT,
-        read=mock_address,
-        write=None,
-        codec_specs=[],
-    )
-    dto = core_to_dto(driver)
-    assert type(dto) is AttributeDriverSpec
-    assert dto.kind == AttributeKind.STANDARD
+    codec = spec.codec
+    assert spec.codec is codec  # cached
+    assert "codec" not in spec.model_dump()

@@ -36,8 +36,8 @@ def _build_attribute(
 ) -> Attribute:
     """Construct the runtime Attribute that matches the driver's kind.
 
-    FaultAttributeDriver → FaultAttribute (carries healthy_values + severity
-    so the is_faulty computed property has what it needs).
+    FaultAttributeDriver → FaultAttribute (carries healthy_values +
+    severity so the is_faulty computed property has what it needs).
     """
     modes: set[ReadWriteMode] = (
         {"read", "write"} if attribute_driver.write is not None else {"read"}

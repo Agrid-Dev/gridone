@@ -214,7 +214,7 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/temperature"},
                     write=None,
-                    codec_specs=[
+                    codecs=[
                         CodecSpec(name="json_pointer", argument="/payload/temperature")
                     ],
                 ),
@@ -223,7 +223,7 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/humidity"},
                     write=None,
-                    codec_specs=[
+                    codecs=[
                         CodecSpec(name="json_pointer", argument="/payload/humidity")
                     ],
                 ),
@@ -312,7 +312,7 @@ class TestPhysicalDeviceAttributeFactory:
             data_type=DataType.BOOL,
             read="GET /alarm",
             write=None,
-            codec_specs=[CodecSpec(name="identity", argument="")],
+            codecs=[CodecSpec(name="identity", argument="")],
             healthy_values=[False],
             severity=Severity.ALERT,
         )
@@ -321,7 +321,7 @@ class TestPhysicalDeviceAttributeFactory:
             data_type=DataType.FLOAT,
             read="GET /temp",
             write=None,
-            codec_specs=[CodecSpec(name="identity", argument="")],
+            codecs=[CodecSpec(name="identity", argument="")],
         )
         return Driver(
             metadata=DriverMetadata(id="mixed_driver"),

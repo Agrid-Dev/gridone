@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
 
+from pydantic import TypeAdapter
+
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import TransportProtocols
 
@@ -9,6 +11,10 @@ from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
 from .update_strategy import UpdateStrategy
+
+_attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
+    AttributeDriver
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,7 @@ class Driver:
                 data.get("update_strategy", {})
             ),
             attributes={
-                a["name"]: AttributeDriver.from_dict(a) for a in data["attributes"]
+                a["name"]: _attribute_driver_spec_adapter.validate_python(a)
+                for a in data["attributes"]
             },
         )
