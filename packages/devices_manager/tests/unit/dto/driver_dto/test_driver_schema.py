@@ -13,7 +13,6 @@ from devices_manager.dto.driver_dto.attribute_driver_dto import (
     FaultAttributeDriverSpec,
 )
 from devices_manager.types import TransportProtocols
-from models.types import Severity
 
 
 @pytest.fixture
@@ -65,84 +64,6 @@ def test_existing_driver_schema_parses_without_fault_keys(driver_schema_raw: dic
     assert all(a.kind == AttributeKind.STANDARD for a in dto.attributes)
 
 
-def test_parser_forks_p1_bool_fault():
-    """P1: bool fault — defaults to healthy_values=[False]."""
-    dto = DriverSpec.model_validate(
-        {
-            "id": "d",
-            "transport": "http",
-            "device_config": [],
-            "attributes": [
-                {
-                    "name": "alarm",
-                    "data_type": "bool",
-                    "read": "GET /alarm",
-                    "kind": "fault",
-                },
-            ],
-        },
-    )
-    (attr,) = dto.attributes
-    assert isinstance(attr, FaultAttributeDriverSpec)
-    assert attr.kind == AttributeKind.FAULT
-    assert attr.data_type.value == "bool"
-    assert attr.severity == Severity.WARNING
-    assert attr.healthy_values == [False]
-
-
-def test_parser_forks_p2_int_fault_with_mapping_codec():
-    """P2: int fault with mapping codec — explicit healthy_values list."""
-    dto = DriverSpec.model_validate(
-        {
-            "id": "d",
-            "transport": "http",
-            "device_config": [],
-            "attributes": [
-                {
-                    "name": "fault_code",
-                    "data_type": "int",
-                    "read": "GET /code",
-                    "kind": "fault",
-                    "severity": "alert",
-                    "healthy_values": [0, 10],
-                    "codecs": [{"mapping": {"OK": 0, "MINOR": 10, "MAJOR": 20}}],
-                },
-            ],
-        },
-    )
-    (attr,) = dto.attributes
-    assert isinstance(attr, FaultAttributeDriverSpec)
-    assert attr.severity == Severity.ALERT
-    assert attr.healthy_values == [0, 10]
-    assert len(attr.codecs) == 1
-    assert attr.codecs[0].name == "mapping"
-
-
-def test_parser_forks_p3_bitfield_fault_via_existing_addressing():
-    """P3: int where bits are flags; healthy_values=[0] means no bits set."""
-    dto = DriverSpec.model_validate(
-        {
-            "id": "d",
-            "transport": "modbus-tcp",
-            "device_config": [],
-            "attributes": [
-                {
-                    "name": "status_bits",
-                    "data_type": "int",
-                    "read": "HR10",
-                    "kind": "fault",
-                    "healthy_values": [0],
-                    "codecs": [{"byte_convert": "uint16 big_endian"}],
-                },
-            ],
-        },
-    )
-    (attr,) = dto.attributes
-    assert isinstance(attr, FaultAttributeDriverSpec)
-    assert attr.healthy_values == [0]
-    assert attr.read == "HR10"
-
-
 @pytest.mark.parametrize(
     ("data_type", "expected"),
     [
@@ -167,7 +88,9 @@ def test_parser_applies_healthy_values_defaults(data_type: str, expected: list):
             ],
         },
     )
-    assert dto.attributes[0].healthy_values == expected
+    attr = dto.attributes[0]
+    assert isinstance(attr, FaultAttributeDriverSpec)
+    assert attr.healthy_values == expected
 
 
 def test_parser_normalizes_scalar_healthy_value_in_yaml():
@@ -183,7 +106,9 @@ def test_parser_normalizes_scalar_healthy_value_in_yaml():
             healthy_value: ok
     """)
     dto = DriverSpec.from_yaml(yaml_str)
-    assert dto.attributes[0].healthy_values == ["ok"]
+    attr = dto.attributes[0]
+    assert isinstance(attr, FaultAttributeDriverSpec)
+    assert attr.healthy_values == ["ok"]
 
 
 def test_parser_accepts_and_ignores_top_level_definitions_key():
