@@ -43,6 +43,7 @@ from api.schemas.command import (
 )
 from api.schemas.device import (
     SingleAttrTimeseriesPushPoint,
+    TagValueBody,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
@@ -64,7 +65,8 @@ def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
     """Parse ``?tags=key:val1,val2`` query params into a tags filter dict.
 
     Each entry must be ``key:value`` or ``key:v1,v2``.
-    Multiple entries with the same key are merged (OR within key).
+    Filter semantics: AND across keys, OR within values of the same key.
+    Multiple ``?tags=key:v1&tags=key:v2`` entries for the same key are merged (OR).
     """
     if not raw:
         return None
@@ -204,6 +206,33 @@ async def delete_device(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ):
     await dm.delete_device(device_id)
+    return
+
+
+@router.put(
+    "/{device_id}/tags/{key}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def set_device_tag(
+    device_id: str,
+    key: str,
+    body: TagValueBody,
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+) -> Device:
+    return await dm.set_device_tag(device_id, key, body.value)
+
+
+@router.delete(
+    "/{device_id}/tags/{key}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def delete_device_tag(
+    device_id: str,
+    key: str,
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+) -> None:
+    await dm.delete_device_tag(device_id, key)
     return
 
 

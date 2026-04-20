@@ -62,8 +62,8 @@ async def get_tree_with_devices(
     name_map = {d.id: d.name for d in all_devices}
     links: dict[str, list[str]] = {}
     for device in all_devices:
-        for asset_id in device.tags.get("asset_id", []):
-            links.setdefault(asset_id, []).append(device.id)
+        if linked_asset_id := device.tags.get("asset_id"):
+            links.setdefault(linked_asset_id, []).append(device.id)
 
     def enrich(nodes: list[dict]) -> None:
         for node in nodes:
@@ -136,7 +136,11 @@ async def update_asset(
 async def delete_asset(
     asset_id: str,
     am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> None:
+    linked_devices = dm.list_devices(tags={"asset_id": [asset_id]})
+    for device in linked_devices:
+        await dm.delete_device_tag(device.id, "asset_id")
     await am.delete_asset(asset_id)
 
 
@@ -183,20 +187,13 @@ async def dispatch_asset_command(
     await am.get_by_id(asset_id)
     types = [body.device_type]
     if body.recursive:
-        # One list_devices call per asset in the subtree — acceptable at current scale.
         descendants = await am.get_descendants(asset_id)
         all_asset_ids = [asset_id] + [a.id for a in descendants]
-        seen: set[str] = set()
-        device_ids: list[str] = []
-        for aid in all_asset_ids:
-            for d in dm.list_devices(tags={"asset_id": [aid]}, types=types):
-                if d.id not in seen:
-                    seen.add(d.id)
-                    device_ids.append(d.id)
     else:
-        device_ids = [
-            d.id for d in dm.list_devices(tags={"asset_id": [asset_id]}, types=types)
-        ]
+        all_asset_ids = [asset_id]
+    device_ids = [
+        d.id for d in dm.list_devices(tags={"asset_id": all_asset_ids}, types=types)
+    ]
     if not device_ids:
         msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
         raise NotFoundError(msg)

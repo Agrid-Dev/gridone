@@ -23,3 +23,7 @@ class SingleAttrTimeseriesPushPoint(BaseModel):
 
 class TimeseriesSingleAttrPushRequest(BaseModel):
     data: list[SingleAttrTimeseriesPushPoint]
+
+
+class TagValueBody(BaseModel):
+    value: str
