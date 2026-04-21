@@ -14,6 +14,7 @@ members = [
     "gridone-api",
     "gridone-apps",
     "gridone-assets",
+    "gridone-automations",
     "gridone-commands",
     "gridone-devices-manager",
     "gridone-migrations",
@@ -826,6 +827,21 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "pydantic", specifier = ">=2.12.4" },
+]
+
+[[package]]
+name = "gridone-automations"
+version = "0.1.0"
+source = { editable = "packages/automations" }
+dependencies = [
+    { name = "gridone-models" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
 ]
 
 [[package]]
