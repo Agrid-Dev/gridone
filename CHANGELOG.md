@@ -1,3 +1,9 @@
+## v0.51.0 (2026-04-21)
+
+### Feat
+
+- **commands**: introduce Target abstraction and TargetResolver (AGR-509)
+
 ## v0.50.1 (2026-04-21)
 
 ### Refactor
