@@ -1,3 +1,10 @@
+## v0.47.0 (2026-04-21)
+
+### Feat
+
+- **devices-manager**: fork driver YAML parser on attribute kind (AGR-458)
+- **devices-manager**: add FaultAttribute + FaultAttributeDriverSpec scaffolding (AGR-458)
+
 ## v0.46.0 (2026-04-20)
 
 ### Feat
