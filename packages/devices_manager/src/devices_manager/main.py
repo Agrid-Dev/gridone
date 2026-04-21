@@ -10,6 +10,7 @@ from models.errors import ForbiddenError
 from .core.device import (
     Attribute,
     CoreDevice,
+    FaultAttribute,
 )
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
@@ -24,6 +25,7 @@ from .dto import (
     DeviceCreate,
     DeviceUpdate,
     DriverSpec,
+    FaultView,
     StandardAttributeSchema,
     Transport,
     TransportCreate,
@@ -36,6 +38,8 @@ from .dto import (
 from .storage.factory import build_storage
 
 if TYPE_CHECKING:
+    from models.types import Severity
+
     from .core.driver import Driver
     from .core.transports import TransportClient
     from .storage import DevicesManagerStorage
@@ -46,6 +50,26 @@ logger = logging.getLogger(__name__)
 AttributeListener = Callable[
     [CoreDevice, str, Attribute], Coroutine[Any, Any, None] | None
 ]
+
+
+def _fault_view_from(
+    device: CoreDevice, attr: FaultAttribute
+) -> FaultView | None:
+    if (
+        attr.current_value is None
+        or attr.last_updated is None
+        or attr.last_changed is None
+    ):
+        return None
+    return FaultView(
+        device_id=device.id,
+        device_name=device.name,
+        attribute_name=attr.name,
+        severity=attr.severity,
+        current_value=attr.current_value,
+        last_updated=attr.last_updated,
+        last_changed=attr.last_changed,
+    )
 
 
 class DevicesManager:
@@ -172,6 +196,33 @@ class DevicesManager:
         return await self._device_registry.write_attribute(
             device_id, attribute_name, value, confirm=confirm
         )
+
+    # -- Faults --
+
+    def list_active_faults(
+        self,
+        *,
+        severity: Severity | None = None,
+        device_id: str | None = None,
+    ) -> list[FaultView]:
+        if device_id is not None:
+            devices = [self._device_registry.get(device_id)]
+        else:
+            devices = list(self._device_registry.all.values())
+        views = [
+            _fault_view_from(device, attr)
+            for device in devices
+            for attr in device.attributes.values()
+            if isinstance(attr, FaultAttribute)
+            and attr.is_faulty
+            and (severity is None or attr.severity == severity)
+        ]
+        faults = [v for v in views if v is not None]
+        faults.sort(
+            key=lambda f: f.last_updated,
+            reverse=True,
+        )
+        return faults
 
     # -- Attribute listeners --
 

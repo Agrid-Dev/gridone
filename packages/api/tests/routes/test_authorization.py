@@ -20,6 +20,7 @@ from api.dependencies import (
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
 from api.routes.devices_router import router as devices_router
+from api.routes.faults_router import router as faults_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from users import Role, User
@@ -300,12 +301,15 @@ def _build_devices_app() -> FastAPI:
     app.state.cookie_secure = False
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
     manager = MockUsersManager()
+    dm = MagicMock()
+    dm.list_active_faults.return_value = []
     app.dependency_overrides[get_users_manager] = lambda: manager
-    app.dependency_overrides[get_device_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
+    app.include_router(faults_router, prefix="/faults", dependencies=jwt_dep)
     return app
 
 
@@ -369,6 +373,11 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="export-csv-no-auth",
     ),
+    # Faults read endpoint (all authenticated roles allowed)
+    pytest.param("GET", "/faults/", "admin", 200, id="faults-admin"),
+    pytest.param("GET", "/faults/", "operator", 200, id="faults-operator"),
+    pytest.param("GET", "/faults/", "viewer", 200, id="faults-viewer"),
+    pytest.param("GET", "/faults/", None, 401, id="faults-no-auth"),
 ]
 
 

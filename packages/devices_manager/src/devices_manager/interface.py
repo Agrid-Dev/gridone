@@ -8,6 +8,8 @@ if TYPE_CHECKING:
     import builtins
     from collections.abc import Iterable
 
+    from models.types import Severity
+
     from .core.device import Attribute, CoreDevice
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
         DeviceCreate,
         DeviceUpdate,
         DriverSpec,
+        FaultView,
         StandardAttributeSchema,
         Transport,
         TransportCreate,
@@ -140,6 +143,15 @@ class DevicesManagerInterface(Protocol):
         *,
         confirm: bool = True,
     ) -> Attribute: ...
+
+    # -- faults --
+
+    def list_active_faults(
+        self,
+        *,
+        severity: Severity | None = None,
+        device_id: str | None = None,
+    ) -> list[FaultView]: ...
 
     # -- transports --
 

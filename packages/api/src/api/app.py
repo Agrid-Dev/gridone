@@ -19,6 +19,7 @@ from api.routes import (
     assets_router,
     devices_router,
     drivers_router,
+    faults_router,
     health_router,
     transports_router,
 )
@@ -172,6 +173,9 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
     app.include_router(
         devices_router, prefix="/devices", tags=["devices"], dependencies=jwt_dep
+    )
+    app.include_router(
+        faults_router, prefix="/faults", tags=["faults"], dependencies=jwt_dep
     )
     app.include_router(
         transports_router,

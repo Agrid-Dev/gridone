@@ -40,3 +40,5 @@ apps/ui/dist/
 /scripts
 .claude/
 .user_docs
+*.diff
+docs/*

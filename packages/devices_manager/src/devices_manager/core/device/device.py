@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
-from .attribute import Attribute
+from .attribute import Attribute, FaultAttribute
 
 if TYPE_CHECKING:
     from devices_manager.types import AttributeValueType, DataType, DeviceKind
@@ -44,6 +44,13 @@ class CoreDevice(ABC):
     @property
     def polling_enabled(self) -> bool:
         return False
+
+    @property
+    def is_faulty(self) -> bool:
+        return any(
+            isinstance(a, FaultAttribute) and a.is_faulty
+            for a in self.attributes.values()
+        )
 
     @property
     def poll_interval(self) -> float | None:
