@@ -835,10 +835,14 @@ version = "0.1.0"
 source = { editable = "packages/automations" }
 dependencies = [
     { name = "gridone-models" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "gridone-models", editable = "packages/models" }]
+requires-dist = [
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
+]
 
 [[package]]
 name = "gridone-commands"

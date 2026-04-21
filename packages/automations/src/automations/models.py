@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
-from typing import Literal, cast
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field
 
 from models.types import AttributeValueType  # noqa: TC001
 
@@ -33,8 +34,7 @@ class ExecutionStatus(StrEnum):
     SKIPPED = "skipped"
 
 
-@dataclass
-class ActionSpec:
+class ActionSpec(BaseModel):
     """Reference to a provider action to execute when an automation fires.
 
     Automations never inspect the action payload — the provider resolves it.
@@ -44,8 +44,7 @@ class ActionSpec:
     template_id: str
 
 
-@dataclass
-class Condition:
+class Condition(BaseModel):
     """Compares a field of the trigger event payload against an operand."""
 
     operator: ComparisonOperator
@@ -53,27 +52,25 @@ class Condition:
     target: ConditionTarget = ConditionTarget.VALUE
 
 
-@dataclass
-class ScheduleTrigger:
-    """Fires on a cron schedule (apscheduler crontab syntax, e.g. "0 11 * * *")."""
-
-    cron: str
+class ScheduleTrigger(BaseModel):
     type: Literal[TriggerType.SCHEDULE] = TriggerType.SCHEDULE
+    cron: str
 
 
-@dataclass
-class ChangeEventTrigger:
+class ChangeEventTrigger(BaseModel):
+    type: Literal[TriggerType.CHANGE_EVENT] = TriggerType.CHANGE_EVENT
     source_id: str
     event_type: str
     condition: Condition | None = None
-    type: Literal[TriggerType.CHANGE_EVENT] = TriggerType.CHANGE_EVENT
 
 
-Trigger = ScheduleTrigger | ChangeEventTrigger
+Trigger = Annotated[
+    ScheduleTrigger | ChangeEventTrigger,
+    Field(discriminator="type"),
+]
 
 
-@dataclass
-class TriggerContext:
+class TriggerContext(BaseModel):
     """Domain-agnostic payload built by the listener when a trigger fires.
 
     Lives in automations so this package never imports devices_manager.
@@ -84,21 +81,18 @@ class TriggerContext:
     previous_value: AttributeValueType | None = None
 
 
-@dataclass
-class AutomationCreate:
+class AutomationCreate(BaseModel):
     name: str
     trigger: Trigger
     actions: list[ActionSpec]
     enabled: bool = True
 
 
-@dataclass
 class Automation(AutomationCreate):
-    id: str = field(default="")
+    id: str = ""
 
 
-@dataclass
-class AutomationExecution:
+class AutomationExecution(BaseModel):
     id: str
     automation_id: str
     triggered_at: datetime
@@ -107,29 +101,5 @@ class AutomationExecution:
     error: str | None = None
 
 
-def trigger_from_dict(data: dict[str, object]) -> Trigger:
-    """Deserialise a trigger dict by dispatching on the 'type' field.
-
-    Example: {"type": "schedule", "cron": "0 11 * * *"} -> ScheduleTrigger
-    Example: {"type": "change_event", "source_id": "s1", "event_type": "temperature"}
-    """
-    trigger_type = TriggerType(cast("str", data["type"]))
-    if trigger_type == TriggerType.SCHEDULE:
-        return ScheduleTrigger(cron=cast("str", data["cron"]))
-    condition_raw = cast("dict[str, object] | None", data.get("condition"))
-    condition = (
-        Condition(
-            operator=ComparisonOperator(cast("str", condition_raw["operator"])),
-            operand=cast("AttributeValueType", condition_raw["operand"]),
-            target=ConditionTarget(
-                cast("str", condition_raw.get("target", ConditionTarget.VALUE))
-            ),
-        )
-        if condition_raw
-        else None
-    )
-    return ChangeEventTrigger(
-        source_id=cast("str", data["source_id"]),
-        event_type=cast("str", data["event_type"]),
-        condition=condition,
-    )
+AutomationCreate.model_rebuild()
+Automation.model_rebuild()

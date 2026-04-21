@@ -14,7 +14,6 @@ from automations.models import (
     Trigger,
     TriggerContext,
     TriggerType,
-    trigger_from_dict,
 )
 
 __all__ = [
@@ -31,5 +30,4 @@ __all__ = [
     "Trigger",
     "TriggerContext",
     "TriggerType",
-    "trigger_from_dict",
 ]
