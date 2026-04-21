@@ -1,3 +1,9 @@
+## v0.50.0 (2026-04-21)
+
+### Feat
+
+- create domain models for automation and its tests (#216)
+
 ## v0.49.0 (2026-04-21)
 
 ### Feat
