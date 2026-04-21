@@ -3,8 +3,13 @@ from typing import Any
 
 import pytest
 
-from devices_manager.core.device.attribute import Attribute
+from devices_manager.core.device.attribute import (
+    Attribute,
+    AttributeKind,
+    FaultAttribute,
+)
 from devices_manager.types import DataType
+from models.types import Severity
 
 
 @pytest.mark.parametrize(
@@ -82,3 +87,50 @@ def test_update_value_different(float_attribute) -> None:
         abs(float_attribute.last_changed.timestamp() - datetime.now(UTC).timestamp())
         <= 0.005
     )
+
+
+def test_attribute_kind_classvar_is_standard():
+    attr = Attribute(
+        name="a",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=False,
+    )
+    assert attr.kind == AttributeKind.STANDARD
+    assert "kind" not in Attribute.model_fields
+    assert "kind" not in attr.model_dump()
+
+
+def test_fault_attribute_kind_and_defaults():
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=False,
+    )
+    assert attr.kind == AttributeKind.FAULT
+    assert attr.severity == Severity.WARNING
+    assert attr.is_faulty is False
+
+
+def test_fault_attribute_is_a_subclass_of_attribute():
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=False,
+    )
+    assert isinstance(attr, Attribute)
+
+
+def test_fault_attribute_accepts_custom_severity_and_flag():
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=True,
+        severity=Severity.ALERT,
+        is_faulty=True,
+    )
+    assert attr.severity == Severity.ALERT
+    assert attr.is_faulty is True

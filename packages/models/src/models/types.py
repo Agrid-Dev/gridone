@@ -23,3 +23,9 @@ DATA_TYPE_MAP: dict[DataType, type] = {
 }
 
 VALUE_TYPE_MAP: dict[type, DataType] = {v: k for k, v in DATA_TYPE_MAP.items()}
+
+
+class Severity(StrEnum):
+    INFO = "info"
+    WARNING = "warning"
+    ALERT = "alert"

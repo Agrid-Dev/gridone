@@ -1,17 +1,26 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.transports import RawTransportAddress  # noqa: TC001
-from devices_manager.types import DataType  # noqa: TC001
+from devices_manager.types import AttributeValueType, DataType
 from models.errors import InvalidError
+from models.types import Severity
+
+_FAULT_HEALTHY_VALUE_DEFAULTS: dict[DataType, list[AttributeValueType]] = {
+    DataType.BOOL: [False],
+    DataType.INT: [0],
+    DataType.STRING: [""],
+}
 
 
 class AttributeDriverSpec(BaseModel):
+    kind: Literal[AttributeKind.STANDARD] = AttributeKind.STANDARD
     name: str  # core side - the target attribute name
     data_type: DataType
     read: RawTransportAddress
@@ -62,6 +71,40 @@ class AttributeDriverSpec(BaseModel):
                 )
                 raise InvalidError(msg)
         data["codecs"] = parsed
+        return data
+
+
+class FaultAttributeDriverSpec(AttributeDriverSpec):
+    kind: Literal[AttributeKind.FAULT] = AttributeKind.FAULT
+    severity: Severity = Severity.WARNING
+    healthy_values: Annotated[list[AttributeValueType], Field(default_factory=list)]
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_healthy_values(cls, data: Any) -> Any:  # noqa: ANN401
+        if not isinstance(data, dict):
+            return data
+        has_scalar = "healthy_value" in data
+        has_list = "healthy_values" in data
+        if has_scalar and has_list:
+            msg = (
+                "Specify either 'healthy_value' (scalar) or 'healthy_values' "
+                "(list), not both"
+            )
+            raise InvalidError(msg)
+        if has_scalar:
+            data["healthy_values"] = [data.pop("healthy_value")]
+            return data
+        if not has_list:
+            raw_data_type = data.get("data_type")
+            try:
+                data_type = (
+                    DataType(raw_data_type) if raw_data_type is not None else None
+                )
+            except ValueError:
+                data_type = None
+            if data_type in _FAULT_HEALTHY_VALUE_DEFAULTS:
+                data["healthy_values"] = list(_FAULT_HEALTHY_VALUE_DEFAULTS[data_type])
         return data
 
 
