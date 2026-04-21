@@ -17,6 +17,7 @@ TEST_DEVICE = Device.model_validate(
         "driver_id": "test_driver",
         "transport_id": "http_transport",
         "config": {"lattitude": 48.866667, "longitude": 2.333333},
+        "is_faulty": False,
     }
 )
 

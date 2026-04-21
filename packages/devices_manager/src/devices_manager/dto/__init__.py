@@ -12,6 +12,7 @@ from .device_dto import dto_to_core as device_from_public
 from .driver_dto import DriverSpec, DriverYaml
 from .driver_dto import core_to_dto as driver_to_public
 from .driver_dto import dto_to_core as driver_from_public
+from .fault_dto import FaultView
 from .standard_schema_dto import StandardAttributeSchema
 from .standard_schema_dto import core_to_dto as standard_schema_to_public
 from .transport_dto import (
@@ -37,6 +38,7 @@ __all__ = [
     "DeviceUpdate",
     "DriverSpec",
     "DriverYaml",
+    "FaultView",
     "PhysicalDeviceCreate",
     "StandardAttributeSchema",
     "Transport",

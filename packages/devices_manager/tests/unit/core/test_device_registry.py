@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
@@ -8,6 +9,7 @@ import pytest
 from devices_manager.core.device import (
     Attribute,
     DeviceBase,
+    FaultAttribute,
     PhysicalDevice,
     VirtualDevice,
 )
@@ -433,6 +435,60 @@ class TestDeviceRegistryList:
             )
             == []
         )
+
+
+class TestDeviceRegistryListIsFaultyFilter:
+    @staticmethod
+    def _fault_attr(name: str, *, faulty: bool) -> FaultAttribute:
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        return FaultAttribute(
+            name=name,
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value="error" if faulty else "ok",
+            healthy_values=["ok"],
+            last_updated=now,
+            last_changed=now,
+        )
+
+    def _make_registry(self, on_attribute_update) -> DeviceRegistry:
+        faulty = VirtualDevice(
+            id="faulty",
+            name="Faulty",
+            attributes={"alarm": self._fault_attr("alarm", faulty=True)},
+        )
+        healthy = VirtualDevice(
+            id="healthy",
+            name="Healthy",
+            attributes={"alarm": self._fault_attr("alarm", faulty=False)},
+        )
+        plain = VirtualDevice(
+            id="plain",
+            name="Plain",
+            attributes={
+                "reading": Attribute.create("reading", DataType.FLOAT, {"read"}),
+            },
+        )
+        return DeviceRegistry(
+            {d.id: d for d in (faulty, healthy, plain)},
+            resolve_driver=_make_driver_resolver(),
+            resolve_transport=_make_transport_resolver(),
+            on_attribute_update=on_attribute_update,
+        )
+
+    def test_is_faulty_none_returns_all(self, on_attribute_update):
+        registry = self._make_registry(on_attribute_update)
+        assert {d.id for d in registry.list_all()} == {"faulty", "healthy", "plain"}
+
+    def test_is_faulty_true_returns_faulty_only(self, on_attribute_update):
+        registry = self._make_registry(on_attribute_update)
+        result = registry.list_all(is_faulty=True)
+        assert [d.id for d in result] == ["faulty"]
+
+    def test_is_faulty_false_returns_non_faulty(self, on_attribute_update):
+        registry = self._make_registry(on_attribute_update)
+        result = {d.id for d in registry.list_all(is_faulty=False)}
+        assert result == {"healthy", "plain"}
 
 
 class TestDeviceRegistryRegister:

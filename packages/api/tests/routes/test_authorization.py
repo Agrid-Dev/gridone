@@ -300,8 +300,10 @@ def _build_devices_app() -> FastAPI:
     app.state.cookie_secure = False
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
     manager = MockUsersManager()
+    dm = MagicMock()
+    dm.list_active_faults.return_value = []
     app.dependency_overrides[get_users_manager] = lambda: manager
-    app.dependency_overrides[get_device_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
@@ -369,6 +371,11 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="export-csv-no-auth",
     ),
+    # Faults read endpoint (nested under /devices/faults, all auth roles allowed)
+    pytest.param("GET", "/devices/faults/", "admin", 200, id="faults-admin"),
+    pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),
+    pytest.param("GET", "/devices/faults/", "viewer", 200, id="faults-viewer"),
+    pytest.param("GET", "/devices/faults/", None, 401, id="faults-no-auth"),
 ]
 
 

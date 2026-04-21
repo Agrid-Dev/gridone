@@ -88,3 +88,15 @@ class FaultAttribute(Attribute):
         if self.current_value is None:
             return False
         return self.current_value not in self.healthy_values
+
+    @model_validator(mode="after")
+    def _require_timestamps_when_valued(self) -> "FaultAttribute":
+        if self.current_value is not None and (
+            self.last_updated is None or self.last_changed is None
+        ):
+            msg = (
+                "FaultAttribute with a current_value must have last_updated "
+                "and last_changed set"
+            )
+            raise ValueError(msg)
+        return self

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
@@ -8,6 +9,7 @@ from devices_manager import DevicesManager
 from devices_manager.core.device import (
     Attribute,
     DeviceBase,
+    FaultAttribute,
     PhysicalDevice,
     VirtualDevice,
 )
@@ -29,11 +31,18 @@ from devices_manager.dto import (
     PhysicalDeviceCreate as DeviceCreate,
 )
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
-from devices_manager.types import DataType, DeviceConfig, DeviceKind, TransportProtocols
+from devices_manager.types import (
+    AttributeValueType,
+    DataType,
+    DeviceConfig,
+    DeviceKind,
+    TransportProtocols,
+)
 from models.errors import (
     ForbiddenError,
     NotFoundError,
 )
+from models.types import Severity
 
 
 @pytest.fixture
@@ -691,6 +700,7 @@ class TestDevicesManagerDeviceDelegation:
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
             tags=None,
+            is_faulty=None,
         )
 
     @pytest.mark.asyncio
@@ -761,6 +771,7 @@ class TestDevicesManagerStorage:
                     "value", DataType.FLOAT, {"read", "write"}, None
                 ),
             },
+            is_faulty=False,
         )
         await cfs.devices.write(device_dto.id, device_dto)
 
@@ -801,6 +812,7 @@ class TestVirtualDeviceFromDto:
                     "temperature", DataType.FLOAT, {"read"}
                 ),
             },
+            is_faulty=False,
         )
         dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         assert "vd1" in dm.device_ids
@@ -817,6 +829,7 @@ class TestVirtualDeviceFromDto:
             attributes={
                 "x": Attribute.create("x", DataType.INT, {"read", "write"}),
             },
+            is_faulty=False,
         )
         dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         result = dm.get_device("vd2")
@@ -901,3 +914,140 @@ class TestDevicesManagerRestartSync:
         assert device1.syncing is True
         assert device2.syncing is True
         await dm.stop_sync()
+
+
+class TestDevicesManagerListActiveFaults:
+    """Tests for DevicesManager.list_active_faults."""
+
+    @staticmethod
+    def _make_fault_attr(  # noqa: PLR0913
+        name: str,
+        *,
+        current_value: AttributeValueType,
+        healthy_values: list[AttributeValueType],
+        severity: Severity,
+        last_updated: datetime,
+        last_changed: datetime | None = None,
+    ) -> FaultAttribute:
+        return FaultAttribute(
+            name=name,
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value=current_value,
+            last_updated=last_updated,
+            last_changed=last_changed or last_updated,
+            severity=severity,
+            healthy_values=healthy_values,
+        )
+
+    def _make_devices(self) -> tuple[VirtualDevice, VirtualDevice, VirtualDevice]:
+        chiller = VirtualDevice(
+            id="chiller",
+            name="Chiller",
+            attributes={
+                "alarm": self._make_fault_attr(
+                    "alarm",
+                    current_value="critical",
+                    healthy_values=["ok"],
+                    severity=Severity.ALERT,
+                    last_updated=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
+                ),
+            },
+        )
+        boiler = VirtualDevice(
+            id="boiler",
+            name="Boiler",
+            attributes={
+                "status": self._make_fault_attr(
+                    "status",
+                    current_value="error",
+                    healthy_values=["ok"],
+                    severity=Severity.WARNING,
+                    last_updated=datetime(2026, 4, 20, 10, 0, tzinfo=UTC),
+                ),
+            },
+        )
+        healthy = VirtualDevice(
+            id="healthy",
+            name="Healthy",
+            attributes={
+                "status": self._make_fault_attr(
+                    "status",
+                    current_value="ok",
+                    healthy_values=["ok"],
+                    severity=Severity.INFO,
+                    last_updated=datetime(2026, 4, 20, 11, 0, tzinfo=UTC),
+                ),
+                "temp": Attribute.create("temp", DataType.FLOAT, {"read"}, value=20.0),
+            },
+        )
+        return chiller, boiler, healthy
+
+    @pytest.fixture
+    def dm(self):
+        chiller, boiler, healthy = self._make_devices()
+        return DevicesManager(
+            devices={d.id: d for d in (chiller, boiler, healthy)},
+            drivers={},
+            transports={},
+        )
+
+    def test_returns_only_faulty_attributes(self, dm: DevicesManager):
+        faults = dm.list_active_faults()
+        assert [f.device_id for f in faults] == ["chiller", "boiler"]
+
+    def test_sorted_by_last_updated_desc(self, dm: DevicesManager):
+        faults = dm.list_active_faults()
+        assert faults[0].last_updated > faults[1].last_updated
+
+    def test_filter_by_severity(self, dm: DevicesManager):
+        faults = dm.list_active_faults(severity=Severity.ALERT)
+        assert len(faults) == 1
+        assert faults[0].device_id == "chiller"
+        assert faults[0].severity == Severity.ALERT
+
+    def test_filter_by_device_id(self, dm: DevicesManager):
+        faults = dm.list_active_faults(device_id="boiler")
+        assert len(faults) == 1
+        assert faults[0].device_id == "boiler"
+        assert faults[0].attribute_name == "status"
+
+    def test_filter_by_device_id_without_faults(self, dm: DevicesManager):
+        faults = dm.list_active_faults(device_id="healthy")
+        assert faults == []
+
+    def test_filter_by_unknown_device_raises(self, dm: DevicesManager):
+        with pytest.raises(NotFoundError):
+            dm.list_active_faults(device_id="nope")
+
+    def test_combined_filters(self, dm: DevicesManager):
+        faults = dm.list_active_faults(severity=Severity.WARNING, device_id="chiller")
+        assert faults == []
+
+    def test_empty_manager(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        assert dm.list_active_faults() == []
+
+    def test_ignores_non_fault_attributes(self):
+        device = VirtualDevice(
+            id="d1",
+            name="D1",
+            attributes={
+                "reading": Attribute.create(
+                    "reading", DataType.FLOAT, {"read"}, value=42.0
+                ),
+            },
+        )
+        dm = DevicesManager(devices={device.id: device}, drivers={}, transports={})
+        assert dm.list_active_faults() == []
+
+    def test_fault_view_fields(self, dm: DevicesManager):
+        faults = dm.list_active_faults(device_id="chiller")
+        view = faults[0]
+        assert view.device_id == "chiller"
+        assert view.device_name == "Chiller"
+        assert view.attribute_name == "alarm"
+        assert view.severity == Severity.ALERT
+        assert view.current_value == "critical"
+        assert view.last_updated is not None
+        assert view.last_changed is not None

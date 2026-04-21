@@ -84,7 +84,7 @@ class DeviceRegistry:
         device = self._get_or_raise(device_id)
         return device_to_public(device)
 
-    def list_all(
+    def list_all(  # noqa: PLR0913
         self,
         *,
         ids: Iterable[str] | None = None,
@@ -92,6 +92,7 @@ class DeviceRegistry:
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
+        is_faulty: bool | None = None,
     ) -> list[Device]:
         devices: Iterable[CoreDevice] = self._devices.values()
         if ids is not None:
@@ -110,6 +111,8 @@ class DeviceRegistry:
             for key, values in tags.items():
                 values_set = set(values)
                 devices = [d for d in devices if d.tags.get(key) in values_set]
+        if is_faulty is not None:
+            devices = [d for d in devices if d.is_faulty == is_faulty]
         return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:

@@ -42,14 +42,15 @@ def _build_attribute(
     modes: set[ReadWriteMode] = (
         {"read", "write"} if attribute_driver.write is not None else {"read"}
     )
-    last_updated = datetime.now(UTC) if initial_value is not None else None
+    now = datetime.now(UTC) if initial_value is not None else None
     if isinstance(attribute_driver, FaultAttributeDriver):
         return FaultAttribute(
             name=attribute_driver.name,
             data_type=attribute_driver.data_type,
             read_write_modes=modes,
             current_value=initial_value,
-            last_updated=last_updated,
+            last_updated=now,
+            last_changed=now,
             healthy_values=attribute_driver.healthy_values,
             severity=attribute_driver.severity,
         )

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from devices_manager.core.device.attribute import (
     Attribute,
@@ -10,6 +11,8 @@ from devices_manager.core.device.attribute import (
 )
 from devices_manager.types import DataType
 from models.types import Severity
+
+_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.mark.parametrize(
@@ -108,6 +111,8 @@ def test_fault_attribute_kind_and_default_severity():
         read_write_modes={"read"},
         current_value=False,
         healthy_values=[False],
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     assert attr.kind == AttributeKind.FAULT
     assert attr.severity == Severity.WARNING
@@ -120,6 +125,8 @@ def test_fault_attribute_is_a_subclass_of_attribute():
         read_write_modes={"read"},
         current_value=False,
         healthy_values=[False],
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     assert isinstance(attr, Attribute)
 
@@ -132,6 +139,8 @@ def test_fault_attribute_accepts_custom_severity():
         current_value=True,
         healthy_values=[False],
         severity=Severity.ALERT,
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     assert attr.severity == Severity.ALERT
 
@@ -166,6 +175,8 @@ def test_fault_attribute_is_faulty_computation(
         read_write_modes={"read"},
         current_value=current_value,
         healthy_values=healthy_values,
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     assert attr.is_faulty is expected_is_faulty
 
@@ -190,6 +201,8 @@ def test_fault_attribute_is_faulty_reacts_to_value_update():
         read_write_modes={"read"},
         current_value=False,
         healthy_values=[False],
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     assert attr.is_faulty is False
     attr._update_value(new_value=True)
@@ -205,7 +218,46 @@ def test_fault_attribute_is_faulty_serialized_in_model_dump():
         read_write_modes={"read"},
         current_value=True,
         healthy_values=[False],
+        last_updated=_NOW,
+        last_changed=_NOW,
     )
     dumped = attr.model_dump()
     assert dumped["is_faulty"] is True
     assert dumped["healthy_values"] == [False]
+
+
+def test_fault_attribute_rejects_value_without_last_updated():
+    with pytest.raises(ValidationError, match="last_updated"):
+        FaultAttribute(
+            name="alarm",
+            data_type=DataType.BOOL,
+            read_write_modes={"read"},
+            current_value=True,
+            healthy_values=[False],
+            last_changed=_NOW,
+        )
+
+
+def test_fault_attribute_rejects_value_without_last_changed():
+    with pytest.raises(ValidationError, match="last_changed"):
+        FaultAttribute(
+            name="alarm",
+            data_type=DataType.BOOL,
+            read_write_modes={"read"},
+            current_value=True,
+            healthy_values=[False],
+            last_updated=_NOW,
+        )
+
+
+def test_fault_attribute_allows_none_current_value_without_timestamps():
+    """An unknown-state fault (no value yet) is valid without timestamps."""
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=None,
+        healthy_values=[False],
+    )
+    assert attr.last_updated is None
+    assert attr.last_changed is None
