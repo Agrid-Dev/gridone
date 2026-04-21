@@ -1,3 +1,14 @@
+## v0.49.0 (2026-04-21)
+
+### Feat
+
+- **api**: add GET /faults endpoint and is_faulty roll-up on devices (AGR-460)
+- **api**: add GET /faults endpoint and is_faulty roll-up on devices (AGR-460)
+
+### Refactor
+
+- **api**: address PR #215 review feedback for faults slice (AGR-460)
+
 ## v0.48.0 (2026-04-21)
 
 ### Feat
