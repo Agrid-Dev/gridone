@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -29,11 +30,33 @@ def result_handler() -> AsyncMock:
 
 
 @pytest.fixture
-def service(device_writer: AsyncMock, result_handler: AsyncMock) -> CommandsService:
+def target_resolver() -> AsyncMock:
+    """Mock resolver whose ``resolve`` returns whatever ``ids`` the target carries.
+
+    Tests pass explicit id lists via ``{"ids": [...]}`` for predictability;
+    the resolve-empty path is exercised by a dedicated test that clears
+    ``side_effect``.
+    """
+
+    async def _resolve(target: dict) -> list[str]:
+        return list(target.get("ids") or [])
+
+    mock = AsyncMock()
+    mock.resolve.side_effect = _resolve
+    return mock
+
+
+@pytest.fixture
+def service(
+    device_writer: AsyncMock,
+    result_handler: AsyncMock,
+    target_resolver: AsyncMock,
+) -> CommandsService:
     return CommandsService(
         storage=MemoryStorage(),
         device_writer=device_writer,
         result_handler=result_handler,
+        target_resolver=target_resolver,
     )
 
 
@@ -199,7 +222,7 @@ class TestDispatchBatch:
         device_writer.side_effect = slow_writer
 
         commands = await service.dispatch_batch(
-            device_ids=["d1", "d2", "d3"],
+            target={"ids": ["d1", "d2", "d3"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
@@ -207,8 +230,8 @@ class TestDispatchBatch:
         )
 
         assert len(commands) == 3
-        # Commands are returned in the input order with a shared batch_id and
-        # PENDING status before the background task has a chance to run.
+        # Commands are returned in the resolver order with a shared batch_id
+        # and PENDING status before the background task has a chance to run.
         assert [c.device_id for c in commands] == ["d1", "d2", "d3"]
         batch_ids = {c.batch_id for c in commands}
         assert len(batch_ids) == 1
@@ -225,6 +248,54 @@ class TestDispatchBatch:
         gate.set()
         await service.await_pending()
 
+    async def test_resolver_is_called_with_target(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+    ):
+        target = {"types": ["thermostat"], "tags": {"asset_id": ["a1"]}}
+        # Override the resolver to return a canned id list for this call.
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = ["t1", "t2"]
+
+        commands = await service.dispatch_batch(
+            target=target,
+            attribute="mode",
+            value="auto",
+            data_type=DataType.STRING,
+            user_id="u1",
+        )
+
+        target_resolver.resolve.assert_awaited_once_with(target)
+        assert [c.device_id for c in commands] == ["t1", "t2"]
+
+    async def test_empty_resolve_returns_empty_list(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        device_writer: AsyncMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = []
+
+        with caplog.at_level(logging.WARNING, logger="commands.service"):
+            commands = await service.dispatch_batch(
+                target={"types": ["unknown_type"]},
+                attribute="mode",
+                value="auto",
+                data_type=DataType.STRING,
+                user_id="u1",
+            )
+
+        assert commands == []
+        device_writer.assert_not_awaited()
+        # No PENDING rows persisted.
+        page = await service.get_commands()
+        assert page.items == []
+        # A warning was logged so operators can notice stale filters.
+        assert any("resolved to no devices" in rec.message for rec in caplog.records)
+
     async def test_all_success(
         self,
         service: CommandsService,
@@ -232,7 +303,7 @@ class TestDispatchBatch:
         result_handler: AsyncMock,
     ):
         commands = await service.dispatch_batch(
-            device_ids=["d1", "d2", "d3"],
+            target={"ids": ["d1", "d2", "d3"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
@@ -264,7 +335,7 @@ class TestDispatchBatch:
         device_writer.side_effect = writer
 
         commands = await service.dispatch_batch(
-            device_ids=["d1", "d2", "d3"],
+            target={"ids": ["d1", "d2", "d3"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
@@ -292,7 +363,7 @@ class TestDispatchBatch:
         device_writer.side_effect = RuntimeError("nope")
 
         commands = await service.dispatch_batch(
-            device_ids=["d1", "d2"],
+            target={"ids": ["d1", "d2"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
@@ -327,7 +398,7 @@ class TestDispatchBatch:
         device_writer.side_effect = slow_writer
 
         commands = await service.dispatch_batch(
-            device_ids=["d1", "d2"],
+            target={"ids": ["d1", "d2"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,
@@ -354,7 +425,7 @@ class TestDispatchBatch:
         # After the batch completes, await_pending should return instantly on
         # subsequent calls (no tasks pending).
         await service.dispatch_batch(
-            device_ids=["d1"],
+            target={"ids": ["d1"]},
             attribute="mode",
             value="auto",
             data_type=DataType.STRING,

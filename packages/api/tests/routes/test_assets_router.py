@@ -84,6 +84,7 @@ def _make_dm() -> MagicMock:
         tags=None,
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
+        is_faulty=None,  # noqa: ARG001
     ):
         results = list(devices.values())
         if ids is not None:
@@ -194,7 +195,10 @@ class TestDispatchAssetCommand:
             )
         assert response.status_code == 202
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["device_ids"] == ["t-a"]
+        assert kwargs["target"] == {
+            "tags": {"asset_id": [_ASSET_ID]},
+            "types": ["thermostat"],
+        }
 
     @pytest.mark.asyncio
     async def test_recursive_includes_descendant_assets(
@@ -223,7 +227,11 @@ class TestDispatchAssetCommand:
         assert response.status_code == 202
         assets_manager.get_descendants.assert_awaited_once_with(_ASSET_ID)
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert sorted(kwargs["device_ids"]) == ["t-a", "t-b"]
+        target = kwargs["target"]
+        assert sorted(target["tags"]["asset_id"]) == sorted(
+            [_ASSET_ID, _CHILD_ASSET_ID]
+        )
+        assert target["types"] == ["thermostat"]
 
     @pytest.mark.asyncio
     async def test_no_devices_of_type_returns_404(
@@ -236,7 +244,10 @@ class TestDispatchAssetCommand:
                 f"/{_ASSET_ID}/commands",
                 json={"attribute": "power", "value": True, "device_type": "boiler"},
             )
-        assert response.status_code == 404
+        # The data-type pre-validation (resolve_attribute_data_type_for_target)
+        # returns 422 when no device matching the target writes the attribute,
+        # before the service is invoked.
+        assert response.status_code == 422
         mock_commands_service.dispatch_batch.assert_not_awaited()
 
     @pytest.mark.asyncio

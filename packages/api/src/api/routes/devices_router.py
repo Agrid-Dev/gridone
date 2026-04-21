@@ -31,6 +31,7 @@ from api.dependencies import (
 from api.permissions import Permission
 from api.routes._command_helpers import (
     resolve_attribute_data_type,
+    resolve_attribute_data_type_for_target,
     to_batch_dispatch_response,
 )
 from api.routes.devices_timeseries_router import router as devices_ts_router
@@ -140,24 +141,21 @@ async def dispatch_batch_command(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    if body.device_type is not None:
-        device_ids = [d.id for d in dm.list_devices(types=[body.device_type])]
-        if not device_ids:
-            raise HTTPException(
-                status_code=422,
-                detail=f"No devices found with type '{body.device_type}'",
-            )
-    else:
-        device_ids = body.device_ids or []
-    data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
+    target = body.target.model_dump(exclude_none=True)
+    data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
     commands = await commands_svc.dispatch_batch(
-        device_ids=device_ids,
+        target=target,
         attribute=body.attribute,
         value=body.value,
         data_type=data_type,
         user_id=user_id,
         confirm=body.confirm,
     )
+    if not commands:
+        raise HTTPException(
+            status_code=422,
+            detail="Target resolved to no devices",
+        )
     return to_batch_dispatch_response(commands)
 
 

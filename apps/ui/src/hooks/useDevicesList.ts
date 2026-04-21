@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Device, listDevices } from "../api/devices";
+import { Device, DevicesFilter, listDevices } from "../api/devices";
 
-export function useDevicesList(filters?: Record<string, string>) {
+export function useDevicesList(filter?: DevicesFilter) {
   const { t } = useTranslation("devices");
 
   const {
@@ -10,8 +10,8 @@ export function useDevicesList(filters?: Record<string, string>) {
     isLoading,
     error: queryError,
   } = useQuery<Device[]>({
-    queryKey: ["devices", filters],
-    queryFn: () => listDevices(filters),
+    queryKey: ["devices", filter],
+    queryFn: () => listDevices(filter),
     refetchInterval: 10_000,
   });
 

@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
-from commands import CommandsService, WriteResult
+from commands import CommandsService, Target, WriteResult
 from models.types import AttributeValueType, DataType
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
@@ -30,6 +30,23 @@ from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
 
 logger = logging.getLogger(__name__)
+
+
+class _CompositeTargetResolver:
+    """TargetResolver backed by DevicesManager.
+
+    The target is an opaque dict whose keys match ``DM.list_devices`` kwargs;
+    the resolver forwards them verbatim. The pydantic layer at the HTTP
+    boundary has already rejected unknown keys. Hierarchy-aware expansion
+    (e.g. asset descendants) is not wired in yet — a later step will inject
+    the AssetsManager here to rewrite tag-based references before calling DM.
+    """
+
+    def __init__(self, dm: DevicesManager) -> None:
+        self._dm = dm
+
+    async def resolve(self, target: Target) -> list[str]:
+        return [d.id for d in self._dm.list_devices(**target)]
 
 
 @asynccontextmanager
@@ -91,6 +108,7 @@ async def lifespan(app: FastAPI):
         settings.storage_url,
         device_writer=_write_device,
         result_handler=_on_command_success,
+        target_resolver=_CompositeTargetResolver(dm),
     )
     app.state.commands_service = commands_service
 

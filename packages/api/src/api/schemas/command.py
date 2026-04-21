@@ -6,8 +6,8 @@ from datetime import datetime
 
 from devices_manager.types import AttributeValueType
 from fastapi import Query
-from models.types import SortOrder
-from pydantic import BaseModel, model_validator
+from models.types import DataType, SortOrder
+from pydantic import BaseModel, ConfigDict
 
 
 class CommandsQuery(BaseModel):
@@ -56,32 +56,36 @@ class SingleDeviceCommand(BaseModel):
     confirm: bool = True
 
 
+class DevicesFilterBody(BaseModel):
+    """HTTP shape of a devices filter, mirroring ``DM.list_devices`` kwargs.
+
+    This is the shape of the ``target`` field on the batch-dispatch body.
+    Unknown keys are rejected with 422; the commands service treats this as
+    an opaque ``dict`` once validated.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[str] | None = None
+    types: list[str] | None = None
+    tags: dict[str, list[str]] | None = None
+    is_faulty: bool | None = None
+    writable_attribute: str | None = None
+    writable_attribute_type: DataType | None = None
+
+
 class BatchDeviceCommand(BaseModel):
     """Request body for ``POST /devices/commands``.
 
-    Target selection is one of (exactly one required):
-
-    * ``device_ids`` — explicit, non-empty list of device IDs
-    * ``device_type`` — resolved server-side to all devices of that type
+    ``target`` is resolved server-side at dispatch time — callers may pass an
+    explicit id list (``target.ids``), a filter (``types`` / ``tags`` / …), or
+    both for an intersection.
     """
 
-    device_ids: list[str] | None = None
-    device_type: str | None = None
+    target: DevicesFilterBody
     attribute: str
     value: AttributeValueType
     confirm: bool = True
-
-    @model_validator(mode="after")
-    def _exactly_one_target(self) -> "BatchDeviceCommand":
-        has_ids = self.device_ids is not None
-        has_type = self.device_type is not None
-        if has_ids == has_type:
-            msg = "Exactly one of 'device_ids' or 'device_type' must be provided"
-            raise ValueError(msg)
-        if has_ids and len(self.device_ids or []) == 0:
-            msg = "'device_ids' must not be empty"
-            raise ValueError(msg)
-        return self
 
 
 class AssetCommand(BaseModel):

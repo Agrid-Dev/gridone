@@ -1,5 +1,6 @@
 import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
+import type { DevicesFilter } from "./devices";
 import type { Page } from "./pagination";
 
 export type AttributeValue = string | number | boolean;
@@ -9,14 +10,11 @@ export type SingleCommandPayload = {
   value: AttributeValue;
 };
 
-type BatchCommandBase = {
+export type BatchCommandPayload = {
+  target: DevicesFilter;
   attribute: string;
   value: AttributeValue;
 };
-
-export type BatchCommandPayload =
-  | (BatchCommandBase & { deviceIds: string[]; deviceType?: never })
-  | (BatchCommandBase & { deviceType: string; deviceIds?: never });
 
 export type AssetCommandPayload = {
   attribute: string;
