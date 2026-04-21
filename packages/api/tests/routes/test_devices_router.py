@@ -382,6 +382,7 @@ def _completed_command(
     return UnitCommand(
         id=1,
         batch_id=None,
+        template_id=None,
         device_id=device_id,
         attribute=attribute,
         value=value,
@@ -400,7 +401,7 @@ class TestDispatchSingleCommand:
     async def test_success_returns_200_with_command(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch.return_value = _completed_command()
+        mock_commands_service.dispatch_unit.return_value = _completed_command()
         async with async_client as ac:
             response = await ac.post(
                 "/device1/commands",
@@ -411,19 +412,19 @@ class TestDispatchSingleCommand:
         assert body["device_id"] == "device1"
         assert body["status"] == "success"
 
-        mock_commands_service.dispatch.assert_awaited_once()
-        kwargs = mock_commands_service.dispatch.call_args.kwargs
+        mock_commands_service.dispatch_unit.assert_awaited_once()
+        kwargs = mock_commands_service.dispatch_unit.call_args.kwargs
         assert kwargs["device_id"] == "device1"
-        assert kwargs["attribute"] == "temperature_setpoint"
-        assert kwargs["value"] == 22.0
-        assert kwargs["data_type"] == DataType.FLOAT
+        assert kwargs["write"].attribute == "temperature_setpoint"
+        assert kwargs["write"].value == 22.0
+        assert kwargs["write"].data_type == DataType.FLOAT
         assert kwargs["confirm"] is True
 
     @pytest.mark.asyncio
     async def test_confirm_false_passed_through(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch.return_value = _completed_command()
+        mock_commands_service.dispatch_unit.return_value = _completed_command()
         async with async_client as ac:
             await ac.post(
                 "/device1/commands",
@@ -433,16 +434,16 @@ class TestDispatchSingleCommand:
                     "confirm": False,
                 },
             )
-        kwargs = mock_commands_service.dispatch.call_args.kwargs
+        kwargs = mock_commands_service.dispatch_unit.call_args.kwargs
         assert kwargs["confirm"] is False
 
     @pytest.mark.asyncio
     async def test_writer_failure_returns_200_with_error_status(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        # dispatch() absorbs writer exceptions and returns the ERROR command,
+        # dispatch_unit absorbs writer exceptions and returns the ERROR command,
         # so the route should still return 200.
-        mock_commands_service.dispatch.return_value = _completed_command(
+        mock_commands_service.dispatch_unit.return_value = _completed_command(
             status=CommandStatus.ERROR,
         )
         async with async_client as ac:
@@ -496,6 +497,7 @@ def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
         UnitCommand(
             id=i,
             batch_id=batch_id,
+            template_id=None,
             device_id=device_id,
             attribute="temperature_setpoint",
             value=22.5,
@@ -551,9 +553,9 @@ class TestDispatchBatchCommand:
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         assert kwargs["target"] == {"ids": ["device1", "device1"]}
-        assert kwargs["attribute"] == "temperature_setpoint"
-        assert kwargs["value"] == 22.5
-        assert kwargs["data_type"] == DataType.FLOAT
+        assert kwargs["write"].attribute == "temperature_setpoint"
+        assert kwargs["write"].value == 22.5
+        assert kwargs["write"].data_type == DataType.FLOAT
         assert kwargs["confirm"] is True
 
     @pytest.mark.asyncio

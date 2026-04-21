@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from commands.models import UnitCommand
+from commands.models import CommandTemplate, UnitCommand
 from models.types import SortOrder
 
 if TYPE_CHECKING:
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 @dataclass
 class MemoryStorage:
     _history: list[UnitCommand] = field(default_factory=list)
+    _templates: dict[str, CommandTemplate] = field(default_factory=dict)
     _current_index: int = 0
 
     async def save_command(self, command: UnitCommandCreate) -> UnitCommand:
@@ -85,6 +86,37 @@ class MemoryStorage:
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         return len(self._apply_filters(filters))
+
+    # -- command templates --
+
+    async def save_template(self, template: CommandTemplate) -> CommandTemplate:
+        self._templates[template.id] = template
+        return template
+
+    async def get_template(self, template_id: str) -> CommandTemplate | None:
+        return self._templates.get(template_id)
+
+    async def list_templates(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> list[CommandTemplate]:
+        named = [t for t in self._templates.values() if t.name is not None]
+        named.sort(key=lambda t: t.created_at)
+        if offset is not None:
+            named = named[offset:]
+        if limit is not None:
+            named = named[:limit]
+        return named
+
+    async def count_templates(self) -> int:
+        return sum(1 for t in self._templates.values() if t.name is not None)
+
+    async def delete_template(self, template_id: str) -> None:
+        self._templates.pop(template_id, None)
+        # Mirror the SQL ``ON DELETE SET NULL`` cascade: detach historical
+        # unit commands from the now-gone template.
+        for cmd in self._history:
+            if cmd.template_id == template_id:
+                cmd.template_id = None
 
     async def close(self) -> None:
         pass

@@ -159,6 +159,7 @@ def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
         UnitCommand(
             id=i,
             batch_id=batch_id,
+            template_id=None,
             device_id=device_id,
             attribute="setpoint",
             value=21.5,

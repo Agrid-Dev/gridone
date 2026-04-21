@@ -7,31 +7,42 @@ from models.types import SortOrder
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import Target, UnitCommand
+    from commands.models import (
+        AttributeWrite,
+        CommandTemplate,
+        CommandTemplateCreate,
+        Target,
+        UnitCommand,
+    )
     from models.pagination import Page, PaginationParams
-    from models.types import AttributeValueType, DataType
 
 
 class CommandsServiceInterface(Protocol):
-    async def dispatch(  # noqa: PLR0913
+    # -- dispatch --
+
+    async def dispatch_unit(
         self,
         *,
         device_id: str,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
         batch_id: str | None = None,
     ) -> UnitCommand: ...
 
-    async def dispatch_batch(  # noqa: PLR0913
+    async def dispatch_batch(
         self,
         *,
         target: Target,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
+        user_id: str,
+        confirm: bool = True,
+    ) -> list[UnitCommand]: ...
+
+    async def dispatch_from_template(
+        self,
+        *,
+        template_id: str,
         user_id: str,
         confirm: bool = True,
     ) -> list[UnitCommand]: ...
@@ -51,3 +62,17 @@ class CommandsServiceInterface(Protocol):
         sort: SortOrder = SortOrder.ASC,
         pagination: PaginationParams | None = None,
     ) -> Page[UnitCommand]: ...
+
+    # -- template CRUD --
+
+    async def save_template(
+        self, template: CommandTemplateCreate, user_id: str
+    ) -> CommandTemplate: ...
+
+    async def get_template(self, template_id: str) -> CommandTemplate: ...
+
+    async def list_templates(
+        self, *, pagination: PaginationParams | None = None
+    ) -> Page[CommandTemplate]: ...
+
+    async def delete_template(self, template_id: str) -> None: ...

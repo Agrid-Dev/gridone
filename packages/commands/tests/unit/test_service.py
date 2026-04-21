@@ -7,14 +7,22 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from commands.models import CommandStatus, WriteResult
+from commands.models import (
+    AttributeWrite,
+    CommandStatus,
+    CommandTemplateCreate,
+    WriteResult,
+)
 from commands.service import CommandsService
 from commands.storage.memory import MemoryStorage
-from models.errors import InvalidError
+from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 from models.types import DataType
 
 pytestmark = pytest.mark.asyncio
+
+
+MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
 
 
 @pytest.fixture
@@ -60,18 +68,16 @@ def service(
     )
 
 
-class TestDispatch:
+class TestDispatchUnit:
     async def test_success(
         self,
         service: CommandsService,
         device_writer: AsyncMock,
         result_handler: AsyncMock,
     ):
-        cmd = await service.dispatch(
+        cmd = await service.dispatch_unit(
             device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
         assert cmd.status == CommandStatus.SUCCESS
@@ -89,15 +95,13 @@ class TestDispatch:
     ):
         device_writer.side_effect = RuntimeError("timeout")
 
-        cmd = await service.dispatch(
+        cmd = await service.dispatch_unit(
             device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
 
-        # dispatch absorbs the writer exception and returns the ERROR command.
+        # dispatch_unit absorbs the writer exception and returns the ERROR command.
         assert cmd.status == CommandStatus.ERROR
         assert cmd.status_details is not None
         assert "timeout" in cmd.status_details
@@ -108,26 +112,35 @@ class TestDispatch:
         self,
         service: CommandsService,
     ):
-        cmd = await service.dispatch(
+        cmd = await service.dispatch_unit(
             device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
             batch_id="abc123",
         )
         assert cmd.batch_id == "abc123"
+
+    async def test_template_id_is_null_for_unit_dispatch(
+        self,
+        service: CommandsService,
+    ):
+        # Single-device writes are not template-backed; a thermostat click
+        # shouldn't pollute the command_templates table.
+        cmd = await service.dispatch_unit(
+            device_id="d1",
+            write=MODE_AUTO,
+            user_id="u1",
+        )
+        assert cmd.template_id is None
 
     async def test_confirm_false(
         self,
         service: CommandsService,
         device_writer: AsyncMock,
     ):
-        await service.dispatch(
+        await service.dispatch_unit(
             device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
             confirm=False,
         )
@@ -148,39 +161,15 @@ class TestGetCommands:
         assert page.total == 0
 
     async def test_filter_by_device_id(self, service: CommandsService):
-        await service.dispatch(
-            device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
-            user_id="u1",
-        )
-        await service.dispatch(
-            device_id="d2",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
-            user_id="u1",
-        )
+        await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="u1")
+        await service.dispatch_unit(device_id="d2", write=MODE_AUTO, user_id="u1")
         page = await service.get_commands(device_id="d1")
         assert len(page.items) == 1
         assert page.items[0].device_id == "d1"
 
     async def test_by_ids(self, service: CommandsService):
-        c1 = await service.dispatch(
-            device_id="d1",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
-            user_id="u1",
-        )
-        await service.dispatch(
-            device_id="d2",
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
-            user_id="u1",
-        )
+        c1 = await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="u1")
+        await service.dispatch_unit(device_id="d2", write=MODE_AUTO, user_id="u1")
         page = await service.get_commands(ids=[c1.id])
         assert len(page.items) == 1
         assert page.items[0].id == c1.id
@@ -191,12 +180,8 @@ class TestGetCommands:
 
     async def test_pagination(self, service: CommandsService):
         for i in range(5):
-            await service.dispatch(
-                device_id=f"d{i}",
-                attribute="mode",
-                value="auto",
-                data_type=DataType.STRING,
-                user_id="u1",
+            await service.dispatch_unit(
+                device_id=f"d{i}", write=MODE_AUTO, user_id="u1"
             )
         page = await service.get_commands(pagination=PaginationParams(page=2, size=2))
         assert len(page.items) == 2
@@ -223,9 +208,7 @@ class TestDispatchBatch:
 
         commands = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
 
@@ -248,26 +231,63 @@ class TestDispatchBatch:
         gate.set()
         await service.await_pending()
 
-    async def test_resolver_is_called_with_target(
+    async def test_every_batch_creates_an_ephemeral_template(
         self,
         service: CommandsService,
         target_resolver: AsyncMock,
     ):
         target = {"types": ["thermostat"], "tags": {"asset_id": ["a1"]}}
-        # Override the resolver to return a canned id list for this call.
         target_resolver.resolve.side_effect = None
         target_resolver.resolve.return_value = ["t1", "t2"]
 
         commands = await service.dispatch_batch(
             target=target,
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
+        await service.await_pending()
 
+        # Every unit row links to the same auto-created ephemeral template
+        # and the resolver is called with the stored target (not the raw one).
+        template_ids = {c.template_id for c in commands}
+        assert len(template_ids) == 1
+        template_id = next(iter(template_ids))
+        assert template_id is not None
         target_resolver.resolve.assert_awaited_once_with(target)
-        assert [c.device_id for c in commands] == ["t1", "t2"]
+
+        # The ephemeral template is persisted and accessible by id…
+        template = await service.get_template(template_id)
+        assert template.name is None
+        assert template.target == target
+        assert template.write == MODE_AUTO
+        assert template.created_by == "u1"
+
+        # …but does not leak into the named-templates list.
+        page = await service.list_templates()
+        assert page.total == 0
+
+    async def test_ids_only_batch_also_creates_a_template(
+        self,
+        service: CommandsService,
+    ):
+        # A unified dispatch path means explicit-ids batches now also
+        # create an ephemeral template. Every batch is template-backed;
+        # a cleanup job sweeps ephemerals later.
+        commands = await service.dispatch_batch(
+            target={"ids": ["d1", "d2"]},
+            write=MODE_AUTO,
+            user_id="u1",
+        )
+        await service.await_pending()
+
+        template_ids = {c.template_id for c in commands}
+        assert len(template_ids) == 1
+        template_id = next(iter(template_ids))
+        assert template_id is not None
+
+        template = await service.get_template(template_id)
+        assert template.name is None
+        assert template.target == {"ids": ["d1", "d2"]}
 
     async def test_empty_resolve_returns_empty_list(
         self,
@@ -282,9 +302,7 @@ class TestDispatchBatch:
         with caplog.at_level(logging.WARNING, logger="commands.service"):
             commands = await service.dispatch_batch(
                 target={"types": ["unknown_type"]},
-                attribute="mode",
-                value="auto",
-                data_type=DataType.STRING,
+                write=MODE_AUTO,
                 user_id="u1",
             )
 
@@ -304,9 +322,7 @@ class TestDispatchBatch:
     ):
         commands = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
@@ -336,9 +352,7 @@ class TestDispatchBatch:
 
         commands = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
@@ -364,9 +378,7 @@ class TestDispatchBatch:
 
         commands = await service.dispatch_batch(
             target={"ids": ["d1", "d2"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
@@ -399,9 +411,7 @@ class TestDispatchBatch:
 
         commands = await service.dispatch_batch(
             target={"ids": ["d1", "d2"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
 
@@ -426,11 +436,124 @@ class TestDispatchBatch:
         # subsequent calls (no tasks pending).
         await service.dispatch_batch(
             target={"ids": ["d1"]},
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
+            write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
         # A second call should be a no-op and not hang.
         await service.await_pending()
+
+
+class TestTemplateCrud:
+    async def test_save_template_stamps_id_and_metadata(
+        self,
+        service: CommandsService,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]},
+                write=MODE_AUTO,
+                name="Thermostat to auto",
+            ),
+            user_id="u1",
+        )
+        # 16-char hex id per the CLAUDE.md convention.
+        assert len(template.id) == 16
+        int(template.id, 16)
+        assert template.name == "Thermostat to auto"
+        assert template.created_by == "u1"
+
+    async def test_list_templates_excludes_ephemeral(
+        self,
+        service: CommandsService,
+    ):
+        await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d2"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+
+        page = await service.list_templates()
+        assert page.total == 1
+        assert page.items[0].name == "Saved"
+
+    async def test_get_template_raises_on_unknown_id(
+        self,
+        service: CommandsService,
+    ):
+        with pytest.raises(NotFoundError):
+            await service.get_template("does-not-exist")
+
+    async def test_delete_template_detaches_historical_commands(
+        self,
+        service: CommandsService,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1", "d2"]}, write=MODE_AUTO, name="To go"
+            ),
+            user_id="u1",
+        )
+        commands = await service.dispatch_from_template(
+            template_id=template.id, user_id="u1"
+        )
+        await service.await_pending()
+        assert all(c.template_id == template.id for c in commands)
+
+        await service.delete_template(template.id)
+
+        with pytest.raises(NotFoundError):
+            await service.get_template(template.id)
+
+        # Historical unit commands survive with ``template_id`` detached,
+        # mirroring the SQL ``ON DELETE SET NULL`` behaviour.
+        page = await service.get_commands(batch_id=commands[0].batch_id)
+        assert all(c.template_id is None for c in page.items)
+
+    async def test_delete_template_raises_on_unknown_id(
+        self,
+        service: CommandsService,
+    ):
+        with pytest.raises(NotFoundError):
+            await service.delete_template("does-not-exist")
+
+    async def test_dispatch_from_template_uses_stored_target_and_write(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target={"types": ["thermostat"]},
+                write=MODE_AUTO,
+                name="All thermostats",
+            ),
+            user_id="u1",
+        )
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = ["t1", "t2"]
+
+        commands = await service.dispatch_from_template(
+            template_id=template.id, user_id="u2"
+        )
+        await service.await_pending()
+
+        target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
+        assert [c.device_id for c in commands] == ["t1", "t2"]
+        assert all(c.template_id == template.id for c in commands)
+        # user_id on commands is whoever dispatched, not who saved the template.
+        assert all(c.user_id == "u2" for c in commands)
+
+    async def test_dispatch_from_template_raises_on_unknown_id(
+        self,
+        service: CommandsService,
+    ):
+        with pytest.raises(NotFoundError):
+            await service.dispatch_from_template(
+                template_id="does-not-exist", user_id="u1"
+            )

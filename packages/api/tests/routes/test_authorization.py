@@ -19,6 +19,7 @@ from api.dependencies import (
 )
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
+from api.routes.command_templates_router import router as command_templates_router
 from api.routes.devices_router import router as devices_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -421,6 +422,9 @@ def _build_commands_app() -> FastAPI:
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
     app.include_router(assets_router, prefix="/assets", dependencies=jwt_dep)
+    app.include_router(
+        command_templates_router, prefix="/command-templates", dependencies=jwt_dep
+    )
     return app
 
 
@@ -488,6 +492,85 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         401,
         None,
         id="get-device-cmds-no-auth",
+    ),
+    # Command templates: viewer can READ, cannot WRITE; no-auth returns 401.
+    pytest.param(
+        "POST",
+        "/command-templates/",
+        "viewer",
+        403,
+        {
+            "target": {"ids": ["d1"]},
+            "write": {
+                "attribute": "mode",
+                "value": "auto",
+                "data_type": "str",
+            },
+        },
+        id="create-template-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/command-templates/",
+        None,
+        401,
+        {
+            "target": {"ids": ["d1"]},
+            "write": {
+                "attribute": "mode",
+                "value": "auto",
+                "data_type": "str",
+            },
+        },
+        id="create-template-no-auth",
+    ),
+    pytest.param(
+        "DELETE",
+        "/command-templates/any-id",
+        "viewer",
+        403,
+        None,
+        id="delete-template-viewer",
+    ),
+    pytest.param(
+        "DELETE",
+        "/command-templates/any-id",
+        None,
+        401,
+        None,
+        id="delete-template-no-auth",
+    ),
+    pytest.param(
+        "POST",
+        "/command-templates/any-id/dispatch",
+        "viewer",
+        403,
+        None,
+        id="dispatch-template-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/command-templates/any-id/dispatch",
+        None,
+        401,
+        None,
+        id="dispatch-template-no-auth",
+    ),
+    pytest.param(
+        "GET",
+        "/command-templates/",
+        None,
+        401,
+        None,
+        id="list-templates-no-auth",
+    ),
+    pytest.param(
+        "GET",
+        "/command-templates/any-id",
+        None,
+        401,
+        None,
+        id="get-template-no-auth",
     ),
 ]
 

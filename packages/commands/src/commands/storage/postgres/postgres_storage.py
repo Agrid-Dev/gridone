@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from commands.models import CommandStatus, UnitCommand
+from commands.models import (
+    AttributeWrite,
+    CommandStatus,
+    CommandTemplate,
+    UnitCommand,
+)
 from commands.storage.postgres.deserialize import deserialize_command_value
 from models.errors import NotFoundError
 from models.types import DataType, SortOrder
@@ -19,14 +24,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _write_to_jsonb(write: AttributeWrite) -> dict[str, Any]:
+    return {
+        "attribute": write.attribute,
+        "value": write.value,
+        "data_type": write.data_type.value,
+    }
+
+
+def _write_from_jsonb(raw: dict[str, Any]) -> AttributeWrite:
+    return AttributeWrite(
+        attribute=raw["attribute"],
+        value=raw["value"],
+        data_type=DataType(raw["data_type"]),
+    )
+
+
 class PostgresCommandsStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+
+    # -- unit commands --
 
     def _row_to_command(self, row: asyncpg.Record) -> UnitCommand:
         return UnitCommand(
             id=row["id"],
             batch_id=row["batch_id"],
+            template_id=row["template_id"],
             device_id=row["device_id"],
             attribute=row["attribute"],
             value=deserialize_command_value(row["value"], DataType(row["data_type"])),
@@ -43,13 +67,14 @@ class PostgresCommandsStorage:
         row = await self._pool.fetchrow(
             """
             INSERT INTO unit_commands
-                (batch_id, device_id, attribute, value, data_type,
+                (batch_id, template_id, device_id, attribute, value, data_type,
                  status, status_details, user_id, created_at,
                  executed_at, completed_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
             """,
             command.batch_id,
+            command.template_id,
             command.device_id,
             command.attribute,
             str(command.value),
@@ -72,13 +97,14 @@ class PostgresCommandsStorage:
                 row = await conn.fetchrow(
                     """
                     INSERT INTO unit_commands
-                        (batch_id, device_id, attribute, value, data_type,
+                        (batch_id, template_id, device_id, attribute, value, data_type,
                          status, status_details, user_id, created_at,
                          executed_at, completed_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                     RETURNING *
                     """,
                     cmd.batch_id,
+                    cmd.template_id,
                     cmd.device_id,
                     cmd.attribute,
                     str(cmd.value),
@@ -188,6 +214,74 @@ class PostgresCommandsStorage:
         where, params = self._build_where(filters)
         query = f"SELECT COUNT(*) FROM unit_commands{where}"  # noqa: S608
         return await self._pool.fetchval(query, *params)
+
+    # -- command templates --
+
+    def _row_to_template(self, row: asyncpg.Record) -> CommandTemplate:
+        return CommandTemplate(
+            id=row["id"],
+            name=row["name"],
+            target=row["target"],
+            write=_write_from_jsonb(row["write"]),
+            created_at=row["created_at"],
+            created_by=row["created_by"],
+        )
+
+    async def save_template(self, template: CommandTemplate) -> CommandTemplate:
+        row = await self._pool.fetchrow(
+            """
+            INSERT INTO command_templates
+                (id, name, target, write, created_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+            """,
+            template.id,
+            template.name,
+            dict(template.target),
+            _write_to_jsonb(template.write),
+            template.created_at,
+            template.created_by,
+        )
+        return self._row_to_template(row)
+
+    async def get_template(self, template_id: str) -> CommandTemplate | None:
+        row = await self._pool.fetchrow(
+            "SELECT * FROM command_templates WHERE id = $1",
+            template_id,
+        )
+        if row is None:
+            return None
+        return self._row_to_template(row)
+
+    async def list_templates(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> list[CommandTemplate]:
+        query = (
+            "SELECT * FROM command_templates WHERE name IS NOT NULL ORDER BY created_at"
+        )
+        params: list[object] = []
+        idx = 1
+        if limit is not None:
+            query += f" LIMIT ${idx}"
+            params.append(limit)
+            idx += 1
+        if offset is not None:
+            query += f" OFFSET ${idx}"
+            params.append(offset)
+        rows = await self._pool.fetch(query, *params)
+        return [self._row_to_template(r) for r in rows]
+
+    async def count_templates(self) -> int:
+        return await self._pool.fetchval(
+            "SELECT COUNT(*) FROM command_templates WHERE name IS NOT NULL"
+        )
+
+    async def delete_template(self, template_id: str) -> None:
+        # ON DELETE SET NULL on unit_commands.template_id preserves history.
+        await self._pool.execute(
+            "DELETE FROM command_templates WHERE id = $1",
+            template_id,
+        )
 
     async def close(self) -> None:
         await self._pool.close()

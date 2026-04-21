@@ -14,16 +14,12 @@ async def build_storage(url: str | None = None) -> CommandsStorage:
         return MemoryStorage()
 
     if url.startswith("postgresql"):
-        import asyncpg  # noqa: PLC0415
+        # Lazy: defer the postgres module (and its asyncpg / yoyo imports)
+        # until the caller actually selects postgres. Keeps the memory-only
+        # path free of heavy dependencies.
+        from commands.storage.postgres import build_postgres_storage  # noqa: PLC0415
 
-        from commands.storage.postgres import (  # noqa: PLC0415
-            PostgresCommandsStorage,
-            run_migrations,
-        )
-
-        run_migrations(url)
-        pool = await asyncpg.create_pool(url, min_size=1, max_size=3)
-        return PostgresCommandsStorage(pool)
+        return await build_postgres_storage(url)
 
     msg = f"Unsupported storage URL scheme: {url}"
     raise InvalidError(msg)

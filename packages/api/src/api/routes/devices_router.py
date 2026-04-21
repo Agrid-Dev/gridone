@@ -4,7 +4,7 @@ import logging
 from datetime import datetime  # noqa: TC003
 from typing import Annotated
 
-from commands import CommandsServiceInterface, UnitCommand
+from commands import AttributeWrite, CommandsServiceInterface, UnitCommand
 from devices_manager import DevicesManagerInterface
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
@@ -145,9 +145,9 @@ async def dispatch_batch_command(
     data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
     commands = await commands_svc.dispatch_batch(
         target=target,
-        attribute=body.attribute,
-        value=body.value,
-        data_type=data_type,
+        write=AttributeWrite(
+            attribute=body.attribute, value=body.value, data_type=data_type
+        ),
         user_id=user_id,
         confirm=body.confirm,
     )
@@ -338,11 +338,11 @@ async def dispatch_single_command(
 ) -> UnitCommand:
     dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
     data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
-    return await commands_svc.dispatch(
+    return await commands_svc.dispatch_unit(
         device_id=device_id,
-        attribute=body.attribute,
-        value=body.value,
-        data_type=data_type,
+        write=AttributeWrite(
+            attribute=body.attribute, value=body.value, data_type=data_type
+        ),
         user_id=user_id,
         confirm=body.confirm,
     )
