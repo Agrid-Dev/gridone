@@ -93,6 +93,7 @@ def _make_device(  # noqa: PLR0913
         driver_id=driver_id,
         transport_id=transport_id,
         attributes=attributes or {},
+        is_faulty=False,
     )
 
 
@@ -458,6 +459,7 @@ class TestDeviceStorage:
                     "value", DataType.FLOAT, {"read", "write"}, 42.0
                 ),
             },
+            is_faulty=False,
         )
         await device_storage.write(device.id, device)
 
@@ -671,6 +673,7 @@ class TestAttributePersistence:
                     42.0,
                 ),
             },
+            is_faulty=False,
         )
         await device_storage.write(device.id, device)
 

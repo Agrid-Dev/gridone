@@ -39,7 +39,7 @@ class DeviceRegistryInterface(Protocol):
 
     def get_dto(self, device_id: str) -> Device: ...
 
-    def list_all(
+    def list_all(  # noqa: PLR0913
         self,
         *,
         ids: Iterable[str] | None = None,
@@ -47,6 +47,7 @@ class DeviceRegistryInterface(Protocol):
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
+        is_faulty: bool | None = None,
     ) -> list[Device]: ...
 
     async def register(self, device: CoreDevice) -> None: ...
@@ -109,7 +110,7 @@ class DevicesManagerInterface(Protocol):
 
     # -- devices --
 
-    def list_devices(
+    def list_devices(  # noqa: PLR0913
         self,
         *,
         ids: Iterable[str] | None = None,
@@ -117,6 +118,7 @@ class DevicesManagerInterface(Protocol):
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
+        is_faulty: bool | None = None,
     ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...

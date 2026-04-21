@@ -63,7 +63,7 @@ class Device(BaseModel):
     type: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
     attributes: dict[str, Attribute] = Field(default_factory=dict)
-    is_faulty: bool = False
+    is_faulty: bool
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
     driver_id: str | None = None

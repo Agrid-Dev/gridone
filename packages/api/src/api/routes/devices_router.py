@@ -34,6 +34,7 @@ from api.routes._command_helpers import (
     to_batch_dispatch_response,
 )
 from api.routes.devices_timeseries_router import router as devices_ts_router
+from api.routes.faults_router import router as faults_router
 from api.schemas.command import (
     BatchDeviceCommand,
     BatchDispatchResponse,
@@ -79,6 +80,7 @@ def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
 
 router = APIRouter()
 router.include_router(devices_ts_router)
+router.include_router(faults_router, prefix="/faults")
 
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
@@ -87,9 +89,10 @@ def list_devices(
     types: list[str] | None = Query(None, alias="type"),
     ids: list[str] | None = Query(None),
     tags: list[str] | None = Query(None),
+    is_faulty: bool | None = Query(None),
 ) -> list[Device]:
     parsed_tags = _parse_tags(tags)
-    return dm.list_devices(ids=ids, types=types, tags=parsed_tags)
+    return dm.list_devices(ids=ids, types=types, tags=parsed_tags, is_faulty=is_faulty)
 
 
 @router.get(

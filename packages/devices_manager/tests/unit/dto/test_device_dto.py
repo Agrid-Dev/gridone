@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from devices_manager.core.device import (
+    Attribute,
+    FaultAttribute,
+    VirtualDevice,
+)
 from devices_manager.dto.device_dto import (
     AttributeCreate,
     DeviceCreate,
     PhysicalDeviceCreate,
     VirtualDeviceCreate,
+    core_to_dto,
 )
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
 
@@ -133,3 +141,48 @@ class TestAttributeCreate:
                 data_type=DataType.FLOAT,
                 read_write_mode="readwrite",  # ty:ignore[invalid-argument-type]
             )
+
+
+class TestCoreDeviceToDto:
+    """Validate that core_to_dto rolls `is_faulty` up onto the Device DTO."""
+
+    _NOW = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def _fault_attr(self, *, faulty: bool) -> FaultAttribute:
+        return FaultAttribute(
+            name="alarm",
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value="error" if faulty else "ok",
+            healthy_values=["ok"],
+            last_updated=self._NOW,
+            last_changed=self._NOW,
+        )
+
+    def test_is_faulty_true_when_any_attribute_is_faulty(self):
+        device = VirtualDevice(
+            id="d1",
+            name="D1",
+            attributes={"alarm": self._fault_attr(faulty=True)},
+        )
+        assert core_to_dto(device).is_faulty is True
+
+    def test_is_faulty_false_when_all_fault_attrs_healthy(self):
+        device = VirtualDevice(
+            id="d2",
+            name="D2",
+            attributes={"alarm": self._fault_attr(faulty=False)},
+        )
+        assert core_to_dto(device).is_faulty is False
+
+    def test_is_faulty_false_when_no_fault_attribute(self):
+        device = VirtualDevice(
+            id="d3",
+            name="D3",
+            attributes={
+                "reading": Attribute.create(
+                    "reading", DataType.FLOAT, {"read"}, value=20.0
+                ),
+            },
+        )
+        assert core_to_dto(device).is_faulty is False

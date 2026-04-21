@@ -20,7 +20,6 @@ from api.dependencies import (
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
 from api.routes.devices_router import router as devices_router
-from api.routes.faults_router import router as faults_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from users import Role, User
@@ -309,7 +308,6 @@ def _build_devices_app() -> FastAPI:
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
-    app.include_router(faults_router, prefix="/faults", dependencies=jwt_dep)
     return app
 
 
@@ -373,11 +371,11 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="export-csv-no-auth",
     ),
-    # Faults read endpoint (all authenticated roles allowed)
-    pytest.param("GET", "/faults/", "admin", 200, id="faults-admin"),
-    pytest.param("GET", "/faults/", "operator", 200, id="faults-operator"),
-    pytest.param("GET", "/faults/", "viewer", 200, id="faults-viewer"),
-    pytest.param("GET", "/faults/", None, 401, id="faults-no-auth"),
+    # Faults read endpoint (nested under /devices/faults, all auth roles allowed)
+    pytest.param("GET", "/devices/faults/", "admin", 200, id="faults-admin"),
+    pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),
+    pytest.param("GET", "/devices/faults/", "viewer", 200, id="faults-viewer"),
+    pytest.param("GET", "/devices/faults/", None, 401, id="faults-no-auth"),
 ]
 
 

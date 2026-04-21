@@ -52,13 +52,13 @@ AttributeListener = Callable[
 ]
 
 
-def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView | None:
-    if (
-        attr.current_value is None
-        or attr.last_updated is None
-        or attr.last_changed is None
-    ):
-        return None
+def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
+    # Invariants: callers only pass FaultAttributes where is_faulty is True
+    # (=> current_value is not None), and the FaultAttribute model validator
+    # guarantees timestamps whenever current_value is set.
+    assert attr.current_value is not None  # noqa: S101
+    assert attr.last_updated is not None  # noqa: S101
+    assert attr.last_changed is not None  # noqa: S101
     return FaultView(
         device_id=device.id,
         device_name=device.name,
@@ -128,7 +128,7 @@ class DevicesManager:
     def device_ids(self) -> set[str]:
         return self._device_registry.ids
 
-    def list_devices(
+    def list_devices(  # noqa: PLR0913
         self,
         *,
         ids: Iterable[str] | None = None,
@@ -136,6 +136,7 @@ class DevicesManager:
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
+        is_faulty: bool | None = None,
     ) -> list[Device]:
         return self._device_registry.list_all(
             ids=ids,
@@ -143,6 +144,7 @@ class DevicesManager:
             writable_attribute=writable_attribute,
             writable_attribute_type=writable_attribute_type,
             tags=tags,
+            is_faulty=is_faulty,
         )
 
     def get_device(self, device_id: str) -> Device:
@@ -203,11 +205,23 @@ class DevicesManager:
         severity: Severity | None = None,
         device_id: str | None = None,
     ) -> list[FaultView]:
+        devices = self._resolve_fault_scope(device_id)
+        faults = self._collect_active_faults(devices, severity=severity)
+        faults.sort(key=lambda f: f.last_updated, reverse=True)
+        return faults
+
+    def _resolve_fault_scope(self, device_id: str | None) -> list[CoreDevice]:
         if device_id is not None:
-            devices = [self._device_registry.get(device_id)]
-        else:
-            devices = list(self._device_registry.all.values())
-        views = [
+            return [self._device_registry.get(device_id)]
+        return list(self._device_registry.all.values())
+
+    @staticmethod
+    def _collect_active_faults(
+        devices: list[CoreDevice],
+        *,
+        severity: Severity | None,
+    ) -> list[FaultView]:
+        return [
             _fault_view_from(device, attr)
             for device in devices
             for attr in device.attributes.values()
@@ -215,12 +229,6 @@ class DevicesManager:
             and attr.is_faulty
             and (severity is None or attr.severity == severity)
         ]
-        faults = [v for v in views if v is not None]
-        faults.sort(
-            key=lambda f: f.last_updated,
-            reverse=True,
-        )
-        return faults
 
     # -- Attribute listeners --
 

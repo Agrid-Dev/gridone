@@ -39,6 +39,11 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
         config = row["config"]
         tags = {tag_row["key"]: tag_row["value"] for tag_row in tag_rows}
+        # Storage rehydrates plain `Attribute` instances (no FaultAttribute
+        # subclass), so the DTO's is_faulty is always False here. The runtime
+        # is_faulty is recomputed once the DevicesManager bootstraps the
+        # CoreDevice from the driver spec, which re-creates FaultAttribute
+        # instances with their healthy_values/severity.
         return Device(
             id=row["id"],
             kind=DeviceKind(row["kind"]),
@@ -49,6 +54,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
             attributes=attributes,
+            is_faulty=False,
         )
 
     async def read(self, item_id: str) -> Device:

@@ -700,6 +700,7 @@ class TestDevicesManagerDeviceDelegation:
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
             tags=None,
+            is_faulty=None,
         )
 
     @pytest.mark.asyncio
@@ -770,6 +771,7 @@ class TestDevicesManagerStorage:
                     "value", DataType.FLOAT, {"read", "write"}, None
                 ),
             },
+            is_faulty=False,
         )
         await cfs.devices.write(device_dto.id, device_dto)
 
@@ -810,6 +812,7 @@ class TestVirtualDeviceFromDto:
                     "temperature", DataType.FLOAT, {"read"}
                 ),
             },
+            is_faulty=False,
         )
         dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         assert "vd1" in dm.device_ids
@@ -826,6 +829,7 @@ class TestVirtualDeviceFromDto:
             attributes={
                 "x": Attribute.create("x", DataType.INT, {"read", "write"}),
             },
+            is_faulty=False,
         )
         dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
         result = dm.get_device("vd2")

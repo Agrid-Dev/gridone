@@ -23,6 +23,7 @@ def _make_device(
         name="Test Device",
         type="sensor",
         attributes=attributes or {},
+        is_faulty=False,
     )
 
 

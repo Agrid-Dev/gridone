@@ -40,6 +40,7 @@ _THERMOSTAT_A = Device(
     config={},
     driver_id="x",
     transport_id="y",
+    is_faulty=False,
 )
 _THERMOSTAT_B = Device(
     id="t-b",
@@ -53,6 +54,7 @@ _THERMOSTAT_B = Device(
     config={},
     driver_id="x",
     transport_id="y",
+    is_faulty=False,
 )
 _LIGHT = Device(
     id="l-1",
@@ -66,6 +68,7 @@ _LIGHT = Device(
     config={},
     driver_id="x",
     transport_id="y",
+    is_faulty=False,
 )
 
 

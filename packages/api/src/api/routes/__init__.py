@@ -1,7 +1,6 @@
 from .assets_router import router as assets_router
 from .devices_router import router as devices_router
 from .drivers_router import router as drivers_router
-from .faults_router import router as faults_router
 from .health_router import router as health_router
 from .transports_router import router as transports_router
 
@@ -9,7 +8,6 @@ __all__ = [
     "assets_router",
     "devices_router",
     "drivers_router",
-    "faults_router",
     "health_router",
     "transports_router",
 ]

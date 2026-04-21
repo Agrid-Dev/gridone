@@ -42,6 +42,7 @@ _PHYSICAL_DEVICE = Device(
     config={"some_id": "abc"},
     driver_id="test_driver",
     transport_id="my-http",
+    is_faulty=False,
 )
 
 _VIRTUAL_DEVICE = Device(
@@ -52,6 +53,7 @@ _VIRTUAL_DEVICE = Device(
         "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
+    is_faulty=False,
 )
 
 _VIRTUAL_TYPED = Device(
@@ -62,6 +64,7 @@ _VIRTUAL_TYPED = Device(
     attributes={
         "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
     },
+    is_faulty=False,
 )
 
 
@@ -72,13 +75,14 @@ def _make_dm(
 
     mock = MagicMock(spec=DevicesManagerInterface)
 
-    def _list_devices(
+    def _list_devices(  # noqa: PLR0913
         *,
         ids=None,
         types=None,
         tags=None,  # noqa: ARG001
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
+        is_faulty=None,
     ):
         results = list(all_devices.values())
         if ids is not None:
@@ -94,6 +98,8 @@ def _make_dm(
                 if writable_attribute in d.attributes
                 and "write" in d.attributes[writable_attribute].read_write_modes
             ]
+        if is_faulty is not None:
+            results = [d for d in results if d.is_faulty == is_faulty]
         return results
 
     mock.list_devices.side_effect = _list_devices
@@ -106,7 +112,9 @@ def _make_dm(
     mock.get_device.side_effect = _get_device
     mock.device_ids = set(all_devices.keys())
     mock.add_device = AsyncMock(
-        return_value=Device(id="new-id", name="new", kind=DeviceKind.PHYSICAL)
+        return_value=Device(
+            id="new-id", name="new", kind=DeviceKind.PHYSICAL, is_faulty=False
+        )
     )
     mock.update_device = AsyncMock(return_value=_PHYSICAL_DEVICE)
     mock.delete_device = AsyncMock()
@@ -183,13 +191,13 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=["thermostat"], tags=None
+            ids=None, types=["thermostat"], tags=None, is_faulty=None
         )
 
     def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"tags": "asset_id:asset-1"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["asset-1"]}
+            ids=None, types=None, tags={"asset_id": ["asset-1"]}, is_faulty=None
         )
 
     def test_filter_by_tags_multiple_values_and_keys(
@@ -204,12 +212,29 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["a1", "a2"], "zone": ["north"]}
+            ids=None,
+            types=None,
+            tags={"asset_id": ["a1", "a2"], "zone": ["north"]},
+            is_faulty=None,
         )
 
     def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
         client.get("/")
-        dm.list_devices.assert_called_once_with(ids=None, types=None, tags=None)
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags=None, is_faulty=None
+        )
+
+    def test_is_faulty_filter_forwarded(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"is_faulty": "true"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags=None, is_faulty=True
+        )
+
+    def test_is_faulty_false_filter_forwarded(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"is_faulty": "false"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags=None, is_faulty=False
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -494,6 +519,7 @@ _TYPED_WRITABLE_DEVICE = Device(
     attributes={
         "setpoint": Attribute.create("setpoint", DataType.FLOAT, {"read", "write"}),
     },
+    is_faulty=False,
 )
 
 
@@ -778,6 +804,7 @@ class TestVirtualDeviceCreate:
             attributes={
                 "co2": Attribute.create("co2", DataType.INT, {"read"}),
             },
+            is_faulty=False,
         )
         payload = {
             "kind": "virtual",
@@ -832,7 +859,7 @@ class TestVirtualDeviceRead:
 class TestVirtualDeviceUpdate:
     def test_ok(self, virtual_client: TestClient, dm_with_virtual: MagicMock):
         dm_with_virtual.update_device.return_value = Device(
-            id="vd1", kind=DeviceKind.VIRTUAL, name="Renamed"
+            id="vd1", kind=DeviceKind.VIRTUAL, name="Renamed", is_faulty=False
         )
         response = virtual_client.patch("/vd1", json={"name": "Renamed"})
         assert response.status_code == 200
