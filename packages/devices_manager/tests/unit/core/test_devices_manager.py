@@ -680,16 +680,17 @@ class TestDevicesManagerDeviceDelegation:
         dm = _dm_with_mock_registry(mock_reg)
         dm.list_devices(
             ids=["d1"],
-            device_type="thermostat",
+            types=["thermostat"],
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
         )
 
         mock_reg.list_all.assert_called_once_with(
             ids=["d1"],
-            device_type="thermostat",
+            types=["thermostat"],
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
+            tags=None,
         )
 
     @pytest.mark.asyncio

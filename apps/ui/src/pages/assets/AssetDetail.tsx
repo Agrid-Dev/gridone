@@ -8,14 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getAsset,
-  listAssets,
-  listAssetDevices,
-  unlinkDevice,
-} from "@/api/assets";
+import { getAsset, listAssets, listAssetDevices } from "@/api/assets";
 import type { Asset } from "@/api/assets";
-import { listDevices } from "@/api/devices";
+import { listDevices, unlinkDeviceFromAsset } from "@/api/devices";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
@@ -52,7 +47,7 @@ export default function AssetDetail() {
 
   const { data: allDevices = [] } = useQuery({
     queryKey: ["devices"],
-    queryFn: listDevices,
+    queryFn: () => listDevices(),
     enabled: deviceIds.length > 0,
   });
 
@@ -62,7 +57,7 @@ export default function AssetDetail() {
   );
 
   const unlinkMutation = useMutation({
-    mutationFn: (deviceId: string) => unlinkDevice(assetId!, deviceId),
+    mutationFn: (deviceId: string) => unlinkDeviceFromAsset(deviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],

@@ -20,6 +20,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         self,
         row: asyncpg.Record,
         attribute_rows: list[asyncpg.Record],
+        tag_rows: list[asyncpg.Record],
     ) -> Device:
         attributes: dict[str, Attribute] = {}
         for attr_row in attribute_rows:
@@ -37,11 +38,13 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             )
 
         config = row["config"]
+        tags = {tag_row["key"]: tag_row["value"] for tag_row in tag_rows}
         return Device(
             id=row["id"],
             kind=DeviceKind(row["kind"]),
             name=row["name"],
             type=row["type"],
+            tags=tags,
             config=cast("dict | None", config) if config else None,
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
@@ -58,13 +61,8 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             msg = f"dm_devices entry '{item_id}' not found"
             raise FileNotFoundError(msg)
 
-        attr_rows = await self._pool.fetch(
-            "SELECT name, data_type, read_write_modes, current_value, "
-            "last_updated, last_changed "
-            "FROM dm_device_attributes WHERE device_id = $1",
-            item_id,
-        )
-        return self._build_dto(row, attr_rows)
+        attr_rows, tag_rows = await _fetch_attrs_and_tags(self._pool, [item_id])
+        return self._build_dto(row, attr_rows, tag_rows)
 
     async def write(self, item_id: str, data: Device) -> None:
         dumped = data.model_dump(mode="json")
@@ -87,6 +85,8 @@ class PostgresDeviceStorage(StorageBackend[Device]):
                 dumped.get("driver_id"),
                 dumped.get("transport_id"),
             )
+
+            await _write_tags(conn, item_id, data.tags)
 
             if data.attributes:
                 await self._upsert_attributes(conn, item_id, data.attributes)
@@ -165,19 +165,22 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             return []
 
         device_ids = [row["id"] for row in device_rows]
-        attr_rows = await self._pool.fetch(
-            "SELECT device_id, name, data_type, read_write_modes, "
-            "current_value, last_updated, last_changed "
-            "FROM dm_device_attributes WHERE device_id = ANY($1::text[])",
-            device_ids,
-        )
+        attr_rows, tag_rows = await _fetch_attrs_and_tags(self._pool, device_ids)
 
         attrs_by_device: dict[str, list[asyncpg.Record]] = defaultdict(list)
         for attr_row in attr_rows:
             attrs_by_device[attr_row["device_id"]].append(attr_row)
 
+        tags_by_device: dict[str, list[asyncpg.Record]] = defaultdict(list)
+        for tag_row in tag_rows:
+            tags_by_device[tag_row["device_id"]].append(tag_row)
+
         return [
-            self._build_dto(row, attrs_by_device.get(row["id"], []))
+            self._build_dto(
+                row,
+                attrs_by_device.get(row["id"], []),
+                tags_by_device.get(row["id"], []),
+            )
             for row in device_rows
         ]
 
@@ -186,10 +189,43 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         return [row["id"] for row in rows]
 
     async def delete(self, item_id: str) -> None:
-        # dm_device_attributes cascade-deleted via FK
+        # dm_device_attributes and dm_device_tags cascade-deleted via FK
         result = await self._pool.execute(
             "DELETE FROM dm_devices WHERE id = $1", item_id
         )
         if result == "DELETE 0":
             msg = f"dm_devices entry '{item_id}' not found"
             raise FileNotFoundError(msg)
+
+
+async def _fetch_attrs_and_tags(
+    pool: asyncpg.Pool,
+    device_ids: list[str],
+) -> tuple[list[asyncpg.Record], list[asyncpg.Record]]:
+    attr_rows = await pool.fetch(
+        "SELECT device_id, name, data_type, read_write_modes, "
+        "current_value, last_updated, last_changed "
+        "FROM dm_device_attributes WHERE device_id = ANY($1::text[])",
+        device_ids,
+    )
+    tag_rows = await pool.fetch(
+        "SELECT device_id, key, value FROM dm_device_tags"
+        " WHERE device_id = ANY($1::text[])",
+        device_ids,
+    )
+    return list(attr_rows), list(tag_rows)
+
+
+async def _write_tags(
+    conn: asyncpg.Connection,
+    device_id: str,
+    tags: dict[str, str],
+) -> None:
+    await conn.execute("DELETE FROM dm_device_tags WHERE device_id = $1", device_id)
+    for key, value in tags.items():
+        await conn.execute(
+            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)",
+            device_id,
+            key,
+            value,
+        )

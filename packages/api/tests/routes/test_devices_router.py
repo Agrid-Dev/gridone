@@ -75,7 +75,8 @@ def _make_dm(
     def _list_devices(
         *,
         ids=None,
-        device_type=None,
+        types=None,
+        tags=None,  # noqa: ARG001
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
     ):
@@ -83,8 +84,9 @@ def _make_dm(
         if ids is not None:
             id_set = set(ids)
             results = [d for d in results if d.id in id_set]
-        if device_type is not None:
-            results = [d for d in results if d.type == device_type]
+        if types is not None:
+            types_set = set(types)
+            results = [d for d in results if d.type in types_set]
         if writable_attribute is not None:
             results = [
                 d
@@ -115,6 +117,12 @@ def _make_dm(
         )
     )
     mock.list_standard_schemas.return_value = []
+
+    updated = _PHYSICAL_DEVICE.model_copy(update={"tags": {"asset_id": "a1"}})
+    mock.set_device_tag = AsyncMock(return_value=updated)
+    mock.delete_device_tag = AsyncMock(
+        return_value=_PHYSICAL_DEVICE.model_copy(update={"tags": {}})
+    )
     return mock
 
 
@@ -174,7 +182,34 @@ class TestListDevices:
 
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
-        dm.list_devices.assert_called_once_with(device_type="thermostat")
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=["thermostat"], tags=None
+        )
+
+    def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"tags": "asset_id:asset-1"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["asset-1"]}
+        )
+
+    def test_filter_by_tags_multiple_values_and_keys(
+        self, client: TestClient, dm: MagicMock
+    ):
+        client.get(
+            "/",
+            params=[  # ty: ignore[invalid-argument-type]
+                ("tags", "asset_id:a1"),
+                ("tags", "asset_id:a2"),
+                ("tags", "zone:north"),
+            ],
+        )
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["a1", "a2"], "zone": ["north"]}
+        )
+
+    def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
+        client.get("/")
+        dm.list_devices.assert_called_once_with(ids=None, types=None, tags=None)
 
 
 # ---------------------------------------------------------------------------
@@ -962,4 +997,33 @@ class TestSingleAttrPushTimeseries:
                 "/unknown-device/timeseries/temperature",
                 json={"data": [_SINGLE_PUSH_POINT]},
             )
+        assert response.status_code == 404
+
+
+# Device tag sub-resource
+
+
+class TestDeviceTags:
+    def test_set_tag_returns_updated_device(self, client: TestClient, dm: MagicMock):
+        response = client.put("/device1/tags/asset_id", json={"value": "a1"})
+        assert response.status_code == 200
+        dm.set_device_tag.assert_called_once_with("device1", "asset_id", "a1")
+
+    def test_set_tag_unknown_device_returns_404(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.set_device_tag.side_effect = NotFoundError("Device unknown not found")
+        response = client.put("/unknown/tags/asset_id", json={"value": "a1"})
+        assert response.status_code == 404
+
+    def test_delete_tag_returns_204(self, client: TestClient, dm: MagicMock):
+        response = client.delete("/device1/tags/asset_id")
+        assert response.status_code == 204
+        dm.delete_device_tag.assert_called_once_with("device1", "asset_id")
+
+    def test_delete_tag_unknown_device_returns_404(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.delete_device_tag.side_effect = NotFoundError("Device unknown not found")
+        response = client.delete("/unknown/tags/asset_id")
         assert response.status_code == 404

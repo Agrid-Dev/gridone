@@ -110,15 +110,17 @@ class DevicesManager:
         self,
         *,
         ids: Iterable[str] | None = None,
-        device_type: str | None = None,
+        types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
+        tags: dict[str, list[str]] | None = None,
     ) -> list[Device]:
         return self._device_registry.list_all(
             ids=ids,
-            device_type=device_type,
+            types=types,
             writable_attribute=writable_attribute,
             writable_attribute_type=writable_attribute_type,
+            tags=tags,
         )
 
     def get_device(self, device_id: str) -> Device:
@@ -144,6 +146,14 @@ class DevicesManager:
         device = self._device_registry.get(device_id)
         await device.stop_sync()
         await self._device_registry.remove(device_id)
+
+    async def set_device_tag(self, device_id: str, key: str, value: str) -> Device:
+        device = await self._device_registry.set_tag(device_id, key, value)
+        return device_to_public(device)
+
+    async def delete_device_tag(self, device_id: str, key: str) -> Device:
+        device = await self._device_registry.delete_tag(device_id, key)
+        return device_to_public(device)
 
     async def read_device(self, device_id: str) -> Device:
         device = self._device_registry.get(device_id)

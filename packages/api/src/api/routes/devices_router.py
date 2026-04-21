@@ -43,6 +43,7 @@ from api.schemas.command import (
 )
 from api.schemas.device import (
     SingleAttrTimeseriesPushPoint,
+    TagValueBody,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
@@ -60,6 +61,22 @@ def _resolve_start(query: CommandsQuery) -> datetime | None:
     return query.start
 
 
+def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
+    """Parse ``?tags=key:value`` query params into a tags filter dict.
+
+    Filter semantics: AND across keys, OR within values of the same key.
+    Repeat the param for OR: ``?tags=asset_id:a1&tags=asset_id:a2``.
+    """
+    if not raw:
+        return None
+    result: dict[str, list[str]] = {}
+    for item in raw:
+        key, _, value = item.partition(":")
+        if value:
+            result.setdefault(key, []).append(value)
+    return result or None
+
+
 router = APIRouter()
 router.include_router(devices_ts_router)
 
@@ -67,9 +84,12 @@ router.include_router(devices_ts_router)
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
     dm: DevicesManagerInterface = Depends(get_device_manager),
-    device_type: str | None = Query(None, alias="type"),
+    types: list[str] | None = Query(None, alias="type"),
+    ids: list[str] | None = Query(None),
+    tags: list[str] | None = Query(None),
 ) -> list[Device]:
-    return dm.list_devices(device_type=device_type)
+    parsed_tags = _parse_tags(tags)
+    return dm.list_devices(ids=ids, types=types, tags=parsed_tags)
 
 
 @router.get(
@@ -118,7 +138,7 @@ async def dispatch_batch_command(
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     if body.device_type is not None:
-        device_ids = [d.id for d in dm.list_devices(device_type=body.device_type)]
+        device_ids = [d.id for d in dm.list_devices(types=[body.device_type])]
         if not device_ids:
             raise HTTPException(
                 status_code=422,
@@ -185,6 +205,33 @@ async def delete_device(
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ):
     await dm.delete_device(device_id)
+    return
+
+
+@router.put(
+    "/{device_id}/tags/{key}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def set_device_tag(
+    device_id: str,
+    key: str,
+    body: TagValueBody,
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+) -> Device:
+    return await dm.set_device_tag(device_id, key, body.value)
+
+
+@router.delete(
+    "/{device_id}/tags/{key}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def delete_device_tag(
+    device_id: str,
+    key: str,
+    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+) -> None:
+    await dm.delete_device_tag(device_id, key)
     return
 
 

@@ -40,9 +40,10 @@ class DeviceRegistryInterface(Protocol):
         self,
         *,
         ids: Iterable[str] | None = None,
-        device_type: str | None = None,
+        types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
+        tags: dict[str, list[str]] | None = None,
     ) -> list[Device]: ...
 
     async def register(self, device: CoreDevice) -> None: ...
@@ -54,6 +55,10 @@ class DeviceRegistryInterface(Protocol):
     ) -> CoreDevice: ...
 
     async def remove(self, device_id: str) -> None: ...
+
+    async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice: ...
+
+    async def delete_tag(self, device_id: str, key: str) -> CoreDevice: ...
 
     async def write_attribute(
         self,
@@ -105,9 +110,10 @@ class DevicesManagerInterface(Protocol):
         self,
         *,
         ids: Iterable[str] | None = None,
-        device_type: str | None = None,
+        types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
+        tags: dict[str, list[str]] | None = None,
     ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...
@@ -119,6 +125,10 @@ class DevicesManagerInterface(Protocol):
     ) -> Device: ...
 
     async def delete_device(self, device_id: str) -> None: ...
+
+    async def set_device_tag(self, device_id: str, key: str, value: str) -> Device: ...
+
+    async def delete_device_tag(self, device_id: str, key: str) -> Device: ...
 
     async def read_device(self, device_id: str) -> Device: ...
 

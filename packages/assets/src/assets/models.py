@@ -53,13 +53,6 @@ class AssetUpdate(BaseModel):
     parent_id: str | None = None
 
 
-class DeviceAssetLink(BaseModel):
-    """Represents a device-asset relationship."""
-
-    device_id: str
-    asset_id: str
-
-
 def get_asset_create_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return AssetCreate.model_json_schema()
@@ -72,6 +65,5 @@ __all__ = [
     "AssetCreate",
     "AssetType",
     "AssetUpdate",
-    "DeviceAssetLink",
     "get_asset_create_schema",
 ]

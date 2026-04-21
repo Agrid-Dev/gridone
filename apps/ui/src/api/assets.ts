@@ -132,18 +132,3 @@ export function deleteAsset(assetId: string): Promise<void> {
 export function listAssetDevices(assetId: string): Promise<string[]> {
   return request<string[]>(`/assets/${encodeURIComponent(assetId)}/devices`);
 }
-
-export function linkDevice(assetId: string, deviceId: string): Promise<void> {
-  return request<void>(`/assets/${encodeURIComponent(assetId)}/devices`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_id: deviceId }),
-  });
-}
-
-export function unlinkDevice(assetId: string, deviceId: string): Promise<void> {
-  return request<void>(
-    `/assets/${encodeURIComponent(assetId)}/devices/${encodeURIComponent(deviceId)}`,
-    { method: "DELETE" },
-  );
-}

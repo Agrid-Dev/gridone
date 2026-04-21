@@ -31,31 +31,24 @@ _ASSET = AssetInDB(
 )
 
 
-class TestResolveDeviceIds:
-    async def test_non_recursive(
+class TestGetDescendants:
+    async def test_returns_descendants(
         self, manager: AssetsManager, storage: AsyncMock
     ) -> None:
+        child = AssetInDB(
+            id="child-1", parent_id="asset-1", type=AssetType.FLOOR, name="Floor 1"
+        )
         storage.get_by_id.return_value = _ASSET
-        storage.get_device_ids_for_asset.return_value = ["dev-1", "dev-2"]
+        storage.get_descendants.return_value = [child]
 
-        result = await manager.resolve_device_ids("asset-1")
+        result = await manager.get_descendants("asset-1")
 
-        assert result == ["dev-1", "dev-2"]
-        storage.get_device_ids_for_asset.assert_awaited_once_with("asset-1")
-        storage.get_device_ids_for_subtree.assert_not_awaited()
-
-    async def test_recursive(self, manager: AssetsManager, storage: AsyncMock) -> None:
-        storage.get_by_id.return_value = _ASSET
-        storage.get_device_ids_for_subtree.return_value = ["dev-1", "dev-2", "dev-3"]
-
-        result = await manager.resolve_device_ids("asset-1", recursive=True)
-
-        assert result == ["dev-1", "dev-2", "dev-3"]
-        storage.get_device_ids_for_subtree.assert_awaited_once_with("asset-1")
-        storage.get_device_ids_for_asset.assert_not_awaited()
+        assert len(result) == 1
+        assert result[0].id == "child-1"
+        storage.get_descendants.assert_awaited_once_with("asset-1")
 
     async def test_not_found(self, manager: AssetsManager, storage: AsyncMock) -> None:
         storage.get_by_id.return_value = None
 
         with pytest.raises(NotFoundError):
-            await manager.resolve_device_ids("missing")
+            await manager.get_descendants("missing")
