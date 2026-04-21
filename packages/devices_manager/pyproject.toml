@@ -27,7 +27,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "thermocktat-client>=0.2.0",
+    "thermocktat-client>=0.3.0",
 ]
 
 [tool.uv.build-backend]

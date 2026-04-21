@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import ClassVar
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, computed_field, model_validator
 
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
@@ -80,4 +80,11 @@ class FaultAttribute(Attribute):
     kind: ClassVar[AttributeKind] = AttributeKind.FAULT
 
     severity: Severity = Severity.WARNING
-    is_faulty: bool = False
+    healthy_values: list[AttributeValueType]
+
+    @computed_field
+    @property
+    def is_faulty(self) -> bool:
+        if self.current_value is None:
+            return False
+        return self.current_value not in self.healthy_values

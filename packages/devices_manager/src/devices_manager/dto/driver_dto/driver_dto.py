@@ -1,20 +1,37 @@
 from typing import Annotated, Any
 
 import yaml as pyyaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Discriminator, Field, Tag
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
+    AttributeDriver,
     DeviceConfigField,
     Driver,
     DriverMetadata,
+    FaultAttributeDriver,
     UpdateStrategy,
 )
 from devices_manager.types import TransportProtocols
 
-from .attribute_driver_dto import AttributeDriverSpec, FaultAttributeDriverSpec
-from .attribute_driver_dto import core_to_dto as attribute_core_to_dto
-from .attribute_driver_dto import dto_to_core as attribute_dto_to_core
+
+def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
+    """Resolve the `kind` tag for discriminated-union dispatch.
+
+    Defaults to `standard` when the field is absent — matches the default
+    on AttributeDriver.kind so YAML entries without an explicit `kind:`
+    key parse as standard attributes.
+    """
+    if isinstance(v, dict):
+        return v.get("kind", AttributeKind.STANDARD)
+    return getattr(v, "kind", AttributeKind.STANDARD)
+
+
+_AttributeDriverUnion = Annotated[
+    Annotated[AttributeDriver, Tag(AttributeKind.STANDARD)]
+    | Annotated[FaultAttributeDriver, Tag(AttributeKind.FAULT)],
+    Discriminator(_attribute_kind_tag),
+]
 
 
 class DriverSpec(BaseModel):
@@ -26,35 +43,9 @@ class DriverSpec(BaseModel):
     env: Annotated[dict, Field(default_factory=dict)]
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config: list[DeviceConfigField]
-    attributes: list[AttributeDriverSpec]
+    attributes: list[_AttributeDriverUnion]
     discovery: dict | None = None
     type: str | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def fork_attributes_on_kind(cls, data: Any) -> Any:  # noqa: ANN401
-        """Route each raw attribute entry to Standard/FaultAttributeDriverSpec.
-
-        The `kind:` key in the YAML selects the concrete spec class so that
-        fault-specific fields (severity, healthy_values) are only validated
-        on fault entries. Pre-validated model instances and non-list inputs
-        pass through untouched.
-        """
-        if not isinstance(data, dict):
-            return data
-        raw_attributes = data.get("attributes")
-        if not isinstance(raw_attributes, list):
-            return data
-        parsed: list[AttributeDriverSpec] = []
-        for item in raw_attributes:
-            if isinstance(item, AttributeDriverSpec):
-                parsed.append(item)
-            elif isinstance(item, dict) and item.get("kind") == AttributeKind.FAULT:
-                parsed.append(FaultAttributeDriverSpec.model_validate(item))
-            else:
-                parsed.append(AttributeDriverSpec.model_validate(item))
-        data["attributes"] = parsed
-        return data
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverSpec":
@@ -77,9 +68,7 @@ def core_to_dto(driver: Driver) -> DriverSpec:
         update_strategy=driver.update_strategy,
         device_config=driver.device_config_required,
         discovery=driver.discovery_schema,
-        attributes=[
-            attribute_core_to_dto(attribute) for attribute in driver.attributes.values()
-        ],
+        attributes=list(driver.attributes.values()),
         type=driver.type,
     )
 
@@ -91,7 +80,7 @@ def dto_to_core(dto: DriverSpec) -> Driver:
         env=dto.env,
         device_config_required=dto.device_config,
         update_strategy=dto.update_strategy,
-        attributes={a.name: attribute_dto_to_core(a) for a in dto.attributes},
+        attributes={a.name: a for a in dto.attributes},
         discovery_schema=dto.discovery,
         type=dto.type,
     )

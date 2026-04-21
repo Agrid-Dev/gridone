@@ -1,4 +1,4 @@
-from .attribute_driver import AttributeDriver
+from .attribute_driver import AttributeDriver, FaultAttributeDriver
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver import Driver
@@ -11,5 +11,6 @@ __all__ = [
     "DiscoveryListener",
     "Driver",
     "DriverMetadata",
+    "FaultAttributeDriver",
     "UpdateStrategy",
 ]

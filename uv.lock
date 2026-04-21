@@ -882,7 +882,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "thermocktat-client", specifier = ">=0.2.0" }]
+dev = [{ name = "thermocktat-client", specifier = ">=0.3.0" }]
 
 [[package]]
 name = "gridone-migrations"
@@ -1901,14 +1901,14 @@ wheels = [
 
 [[package]]
 name = "thermocktat-client"
-version = "0.2.0"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/22/31fdffa44fec0acf2dd437cf59e64986fcbf8d9582f81f9617a67a91e9c5/thermocktat_client-0.2.0.tar.gz", hash = "sha256:74bbd7987f8a0d6c1b350ab28f15a26364758d362e2ba96261a3651db55dc514", size = 4335, upload-time = "2026-04-16T07:55:12.929Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/b3/0d9de4024b206abf05cf6421b6447a4c93eb919068d18d73c757a3b54440/thermocktat_client-0.3.0.tar.gz", hash = "sha256:69daabf461a2e922ee6a28519017a46b099d2b7160dff1908e630c03fd6a2b82", size = 4372, upload-time = "2026-04-20T12:25:28.627Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/cc/43ef58a5931df6d89066364286fe2af1ab1ea08f040a8af66c9049672aaf/thermocktat_client-0.2.0-py3-none-any.whl", hash = "sha256:f66581aede497a8653499547cb88d641c210a0d862eec3b5c40badaacc4e9e65", size = 7045, upload-time = "2026-04-16T07:55:11.498Z" },
+    { url = "https://files.pythonhosted.org/packages/35/2a/df4610c55b967bd0e5959af80411fe4d2a8db78267ea65155d340867025a/thermocktat_client-0.3.0-py3-none-any.whl", hash = "sha256:f35001f2feb60c8957e13340d641cb17215dce00d9b57d05e064cf220b5f028f", size = 7091, upload-time = "2026-04-20T12:25:27.583Z" },
 ]
 
 [[package]]

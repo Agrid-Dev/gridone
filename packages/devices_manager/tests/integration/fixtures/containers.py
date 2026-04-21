@@ -13,7 +13,7 @@ from docker.errors import NotFound
 import docker
 from fixtures.config import HTTP_PORT, KNX_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
 
-thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.7.0"
+thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.8.1"
 mosquitto_image = "eclipse-mosquitto:2.0"
 
 thermocktat_initial_state = {
@@ -24,6 +24,7 @@ thermocktat_initial_state = {
     "temperature_setpoint_max": 28.0,
     "mode": "auto",
     "fan_speed": "auto",
+    "fault_code": 0,
 }
 
 type ControllerKey = Literal["http", "mqtt", "modbus", "knx"]

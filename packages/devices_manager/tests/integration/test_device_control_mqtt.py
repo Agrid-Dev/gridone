@@ -11,7 +11,7 @@ import pytest_asyncio
 from fixtures.config import HTTP_PORT
 from thermocktat_client import ThermocktatAsync
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import DeviceBase, FaultAttribute, PhysicalDevice
 
 
 @pytest_asyncio.fixture
@@ -105,3 +105,32 @@ async def test_push_update_received(  # noqa: PLR0913
     # thermocktat publish_interval is 0.5s — allow margin for delivery
     await asyncio.sleep(1.0)
     assert mqtt_device.attributes[attribute].current_value == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_push_fault_toggles_is_faulty(
+    thermocktat_container_mqtt,  # noqa: ARG001
+    mqtt_device: PhysicalDevice,
+    thermocktat_http: ThermocktatAsync,
+):
+    """A non-healthy fault_code pushed by thermocktat flips is_faulty, and
+    clearing it flips back.
+    """
+    await mqtt_device.init_listeners()
+    # Wait for the first snapshot (initial healthy state) to land.
+    await asyncio.sleep(1.0)
+    fault_attr = mqtt_device.attributes["fault_code"]
+    assert isinstance(fault_attr, FaultAttribute)
+    assert fault_attr.current_value == 0
+    assert fault_attr.is_faulty is False
+
+    await thermocktat_http.set_fault_code(42)
+    await asyncio.sleep(1.0)
+    assert fault_attr.current_value == 42
+    assert fault_attr.is_faulty is True
+
+    await thermocktat_http.set_fault_code(0)
+    await asyncio.sleep(1.0)
+    assert fault_attr.current_value == 0
+    assert fault_attr.is_faulty is False

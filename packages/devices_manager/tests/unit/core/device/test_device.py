@@ -6,13 +6,20 @@ import pytest
 
 from devices_manager.core import Driver, TransportClient
 from devices_manager.core.codecs.factory import CodecSpec
-from devices_manager.core.device import Attribute, DeviceBase, PhysicalDevice
+from devices_manager.core.device import (
+    Attribute,
+    DeviceBase,
+    FaultAttribute,
+    PhysicalDevice,
+)
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
+    FaultAttributeDriver,
     UpdateStrategy,
 )
 from devices_manager.types import DataType, TransportProtocols
+from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
 
@@ -207,7 +214,7 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/temperature"},
                     write=None,
-                    codec_specs=[
+                    codecs=[
                         CodecSpec(name="json_pointer", argument="/payload/temperature")
                     ],
                 ),
@@ -216,7 +223,7 @@ class TestDevicesListeners:
                     data_type=DataType.FLOAT,
                     read={"topic": "/dev/humidity"},
                     write=None,
-                    codec_specs=[
+                    codecs=[
                         CodecSpec(name="json_pointer", argument="/payload/humidity")
                     ],
                 ),
@@ -293,3 +300,92 @@ class TestDeviceEquality:
             transport=mock_transport_client,
         )
         assert device_1 != device_2
+
+
+class TestPhysicalDeviceAttributeFactory:
+    """PhysicalDevice.from_base picks Attribute or FaultAttribute per driver."""
+
+    @pytest.fixture
+    def fault_driver(self) -> Driver:
+        alarm = FaultAttributeDriver(
+            name="alarm",
+            data_type=DataType.BOOL,
+            read="GET /alarm",
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+            healthy_values=[False],
+            severity=Severity.ALERT,
+        )
+        temp = AttributeDriver(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read="GET /temp",
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+        )
+        return Driver(
+            metadata=DriverMetadata(id="mixed_driver"),
+            env={},
+            transport=TransportProtocols.HTTP,
+            device_config_required=[],
+            update_strategy=UpdateStrategy(),
+            attributes={alarm.name: alarm, temp.name: temp},
+        )
+
+    def test_fault_driver_produces_fault_attribute(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.healthy_values == [False]
+        assert alarm.severity == Severity.ALERT
+
+    def test_standard_driver_produces_plain_attribute(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+        )
+        temp = device.attributes["temperature"]
+        assert type(temp) is Attribute
+
+    def test_fault_attribute_is_faulty_derives_from_initial_value(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            initial_values={"alarm": True},
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.is_faulty is True
+
+    def test_fault_attribute_is_faulty_false_when_no_initial_value(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.current_value is None
+        assert alarm.is_faulty is False

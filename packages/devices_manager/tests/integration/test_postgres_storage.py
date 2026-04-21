@@ -9,11 +9,9 @@ import pytest
 import pytest_asyncio
 
 from devices_manager.core.device import Attribute
+from devices_manager.core.driver import AttributeDriver
 from devices_manager.dto import Device, Transport
 from devices_manager.dto.driver_dto import DriverSpec
-from devices_manager.dto.driver_dto.attribute_driver_dto import (
-    AttributeDriverSpec,
-)
 from devices_manager.dto.transport_dto import build_dto as build_transport
 from devices_manager.storage.postgres import (
     PostgresDevicesManagerStorage,
@@ -68,7 +66,7 @@ def _make_driver(
         transport=TransportProtocols.HTTP,
         device_config=[],
         attributes=[
-            AttributeDriverSpec(  # ty: ignore[missing-argument]
+            AttributeDriver(  # ty: ignore[missing-argument]
                 name="temperature",
                 data_type=DataType.FLOAT,
                 read={"path": "/api/temp"},
