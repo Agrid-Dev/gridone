@@ -1,3 +1,9 @@
+## v0.50.1 (2026-04-21)
+
+### Refactor
+
+- **commands**: rename Command/group_id to UnitCommand/batch_id (AGR-508)
+
 ## v0.50.0 (2026-04-21)
 
 ### Feat
