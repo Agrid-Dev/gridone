@@ -52,9 +52,7 @@ AttributeListener = Callable[
 ]
 
 
-def _fault_view_from(
-    device: CoreDevice, attr: FaultAttribute
-) -> FaultView | None:
+def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView | None:
     if (
         attr.current_value is None
         or attr.last_updated is None

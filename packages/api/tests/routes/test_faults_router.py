@@ -6,6 +6,7 @@ from devices_manager import DevicesManagerInterface
 from devices_manager.dto import FaultView
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from models.errors import NotFoundError
 from models.types import Severity
 
 from api.dependencies import (
@@ -104,3 +105,8 @@ class TestListFaults:
     def test_invalid_severity_rejected(self, client: TestClient):
         response = client.get("/", params={"severity": "nope"})
         assert response.status_code == 422
+
+    def test_unknown_device_id_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.list_active_faults.side_effect = NotFoundError("Device not found")
+        response = client.get("/", params={"device_id": "unknown"})
+        assert response.status_code == 404

@@ -41,4 +41,3 @@ apps/ui/dist/
 .claude/
 .user_docs
 *.diff
-docs/*
