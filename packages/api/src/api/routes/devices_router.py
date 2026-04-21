@@ -4,7 +4,7 @@ import logging
 from datetime import datetime  # noqa: TC003
 from typing import Annotated
 
-from commands import Command, CommandsServiceInterface
+from commands import CommandsServiceInterface, UnitCommand
 from devices_manager import DevicesManagerInterface
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
@@ -114,10 +114,10 @@ async def list_commands(
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
-) -> PaginatedResponse[Command]:
+) -> PaginatedResponse[UnitCommand]:
     page = await commands_svc.get_commands(
         ids=query.ids,
-        group_id=query.group_id,
+        batch_id=query.batch_id,
         device_id=query.device_id,
         attribute=query.attribute,
         user_id=query.user_id,
@@ -311,11 +311,11 @@ async def list_device_commands(
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
-) -> PaginatedResponse[Command]:
+) -> PaginatedResponse[UnitCommand]:
     # Path parameter always wins over a query-string device_id.
     page = await commands_svc.get_commands(
         ids=query.ids,
-        group_id=query.group_id,
+        batch_id=query.batch_id,
         device_id=device_id,
         attribute=query.attribute,
         user_id=query.user_id,
@@ -337,7 +337,7 @@ async def dispatch_single_command(
     dm: DevicesManagerInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
-) -> Command:
+) -> UnitCommand:
     dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
     data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
     return await commands_svc.dispatch(

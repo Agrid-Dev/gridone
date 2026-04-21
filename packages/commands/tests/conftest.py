@@ -5,13 +5,13 @@ from typing import Any
 
 import pytest
 
-from commands.models import CommandCreate, CommandStatus
+from commands.models import CommandStatus, UnitCommandCreate
 from models.types import DataType
 
 
 def _make_command(  # noqa: PLR0913
     *,
-    group_id: str | None = None,
+    batch_id: str | None = None,
     device_id: str = "device1",
     attribute: str = "mode",
     user_id: str = "user1",
@@ -21,9 +21,9 @@ def _make_command(  # noqa: PLR0913
     created_at: datetime = datetime(2026, 1, 2, tzinfo=UTC),
     executed_at: datetime | None = None,
     completed_at: datetime | None = None,
-) -> CommandCreate:
-    return CommandCreate(
-        group_id=group_id,
+) -> UnitCommandCreate:
+    return UnitCommandCreate(
+        batch_id=batch_id,
         device_id=device_id,
         attribute=attribute,
         value=value,

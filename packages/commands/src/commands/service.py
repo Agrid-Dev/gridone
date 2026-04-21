@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from commands.filters import CommandsQueryFilters
-from commands.models import Command, CommandCreate, CommandStatus
+from commands.models import CommandStatus, UnitCommand, UnitCommandCreate
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.types import SortOrder
@@ -66,13 +66,14 @@ class CommandsService:
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-        group_id: str | None = None,
-    ) -> Command:
+        batch_id: str | None = None,
+    ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
         The method is a coroutine (it yields to the event loop while the write
         and status updates are in flight), but the caller is guaranteed to
-        receive the fully resolved :class:`Command` before ``await`` completes.
+        receive the fully resolved :class:`UnitCommand` before ``await``
+        completes.
 
         Writer exceptions are absorbed: on failure the command is marked as
         ``ERROR`` (with ``status_details`` carrying the failure reason) and the
@@ -80,8 +81,8 @@ class CommandsService:
         of wrapping every call site in ``try/except``.
         """
         command = await self._storage.save_command(
-            CommandCreate(
-                group_id=group_id,
+            UnitCommandCreate(
+                batch_id=batch_id,
                 device_id=device_id,
                 attribute=attribute,
                 value=value,
@@ -111,25 +112,25 @@ class CommandsService:
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-    ) -> list[Command]:
-        """Fan-out a command to many devices as a single group.
+    ) -> list[UnitCommand]:
+        """Fan-out a command to many devices as a single batch.
 
         Persists a ``PENDING`` command row per device, spawns a single
         background task that runs all per-device writes concurrently, and
         returns the persisted commands immediately. Per-device exceptions are
         absorbed into ``ERROR`` status without affecting other devices in the
-        batch — callers poll the returned commands (by id or group_id) to
+        batch — callers poll the returned commands (by id or batch_id) to
         observe completion.
 
-        All commands share the same ``group_id`` and are returned in the order
+        All commands share the same ``batch_id`` and are returned in the order
         of the input ``device_ids``.
         """
-        group_id = uuid4().hex[:16]
+        batch_id = uuid4().hex[:16]
         now = datetime.now(UTC)
         commands = await self._storage.save_commands(
             [
-                CommandCreate(
-                    group_id=group_id,
+                UnitCommandCreate(
+                    batch_id=batch_id,
                     device_id=device_id,
                     attribute=attribute,
                     value=value,
@@ -161,7 +162,7 @@ class CommandsService:
 
     async def _execute_all(
         self,
-        commands: list[Command],
+        commands: list[UnitCommand],
         *,
         attribute: str,
         value: AttributeValueType,
@@ -190,19 +191,19 @@ class CommandsService:
 
     async def _execute_command(
         self,
-        command: Command,
+        command: UnitCommand,
         *,
         attribute: str,
         value: AttributeValueType,
         data_type: DataType,
         confirm: bool,
-    ) -> Command:
+    ) -> UnitCommand:
         """Write to the device, update command status, and fire the result handler.
 
         Writer exceptions are absorbed: the command is marked as ``ERROR`` and
         the updated record is returned. Status-update failures after a writer
         error are logged but not re-raised — the caller always receives a
-        :class:`Command`.
+        :class:`UnitCommand`.
         """
         try:
             result = await self._device_writer(
@@ -241,7 +242,7 @@ class CommandsService:
         self,
         *,
         ids: list[int] | None = None,
-        group_id: str | None = None,
+        batch_id: str | None = None,
         device_id: str | None = None,
         attribute: str | None = None,
         user_id: str | None = None,
@@ -249,9 +250,9 @@ class CommandsService:
         end: datetime | None = None,
         sort: SortOrder = SortOrder.ASC,
         pagination: PaginationParams | None = None,
-    ) -> Page[Command]:
+    ) -> Page[UnitCommand]:
         if ids is not None:
-            other = (group_id, device_id, attribute, user_id, start, end)
+            other = (batch_id, device_id, attribute, user_id, start, end)
             if any(f is not None for f in other):
                 msg = "Cannot combine 'ids' with other filters"
                 raise InvalidError(msg)
@@ -264,7 +265,7 @@ class CommandsService:
             )
 
         filters = CommandsQueryFilters(
-            group_id=group_id,
+            batch_id=batch_id,
             device_id=device_id,
             attribute=attribute,
             user_id=user_id,

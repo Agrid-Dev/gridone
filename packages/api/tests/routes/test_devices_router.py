@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import Command, CommandsServiceInterface
+from commands import CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
@@ -377,11 +377,11 @@ def _completed_command(
     attribute: str = "temperature_setpoint",
     value: float = 22.0,
     status: CommandStatus = CommandStatus.SUCCESS,
-) -> Command:
+) -> UnitCommand:
     now = datetime(2026, 1, 1, tzinfo=UTC)
-    return Command(
+    return UnitCommand(
         id=1,
-        group_id=None,
+        batch_id=None,
         device_id=device_id,
         attribute=attribute,
         value=value,
@@ -490,12 +490,12 @@ class TestDispatchSingleCommand:
 # ---------------------------------------------------------------------------
 
 
-def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
+def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return [
-        Command(
+        UnitCommand(
             id=i,
-            group_id=group_id,
+            batch_id=batch_id,
             device_id=device_id,
             attribute="temperature_setpoint",
             value=22.5,
@@ -531,7 +531,7 @@ class TestDispatchBatchCommand:
         return _make_dm([_PHYSICAL_DEVICE, _TYPED_WRITABLE_DEVICE])
 
     @pytest.mark.asyncio
-    async def test_success_returns_202_with_group_id(
+    async def test_success_returns_202_with_batch_id(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         mock_commands_service.dispatch_batch.return_value = _batch_commands(
@@ -547,7 +547,7 @@ class TestDispatchBatchCommand:
                 },
             )
         assert response.status_code == 202
-        assert response.json() == {"group_id": "abc123", "total": 2}
+        assert response.json() == {"batch_id": "abc123", "total": 2}
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         assert kwargs["device_ids"] == ["device1", "device1"]
@@ -573,7 +573,7 @@ class TestDispatchBatchCommand:
                 },
             )
         assert response.status_code == 202
-        assert response.json() == {"group_id": "grp-t", "total": 1}
+        assert response.json() == {"batch_id": "grp-t", "total": 1}
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         assert kwargs["device_ids"] == ["thermo1"]
@@ -671,7 +671,7 @@ class TestListCommands:
         assert response.status_code == 200
         mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
-            group_id=None,
+            batch_id=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -692,7 +692,7 @@ class TestListCommands:
             response = await ac.get(
                 "/commands",
                 params={
-                    "group_id": "abc1234567890def",
+                    "batch_id": "abc1234567890def",
                     "device_id": "dev-1",
                     "attribute": "temperature",
                     "user_id": "user-42",
@@ -704,7 +704,7 @@ class TestListCommands:
         assert response.status_code == 200
         mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
-            group_id="abc1234567890def",
+            batch_id="abc1234567890def",
             device_id="dev-1",
             attribute="temperature",
             user_id="user-42",
@@ -742,15 +742,15 @@ class TestListDeviceCommands:
         assert kwargs["device_id"] == "device1"
 
     @pytest.mark.asyncio
-    async def test_forwards_group_id_filter(
+    async def test_forwards_batch_id_filter(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         mock_commands_service.get_commands.return_value = _empty_page()
         async with async_client as ac:
-            response = await ac.get("/device1/commands", params={"group_id": "grp"})
+            response = await ac.get("/device1/commands", params={"batch_id": "grp"})
         assert response.status_code == 200
         kwargs = mock_commands_service.get_commands.call_args.kwargs
-        assert kwargs["group_id"] == "grp"
+        assert kwargs["batch_id"] == "grp"
         assert kwargs["device_id"] == "device1"
 
 

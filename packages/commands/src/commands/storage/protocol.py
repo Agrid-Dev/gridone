@@ -8,13 +8,15 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from commands.filters import CommandsQueryFilters
-    from commands.models import Command, CommandCreate, CommandStatus
+    from commands.models import CommandStatus, UnitCommand, UnitCommandCreate
 
 
 class CommandsStorage(Protocol):
-    async def save_command(self, command: CommandCreate) -> Command: ...
+    async def save_command(self, command: UnitCommandCreate) -> UnitCommand: ...
 
-    async def save_commands(self, commands: list[CommandCreate]) -> list[Command]: ...
+    async def save_commands(
+        self, commands: list[UnitCommandCreate]
+    ) -> list[UnitCommand]: ...
 
     async def update_command_status(
         self,
@@ -23,7 +25,7 @@ class CommandsStorage(Protocol):
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
-    ) -> Command: ...
+    ) -> UnitCommand: ...
 
     async def get_commands(
         self,
@@ -32,9 +34,9 @@ class CommandsStorage(Protocol):
         sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> list[Command]: ...
+    ) -> list[UnitCommand]: ...
 
-    async def get_commands_by_ids(self, ids: list[int]) -> list[Command]: ...
+    async def get_commands_by_ids(self, ids: list[int]) -> list[UnitCommand]: ...
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int: ...
 

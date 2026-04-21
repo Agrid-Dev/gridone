@@ -6,14 +6,14 @@ from typing import Any
 import pytest
 
 from commands.filters import CommandsQueryFilters
-from commands.models import CommandCreate, CommandStatus
+from commands.models import CommandStatus, UnitCommandCreate
 from commands.storage.memory import MemoryStorage
 from models.types import DataType, SortOrder
 
 
 def make_command(  # noqa: PLR0913
     *,
-    group_id: str | None = None,
+    batch_id: str | None = None,
     device_id: str = "device1",
     attribute: str = "mode",
     user_id: str = "user1",
@@ -21,9 +21,9 @@ def make_command(  # noqa: PLR0913
     data_type: DataType = DataType.STRING,
     status: CommandStatus = CommandStatus.SUCCESS,
     created_at: datetime = datetime(2026, 1, 2, tzinfo=UTC),
-) -> CommandCreate:
-    return CommandCreate(
-        group_id=group_id,
+) -> UnitCommandCreate:
+    return UnitCommandCreate(
+        batch_id=batch_id,
         device_id=device_id,
         attribute=attribute,
         value=value,
@@ -108,13 +108,13 @@ class TestGetCommands:
         assert len(results) == 1
         assert results[0].device_id == "d1"
 
-    async def test_filter_group_id(self, storage: MemoryStorage):
-        await storage.save_command(make_command(group_id="g1"))
-        await storage.save_command(make_command(group_id="g2"))
-        await storage.save_command(make_command(group_id=None))
-        results = await storage.get_commands(CommandsQueryFilters(group_id="g1"))
+    async def test_filter_batch_id(self, storage: MemoryStorage):
+        await storage.save_command(make_command(batch_id="g1"))
+        await storage.save_command(make_command(batch_id="g2"))
+        await storage.save_command(make_command(batch_id=None))
+        results = await storage.get_commands(CommandsQueryFilters(batch_id="g1"))
         assert len(results) == 1
-        assert results[0].group_id == "g1"
+        assert results[0].batch_id == "g1"
 
     async def test_filter_attribute(self, storage: MemoryStorage):
         await storage.save_command(make_command(attribute="mode"))

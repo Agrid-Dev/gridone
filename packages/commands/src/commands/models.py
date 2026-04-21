@@ -21,8 +21,8 @@ class WriteResult:
 
 
 @dataclass
-class CommandCreate:
-    group_id: str | None
+class UnitCommandCreate:
+    batch_id: str | None
     device_id: str
     attribute: str
     value: AttributeValueType
@@ -36,5 +36,43 @@ class CommandCreate:
 
 
 @dataclass
-class Command(CommandCreate):
+class UnitCommand(UnitCommandCreate):
     id: int
+
+
+@dataclass
+class BatchCommand:
+    """Summary of a batch dispatch — one write fanned out across many devices.
+
+    In this step BatchCommand is a DTO derived from the unit commands it
+    produced; persistence is implicit via the shared ``batch_id`` on
+    ``unit_commands`` rows. A later step promotes it to a persisted entity
+    with a resolvable target filter.
+    """
+
+    batch_id: str
+    attribute: str
+    value: AttributeValueType
+    data_type: DataType
+    device_ids: list[str]
+    created_at: datetime
+    created_by: str
+
+    @classmethod
+    def from_unit_commands(cls, commands: list[UnitCommand]) -> BatchCommand:
+        if not commands:
+            msg = "cannot build BatchCommand from empty command list"
+            raise ValueError(msg)
+        first = commands[0]
+        if first.batch_id is None:
+            msg = "unit commands must carry a batch_id"
+            raise ValueError(msg)
+        return cls(
+            batch_id=first.batch_id,
+            attribute=first.attribute,
+            value=first.value,
+            data_type=first.data_type,
+            device_ids=[c.device_id for c in commands],
+            created_at=first.created_at,
+            created_by=first.user_id,
+        )

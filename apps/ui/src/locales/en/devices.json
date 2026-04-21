@@ -76,8 +76,8 @@
     "allDevices": "All devices",
     "allAttributes": "All attributes",
     "allUsers": "All users",
-    "group": "Group",
-    "clearGroup": "Clear group filter",
+    "batch": "Batch",
+    "clearBatch": "Clear batch filter",
     "newCommand": "New command",
     "statusLabels": {
       "pending": "pending",

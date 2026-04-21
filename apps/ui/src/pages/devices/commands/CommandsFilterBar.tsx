@@ -19,7 +19,7 @@ type CommandsFilterBarProps = {
   deviceId?: string;
   attribute?: string;
   userId?: string;
-  groupId?: string;
+  batchId?: string;
   attributeOptions: string[];
   devices: Device[];
   users: User[] | undefined;
@@ -31,7 +31,7 @@ export function CommandsFilterBar({
   deviceId,
   attribute,
   userId,
-  groupId,
+  batchId,
   attributeOptions,
   devices,
   users,
@@ -40,24 +40,24 @@ export function CommandsFilterBar({
 }: CommandsFilterBarProps) {
   const { t } = useTranslation("devices");
 
-  // When scoped to a group, every other filter is redundant — the batch is a
-  // single dispatch at a single point in time. Show only the group chip so the
+  // When scoped to a batch, every other filter is redundant — the batch is a
+  // single dispatch at a single point in time. Show only the batch chip so the
   // user can clear it (or dispatch a new command) to restore the full filter
   // bar.
-  if (groupId) {
+  if (batchId) {
     return (
       <div className="flex flex-wrap items-center gap-3">
         <Badge
           variant="outline"
           className="gap-1.5 px-2.5 py-1 font-mono text-xs"
         >
-          <span className="text-muted-foreground">{t("commands.group")}:</span>
-          <span>{groupId}</span>
+          <span className="text-muted-foreground">{t("commands.batch")}:</span>
+          <span>{batchId}</span>
           <button
             type="button"
-            onClick={() => onFilterChange("group_id", undefined)}
+            onClick={() => onFilterChange("batch_id", undefined)}
             className="ml-1 rounded-sm text-muted-foreground hover:text-foreground"
-            aria-label={t("commands.clearGroup")}
+            aria-label={t("commands.clearBatch")}
           >
             <X className="h-3 w-3" />
           </button>

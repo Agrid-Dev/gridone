@@ -81,7 +81,7 @@ class TestDispatch:
         assert cmd.completed_at is not None
         result_handler.assert_not_awaited()
 
-    async def test_group_id_stored(
+    async def test_batch_id_stored(
         self,
         service: CommandsService,
     ):
@@ -91,9 +91,9 @@ class TestDispatch:
             value="auto",
             data_type=DataType.STRING,
             user_id="u1",
-            group_id="abc123",
+            batch_id="abc123",
         )
-        assert cmd.group_id == "abc123"
+        assert cmd.batch_id == "abc123"
 
     async def test_confirm_false(
         self,
@@ -207,18 +207,18 @@ class TestDispatchBatch:
         )
 
         assert len(commands) == 3
-        # Commands are returned in the input order with a shared group_id and
+        # Commands are returned in the input order with a shared batch_id and
         # PENDING status before the background task has a chance to run.
         assert [c.device_id for c in commands] == ["d1", "d2", "d3"]
-        group_ids = {c.group_id for c in commands}
-        assert len(group_ids) == 1
-        group_id = commands[0].group_id
-        assert group_id is not None
-        assert len(group_id) == 16
+        batch_ids = {c.batch_id for c in commands}
+        assert len(batch_ids) == 1
+        batch_id = commands[0].batch_id
+        assert batch_id is not None
+        assert len(batch_id) == 16
         assert all(c.status == CommandStatus.PENDING for c in commands)
 
         # Storage reflects the same PENDING state while the writer is blocked.
-        page = await service.get_commands(group_id=group_id)
+        page = await service.get_commands(batch_id=batch_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.PENDING for c in page.items)
 
@@ -240,8 +240,8 @@ class TestDispatchBatch:
         )
         await service.await_pending()
 
-        group_id = commands[0].group_id
-        page = await service.get_commands(group_id=group_id)
+        batch_id = commands[0].batch_id
+        page = await service.get_commands(batch_id=batch_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
         assert device_writer.await_count == 3
@@ -272,8 +272,8 @@ class TestDispatchBatch:
         )
         await service.await_pending()
 
-        group_id = commands[0].group_id
-        page = await service.get_commands(group_id=group_id)
+        batch_id = commands[0].batch_id
+        page = await service.get_commands(batch_id=batch_id)
         by_device = {c.device_id: c for c in page.items}
         assert by_device["d1"].status == CommandStatus.SUCCESS
         assert by_device["d2"].status == CommandStatus.ERROR
@@ -300,8 +300,8 @@ class TestDispatchBatch:
         )
         await service.await_pending()
 
-        group_id = commands[0].group_id
-        page = await service.get_commands(group_id=group_id)
+        batch_id = commands[0].batch_id
+        page = await service.get_commands(batch_id=batch_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
         result_handler.assert_not_awaited()
 
@@ -343,8 +343,8 @@ class TestDispatchBatch:
         await service.close()
         await release_task
 
-        group_id = commands[0].group_id
-        page = await service.get_commands(group_id=group_id)
+        batch_id = commands[0].batch_id
+        page = await service.get_commands(batch_id=batch_id)
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
 
     async def test_await_pending_is_idempotent(

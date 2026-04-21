@@ -76,8 +76,8 @@
     "allDevices": "Tous les appareils",
     "allAttributes": "Tous les attributs",
     "allUsers": "Tous les utilisateurs",
-    "group": "Groupe",
-    "clearGroup": "Effacer le filtre de groupe",
+    "batch": "Lot",
+    "clearBatch": "Effacer le filtre de lot",
     "newCommand": "Nouvelle commande",
     "statusLabels": {
       "pending": "en cours",

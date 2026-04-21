@@ -50,7 +50,7 @@ async def storage():
     # Clean data between tests (preserve tables so yoyo tracking stays valid)
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM ts_data_points")
-        await conn.execute("DELETE FROM commands")
+        await conn.execute("DELETE FROM unit_commands")
         await conn.execute("DELETE FROM ts_series")
 
     store = PostgresStorage(pool)
@@ -197,8 +197,8 @@ class TestUpsertPoints:
         now = datetime.now(tz=UTC)
         # Insert a command row directly to get a valid FK reference.
         cmd_id = await storage._pool.fetchval(
-            """INSERT INTO commands
-            (group_id, device_id, attribute, value, data_type, status,
+            """INSERT INTO unit_commands
+            (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
             VALUES (NULL, 'd1', 'mode', 'auto', 'str', 'success', NULL, 'u1', $1)
             RETURNING id""",
@@ -213,8 +213,8 @@ class TestUpsertPoints:
         await storage.create_series(_make_series())
         now = datetime.now(tz=UTC)
         cmd_id = await storage._pool.fetchval(
-            """INSERT INTO commands
-            (group_id, device_id, attribute, value, data_type, status,
+            """INSERT INTO unit_commands
+            (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
             VALUES (NULL, 'd1', 'mode', 'auto', 'str', 'success', NULL, 'u1', $1)
             RETURNING id""",
@@ -231,16 +231,16 @@ class TestUpsertPoints:
         await storage.create_series(_make_series())
         now = datetime.now(tz=UTC)
         cmd1_id = await storage._pool.fetchval(
-            """INSERT INTO commands
-            (group_id, device_id, attribute, value, data_type, status,
+            """INSERT INTO unit_commands
+            (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
             VALUES (NULL, 'd1', 'mode', 'auto', 'str', 'success', NULL, 'u1', $1)
             RETURNING id""",
             now,
         )
         cmd2_id = await storage._pool.fetchval(
-            """INSERT INTO commands
-            (group_id, device_id, attribute, value, data_type, status,
+            """INSERT INTO unit_commands
+            (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
             VALUES (NULL, 'd1', 'mode', 'auto', 'str', 'success', NULL, 'u1', $1)
             RETURNING id""",

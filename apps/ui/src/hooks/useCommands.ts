@@ -78,7 +78,7 @@ export function useCommands({
   const deviceId = fixedDeviceId ?? searchParams.get("device_id") ?? undefined;
   const attribute = searchParams.get("attribute") ?? undefined;
   const userId = searchParams.get("user_id") ?? undefined;
-  const groupId = searchParams.get("group_id") ?? undefined;
+  const batchId = searchParams.get("batch_id") ?? undefined;
 
   // Data sources for filter dropdowns
   const { devices } = useDevicesList();
@@ -188,7 +188,7 @@ export function useCommands({
     deviceId,
     attribute,
     userId,
-    groupId,
+    batchId,
     attributeOptions,
     devices,
     users,

@@ -7,7 +7,7 @@ from models.types import SortOrder
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import Command
+    from commands.models import UnitCommand
     from models.pagination import Page, PaginationParams
     from models.types import AttributeValueType, DataType
 
@@ -22,8 +22,8 @@ class CommandsServiceInterface(Protocol):
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-        group_id: str | None = None,
-    ) -> Command: ...
+        batch_id: str | None = None,
+    ) -> UnitCommand: ...
 
     async def dispatch_batch(  # noqa: PLR0913
         self,
@@ -34,7 +34,7 @@ class CommandsServiceInterface(Protocol):
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
-    ) -> list[Command]: ...
+    ) -> list[UnitCommand]: ...
 
     async def await_pending(self) -> None: ...
 
@@ -42,7 +42,7 @@ class CommandsServiceInterface(Protocol):
         self,
         *,
         ids: list[int] | None = None,
-        group_id: str | None = None,
+        batch_id: str | None = None,
         device_id: str | None = None,
         attribute: str | None = None,
         user_id: str | None = None,
@@ -50,4 +50,4 @@ class CommandsServiceInterface(Protocol):
         end: datetime | None = None,
         sort: SortOrder = SortOrder.ASC,
         pagination: PaginationParams | None = None,
-    ) -> Page[Command]: ...
+    ) -> Page[UnitCommand]: ...
