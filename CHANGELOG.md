@@ -1,3 +1,13 @@
+## v0.48.0 (2026-04-21)
+
+### Feat
+
+- **devices-manager**: compute is_faulty property + FaultAttributeDriver (AGR-459)
+
+### Refactor
+
+- **devices-manager**: collapse AttributeDriver into pydantic + discriminated union (AGR-459)
+
 ## v0.47.0 (2026-04-21)
 
 ### Feat
