@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from commands.models import Command, CommandStatus
+from commands.models import CommandStatus, UnitCommand
 from commands.storage.postgres.deserialize import deserialize_command_value
 from models.errors import NotFoundError
 from models.types import DataType, SortOrder
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     import asyncpg
 
     from commands.filters import CommandsQueryFilters
-    from commands.models import CommandCreate
+    from commands.models import UnitCommandCreate
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,10 @@ class PostgresCommandsStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    def _row_to_command(self, row: asyncpg.Record) -> Command:
-        return Command(
+    def _row_to_command(self, row: asyncpg.Record) -> UnitCommand:
+        return UnitCommand(
             id=row["id"],
-            group_id=row["group_id"],
+            batch_id=row["batch_id"],
             device_id=row["device_id"],
             attribute=row["attribute"],
             value=deserialize_command_value(row["value"], DataType(row["data_type"])),
@@ -39,17 +39,17 @@ class PostgresCommandsStorage:
             completed_at=row["completed_at"],
         )
 
-    async def save_command(self, command: CommandCreate) -> Command:
+    async def save_command(self, command: UnitCommandCreate) -> UnitCommand:
         row = await self._pool.fetchrow(
             """
-            INSERT INTO commands
-                (group_id, device_id, attribute, value, data_type,
+            INSERT INTO unit_commands
+                (batch_id, device_id, attribute, value, data_type,
                  status, status_details, user_id, created_at,
                  executed_at, completed_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
             """,
-            command.group_id,
+            command.batch_id,
             command.device_id,
             command.attribute,
             str(command.value),
@@ -63,20 +63,22 @@ class PostgresCommandsStorage:
         )
         return self._row_to_command(row)
 
-    async def save_commands(self, commands: list[CommandCreate]) -> list[Command]:
+    async def save_commands(
+        self, commands: list[UnitCommandCreate]
+    ) -> list[UnitCommand]:
         result = []
         async with self._pool.acquire() as conn, conn.transaction():
             for cmd in commands:
                 row = await conn.fetchrow(
                     """
-                    INSERT INTO commands
-                        (group_id, device_id, attribute, value, data_type,
+                    INSERT INTO unit_commands
+                        (batch_id, device_id, attribute, value, data_type,
                          status, status_details, user_id, created_at,
                          executed_at, completed_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING *
                     """,
-                    cmd.group_id,
+                    cmd.batch_id,
                     cmd.device_id,
                     cmd.attribute,
                     str(cmd.value),
@@ -98,10 +100,10 @@ class PostgresCommandsStorage:
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
-    ) -> Command:
+    ) -> UnitCommand:
         row = await self._pool.fetchrow(
             """
-            UPDATE commands
+            UPDATE unit_commands
             SET status = $1, status_details = $2, completed_at = $3
             WHERE id = $4
             RETURNING *
@@ -121,9 +123,9 @@ class PostgresCommandsStorage:
         params: list[object] = []
         idx = 1
 
-        if filters.group_id is not None:
-            clauses.append(f"group_id = ${idx}")
-            params.append(filters.group_id)
+        if filters.batch_id is not None:
+            clauses.append(f"batch_id = ${idx}")
+            params.append(filters.batch_id)
             idx += 1
         if filters.device_id is not None:
             clauses.append(f"device_id = ${idx}")
@@ -157,12 +159,12 @@ class PostgresCommandsStorage:
         sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> list[Command]:
+    ) -> list[UnitCommand]:
         where, params = self._build_where(filters)
         idx = len(params) + 1
 
         order = sort.value
-        query = f"SELECT * FROM commands{where} ORDER BY created_at {order}"  # noqa: S608
+        query = f"SELECT * FROM unit_commands{where} ORDER BY created_at {order}"  # noqa: S608
         if limit is not None:
             query += f" LIMIT ${idx}"
             params.append(limit)
@@ -174,15 +176,17 @@ class PostgresCommandsStorage:
         rows = await self._pool.fetch(query, *params)
         return [self._row_to_command(r) for r in rows]
 
-    async def get_commands_by_ids(self, ids: list[int]) -> list[Command]:
+    async def get_commands_by_ids(self, ids: list[int]) -> list[UnitCommand]:
         if not ids:
             return []
-        rows = await self._pool.fetch("SELECT * FROM commands WHERE id = ANY($1)", ids)
+        rows = await self._pool.fetch(
+            "SELECT * FROM unit_commands WHERE id = ANY($1)", ids
+        )
         return [self._row_to_command(r) for r in rows]
 
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         where, params = self._build_where(filters)
-        query = f"SELECT COUNT(*) FROM commands{where}"  # noqa: S608
+        query = f"SELECT COUNT(*) FROM unit_commands{where}"  # noqa: S608
         return await self._pool.fetchval(query, *params)
 
     async def close(self) -> None:

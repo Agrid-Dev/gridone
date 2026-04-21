@@ -28,7 +28,7 @@ export type UseCommandWizardArgs = {
   lockedAssetId?: string;
 };
 
-type DispatchResult = { kind: "single" } | { kind: "batch"; groupId: string };
+type DispatchResult = { kind: "single" } | { kind: "batch"; batchId: string };
 
 const DRAFT_KEY = "commands.wizard.draft";
 const DRAFT_DEBOUNCE_MS = 250;
@@ -149,7 +149,7 @@ export function useCommandWizard({
       queryClient.invalidateQueries({ queryKey: ["commands"] });
       if (result.kind === "batch") {
         toast.success(t("commands.new.feedback.batchDispatched"));
-        navigate(`/devices/history?group_id=${result.groupId}`);
+        navigate(`/devices/history?batch_id=${result.batchId}`);
       } else {
         toast.success(t("commands.new.feedback.dispatched"));
         const listUrl = lockedDeviceId
@@ -244,7 +244,7 @@ async function dispatch(v: WizardFormValues): Promise<DispatchResult> {
     value,
     deviceIds: v.deviceIds,
   });
-  return { kind: "batch", groupId: res.groupId };
+  return { kind: "batch", batchId: res.batchId };
 }
 
 // -- Draft persistence ------------------------------------------------------

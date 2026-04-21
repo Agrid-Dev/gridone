@@ -3,28 +3,30 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from commands.models import Command
+from commands.models import UnitCommand
 from models.types import SortOrder
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from commands.filters import CommandsQueryFilters
-    from commands.models import CommandCreate, CommandStatus
+    from commands.models import CommandStatus, UnitCommandCreate
 
 
 @dataclass
 class MemoryStorage:
-    _history: list[Command] = field(default_factory=list)
+    _history: list[UnitCommand] = field(default_factory=list)
     _current_index: int = 0
 
-    async def save_command(self, command: CommandCreate) -> Command:
+    async def save_command(self, command: UnitCommandCreate) -> UnitCommand:
         self._current_index += 1
-        new_command = Command(id=self._current_index, **command.__dict__)
+        new_command = UnitCommand(id=self._current_index, **command.__dict__)
         self._history.append(new_command)
         return new_command
 
-    async def save_commands(self, commands: list[CommandCreate]) -> list[Command]:
+    async def save_commands(
+        self, commands: list[UnitCommandCreate]
+    ) -> list[UnitCommand]:
         return [await self.save_command(cmd) for cmd in commands]
 
     async def update_command_status(
@@ -34,7 +36,7 @@ class MemoryStorage:
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
-    ) -> Command:
+    ) -> UnitCommand:
         for cmd in self._history:
             if cmd.id == command_id:
                 cmd.status = status
@@ -44,10 +46,10 @@ class MemoryStorage:
         msg = f"Command {command_id} not found"
         raise ValueError(msg)
 
-    def _apply_filters(self, filters: CommandsQueryFilters) -> list[Command]:
+    def _apply_filters(self, filters: CommandsQueryFilters) -> list[UnitCommand]:
         results = list(self._history)
-        if filters.group_id is not None:
-            results = [c for c in results if c.group_id == filters.group_id]
+        if filters.batch_id is not None:
+            results = [c for c in results if c.batch_id == filters.batch_id]
         if filters.device_id is not None:
             results = [c for c in results if c.device_id == filters.device_id]
         if filters.attribute is not None:
@@ -67,7 +69,7 @@ class MemoryStorage:
         sort: SortOrder = SortOrder.ASC,
         limit: int | None = None,
         offset: int | None = None,
-    ) -> list[Command]:
+    ) -> list[UnitCommand]:
         results = self._apply_filters(filters)
         if sort == SortOrder.DESC:
             results = list(reversed(results))
@@ -77,7 +79,7 @@ class MemoryStorage:
             results = results[:limit]
         return results
 
-    async def get_commands_by_ids(self, ids: list[int]) -> list[Command]:
+    async def get_commands_by_ids(self, ids: list[int]) -> list[UnitCommand]:
         id_set = set(ids)
         return [c for c in self._history if c.id in id_set]
 

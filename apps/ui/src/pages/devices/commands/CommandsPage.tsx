@@ -47,7 +47,7 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
         deviceId={cmd.deviceId}
         attribute={cmd.attribute}
         userId={cmd.userId}
-        groupId={cmd.groupId}
+        batchId={cmd.batchId}
         attributeOptions={cmd.attributeOptions}
         devices={cmd.devices}
         users={cmd.users}

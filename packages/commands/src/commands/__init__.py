@@ -1,17 +1,19 @@
 from commands.interface import CommandsServiceInterface
 from commands.models import (
-    Command,
-    CommandCreate,
+    BatchCommand,
     CommandStatus,
+    UnitCommand,
+    UnitCommandCreate,
     WriteResult,
 )
 from commands.service import CommandsService
 
 __all__ = [
-    "Command",
-    "CommandCreate",
+    "BatchCommand",
     "CommandStatus",
     "CommandsService",
     "CommandsServiceInterface",
+    "UnitCommand",
+    "UnitCommandCreate",
     "WriteResult",
 ]

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from assets.manager import AssetsManager
 from assets.models import Asset, AssetType
-from commands import Command, CommandsServiceInterface
+from commands import CommandsServiceInterface, UnitCommand
 from models.errors import NotFoundError
 from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
@@ -152,12 +152,12 @@ def async_client(app):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-def _batch_commands(group_id: str, device_ids: list[str]) -> list[Command]:
+def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return [
-        Command(
+        UnitCommand(
             id=i,
-            group_id=group_id,
+            batch_id=batch_id,
             device_id=device_id,
             attribute="setpoint",
             value=21.5,

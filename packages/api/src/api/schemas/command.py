@@ -14,7 +14,7 @@ class CommandsQuery(BaseModel):
     """Query parameters accepted by ``GET /commands``."""
 
     ids: list[int] | None = None
-    group_id: str | None = None
+    batch_id: str | None = None
     device_id: str | None = None
     attribute: str | None = None
     user_id: str | None = None
@@ -26,7 +26,7 @@ class CommandsQuery(BaseModel):
 
 def get_commands_query(  # noqa: PLR0913
     ids: list[int] | None = Query(None),
-    group_id: str | None = Query(None),
+    batch_id: str | None = Query(None),
     filter_device_id: str | None = Query(None, alias="device_id"),
     attribute: str | None = Query(None),
     user_id: str | None = Query(None),
@@ -37,7 +37,7 @@ def get_commands_query(  # noqa: PLR0913
 ) -> CommandsQuery:
     return CommandsQuery(
         ids=ids,
-        group_id=group_id,
+        batch_id=batch_id,
         device_id=filter_device_id,
         attribute=attribute,
         user_id=user_id,
@@ -97,5 +97,5 @@ class AssetCommand(BaseModel):
 class BatchDispatchResponse(BaseModel):
     """Response body for accepted multi-device dispatches."""
 
-    group_id: str
+    batch_id: str
     total: int
