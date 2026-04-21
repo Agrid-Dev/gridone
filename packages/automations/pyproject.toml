@@ -1,0 +1,24 @@
+[project]
+name = "gridone-automations"
+version = "0.1.0"
+description = "Automations and trigger domain models"
+readme = "README.md"
+authors = []
+requires-python = ">=3.13"
+dependencies = [
+    "gridone-models",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../models/src", "tests"]
+markers = [
+    "integration: mark a test as an integration test",
+]
+
+[tool.uv.build-backend]
+module-name = "automations"
+module-root = "src"

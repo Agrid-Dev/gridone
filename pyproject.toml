@@ -19,6 +19,7 @@ gridone-users = { workspace = true }
 gridone-apps = { workspace = true }
 gridone-assets = { workspace = true }
 gridone-timeseries = { workspace = true }
+gridone-automations = { workspace = true }
 gridone-commands = { workspace = true }
 gridone-migrations = { workspace = true }
 
@@ -30,6 +31,7 @@ members = [
     "packages/api",
     "packages/apps",
     "packages/assets",
+    "packages/automations",
     "packages/devices_manager",
     "packages/users",
     "apps/cli",
@@ -86,6 +88,7 @@ source = [
     "apps/api_server",
     "apps/cli",
     "packages/api/src",
+    "packages/automations/src",
     "packages/commands/src",
     "packages/devices-manager/src",
     "packages/timeseries/src",
