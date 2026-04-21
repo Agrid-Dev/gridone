@@ -28,3 +28,9 @@ class NullStorageBackend[M: BaseModel]:
 
     async def delete(self, item_id: str) -> None:
         pass
+
+    async def set_tag(self, device_id: str, key: str, value: str) -> None:
+        pass
+
+    async def delete_tag(self, device_id: str, key: str) -> None:
+        pass

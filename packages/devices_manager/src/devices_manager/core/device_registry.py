@@ -8,7 +8,7 @@ from devices_manager.dto import (
     PhysicalDeviceCreate,
     device_to_public,
 )
-from devices_manager.storage import NullStorageBackend
+from devices_manager.storage import DeviceStorageBackend, NullStorageBackend
 from models.errors import InvalidError, NotFoundError
 
 from .device import Attribute, CoreDevice, DeviceBase, PhysicalDevice, VirtualDevice
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
         DeviceUpdate,
         VirtualDeviceCreate,
     )
-    from devices_manager.storage import StorageBackend
     from devices_manager.types import AttributeValueType, DataType
 
     from .driver import Driver
@@ -44,7 +43,7 @@ class DeviceRegistry:
     _resolve_driver: DriverResolver
     _resolve_transport: TransportResolver
     _on_attribute_update: AttributeUpdateCallback | None
-    _storage: StorageBackend[Device]
+    _storage: DeviceStorageBackend
 
     def __init__(
         self,
@@ -53,7 +52,7 @@ class DeviceRegistry:
         resolve_driver: DriverResolver,
         resolve_transport: TransportResolver,
         on_attribute_update: AttributeUpdateCallback | None = None,
-        storage: StorageBackend[Device] | None = None,
+        storage: DeviceStorageBackend | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
@@ -306,13 +305,13 @@ class DeviceRegistry:
     async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags[key] = value
-        await self._storage.write(device_id, device_to_public(device))
+        await self._storage.set_tag(device_id, key, value)
         return device
 
     async def delete_tag(self, device_id: str, key: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags.pop(key, None)
-        await self._storage.write(device_id, device_to_public(device))
+        await self._storage.delete_tag(device_id, key)
         return device
 
     async def write_attribute(
