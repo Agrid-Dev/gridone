@@ -14,7 +14,7 @@ from devices_manager.dto.transport_dto import (
 )
 from devices_manager.storage.storage_backend import DevicesManagerStorage
 
-from .yaml_dm_storage import YamlFileStorage
+from .yaml_dm_storage import YamlDeviceStorage, YamlFileStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute
@@ -26,15 +26,13 @@ class CoreFileStorage(DevicesManagerStorage):
     """A basic file storage system for the core."""
 
     _root_dir: Path
-    devices: YamlFileStorage[Device]
+    devices: YamlDeviceStorage
     drivers: YamlFileStorage[DriverSpec]
     transports: YamlFileStorage[Transport]
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
-        self.devices = YamlFileStorage[Device](
-            self._root_dir / "devices", model_cls=Device
-        )
+        self.devices = YamlDeviceStorage(self._root_dir / "devices", model_cls=Device)
         self.drivers = YamlFileStorage[DriverSpec](
             self._root_dir / "drivers", model_cls=DriverSpec
         )

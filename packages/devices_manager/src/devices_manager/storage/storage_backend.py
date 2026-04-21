@@ -4,9 +4,11 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
 
+from devices_manager.dto import Device
+
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute
-    from devices_manager.dto import Device, DriverSpec, Transport
+    from devices_manager.dto import DriverSpec, Transport
 
 
 class StorageBackend[M: BaseModel](Protocol):
@@ -21,8 +23,16 @@ class StorageBackend[M: BaseModel](Protocol):
     async def delete(self, item_id: str) -> None: ...
 
 
+class DeviceStorageBackend(StorageBackend[Device], Protocol):
+    """StorageBackend[Device] extended with targeted tag-mutation methods."""
+
+    async def set_tag(self, device_id: str, key: str, value: str) -> None: ...
+
+    async def delete_tag(self, device_id: str, key: str) -> None: ...
+
+
 class DevicesManagerStorage(Protocol):
-    devices: StorageBackend[Device]
+    devices: DeviceStorageBackend
     drivers: StorageBackend[DriverSpec]
     transports: StorageBackend[Transport]
 
@@ -32,6 +42,7 @@ class DevicesManagerStorage(Protocol):
 
 
 __all__ = [
+    "DeviceStorageBackend",
     "DevicesManagerStorage",
     "StorageBackend",
 ]

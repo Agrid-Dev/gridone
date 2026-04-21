@@ -633,6 +633,44 @@ class TestAttributePersistence:
         result = await device_storage.read(device.id)
         assert result.tags == {"asset_id": "new-asset"}
 
+    async def test_tags_removed_keys_deleted_on_write(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        device = _make_device("dev1")
+        device.tags = {"asset_id": "a1", "zone": "north"}
+        await device_storage.write(device.id, device)
+
+        device.tags = {"asset_id": "a1"}
+        await device_storage.write(device.id, device)
+
+        result = await device_storage.read(device.id)
+        assert result.tags == {"asset_id": "a1"}
+
+    async def test_tags_cleared_on_write_with_empty_tags(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+
+        device = _make_device("dev1")
+        device.tags = {"asset_id": "a1", "zone": "north"}
+        await device_storage.write(device.id, device)
+
+        device.tags = {}
+        await device_storage.write(device.id, device)
+
+        result = await device_storage.read(device.id)
+        assert result.tags == {}
+
     async def test_tags_cascade_delete(
         self,
         pool: asyncpg.Pool,
@@ -652,6 +690,86 @@ class TestAttributePersistence:
             "SELECT COUNT(*) FROM dm_device_tags WHERE device_id = $1", "dev1"
         )
         assert count == 0
+
+    async def test_set_tag_inserts_new_tag(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        await device_storage.write("dev1", _make_device("dev1"))
+
+        await device_storage.set_tag("dev1", "zone", "north")
+
+        result = await device_storage.read("dev1")
+        assert result.tags == {"zone": "north"}
+
+    async def test_set_tag_upserts_existing_tag(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        device = _make_device("dev1")
+        device.tags = {"zone": "north"}
+        await device_storage.write("dev1", device)
+
+        await device_storage.set_tag("dev1", "zone", "south")
+
+        result = await device_storage.read("dev1")
+        assert result.tags == {"zone": "south"}
+
+    async def test_delete_tag_removes_row(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        device = _make_device("dev1")
+        device.tags = {"zone": "north"}
+        await device_storage.write("dev1", device)
+
+        await device_storage.delete_tag("dev1", "zone")
+
+        result = await device_storage.read("dev1")
+        assert "zone" not in result.tags
+
+    async def test_delete_tag_noop_if_missing(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        await device_storage.write("dev1", _make_device("dev1"))
+
+        await device_storage.delete_tag("dev1", "nonexistent")
+
+        result = await device_storage.read("dev1")
+        assert result.tags == {}
+
+    async def test_set_tag_survives_read_all_roundtrip(
+        self,
+        transport_storage: PostgresTransportStorage,
+        driver_storage: PostgresDriverStorage,
+        device_storage: PostgresDeviceStorage,
+    ):
+        await transport_storage.write("t1", _make_transport("t1"))
+        await driver_storage.write("d1", _make_driver("d1"))
+        await device_storage.write("dev1", _make_device("dev1"))
+
+        await device_storage.set_tag("dev1", "asset_id", "asset-xyz")
+
+        all_devices = await device_storage.read_all()
+        dev = next(d for d in all_devices if d.id == "dev1")
+        assert dev.tags == {"asset_id": "asset-xyz"}
 
     async def test_virtual_device_attribute_round_trip(
         self,

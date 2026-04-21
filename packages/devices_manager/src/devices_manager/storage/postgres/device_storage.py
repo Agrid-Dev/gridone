@@ -197,6 +197,22 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             msg = f"dm_devices entry '{item_id}' not found"
             raise FileNotFoundError(msg)
 
+    async def set_tag(self, device_id: str, key: str, value: str) -> None:
+        await self._pool.execute(
+            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
+            " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
+            device_id,
+            key,
+            value,
+        )
+
+    async def delete_tag(self, device_id: str, key: str) -> None:
+        await self._pool.execute(
+            "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
+            device_id,
+            key,
+        )
+
 
 async def _fetch_attrs_and_tags(
     pool: asyncpg.Pool,
@@ -221,11 +237,14 @@ async def _write_tags(
     device_id: str,
     tags: dict[str, str],
 ) -> None:
-    await conn.execute("DELETE FROM dm_device_tags WHERE device_id = $1", device_id)
-    for key, value in tags.items():
-        await conn.execute(
-            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)",
-            device_id,
-            key,
-            value,
+    if tags:
+        await conn.executemany(
+            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
+            " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
+            [(device_id, k, v) for k, v in tags.items()],
         )
+    await conn.execute(
+        "DELETE FROM dm_device_tags WHERE device_id = $1 AND key <> ALL($2::text[])",
+        device_id,
+        list(tags),
+    )

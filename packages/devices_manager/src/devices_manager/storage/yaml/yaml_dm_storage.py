@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel
 
+from devices_manager.dto.device_dto import Device
 from devices_manager.storage.storage_backend import StorageBackend
 
 
@@ -69,3 +70,17 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
 
     async def delete(self, item_id: str) -> None:
         await asyncio.to_thread(self._delete_sync, item_id)
+
+
+class YamlDeviceStorage(YamlFileStorage[Device]):
+    """YamlFileStorage[Device] extended with targeted tag-mutation methods."""
+
+    async def set_tag(self, device_id: str, key: str, value: str) -> None:
+        dto = await self.read(device_id)
+        dto.tags[key] = value
+        await self.write(device_id, dto)
+
+    async def delete_tag(self, device_id: str, key: str) -> None:
+        dto = await self.read(device_id)
+        dto.tags.pop(key, None)
+        await self.write(device_id, dto)
