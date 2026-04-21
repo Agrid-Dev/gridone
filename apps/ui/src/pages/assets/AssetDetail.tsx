@@ -10,7 +10,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAsset, listAssets, listAssetDevices } from "@/api/assets";
 import type { Asset } from "@/api/assets";
-import { listDevices, deleteDeviceTag } from "@/api/devices";
+import { listDevices, unlinkDeviceFromAsset } from "@/api/devices";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
@@ -57,7 +57,7 @@ export default function AssetDetail() {
   );
 
   const unlinkMutation = useMutation({
-    mutationFn: (deviceId: string) => deleteDeviceTag(deviceId, "asset_id"),
+    mutationFn: (deviceId: string) => unlinkDeviceFromAsset(deviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],

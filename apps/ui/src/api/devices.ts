@@ -256,6 +256,17 @@ export function deleteDeviceTag(deviceId: string, key: string): Promise<void> {
   );
 }
 
+export function linkDeviceToAsset(
+  deviceId: string,
+  assetId: string,
+): Promise<Device> {
+  return setDeviceTag(deviceId, "asset_id", assetId);
+}
+
+export function unlinkDeviceFromAsset(deviceId: string): Promise<void> {
+  return deleteDeviceTag(deviceId, "asset_id");
+}
+
 export async function updateDeviceAttribute(
   deviceId: string,
   attributeName: string,

@@ -195,7 +195,14 @@ class TestListDevices:
     def test_filter_by_tags_multiple_values_and_keys(
         self, client: TestClient, dm: MagicMock
     ):
-        client.get("/", params=[("tags", "asset_id:a1,a2"), ("tags", "zone:north")])  # ty: ignore[invalid-argument-type]
+        client.get(
+            "/",
+            params=[  # ty: ignore[invalid-argument-type]
+                ("tags", "asset_id:a1"),
+                ("tags", "asset_id:a2"),
+                ("tags", "zone:north"),
+            ],
+        )
         dm.list_devices.assert_called_once_with(
             ids=None, types=None, tags={"asset_id": ["a1", "a2"], "zone": ["north"]}
         )

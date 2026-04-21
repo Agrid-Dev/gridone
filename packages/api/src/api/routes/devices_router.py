@@ -62,19 +62,18 @@ def _resolve_start(query: CommandsQuery) -> datetime | None:
 
 
 def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
-    """Parse ``?tags=key:val1,val2`` query params into a tags filter dict.
+    """Parse ``?tags=key:value`` query params into a tags filter dict.
 
-    Each entry must be ``key:value`` or ``key:v1,v2``.
     Filter semantics: AND across keys, OR within values of the same key.
-    Multiple ``?tags=key:v1&tags=key:v2`` entries for the same key are merged (OR).
+    Repeat the param for OR: ``?tags=asset_id:a1&tags=asset_id:a2``.
     """
     if not raw:
         return None
     result: dict[str, list[str]] = {}
     for item in raw:
-        key, _, values_str = item.partition(":")
-        values = [v for v in values_str.split(",") if v]
-        result.setdefault(key, []).extend(values)
+        key, _, value = item.partition(":")
+        if value:
+            result.setdefault(key, []).append(value)
     return result or None
 
 
