@@ -526,12 +526,12 @@ _TYPED_WRITABLE_DEVICE = Device(
 class TestDispatchBatchCommand:
     @pytest.fixture
     def dm(self):
-        # Include a typed, writable device so the device_type-resolution tests
-        # below can exercise the dm.list_devices(device_type=...) path.
+        # Include a typed, writable device so the types-based target below
+        # exercises the dm.list_devices(types=...) path.
         return _make_dm([_PHYSICAL_DEVICE, _TYPED_WRITABLE_DEVICE])
 
     @pytest.mark.asyncio
-    async def test_success_returns_202_with_batch_id(
+    async def test_ids_target_returns_202(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         mock_commands_service.dispatch_batch.return_value = _batch_commands(
@@ -541,7 +541,7 @@ class TestDispatchBatchCommand:
             response = await ac.post(
                 "/commands",
                 json={
-                    "device_ids": ["device1", "device1"],
+                    "target": {"ids": ["device1", "device1"]},
                     "attribute": "temperature_setpoint",
                     "value": 22.5,
                 },
@@ -550,14 +550,14 @@ class TestDispatchBatchCommand:
         assert response.json() == {"batch_id": "abc123", "total": 2}
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["device_ids"] == ["device1", "device1"]
+        assert kwargs["target"] == {"ids": ["device1", "device1"]}
         assert kwargs["attribute"] == "temperature_setpoint"
         assert kwargs["value"] == 22.5
         assert kwargs["data_type"] == DataType.FLOAT
         assert kwargs["confirm"] is True
 
     @pytest.mark.asyncio
-    async def test_device_type_resolves_to_matching_devices(
+    async def test_types_filter_target_returns_202(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         mock_commands_service.dispatch_batch.return_value = _batch_commands(
@@ -567,7 +567,7 @@ class TestDispatchBatchCommand:
             response = await ac.post(
                 "/commands",
                 json={
-                    "device_type": "thermostat",
+                    "target": {"types": ["thermostat"]},
                     "attribute": "setpoint",
                     "value": 21.0,
                 },
@@ -576,59 +576,51 @@ class TestDispatchBatchCommand:
         assert response.json() == {"batch_id": "grp-t", "total": 1}
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["device_ids"] == ["thermo1"]
+        assert kwargs["target"] == {"types": ["thermostat"]}
 
     @pytest.mark.asyncio
-    async def test_device_type_with_no_matching_devices_returns_422(
-        self, async_client: AsyncClient
-    ):
+    async def test_unknown_target_key_returns_422(self, async_client: AsyncClient):
         async with async_client as ac:
             response = await ac.post(
                 "/commands",
                 json={
-                    "device_type": "unknown_type",
-                    "attribute": "setpoint",
-                    "value": 21.0,
-                },
-            )
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_both_device_ids_and_device_type_returns_422(
-        self, async_client: AsyncClient
-    ):
-        async with async_client as ac:
-            response = await ac.post(
-                "/commands",
-                json={
-                    "device_ids": ["thermo1"],
-                    "device_type": "thermostat",
-                    "attribute": "setpoint",
-                    "value": 21.0,
-                },
-            )
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_neither_device_ids_nor_device_type_returns_422(
-        self, async_client: AsyncClient
-    ):
-        async with async_client as ac:
-            response = await ac.post(
-                "/commands",
-                json={"attribute": "setpoint", "value": 21.0},
-            )
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_empty_device_ids_returns_422(self, async_client: AsyncClient):
-        async with async_client as ac:
-            response = await ac.post(
-                "/commands",
-                json={
-                    "device_ids": [],
+                    "target": {"ids": ["device1"], "sibling": "nope"},
                     "attribute": "temperature_setpoint",
                     "value": 22.5,
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_target_resolves_to_empty_returns_422(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.dispatch_batch.return_value = []
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "target": {"ids": ["device1"]},
+                    "attribute": "temperature_setpoint",
+                    "value": 22.5,
+                },
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_no_matching_devices_for_attribute_returns_422(
+        self, async_client: AsyncClient
+    ):
+        # The target filter (types=unknown_type) has no writable
+        # devices for 'setpoint', so resolve_attribute_data_type_for_target
+        # raises InvalidError → 422 before the service is invoked.
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "target": {"types": ["unknown_type"]},
+                    "attribute": "setpoint",
+                    "value": 21.0,
                 },
             )
         assert response.status_code == 422
@@ -642,7 +634,7 @@ class TestDispatchBatchCommand:
             response = await ac.post(
                 "/commands",
                 json={
-                    "device_ids": ["device1"],
+                    "target": {"ids": ["device1"]},
                     "attribute": "temperature",
                     "value": 22.5,
                 },

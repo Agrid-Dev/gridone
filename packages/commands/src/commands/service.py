@@ -13,7 +13,12 @@ from models.pagination import Page, PaginationParams
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.protocols import CommandResultHandler, DeviceWriter
+    from commands.models import Target
+    from commands.protocols import (
+        CommandResultHandler,
+        DeviceWriter,
+        TargetResolver,
+    )
     from commands.storage.protocol import CommandsStorage
     from models.types import AttributeValueType, DataType
 
@@ -26,10 +31,12 @@ class CommandsService:
         storage: CommandsStorage,
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
+        target_resolver: TargetResolver,
     ) -> None:
         self._storage = storage
         self._device_writer = device_writer
         self._result_handler = result_handler
+        self._target_resolver = target_resolver
         self._tasks: set[asyncio.Task[object]] = set()
 
     async def await_pending(self) -> None:
@@ -51,11 +58,12 @@ class CommandsService:
         storage_url: str,
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
+        target_resolver: TargetResolver,
     ) -> CommandsService:
         from commands.storage import build_storage  # noqa: PLC0415
 
         storage = await build_storage(storage_url)
-        return cls(storage, device_writer, result_handler)
+        return cls(storage, device_writer, result_handler, target_resolver)
 
     async def dispatch(  # noqa: PLR0913
         self,
@@ -106,25 +114,29 @@ class CommandsService:
     async def dispatch_batch(  # noqa: PLR0913
         self,
         *,
-        device_ids: list[str],
+        target: Target,
         attribute: str,
         value: AttributeValueType,
         data_type: DataType,
         user_id: str,
         confirm: bool = True,
     ) -> list[UnitCommand]:
-        """Fan-out a command to many devices as a single batch.
+        """Fan-out a command to the devices matched by *target*.
 
-        Persists a ``PENDING`` command row per device, spawns a single
-        background task that runs all per-device writes concurrently, and
-        returns the persisted commands immediately. Per-device exceptions are
-        absorbed into ``ERROR`` status without affecting other devices in the
-        batch — callers poll the returned commands (by id or batch_id) to
-        observe completion.
+        The injected :class:`TargetResolver` runs at dispatch time and returns
+        the list of device ids the target currently matches. Each resolved
+        device gets a ``PENDING`` unit command, all sharing one ``batch_id``.
+        Per-device writes run concurrently in a background task; the persisted
+        commands are returned immediately.
 
-        All commands share the same ``batch_id`` and are returned in the order
-        of the input ``device_ids``.
+        When the target resolves to an empty set, the method logs a warning
+        and returns ``[]`` — no exception, no PENDING rows created.
         """
+        device_ids = await self._target_resolver.resolve(target)
+        if not device_ids:
+            logger.warning("dispatch_batch: target %r resolved to no devices", target)
+            return []
+
         batch_id = uuid4().hex[:16]
         now = datetime.now(UTC)
         commands = await self._storage.save_commands(

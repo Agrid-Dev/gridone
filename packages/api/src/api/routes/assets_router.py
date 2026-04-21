@@ -22,7 +22,7 @@ from api.dependencies import (
 )
 from api.permissions import Permission
 from api.routes._command_helpers import (
-    resolve_attribute_data_type,
+    resolve_attribute_data_type_for_target,
     to_batch_dispatch_response,
 )
 from api.schemas.command import AssetCommand, BatchDispatchResponse
@@ -185,25 +185,24 @@ async def dispatch_asset_command(
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> BatchDispatchResponse:
     await am.get_by_id(asset_id)
-    types = [body.device_type]
+    asset_ids = [asset_id]
     if body.recursive:
         descendants = await am.get_descendants(asset_id)
-        all_asset_ids = [asset_id] + [a.id for a in descendants]
-    else:
-        all_asset_ids = [asset_id]
-    device_ids = [
-        d.id for d in dm.list_devices(tags={"asset_id": all_asset_ids}, types=types)
-    ]
-    if not device_ids:
-        msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
-        raise NotFoundError(msg)
-    data_type = resolve_attribute_data_type(dm, device_ids, body.attribute)
+        asset_ids.extend(a.id for a in descendants)
+    target: dict = {
+        "tags": {"asset_id": asset_ids},
+        "types": [body.device_type],
+    }
+    data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
     commands = await commands_svc.dispatch_batch(
-        device_ids=device_ids,
+        target=target,
         attribute=body.attribute,
         value=body.value,
         data_type=data_type,
         user_id=user_id,
         confirm=body.confirm,
     )
+    if not commands:
+        msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
+        raise NotFoundError(msg)
     return to_batch_dispatch_response(commands)

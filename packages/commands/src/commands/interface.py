@@ -7,7 +7,7 @@ from models.types import SortOrder
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import UnitCommand
+    from commands.models import Target, UnitCommand
     from models.pagination import Page, PaginationParams
     from models.types import AttributeValueType, DataType
 
@@ -28,7 +28,7 @@ class CommandsServiceInterface(Protocol):
     async def dispatch_batch(  # noqa: PLR0913
         self,
         *,
-        device_ids: list[str],
+        target: Target,
         attribute: str,
         value: AttributeValueType,
         data_type: DataType,

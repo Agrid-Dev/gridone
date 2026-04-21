@@ -1,17 +1,16 @@
 import { useSearchParams } from "react-router";
 import { useMemo } from "react";
+import type { DevicesFilter } from "@/api/devices";
 
-const FILTER_KEYS = ["type"] as const;
-
-export function useFilterParams(): Record<string, string> | undefined {
+/** Read the `type` query param and expose it as a ``DevicesFilter`` so the
+ *  devices list reuses the same shape as the batch-command target.
+ *  Returns ``undefined`` when no filter keys are present. */
+export function useFilterParams(): DevicesFilter | undefined {
   const [searchParams] = useSearchParams();
 
   return useMemo(() => {
-    const params: Record<string, string> = {};
-    for (const key of FILTER_KEYS) {
-      const value = searchParams.get(key);
-      if (value) params[key] = value;
-    }
-    return Object.keys(params).length > 0 ? params : undefined;
+    const type = searchParams.get("type");
+    if (!type) return undefined;
+    return { types: [type] };
   }, [searchParams]);
 }

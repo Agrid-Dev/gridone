@@ -242,7 +242,7 @@ async function dispatch(v: WizardFormValues): Promise<DispatchResult> {
   const res = await dispatchBatchCommand({
     attribute,
     value,
-    deviceIds: v.deviceIds,
+    target: { ids: v.deviceIds },
   });
   return { kind: "batch", batchId: res.batchId };
 }

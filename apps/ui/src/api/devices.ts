@@ -191,11 +191,54 @@ export type DeviceCreatePayload = {
   config: Record<string, unknown>;
 };
 
-export function listDevices(
-  params?: Record<string, string>,
-): Promise<Device[]> {
-  const query = params ? `?${new URLSearchParams(params)}` : "";
-  return request<Device[]>(`/devices/${query}`, undefined, { camelCase: true });
+/** Shape of a filter over devices, shared between ``GET /devices`` and the
+ *  ``target`` field on batch-command dispatches. Mirrors the backend
+ *  ``DM.list_devices`` kwargs. Intersection semantics across fields. */
+export type DevicesFilter = {
+  ids?: string[];
+  types?: string[];
+  tags?: Record<string, string[]>;
+  isFaulty?: boolean;
+  writableAttribute?: string;
+  writableAttributeType?: "int" | "float" | "str" | "bool";
+};
+
+/** Serialise a DevicesFilter into query params for ``GET /devices``.
+ *
+ *  Field mapping:
+ *   - ``ids`` / ``types`` become repeated ``ids=`` / ``type=`` params
+ *   - ``tags`` expands to ``tags=key:value`` pairs
+ *   - scalar fields map to their snake_case equivalents
+ */
+export function devicesFilterToQueryParams(
+  filter: DevicesFilter | undefined,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (!filter) return params;
+  for (const id of filter.ids ?? []) params.append("ids", id);
+  for (const t of filter.types ?? []) params.append("type", t);
+  if (filter.tags) {
+    for (const [key, values] of Object.entries(filter.tags)) {
+      for (const value of values) params.append("tags", `${key}:${value}`);
+    }
+  }
+  if (filter.isFaulty !== undefined) {
+    params.set("is_faulty", String(filter.isFaulty));
+  }
+  if (filter.writableAttribute) {
+    params.set("writable_attribute", filter.writableAttribute);
+  }
+  if (filter.writableAttributeType) {
+    params.set("writable_attribute_type", filter.writableAttributeType);
+  }
+  return params;
+}
+
+export function listDevices(filter?: DevicesFilter): Promise<Device[]> {
+  const qs = devicesFilterToQueryParams(filter).toString();
+  return request<Device[]>(`/devices/${qs ? `?${qs}` : ""}`, undefined, {
+    camelCase: true,
+  });
 }
 
 export function getDevice(deviceId: string): Promise<Device> {

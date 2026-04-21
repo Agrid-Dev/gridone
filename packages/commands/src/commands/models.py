@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
+from typing import Any
 
 from models.types import AttributeValueType, DataType  # noqa: TC001
 
@@ -18,6 +20,17 @@ class WriteResult:
     """Minimal result returned by DeviceWriter, decoupled from devices_manager."""
 
     last_changed: datetime | None
+
+
+# ---------------------------------------------------------------------------
+# Target
+# ---------------------------------------------------------------------------
+# A ``Target`` is an opaque description of a device set. The commands package
+# never inspects its keys — the composition-root :class:`TargetResolver`
+# interprets it (today by forwarding to ``devices_manager.list_devices``).
+# The HTTP layer validates the shape with pydantic before it reaches the
+# service, so unknown keys land as 422 at the boundary.
+Target = Mapping[str, Any]
 
 
 @dataclass
@@ -44,10 +57,9 @@ class UnitCommand(UnitCommandCreate):
 class BatchCommand:
     """Summary of a batch dispatch — one write fanned out across many devices.
 
-    In this step BatchCommand is a DTO derived from the unit commands it
-    produced; persistence is implicit via the shared ``batch_id`` on
-    ``unit_commands`` rows. A later step promotes it to a persisted entity
-    with a resolvable target filter.
+    Derived from the unit commands produced by ``dispatch_batch``. Target
+    persistence is deferred to the ``command_templates`` table in a later
+    step, so this DTO intentionally does not carry the target.
     """
 
     batch_id: str

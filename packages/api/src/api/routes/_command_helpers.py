@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from commands import BatchCommand
 from models.errors import InvalidError
@@ -31,6 +31,30 @@ def resolve_attribute_data_type(
     matching = dm.list_devices(ids=device_ids, writable_attribute=attribute)
     if not matching:
         msg = f"No device exposes '{attribute}' as a writable attribute"
+        raise InvalidError(msg)
+    return matching[0].attributes[attribute].data_type
+
+
+def resolve_attribute_data_type_for_target(
+    dm: DevicesManagerInterface,
+    target: dict[str, Any],
+    attribute: str,
+) -> DataType:
+    """Resolve ``DataType`` by intersecting *target* with a writable *attribute*.
+
+    Queries DM with every field of the target plus
+    ``writable_attribute=attribute``. Raises :class:`InvalidError` if no device
+    matches. A ``writable_attribute`` key inside *target* is ignored — the
+    attribute being dispatched is the authoritative one for data-type
+    resolution.
+    """
+    kwargs = {k: v for k, v in target.items() if k != "writable_attribute"}
+    matching = dm.list_devices(writable_attribute=attribute, **kwargs)
+    if not matching:
+        msg = (
+            f"No device matching the target exposes '{attribute}' "
+            "as a writable attribute"
+        )
         raise InvalidError(msg)
     return matching[0].attributes[attribute].data_type
 
