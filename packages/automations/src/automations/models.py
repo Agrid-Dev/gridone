@@ -31,7 +31,6 @@ class ConditionTarget(StrEnum):
 class ExecutionStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
-    SKIPPED = "skipped"
 
 
 class ActionSpec(BaseModel):
@@ -90,15 +89,6 @@ class AutomationCreate(BaseModel):
 
 class Automation(AutomationCreate):
     id: str = ""
-
-
-class AutomationExecution(BaseModel):
-    id: str
-    automation_id: str
-    triggered_at: datetime
-    status: ExecutionStatus
-    executed_at: datetime | None = None
-    error: str | None = None
 
 
 AutomationCreate.model_rebuild()

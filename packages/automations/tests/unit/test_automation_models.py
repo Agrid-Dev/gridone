@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 import pytest
 from automations.models import (
     ActionSpec,
     Automation,
     AutomationCreate,
-    AutomationExecution,
     ChangeEventTrigger,
     ComparisonOperator,
     Condition,
     ConditionTarget,
-    ExecutionStatus,
     ScheduleTrigger,
     Trigger,
     TriggerType,
@@ -24,10 +20,6 @@ _trigger_adapter = TypeAdapter(Trigger)
 
 def _action() -> ActionSpec:
     return ActionSpec(provider_id="commands", template_id="tmpl-01")
-
-
-def _now() -> datetime:
-    return datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
 
 
 class TestValidation:
@@ -127,15 +119,3 @@ class TestAutomationUseCases:
             id="abc123def456abcd",
         )
         assert a.id == "abc123def456abcd"
-
-
-class TestAutomationExecution:
-    @pytest.mark.parametrize("status", list(ExecutionStatus))
-    def test_all_statuses(self, status: ExecutionStatus):
-        ex = AutomationExecution(
-            id="exec0001",
-            automation_id="auto0001",
-            triggered_at=_now(),
-            status=status,
-        )
-        assert ex.status == status
