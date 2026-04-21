@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 if TYPE_CHECKING:
     from datetime import datetime
 
-    from commands.models import WriteResult
+    from commands.models import DevicesFilter, WriteResult
     from models.types import AttributeValueType, DataType
 
 
@@ -30,3 +30,10 @@ class CommandResultHandler(Protocol):
         command_id: int,
         last_changed: datetime | None,
     ) -> None: ...
+
+
+class DeviceTargetResolver(Protocol):
+    """Expands hierarchy-aware filters and queries DM for matching device ids.
+    Lives outside DM so DM never imports assets; wired in composition root."""
+
+    async def resolve(self, devices_filter: DevicesFilter) -> list[str]: ...

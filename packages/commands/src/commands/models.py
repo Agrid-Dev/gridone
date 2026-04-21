@@ -7,6 +7,15 @@ from enum import StrEnum
 from models.types import AttributeValueType, DataType  # noqa: TC001
 
 
+@dataclass
+class DevicesFilter:
+    ids: list[str] | None = None
+    types: list[str] | None = None
+    writable_attribute: str | None = None
+    writable_attribute_type: DataType | None = None
+    tags: dict[str, list[str]] | None = None
+
+
 class CommandStatus(StrEnum):
     PENDING = "pending"
     SUCCESS = "success"
