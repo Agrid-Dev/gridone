@@ -21,7 +21,7 @@ from devices_manager.dto import (
 from devices_manager.dto import (
     PhysicalDeviceCreate as DeviceCreate,
 )
-from devices_manager.storage import StorageBackend
+from devices_manager.storage import DeviceStorageBackend
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 
@@ -654,6 +654,39 @@ class TestDeviceRegistryUpdate:
         assert result.tags == {}
 
     @pytest.mark.asyncio
+    async def test_set_tag_calls_storage_set_tag_not_write(
+        self, device, driver, mock_transport_client, on_attribute_update
+    ):
+        storage = AsyncMock(spec=DeviceStorageBackend)
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        await registry.set_tag(device.id, "zone", "north")
+        storage.set_tag.assert_awaited_once_with(device.id, "zone", "north")
+        storage.write.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_delete_tag_calls_storage_delete_tag_not_write(
+        self, device, driver, mock_transport_client, on_attribute_update
+    ):
+        device.tags = {"zone": "north"}
+        storage = AsyncMock(spec=DeviceStorageBackend)
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+            storage=storage,
+        )
+        await registry.delete_tag(device.id, "zone")
+        storage.delete_tag.assert_awaited_once_with(device.id, "zone")
+        storage.write.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_update_not_found(self, device_registry):
         with pytest.raises(NotFoundError):
             await device_registry.update("unknown", DeviceUpdate(name="X"))
@@ -968,7 +1001,7 @@ class TestDeviceRegistryPersistence:
     async def test_add_persists_to_storage(
         self, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DeviceStorageBackend)
         registry = DeviceRegistry(
             resolve_driver=_make_driver_resolver(driver),
             resolve_transport=_make_transport_resolver(mock_transport_client),
@@ -990,7 +1023,7 @@ class TestDeviceRegistryPersistence:
     async def test_register_persists_to_storage(
         self, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DeviceStorageBackend)
         registry = DeviceRegistry(
             resolve_driver=_make_driver_resolver(driver),
             resolve_transport=_make_transport_resolver(mock_transport_client),
@@ -1011,7 +1044,7 @@ class TestDeviceRegistryPersistence:
     async def test_update_persists_to_storage(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DeviceStorageBackend)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),
@@ -1026,7 +1059,7 @@ class TestDeviceRegistryPersistence:
     async def test_remove_deletes_from_storage(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DeviceStorageBackend)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),
