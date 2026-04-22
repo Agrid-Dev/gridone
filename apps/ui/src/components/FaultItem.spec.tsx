@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { FaultItem, type FaultAttribute } from "./FaultItem";
-import type { Severity } from "./SeverityChip";
+import { FaultItem } from "./FaultItem";
+import type { FaultAttribute, Severity } from "@/api/devices";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: { ago?: string; count?: number }) => {
       const map: Record<string, string> = {
-        "common.severity.alert": "ALERT",
-        "common.severity.warning": "WARNING",
-        "common.severity.info": "INFO",
+        "common.severity.alert": "alert",
+        "common.severity.warning": "warning",
+        "common.severity.info": "info",
         "common.faults.ok": "OK",
         "common.timeAgo.justNow": "just now",
       };
@@ -43,23 +43,19 @@ afterEach(() => {
 });
 
 describe("FaultItem — active mode", () => {
-  const severities: Array<{ severity: Severity; label: string }> = [
-    { severity: "alert", label: "ALERT" },
-    { severity: "warning", label: "WARNING" },
-    { severity: "info", label: "INFO" },
-  ];
+  const severities: Severity[] = ["alert", "warning", "info"];
 
   it.each(severities)(
-    "renders $severity chip with label and 'Active since' text",
-    ({ severity, label }) => {
+    "renders %s chip with label and 'Active since' text",
+    (severity) => {
       const lastChanged = new Date(
         Date.parse("2026-04-22T10:00:00Z") - 10 * 60_000,
       ).toISOString();
       render(
         <FaultItem attribute={{ ...baseActive, severity, lastChanged }} />,
       );
-      expect(screen.getByText(label)).toBeInTheDocument();
-      expect(screen.getByText("Filter alarm")).toBeInTheDocument();
+      expect(screen.getByText(severity)).toBeInTheDocument();
+      expect(screen.getByText("Filter Alarm")).toBeInTheDocument();
       expect(screen.getByText(/Active since 10 minutes/)).toBeInTheDocument();
     },
   );
@@ -79,50 +75,11 @@ describe("FaultItem — healthy mode", () => {
 
   it("shows label + OK and no severity chip", () => {
     render(<FaultItem attribute={healthy} />);
-    expect(screen.getByText("Filter alarm")).toBeInTheDocument();
+    expect(screen.getByText("Filter Alarm")).toBeInTheDocument();
     expect(screen.getByText("OK")).toBeInTheDocument();
-    expect(screen.queryByText("ALERT")).not.toBeInTheDocument();
-    expect(screen.queryByText("WARNING")).not.toBeInTheDocument();
-    expect(screen.queryByText("INFO")).not.toBeInTheDocument();
-  });
-});
-
-describe("FaultItem — label rules by dataType", () => {
-  const scenarios: Array<{
-    title: string;
-    attribute: FaultAttribute;
-    expected: string;
-  }> = [
-    {
-      title: "bool → Title Case of snake_case name",
-      attribute: { ...baseActive, dataType: "bool", name: "filter_alarm" },
-      expected: "Filter alarm",
-    },
-    {
-      title: "str → currentValue verbatim",
-      attribute: {
-        ...baseActive,
-        dataType: "str",
-        name: "error_state",
-        currentValue: "High pressure",
-      },
-      expected: "High pressure",
-    },
-    {
-      title: "int → '<Title Case name>: <value>'",
-      attribute: {
-        ...baseActive,
-        dataType: "int",
-        name: "error_code",
-        currentValue: 42,
-      },
-      expected: "Error code: 42",
-    },
-  ];
-
-  it.each(scenarios)("$title", ({ attribute, expected }) => {
-    render(<FaultItem attribute={attribute} />);
-    expect(screen.getByText(expected)).toBeInTheDocument();
+    expect(screen.queryByText("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText("warning")).not.toBeInTheDocument();
+    expect(screen.queryByText("info")).not.toBeInTheDocument();
   });
 });
 
@@ -137,22 +94,8 @@ describe("FaultItem — edge cases", () => {
       />,
     );
     expect(
-      screen.getByText("Very long attribute name that will overflow container"),
+      screen.getByText("Very Long Attribute Name That Will Overflow Container"),
     ).toHaveClass("truncate");
-  });
-
-  it("falls back to Title Case name when str dataType has null currentValue", () => {
-    render(
-      <FaultItem
-        attribute={{
-          ...baseActive,
-          dataType: "str",
-          name: "error_state",
-          currentValue: null,
-        }}
-      />,
-    );
-    expect(screen.getByText("Error state")).toBeInTheDocument();
   });
 });
 

@@ -116,9 +116,9 @@
       "days_other": "{{count}} jours"
     },
     "severity": {
-      "alert": "ALERTE",
-      "warning": "AVERTISSEMENT",
-      "info": "INFO"
+      "alert": "alerte",
+      "warning": "avertissement",
+      "info": "info"
     },
     "faults": {
       "activeSince": "Actif depuis {{ago}}",

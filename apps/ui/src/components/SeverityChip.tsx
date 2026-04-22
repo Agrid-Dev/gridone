@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import type { Severity } from "@/api/devices";
 import { cn } from "@/lib/utils";
 
-export type Severity = "alert" | "warning" | "info";
+export type { Severity };
 
 const SEVERITY_CLASSES: Record<Severity, string> = {
   alert: "bg-red-600 text-white border-transparent hover:bg-red-600",
@@ -20,7 +21,8 @@ export function SeverityChip({ severity, className }: SeverityChipProps) {
   return (
     <Badge
       variant="outline"
-      className={cn(SEVERITY_CLASSES[severity], className)}
+      data-severity={severity}
+      className={cn("uppercase", SEVERITY_CLASSES[severity], className)}
     >
       {t(`common.severity.${severity}`)}
     </Badge>

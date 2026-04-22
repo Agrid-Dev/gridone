@@ -1,48 +1,19 @@
 import type { KeyboardEvent } from "react";
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { SeverityChip, type Severity } from "./SeverityChip";
+import { SeverityChip } from "./SeverityChip";
+import type { FaultAttribute } from "@/api/devices";
+import { faultLabel } from "@/lib/faultLabel";
 import { cn, formatTimeAgo } from "@/lib/utils";
-
-export type FaultAttribute = {
-  name: string;
-  dataType: "bool" | "int" | "str" | string;
-  severity: Severity;
-  isFaulty: boolean;
-  currentValue: string | number | boolean | null;
-  lastChanged: string | null;
-};
 
 type FaultItemProps = {
   attribute: FaultAttribute;
   onClick?: () => void;
 };
 
-/** Convert a snake_case attribute name into a Title Case label
- *  (e.g. `filter_alarm` → `Filter alarm`). */
-function attributeLabel(name: string): string {
-  const spaced = name.replace(/_/g, " ").trim();
-  if (!spaced) return spaced;
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
-}
-
-function humanLabel(attribute: FaultAttribute): string {
-  switch (attribute.dataType) {
-    case "str":
-      return attribute.currentValue == null
-        ? attributeLabel(attribute.name)
-        : String(attribute.currentValue);
-    case "int":
-      return `${attributeLabel(attribute.name)}: ${attribute.currentValue ?? ""}`;
-    case "bool":
-    default:
-      return attributeLabel(attribute.name);
-  }
-}
-
 export function FaultItem({ attribute, onClick }: FaultItemProps) {
   const { t } = useTranslation();
-  const label = humanLabel(attribute);
+  const label = faultLabel(attribute);
   const interactive = Boolean(onClick);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
