@@ -1,3 +1,14 @@
+## v0.52.0 (2026-04-22)
+
+### Feat
+
+- **ui**: add SeverityChip primitive and FaultItem component
+- **ui**: add SeverityChip primitive and FaultItem component
+
+### Refactor
+
+- **ui**: address PR #220 review feedback on FaultItem/SeverityChip
+
 ## v0.51.0 (2026-04-21)
 
 ### Feat
