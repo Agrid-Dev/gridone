@@ -1,3 +1,18 @@
+## v0.53.0 (2026-04-22)
+
+### Feat
+
+- **commands**: introduce CommandTemplate and template CRUD (AGR-510)
+
+### Fix
+
+- **commands**: repoint ts_data_points.command_id FK to unit_commands
+
+### Refactor
+
+- **commands**: delete_template demotes to ephemeral, does not drop the row (AGR-510)
+- **api**: consolidate commands + templates into command_router (AGR-510)
+
 ## v0.52.0 (2026-04-22)
 
 ### Feat
