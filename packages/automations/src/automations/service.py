@@ -10,13 +10,14 @@ from automations.models import (
     AutomationUpdate,
     TriggerContext,
 )
+from automations.storage.factory import build_storage
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from automations.protocols import (
-        CommandsServiceInterface,
+        ActionServiceInterface,
         TriggerListener,
         TriggerListenerFactory,
     )
@@ -31,11 +32,11 @@ class AutomationsService:
         self,
         storage: AutomationsStorageBackend,
         listener_factory: TriggerListenerFactory,
-        commands: CommandsServiceInterface,
+        actions: ActionServiceInterface,
     ) -> None:
         self._storage = storage
         self._listener_factory = listener_factory
-        self._commands = commands
+        self._actions = actions
         self._cache = {}
         self._listeners = {}
 
@@ -44,17 +45,13 @@ class AutomationsService:
         cls,
         storage_url: str,
         listener_factory: TriggerListenerFactory,
-        commands: CommandsServiceInterface,
+        actions: ActionServiceInterface,
     ) -> AutomationsService:
-        from automations.storage.factory import build_storage  # noqa: PLC0415
-
         storage = await build_storage(storage_url)
         await storage.start()
-        service = cls(storage, listener_factory, commands)
+        service = cls(storage, listener_factory, actions)
         for automation in await storage.list():
-            service._cache[automation.id] = automation
-            if automation.enabled:
-                await service._start_listener(automation)
+            await service._register_automation(automation)
         return service
 
     # CRUD
@@ -67,10 +64,8 @@ class AutomationsService:
             action_template_id=params.action_template_id,
             enabled=params.enabled,
         )
-        self._cache[automation.id] = automation
         await self._storage.create(automation)
-        if automation.enabled:
-            await self._start_listener(automation)
+        await self._register_automation(automation)
         return automation
 
     async def get(self, automation_id: str) -> Automation:
@@ -88,29 +83,18 @@ class AutomationsService:
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
         existing = await self.get(automation_id)
-
         trigger_changed = (
             params.trigger is not None and params.trigger != existing.trigger
         )
         was_enabled = existing.enabled
-        updated = Automation(
-            id=existing.id,
-            name=params.name if params.name is not None else existing.name,
-            trigger=params.trigger if params.trigger is not None else existing.trigger,
-            action_template_id=(
-                params.action_template_id
-                if params.action_template_id is not None
-                else existing.action_template_id
-            ),
-            enabled=params.enabled if params.enabled is not None else existing.enabled,
-        )
+        updated = existing.apply_update(params)
 
-        # Stop before state change — prevents listener firing against stale config.
+        # Stop before storage write — prevents listener firing against stale config.
         if was_enabled and (not updated.enabled or trigger_changed):
             await self._stop_listener(automation_id)
 
-        self._cache[automation_id] = updated
         await self._storage.update(updated)
+        self._cache[automation_id] = updated
 
         if updated.enabled and (not was_enabled or trigger_changed):
             await self._start_listener(updated)
@@ -120,21 +104,34 @@ class AutomationsService:
     async def delete(self, automation_id: str) -> None:
         await self.get(automation_id)  # raises NotFoundError if absent
         await self._stop_listener(automation_id)
-        self._cache.pop(automation_id)
-        await self._storage.delete_executions(automation_id)
         await self._storage.delete(automation_id)
+        self._cache.pop(automation_id)
 
     # Enable / disable
 
     async def enable(self, automation_id: str) -> Automation:
-        return await self.update(automation_id, AutomationUpdate(enabled=True))
+        automation = await self.get(automation_id)
+        if automation.enabled:
+            return automation
+        updated = automation.model_copy(update={"enabled": True})
+        await self._storage.update(updated)
+        self._cache[automation_id] = updated
+        await self._start_listener(updated)
+        return updated
 
     async def disable(self, automation_id: str) -> Automation:
-        return await self.update(automation_id, AutomationUpdate(enabled=False))
+        automation = await self.get(automation_id)
+        if not automation.enabled:
+            return automation
+        await self._stop_listener(automation_id)
+        updated = automation.model_copy(update={"enabled": False})
+        await self._storage.update(updated)
+        self._cache[automation_id] = updated
+        return updated
 
     # Execution log
 
-    async def log_execution(self, execution: AutomationExecution) -> None:
+    async def _log_execution(self, execution: AutomationExecution) -> None:
         await self._storage.log_execution(execution)
 
     async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]
@@ -145,7 +142,12 @@ class AutomationsService:
             await self._stop_listener(automation_id)
         await self._storage.close()
 
-    # Listener helpers
+    # Helpers
+
+    async def _register_automation(self, automation: Automation) -> None:
+        self._cache[automation.id] = automation
+        if automation.enabled:
+            await self._start_listener(automation)
 
     async def _start_listener(self, automation: Automation) -> None:
         listener = self._listener_factory.build(
@@ -163,6 +165,6 @@ class AutomationsService:
         self, _automation_id: str
     ) -> Callable[[TriggerContext], Awaitable[None]]:
         async def on_fire(context: TriggerContext) -> None:
-            pass  # engine wiring — self._commands.dispatch() called by engine
+            pass  # engine wiring — self._actions.execute() called by engine
 
         return on_fire

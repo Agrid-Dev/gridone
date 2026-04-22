@@ -22,8 +22,8 @@ class TriggerListenerFactory(Protocol):
     ) -> TriggerListener: ...
 
 
-class CommandsServiceInterface(Protocol):
-    async def dispatch(self, template_id: str, user_id: str) -> str: ...
+class ActionServiceInterface(Protocol):
+    async def execute(self, template_id: str, user_id: str) -> str: ...
 
     # Returns the provider output id (e.g. BatchCommand id) stored on
     # AutomationExecution.output_id.

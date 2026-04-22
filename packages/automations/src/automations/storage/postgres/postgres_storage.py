@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
 
+import asyncpg
 from pydantic import TypeAdapter
 
 from automations.models import (
@@ -13,9 +13,6 @@ from automations.models import (
 )
 from models.errors import NotFoundError
 
-if TYPE_CHECKING:
-    import asyncpg
-
 _trigger_adapter: TypeAdapter[Trigger] = TypeAdapter(Trigger)
 
 
@@ -23,6 +20,11 @@ class PostgresStorage:
     def __init__(self, pool: asyncpg.Pool, dsn: str) -> None:
         self._pool = pool
         self._dsn = dsn
+
+    @classmethod
+    async def from_url(cls, url: str) -> PostgresStorage:
+        pool = await asyncpg.create_pool(url, min_size=1, max_size=3)
+        return cls(pool, dsn=url)
 
     @staticmethod
     def _row_to_automation(row: asyncpg.Record) -> Automation:
@@ -104,12 +106,6 @@ class PostgresStorage:
         if result == "DELETE 0":
             msg = f"Automation {automation_id!r} not found"
             raise NotFoundError(msg)
-
-    async def delete_executions(self, automation_id: str) -> None:
-        await self._pool.execute(
-            "DELETE FROM automation_executions WHERE automation_id = $1",
-            automation_id,
-        )
 
     async def log_execution(self, execution: AutomationExecution) -> None:
         await self._pool.execute(

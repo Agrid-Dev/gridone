@@ -4,7 +4,6 @@ import os
 from datetime import UTC, datetime
 from uuid import uuid4
 
-import asyncpg
 import pytest
 import pytest_asyncio
 from automations.models import (
@@ -14,16 +13,16 @@ from automations.models import (
     ExecutionStatus,
     ScheduleTrigger,
 )
-from automations.storage.postgres import PostgresStorage, run_migrations
+from automations.storage.postgres import PostgresStorage
 
 from models.errors import NotFoundError
 
-POSTGRES_URL = os.environ.get("AUTOMATIONS_TEST_DB_URL")
+POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
 pytestmark = [
     pytest.mark.asyncio,
     pytest.mark.integration,
-    pytest.mark.skipif(POSTGRES_URL is None, reason="AUTOMATIONS_TEST_DB_URL not set"),
+    pytest.mark.skipif(POSTGRES_URL is None, reason="POSTGRES_TEST_URL not set"),
 ]
 
 _SCHEDULE = ScheduleTrigger(cron="0 11 * * *")
@@ -54,14 +53,12 @@ def _execution(automation_id: str, **kwargs: object) -> AutomationExecution:
 @pytest_asyncio.fixture
 async def storage():
     assert POSTGRES_URL is not None
-    run_migrations(POSTGRES_URL)
-    pool = await asyncpg.create_pool(POSTGRES_URL)
-    async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM automation_executions")
-        await conn.execute("DELETE FROM automations")
-    store = PostgresStorage(pool, dsn=POSTGRES_URL)
+    store = await PostgresStorage.from_url(POSTGRES_URL)
+    await store.start()
+    async with store._pool.acquire() as conn:
+        await conn.execute("DELETE FROM automations")  # cascades to executions
     yield store
-    await pool.close()
+    await store.close()
 
 
 class TestCRUD:
@@ -182,7 +179,5 @@ class TestExecutions:
         await storage.create(auto)
         await storage.log_execution(_execution(auto.id))
         await storage.log_execution(_execution(auto.id))
-        # Service-level cascade: delete_executions before delete (no DB FK).
-        await storage.delete_executions(auto.id)
         await storage.delete(auto.id)
         assert await storage.list_executions(auto.id) == []

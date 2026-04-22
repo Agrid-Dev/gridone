@@ -87,6 +87,11 @@ class AutomationUpdate(BaseModel):
 class Automation(AutomationCreate):
     id: str = ""
 
+    def apply_update(self, params: AutomationUpdate) -> Automation:
+        return self.model_copy(
+            update={k: getattr(params, k) for k in params.model_fields_set}
+        )
+
 
 class AutomationExecution(BaseModel):
     id: str

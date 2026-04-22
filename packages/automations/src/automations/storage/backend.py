@@ -21,11 +21,7 @@ class AutomationsStorageBackend(Protocol):
 
     async def delete(self, automation_id: str) -> None: ...
 
-    # raises NotFoundError when id is absent
-
-    async def delete_executions(self, automation_id: str) -> None: ...
-
-    # deletes all executions for the given automation (service-level cascade)
+    # raises NotFoundError when id is absent; cascades to executions via FK
 
     async def log_execution(self, execution: AutomationExecution) -> None: ...
 

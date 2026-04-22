@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from automations.models import (
     Automation,
     AutomationCreate,
-    AutomationExecution,
     AutomationUpdate,
     ChangeEventTrigger,
-    ExecutionStatus,
     ScheduleTrigger,
 )
 from automations.service import AutomationsService
@@ -45,7 +42,7 @@ def _make_service(
     return AutomationsService(
         storage=storage or _make_storage(),
         listener_factory=factory or _make_factory(),
-        commands=AsyncMock(),
+        actions=AsyncMock(),
     )
 
 
@@ -243,18 +240,6 @@ class TestListeners:
 
 
 class TestExecutions:
-    async def test_log_execution_delegates_to_storage(self):
-        storage = _make_storage()
-        svc = _make_service(storage=storage)
-        execution = AutomationExecution(
-            id="exec-01",
-            automation_id="auto-01",
-            triggered_at=datetime(2024, 1, 1, tzinfo=UTC),
-            status=ExecutionStatus.SUCCESS,
-        )
-        await svc.log_execution(execution)
-        storage.log_execution.assert_called_once_with(execution)
-
     async def test_list_executions_delegates_to_storage(self):
         storage = _make_storage()
         storage.list_executions.return_value = []
@@ -263,20 +248,12 @@ class TestExecutions:
         storage.list_executions.assert_called_once_with("auto-01")
         assert result == []
 
-    async def test_delete_cascades_executions_before_automation(self):
+    async def test_delete_delegates_to_storage(self):
         storage = _make_storage()
         svc = _make_service(storage=storage)
         created = await svc.create(_create_params(enabled=False))
-        call_order: list[str] = []
-
-        def _track(label: str) -> object:
-            return lambda *_: call_order.append(label)
-
-        storage.delete_executions.side_effect = _track("executions")
-        storage.delete.side_effect = _track("automation")
         await svc.delete(created.id)
-        storage.delete_executions.assert_called_once_with(created.id)
-        assert call_order == ["executions", "automation"]
+        storage.delete.assert_called_once_with(created.id)
 
 
 class TestClose:

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS automations (
 
 CREATE TABLE IF NOT EXISTS automation_executions (
     id            TEXT        PRIMARY KEY,
-    automation_id TEXT        NOT NULL,
+    automation_id TEXT        NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
     triggered_at  TIMESTAMPTZ NOT NULL,
     executed_at   TIMESTAMPTZ,
     status        TEXT        NOT NULL,
