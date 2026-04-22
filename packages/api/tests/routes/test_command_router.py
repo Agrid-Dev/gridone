@@ -1,3 +1,9 @@
+"""Tests for the command router — template CRUD + saved-template dispatch.
+
+The non-template endpoints (single/batch dispatch, command history) are
+already covered by ``test_devices_router.py``; this file focuses on the
+template surface the reviewer consolidated here."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -21,7 +27,7 @@ from api.dependencies import (
     get_current_user_id,
 )
 from api.exception_handlers import register_exception_handlers
-from api.routes.command_templates_router import router
+from api.routes.command_router import router
 
 
 @pytest.fixture
@@ -95,7 +101,7 @@ class TestCreateTemplate:
 
         async with async_client as ac:
             response = await ac.post(
-                "/",
+                "/command-templates/",
                 json={
                     "name": "Thermostats to auto",
                     "target": {"types": ["thermostat"]},
@@ -131,7 +137,7 @@ class TestCreateTemplate:
         mock_commands_service.save_template.return_value = _template(name=None)
         async with async_client as ac:
             response = await ac.post(
-                "/",
+                "/command-templates/",
                 json={
                     "target": {"ids": ["d1"]},
                     "write": {
@@ -151,7 +157,7 @@ class TestCreateTemplate:
     ):
         async with async_client as ac:
             response = await ac.post(
-                "/",
+                "/command-templates/",
                 json={
                     "name": "T",
                     "target": {"ids": ["d1"], "bogus": "x"},
@@ -182,7 +188,7 @@ class TestListTemplates:
             size=50,
         )
         async with async_client as ac:
-            response = await ac.get("/")
+            response = await ac.get("/command-templates/")
         assert response.status_code == 200
         body = response.json()
         assert body["total"] == 2
@@ -201,7 +207,7 @@ class TestGetTemplate:
     ):
         mock_commands_service.get_template.return_value = _template()
         async with async_client as ac:
-            response = await ac.get("/abc1234567890def")
+            response = await ac.get("/command-templates/abc1234567890def")
         assert response.status_code == 200
         assert response.json()["id"] == "abc1234567890def"
 
@@ -215,7 +221,7 @@ class TestGetTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.get("/nope")
+            response = await ac.get("/command-templates/nope")
         assert response.status_code == 404
 
 
@@ -228,7 +234,7 @@ class TestDeleteTemplate:
     ):
         mock_commands_service.delete_template.return_value = None
         async with async_client as ac:
-            response = await ac.delete("/abc1234567890def")
+            response = await ac.delete("/command-templates/abc1234567890def")
         assert response.status_code == 204
 
     @pytest.mark.asyncio
@@ -241,7 +247,7 @@ class TestDeleteTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.delete("/nope")
+            response = await ac.delete("/command-templates/nope")
         assert response.status_code == 404
 
 
@@ -256,7 +262,7 @@ class TestDispatchTemplate:
             "abc1234567890def", ["d1", "d2"]
         )
         async with async_client as ac:
-            response = await ac.post("/abc1234567890def/dispatch")
+            response = await ac.post("/command-templates/abc1234567890def/dispatch")
         assert response.status_code == 202
         assert response.json() == {"batch_id": "batch00000000001", "total": 2}
 
@@ -271,7 +277,7 @@ class TestDispatchTemplate:
     ):
         mock_commands_service.dispatch_from_template.return_value = []
         async with async_client as ac:
-            response = await ac.post("/abc1234567890def/dispatch")
+            response = await ac.post("/command-templates/abc1234567890def/dispatch")
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -284,5 +290,5 @@ class TestDispatchTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.post("/nope/dispatch")
+            response = await ac.post("/command-templates/nope/dispatch")
         assert response.status_code == 404
