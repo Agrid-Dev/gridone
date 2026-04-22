@@ -114,6 +114,15 @@
       "hours_other": "{{count}} heures",
       "days_one": "{{count}} jour",
       "days_other": "{{count}} jours"
+    },
+    "severity": {
+      "alert": "ALERTE",
+      "warning": "AVERTISSEMENT",
+      "info": "INFO"
+    },
+    "faults": {
+      "activeSince": "Actif depuis {{ago}}",
+      "ok": "OK"
     }
   },
   "errors": {
