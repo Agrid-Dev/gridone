@@ -39,6 +39,10 @@
     "title": "Device",
     "attributes": "Attributes",
     "advancedAttributes": "Advanced attributes",
+    "activeFaults": {
+      "title": "Active faults",
+      "empty": "No active faults."
+    },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",
     "missingDeviceId": "Missing device identifier",

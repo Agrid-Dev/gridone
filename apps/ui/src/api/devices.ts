@@ -7,13 +7,17 @@ export type DeviceAttribute = {
   readWriteModes: Array<"read" | "write" | string>;
   currentValue: string | number | boolean | null;
   lastUpdated: string | null;
+  lastChanged: string | null;
+  severity?: Severity;
+  isFaulty?: boolean;
 };
 
 export type Severity = "alert" | "warning" | "info";
 
-/** A fault-kind attribute as consumed by `<FaultItem>`. Structural shape
- *  satisfied by `DeviceAttribute` once AGR-460 extends it with
- *  severity/isFaulty/lastChanged, and by adapters from the /faults FaultView. */
+/** A fault-kind attribute as consumed by `<FaultItem>`. Structurally a
+ *  required-fields narrowing of `DeviceAttribute` for the fields the API
+ *  emits on FaultAttribute instances, plus the shape returned by adapters
+ *  over the /faults FaultView. */
 export type FaultAttribute = {
   name: string;
   dataType: "bool" | "int" | "str" | string;

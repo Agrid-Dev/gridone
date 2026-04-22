@@ -4,6 +4,7 @@ import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
 import { ChevronLeft, History, Pencil, Terminal } from "lucide-react";
+import { ActiveFaultsSection } from "@/components/ActiveFaultsSection";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
@@ -119,6 +120,9 @@ export default function DeviceLayout() {
           </div>
         </div>
       </div>
+
+      {/* ── Active faults ── */}
+      <ActiveFaultsSection device={device} />
 
       {/* ── Content ── */}
       <Outlet />

@@ -39,6 +39,10 @@
     "title": "Appareil",
     "attributes": "Attributs",
     "advancedAttributes": "Attributs avancés",
+    "activeFaults": {
+      "title": "Défauts actifs",
+      "empty": "Aucun défaut actif."
+    },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
     "missingDeviceId": "Identifiant d'appareil manquant",
