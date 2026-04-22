@@ -255,16 +255,22 @@ class TestDispatchBatch:
         assert template_id is not None
         target_resolver.resolve.assert_awaited_once_with(target)
 
-        # The ephemeral template is persisted and accessible by id…
-        template = await service.get_template(template_id)
+        # The ephemeral template is persisted on the storage layer — we
+        # reach into it directly because the public ``get_template`` only
+        # surfaces user-saved templates, not ephemerals.
+        template = await service._storage.get_template(template_id)
+        assert template is not None
         assert template.name is None
         assert template.target == target
         assert template.write == MODE_AUTO
         assert template.created_by == "u1"
 
-        # …but does not leak into the named-templates list.
+        # Ephemerals don't leak into the named-templates list or into the
+        # public ``get_template`` surface.
         page = await service.list_templates()
         assert page.total == 0
+        with pytest.raises(NotFoundError):
+            await service.get_template(template_id)
 
     async def test_ids_only_batch_also_creates_a_template(
         self,
@@ -285,7 +291,8 @@ class TestDispatchBatch:
         template_id = next(iter(template_ids))
         assert template_id is not None
 
-        template = await service.get_template(template_id)
+        template = await service._storage.get_template(template_id)
+        assert template is not None
         assert template.name is None
         assert template.target == {"ids": ["d1", "d2"]}
 
@@ -489,7 +496,7 @@ class TestTemplateCrud:
         with pytest.raises(NotFoundError):
             await service.get_template("does-not-exist")
 
-    async def test_delete_template_detaches_historical_commands(
+    async def test_delete_template_demotes_to_ephemeral(
         self,
         service: CommandsService,
     ):
@@ -507,13 +514,21 @@ class TestTemplateCrud:
 
         await service.delete_template(template.id)
 
+        # The template is gone from the user's view…
         with pytest.raises(NotFoundError):
             await service.get_template(template.id)
+        page = await service.list_templates()
+        assert page.total == 0
 
-        # Historical unit commands survive with ``template_id`` detached,
-        # mirroring the SQL ``ON DELETE SET NULL`` behaviour.
-        page = await service.get_commands(batch_id=commands[0].batch_id)
-        assert all(c.template_id is None for c in page.items)
+        # …but the row survives with ``name = NULL`` so historical unit
+        # commands keep their ``template_id`` pointer for audit. A later
+        # cleanup job reaps the row and the SQL cascade detaches history
+        # at that point.
+        demoted = await service._storage.get_template(template.id)
+        assert demoted is not None
+        assert demoted.name is None
+        history = await service.get_commands(batch_id=commands[0].batch_id)
+        assert all(c.template_id == template.id for c in history.items)
 
     async def test_delete_template_raises_on_unknown_id(
         self,
@@ -521,6 +536,20 @@ class TestTemplateCrud:
     ):
         with pytest.raises(NotFoundError):
             await service.delete_template("does-not-exist")
+
+    async def test_delete_template_raises_when_already_ephemeral(
+        self,
+        service: CommandsService,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="One shot"
+            ),
+            user_id="u1",
+        )
+        await service.delete_template(template.id)
+        with pytest.raises(NotFoundError):
+            await service.delete_template(template.id)
 
     async def test_dispatch_from_template_uses_stored_target_and_write(
         self,
@@ -557,3 +586,17 @@ class TestTemplateCrud:
             await service.dispatch_from_template(
                 template_id="does-not-exist", user_id="u1"
             )
+
+    async def test_dispatch_from_template_refuses_ephemeral_templates(
+        self,
+        service: CommandsService,
+    ):
+        # Ephemerals live on the storage layer for audit but are not
+        # dispatchable by id through the public API — a user holding an
+        # ephemeral id cannot bypass the "saved templates only" contract.
+        ephemeral = await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+        with pytest.raises(NotFoundError):
+            await service.dispatch_from_template(template_id=ephemeral.id, user_id="u1")

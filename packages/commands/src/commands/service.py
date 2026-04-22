@@ -94,8 +94,14 @@ class CommandsService:
         return await self._storage.save_template(created)
 
     async def get_template(self, template_id: str) -> CommandTemplate:
+        """Return a saved (``name IS NOT NULL``) template.
+
+        Ephemeral templates are internal audit rows created for ad-hoc
+        batch dispatches — they are not addressable through the public API
+        and raise :class:`NotFoundError` here.
+        """
         template = await self._storage.get_template(template_id)
-        if template is None:
+        if template is None or template.name is None:
             msg = f"Template {template_id!r} not found"
             raise NotFoundError(msg)
         return template
@@ -117,10 +123,15 @@ class CommandsService:
         return Page(items=items, total=total, page=1, size=max(total, 1))
 
     async def delete_template(self, template_id: str) -> None:
-        template = await self._storage.get_template(template_id)
-        if template is None:
-            msg = f"Template {template_id!r} not found"
-            raise NotFoundError(msg)
+        """Demote a saved template to ephemeral by nulling its ``name``.
+
+        The row itself survives so historical unit commands keep their
+        ``template_id`` pointer for audit; a later cleanup job removes old
+        ephemeral rows and the ``ON DELETE SET NULL`` cascade detaches the
+        history at that point. Calling ``delete_template`` twice — or on a
+        never-named template — raises :class:`NotFoundError`.
+        """
+        await self.get_template(template_id)  # raises if missing or already ephemeral
         await self._storage.delete_template(template_id)
 
     # ------------------------------------------------------------------
@@ -177,16 +188,16 @@ class CommandsService:
         """Fan-out a command to the devices matched by *target*.
 
         Always creates an ephemeral :class:`CommandTemplate` (``name=None``)
-        so the target survives for audit, then delegates to
-        :meth:`dispatch_from_template`. To dispatch from a user-saved
-        template by id, call :meth:`dispatch_from_template` directly.
+        so the target survives for audit, then dispatches through it. To
+        dispatch from a user-saved template by id, call
+        :meth:`dispatch_from_template` instead.
         """
         ephemeral = await self.save_template(
             CommandTemplateCreate(target=target, write=write, name=None),
             user_id,
         )
-        return await self.dispatch_from_template(
-            template_id=ephemeral.id, user_id=user_id, confirm=confirm
+        return await self._dispatch_template(
+            template=ephemeral, user_id=user_id, confirm=confirm
         )
 
     async def dispatch_from_template(
@@ -194,20 +205,29 @@ class CommandsService:
     ) -> list[UnitCommand]:
         """Resolve a saved template and fan-out the write across matched devices.
 
-        Raises :class:`NotFoundError` if the template doesn't exist. Every
-        resolved device gets a ``PENDING`` unit command, all sharing one
-        ``batch_id`` and all carrying ``template_id`` for audit.
+        Raises :class:`NotFoundError` if the template doesn't exist or is
+        ephemeral (``name IS NULL``) — only user-saved templates are
+        dispatchable through this entry point.
+        """
+        template = await self.get_template(template_id)
+        return await self._dispatch_template(
+            template=template, user_id=user_id, confirm=confirm
+        )
+
+    async def _dispatch_template(
+        self, *, template: CommandTemplate, user_id: str, confirm: bool
+    ) -> list[UnitCommand]:
+        """Resolve the template's target, persist PENDING unit commands, and
+        spawn the per-device writes in the background. Shared by
+        :meth:`dispatch_batch` (ephemeral path) and
+        :meth:`dispatch_from_template` (saved-template path).
 
         An empty resolve logs a warning and returns ``[]`` — no exception,
         no PENDING rows created.
         """
-        template = await self.get_template(template_id)
         device_ids = await self._target_resolver.resolve(template.target)
         if not device_ids:
-            logger.warning(
-                "dispatch_from_template: target %r resolved to no devices",
-                template.target,
-            )
+            logger.warning("dispatch: template %r resolved to no devices", template.id)
             return []
 
         batch_id = uuid4().hex[:16]

@@ -111,12 +111,12 @@ class MemoryStorage:
         return sum(1 for t in self._templates.values() if t.name is not None)
 
     async def delete_template(self, template_id: str) -> None:
-        self._templates.pop(template_id, None)
-        # Mirror the SQL ``ON DELETE SET NULL`` cascade: detach historical
-        # unit commands from the now-gone template.
-        for cmd in self._history:
-            if cmd.template_id == template_id:
-                cmd.template_id = None
+        # Demote to ephemeral (mirrors the SQL ``UPDATE SET name = NULL``).
+        # Historical unit commands keep their ``template_id`` pointer; the
+        # eventual cleanup pass is what actually removes the row.
+        template = self._templates.get(template_id)
+        if template is not None:
+            template.name = None
 
     async def close(self) -> None:
         pass

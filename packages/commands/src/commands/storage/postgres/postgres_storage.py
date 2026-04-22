@@ -277,9 +277,15 @@ class PostgresCommandsStorage:
         )
 
     async def delete_template(self, template_id: str) -> None:
-        # ON DELETE SET NULL on unit_commands.template_id preserves history.
+        """Demote a template to ephemeral by nulling its ``name``.
+
+        The row itself survives so historical unit commands keep their
+        ``template_id`` pointer — a later cleanup job reaps old ephemeral
+        rows and the ``ON DELETE SET NULL`` cascade detaches the history
+        at that point.
+        """
         await self._pool.execute(
-            "DELETE FROM command_templates WHERE id = $1",
+            "UPDATE command_templates SET name = NULL WHERE id = $1",
             template_id,
         )
 
