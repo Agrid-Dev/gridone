@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { getAsset, getAssetTreeWithDevices } from "@/api/assets";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -25,6 +26,7 @@ type NewCommandPageProps = {
 export default function NewCommandPage({ context }: NewCommandPageProps) {
   const { t } = useTranslation("devices");
   const can = usePermissions();
+  const navigate = useNavigate();
   const { deviceId, assetId } = useParams<{
     deviceId?: string;
     assetId?: string;
@@ -92,6 +94,23 @@ export default function NewCommandPage({ context }: NewCommandPageProps) {
         assetsList={assetsList}
         lockedDeviceId={resolvedContext === "device" ? deviceId : undefined}
         lockedAssetId={resolvedContext === "asset" ? assetId : undefined}
+        onCancel={() => navigate(-1)}
+        onDispatched={(result) => {
+          if (result.kind === "batch") {
+            toast.success(t("commands.new.feedback.batchDispatched"));
+            navigate(`/devices/commands?batch_id=${result.batchId}`);
+          } else {
+            toast.success(t("commands.new.feedback.dispatched"));
+            const listUrl = deviceId
+              ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
+              : "/devices/commands";
+            navigate(listUrl);
+          }
+        }}
+        onSaved={(template) => {
+          toast.success(t("commands.new.save.savedFeedback"));
+          navigate(`/devices/commands/templates/${template.id}`);
+        }}
       />
       {resolvedContext === "asset" && lockedAsset && (
         <p className="text-xs text-muted-foreground">

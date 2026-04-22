@@ -133,6 +133,19 @@
         "dispatched": "Commande envoyée",
         "batchDispatched": "Commandes envoyées",
         "dispatchFailed": "Échec de l'envoi de la commande"
+      },
+      "targetMode": {
+        "devices": "Appareils spécifiques",
+        "filters": "Par filtre"
+      },
+      "filterPreviewHint": "Les modèles enregistrés ré-évaluent ce filtre à chaque envoi.",
+      "save": {
+        "hint": "Ou enregistrez cette commande comme modèle pour la relancer plus tard.",
+        "nameLabel": "Nom du modèle",
+        "namePlaceholder": "ex. Réduction de nuit",
+        "action": "Enregistrer comme modèle",
+        "saving": "Enregistrement…",
+        "savedFeedback": "Modèle enregistré"
       }
     }
   },

@@ -133,6 +133,19 @@
         "dispatched": "Command dispatched",
         "batchDispatched": "Commands dispatched",
         "dispatchFailed": "Failed to dispatch command"
+      },
+      "targetMode": {
+        "devices": "Specific devices",
+        "filters": "By filter"
+      },
+      "filterPreviewHint": "Saved templates re-resolve this filter at each dispatch.",
+      "save": {
+        "hint": "Or save this as a template to dispatch it again later.",
+        "nameLabel": "Template name",
+        "namePlaceholder": "e.g. Night setback",
+        "action": "Save as template",
+        "saving": "Saving…",
+        "savedFeedback": "Template saved"
       }
     }
   },
