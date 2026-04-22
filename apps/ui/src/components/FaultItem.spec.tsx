@@ -12,7 +12,6 @@ vi.mock("react-i18next", () => ({
         "common.severity.info": "INFO",
         "common.faults.ok": "OK",
         "common.timeAgo.justNow": "just now",
-        "common.timeAgo.future": "In the future",
       };
       if (map[key]) return map[key];
       if (key === "common.faults.activeSince")
@@ -124,6 +123,36 @@ describe("FaultItem — label rules by dataType", () => {
   it.each(scenarios)("$title", ({ attribute, expected }) => {
     render(<FaultItem attribute={attribute} />);
     expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+});
+
+describe("FaultItem — edge cases", () => {
+  it("applies truncate class on the label (long names)", () => {
+    render(
+      <FaultItem
+        attribute={{
+          ...baseActive,
+          name: "very_long_attribute_name_that_will_overflow_container",
+        }}
+      />,
+    );
+    expect(
+      screen.getByText("Very long attribute name that will overflow container"),
+    ).toHaveClass("truncate");
+  });
+
+  it("falls back to Title Case name when str dataType has null currentValue", () => {
+    render(
+      <FaultItem
+        attribute={{
+          ...baseActive,
+          dataType: "str",
+          name: "error_state",
+          currentValue: null,
+        }}
+      />,
+    );
+    expect(screen.getByText("Error state")).toBeInTheDocument();
   });
 });
 
