@@ -834,12 +834,14 @@ name = "gridone-automations"
 version = "0.1.0"
 source = { editable = "packages/automations" }
 dependencies = [
+    { name = "asyncpg" },
     { name = "gridone-models" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "asyncpg", specifier = ">=0.29" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "pydantic", specifier = ">=2.0" },
 ]

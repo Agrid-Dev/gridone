@@ -8,6 +8,7 @@ requires-python = ">=3.13"
 dependencies = [
     "gridone-models",
     "pydantic>=2.0",
+    "asyncpg>=0.29",
 ]
 
 [build-system]

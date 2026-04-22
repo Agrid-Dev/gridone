@@ -33,16 +33,6 @@ class ExecutionStatus(StrEnum):
     FAILED = "failed"
 
 
-class ActionSpec(BaseModel):
-    """Reference to a provider action to execute when an automation fires.
-
-    Automations never inspect the action payload — the provider resolves it.
-    """
-
-    provider_id: str
-    template_id: str
-
-
 class Condition(BaseModel):
     """Compares a field of the trigger event payload against an operand."""
 
@@ -83,13 +73,31 @@ class TriggerContext(BaseModel):
 class AutomationCreate(BaseModel):
     name: str
     trigger: Trigger
-    actions: list[ActionSpec]
+    action_template_id: str
     enabled: bool = True
+
+
+class AutomationUpdate(BaseModel):
+    name: str | None = None
+    trigger: Trigger | None = None
+    action_template_id: str | None = None
+    enabled: bool | None = None
 
 
 class Automation(AutomationCreate):
     id: str = ""
 
+    def apply_update(self, params: AutomationUpdate) -> Automation:
+        return self.model_copy(
+            update={k: getattr(params, k) for k in params.model_fields_set}
+        )
 
-AutomationCreate.model_rebuild()
-Automation.model_rebuild()
+
+class AutomationExecution(BaseModel):
+    id: str
+    automation_id: str
+    triggered_at: datetime
+    executed_at: datetime | None = None
+    status: ExecutionStatus
+    error: str | None = None
+    output_id: str | None = None

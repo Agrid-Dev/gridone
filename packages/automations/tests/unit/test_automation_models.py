@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from automations.models import (
-    ActionSpec,
     Automation,
     AutomationCreate,
+    AutomationExecution,
+    AutomationUpdate,
     ChangeEventTrigger,
     ComparisonOperator,
     Condition,
     ConditionTarget,
+    ExecutionStatus,
     ScheduleTrigger,
     Trigger,
     TriggerType,
@@ -16,10 +20,6 @@ from automations.models import (
 from pydantic import TypeAdapter, ValidationError
 
 _trigger_adapter = TypeAdapter(Trigger)
-
-
-def _action() -> ActionSpec:
-    return ActionSpec(provider_id="commands", template_id="tmpl-01")
 
 
 class TestValidation:
@@ -97,25 +97,75 @@ class TestAutomationUseCases:
         ],
     )
     def test_use_case(self, name: str, trigger: Trigger):
-        automation = AutomationCreate(name=name, trigger=trigger, actions=[_action()])
-        assert automation.trigger == trigger
-
-    def test_multiple_actions(self):
         automation = AutomationCreate(
-            name="alert_and_clamp",
-            trigger=ChangeEventTrigger(source_id="src-01", event_type="temperature"),
-            actions=[
-                ActionSpec(provider_id="commands", template_id="clamp-tmpl"),
-                ActionSpec(provider_id="notifications", template_id="alert-email"),
-            ],
+            name=name, trigger=trigger, action_template_id="tmpl-01"
         )
-        assert len(automation.actions) == 2
+        assert automation.trigger == trigger
 
     def test_automation_id(self):
         a = Automation(
             name="test",
             trigger=ScheduleTrigger(cron="0 * * * *"),
-            actions=[_action()],
+            action_template_id="tmpl-01",
             id="abc123def456abcd",
         )
         assert a.id == "abc123def456abcd"
+
+
+class TestAutomationUpdate:
+    def test_all_fields_optional(self):
+        u = AutomationUpdate()
+        assert u.name is None
+        assert u.trigger is None
+        assert u.action_template_id is None
+        assert u.enabled is None
+
+    def test_name_only(self):
+        u = AutomationUpdate(name="renamed")
+        assert u.name == "renamed"
+        assert u.trigger is None
+
+    def test_trigger_only(self):
+        u = AutomationUpdate(trigger=ScheduleTrigger(cron="0 12 * * *"))
+        assert isinstance(u.trigger, ScheduleTrigger)
+        assert u.name is None
+
+    def test_enabled_only(self):
+        u = AutomationUpdate(enabled=False)
+        assert u.enabled is False
+        assert u.name is None
+
+
+class TestAutomationExecution:
+    def test_defaults(self):
+        e = AutomationExecution(
+            id="exec-01",
+            automation_id="auto-01",
+            triggered_at=datetime(2024, 1, 1, tzinfo=UTC),
+            status=ExecutionStatus.SUCCESS,
+        )
+        assert e.executed_at is None
+        assert e.error is None
+        assert e.output_id is None
+
+    def test_output_id_stored(self):
+        e = AutomationExecution(
+            id="exec-02",
+            automation_id="auto-01",
+            triggered_at=datetime(2024, 1, 1, tzinfo=UTC),
+            status=ExecutionStatus.SUCCESS,
+            output_id="batch-cmd-abc123",
+        )
+        assert e.output_id == "batch-cmd-abc123"
+
+    def test_failed_with_error(self):
+        e = AutomationExecution(
+            id="exec-03",
+            automation_id="auto-01",
+            triggered_at=datetime(2024, 1, 1, tzinfo=UTC),
+            status=ExecutionStatus.FAILED,
+            error="timeout",
+        )
+        assert e.status == ExecutionStatus.FAILED
+        assert e.error == "timeout"
+        assert e.output_id is None
