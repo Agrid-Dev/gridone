@@ -14,6 +14,7 @@ from users import UsersManager
 from users.auth import AuthService
 
 from api.dependencies import get_current_user_id
+from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     assets_router,
@@ -35,18 +36,20 @@ logger = logging.getLogger(__name__)
 class _CompositeTargetResolver:
     """TargetResolver backed by DevicesManager.
 
-    The target is an opaque dict whose keys match ``DM.list_devices`` kwargs;
-    the resolver forwards them verbatim. The pydantic layer at the HTTP
-    boundary has already rejected unknown keys. Hierarchy-aware expansion
-    (e.g. asset descendants) is not wired in yet — a later step will inject
-    the AssetsManager here to rewrite tag-based references before calling DM.
+    The target is an opaque dict whose keys match ``DM.list_devices`` kwargs,
+    plus the ``asset_id`` alias. ``asset_id`` is translated into a
+    ``tags["asset_id"]`` filter here rather than exposed through
+    ``DM.list_devices`` directly, so devices_manager stays unaware of the
+    assets service. The tag convention mirrors the UI
+    (``setDeviceTag(id, "asset_id", assetId)``).
     """
 
     def __init__(self, dm: DevicesManager) -> None:
         self._dm = dm
 
     async def resolve(self, target: Target) -> list[str]:
-        return [d.id for d in self._dm.list_devices(**target)]
+        kwargs = to_list_devices_kwargs(dict(target))
+        return [d.id for d in self._dm.list_devices(**kwargs)]
 
 
 @asynccontextmanager

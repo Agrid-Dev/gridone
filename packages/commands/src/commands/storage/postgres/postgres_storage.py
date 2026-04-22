@@ -153,6 +153,10 @@ class PostgresCommandsStorage:
             clauses.append(f"batch_id = ${idx}")
             params.append(filters.batch_id)
             idx += 1
+        if filters.template_id is not None:
+            clauses.append(f"template_id = ${idx}")
+            params.append(filters.template_id)
+            idx += 1
         if filters.device_id is not None:
             clauses.append(f"device_id = ${idx}")
             params.append(filters.device_id)

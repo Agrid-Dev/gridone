@@ -15,6 +15,7 @@ class CommandsQuery(BaseModel):
 
     ids: list[int] | None = None
     batch_id: str | None = None
+    template_id: str | None = None
     device_id: str | None = None
     attribute: str | None = None
     user_id: str | None = None
@@ -27,6 +28,7 @@ class CommandsQuery(BaseModel):
 def get_commands_query(  # noqa: PLR0913
     ids: list[int] | None = Query(None),
     batch_id: str | None = Query(None),
+    template_id: str | None = Query(None),
     filter_device_id: str | None = Query(None, alias="device_id"),
     attribute: str | None = Query(None),
     user_id: str | None = Query(None),
@@ -38,6 +40,7 @@ def get_commands_query(  # noqa: PLR0913
     return CommandsQuery(
         ids=ids,
         batch_id=batch_id,
+        template_id=template_id,
         device_id=filter_device_id,
         attribute=attribute,
         user_id=user_id,
@@ -62,6 +65,11 @@ class DevicesFilterBody(BaseModel):
     This is the shape of the ``target`` field on the batch-dispatch body.
     Unknown keys are rejected with 422; the commands service treats this as
     an opaque ``dict`` once validated.
+
+    ``asset_id`` is a convenience alias: it is persisted verbatim in saved
+    templates (so intent round-trips cleanly to the UI) and translated into
+    the ``asset_id`` tag at the composition-root target resolver before the
+    call reaches ``DM.list_devices``.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -72,6 +80,7 @@ class DevicesFilterBody(BaseModel):
     is_faulty: bool | None = None
     writable_attribute: str | None = None
     writable_attribute_type: DataType | None = None
+    asset_id: str | None = None
 
 
 class BatchDeviceCommand(BaseModel):

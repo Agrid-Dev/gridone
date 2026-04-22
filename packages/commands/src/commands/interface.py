@@ -54,6 +54,7 @@ class CommandsServiceInterface(Protocol):
         *,
         ids: list[int] | None = None,
         batch_id: str | None = None,
+        template_id: str | None = None,
         device_id: str | None = None,
         attribute: str | None = None,
         user_id: str | None = None,
