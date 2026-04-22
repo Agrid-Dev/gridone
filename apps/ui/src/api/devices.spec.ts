@@ -55,6 +55,12 @@ describe("devicesFilterToQueryParams", () => {
     ]);
   });
 
+  it("serialises assetId as an 'asset_id' query param", () => {
+    expect(entries(devicesFilterToQueryParams({ assetId: "a1" }))).toEqual([
+      ["asset_id", "a1"],
+    ]);
+  });
+
   it("maps writableAttribute and writableAttributeType to snake_case keys", () => {
     expect(
       entries(

@@ -55,7 +55,7 @@ export default function NewCommandPage({ context }: NewCommandPageProps) {
       ? `/devices/${deviceId}/history/commands`
       : resolvedContext === "asset"
         ? `/assets/${assetId}`
-        : "/devices/history";
+        : "/devices/commands";
 
   const backResource =
     resolvedContext === "asset" ? t("assets:title") : t("commands.title");
