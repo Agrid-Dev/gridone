@@ -53,6 +53,8 @@ function buildApiParams(searchParams: URLSearchParams): URLSearchParams {
 type UseCommandsOptions = {
   /** When set, uses the device-specific endpoint and hides the device filter. */
   deviceId?: string;
+  /** When set, pins the template_id filter (used on the template detail page). */
+  templateId?: string;
 };
 
 function useAttributeOptions(devices: Device[], deviceId: string | undefined) {
@@ -70,6 +72,7 @@ function useAttributeOptions(devices: Device[], deviceId: string | undefined) {
 
 export function useCommands({
   deviceId: fixedDeviceId,
+  templateId: fixedTemplateId,
 }: UseCommandsOptions = {}) {
   const { t } = useTranslation("devices");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,6 +82,8 @@ export function useCommands({
   const attribute = searchParams.get("attribute") ?? undefined;
   const userId = searchParams.get("user_id") ?? undefined;
   const batchId = searchParams.get("batch_id") ?? undefined;
+  const templateId =
+    fixedTemplateId ?? searchParams.get("template_id") ?? undefined;
 
   // Data sources for filter dropdowns
   const { devices } = useDevicesList();
@@ -90,8 +95,9 @@ export function useCommands({
     const params = buildApiParams(searchParams);
     // When using device-specific endpoint, device_id is in the URL path
     if (fixedDeviceId) params.delete("device_id");
+    if (fixedTemplateId) params.set("template_id", fixedTemplateId);
     return params;
-  }, [searchParams, fixedDeviceId]);
+  }, [searchParams, fixedDeviceId, fixedTemplateId]);
   const queryKey = apiParams.toString();
 
   // Fetch commands. Polling is always on: fast when any row is still pending,
@@ -189,11 +195,13 @@ export function useCommands({
     attribute,
     userId,
     batchId,
+    templateId,
     attributeOptions,
     devices,
     users,
     setFilter,
     isDeviceFixed: !!fixedDeviceId,
+    isTemplateFixed: !!fixedTemplateId,
 
     // Table state
     table,
