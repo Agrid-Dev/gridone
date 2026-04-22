@@ -7,7 +7,7 @@ from assets import (
     AssetUpdate,
     get_asset_create_schema,
 )
-from commands import CommandsServiceInterface
+from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from fastapi import APIRouter, Depends, Query, status
 from models.errors import NotFoundError
@@ -196,9 +196,9 @@ async def dispatch_asset_command(
     data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
     commands = await commands_svc.dispatch_batch(
         target=target,
-        attribute=body.attribute,
-        value=body.value,
-        data_type=data_type,
+        write=AttributeWrite(
+            attribute=body.attribute, value=body.value, data_type=data_type
+        ),
         user_id=user_id,
         confirm=body.confirm,
     )

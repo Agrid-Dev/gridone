@@ -7,20 +7,26 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from commands.filters import CommandsQueryFilters
-from commands.models import CommandStatus, UnitCommand, UnitCommandCreate
-from models.errors import InvalidError
+from commands.models import (
+    CommandStatus,
+    CommandTemplate,
+    CommandTemplateCreate,
+    UnitCommand,
+    UnitCommandCreate,
+)
+from commands.storage import build_storage
+from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import Target
+    from commands.models import AttributeWrite, Target
     from commands.protocols import (
         CommandResultHandler,
         DeviceWriter,
         TargetResolver,
     )
     from commands.storage.protocol import CommandsStorage
-    from models.types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +46,7 @@ class CommandsService:
         self._tasks: set[asyncio.Task[object]] = set()
 
     async def await_pending(self) -> None:
-        """Wait for all in-flight background tasks spawned by ``dispatch_batch``.
+        """Wait for all in-flight background tasks spawned by batch dispatches.
 
         Safe to call repeatedly and when no tasks are pending. Does not close
         the service — use :meth:`close` for shutdown.
@@ -60,18 +66,83 @@ class CommandsService:
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
     ) -> CommandsService:
-        from commands.storage import build_storage  # noqa: PLC0415
-
         storage = await build_storage(storage_url)
         return cls(storage, device_writer, result_handler, target_resolver)
 
-    async def dispatch(  # noqa: PLR0913
+    # ------------------------------------------------------------------
+    # Template CRUD
+    # ------------------------------------------------------------------
+
+    async def save_template(
+        self, template: CommandTemplateCreate, user_id: str
+    ) -> CommandTemplate:
+        """Persist a :class:`CommandTemplate`.
+
+        ``template.name`` governs visibility: non-null templates are saved
+        by the user and surfaced by :meth:`list_templates`; ``None`` marks
+        an ephemeral template (e.g. auto-created by :meth:`dispatch_batch`,
+        kept around for audit until a cleanup job prunes it).
+        """
+        created = CommandTemplate(
+            id=uuid4().hex[:16],
+            name=template.name,
+            target=template.target,
+            write=template.write,
+            created_at=datetime.now(UTC),
+            created_by=user_id,
+        )
+        return await self._storage.save_template(created)
+
+    async def get_template(self, template_id: str) -> CommandTemplate:
+        """Return a saved (``name IS NOT NULL``) template.
+
+        Ephemeral templates are internal audit rows created for ad-hoc
+        batch dispatches — they are not addressable through the public API
+        and raise :class:`NotFoundError` here.
+        """
+        template = await self._storage.get_template(template_id)
+        if template is None or template.name is None:
+            msg = f"Template {template_id!r} not found"
+            raise NotFoundError(msg)
+        return template
+
+    async def list_templates(
+        self, *, pagination: PaginationParams | None = None
+    ) -> Page[CommandTemplate]:
+        """Return the named (user-saved) templates. Ephemeral templates
+        (``name IS NULL``) are excluded."""
+        total = await self._storage.count_templates()
+        if pagination is not None:
+            items = await self._storage.list_templates(
+                limit=pagination.limit, offset=pagination.offset
+            )
+            return Page(
+                items=items, total=total, page=pagination.page, size=pagination.size
+            )
+        items = await self._storage.list_templates()
+        return Page(items=items, total=total, page=1, size=max(total, 1))
+
+    async def delete_template(self, template_id: str) -> None:
+        """Demote a saved template to ephemeral by nulling its ``name``.
+
+        The row itself survives so historical unit commands keep their
+        ``template_id`` pointer for audit; a later cleanup job removes old
+        ephemeral rows and the ``ON DELETE SET NULL`` cascade detaches the
+        history at that point. Calling ``delete_template`` twice — or on a
+        never-named template — raises :class:`NotFoundError`.
+        """
+        await self.get_template(template_id)  # raises if missing or already ephemeral
+        await self._storage.delete_template(template_id)
+
+    # ------------------------------------------------------------------
+    # Dispatch
+    # ------------------------------------------------------------------
+
+    async def dispatch_unit(
         self,
         *,
         device_id: str,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
         batch_id: str | None = None,
@@ -91,10 +162,11 @@ class CommandsService:
         command = await self._storage.save_command(
             UnitCommandCreate(
                 batch_id=batch_id,
+                template_id=None,
                 device_id=device_id,
-                attribute=attribute,
-                value=value,
-                data_type=data_type,
+                attribute=write.attribute,
+                value=write.value,
+                data_type=write.data_type,
                 status=CommandStatus.PENDING,
                 status_details=None,
                 user_id=user_id,
@@ -103,38 +175,59 @@ class CommandsService:
                 completed_at=None,
             )
         )
-        return await self._execute_command(
-            command,
-            attribute=attribute,
-            value=value,
-            data_type=data_type,
-            confirm=confirm,
-        )
+        return await self._execute_command(command, write=write, confirm=confirm)
 
-    async def dispatch_batch(  # noqa: PLR0913
+    async def dispatch_batch(
         self,
         *,
         target: Target,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
     ) -> list[UnitCommand]:
         """Fan-out a command to the devices matched by *target*.
 
-        The injected :class:`TargetResolver` runs at dispatch time and returns
-        the list of device ids the target currently matches. Each resolved
-        device gets a ``PENDING`` unit command, all sharing one ``batch_id``.
-        Per-device writes run concurrently in a background task; the persisted
-        commands are returned immediately.
-
-        When the target resolves to an empty set, the method logs a warning
-        and returns ``[]`` — no exception, no PENDING rows created.
+        Always creates an ephemeral :class:`CommandTemplate` (``name=None``)
+        so the target survives for audit, then dispatches through it. To
+        dispatch from a user-saved template by id, call
+        :meth:`dispatch_from_template` instead.
         """
-        device_ids = await self._target_resolver.resolve(target)
+        ephemeral = await self.save_template(
+            CommandTemplateCreate(target=target, write=write, name=None),
+            user_id,
+        )
+        return await self._dispatch_template(
+            template=ephemeral, user_id=user_id, confirm=confirm
+        )
+
+    async def dispatch_from_template(
+        self, *, template_id: str, user_id: str, confirm: bool = True
+    ) -> list[UnitCommand]:
+        """Resolve a saved template and fan-out the write across matched devices.
+
+        Raises :class:`NotFoundError` if the template doesn't exist or is
+        ephemeral (``name IS NULL``) — only user-saved templates are
+        dispatchable through this entry point.
+        """
+        template = await self.get_template(template_id)
+        return await self._dispatch_template(
+            template=template, user_id=user_id, confirm=confirm
+        )
+
+    async def _dispatch_template(
+        self, *, template: CommandTemplate, user_id: str, confirm: bool
+    ) -> list[UnitCommand]:
+        """Resolve the template's target, persist PENDING unit commands, and
+        spawn the per-device writes in the background. Shared by
+        :meth:`dispatch_batch` (ephemeral path) and
+        :meth:`dispatch_from_template` (saved-template path).
+
+        An empty resolve logs a warning and returns ``[]`` — no exception,
+        no PENDING rows created.
+        """
+        device_ids = await self._target_resolver.resolve(template.target)
         if not device_ids:
-            logger.warning("dispatch_batch: target %r resolved to no devices", target)
+            logger.warning("dispatch: template %r resolved to no devices", template.id)
             return []
 
         batch_id = uuid4().hex[:16]
@@ -143,10 +236,11 @@ class CommandsService:
             [
                 UnitCommandCreate(
                     batch_id=batch_id,
+                    template_id=template.id,
                     device_id=device_id,
-                    attribute=attribute,
-                    value=value,
-                    data_type=data_type,
+                    attribute=template.write.attribute,
+                    value=template.write.value,
+                    data_type=template.write.data_type,
                     status=CommandStatus.PENDING,
                     status_details=None,
                     user_id=user_id,
@@ -159,13 +253,7 @@ class CommandsService:
         )
 
         task = asyncio.create_task(
-            self._execute_all(
-                commands,
-                attribute=attribute,
-                value=value,
-                data_type=data_type,
-                confirm=confirm,
-            )
+            self._execute_all(commands, write=template.write, confirm=confirm)
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
@@ -176,9 +264,7 @@ class CommandsService:
         self,
         commands: list[UnitCommand],
         *,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
         confirm: bool,
     ) -> None:
         """Run ``_execute_command`` concurrently over every command in a batch.
@@ -189,13 +275,7 @@ class CommandsService:
         """
         await asyncio.gather(
             *(
-                self._execute_command(
-                    cmd,
-                    attribute=attribute,
-                    value=value,
-                    data_type=data_type,
-                    confirm=confirm,
-                )
+                self._execute_command(cmd, write=write, confirm=confirm)
                 for cmd in commands
             ),
             return_exceptions=True,
@@ -205,9 +285,7 @@ class CommandsService:
         self,
         command: UnitCommand,
         *,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
+        write: AttributeWrite,
         confirm: bool,
     ) -> UnitCommand:
         """Write to the device, update command status, and fire the result handler.
@@ -219,7 +297,7 @@ class CommandsService:
         """
         try:
             result = await self._device_writer(
-                command.device_id, attribute, value, confirm=confirm
+                command.device_id, write.attribute, write.value, confirm=confirm
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -242,9 +320,9 @@ class CommandsService:
         )
         await self._result_handler(
             device_id=command.device_id,
-            attribute=attribute,
-            value=value,
-            data_type=data_type,
+            attribute=write.attribute,
+            value=write.value,
+            data_type=write.data_type,
             command_id=updated.id,
             last_changed=result.last_changed,
         )

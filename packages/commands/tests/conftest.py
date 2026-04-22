@@ -12,6 +12,7 @@ from models.types import DataType
 def _make_command(  # noqa: PLR0913
     *,
     batch_id: str | None = None,
+    template_id: str | None = None,
     device_id: str = "device1",
     attribute: str = "mode",
     user_id: str = "user1",
@@ -24,6 +25,7 @@ def _make_command(  # noqa: PLR0913
 ) -> UnitCommandCreate:
     return UnitCommandCreate(
         batch_id=batch_id,
+        template_id=template_id,
         device_id=device_id,
         attribute=attribute,
         value=value,

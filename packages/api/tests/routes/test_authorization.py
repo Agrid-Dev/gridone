@@ -489,6 +489,85 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         None,
         id="get-device-cmds-no-auth",
     ),
+    # Command templates: viewer can READ, cannot WRITE; no-auth returns 401.
+    pytest.param(
+        "POST",
+        "/devices/command-templates/",
+        "viewer",
+        403,
+        {
+            "target": {"ids": ["d1"]},
+            "write": {
+                "attribute": "mode",
+                "value": "auto",
+                "data_type": "str",
+            },
+        },
+        id="create-template-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/command-templates/",
+        None,
+        401,
+        {
+            "target": {"ids": ["d1"]},
+            "write": {
+                "attribute": "mode",
+                "value": "auto",
+                "data_type": "str",
+            },
+        },
+        id="create-template-no-auth",
+    ),
+    pytest.param(
+        "DELETE",
+        "/devices/command-templates/any-id",
+        "viewer",
+        403,
+        None,
+        id="delete-template-viewer",
+    ),
+    pytest.param(
+        "DELETE",
+        "/devices/command-templates/any-id",
+        None,
+        401,
+        None,
+        id="delete-template-no-auth",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/command-templates/any-id/dispatch",
+        "viewer",
+        403,
+        None,
+        id="dispatch-template-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/command-templates/any-id/dispatch",
+        None,
+        401,
+        None,
+        id="dispatch-template-no-auth",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/command-templates/",
+        None,
+        401,
+        None,
+        id="list-templates-no-auth",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/command-templates/any-id",
+        None,
+        401,
+        None,
+        id="get-template-no-auth",
+    ),
 ]
 
 
