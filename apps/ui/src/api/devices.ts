@@ -9,6 +9,20 @@ export type DeviceAttribute = {
   lastUpdated: string | null;
 };
 
+export type Severity = "alert" | "warning" | "info";
+
+/** A fault-kind attribute as consumed by `<FaultItem>`. Structural shape
+ *  satisfied by `DeviceAttribute` once AGR-460 extends it with
+ *  severity/isFaulty/lastChanged, and by adapters from the /faults FaultView. */
+export type FaultAttribute = {
+  name: string;
+  dataType: "bool" | "int" | "str" | string;
+  severity: Severity;
+  isFaulty: boolean;
+  currentValue: string | number | boolean | null;
+  lastChanged: string | null;
+};
+
 export enum DeviceType {
   Thermostat = "thermostat",
   Awhp = "awhp",
