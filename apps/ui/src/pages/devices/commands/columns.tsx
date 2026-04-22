@@ -28,14 +28,16 @@ const STATUS_ICONS: Record<CommandStatus, ReactNode> = {
 type Lookups = {
   deviceNames: Record<string, string>;
   userNames: Record<string, string>;
+  templateNames: Record<string, string>;
   showDevice?: boolean;
+  showTemplate?: boolean;
 };
 
 export function buildCommandColumns(
   t: TFunction,
   lookups: Lookups,
 ): ColumnDef<DeviceCommand>[] {
-  const { showDevice = true } = lookups;
+  const { showDevice = true, showTemplate = true } = lookups;
 
   return [
     {
@@ -60,6 +62,38 @@ export function buildCommandColumns(
                   className="text-primary hover:underline"
                 >
                   {lookups.deviceNames[deviceId] ?? deviceId}
+                </Link>
+              );
+            },
+          } satisfies ColumnDef<DeviceCommand>,
+        ]
+      : []),
+    ...(showTemplate
+      ? [
+          {
+            accessorKey: "templateId",
+            header: () => t("commands.template"),
+            cell: ({ row }: { row: { original: DeviceCommand } }) => {
+              const { templateId } = row.original;
+              if (!templateId) {
+                return <span className="text-muted-foreground">—</span>;
+              }
+              const name = lookups.templateNames[templateId];
+              if (!name) {
+                // Template has been demoted to ephemeral (deleted). Keep the
+                // audit trail visible but don't surface a dead link.
+                return (
+                  <span className="text-muted-foreground italic">
+                    {t("commands.templateDeleted")}
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  to={`/devices/commands/templates/${templateId}`}
+                  className="text-primary hover:underline"
+                >
+                  {name}
                 </Link>
               );
             },

@@ -66,6 +66,7 @@ export default function CommandsPage({
         attributeOptions={cmd.attributeOptions}
         devices={cmd.devices}
         users={cmd.users}
+        templates={cmd.templates}
         onFilterChange={cmd.setFilter}
         isDeviceFixed={cmd.isDeviceFixed}
         isTemplateFixed={cmd.isTemplateFixed}

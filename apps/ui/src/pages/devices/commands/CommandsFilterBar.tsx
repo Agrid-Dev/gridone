@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { toLabel } from "@/lib/textFormat";
+import type { CommandTemplate } from "@/api/commands";
 import type { Device } from "@/api/devices";
 import type { User } from "@/api/users";
 
@@ -24,6 +25,7 @@ type CommandsFilterBarProps = {
   attributeOptions: string[];
   devices: Device[];
   users: User[] | undefined;
+  templates: CommandTemplate[];
   onFilterChange: (key: string, value: string | undefined) => void;
   isDeviceFixed?: boolean;
   isTemplateFixed?: boolean;
@@ -34,9 +36,11 @@ export function CommandsFilterBar({
   attribute,
   userId,
   batchId,
+  templateId,
   attributeOptions,
   devices,
   users,
+  templates,
   onFilterChange,
   isDeviceFixed = false,
   isTemplateFixed = false,
@@ -135,6 +139,27 @@ export function CommandsFilterBar({
           ))}
         </SelectContent>
       </Select>
+
+      {templates.length > 0 && (
+        <Select
+          value={templateId ?? ALL}
+          onValueChange={(v) =>
+            onFilterChange("template_id", v === ALL ? undefined : v)
+          }
+        >
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder={t("commands.allTemplates")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("commands.allTemplates")}</SelectItem>
+            {templates.map((tpl) => (
+              <SelectItem key={tpl.id} value={tpl.id}>
+                {tpl.name ?? tpl.id}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <TimeRangeSelect onChangeParamsReset={["page"]} />
     </div>

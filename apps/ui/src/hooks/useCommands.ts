@@ -3,10 +3,10 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
-import { getCommands, getDeviceCommands } from "@/api/commands";
+import { getCommands, getDeviceCommands, listTemplates } from "@/api/commands";
 import type { Page } from "@/api/pagination";
 import { toSearchString } from "@/api/pagination";
-import type { DeviceCommand } from "@/api/commands";
+import type { CommandTemplate, DeviceCommand } from "@/api/commands";
 import type { Device } from "@/api/devices";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
@@ -90,6 +90,16 @@ export function useCommands({
   const { users } = useUsers();
   const attributeOptions = useAttributeOptions(devices, deviceId);
 
+  // Templates list — used for both the filter dropdown and the table column
+  // name lookup. Low cardinality (user-saved only), so one cached fetch is
+  // plenty for both the list and the detail pages.
+  const { data: templatesPage } = useQuery<Page<CommandTemplate>>({
+    queryKey: ["command-templates"],
+    queryFn: () => listTemplates(),
+    staleTime: 30_000,
+  });
+  const templates = templatesPage?.items ?? [];
+
   // Build params for the API — URL params + defaults
   const apiParams = useMemo(() => {
     const params = buildApiParams(searchParams);
@@ -138,14 +148,24 @@ export function useCommands({
     [users],
   );
 
+  const templateNames = useMemo(
+    () =>
+      Object.fromEntries(
+        templates.filter((tpl) => tpl.name).map((tpl) => [tpl.id, tpl.name!]),
+      ),
+    [templates],
+  );
+
   const columns = useMemo(
     () =>
       buildCommandColumns(t, {
         deviceNames,
         userNames,
+        templateNames,
         showDevice: !fixedDeviceId,
+        showTemplate: !fixedTemplateId,
       }),
-    [t, deviceNames, userNames, fixedDeviceId],
+    [t, deviceNames, userNames, templateNames, fixedDeviceId, fixedTemplateId],
   );
 
   const table = useReactTable({
@@ -199,6 +219,7 @@ export function useCommands({
     attributeOptions,
     devices,
     users,
+    templates,
     setFilter,
     isDeviceFixed: !!fixedDeviceId,
     isTemplateFixed: !!fixedTemplateId,
