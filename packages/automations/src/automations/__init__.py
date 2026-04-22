@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from automations.models import (
-    ActionSpec,
     Automation,
     AutomationCreate,
+    AutomationExecution,
+    AutomationUpdate,
     ChangeEventTrigger,
     ComparisonOperator,
     Condition,
@@ -14,11 +15,14 @@ from automations.models import (
     TriggerContext,
     TriggerType,
 )
+from automations.service import AutomationsService
 
 __all__ = [
-    "ActionSpec",
     "Automation",
     "AutomationCreate",
+    "AutomationExecution",
+    "AutomationUpdate",
+    "AutomationsService",
     "ChangeEventTrigger",
     "ComparisonOperator",
     "Condition",
