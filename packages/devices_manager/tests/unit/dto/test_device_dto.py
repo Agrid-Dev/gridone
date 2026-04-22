@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -186,3 +187,54 @@ class TestCoreDeviceToDto:
             },
         )
         assert core_to_dto(device).is_faulty is False
+
+
+class TestDeviceAttributeSerialization:
+    """Fault attributes nested in `Device.attributes` must serialize their
+    subclass-only fields (severity, healthy_values, is_faulty). Without
+    ``SerializeAsAny``, Pydantic would serialize via the parent `Attribute`
+    schema and drop them, breaking the UI fault detection."""
+
+    _NOW = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def test_fault_attribute_fields_round_trip_through_device_json(self):
+        fault = FaultAttribute(
+            name="fault_code",
+            data_type=DataType.INT,
+            read_write_modes={"read"},
+            current_value=3,
+            healthy_values=[0],
+            last_updated=self._NOW,
+            last_changed=self._NOW,
+        )
+        device = VirtualDevice(id="d1", name="D1", attributes={"fault_code": fault})
+        dto = core_to_dto(device)
+
+        payload = json.loads(dto.model_dump_json())
+        attr_payload = payload["attributes"]["fault_code"]
+
+        assert attr_payload["severity"] == "warning"
+        assert attr_payload["is_faulty"] is True
+        assert attr_payload["healthy_values"] == [0]
+        assert attr_payload["last_changed"] == self._NOW.isoformat().replace(
+            "+00:00", "Z"
+        )
+
+    def test_standard_attribute_omits_fault_only_fields(self):
+        device = VirtualDevice(
+            id="d2",
+            name="D2",
+            attributes={
+                "reading": Attribute.create(
+                    "reading", DataType.FLOAT, {"read"}, value=20.0
+                ),
+            },
+        )
+        dto = core_to_dto(device)
+
+        payload = json.loads(dto.model_dump_json())
+        attr_payload = payload["attributes"]["reading"]
+
+        assert "severity" not in attr_payload
+        assert "is_faulty" not in attr_payload
+        assert "healthy_values" not in attr_payload

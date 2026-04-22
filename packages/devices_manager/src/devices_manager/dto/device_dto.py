@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, SerializeAsAny, Tag
 
 from devices_manager.core.device import (
     Attribute,
@@ -62,7 +62,7 @@ class Device(BaseModel):
     name: str
     type: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
-    attributes: dict[str, Attribute] = Field(default_factory=dict)
+    attributes: dict[str, SerializeAsAny[Attribute]] = Field(default_factory=dict)
     is_faulty: bool
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
