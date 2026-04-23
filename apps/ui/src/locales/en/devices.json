@@ -33,7 +33,13 @@
     "feedback": {
       "deleted": "Device deleted"
     },
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "health": {
+      "label": "Health",
+      "all": "All",
+      "healthy": "Healthy",
+      "faulty": "Faulty"
+    }
   },
   "deviceDetails": {
     "title": "Device",

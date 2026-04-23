@@ -36,6 +36,7 @@ export type Device = {
   transportId: string;
   config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
+  isFaulty: boolean;
 };
 
 // ---------------------------------------------------------------------------

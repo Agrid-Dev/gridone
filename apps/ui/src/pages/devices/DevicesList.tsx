@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DeviceCard } from "./DeviceCard";
@@ -9,15 +10,23 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
+import { HealthFilter, readHealthParam } from "@/components/HealthFilter";
 import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation("devices");
   const filters = useFilterParams();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const health = readHealthParam(searchParams);
   const { devices, loading, error } = useDevicesList(filters);
   const can = usePermissions();
-  const hasFilters = !!filters;
+  const hasFilters = !!filters || health !== "all";
+
+  const visibleDevices = useMemo(() => {
+    if (health === "all") return devices;
+    const wantFaulty = health === "faulty";
+    return devices.filter((d) => d.isFaulty === wantFaulty);
+  }, [devices, health]);
 
   return (
     <section className="space-y-6">
@@ -52,7 +61,10 @@ export default function DevicesList() {
         }
       />
 
-      <TypeFilter />
+      <div className="flex flex-wrap items-center gap-3">
+        <TypeFilter />
+        <HealthFilter />
+      </div>
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -66,9 +78,9 @@ export default function DevicesList() {
             <Skeleton key={index} className="h-48" />
           ))}
         </div>
-      ) : devices.length > 0 ? (
+      ) : visibleDevices.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {devices.map((device, i) => (
+          {visibleDevices.map((device, i) => (
             <div
               key={device.id}
               className="animate-fade-up"

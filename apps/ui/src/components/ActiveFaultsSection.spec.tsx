@@ -62,6 +62,7 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     transportId: "tr",
     config: {},
     attributes,
+    isFaulty: false,
   };
 }
 

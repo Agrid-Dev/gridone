@@ -97,10 +97,12 @@ function makeThermostat(
     id: "dev-1",
     name: "Living Room Thermostat",
     type: "thermostat",
+    tags: {},
     driverId: "drv-1",
     transportId: "tr-1",
     config: {},
     attributes: defaults as Device["attributes"],
+    isFaulty: false,
   };
 }
 

@@ -21,6 +21,10 @@ export function getActiveFaults(device: Device): FaultAttribute[] {
   return getAllFaultAttributes(device).filter((attr) => attr.isFaulty);
 }
 
+export function getHighestActiveSeverity(device: Device): Severity | null {
+  return getActiveFaults(device)[0]?.severity ?? null;
+}
+
 export function getAllFaultAttributes(device: Device): FaultAttribute[] {
   return Object.values(device.attributes)
     .filter(isFaultAttribute)

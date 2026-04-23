@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getActiveFaults,
   getAllFaultAttributes,
+  getHighestActiveSeverity,
   isFaultAttribute,
 } from "./faults";
 import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
@@ -16,6 +17,7 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     transportId: "tr",
     config: {},
     attributes,
+    isFaulty: false,
   };
 }
 
@@ -240,5 +242,61 @@ describe("getAllFaultAttributes", () => {
       alarm: fault({ name: "alarm", severity: "alert", isFaulty: false }),
     });
     expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual(["alarm"]);
+  });
+});
+
+describe("getHighestActiveSeverity", () => {
+  it("returns null when the device has no fault attributes", () => {
+    expect(getHighestActiveSeverity(makeDevice({ temperature: plain }))).toBe(
+      null,
+    );
+  });
+
+  it("returns null when all fault attributes are healthy", () => {
+    const device = makeDevice({
+      a: fault({ name: "a", severity: "alert", isFaulty: false }),
+      b: fault({ name: "b", severity: "warning", isFaulty: false }),
+    });
+    expect(getHighestActiveSeverity(device)).toBe(null);
+  });
+
+  it("returns the severity of the single active fault", () => {
+    const device = makeDevice({
+      a: fault({ name: "a", severity: "warning", isFaulty: true }),
+    });
+    expect(getHighestActiveSeverity(device)).toBe("warning");
+  });
+
+  it("returns 'alert' when alert + warning + info are all active", () => {
+    const device = makeDevice({
+      i: fault({ name: "i", severity: "info", isFaulty: true }),
+      a: fault({ name: "a", severity: "alert", isFaulty: true }),
+      w: fault({ name: "w", severity: "warning", isFaulty: true }),
+    });
+    expect(getHighestActiveSeverity(device)).toBe("alert");
+  });
+
+  it("returns 'warning' when warning + info are active (no alert)", () => {
+    const device = makeDevice({
+      i: fault({ name: "i", severity: "info", isFaulty: true }),
+      w: fault({ name: "w", severity: "warning", isFaulty: true }),
+    });
+    expect(getHighestActiveSeverity(device)).toBe("warning");
+  });
+
+  it("ignores healthy fault attributes with higher severity", () => {
+    const device = makeDevice({
+      healthyAlert: fault({
+        name: "healthy_alert",
+        severity: "alert",
+        isFaulty: false,
+      }),
+      activeInfo: fault({
+        name: "active_info",
+        severity: "info",
+        isFaulty: true,
+      }),
+    });
+    expect(getHighestActiveSeverity(device)).toBe("info");
   });
 });

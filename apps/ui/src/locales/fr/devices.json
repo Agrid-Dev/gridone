@@ -33,7 +33,13 @@
     "feedback": {
       "deleted": "Appareil supprimé"
     },
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "health": {
+      "label": "Santé",
+      "all": "Tous",
+      "healthy": "Sains",
+      "faulty": "En défaut"
+    }
   },
   "deviceDetails": {
     "title": "Appareil",
