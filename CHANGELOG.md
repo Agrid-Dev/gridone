@@ -1,3 +1,14 @@
+## v0.54.0 (2026-04-23)
+
+### Feat
+
+- **ui**: add active faults section to device detail page
+- **ui**: add active faults section to device detail page
+
+### Refactor
+
+- discriminate Attribute/FaultAttribute on kind
+
 ## v0.53.0 (2026-04-22)
 
 ### Feat
