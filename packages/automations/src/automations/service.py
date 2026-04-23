@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -8,10 +10,13 @@ from automations.models import (
     AutomationCreate,
     AutomationExecution,
     AutomationUpdate,
+    ExecutionStatus,
     TriggerContext,
 )
 from automations.storage.factory import build_storage
 from models.errors import NotFoundError
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -162,9 +167,27 @@ class AutomationsService:
             await listener.stop()
 
     def _make_on_fire(
-        self, _automation_id: str
+        self, automation_id: str
     ) -> Callable[[TriggerContext], Awaitable[None]]:
         async def on_fire(context: TriggerContext) -> None:
-            pass  # engine wiring — self._actions.execute() called by engine
+            if (automation := self._cache.get(automation_id)) is None:
+                return
+            output_id, status, error = None, ExecutionStatus.SUCCESS, None
+            try:
+                output_id = await self._actions.execute(automation.action_template_id)
+            except Exception:
+                logger.exception("Automation %r action failed", automation_id)
+                status, error = ExecutionStatus.FAILED, "Action execution failed"
+            await self._log_execution(
+                AutomationExecution(
+                    id=uuid4().hex[:16],
+                    automation_id=automation_id,
+                    triggered_at=context.timestamp,
+                    executed_at=datetime.now(UTC),
+                    status=status,
+                    error=error,
+                    output_id=output_id,
+                )
+            )
 
         return on_fire

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -8,7 +9,9 @@ from automations.models import (
     AutomationCreate,
     AutomationUpdate,
     ChangeEventTrigger,
+    ExecutionStatus,
     ScheduleTrigger,
+    TriggerContext,
 )
 from automations.service import AutomationsService
 from automations.storage.backend import AutomationsStorageBackend
@@ -38,11 +41,12 @@ def _make_factory() -> MagicMock:
 def _make_service(
     storage: AsyncMock | None = None,
     factory: MagicMock | None = None,
+    actions: AsyncMock | None = None,
 ) -> AutomationsService:
     return AutomationsService(
         storage=storage or _make_storage(),
         listener_factory=factory or _make_factory(),
-        actions=AsyncMock(),
+        actions=actions or AsyncMock(),
     )
 
 
@@ -254,6 +258,51 @@ class TestExecutions:
         created = await svc.create(_create_params(enabled=False))
         await svc.delete(created.id)
         storage.delete.assert_called_once_with(created.id)
+
+
+_CTX = TriggerContext(timestamp=datetime(2024, 1, 1, tzinfo=UTC))
+
+
+class TestOnFire:
+    async def test_calls_action_with_template_id(self):
+        actions = AsyncMock()
+        actions.execute.return_value = "out-01"
+        svc = _make_service(actions=actions)
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        actions.execute.assert_called_once_with(created.action_template_id)
+
+    async def test_logs_success_execution(self):
+        storage = _make_storage()
+        actions = AsyncMock()
+        actions.execute.return_value = "out-01"
+        svc = _make_service(storage=storage, actions=actions)
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        execution = storage.log_execution.call_args[0][0]
+        assert execution.automation_id == created.id
+        assert execution.status == ExecutionStatus.SUCCESS
+        assert execution.output_id == "out-01"
+        assert execution.error is None
+
+    async def test_logs_failed_execution_on_action_error(self):
+        storage = _make_storage()
+        actions = AsyncMock()
+        actions.execute.side_effect = RuntimeError("boom")
+        svc = _make_service(storage=storage, actions=actions)
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        execution = storage.log_execution.call_args[0][0]
+        assert execution.status == ExecutionStatus.FAILED
+        assert execution.error is not None
+        assert execution.output_id is None
+
+    async def test_no_exception_propagated_on_action_error(self):
+        actions = AsyncMock()
+        actions.execute.side_effect = RuntimeError("boom")
+        svc = _make_service(actions=actions)
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)  # must not raise
 
 
 class TestClose:
