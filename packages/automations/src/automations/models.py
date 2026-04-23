@@ -14,31 +14,23 @@ class TriggerType(StrEnum):
     CHANGE_EVENT = "change_event"
 
 
-class ComparisonOperator(StrEnum):
-    GT = "gt"
-    LT = "lt"
-    GTE = "gte"
-    LTE = "lte"
-    EQ = "eq"
-    NEQ = "neq"
-
-
-class ConditionTarget(StrEnum):
-    VALUE = "value"
-    PREVIOUS_VALUE = "previous_value"
-
-
 class ExecutionStatus(StrEnum):
     SUCCESS = "success"
     FAILED = "failed"
 
 
-class Condition(BaseModel):
-    """Compares a field of the trigger event payload against an operand."""
+class ConditionOperator(StrEnum):
+    GT = "gt"
+    LT = "lt"
+    GTE = "gte"
+    LTE = "lte"
+    EQ = "eq"
+    NE = "ne"
 
-    operator: ComparisonOperator
-    operand: AttributeValueType
-    target: ConditionTarget = ConditionTarget.VALUE
+
+class Condition(BaseModel):
+    operator: ConditionOperator
+    threshold: AttributeValueType
 
 
 class ScheduleTrigger(BaseModel):
