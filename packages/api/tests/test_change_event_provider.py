@@ -4,8 +4,13 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from api.trigger_providers.change_event import ChangeEventTriggerProvider, _evaluate
-from automations.models import Condition, ConditionOperator, TriggerContext
+from api.trigger_providers.change_event import (
+    ChangeEventTriggerProvider,
+    Condition,
+    ConditionOperator,
+    _evaluate,
+)
+from automations.models import TriggerContext
 
 _NOW = datetime(2024, 1, 1, tzinfo=UTC)
 
@@ -114,7 +119,6 @@ class TestChangeEventTriggerProvider:
         await listener._handle(_make_device("dev-01"), "temperature", _make_attr(30))
         on_fire.assert_called_once()
         ctx: TriggerContext = on_fire.call_args[0][0]
-        assert ctx.value == 30
         assert ctx.timestamp == _NOW
 
     async def test_ignores_wrong_source(self):

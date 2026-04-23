@@ -8,106 +8,54 @@ from automations.models import (
     AutomationCreate,
     AutomationExecution,
     AutomationUpdate,
-    ChangeEventTrigger,
-    Condition,
-    ConditionOperator,
     ExecutionStatus,
-    ScheduleTrigger,
     Trigger,
-    TriggerType,
 )
-from pydantic import TypeAdapter, ValidationError
 
-_trigger_adapter = TypeAdapter(Trigger)
+_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+_CHANGE_TEMP = Trigger.model_validate(
+    {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
+)
+_CHANGE_MODE = Trigger.model_validate(
+    {"type": "change_event", "source_id": "src-01", "event_type": "mode"}
+)
+_CHANGE_OCC = Trigger.model_validate(
+    {"type": "change_event", "source_id": "src-01", "event_type": "occupancy"}
+)
 
 
-class TestCondition:
-    @pytest.mark.parametrize(
-        ("operator", "threshold"),
-        [
-            (ConditionOperator.GT, 25),
-            (ConditionOperator.LT, 25),
-            (ConditionOperator.GTE, 25),
-            (ConditionOperator.LTE, 25),
-            (ConditionOperator.EQ, 1),
-            (ConditionOperator.NE, 1),
-        ],
-    )
-    def test_condition_fields(
-        self, operator: ConditionOperator, threshold: int
-    ) -> None:
-        c = Condition(operator=operator, threshold=threshold)
-        assert c.operator == operator
-        assert c.threshold == threshold
+class TestTrigger:
+    def test_type_field_required(self):
+        t = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+        assert t.type == "schedule"
 
-    def test_change_event_trigger_with_condition(self):
-        t = ChangeEventTrigger(
-            source_id="dev-01",
-            event_type="temperature",
-            condition=Condition(operator=ConditionOperator.GT, threshold=25),
+    def test_extra_fields_preserved(self):
+        t = Trigger.model_validate(
+            {"type": "change_event", "source_id": "dev-01", "event_type": "temperature"}
         )
-        assert t.condition is not None
-        assert t.condition.operator == ConditionOperator.GT
-        assert t.condition.threshold == 25
+        assert t.model_dump() == {
+            "type": "change_event",
+            "source_id": "dev-01",
+            "event_type": "temperature",
+        }
 
-    def test_change_event_trigger_without_condition(self):
-        t = ChangeEventTrigger(source_id="dev-01", event_type="temperature")
-        assert t.condition is None
+    def test_dump_excludes_type(self):
+        t = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+        assert t.model_dump(exclude={"type"}) == {"cron": "0 11 * * *"}
 
-    def test_condition_roundtrips_via_trigger_adapter(self):
-        t = _trigger_adapter.validate_python(
-            {
-                "type": "change_event",
-                "source_id": "dev-01",
-                "event_type": "temperature",
-                "condition": {"operator": "gt", "threshold": 25},
-            }
-        )
-        assert isinstance(t, ChangeEventTrigger)
-        assert t.condition is not None
-        assert t.condition.threshold == 25
-
-
-class TestValidation:
-    def test_invalid_trigger_type_literal_raises(self):
-        with pytest.raises(ValidationError):
-            ScheduleTrigger(cron="0 11 * * *", type=TriggerType.CHANGE_EVENT)  # type: ignore[arg-type]
-
-    def test_unknown_trigger_type_raises(self):
-        with pytest.raises(ValidationError):
-            _trigger_adapter.validate_python({"type": "webhook", "cron": "* * * * *"})
-
-    def test_trigger_from_dict_schedule(self):
-        t = _trigger_adapter.validate_python({"type": "schedule", "cron": "0 11 * * *"})
-        assert isinstance(t, ScheduleTrigger)
-
-    def test_trigger_from_dict_change_event(self):
-        t = _trigger_adapter.validate_python(
-            {"type": "change_event", "source_id": "s1", "event_type": "temperature"}
-        )
-        assert isinstance(t, ChangeEventTrigger)
+    def test_any_type_string_accepted(self):
+        t = Trigger.model_validate({"type": "webhook", "url": "https://example.com"})
+        assert t.type == "webhook"
 
 
 class TestAutomationUseCases:
     @pytest.mark.parametrize(
         ("name", "trigger"),
         [
-            (
-                "alert_temp",
-                ChangeEventTrigger(source_id="src-01", event_type="temperature"),
-            ),
-            (
-                "mode_propagation",
-                ChangeEventTrigger(source_id="src-01", event_type="mode"),
-            ),
-            (
-                "schedule_off_at_11am",
-                ScheduleTrigger(cron="0 11 * * *"),
-            ),
-            (
-                "occupancy",
-                ChangeEventTrigger(source_id="src-01", event_type="occupancy"),
-            ),
+            ("alert_temp", _CHANGE_TEMP),
+            ("mode_propagation", _CHANGE_MODE),
+            ("schedule_off_at_11am", _SCHEDULE),
+            ("occupancy", _CHANGE_OCC),
         ],
     )
     def test_use_case(self, name: str, trigger: Trigger):
@@ -119,7 +67,7 @@ class TestAutomationUseCases:
     def test_automation_id(self):
         a = Automation(
             name="test",
-            trigger=ScheduleTrigger(cron="0 * * * *"),
+            trigger=Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"}),
             action_template_id="tmpl-01",
             id="abc123def456abcd",
         )
@@ -140,8 +88,11 @@ class TestAutomationUpdate:
         assert u.trigger is None
 
     def test_trigger_only(self):
-        u = AutomationUpdate(trigger=ScheduleTrigger(cron="0 12 * * *"))
-        assert isinstance(u.trigger, ScheduleTrigger)
+        u = AutomationUpdate(
+            trigger=Trigger.model_validate({"type": "schedule", "cron": "0 12 * * *"})
+        )
+        assert u.trigger is not None
+        assert u.trigger.type == "schedule"
         assert u.name is None
 
     def test_enabled_only(self):

@@ -3,9 +3,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-from automations.models import ScheduleTrigger
 from automations.trigger_providers.schedule import (
     ScheduleListener,
+    ScheduleTrigger,
     ScheduleTriggerProvider,
 )
 

@@ -8,9 +8,8 @@ from automations.models import (
     Automation,
     AutomationCreate,
     AutomationUpdate,
-    ChangeEventTrigger,
     ExecutionStatus,
-    ScheduleTrigger,
+    Trigger,
     TriggerContext,
 )
 from automations.service import AutomationsService
@@ -20,8 +19,10 @@ from models.errors import NotFoundError
 
 pytestmark = pytest.mark.asyncio
 
-_SCHEDULE = ScheduleTrigger(cron="0 11 * * *")
-_CHANGE = ChangeEventTrigger(source_id="src-01", event_type="temperature")
+_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+_CHANGE = Trigger.model_validate(
+    {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
+)
 _TMPL = "tmpl-abc"
 
 
@@ -48,7 +49,7 @@ def _make_service(
         providers = [_make_provider("schedule"), _make_provider("change_event")]
     return AutomationsService(
         storage=storage or _make_storage(),
-        triggers=providers,
+        trigger_providers=providers,
         actions=actions or AsyncMock(),
     )
 
@@ -111,6 +112,44 @@ class TestCRUD:
         svc = _make_service()
         with pytest.raises(NotFoundError):
             await svc.delete("missing")
+
+
+class TestStart:
+    async def test_start_calls_storage_start(self):
+        storage = _make_storage()
+        svc = _make_service(storage=storage)
+        await svc.start()
+        storage.start.assert_called_once()
+
+    async def test_start_registers_enabled_automations_from_storage(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        auto = Automation(
+            id="abc123",
+            name="a",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl",
+            enabled=True,
+        )
+        storage.list.return_value = [auto]
+        svc = _make_service(storage=storage, providers=[provider])
+        await svc.start()
+        provider.register.assert_called_once()
+
+    async def test_start_skips_disabled_automations(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        auto = Automation(
+            id="abc123",
+            name="a",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl",
+            enabled=False,
+        )
+        storage.list.return_value = [auto]
+        svc = _make_service(storage=storage, providers=[provider])
+        await svc.start()
+        provider.register.assert_not_called()
 
 
 class TestCache:
@@ -238,6 +277,23 @@ class TestTriggers:
         provider.unregister.assert_not_called()
         assert provider.register.call_count == 1
 
+    async def test_enable_already_enabled_is_noop(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        created = await svc.create(_create_params(enabled=True))
+        provider.register.reset_mock()
+        result = await svc.enable(created.id)
+        provider.register.assert_not_called()
+        assert result.enabled is True
+
+    async def test_disable_already_disabled_is_noop(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        created = await svc.create(_create_params(enabled=False))
+        result = await svc.disable(created.id)
+        provider.unregister.assert_not_called()
+        assert result.enabled is False
+
     async def test_register_passes_params_without_type(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
@@ -307,6 +363,11 @@ class TestOnFire:
         svc = _make_service(actions=actions)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)  # must not raise
+
+    async def test_raises_not_found_when_automation_missing(self):
+        svc = _make_service()
+        with pytest.raises(NotFoundError):
+            await svc._make_on_fire("nonexistent")(_CTX)
 
 
 class TestClose:
