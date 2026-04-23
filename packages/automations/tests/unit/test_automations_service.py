@@ -31,21 +31,24 @@ def _make_storage() -> AsyncMock:
     return storage
 
 
-def _make_factory() -> MagicMock:
-    listener = AsyncMock()
-    factory = MagicMock()
-    factory.build.return_value = listener
-    return factory
+def _make_provider(trigger_type: str = "schedule") -> MagicMock:
+    provider = MagicMock()
+    provider.id = trigger_type
+    provider.register = AsyncMock(return_value="handle-01")
+    provider.unregister = AsyncMock()
+    return provider
 
 
 def _make_service(
     storage: AsyncMock | None = None,
-    factory: MagicMock | None = None,
+    providers: list[MagicMock] | None = None,
     actions: AsyncMock | None = None,
 ) -> AutomationsService:
+    if providers is None:
+        providers = [_make_provider("schedule"), _make_provider("change_event")]
     return AutomationsService(
         storage=storage or _make_storage(),
-        listener_factory=factory or _make_factory(),
+        triggers=providers,
         actions=actions or AsyncMock(),
     )
 
@@ -163,84 +166,85 @@ class TestCache:
         assert (await svc.get(created.id)).enabled is False
 
 
-class TestListeners:
-    async def test_started_on_create_enabled(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+class TestTriggers:
+    async def test_registered_on_create_enabled(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         await svc.create(_create_params(enabled=True))
-        factory.build.assert_called_once()
-        factory.build.return_value.start.assert_called_once()
+        provider.register.assert_called_once()
 
-    async def test_not_started_on_create_disabled(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_not_registered_on_create_disabled(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         await svc.create(_create_params(enabled=False))
-        factory.build.assert_not_called()
+        provider.register.assert_not_called()
 
-    async def test_started_on_enable(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_registered_on_enable(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=False))
-        factory.build.reset_mock()
+        provider.register.reset_mock()
         await svc.enable(created.id)
-        factory.build.assert_called_once()
-        factory.build.return_value.start.assert_called_once()
+        provider.register.assert_called_once()
 
-    async def test_stopped_on_disable(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_unregistered_on_disable(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
-        listener = factory.build.return_value
         await svc.disable(created.id)
-        listener.stop.assert_called_once()
+        provider.unregister.assert_called_once_with("handle-01")
 
-    async def test_stopped_before_db_write_on_disable(self):
-        """Listener stop must happen before storage.update, not after."""
+    async def test_unregistered_before_db_write_on_disable(self):
+        """Trigger unregister must happen before storage.update, not after."""
         storage = _make_storage()
-        factory = _make_factory()
-        svc = _make_service(storage=storage, factory=factory)
+        provider = _make_provider("schedule")
+        svc = _make_service(storage=storage, providers=[provider])
         created = await svc.create(_create_params(enabled=True))
-        listener = factory.build.return_value
         call_order: list[str] = []
-        listener.stop.side_effect = lambda: call_order.append("stop")
+        provider.unregister.side_effect = lambda _: call_order.append("stop")
         storage.update.side_effect = lambda *_: call_order.append("db_write")
         await svc.disable(created.id)
         assert call_order == ["stop", "db_write"]
 
-    async def test_stopped_on_delete(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_unregistered_on_delete(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
-        listener = factory.build.return_value
         await svc.delete(created.id)
-        listener.stop.assert_called_once()
+        provider.unregister.assert_called_once_with("handle-01")
 
     async def test_restarted_on_trigger_change(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
-        created = await svc.create(_create_params(trigger=_SCHEDULE))
-        listener = factory.build.return_value
-        await svc.update(created.id, AutomationUpdate(trigger=_CHANGE))
-        listener.stop.assert_called_once()
-        assert factory.build.call_count == 2  # initial + restart
+        schedule_provider = _make_provider("schedule")
+        change_provider = _make_provider("change_event")
+        svc = _make_service(providers=[schedule_provider, change_provider])
+        await svc.create(_create_params(trigger=_SCHEDULE))
+        await svc.update((await svc.list())[0].id, AutomationUpdate(trigger=_CHANGE))
+        schedule_provider.unregister.assert_called_once()
+        change_provider.register.assert_called_once()
 
-    async def test_only_stopped_on_update_to_disabled(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_only_unregistered_on_update_to_disabled(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
-        listener = factory.build.return_value
         await svc.update(created.id, AutomationUpdate(enabled=False))
-        listener.stop.assert_called_once()
-        assert factory.build.call_count == 1  # only the initial create
+        provider.unregister.assert_called_once()
+        assert provider.register.call_count == 1  # only the initial create
 
-    async def test_no_listener_change_on_non_trigger_update(self):
-        factory = _make_factory()
-        svc = _make_service(factory=factory)
+    async def test_no_change_on_non_trigger_update(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
-        listener = factory.build.return_value
         await svc.update(created.id, AutomationUpdate(name="new-name"))
-        listener.stop.assert_not_called()
-        assert factory.build.call_count == 1
+        provider.unregister.assert_not_called()
+        assert provider.register.call_count == 1
+
+    async def test_register_passes_params_without_type(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        await svc.create(_create_params(trigger=_SCHEDULE, enabled=True))
+        call_params = provider.register.call_args[0][0]
+        assert "type" not in call_params
+        assert call_params["cron"] == "0 11 * * *"
 
 
 class TestExecutions:
@@ -306,12 +310,12 @@ class TestOnFire:
 
 
 class TestClose:
-    async def test_close_stops_all_listeners_and_storage(self):
+    async def test_close_unregisters_all_triggers_and_storage(self):
         storage = _make_storage()
-        factory = _make_factory()
-        svc = _make_service(storage=storage, factory=factory)
+        provider = _make_provider("schedule")
+        svc = _make_service(storage=storage, providers=[provider])
         await svc.create(_create_params(enabled=True))
         await svc.create(_create_params(enabled=True))
         await svc.close()
-        assert factory.build.return_value.stop.call_count == 2
+        assert provider.unregister.call_count == 2
         storage.close.assert_called_once()
