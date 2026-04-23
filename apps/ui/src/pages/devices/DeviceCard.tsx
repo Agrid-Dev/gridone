@@ -51,7 +51,7 @@ export function DeviceCard({ device }: { device: Device }) {
           </div>
           <div className="mt-0.5 flex items-center gap-1.5">
             {severity && <FaultSeverityIcon severity={severity} />}
-            <h2 className="truncate font-display text-base font-semibold text-card-foreground">
+            <h2 className="min-w-0 truncate font-display text-base font-semibold text-card-foreground">
               {device.name || device.id}
             </h2>
           </div>
