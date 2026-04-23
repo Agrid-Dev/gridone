@@ -1,3 +1,24 @@
+## v0.56.0 (2026-04-23)
+
+### Feat
+
+- **ui**: template column + filter on commands list (AGR-512)
+- **ui**: templates list + detail pages (AGR-512)
+- **ui**: wizard target-mode toggle + save-as-template (AGR-512)
+- **ui**: route /devices/history → /devices/commands, templates api (AGR-512)
+- **api**: asset_id alias + template_id command filter (AGR-512)
+
+### Fix
+
+- **ui**: match the camelcased tag key when resolving by asset (AGR-512)
+- **ui**: templates empty-state points to new-command, not templates/new (AGR-512)
+- **ui**: commands template column + empty-state + route nesting (AGR-512)
+
+### Refactor
+
+- **ui**: wizard accepts a predefinedTarget instead of context flags (AGR-512)
+- **ui**: template detail page uses a hook + composite presenter (AGR-512)
+
 ## v0.55.0 (2026-04-23)
 
 ### Feat
