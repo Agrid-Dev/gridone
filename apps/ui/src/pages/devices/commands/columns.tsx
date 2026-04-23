@@ -75,19 +75,14 @@ export function buildCommandColumns(
             header: () => t("commands.template"),
             cell: ({ row }: { row: { original: DeviceCommand } }) => {
               const { templateId } = row.original;
-              if (!templateId) {
-                return <span className="text-muted-foreground">—</span>;
-              }
-              const name = lookups.templateNames[templateId];
-              if (!name) {
-                // Template has been demoted to ephemeral (deleted). Keep the
-                // audit trail visible but don't surface a dead link.
-                return (
-                  <span className="text-muted-foreground italic">
-                    {t("commands.templateDeleted")}
-                  </span>
-                );
-              }
+              // Column stays empty for one-off dispatches AND for ephemeral
+              // audit rows (batches auto-create an unnamed template that was
+              // never user-saved) — "deleted template" would be misleading in
+              // both cases.
+              const name = templateId
+                ? lookups.templateNames[templateId]
+                : null;
+              if (!name || !templateId) return null;
               return (
                 <Link
                   to={`/devices/commands/templates/${templateId}`}

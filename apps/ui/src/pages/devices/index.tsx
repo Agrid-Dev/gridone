@@ -20,38 +20,42 @@ const Devices: FC = () => (
       path="history"
       element={<Navigate to="/devices/commands" replace />}
     />
-    <Route
-      path="commands"
-      element={
-        <Suspense>
-          <CommandsPage />
-        </Suspense>
-      }
-    />
-    <Route
-      path="commands/new"
-      element={
-        <Suspense>
-          <NewCommandPage context="open" />
-        </Suspense>
-      }
-    />
-    <Route
-      path="commands/templates"
-      element={
-        <Suspense>
-          <TemplatesListPage />
-        </Suspense>
-      }
-    />
-    <Route
-      path="commands/templates/:templateId"
-      element={
-        <Suspense>
-          <TemplateDetailPage />
-        </Suspense>
-      }
-    />
+    <Route path="commands">
+      <Route
+        index
+        element={
+          <Suspense>
+            <CommandsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="new"
+        element={
+          <Suspense>
+            <NewCommandPage context="open" />
+          </Suspense>
+        }
+      />
+      <Route path="templates">
+        <Route
+          index
+          element={
+            <Suspense>
+              <TemplatesListPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path=":templateId"
+          element={
+            <Suspense>
+              <TemplateDetailPage />
+            </Suspense>
+          }
+        />
+      </Route>
+    </Route>
     <Route path="*" element={<Device />} />
   </Routes>
 );

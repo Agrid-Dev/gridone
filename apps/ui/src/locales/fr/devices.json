@@ -78,7 +78,6 @@
     "allUsers": "Tous les utilisateurs",
     "allTemplates": "Tous les modèles",
     "template": "Modèle",
-    "templateDeleted": "Modèle supprimé",
     "batch": "Lot",
     "clearBatch": "Effacer le filtre de lot",
     "newCommand": "Nouvelle commande",
@@ -90,7 +89,7 @@
     },
     "templates": {
       "title": "Modèles",
-      "resource": "modèles",
+      "resource": "modèle",
       "name": "Nom",
       "target": "Cible",
       "payload": "Charge",

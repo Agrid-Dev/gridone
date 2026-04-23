@@ -78,7 +78,6 @@
     "allUsers": "All users",
     "allTemplates": "All templates",
     "template": "Template",
-    "templateDeleted": "Deleted template",
     "batch": "Batch",
     "clearBatch": "Clear batch filter",
     "newCommand": "New command",
@@ -90,7 +89,7 @@
     },
     "templates": {
       "title": "Templates",
-      "resource": "templates",
+      "resource": "template",
       "name": "Name",
       "target": "Target",
       "payload": "Payload",
