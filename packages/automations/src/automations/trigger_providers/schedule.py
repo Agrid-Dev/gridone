@@ -8,13 +8,18 @@ from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
 
 from croniter import croniter
+from pydantic import BaseModel
 
-from automations.models import ScheduleTrigger, TriggerContext
+from automations.models import TriggerContext
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
+
+
+class ScheduleTrigger(BaseModel):
+    cron: str
 
 
 class ScheduleListener:
@@ -44,12 +49,7 @@ class ScheduleListener:
             delay = (next_dt - datetime.now(UTC)).total_seconds()
             if delay > 0:
                 await asyncio.sleep(delay)
-            try:
-                await self._on_fire(TriggerContext(timestamp=datetime.now(UTC)))
-            except Exception:
-                logger.exception(
-                    "Schedule trigger on_fire failed for cron %r", self._trigger.cron
-                )
+            await self._on_fire(TriggerContext(timestamp=datetime.now(UTC)))
 
 
 class ScheduleTriggerProvider:

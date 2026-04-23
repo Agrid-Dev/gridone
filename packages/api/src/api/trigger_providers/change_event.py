@@ -2,20 +2,43 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
 
-from automations.models import ChangeEventTrigger, ConditionOperator, TriggerContext
+from automations.models import TriggerContext
+from models.types import AttributeValueType  # noqa: TC001
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from automations.models import Condition
     from devices_manager import Attribute, CoreDevice
     from devices_manager.interface import DevicesManagerInterface
-    from models.types import AttributeValueType
+
 
 logger = logging.getLogger(__name__)
+
+
+class ConditionOperator(StrEnum):
+    GT = "gt"
+    LT = "lt"
+    GTE = "gte"
+    LTE = "lte"
+    EQ = "eq"
+    NE = "ne"
+
+
+class Condition(BaseModel):
+    operator: ConditionOperator
+    threshold: AttributeValueType
+
+
+class ChangeEventTrigger(BaseModel):
+    source_id: str
+    event_type: str
+    condition: Condition | None = None
+
 
 _COMPARATORS = {
     ConditionOperator.GT: lambda a, b: a > b,
@@ -73,16 +96,12 @@ class ChangeEventListener:
             return
         if attr_name != self._trigger.event_type:
             return
-        value = attr.current_value
         if self._trigger.condition is not None and not _evaluate(
-            self._trigger.condition, value
+            self._trigger.condition, attr.current_value
         ):
             return
         await self._on_fire(
-            TriggerContext(
-                timestamp=attr.last_updated or datetime.now(UTC),
-                value=value,
-            )
+            TriggerContext(timestamp=attr.last_updated or datetime.now(UTC))
         )
 
 
