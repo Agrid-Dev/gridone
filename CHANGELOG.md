@@ -1,3 +1,13 @@
+## v0.55.0 (2026-04-23)
+
+### Feat
+
+- **ui**: add Faults section to device detail page (AGR-465)
+
+### Refactor
+
+- **ui**: derive getActiveFaults from getAllFaultAttributes
+
 ## v0.54.0 (2026-04-23)
 
 ### Feat
