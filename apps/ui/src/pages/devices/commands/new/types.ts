@@ -36,12 +36,16 @@ export type WizardFormValues = {
 };
 
 /** Is *device* a member of the given target filter? Mirrors backend semantics
- *  (``asset_id`` matches the ``asset_id`` tag, ``types`` is a whitelist). */
+ *  (``asset_id`` matches the ``asset_id`` tag, ``types`` is a whitelist).
+ *
+ *  The tag key is ``asset_id`` on the wire but ``assetId`` on ``Device.tags``
+ *  — the ``request`` helper passes responses through ``camelcase-keys`` with
+ *  ``deep: true``, which rewrites nested object keys. */
 export function deviceMatchesFilter(
   device: Device,
   filter: TargetFilter,
 ): boolean {
-  if (filter.assetId && device.tags.asset_id !== filter.assetId) {
+  if (filter.assetId && device.tags.assetId !== filter.assetId) {
     return false;
   }
   if (filter.types && filter.types.length > 0) {
