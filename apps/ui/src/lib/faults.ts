@@ -18,16 +18,7 @@ export function isFaultAttribute(
 }
 
 export function getActiveFaults(device: Device): FaultAttribute[] {
-  return Object.values(device.attributes)
-    .filter(isFaultAttribute)
-    .filter((attr) => attr.isFaulty)
-    .sort((a, b) => {
-      const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
-      if (bySeverity !== 0) return bySeverity;
-      const ta = a.lastChanged ? Date.parse(a.lastChanged) : 0;
-      const tb = b.lastChanged ? Date.parse(b.lastChanged) : 0;
-      return tb - ta;
-    });
+  return getAllFaultAttributes(device).filter((attr) => attr.isFaulty);
 }
 
 export function getAllFaultAttributes(device: Device): FaultAttribute[] {
