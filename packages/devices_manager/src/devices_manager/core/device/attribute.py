@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import ClassVar
+from typing import Literal
 
 from pydantic import BaseModel, computed_field, model_validator
 
@@ -15,7 +15,7 @@ class AttributeKind(StrEnum):
 
 
 class Attribute(BaseModel):
-    kind: ClassVar[AttributeKind] = AttributeKind.STANDARD
+    kind: Literal[AttributeKind.STANDARD] = AttributeKind.STANDARD
 
     name: str
     data_type: DataType
@@ -77,7 +77,7 @@ class Attribute(BaseModel):
 
 
 class FaultAttribute(Attribute):
-    kind: ClassVar[AttributeKind] = AttributeKind.FAULT
+    kind: Literal[AttributeKind.FAULT] = AttributeKind.FAULT
 
     severity: Severity = Severity.WARNING
     healthy_values: list[AttributeValueType]

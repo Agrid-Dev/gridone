@@ -1,26 +1,24 @@
 import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
 
-export type DeviceAttribute = {
-  name: string;
-  dataType: "int" | "float" | "bool" | "string" | string;
-  readWriteModes: Array<"read" | "write" | string>;
-  currentValue: string | number | boolean | null;
-  lastUpdated: string | null;
-};
+export type AttributeKind = "standard" | "fault";
 
 export type Severity = "alert" | "warning" | "info";
 
-/** A fault-kind attribute as consumed by `<FaultItem>`. Structural shape
- *  satisfied by `DeviceAttribute` once AGR-460 extends it with
- *  severity/isFaulty/lastChanged, and by adapters from the /faults FaultView. */
-export type FaultAttribute = {
+export type DeviceAttribute = {
+  kind: AttributeKind;
   name: string;
-  dataType: "bool" | "int" | "str" | string;
+  dataType: "int" | "float" | "bool" | "str" | string;
+  readWriteModes: Array<"read" | "write" | string>;
+  currentValue: string | number | boolean | null;
+  lastUpdated: string | null;
+  lastChanged: string | null;
+};
+
+export type FaultAttribute = DeviceAttribute & {
+  kind: "fault";
   severity: Severity;
   isFaulty: boolean;
-  currentValue: string | number | boolean | null;
-  lastChanged: string | null;
 };
 
 export enum DeviceType {

@@ -92,7 +92,7 @@ def test_update_value_different(float_attribute) -> None:
     )
 
 
-def test_attribute_kind_classvar_is_standard():
+def test_attribute_kind_serializes_as_standard():
     attr = Attribute(
         name="a",
         data_type=DataType.BOOL,
@@ -100,8 +100,8 @@ def test_attribute_kind_classvar_is_standard():
         current_value=False,
     )
     assert attr.kind == AttributeKind.STANDARD
-    assert "kind" not in Attribute.model_fields
-    assert "kind" not in attr.model_dump()
+    assert "kind" in Attribute.model_fields
+    assert attr.model_dump()["kind"] == AttributeKind.STANDARD
 
 
 def test_fault_attribute_kind_and_default_severity():

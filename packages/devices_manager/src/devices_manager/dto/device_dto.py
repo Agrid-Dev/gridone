@@ -8,9 +8,11 @@ from devices_manager.core.device import (
     Attribute,
     CoreDevice,
     DeviceBase,
+    FaultAttribute,
     PhysicalDevice,
     VirtualDevice,
 )
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
 
 if TYPE_CHECKING:
@@ -56,13 +58,32 @@ DeviceCreate = Annotated[
 ]
 
 
+def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
+    """Resolve the `kind` tag for discriminated-union dispatch.
+
+    Defaults to `standard` when the field is absent — matches the default
+    on `Attribute.kind` so payloads without an explicit `kind:` key parse
+    as standard attributes.
+    """
+    if isinstance(v, dict):
+        return v.get("kind", AttributeKind.STANDARD)
+    return getattr(v, "kind", AttributeKind.STANDARD)
+
+
+_AttributeUnion = Annotated[
+    Annotated[Attribute, Tag(AttributeKind.STANDARD)]
+    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)],
+    Discriminator(_attribute_kind_tag),
+]
+
+
 class Device(BaseModel):
     id: str
     kind: DeviceKind = DeviceKind.PHYSICAL
     name: str
     type: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
-    attributes: dict[str, Attribute] = Field(default_factory=dict)
+    attributes: dict[str, _AttributeUnion] = Field(default_factory=dict)
     is_faulty: bool
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
