@@ -13,16 +13,14 @@ from automations.models import (
     ExecutionStatus,
     TriggerContext,
 )
-from automations.storage.factory import build_storage
 from models.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
     from automations.protocols import (
         ActionServiceInterface,
+        OnFireCallback,
         TriggerProvider,
     )
     from automations.storage.backend import AutomationsStorageBackend
@@ -35,28 +33,22 @@ class AutomationsService:
     def __init__(
         self,
         storage: AutomationsStorageBackend,
-        triggers: list[TriggerProvider],  # type: ignore[invalid-type-form]
+        trigger_providers: list[TriggerProvider],  # type: ignore[invalid-type-form]
         actions: ActionServiceInterface,
     ) -> None:
         self._storage = storage
-        self._providers: dict[str, TriggerProvider] = {p.id: p for p in triggers}
+        self._providers: dict[str, TriggerProvider] = {
+            p.id: p for p in trigger_providers
+        }
         self._actions = actions
         self._cache = {}
         self._handles = {}
 
-    @classmethod
-    async def from_storage(
-        cls,
-        storage_url: str,
-        triggers: list[TriggerProvider],  # type: ignore[invalid-type-form]
-        actions: ActionServiceInterface,
-    ) -> AutomationsService:
-        storage = await build_storage(storage_url)
-        await storage.start()
-        service = cls(storage, triggers, actions)
-        for automation in await storage.list():
-            await service._register_automation(automation)
-        return service
+    async def start(self) -> None:
+        """Start storage and register all persisted automations."""
+        await self._storage.start()
+        for automation in await self._storage.list():
+            await self._register_automation(automation)
 
     # CRUD
 
@@ -167,28 +159,33 @@ class AutomationsService:
             provider_id, trigger_id = handle
             await self._providers[provider_id].unregister(trigger_id)
 
-    def _make_on_fire(
-        self, automation_id: str
-    ) -> Callable[[TriggerContext], Awaitable[None]]:
-        async def on_fire(context: TriggerContext) -> None:
-            if (automation := self._cache.get(automation_id)) is None:
-                return
-            output_id, status, error = None, ExecutionStatus.SUCCESS, None
-            try:
-                output_id = await self._actions.execute(automation.action_template_id)
-            except Exception:
-                logger.exception("Automation %r action failed", automation_id)
-                status, error = ExecutionStatus.FAILED, "Action execution failed"
-            await self._log_execution(
-                AutomationExecution(
-                    id=uuid4().hex[:16],
-                    automation_id=automation_id,
-                    triggered_at=context.timestamp,
-                    executed_at=datetime.now(UTC),
-                    status=status,
-                    error=error,
-                    output_id=output_id,
-                )
+    async def _execute_automation_actions(
+        self, automation_id: str, context: TriggerContext
+    ) -> None:
+        automation = self._cache.get(automation_id)
+        if automation is None:
+            msg = f"Automation {automation_id!r} not found"
+            raise NotFoundError(msg)
+        output_id, status, error = None, ExecutionStatus.SUCCESS, None
+        try:
+            output_id = await self._actions.execute(automation.action_template_id)
+        except Exception:
+            logger.exception("Automation %r action failed", automation_id)
+            status, error = ExecutionStatus.FAILED, "Action execution failed"
+        await self._log_execution(
+            AutomationExecution(
+                id=uuid4().hex[:16],
+                automation_id=automation_id,
+                triggered_at=context.timestamp,
+                executed_at=datetime.now(UTC),
+                status=status,
+                error=error,
+                output_id=output_id,
             )
+        )
+
+    def _make_on_fire(self, automation_id: str) -> OnFireCallback:
+        async def on_fire(context: TriggerContext) -> None:
+            await self._execute_automation_actions(automation_id, context)
 
         return on_fire
