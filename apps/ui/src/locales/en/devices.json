@@ -89,7 +89,10 @@
     },
     "templates": {
       "title": "Templates",
-      "resource": "template",
+      "empty": {
+        "title": "No saved templates yet",
+        "hint": "Save a command from the wizard's review step to reuse it later."
+      },
       "name": "Name",
       "target": "Target",
       "payload": "Payload",

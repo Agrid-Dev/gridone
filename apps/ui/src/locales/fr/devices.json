@@ -89,7 +89,10 @@
     },
     "templates": {
       "title": "Modèles",
-      "resource": "modèle",
+      "empty": {
+        "title": "Aucun modèle enregistré pour le moment",
+        "hint": "Enregistrez une commande depuis l'étape de revue pour la relancer plus tard."
+      },
       "name": "Nom",
       "target": "Cible",
       "payload": "Charge",

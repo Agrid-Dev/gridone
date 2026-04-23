@@ -15,7 +15,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { FileSearchCorner } from "lucide-react";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { listTemplates, type CommandTemplate } from "@/api/commands";
 import {
@@ -89,10 +97,27 @@ export default function TemplatesListPage() {
     <section className="space-y-6">
       {header}
       {templates.length === 0 ? (
-        <ResourceEmpty
-          resourceName={t("commands.templates.resource")}
-          showCreate={can("devices:write")}
-        />
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FileSearchCorner />
+            </EmptyMedia>
+            <EmptyTitle>{t("commands.templates.empty.title")}</EmptyTitle>
+            <EmptyDescription>
+              {t("commands.templates.empty.hint")}
+            </EmptyDescription>
+          </EmptyHeader>
+          {can("devices:write") && (
+            <EmptyContent className="flex-row justify-center gap-2">
+              <Button asChild>
+                <Link to="/devices/commands/new">
+                  <Plus />
+                  {t("commands.newCommand")}
+                </Link>
+              </Button>
+            </EmptyContent>
+          )}
+        </Empty>
       ) : (
         <>
           <div className="overflow-hidden rounded-lg border">
