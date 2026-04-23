@@ -29,3 +29,20 @@ export function getActiveFaults(device: Device): FaultAttribute[] {
       return tb - ta;
     });
 }
+
+export function getAllFaultAttributes(device: Device): FaultAttribute[] {
+  return Object.values(device.attributes)
+    .filter(isFaultAttribute)
+    .sort((a, b) => {
+      if (a.isFaulty !== b.isFaulty) return a.isFaulty ? -1 : 1;
+      if (a.isFaulty) {
+        const bySeverity =
+          SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+        if (bySeverity !== 0) return bySeverity;
+        const ta = a.lastChanged ? Date.parse(a.lastChanged) : 0;
+        const tb = b.lastChanged ? Date.parse(b.lastChanged) : 0;
+        return tb - ta;
+      }
+      return a.name.localeCompare(b.name);
+    });
+}

@@ -43,6 +43,10 @@
       "title": "Active faults",
       "empty": "No active faults."
     },
+    "faults": {
+      "title": "Faults",
+      "empty": "No fault monitoring configured for this device."
+    },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",
     "missingDeviceId": "Missing device identifier",

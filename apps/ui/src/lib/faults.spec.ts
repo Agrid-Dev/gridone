@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { getActiveFaults, isFaultAttribute } from "./faults";
+import {
+  getActiveFaults,
+  getAllFaultAttributes,
+  isFaultAttribute,
+} from "./faults";
 import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
 
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
@@ -142,5 +146,99 @@ describe("getActiveFaults", () => {
     });
     const result = getActiveFaults(device);
     expect(result.map((f) => f.name)).toEqual(["alarm"]);
+  });
+});
+
+describe("getAllFaultAttributes", () => {
+  it("returns [] when the device has no fault attributes", () => {
+    const device = makeDevice({ temperature: plain });
+    expect(getAllFaultAttributes(device)).toEqual([]);
+  });
+
+  it("includes both active and healthy fault attributes", () => {
+    const device = makeDevice({
+      a: fault({ name: "a", severity: "alert", isFaulty: true }),
+      b: fault({ name: "b", severity: "warning", isFaulty: false }),
+    });
+    expect(
+      getAllFaultAttributes(device)
+        .map((f) => f.name)
+        .sort(),
+    ).toEqual(["a", "b"]);
+  });
+
+  it("places active faults before healthy ones regardless of severity", () => {
+    const device = makeDevice({
+      healthyAlert: fault({
+        name: "healthy_alert",
+        severity: "alert",
+        isFaulty: false,
+      }),
+      activeInfo: fault({
+        name: "active_info",
+        severity: "info",
+        isFaulty: true,
+      }),
+    });
+    expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
+      "active_info",
+      "healthy_alert",
+    ]);
+  });
+
+  it("sorts active faults by severity desc, then lastChanged desc", () => {
+    const device = makeDevice({
+      i: fault({
+        name: "i",
+        severity: "info",
+        isFaulty: true,
+        lastChanged: "2026-04-22T10:00:00Z",
+      }),
+      aOlder: fault({
+        name: "a_older",
+        severity: "alert",
+        isFaulty: true,
+        lastChanged: "2026-04-22T08:00:00Z",
+      }),
+      aNewer: fault({
+        name: "a_newer",
+        severity: "alert",
+        isFaulty: true,
+        lastChanged: "2026-04-22T10:00:00Z",
+      }),
+      w: fault({
+        name: "w",
+        severity: "warning",
+        isFaulty: true,
+        lastChanged: "2026-04-22T09:00:00Z",
+      }),
+    });
+    expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
+      "a_newer",
+      "a_older",
+      "w",
+      "i",
+    ]);
+  });
+
+  it("sorts healthy faults by attribute name (ascending)", () => {
+    const device = makeDevice({
+      z: fault({ name: "z_leak", severity: "alert", isFaulty: false }),
+      a: fault({ name: "a_smoke", severity: "info", isFaulty: false }),
+      m: fault({ name: "m_overheat", severity: "warning", isFaulty: false }),
+    });
+    expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
+      "a_smoke",
+      "m_overheat",
+      "z_leak",
+    ]);
+  });
+
+  it("ignores plain (non-fault) attributes", () => {
+    const device = makeDevice({
+      temp: plain,
+      alarm: fault({ name: "alarm", severity: "alert", isFaulty: false }),
+    });
+    expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual(["alarm"]);
   });
 });

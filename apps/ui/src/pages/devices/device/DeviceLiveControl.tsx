@@ -17,6 +17,7 @@ import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getSliderRange } from "@/utils/sliderPresets";
 import { toLabel } from "@/lib/textFormat";
+import { FaultAttributesSection } from "@/components/FaultAttributesSection";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
@@ -111,6 +112,9 @@ export default function DeviceLiveControl() {
           </div>
         </>
       )}
+
+      {/* ── Faults (all kind=fault attributes) ── */}
+      {device && <FaultAttributesSection device={device} />}
     </div>
   );
 }

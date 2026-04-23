@@ -43,6 +43,10 @@
       "title": "Défauts actifs",
       "empty": "Aucun défaut actif."
     },
+    "faults": {
+      "title": "Défauts",
+      "empty": "Aucun défaut n'est configuré pour cet appareil."
+    },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
     "missingDeviceId": "Identifiant d'appareil manquant",
