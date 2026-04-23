@@ -4,7 +4,8 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
+from uuid import uuid4
 
 from croniter import croniter
 
@@ -52,9 +53,31 @@ class ScheduleListener:
 
 
 class ScheduleTriggerProvider:
-    def build(
+    id = "schedule"
+    trigger_schema: ClassVar[dict] = {
+        "type": "object",
+        "properties": {
+            "cron": {"type": "string", "title": "Cron expression"},
+        },
+        "required": ["cron"],
+    }
+
+    def __init__(self) -> None:
+        self._listeners: dict[str, ScheduleListener] = {}
+
+    async def register(
         self,
-        trigger: ScheduleTrigger,
+        trigger_params: dict,
         on_fire: Callable[[TriggerContext], Awaitable[None]],
-    ) -> ScheduleListener:
-        return ScheduleListener(trigger, on_fire)
+    ) -> str:
+        handle_id = uuid4().hex[:16]
+        trigger = ScheduleTrigger(**trigger_params)
+        listener = ScheduleListener(trigger, on_fire)
+        await listener.start()
+        self._listeners[handle_id] = listener
+        return handle_id
+
+    async def unregister(self, trigger_id: str) -> None:
+        listener = self._listeners.pop(trigger_id, None)
+        if listener is not None:
+            await listener.stop()
