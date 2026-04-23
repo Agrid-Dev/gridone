@@ -85,7 +85,11 @@
       "empty": "No target",
       "deviceCount_one": "{{count}} device",
       "deviceCount_other": "{{count}} devices",
-      "asset": "Asset"
+      "labels": {
+        "ids": "Specific devices",
+        "assetId": "Zone",
+        "types": "Device type"
+      }
     },
     "templates": {
       "title": "Templates",
@@ -102,10 +106,10 @@
       "targetCard": "Target",
       "payloadCard": "Payload",
       "executions": "Previous executions",
-      "resolvedDevices_one": "{{count}} device resolved",
-      "resolvedDevices_other": "{{count}} devices resolved",
+      "resolvedHeader_one": "Currently resolves to {{count}} device",
+      "resolvedHeader_other": "Currently resolves to {{count}} devices",
+      "dynamicHint": "Re-evaluated on each dispatch",
       "noResolvedDevices": "Target resolves to no devices right now.",
-      "noTargetFields": "Template has no target — edit or delete.",
       "execute": "Execute",
       "executing": "Executing…",
       "executed": "Commands dispatched",

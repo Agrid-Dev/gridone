@@ -85,7 +85,11 @@
       "empty": "Aucune cible",
       "deviceCount_one": "{{count}} appareil",
       "deviceCount_other": "{{count}} appareils",
-      "asset": "Zone"
+      "labels": {
+        "ids": "Appareils spécifiques",
+        "assetId": "Zone",
+        "types": "Type d'appareil"
+      }
     },
     "templates": {
       "title": "Modèles",
@@ -102,10 +106,10 @@
       "targetCard": "Cible",
       "payloadCard": "Charge",
       "executions": "Exécutions précédentes",
-      "resolvedDevices_one": "{{count}} appareil résolu",
-      "resolvedDevices_other": "{{count}} appareils résolus",
+      "resolvedHeader_one": "Résout actuellement {{count}} appareil",
+      "resolvedHeader_other": "Résout actuellement {{count}} appareils",
+      "dynamicHint": "Réévalué à chaque envoi",
       "noResolvedDevices": "La cible ne résout aucun appareil actuellement.",
-      "noTargetFields": "Le modèle n'a pas de cible — modifier ou supprimer.",
       "execute": "Exécuter",
       "executing": "Exécution…",
       "executed": "Commandes envoyées",

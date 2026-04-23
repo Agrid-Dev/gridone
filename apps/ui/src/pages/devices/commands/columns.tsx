@@ -75,10 +75,6 @@ export function buildCommandColumns(
             header: () => t("commands.template"),
             cell: ({ row }: { row: { original: DeviceCommand } }) => {
               const { templateId } = row.original;
-              // Column stays empty for one-off dispatches AND for ephemeral
-              // audit rows (batches auto-create an unnamed template that was
-              // never user-saved) — "deleted template" would be misleading in
-              // both cases.
               const name = templateId
                 ? lookups.templateNames[templateId]
                 : null;

@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
+import { cn } from "@/lib/utils";
 import { DeviceType, type DevicesFilter } from "@/api/devices";
 import type { Asset } from "@/api/assets";
 
@@ -11,67 +14,81 @@ type TargetPresenterProps = {
   className?: string;
 };
 
-/** Human-readable summary of a DevicesFilter — used on the templates list,
- *  template detail, and command wizard review. Zero-state (empty filter) is
- *  deliberately rendered as "No target" rather than "all devices" because a
- *  template with no target is a configuration error, not a wildcard. */
+type PresenterContext = {
+  t: TFunction;
+  assetsById?: Record<string, Asset>;
+};
+
+type SubPresenter = (value: never, ctx: PresenterContext) => ReactNode;
+
+/** Map of target-key → value renderer. Adding a new target dimension means
+ *  adding a row here and two i18n keys (label under
+ *  ``commands.targetPresenter.labels.<key>``, any value-side strings inline).
+ *  Unlisted keys are silently ignored. */
+const SUB_PRESENTERS: Record<string, SubPresenter> = {
+  ids: (ids: string[], { t }) => (
+    <Badge variant="outline">
+      {t("commands.targetPresenter.deviceCount", { count: ids.length })}
+    </Badge>
+  ),
+  assetId: (id: string, { assetsById }) => (
+    <Badge variant="outline">{assetsById?.[id]?.name ?? id}</Badge>
+  ),
+  types: (types: string[]) => (
+    <>
+      {types.map((type) => (
+        <DeviceTypeChip key={type} type={type as DeviceType} />
+      ))}
+    </>
+  ),
+};
+
 export function TargetPresenter({
   target,
   assetsById,
   className,
 }: TargetPresenterProps) {
   const { t } = useTranslation("devices");
+  const ctx: PresenterContext = { t, assetsById };
 
-  const hasIds = target.ids && target.ids.length > 0;
-  const hasTypes = target.types && target.types.length > 0;
-  const hasAsset = !!target.assetId;
-  const hasTags = target.tags && Object.keys(target.tags).length > 0;
+  const rows = Object.entries(target)
+    .filter(([key, value]) => SUB_PRESENTERS[key] && !isEmptyValue(value))
+    .map(([key, value]) => ({
+      key,
+      label: t(`commands.targetPresenter.labels.${key}`),
+      content: SUB_PRESENTERS[key](value as never, ctx),
+    }));
 
-  const empty = !hasIds && !hasTypes && !hasAsset && !hasTags;
-
-  if (empty) {
+  if (rows.length === 0) {
     return (
-      <span className={className}>
-        <Badge variant="outline" className="text-muted-foreground">
-          {t("commands.targetPresenter.empty")}
-        </Badge>
-      </span>
+      <Badge
+        variant="outline"
+        className={cn("text-muted-foreground", className)}
+      >
+        {t("commands.targetPresenter.empty")}
+      </Badge>
     );
   }
 
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 ${className ?? ""}`}>
-      {hasIds && (
-        <Badge variant="outline">
-          {t("commands.targetPresenter.deviceCount", {
-            count: target.ids!.length,
-          })}
-        </Badge>
-      )}
-      {hasAsset && (
-        <Badge variant="outline">
-          <span className="text-muted-foreground mr-1">
-            {t("commands.targetPresenter.asset")}:
-          </span>
-          {assetsById?.[target.assetId!]?.name ?? target.assetId}
-        </Badge>
-      )}
-      {hasTypes &&
-        target.types!.map((type) => (
-          <DeviceTypeChip key={type} type={type as DeviceType} />
-        ))}
-      {hasTags &&
-        Object.entries(target.tags!).flatMap(([key, values]) =>
-          values.map((v) => (
-            <Badge
-              key={`${key}:${v}`}
-              variant="outline"
-              className="font-mono text-xs"
-            >
-              {key}={v}
-            </Badge>
-          )),
-        )}
-    </div>
+    <dl className={cn("space-y-1", className)}>
+      {rows.map(({ key, label, content }) => (
+        <div
+          key={key}
+          className="flex flex-wrap items-baseline gap-x-2 gap-y-1"
+        >
+          <dt className="min-w-[7rem] text-xs uppercase tracking-wide text-muted-foreground">
+            {label}
+          </dt>
+          <dd className="flex flex-wrap items-center gap-1.5">{content}</dd>
+        </div>
+      ))}
+    </dl>
   );
+}
+
+function isEmptyValue(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  return false;
 }

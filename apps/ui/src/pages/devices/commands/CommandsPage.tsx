@@ -11,18 +11,13 @@ import { CommandsTable } from "./CommandsTable";
 
 type CommandsPageProps = {
   deviceId?: string;
-  templateId?: string;
   header?: ReactNode;
 };
 
-export default function CommandsPage({
-  deviceId,
-  templateId,
-  header,
-}: CommandsPageProps) {
+export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
   const { t } = useTranslation("devices");
   const can = usePermissions();
-  const cmd = useCommands({ deviceId, templateId });
+  const cmd = useCommands({ deviceId });
 
   const newCommandHref = deviceId
     ? `/devices/${deviceId}/commands/new`
@@ -69,7 +64,6 @@ export default function CommandsPage({
         templates={cmd.templates}
         onFilterChange={cmd.setFilter}
         isDeviceFixed={cmd.isDeviceFixed}
-        isTemplateFixed={cmd.isTemplateFixed}
       />
 
       <CommandsTable

@@ -28,7 +28,6 @@ type CommandsFilterBarProps = {
   templates: CommandTemplate[];
   onFilterChange: (key: string, value: string | undefined) => void;
   isDeviceFixed?: boolean;
-  isTemplateFixed?: boolean;
 };
 
 export function CommandsFilterBar({
@@ -43,14 +42,8 @@ export function CommandsFilterBar({
   templates,
   onFilterChange,
   isDeviceFixed = false,
-  isTemplateFixed = false,
 }: CommandsFilterBarProps) {
   const { t } = useTranslation("devices");
-
-  // When the template_id is pinned by the caller (e.g. the template detail
-  // page), every other filter is ambiguous — this table is already scoped to
-  // a single template's executions. Hide the bar entirely.
-  if (isTemplateFixed) return null;
 
   // When scoped to a batch, every other filter is redundant — the batch is a
   // single dispatch at a single point in time. Show only the batch chip so the
