@@ -18,7 +18,7 @@ const Assets: FC = () => (
       path=":assetId/commands/new"
       element={
         <Suspense>
-          <NewCommandPage context="asset" />
+          <NewCommandPage />
         </Suspense>
       }
     />

@@ -10,22 +10,23 @@ import { Input } from "@/components/ui/input";
 import { Controller } from "react-hook-form";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import type { CommandTemplate } from "@/api/commands";
-import type { Device } from "@/api/devices";
+import type { Device, DevicesFilter } from "@/api/devices";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
 import { StepSection } from "./StepSection";
 import { CommandSummary, TargetSummary } from "./summaries";
 import { TargetStep } from "./TargetStep";
 import { type DispatchResult, useCommandWizard } from "./useCommandWizard";
-import type { WizardContext } from "./types";
 
 type CommandWizardProps = {
-  context: WizardContext;
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
-  lockedDeviceId?: string;
-  lockedAssetId?: string;
+  /** When set, the target step is skipped and the wizard opens at the command
+   *  step. The filter is treated as the authoritative target on dispatch /
+   *  save. See useCommandWizard for semantics. */
+  predefinedTarget?: DevicesFilter;
+  assetsById?: Record<string, Asset>;
   onCancel: () => void;
   onDispatched: (result: DispatchResult) => void;
   onSaved: (template: CommandTemplate) => void;
@@ -42,7 +43,8 @@ export function CommandWizard(props: CommandWizardProps) {
     compatibleAttributes,
     targetValid,
     commandValid,
-    lockMode,
+    isPredefined,
+    isFirstStep,
     isDispatching,
     isSaving,
     dispatchError,
@@ -53,11 +55,8 @@ export function CommandWizard(props: CommandWizardProps) {
     handleDispatch,
     handleSave,
   } = useCommandWizard({
-    context: props.context,
     devices: props.devices,
-    assetTree: props.assetTree,
-    lockedDeviceId: props.lockedDeviceId,
-    lockedAssetId: props.lockedAssetId,
+    predefinedTarget: props.predefinedTarget,
     onDispatched: props.onDispatched,
     onSaved: props.onSaved,
   });
@@ -75,7 +74,6 @@ export function CommandWizard(props: CommandWizardProps) {
   const stateOf = (idx: number) =>
     idx < step ? "done" : idx === step ? "active" : "pending";
 
-  const isFirstStep = step === 0;
   const onBack = isFirstStep
     ? () => {
         handleCancel();
@@ -93,34 +91,36 @@ export function CommandWizard(props: CommandWizardProps) {
   return (
     <Card>
       <CardContent className="py-6 space-y-6">
-        <StepSection
-          number={1}
-          title={t("commands.new.steps.target")}
-          state={stateOf(0)}
-          summary={<TargetSummary selectedDevices={selectedDevices} />}
-        >
-          <div className="space-y-5">
-            <TargetStep
-              control={control}
-              devices={props.devices}
-              assetTree={props.assetTree}
-              assetsList={props.assetsList}
-              defaultAssetId={props.lockedAssetId}
-              lockMode={lockMode}
-            />
-            <StepFooter
-              onBack={onBack}
-              backLabel={backLabel}
-              onNext={handleNext}
-              nextDisabled={!targetValid}
-            />
-          </div>
-        </StepSection>
+        {!isPredefined && (
+          <>
+            <StepSection
+              number={1}
+              title={t("commands.new.steps.target")}
+              state={stateOf(0)}
+              summary={<TargetSummary selectedDevices={selectedDevices} />}
+            >
+              <div className="space-y-5">
+                <TargetStep
+                  control={control}
+                  devices={props.devices}
+                  assetTree={props.assetTree}
+                  assetsList={props.assetsList}
+                />
+                <StepFooter
+                  onBack={onBack}
+                  backLabel={backLabel}
+                  onNext={handleNext}
+                  nextDisabled={!targetValid}
+                />
+              </div>
+            </StepSection>
 
-        <Separator />
+            <Separator />
+          </>
+        )}
 
         <StepSection
-          number={2}
+          number={isPredefined ? 1 : 2}
           title={t("commands.new.steps.command")}
           state={stateOf(1)}
           summary={<CommandSummary values={values} />}
@@ -146,7 +146,7 @@ export function CommandWizard(props: CommandWizardProps) {
         <Separator />
 
         <StepSection
-          number={3}
+          number={isPredefined ? 2 : 3}
           title={t("commands.new.steps.review")}
           state={stateOf(2)}
         >

@@ -33,7 +33,7 @@ const Devices: FC = () => (
         path="new"
         element={
           <Suspense>
-            <NewCommandPage context="open" />
+            <NewCommandPage />
           </Suspense>
         }
       />

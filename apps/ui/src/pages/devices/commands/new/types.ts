@@ -1,8 +1,5 @@
 import type { Asset, AssetTreeNode } from "@/api/assets";
-import type { Device, DeviceAttribute } from "@/api/devices";
-
-/** The three entry points into the wizard. */
-export type WizardContext = "open" | "device" | "asset";
+import type { Device, DeviceAttribute, DevicesFilter } from "@/api/devices";
 
 export type AttributeDataType = "int" | "float" | "bool" | "str";
 
@@ -17,6 +14,8 @@ export type WritableAttribute = {
  *  dispatch, so saved templates follow the asset's current membership. */
 export type TargetMode = "devices" | "filters";
 
+/** The filter-mode form state: the narrow subset of DevicesFilter that the
+ *  filter-mode UI lets the user edit today. */
 export type TargetFilter = {
   assetId?: string;
   types?: string[];
@@ -35,17 +34,15 @@ export type WizardFormValues = {
   templateName?: string;
 };
 
-/** Is *device* a member of the given target filter? Mirrors backend semantics
- *  (``asset_id`` matches the ``asset_id`` tag, ``types`` is a whitelist).
- *
- *  The tag key is ``asset_id`` on the wire but ``assetId`` on ``Device.tags``
- *  — the ``request`` helper passes responses through ``camelcase-keys`` with
- *  ``deep: true``, which rewrites nested object keys. */
+/** Is *device* a member of the given filter? Mirrors backend semantics:
+ *  ``ids`` and ``types`` are whitelists, ``assetId`` matches the device's
+ *  ``asset_id`` tag (camelcased to ``assetId`` by the ``request`` helper's
+ *  deep ``camelcase-keys`` transform). */
 export function deviceMatchesFilter(
   device: Device,
-  filter: TargetFilter,
+  filter: DevicesFilter,
 ): boolean {
-  if (filter.assetId && device.tags.assetId !== filter.assetId) {
+  if (filter.ids && filter.ids.length > 0 && !filter.ids.includes(device.id)) {
     return false;
   }
   if (filter.types && filter.types.length > 0) {
@@ -53,20 +50,29 @@ export function deviceMatchesFilter(
       return false;
     }
   }
+  if (filter.assetId && device.tags.assetId !== filter.assetId) {
+    return false;
+  }
   return true;
 }
 
-/** Resolve a target filter against the caller's devices list. Empty filter
- *  returns an empty array — ``"everything"`` is not an intentional template,
- *  and we don't want a naked save-template to dispatch to every device. */
-export function resolveTargetFilter(
+/** Resolve a filter against the caller's devices list. An empty filter
+ *  resolves to nothing — "everything" is never an intentional target and
+ *  we don't want a naked save-template to dispatch to every device. */
+export function resolveFilter(
   devices: Device[],
-  filter: TargetFilter,
+  filter: DevicesFilter,
 ): Device[] {
-  if (!filter.assetId && !(filter.types && filter.types.length > 0)) {
-    return [];
-  }
+  if (isEmptyFilter(filter)) return [];
   return devices.filter((d) => deviceMatchesFilter(d, filter));
+}
+
+export function isEmptyFilter(filter: DevicesFilter): boolean {
+  return (
+    !(filter.ids && filter.ids.length > 0) &&
+    !(filter.types && filter.types.length > 0) &&
+    !filter.assetId
+  );
 }
 
 /** Intersection of writable attributes across a set of devices. An attribute

@@ -19,7 +19,7 @@ import { DeviceType, type Device } from "@/api/devices";
 import { DevicePickerTable } from "./DevicePickerTable";
 import {
   resolveAssetSubtreeDeviceIds,
-  resolveTargetFilter,
+  resolveFilter,
   type TargetMode,
   type WizardFormValues,
 } from "./types";
@@ -31,10 +31,6 @@ type TargetStepProps = {
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
-  defaultAssetId?: string;
-  /** Disable the filter-mode tab — used when the wizard is scoped to a
-   *  single device, where a filter-based target would be ambiguous. */
-  lockMode?: TargetMode;
 };
 
 export function TargetStep({
@@ -42,33 +38,25 @@ export function TargetStep({
   devices,
   assetTree,
   assetsList,
-  defaultAssetId,
-  lockMode,
 }: TargetStepProps) {
   return (
     <Controller
       control={control}
       name="targetMode"
       render={({ field: modeField }) => {
-        const mode = (lockMode ?? modeField.value ?? "devices") as TargetMode;
+        const mode = (modeField.value ?? "devices") as TargetMode;
         return (
-          <Tabs
-            value={mode}
-            onValueChange={(v) => !lockMode && modeField.onChange(v)}
-          >
-            {!lockMode && (
-              <TabsList className="mb-4">
-                <ModeTrigger mode="devices" />
-                <ModeTrigger mode="filters" />
-              </TabsList>
-            )}
+          <Tabs value={mode} onValueChange={modeField.onChange}>
+            <TabsList className="mb-4">
+              <ModeTrigger mode="devices" />
+              <ModeTrigger mode="filters" />
+            </TabsList>
             <TabsContent value="devices" className="mt-0">
               <DevicesModeBody
                 control={control}
                 devices={devices}
                 assetTree={assetTree}
                 assetsList={assetsList}
-                defaultAssetId={defaultAssetId}
               />
             </TabsContent>
             <TabsContent value="filters" className="mt-0">
@@ -103,7 +91,6 @@ type DevicesModeBodyProps = {
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
-  defaultAssetId?: string;
 };
 
 function DevicesModeBody({
@@ -111,15 +98,12 @@ function DevicesModeBody({
   devices,
   assetTree,
   assetsList,
-  defaultAssetId,
 }: DevicesModeBodyProps) {
   const { t } = useTranslation("devices");
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [assetFilter, setAssetFilter] = useState<string | null>(
-    defaultAssetId ?? null,
-  );
+  const [assetFilter, setAssetFilter] = useState<string | null>(null);
 
   const deviceTypes = useMemo(() => {
     const types = new Set<string>();
@@ -265,7 +249,7 @@ function FiltersModeBody({
       name="targetFilter"
       render={({ field }) => {
         const filter = field.value ?? {};
-        const resolved = resolveTargetFilter(devices, filter);
+        const resolved = resolveFilter(devices, filter);
         const selectedTypes = new Set(filter.types ?? []);
 
         return (

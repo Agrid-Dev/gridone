@@ -27,7 +27,7 @@ const Device: FC = () => (
       path=":deviceId/commands/new"
       element={
         <Suspense>
-          <NewCommandPage context="device" />
+          <NewCommandPage />
         </Suspense>
       }
     />
