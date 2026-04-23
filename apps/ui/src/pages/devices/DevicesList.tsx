@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { DeviceCard } from "./DeviceCard";
@@ -10,23 +9,16 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
-import { HealthFilter, readHealthParam } from "@/components/HealthFilter";
+import { HealthFilter } from "@/components/HealthFilter";
 import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
   const { t } = useTranslation("devices");
   const filters = useFilterParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const health = readHealthParam(searchParams);
+  const [, setSearchParams] = useSearchParams();
   const { devices, loading, error } = useDevicesList(filters);
   const can = usePermissions();
-  const hasFilters = !!filters || health !== "all";
-
-  const visibleDevices = useMemo(() => {
-    if (health === "all") return devices;
-    const wantFaulty = health === "faulty";
-    return devices.filter((d) => d.isFaulty === wantFaulty);
-  }, [devices, health]);
+  const hasFilters = !!filters;
 
   return (
     <section className="space-y-6">
@@ -78,9 +70,9 @@ export default function DevicesList() {
             <Skeleton key={index} className="h-48" />
           ))}
         </div>
-      ) : visibleDevices.length > 0 ? (
+      ) : devices.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {visibleDevices.map((device, i) => (
+          {devices.map((device, i) => (
             <div
               key={device.id}
               className="animate-fade-up"

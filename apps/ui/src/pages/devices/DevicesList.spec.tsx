@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { Device } from "@/api/devices";
+import type { Device, DevicesFilter } from "@/api/devices";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -63,16 +63,15 @@ function renderAt(initialEntries: string[] = ["/devices"]) {
   );
 }
 
-const devices = [
-  makeDevice("d1", "Alpha", false),
-  makeDevice("d2", "Bravo", true),
-  makeDevice("d3", "Charlie", false),
-  makeDevice("d4", "Delta", true),
-];
+/** Extract the last filter `useDevicesList` was called with. */
+function lastFilter(): DevicesFilter | undefined {
+  const calls = mockUseDevicesList.mock.calls;
+  return calls.at(-1)?.[0] as DevicesFilter | undefined;
+}
 
 beforeEach(() => {
   mockUseDevicesList.mockReturnValue({
-    devices,
+    devices: [makeDevice("d1", "Alpha", false)],
     loading: false,
     error: null,
   });
@@ -83,45 +82,53 @@ afterEach(() => {
   mockUseDevicesList.mockReset();
 });
 
-describe("DevicesList — health filter", () => {
-  it("renders all devices with 'All' selected by default", () => {
-    renderAt();
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Bravo")).toBeInTheDocument();
-    expect(screen.getByText("Charlie")).toBeInTheDocument();
-    expect(screen.getByText("Delta")).toBeInTheDocument();
-  });
-
-  it("shows only healthy devices when ?health=healthy", () => {
-    renderAt(["/devices?health=healthy"]);
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
-    expect(screen.getByText("Charlie")).toBeInTheDocument();
-    expect(screen.queryByText("Bravo")).not.toBeInTheDocument();
-    expect(screen.queryByText("Delta")).not.toBeInTheDocument();
-  });
-
-  it("shows only faulty devices when ?health=faulty", () => {
-    renderAt(["/devices?health=faulty"]);
-    expect(screen.getByText("Bravo")).toBeInTheDocument();
-    expect(screen.getByText("Delta")).toBeInTheDocument();
-    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
-    expect(screen.queryByText("Charlie")).not.toBeInTheDocument();
-  });
-
-  it("switches filter when clicking a tab", async () => {
-    renderAt();
-    await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
-    expect(screen.getByText("Bravo")).toBeInTheDocument();
-    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
-  });
-
-  it("shows empty state when filter yields no matches", () => {
+describe("DevicesList — health filter wiring", () => {
+  it("renders whatever useDevicesList returns", () => {
     mockUseDevicesList.mockReturnValue({
-      devices: [makeDevice("d1", "Alpha", false)],
+      devices: [
+        makeDevice("d1", "Alpha", false),
+        makeDevice("d2", "Bravo", true),
+      ],
       loading: false,
       error: null,
     });
+    renderAt();
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Bravo")).toBeInTheDocument();
+  });
+
+  it("calls useDevicesList with undefined when no filters are set", () => {
+    renderAt();
+    expect(lastFilter()).toBeUndefined();
+  });
+
+  it("passes isFaulty=true when ?health=faulty", () => {
     renderAt(["/devices?health=faulty"]);
-    expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+    expect(lastFilter()).toEqual({ isFaulty: true });
+  });
+
+  it("passes isFaulty=false when ?health=healthy", () => {
+    renderAt(["/devices?health=healthy"]);
+    expect(lastFilter()).toEqual({ isFaulty: false });
+  });
+
+  it("combines type and health filters", () => {
+    renderAt(["/devices?type=thermostat&health=faulty"]);
+    expect(lastFilter()).toEqual({
+      types: ["thermostat"],
+      isFaulty: true,
+    });
+  });
+
+  it("updates the filter when a health tab is clicked", async () => {
+    renderAt();
+    await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
+    expect(lastFilter()).toEqual({ isFaulty: true });
+  });
+
+  it("clears the filter when returning to 'All'", async () => {
+    renderAt(["/devices?health=faulty"]);
+    await userEvent.click(screen.getByRole("tab", { name: "All" }));
+    expect(lastFilter()).toBeUndefined();
   });
 });
