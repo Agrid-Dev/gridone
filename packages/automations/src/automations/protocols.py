@@ -4,44 +4,35 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
-    from datetime import datetime
 
-    from automations.models import Trigger, TriggerContext
-    from models.types import AttributeValueType
+    from automations.models import TriggerContext
 
-    AttributeEventHandler = Callable[
-        [str, str, AttributeValueType | None, datetime | None],
-        Awaitable[None],
-    ]
+    OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
 
 
-class AttributeEventBus(Protocol):
-    """Generic pub/sub for attribute change events.
+class TriggerProvider(Protocol):
+    """Manages the lifecycle of a trigger type.
 
-    source_id and event_type map to device_id and attribute name in DM.
+    Each provider owns one class of trigger (e.g. schedule, change_event).
+    The service dispatches register/unregister calls to the matching provider
+    based on the trigger's ``type`` field.
     """
 
-    def subscribe(self, handler: AttributeEventHandler) -> None: ...
+    id: str
+    trigger_schema: dict
 
-    def unsubscribe(self, handler: AttributeEventHandler) -> None: ...
-
-
-class TriggerListener(Protocol):
-    async def start(self) -> None: ...
-
-    async def stop(self) -> None: ...
-
-
-class TriggerListenerFactory(Protocol):
-    def build(
+    async def register(
         self,
-        trigger: Trigger,
-        on_fire: Callable[[TriggerContext], Awaitable[None]],
-    ) -> TriggerListener: ...
+        trigger_params: dict,
+        on_fire: OnFireCallback,
+    ) -> str:
+        """Activate a trigger. Returns an opaque handle used to unregister."""
+        ...
+
+    async def unregister(self, trigger_id: str) -> None:
+        """Deactivate a previously registered trigger."""
+        ...
 
 
 class ActionServiceInterface(Protocol):
     async def execute(self, template_id: str) -> str: ...
-
-    # Returns the provider output id (e.g. BatchCommand id) stored on
-    # AutomationExecution.output_id.

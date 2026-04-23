@@ -14,6 +14,7 @@ from automations.models import (
     TriggerContext,
     TriggerType,
 )
+from automations.protocols import TriggerProvider
 from automations.service import AutomationsService
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "ScheduleTrigger",
     "Trigger",
     "TriggerContext",
+    "TriggerProvider",
     "TriggerType",
 ]

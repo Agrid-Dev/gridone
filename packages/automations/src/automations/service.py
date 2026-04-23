@@ -23,38 +23,37 @@ if TYPE_CHECKING:
 
     from automations.protocols import (
         ActionServiceInterface,
-        TriggerListener,
-        TriggerListenerFactory,
+        TriggerProvider,
     )
     from automations.storage.backend import AutomationsStorageBackend
 
 
 class AutomationsService:
     _cache: dict[str, Automation]
-    _listeners: dict[str, TriggerListener]
+    _handles: dict[str, tuple[str, str]]  # automation_id → (provider_id, handle_id)
 
     def __init__(
         self,
         storage: AutomationsStorageBackend,
-        listener_factory: TriggerListenerFactory,
+        triggers: list[TriggerProvider],  # type: ignore[invalid-type-form]
         actions: ActionServiceInterface,
     ) -> None:
         self._storage = storage
-        self._listener_factory = listener_factory
+        self._providers: dict[str, TriggerProvider] = {p.id: p for p in triggers}
         self._actions = actions
         self._cache = {}
-        self._listeners = {}
+        self._handles = {}
 
     @classmethod
     async def from_storage(
         cls,
         storage_url: str,
-        listener_factory: TriggerListenerFactory,
+        triggers: list[TriggerProvider],  # type: ignore[invalid-type-form]
         actions: ActionServiceInterface,
     ) -> AutomationsService:
         storage = await build_storage(storage_url)
         await storage.start()
-        service = cls(storage, listener_factory, actions)
+        service = cls(storage, triggers, actions)
         for automation in await storage.list():
             await service._register_automation(automation)
         return service
@@ -94,21 +93,21 @@ class AutomationsService:
         was_enabled = existing.enabled
         updated = existing.apply_update(params)
 
-        # Stop before storage write — prevents listener firing against stale config.
+        # Stop before storage write — prevents trigger firing against stale config.
         if was_enabled and (not updated.enabled or trigger_changed):
-            await self._stop_listener(automation_id)
+            await self._stop_trigger(automation_id)
 
         await self._storage.update(updated)
         self._cache[automation_id] = updated
 
         if updated.enabled and (not was_enabled or trigger_changed):
-            await self._start_listener(updated)
+            await self._start_trigger(updated)
 
         return updated
 
     async def delete(self, automation_id: str) -> None:
-        await self.get(automation_id)  # raises NotFoundError if absent
-        await self._stop_listener(automation_id)
+        await self.get(automation_id)
+        await self._stop_trigger(automation_id)
         await self._storage.delete(automation_id)
         self._cache.pop(automation_id)
 
@@ -121,14 +120,14 @@ class AutomationsService:
         updated = automation.model_copy(update={"enabled": True})
         await self._storage.update(updated)
         self._cache[automation_id] = updated
-        await self._start_listener(updated)
+        await self._start_trigger(updated)
         return updated
 
     async def disable(self, automation_id: str) -> Automation:
         automation = await self.get(automation_id)
         if not automation.enabled:
             return automation
-        await self._stop_listener(automation_id)
+        await self._stop_trigger(automation_id)
         updated = automation.model_copy(update={"enabled": False})
         await self._storage.update(updated)
         self._cache[automation_id] = updated
@@ -143,8 +142,8 @@ class AutomationsService:
         return await self._storage.list_executions(automation_id)
 
     async def close(self) -> None:
-        for automation_id in list(self._listeners):
-            await self._stop_listener(automation_id)
+        for automation_id in list(self._handles):
+            await self._stop_trigger(automation_id)
         await self._storage.close()
 
     # Helpers
@@ -152,19 +151,21 @@ class AutomationsService:
     async def _register_automation(self, automation: Automation) -> None:
         self._cache[automation.id] = automation
         if automation.enabled:
-            await self._start_listener(automation)
+            await self._start_trigger(automation)
 
-    async def _start_listener(self, automation: Automation) -> None:
-        listener = self._listener_factory.build(
-            automation.trigger, self._make_on_fire(automation.id)
-        )
-        await listener.start()
-        self._listeners[automation.id] = listener
+    async def _start_trigger(self, automation: Automation) -> None:
+        trigger_type = automation.trigger.type
+        provider = self._providers[trigger_type]
+        trigger_params = automation.trigger.model_dump(exclude={"type"})
+        on_fire = self._make_on_fire(automation.id)
+        handle_id = await provider.register(trigger_params, on_fire)
+        self._handles[automation.id] = (trigger_type, handle_id)
 
-    async def _stop_listener(self, automation_id: str) -> None:
-        listener = self._listeners.pop(automation_id, None)
-        if listener is not None:
-            await listener.stop()
+    async def _stop_trigger(self, automation_id: str) -> None:
+        handle = self._handles.pop(automation_id, None)
+        if handle is not None:
+            provider_id, trigger_id = handle
+            await self._providers[provider_id].unregister(trigger_id)
 
     def _make_on_fire(
         self, automation_id: str
