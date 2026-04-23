@@ -118,6 +118,14 @@ class TestGetCommands:
         assert len(results) == 1
         assert results[0].batch_id == "g1"
 
+    async def test_filter_template_id(self, storage: MemoryStorage):
+        await storage.save_command(make_command(template_id="t1"))
+        await storage.save_command(make_command(template_id="t2"))
+        await storage.save_command(make_command(template_id=None))
+        results = await storage.get_commands(CommandsQueryFilters(template_id="t1"))
+        assert len(results) == 1
+        assert results[0].template_id == "t1"
+
     async def test_filter_attribute(self, storage: MemoryStorage):
         await storage.save_command(make_command(attribute="mode"))
         await storage.save_command(make_command(attribute="setpoint"))

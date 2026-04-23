@@ -27,9 +27,9 @@ export default function DevicesList() {
         actions={
           <>
             <Button asChild variant="outline" size="sm">
-              <Link to="/devices/history">
+              <Link to="/devices/commands">
                 <History />
-                {t("deviceDetails.history")}
+                {t("commands.title")}
               </Link>
             </Button>
             {can("devices:write") && (

@@ -213,6 +213,10 @@ export type DevicesFilter = {
   isFaulty?: boolean;
   writableAttribute?: string;
   writableAttributeType?: "int" | "float" | "str" | "bool";
+  /** Convenience alias: backend translates into the ``asset_id`` tag before
+   *  calling ``DM.list_devices``. Persisted verbatim on saved command
+   *  templates so the UI can round-trip intent. */
+  assetId?: string;
 };
 
 /** Serialise a DevicesFilter into query params for ``GET /devices``.
@@ -242,6 +246,9 @@ export function devicesFilterToQueryParams(
   }
   if (filter.writableAttributeType) {
     params.set("writable_attribute_type", filter.writableAttributeType);
+  }
+  if (filter.assetId) {
+    params.set("asset_id", filter.assetId);
   }
   return params;
 }

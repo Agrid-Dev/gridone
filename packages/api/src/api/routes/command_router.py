@@ -71,6 +71,7 @@ async def list_commands(
     page = await commands_svc.get_commands(
         ids=query.ids,
         batch_id=query.batch_id,
+        template_id=query.template_id,
         device_id=query.device_id,
         attribute=query.attribute,
         user_id=query.user_id,
@@ -97,6 +98,7 @@ async def list_device_commands(
     page = await commands_svc.get_commands(
         ids=query.ids,
         batch_id=query.batch_id,
+        template_id=query.template_id,
         device_id=device_id,
         attribute=query.attribute,
         user_id=query.user_id,

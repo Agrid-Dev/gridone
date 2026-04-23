@@ -236,6 +236,26 @@ class TestListDevices:
             ids=None, types=None, tags=None, is_faulty=False
         )
 
+    def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"asset_id": "a1"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["a1"]}, is_faulty=None
+        )
+
+    def test_asset_id_merges_into_existing_asset_tag(
+        self, client: TestClient, dm: MagicMock
+    ):
+        client.get(
+            "/",
+            params=[  # ty: ignore[invalid-argument-type]
+                ("tags", "asset_id:a1"),
+                ("asset_id", "a2"),
+            ],
+        )
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags={"asset_id": ["a1", "a2"]}, is_faulty=None
+        )
+
 
 # ---------------------------------------------------------------------------
 # Type filter side_effect on virtual_client uses the legacy single-keyword
@@ -581,6 +601,30 @@ class TestDispatchBatchCommand:
         assert kwargs["target"] == {"types": ["thermostat"]}
 
     @pytest.mark.asyncio
+    async def test_asset_id_preserved_in_target(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        # asset_id is intent-preserving: the service receives it verbatim so
+        # saved templates can round-trip it back to the UI. The translation
+        # into a `tags["asset_id"]` filter happens inside the composition-root
+        # resolver, not at the HTTP boundary.
+        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+            "grp-a", ["thermo1"]
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands",
+                json={
+                    "target": {"asset_id": "a1", "types": ["thermostat"]},
+                    "attribute": "setpoint",
+                    "value": 21.0,
+                },
+            )
+        assert response.status_code == 202
+        kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
+        assert kwargs["target"] == {"asset_id": "a1", "types": ["thermostat"]}
+
+    @pytest.mark.asyncio
     async def test_unknown_target_key_returns_422(self, async_client: AsyncClient):
         async with async_client as ac:
             response = await ac.post(
@@ -666,6 +710,7 @@ class TestListCommands:
         mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
             batch_id=None,
+            template_id=None,
             device_id=None,
             attribute=None,
             user_id=None,
@@ -687,6 +732,7 @@ class TestListCommands:
                 "/commands",
                 params={
                     "batch_id": "abc1234567890def",
+                    "template_id": "tmpl00000000001",
                     "device_id": "dev-1",
                     "attribute": "temperature",
                     "user_id": "user-42",
@@ -699,6 +745,7 @@ class TestListCommands:
         mock_commands_service.get_commands.assert_called_once_with(
             ids=None,
             batch_id="abc1234567890def",
+            template_id="tmpl00000000001",
             device_id="dev-1",
             attribute="temperature",
             user_id="user-42",
@@ -707,6 +754,19 @@ class TestListCommands:
             sort=SortOrder.DESC,
             pagination=PaginationParams(page=1, size=50),
         )
+
+    @pytest.mark.asyncio
+    async def test_template_id_filter_forwarded(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        mock_commands_service.get_commands.return_value = _empty_page()
+        async with async_client as ac:
+            response = await ac.get(
+                "/commands", params={"template_id": "tmpl00000000001"}
+            )
+        assert response.status_code == 200
+        kwargs = mock_commands_service.get_commands.call_args.kwargs
+        assert kwargs["template_id"] == "tmpl00000000001"
 
     @pytest.mark.asyncio
     async def test_pagination_passed_through(

@@ -3,10 +3,10 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
-import { getCommands, getDeviceCommands } from "@/api/commands";
+import { getCommands, getDeviceCommands, listTemplates } from "@/api/commands";
 import type { Page } from "@/api/pagination";
 import { toSearchString } from "@/api/pagination";
-import type { DeviceCommand } from "@/api/commands";
+import type { CommandTemplate, DeviceCommand } from "@/api/commands";
 import type { Device } from "@/api/devices";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
@@ -79,11 +79,22 @@ export function useCommands({
   const attribute = searchParams.get("attribute") ?? undefined;
   const userId = searchParams.get("user_id") ?? undefined;
   const batchId = searchParams.get("batch_id") ?? undefined;
+  const templateId = searchParams.get("template_id") ?? undefined;
 
   // Data sources for filter dropdowns
   const { devices } = useDevicesList();
   const { users } = useUsers();
   const attributeOptions = useAttributeOptions(devices, deviceId);
+
+  // Templates list — used for both the filter dropdown and the table column
+  // name lookup. Low cardinality (user-saved only), so one cached fetch is
+  // plenty for both the list and the detail pages.
+  const { data: templatesPage } = useQuery<Page<CommandTemplate>>({
+    queryKey: ["command-templates"],
+    queryFn: () => listTemplates(),
+    staleTime: 30_000,
+  });
+  const templates = templatesPage?.items ?? [];
 
   // Build params for the API — URL params + defaults
   const apiParams = useMemo(() => {
@@ -132,14 +143,23 @@ export function useCommands({
     [users],
   );
 
+  const templateNames = useMemo(
+    () =>
+      Object.fromEntries(
+        templates.filter((tpl) => tpl.name).map((tpl) => [tpl.id, tpl.name!]),
+      ),
+    [templates],
+  );
+
   const columns = useMemo(
     () =>
       buildCommandColumns(t, {
         deviceNames,
         userNames,
+        templateNames,
         showDevice: !fixedDeviceId,
       }),
-    [t, deviceNames, userNames, fixedDeviceId],
+    [t, deviceNames, userNames, templateNames, fixedDeviceId],
   );
 
   const table = useReactTable({
@@ -189,9 +209,11 @@ export function useCommands({
     attribute,
     userId,
     batchId,
+    templateId,
     attributeOptions,
     devices,
     users,
+    templates,
     setFilter,
     isDeviceFixed: !!fixedDeviceId,
 

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from commands import BatchCommand
 from models.errors import InvalidError
 
+from api.devices_filter import to_list_devices_kwargs
 from api.schemas.command import BatchDispatchResponse
 
 if TYPE_CHECKING:
@@ -48,7 +49,9 @@ def resolve_attribute_data_type_for_target(
     attribute being dispatched is the authoritative one for data-type
     resolution.
     """
-    kwargs = {k: v for k, v in target.items() if k != "writable_attribute"}
+    kwargs = to_list_devices_kwargs(
+        {k: v for k, v in target.items() if k != "writable_attribute"}
+    )
     matching = dm.list_devices(writable_attribute=attribute, **kwargs)
     if not matching:
         msg = (

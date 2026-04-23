@@ -1,66 +1,64 @@
 import { useEffect, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { ApiError } from "@/api/apiError";
-import type { AssetTreeNode } from "@/api/assets";
 import {
+  createTemplate,
   dispatchBatchCommand,
   dispatchSingleCommand,
   type AttributeValue,
+  type CommandTemplate,
 } from "@/api/commands";
-import type { Device } from "@/api/devices";
+import type { Device, DevicesFilter } from "@/api/devices";
 import {
   intersectWritableAttributes,
-  resolveAssetSubtreeDeviceIds,
-  type WizardContext,
+  isEmptyFilter,
+  resolveFilter,
   type WizardFormValues,
   type WritableAttribute,
 } from "./types";
 
-export type UseCommandWizardArgs = {
-  context: WizardContext;
-  devices: Device[];
-  assetTree: AssetTreeNode[];
-  lockedDeviceId?: string;
-  lockedAssetId?: string;
-};
+export type DispatchResult =
+  | { kind: "single" }
+  | { kind: "batch"; batchId: string };
 
-type DispatchResult = { kind: "single" } | { kind: "batch"; batchId: string };
+export type UseCommandWizardArgs = {
+  devices: Device[];
+  /** Pre-defined target for the wizard. When set, the target step is skipped
+   *  (initial step is the command step) and the filter is treated as the
+   *  authoritative target. Callers build this from URL params — e.g. the
+   *  device-scoped entry point passes ``{ids: [deviceId]}``, the asset-scoped
+   *  entry point passes ``{assetId}``. When omitted, the user picks a target
+   *  through the wizard's first step. */
+  predefinedTarget?: DevicesFilter;
+  /** Callback after a successful dispatch. The caller owns navigation. */
+  onDispatched: (result: DispatchResult) => void;
+  /** Callback after a successful save-as-template. */
+  onSaved: (template: CommandTemplate) => void;
+};
 
 const DRAFT_KEY = "commands.wizard.draft";
 const DRAFT_DEBOUNCE_MS = 250;
 
 export function useCommandWizard({
-  context,
   devices,
-  assetTree,
-  lockedDeviceId,
-  lockedAssetId,
+  predefinedTarget,
+  onDispatched,
+  onSaved,
 }: UseCommandWizardArgs) {
-  const { t } = useTranslation("devices");
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Where the wizard opens the first time it renders. Users can always navigate
-  // all the way back to step 0 from there via Back.
-  const initialStep = context === "device" ? 1 : 0;
-
-  const initialDeviceIds = useMemo(() => {
-    if (lockedDeviceId) return [lockedDeviceId];
-    if (lockedAssetId)
-      return resolveAssetSubtreeDeviceIds(assetTree, lockedAssetId);
-    return [];
-  }, [lockedDeviceId, lockedAssetId, assetTree]);
+  const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
+  const initialStep = isPredefined ? 1 : 0;
 
   const { control, watch, setValue, getValues, trigger, reset } =
     useForm<WizardFormValues>({
       mode: "onChange",
       defaultValues: {
-        deviceIds: initialDeviceIds,
+        targetMode: "devices",
+        deviceIds: [],
+        targetFilter: {},
       },
     });
 
@@ -76,49 +74,58 @@ export function useCommandWizard({
   }, []);
 
   const setStep = (idx: number) => {
-    const clamped = Math.max(0, Math.min(2, idx));
+    // When the target is predefined, step 0 isn't reachable.
+    const min = isPredefined ? 1 : 0;
+    const clamped = Math.max(min, Math.min(2, idx));
     const next = new URLSearchParams(searchParams);
     next.set("step", String(clamped + 1));
     setSearchParams(next);
   };
 
   // -- Local-storage draft --------------------------------------------------
+  // Drafts only make sense for the open-context wizard — a predefined target
+  // is driven by the URL, not by the user's previous selection.
   useEffect(() => {
+    if (isPredefined) return;
     const draft = loadDraft();
-    if (
-      draft &&
-      matchesContext(draft, context, lockedDeviceId, lockedAssetId)
-    ) {
-      reset(draft.values);
-    }
+    if (draft) reset(draft);
   }, []);
 
   useEffect(() => {
+    if (isPredefined) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const sub = watch((draftValues) => {
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        saveDraft({
-          context,
-          lockedDeviceId,
-          lockedAssetId,
-          values: draftValues as WizardFormValues,
-        });
+        saveDraft(draftValues as WizardFormValues);
       }, DRAFT_DEBOUNCE_MS);
     });
     return () => {
       if (timer) clearTimeout(timer);
       sub.unsubscribe();
     };
-  }, [watch, context, lockedDeviceId, lockedAssetId]);
+  }, [watch, isPredefined]);
 
   // -- Derived state --------------------------------------------------------
   const values = watch();
 
-  const selectedDevices = useMemo(
-    () => devices.filter((d) => values.deviceIds.includes(d.id)),
-    [devices, values.deviceIds],
-  );
+  const selectedDevices = useMemo(() => {
+    if (isPredefined) {
+      return resolveFilter(devices, predefinedTarget!);
+    }
+    if (values.targetMode === "filters") {
+      return resolveFilter(devices, values.targetFilter ?? {});
+    }
+    const ids = values.deviceIds ?? [];
+    return devices.filter((d) => ids.includes(d.id));
+  }, [
+    isPredefined,
+    predefinedTarget,
+    devices,
+    values.targetMode,
+    values.deviceIds,
+    values.targetFilter,
+  ]);
 
   const compatibleAttributes = useMemo(
     () => intersectWritableAttributes(selectedDevices),
@@ -138,32 +145,36 @@ export function useCommandWizard({
     }
   }, [compatibleAttributes, values.attribute, setValue]);
 
-  const targetValid = isTargetValid(values, compatibleAttributes);
-  const commandValid = isCommandValid(values, compatibleAttributes);
+  const targetValid = isTargetValid(selectedDevices, compatibleAttributes);
+  const commandValid = isCommandValid(
+    values,
+    compatibleAttributes,
+    selectedDevices.length,
+  );
 
-  // -- Actions --------------------------------------------------------------
-  const mutation = useMutation<DispatchResult, Error, WizardFormValues>({
-    mutationFn: (v) => dispatch(v),
-    onSuccess: (result) => {
-      clearDraft();
-      queryClient.invalidateQueries({ queryKey: ["commands"] });
-      if (result.kind === "batch") {
-        toast.success(t("commands.new.feedback.batchDispatched"));
-        navigate(`/devices/history?batch_id=${result.batchId}`);
-      } else {
-        toast.success(t("commands.new.feedback.dispatched"));
-        const listUrl = lockedDeviceId
-          ? `/devices/${encodeURIComponent(lockedDeviceId)}/history/commands`
-          : "/devices/history";
-        navigate(listUrl);
-      }
+  // -- Mutations ------------------------------------------------------------
+  const effectiveTarget = useMemo(
+    () => buildTarget(values, selectedDevices, predefinedTarget),
+    [values, selectedDevices, predefinedTarget],
+  );
+
+  const dispatchMutation = useMutation<DispatchResult, Error, WizardFormValues>(
+    {
+      mutationFn: (v) => dispatch(v, selectedDevices, effectiveTarget),
+      onSuccess: (result) => {
+        clearDraft();
+        queryClient.invalidateQueries({ queryKey: ["commands"] });
+        onDispatched(result);
+      },
     },
-    onError: (err) => {
-      const detail =
-        err instanceof ApiError
-          ? err.detail || err.message
-          : t("commands.new.feedback.dispatchFailed");
-      toast.error(String(detail));
+  );
+
+  const saveMutation = useMutation<CommandTemplate, Error, WizardFormValues>({
+    mutationFn: (v) => saveTemplate(v, effectiveTarget),
+    onSuccess: (template) => {
+      clearDraft();
+      queryClient.invalidateQueries({ queryKey: ["command-templates"] });
+      onSaved(template);
     },
   });
 
@@ -179,10 +190,10 @@ export function useCommandWizard({
 
   const handleCancel = () => {
     clearDraft();
-    navigate(-1);
   };
 
-  const handleSubmit = () => mutation.mutate(getValues());
+  const handleDispatch = () => dispatchMutation.mutate(getValues());
+  const handleSave = () => saveMutation.mutate(getValues());
 
   return {
     control,
@@ -193,11 +204,17 @@ export function useCommandWizard({
     compatibleAttributes,
     targetValid,
     commandValid,
-    isSubmitting: mutation.isPending,
+    isPredefined,
+    isFirstStep: step === initialStep,
+    isDispatching: dispatchMutation.isPending,
+    isSaving: saveMutation.isPending,
+    dispatchError: dispatchMutation.error,
+    saveError: saveMutation.error,
     handleNext,
     handleBack,
     handleCancel,
-    handleSubmit,
+    handleDispatch,
+    handleSave,
   };
 }
 
@@ -209,65 +226,111 @@ function parseStep(raw: string | null, fallback: number): number {
 }
 
 function isTargetValid(
-  v: WizardFormValues,
+  selectedDevices: Device[],
   compatibleAttrs: WritableAttribute[],
 ): boolean {
-  return v.deviceIds.length > 0 && compatibleAttrs.length > 0;
+  return selectedDevices.length > 0 && compatibleAttrs.length > 0;
 }
 
 function isCommandValid(
   v: WizardFormValues,
   compatibleAttrs: WritableAttribute[],
+  selectedCount: number,
 ): boolean {
+  if (selectedCount === 0) return false;
   if (!v.attribute) return false;
   if (!compatibleAttrs.some((a) => a.name === v.attribute)) return false;
   return v.value !== undefined && v.value !== "";
 }
 
-async function dispatch(v: WizardFormValues): Promise<DispatchResult> {
+/** Build the DevicesFilter to send as the ``target`` on dispatch/save. When
+ *  a predefined target is provided, it wins — the form's target fields are
+ *  inert in that case. Otherwise the result reflects the user's choice of
+ *  target mode. */
+function buildTarget(
+  values: WizardFormValues,
+  selectedDevices: Device[],
+  predefinedTarget: DevicesFilter | undefined,
+): DevicesFilter {
+  if (predefinedTarget && !isEmptyFilter(predefinedTarget)) {
+    return predefinedTarget;
+  }
+  if (values.targetMode === "filters") {
+    return {
+      assetId: values.targetFilter?.assetId,
+      types: values.targetFilter?.types,
+    };
+  }
+  return { ids: selectedDevices.map((d) => d.id) };
+}
+
+async function dispatch(
+  v: WizardFormValues,
+  selectedDevices: Device[],
+  target: DevicesFilter,
+): Promise<DispatchResult> {
   if (!v.attribute || v.value === undefined) {
     throw new Error("Form incomplete");
   }
-  if (v.deviceIds.length === 0) {
+  if (selectedDevices.length === 0) {
     throw new Error("No devices selected");
   }
   const attribute = v.attribute;
   const value = v.value as AttributeValue;
 
-  if (v.deviceIds.length === 1) {
-    await dispatchSingleCommand(v.deviceIds[0], { attribute, value });
+  // Single-device fast path: one explicit id in the target and no other
+  // filter. Everything else goes through the batch endpoint so the server
+  // resolves at dispatch time (important for asset-based targets).
+  if (
+    target.ids &&
+    target.ids.length === 1 &&
+    !target.types &&
+    !target.assetId
+  ) {
+    await dispatchSingleCommand(target.ids[0], { attribute, value });
     return { kind: "single" };
   }
 
-  const res = await dispatchBatchCommand({
-    attribute,
-    value,
-    target: { ids: v.deviceIds },
-  });
+  const res = await dispatchBatchCommand({ attribute, value, target });
   return { kind: "batch", batchId: res.batchId };
+}
+
+async function saveTemplate(
+  v: WizardFormValues,
+  target: DevicesFilter,
+): Promise<CommandTemplate> {
+  if (!v.attribute || v.value === undefined || !v.attributeDataType) {
+    throw new Error("Form incomplete");
+  }
+  const name = (v.templateName ?? "").trim();
+  if (!name) {
+    throw new Error("Template name required");
+  }
+  return createTemplate({
+    target,
+    write: {
+      attribute: v.attribute,
+      value: v.value as AttributeValue,
+      dataType: v.attributeDataType,
+    },
+    name,
+  });
 }
 
 // -- Draft persistence ------------------------------------------------------
 
-type StoredDraft = {
-  context: WizardContext;
-  lockedDeviceId?: string;
-  lockedAssetId?: string;
-  values: WizardFormValues;
-};
-
-function loadDraft(): StoredDraft | null {
+function loadDraft(): WizardFormValues | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as StoredDraft) : null;
+    return raw ? (JSON.parse(raw) as WizardFormValues) : null;
   } catch {
     return null;
   }
 }
 
-function saveDraft(draft: StoredDraft): void {
+function saveDraft(values: WizardFormValues): void {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
   } catch {
     /* quota / disabled storage */
   }
@@ -279,17 +342,4 @@ function clearDraft(): void {
   } catch {
     /* ignore */
   }
-}
-
-function matchesContext(
-  draft: StoredDraft,
-  context: WizardContext,
-  lockedDeviceId: string | undefined,
-  lockedAssetId: string | undefined,
-): boolean {
-  return (
-    draft.context === context &&
-    draft.lockedDeviceId === lockedDeviceId &&
-    draft.lockedAssetId === lockedAssetId
-  );
 }

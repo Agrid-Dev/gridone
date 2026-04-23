@@ -333,6 +333,7 @@ class CommandsService:
         *,
         ids: list[int] | None = None,
         batch_id: str | None = None,
+        template_id: str | None = None,
         device_id: str | None = None,
         attribute: str | None = None,
         user_id: str | None = None,
@@ -342,7 +343,7 @@ class CommandsService:
         pagination: PaginationParams | None = None,
     ) -> Page[UnitCommand]:
         if ids is not None:
-            other = (batch_id, device_id, attribute, user_id, start, end)
+            other = (batch_id, template_id, device_id, attribute, user_id, start, end)
             if any(f is not None for f in other):
                 msg = "Cannot combine 'ids' with other filters"
                 raise InvalidError(msg)
@@ -356,6 +357,7 @@ class CommandsService:
 
         filters = CommandsQueryFilters(
             batch_id=batch_id,
+            template_id=template_id,
             device_id=device_id,
             attribute=attribute,
             user_id=user_id,

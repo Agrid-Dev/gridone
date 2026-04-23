@@ -36,10 +36,19 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
     <section className="space-y-6">
       {header ?? (
         <ResourceHeader
-          title={t("commands.subtitle")}
+          title={t("commands.title")}
           resourceName={t("devices.title")}
           resourceNameLinksBack
-          actions={newCommandButton}
+          actions={
+            <>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/devices/commands/templates">
+                  {t("commands.templates.title")}
+                </Link>
+              </Button>
+              {newCommandButton}
+            </>
+          }
         />
       )}
 
@@ -48,9 +57,11 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
         attribute={cmd.attribute}
         userId={cmd.userId}
         batchId={cmd.batchId}
+        templateId={cmd.templateId}
         attributeOptions={cmd.attributeOptions}
         devices={cmd.devices}
         users={cmd.users}
+        templates={cmd.templates}
         onFilterChange={cmd.setFilter}
         isDeviceFixed={cmd.isDeviceFixed}
       />

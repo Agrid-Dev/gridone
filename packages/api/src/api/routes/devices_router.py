@@ -22,6 +22,7 @@ from api.dependencies import (
     get_ts_service,
     require_permission,
 )
+from api.devices_filter import to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
@@ -68,9 +69,19 @@ def list_devices(
     ids: list[str] | None = Query(None),
     tags: list[str] | None = Query(None),
     is_faulty: bool | None = Query(None),
+    asset_id: str | None = Query(None),
 ) -> list[Device]:
     parsed_tags = _parse_tags(tags)
-    return dm.list_devices(ids=ids, types=types, tags=parsed_tags, is_faulty=is_faulty)
+    kwargs = to_list_devices_kwargs(
+        {
+            "ids": ids,
+            "types": types,
+            "tags": parsed_tags,
+            "is_faulty": is_faulty,
+            "asset_id": asset_id,
+        }
+    )
+    return dm.list_devices(**kwargs)
 
 
 @router.get(

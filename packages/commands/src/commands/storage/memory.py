@@ -51,6 +51,8 @@ class MemoryStorage:
         results = list(self._history)
         if filters.batch_id is not None:
             results = [c for c in results if c.batch_id == filters.batch_id]
+        if filters.template_id is not None:
+            results = [c for c in results if c.template_id == filters.template_id]
         if filters.device_id is not None:
             results = [c for c in results if c.device_id == filters.device_id]
         if filters.attribute is not None:
