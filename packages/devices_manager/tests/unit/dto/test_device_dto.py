@@ -11,14 +11,17 @@ from devices_manager.core.device import (
     FaultAttribute,
     VirtualDevice,
 )
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.dto.device_dto import (
     AttributeCreate,
+    Device,
     DeviceCreate,
     PhysicalDeviceCreate,
     VirtualDeviceCreate,
     core_to_dto,
 )
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
+from models.types import Severity
 
 _dto_adapter: TypeAdapter[DeviceCreate] = TypeAdapter(DeviceCreate)
 
@@ -190,12 +193,32 @@ class TestCoreDeviceToDto:
 
 
 class TestDeviceAttributeSerialization:
-    """Fault attributes nested in `Device.attributes` must serialize their
-    subclass-only fields (severity, healthy_values, is_faulty). Without
-    ``SerializeAsAny``, Pydantic would serialize via the parent `Attribute`
-    schema and drop them, breaking the UI fault detection."""
+    """`Device.attributes` uses a discriminated union keyed on `kind`: standard
+    attributes serialize the base `Attribute` schema (no severity / healthy_values
+    leak), fault attributes serialize the `FaultAttribute` schema with `kind`
+    on the wire, and JSON payloads round-trip back to the right subclass."""
 
     _NOW = datetime(2026, 1, 1, tzinfo=UTC)
+
+    def _fault_payload(self) -> dict:
+        return {
+            "id": "d1",
+            "kind": "virtual",
+            "name": "D1",
+            "is_faulty": True,
+            "attributes": {
+                "fault_code": {
+                    "kind": "fault",
+                    "name": "fault_code",
+                    "data_type": "int",
+                    "read_write_modes": ["read"],
+                    "current_value": 3,
+                    "healthy_values": [0],
+                    "last_updated": self._NOW.isoformat(),
+                    "last_changed": self._NOW.isoformat(),
+                }
+            },
+        }
 
     def test_fault_attribute_fields_round_trip_through_device_json(self):
         fault = FaultAttribute(
@@ -213,6 +236,7 @@ class TestDeviceAttributeSerialization:
         payload = json.loads(dto.model_dump_json())
         attr_payload = payload["attributes"]["fault_code"]
 
+        assert attr_payload["kind"] == "fault"
         assert attr_payload["severity"] == "warning"
         assert attr_payload["is_faulty"] is True
         assert attr_payload["healthy_values"] == [0]
@@ -235,6 +259,37 @@ class TestDeviceAttributeSerialization:
         payload = json.loads(dto.model_dump_json())
         attr_payload = payload["attributes"]["reading"]
 
+        assert attr_payload["kind"] == "standard"
         assert "severity" not in attr_payload
         assert "is_faulty" not in attr_payload
         assert "healthy_values" not in attr_payload
+
+    def test_device_parses_fault_attribute_from_json(self):
+        device = Device.model_validate(self._fault_payload())
+        attr = device.attributes["fault_code"]
+        assert isinstance(attr, FaultAttribute)
+        assert attr.kind == AttributeKind.FAULT
+        assert attr.severity == Severity.WARNING
+        assert attr.is_faulty is True
+        assert attr.healthy_values == [0]
+
+    def test_device_parses_standard_attribute_without_kind(self):
+        payload = {
+            "id": "d3",
+            "kind": "virtual",
+            "name": "D3",
+            "is_faulty": False,
+            "attributes": {
+                "reading": {
+                    "name": "reading",
+                    "data_type": "float",
+                    "read_write_modes": ["read"],
+                    "current_value": 20.0,
+                }
+            },
+        }
+        device = Device.model_validate(payload)
+        attr = device.attributes["reading"]
+        assert isinstance(attr, Attribute)
+        assert not isinstance(attr, FaultAttribute)
+        assert attr.kind == AttributeKind.STANDARD

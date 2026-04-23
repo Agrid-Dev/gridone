@@ -13,10 +13,8 @@ const SEVERITY_RANK: Record<Severity, number> = {
 
 export function isFaultAttribute(
   attr: DeviceAttribute,
-): attr is DeviceAttribute & FaultAttribute {
-  return (
-    typeof attr.isFaulty === "boolean" && typeof attr.severity === "string"
-  );
+): attr is FaultAttribute {
+  return attr.kind === "fault";
 }
 
 export function getActiveFaults(device: Device): FaultAttribute[] {

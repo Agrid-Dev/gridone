@@ -25,11 +25,14 @@ vi.mock("react-i18next", () => ({
 }));
 
 const baseActive: FaultAttribute = {
+  kind: "fault",
   name: "filter_alarm",
   dataType: "bool",
+  readWriteModes: ["read"],
   severity: "alert",
   isFaulty: true,
   currentValue: true,
+  lastUpdated: new Date(Date.now() - 10 * 60_000).toISOString(),
   lastChanged: new Date(Date.now() - 10 * 60_000).toISOString(),
 };
 

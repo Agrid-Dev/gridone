@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
-import type { Device, DeviceAttribute } from "@/api/devices";
+import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -27,6 +27,7 @@ vi.mock("react-i18next", () => ({
 }));
 
 const plain: DeviceAttribute = {
+  kind: "standard",
   name: "temperature",
   dataType: "float",
   readWriteModes: ["read"],
@@ -35,7 +36,13 @@ const plain: DeviceAttribute = {
   lastChanged: "2026-04-22T09:00:00Z",
 };
 
-const fault = (overrides: Partial<DeviceAttribute>): DeviceAttribute => ({
+const fault = (
+  overrides: Partial<FaultAttribute> & {
+    severity: FaultAttribute["severity"];
+    isFaulty: boolean;
+  },
+): FaultAttribute => ({
+  kind: "fault",
   name: "fault_x",
   dataType: "bool",
   readWriteModes: ["read"],

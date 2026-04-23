@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getActiveFaults, isFaultAttribute } from "./faults";
-import type { Device, DeviceAttribute } from "@/api/devices";
+import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
 
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
@@ -16,6 +16,7 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
 }
 
 const plain: DeviceAttribute = {
+  kind: "standard",
   name: "temperature",
   dataType: "float",
   readWriteModes: ["read"],
@@ -25,11 +26,12 @@ const plain: DeviceAttribute = {
 };
 
 const fault = (
-  overrides: Partial<DeviceAttribute> & {
-    severity: DeviceAttribute["severity"];
+  overrides: Partial<FaultAttribute> & {
+    severity: FaultAttribute["severity"];
     isFaulty: boolean;
   },
-): DeviceAttribute => ({
+): FaultAttribute => ({
+  kind: "fault",
   name: overrides.name ?? "fault_x",
   dataType: "bool",
   readWriteModes: ["read"],
@@ -40,22 +42,14 @@ const fault = (
 });
 
 describe("isFaultAttribute", () => {
-  it("returns true when isFaulty and severity are present", () => {
+  it("returns true when kind === 'fault'", () => {
     expect(isFaultAttribute(fault({ severity: "alert", isFaulty: true }))).toBe(
       true,
     );
   });
 
-  it("returns false for a plain attribute missing fault fields", () => {
+  it("returns false when kind === 'standard'", () => {
     expect(isFaultAttribute(plain)).toBe(false);
-  });
-
-  it("returns false when only isFaulty is present", () => {
-    expect(isFaultAttribute({ ...plain, isFaulty: false })).toBe(false);
-  });
-
-  it("returns false when only severity is present", () => {
-    expect(isFaultAttribute({ ...plain, severity: "warning" })).toBe(false);
   });
 });
 

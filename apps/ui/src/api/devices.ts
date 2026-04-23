@@ -1,30 +1,24 @@
 import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
 
+export type AttributeKind = "standard" | "fault";
+
+export type Severity = "alert" | "warning" | "info";
+
 export type DeviceAttribute = {
+  kind: AttributeKind;
   name: string;
-  dataType: "int" | "float" | "bool" | "string" | string;
+  dataType: "int" | "float" | "bool" | "str" | string;
   readWriteModes: Array<"read" | "write" | string>;
   currentValue: string | number | boolean | null;
   lastUpdated: string | null;
   lastChanged: string | null;
-  severity?: Severity;
-  isFaulty?: boolean;
 };
 
-export type Severity = "alert" | "warning" | "info";
-
-/** A fault-kind attribute as consumed by `<FaultItem>`. Structurally a
- *  required-fields narrowing of `DeviceAttribute` for the fields the API
- *  emits on FaultAttribute instances, plus the shape returned by adapters
- *  over the /faults FaultView. */
-export type FaultAttribute = {
-  name: string;
-  dataType: "bool" | "int" | "str" | string;
+export type FaultAttribute = DeviceAttribute & {
+  kind: "fault";
   severity: Severity;
   isFaulty: boolean;
-  currentValue: string | number | boolean | null;
-  lastChanged: string | null;
 };
 
 export enum DeviceType {
