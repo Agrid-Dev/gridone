@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable, Coroutine, Iterable
 from typing import TYPE_CHECKING, Any
@@ -261,6 +262,14 @@ class DevicesManager:
     ) -> None:
         """Register a handler for attribute updates on all devices."""
         self._attribute_update_handlers.append(callback)
+
+    def remove_device_attribute_listener(
+        self,
+        callback: AttributeListener,
+    ) -> None:
+        """Unregister a previously registered attribute update handler."""
+        with contextlib.suppress(ValueError):
+            self._attribute_update_handlers.remove(callback)
 
     # -- Discovery --
 

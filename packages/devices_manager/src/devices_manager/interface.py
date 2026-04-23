@@ -6,11 +6,13 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     import builtins
-    from collections.abc import Iterable
+    from collections.abc import Awaitable, Callable, Iterable
 
     from models.types import Severity
 
     from .core.device import Attribute, CoreDevice
+
+    AttributeListener = Callable[[CoreDevice, str, Attribute], Awaitable[None] | None]
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
         Device,
@@ -184,6 +186,12 @@ class DevicesManagerInterface(Protocol):
     # -- standard schemas --
 
     def list_standard_schemas(self) -> list[StandardAttributeSchema]: ...
+
+    # -- attribute listeners --
+
+    def add_device_attribute_listener(self, callback: AttributeListener) -> None: ...
+
+    def remove_device_attribute_listener(self, callback: AttributeListener) -> None: ...
 
 
 __all__ = [
