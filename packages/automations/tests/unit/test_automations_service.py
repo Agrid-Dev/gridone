@@ -21,7 +21,7 @@ pytestmark = pytest.mark.asyncio
 
 _SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
 _CHANGE = Trigger.model_validate(
-    {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
+    {"type": "change_event", "device_id": "src-01", "attribute": "temperature"}
 )
 _TMPL = "tmpl-abc"
 
