@@ -158,6 +158,9 @@ class AutomationsService:
             await self._start_trigger(automation)
 
     async def _start_trigger(self, automation: Automation) -> None:
+        if automation.id in self._handles:
+            msg = f"Trigger for automation {automation.id!r} is already registered"
+            raise RuntimeError(msg)
         trigger_type = automation.trigger.type
         provider = self._providers[trigger_type]
         trigger_params = automation.trigger.model_dump(exclude={"type"})

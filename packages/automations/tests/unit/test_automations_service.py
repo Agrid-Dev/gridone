@@ -366,6 +366,13 @@ class TestTriggers:
         provider.unregister.assert_not_called()
         assert result.enabled is False
 
+    async def test_start_trigger_raises_if_already_registered(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        created = await svc.create(_create_params(enabled=True))
+        with pytest.raises(RuntimeError, match="already registered"):
+            await svc._start_trigger(created)
+
     async def test_register_passes_params_without_type(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
