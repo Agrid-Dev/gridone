@@ -172,13 +172,35 @@ class TestDevicesManagerSync:
 
 
 class TestDevicesManagerListeners:
-    def test_add_device_attribute_listener(self, devices_manager):
+    def test_add_device_attribute_listener_returns_id(self, devices_manager):
+        def callback(_device_obj, _attribute_name, _attribute) -> None:
+            pass
+
+        listener_id = devices_manager.add_device_attribute_listener(callback)
+
+        assert isinstance(listener_id, str)
+        assert len(listener_id) > 0
+
+    def test_add_device_attribute_listener_registers_handler(self, devices_manager):
         def callback(_device_obj, _attribute_name, _attribute) -> None:
             pass
 
         devices_manager.add_device_attribute_listener(callback)
 
         assert len(devices_manager._attribute_update_handlers) == 1
+
+    def test_remove_device_attribute_listener_removes_handler(self, devices_manager):
+        def callback(_device_obj, _attribute_name, _attribute) -> None:
+            pass
+
+        listener_id = devices_manager.add_device_attribute_listener(callback)
+        devices_manager.remove_device_attribute_listener(listener_id)
+
+        assert len(devices_manager._attribute_update_handlers) == 0
+
+    def test_remove_nonexistent_listener_is_safe(self, devices_manager):
+        # must not raise
+        devices_manager.remove_device_attribute_listener("nonexistent")
 
     def test_handler_called_on_attribute_update(self, devices_manager, device):
         received: list[tuple[str, object]] = []
@@ -190,6 +212,20 @@ class TestDevicesManagerListeners:
         device._update_attribute(device.attributes["temperature_setpoint"], 22)
 
         assert received == [("temperature_setpoint", 22)]
+
+    def test_removed_handler_not_called_on_attribute_update(
+        self, devices_manager, device
+    ):
+        received: list[object] = []
+
+        def handler(_device_obj, _attr_name, attribute) -> None:
+            received.append(attribute.current_value)
+
+        listener_id = devices_manager.add_device_attribute_listener(handler)
+        devices_manager.remove_device_attribute_listener(listener_id)
+        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+
+        assert received == []
 
 
 class TestDevicesManagerDiscovery:

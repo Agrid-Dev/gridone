@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-from collections.abc import Callable, Coroutine, Iterable
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 from models.errors import ForbiddenError
 
@@ -39,18 +38,17 @@ from .dto import (
 from .storage.factory import build_storage
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from models.types import Severity
 
     from .core.driver import Driver
     from .core.transports import TransportClient
+    from .interface import AttributeListener
     from .storage import DevicesManagerStorage
     from .types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
-
-AttributeListener = Callable[
-    [CoreDevice, str, Attribute], Coroutine[Any, Any, None] | None
-]
 
 
 def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
@@ -77,8 +75,8 @@ class DevicesManager:
     _driver_registry: DriverRegistry
     _discovery_manager: PhysicalDevicesDiscoveryManager
     _running: bool
-    _attribute_update_handlers: list[AttributeListener]
-    _background_tasks: set[asyncio.Task[None]]
+    _attribute_update_handlers: dict[str, AttributeListener]
+    _background_tasks: set[asyncio.Task[Any]]
     _storage: DevicesManagerStorage | None
 
     def __init__(
@@ -91,7 +89,7 @@ class DevicesManager:
     ) -> None:
         self._storage = storage
         self._running = False
-        self._attribute_update_handlers = []
+        self._attribute_update_handlers = {}
         self._background_tasks = set()
         self._transport_registry = TransportRegistry(
             transports,
@@ -237,7 +235,7 @@ class DevicesManager:
         self, device: CoreDevice, attribute_name: str, attribute: Attribute
     ) -> None:
         """Dispatch attribute update to all registered handlers."""
-        for handler in self._attribute_update_handlers:
+        for handler in self._attribute_update_handlers.values():
             try:
                 result = handler(device, attribute_name, attribute)
                 if asyncio.iscoroutine(result):
@@ -251,25 +249,20 @@ class DevicesManager:
                     attribute_name,
                 )
 
-    def _on_handler_task_done(self, task: asyncio.Task[None]) -> None:
+    def _on_handler_task_done(self, task: asyncio.Task[Any]) -> None:
         self._background_tasks.discard(task)
         if not task.cancelled() and (exc := task.exception()):
             logger.error("Async attribute update handler failed", exc_info=exc)
 
-    def add_device_attribute_listener(
-        self,
-        callback: AttributeListener,
-    ) -> None:
-        """Register a handler for attribute updates on all devices."""
-        self._attribute_update_handlers.append(callback)
+    def add_device_attribute_listener(self, callback: AttributeListener) -> str:
+        """Register a handler for attribute updates. Returns an opaque listener ID."""
+        listener_id = uuid4().hex[:16]
+        self._attribute_update_handlers[listener_id] = callback
+        return listener_id
 
-    def remove_device_attribute_listener(
-        self,
-        callback: AttributeListener,
-    ) -> None:
+    def remove_device_attribute_listener(self, listener_id: str) -> None:
         """Unregister a previously registered attribute update handler."""
-        with contextlib.suppress(ValueError):
-            self._attribute_update_handlers.remove(callback)
+        self._attribute_update_handlers.pop(listener_id, None)
 
     # -- Discovery --
 
