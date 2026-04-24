@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from api.dependencies import (
     get_apps_service,
     get_assets_manager,
+    get_automations_service,
     get_commands_service,
     get_current_user_id,
     get_device_manager,
@@ -19,6 +20,7 @@ from api.dependencies import (
 )
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
+from api.routes.automations_router import router as automations_router
 from api.routes.devices_router import router as devices_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -589,4 +591,87 @@ def test_commands_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers, json=body)
+        assert resp.status_code == expected_status
+
+
+# --- Automations RBAC ---
+
+
+def _build_automations_mock() -> AsyncMock:
+    svc = AsyncMock()
+    svc.list.return_value = []
+    svc.list_executions.return_value = []
+    svc.list_trigger_schemas = MagicMock(return_value=[])
+    return svc
+
+
+def _build_automations_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersManager()
+    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_automations_service] = lambda: (
+        _build_automations_mock()
+    )
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(automations_router, prefix="/automations", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def automations_app() -> FastAPI:
+    return _build_automations_app()
+
+
+AUTOMATIONS_ACCESS_CONTROL_SCENARIOS = [
+    # Read endpoints — all authenticated roles can access
+    pytest.param("GET", "/automations/", "viewer", 200, id="list-viewer"),
+    pytest.param("GET", "/automations/", "operator", 200, id="list-operator"),
+    pytest.param("GET", "/automations/", None, 401, id="list-no-auth"),
+    pytest.param("GET", "/automations/triggers", "viewer", 200, id="triggers-viewer"),
+    pytest.param("GET", "/automations/triggers", None, 401, id="triggers-no-auth"),
+    # Write endpoints — only admin; operator and viewer are forbidden
+    pytest.param("POST", "/automations/", "operator", 403, id="create-operator"),
+    pytest.param("POST", "/automations/", "viewer", 403, id="create-viewer"),
+    pytest.param("POST", "/automations/", None, 401, id="create-no-auth"),
+    pytest.param("PATCH", "/automations/any-id", "operator", 403, id="update-operator"),
+    pytest.param("PATCH", "/automations/any-id", "viewer", 403, id="update-viewer"),
+    pytest.param("PATCH", "/automations/any-id", None, 401, id="update-no-auth"),
+    pytest.param(
+        "DELETE", "/automations/any-id", "operator", 403, id="delete-operator"
+    ),
+    pytest.param("DELETE", "/automations/any-id", "viewer", 403, id="delete-viewer"),
+    pytest.param("DELETE", "/automations/any-id", None, 401, id="delete-no-auth"),
+    pytest.param(
+        "POST", "/automations/any-id/enable", "viewer", 403, id="enable-viewer"
+    ),
+    pytest.param("POST", "/automations/any-id/enable", None, 401, id="enable-no-auth"),
+    pytest.param(
+        "POST", "/automations/any-id/disable", "viewer", 403, id="disable-viewer"
+    ),
+    pytest.param(
+        "POST", "/automations/any-id/disable", None, 401, id="disable-no-auth"
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    AUTOMATIONS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_automations_access_control(
+    automations_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    with TestClient(automations_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers)
         assert resp.status_code == expected_status
