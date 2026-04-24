@@ -1,3 +1,9 @@
+## v0.57.1 (2026-04-24)
+
+### Fix
+
+- **automations**: trigger register deduplication on start() (#232)
+
 ## v0.57.0 (2026-04-24)
 
 ### Feat
