@@ -9,9 +9,8 @@ import pytest_asyncio
 from automations.models import (
     Automation,
     AutomationExecution,
-    ChangeEventTrigger,
     ExecutionStatus,
-    ScheduleTrigger,
+    Trigger,
 )
 from automations.storage.postgres import PostgresStorage
 
@@ -25,8 +24,10 @@ pytestmark = [
     pytest.mark.skipif(POSTGRES_URL is None, reason="POSTGRES_TEST_URL not set"),
 ]
 
-_SCHEDULE = ScheduleTrigger(cron="0 11 * * *")
-_CHANGE = ChangeEventTrigger(source_id="src-01", event_type="temperature")
+_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+_CHANGE = Trigger.model_validate(
+    {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
+)
 
 
 def _automation(**kwargs: object) -> Automation:
@@ -126,21 +127,27 @@ class TestCRUD:
 
 class TestTriggerJSONB:
     async def test_schedule_trigger_roundtrip(self, storage: PostgresStorage):
-        auto = _automation(trigger=ScheduleTrigger(cron="30 8 * * 1-5"))
-        await storage.create(auto)
-        fetched = await storage.get(auto.id)
-        assert isinstance(fetched.trigger, ScheduleTrigger)
-        assert fetched.trigger.cron == "30 8 * * 1-5"
-
-    async def test_change_event_trigger_roundtrip(self, storage: PostgresStorage):
         auto = _automation(
-            trigger=ChangeEventTrigger(source_id="dev-1", event_type="mode")
+            trigger=Trigger.model_validate({"type": "schedule", "cron": "30 8 * * 1-5"})
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
-        assert isinstance(fetched.trigger, ChangeEventTrigger)
-        assert fetched.trigger.source_id == "dev-1"
-        assert fetched.trigger.event_type == "mode"
+        assert fetched.trigger.type == "schedule"
+        assert fetched.trigger.model_extra is not None
+        assert fetched.trigger.model_extra["cron"] == "30 8 * * 1-5"
+
+    async def test_change_event_trigger_roundtrip(self, storage: PostgresStorage):
+        auto = _automation(
+            trigger=Trigger.model_validate(
+                {"type": "change_event", "source_id": "dev-1", "event_type": "mode"}
+            )
+        )
+        await storage.create(auto)
+        fetched = await storage.get(auto.id)
+        assert fetched.trigger.type == "change_event"
+        assert fetched.trigger.model_extra is not None
+        assert fetched.trigger.model_extra["source_id"] == "dev-1"
+        assert fetched.trigger.model_extra["event_type"] == "mode"
 
 
 class TestExecutions:

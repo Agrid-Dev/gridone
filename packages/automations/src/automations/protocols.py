@@ -5,25 +5,34 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from automations.models import Trigger, TriggerContext
+    from automations.models import TriggerContext
+
+    OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
 
 
-class TriggerListener(Protocol):
-    async def start(self) -> None: ...
+class TriggerProvider(Protocol):
+    """Manages the lifecycle of a trigger type.
 
-    async def stop(self) -> None: ...
+    Each provider owns one class of trigger (e.g. schedule, change_event).
+    The service dispatches register/unregister calls to the matching provider
+    based on the trigger's ``type`` field.
+    """
 
+    id: str
+    trigger_schema: dict
 
-class TriggerListenerFactory(Protocol):
-    def build(
+    async def register(
         self,
-        trigger: Trigger,
-        on_fire: Callable[[TriggerContext], Awaitable[None]],
-    ) -> TriggerListener: ...
+        trigger_params: dict,
+        on_fire: OnFireCallback,
+    ) -> str:
+        """Activate a trigger. Returns an opaque handle used to unregister."""
+        ...
+
+    async def unregister(self, trigger_id: str) -> None:
+        """Deactivate a previously registered trigger."""
+        ...
 
 
 class ActionServiceInterface(Protocol):
-    async def execute(self, template_id: str, user_id: str) -> str: ...
-
-    # Returns the provider output id (e.g. BatchCommand id) stored on
-    # AutomationExecution.output_id.
+    async def execute(self, template_id: str) -> str: ...

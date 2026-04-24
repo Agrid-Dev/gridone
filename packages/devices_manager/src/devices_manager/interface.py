@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Protocol
+
+from .core.device import Attribute, CoreDevice
+
+AttributeListener = Callable[[CoreDevice, str, Attribute], Awaitable[None] | None]
 
 if TYPE_CHECKING:
     import builtins
@@ -10,7 +15,6 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
-    from .core.device import Attribute, CoreDevice
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
         Device,
@@ -184,6 +188,12 @@ class DevicesManagerInterface(Protocol):
     # -- standard schemas --
 
     def list_standard_schemas(self) -> list[StandardAttributeSchema]: ...
+
+    # -- attribute listeners --
+
+    def add_device_attribute_listener(self, callback: AttributeListener) -> str: ...
+
+    def remove_device_attribute_listener(self, listener_id: str) -> None: ...
 
 
 __all__ = [

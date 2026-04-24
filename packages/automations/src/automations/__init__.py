@@ -5,16 +5,11 @@ from automations.models import (
     AutomationCreate,
     AutomationExecution,
     AutomationUpdate,
-    ChangeEventTrigger,
-    ComparisonOperator,
-    Condition,
-    ConditionTarget,
     ExecutionStatus,
-    ScheduleTrigger,
     Trigger,
     TriggerContext,
-    TriggerType,
 )
+from automations.protocols import TriggerProvider
 from automations.service import AutomationsService
 
 __all__ = [
@@ -23,13 +18,8 @@ __all__ = [
     "AutomationExecution",
     "AutomationUpdate",
     "AutomationsService",
-    "ChangeEventTrigger",
-    "ComparisonOperator",
-    "Condition",
-    "ConditionTarget",
     "ExecutionStatus",
-    "ScheduleTrigger",
     "Trigger",
     "TriggerContext",
-    "TriggerType",
+    "TriggerProvider",
 ]

@@ -9,6 +9,7 @@ dependencies = [
     "gridone-models",
     "pydantic>=2.0",
     "asyncpg>=0.29",
+    "croniter>=6.2.2",
 ]
 
 [build-system]
