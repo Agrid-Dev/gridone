@@ -3,11 +3,19 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Sequence
+    from typing import Any
 
-    from automations.models import TriggerContext
+    from automations.models import (
+        Automation,
+        AutomationCreate,
+        AutomationExecution,
+        AutomationUpdate,
+        TriggerContext,
+    )
 
     OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
+    ActionDispatcher = Callable[..., Awaitable[Any]]
 
 
 class TriggerProvider(Protocol):
@@ -34,5 +42,17 @@ class TriggerProvider(Protocol):
         ...
 
 
-class ActionServiceInterface(Protocol):
-    async def execute(self, template_id: str) -> str: ...
+class AutomationsServiceInterface(Protocol):
+    async def create(self, params: AutomationCreate) -> Automation: ...
+    async def get(self, automation_id: str) -> Automation: ...
+    async def list(self, *, enabled: bool | None = None) -> Sequence[Automation]: ...
+    async def update(
+        self, automation_id: str, params: AutomationUpdate
+    ) -> Automation: ...
+    async def delete(self, automation_id: str) -> None: ...
+    async def enable(self, automation_id: str) -> Automation: ...
+    async def disable(self, automation_id: str) -> Automation: ...
+    async def list_executions(
+        self, automation_id: str
+    ) -> Sequence[AutomationExecution]: ...
+    def list_trigger_schemas(self) -> Sequence[dict]: ...
