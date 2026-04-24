@@ -6,20 +6,22 @@ import type { FaultView } from "@/api/faults";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, opts?: Record<string, string>) => {
       const map: Record<string, string> = {
         "faults.title": "Active faults",
         "faults.subtitle": "Fleet triage",
         "faults.searchPlaceholder": "Search by device or fault",
         "faults.emptyTitle": "No active faults across your fleet.",
         "faults.emptyDescription": "All devices are healthy.",
-        "faults.noMatchTitle": "No matching faults",
-        "faults.noMatchDescription": "Try a different search term.",
         "faults.unableToLoad": "Unable to load faults",
         "faults.columns.device": "Device",
         "faults.columns.fault": "Fault",
         "faults.columns.severity": "Severity",
         "faults.columns.activeSince": "Active since",
+        "common:common.fault": "fault",
+        "empty.noMatch": "No matching {{resourceName}}",
+        "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
+        "empty.clearFilters": "Clear filters",
         "common.severity.alert": "alert",
         "common.severity.warning": "warning",
         "common.severity.info": "info",
@@ -28,7 +30,13 @@ vi.mock("react-i18next", () => ({
         "common.timeAgo.hours": "a few hours ago",
         "common.timeAgo.days": "a few days ago",
       };
-      return map[key] ?? key;
+      let value = map[key] ?? key;
+      if (opts) {
+        for (const [k, v] of Object.entries(opts)) {
+          value = value.replaceAll(`{{${k}}}`, v);
+        }
+      }
+      return value;
     },
   }),
 }));
@@ -45,6 +53,7 @@ function makeFault(overrides: Partial<FaultView> = {}): FaultView {
     deviceId: "d1",
     deviceName: "Alpha",
     attributeName: "compressor_fault",
+    dataType: "bool",
     severity: "alert",
     currentValue: true,
     lastUpdated: "2026-04-24T00:00:00Z",
@@ -157,8 +166,19 @@ describe("FaultsPage", () => {
     renderPage();
     const input = screen.getByRole("searchbox");
     await userEvent.type(input, "zzzz");
-    expect(screen.getByText("No matching faults")).toBeInTheDocument();
+    expect(screen.getByText("No matching fault")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("clears the query when the empty state clear-filters button is clicked", async () => {
+    renderPage();
+    const input = screen.getByRole("searchbox");
+    await userEvent.type(input, "zzzz");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Clear filters" }),
+    );
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Bravo")).toBeInTheDocument();
   });
 
   it("matches as a fuzzy subsequence, allowing gaps", async () => {
@@ -182,7 +202,7 @@ describe("FaultsPage", () => {
     expect(
       screen.getByText("No active faults across your fleet."),
     ).toBeInTheDocument();
-    expect(screen.queryByText("No matching faults")).not.toBeInTheDocument();
+    expect(screen.queryByText("No matching fault")).not.toBeInTheDocument();
   });
 
   it("renders each severity chip with the correct data-severity attribute", () => {

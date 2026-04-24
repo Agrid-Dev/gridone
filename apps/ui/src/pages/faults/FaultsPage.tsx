@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Search, TriangleAlert } from "lucide-react";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -12,26 +12,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { SeverityChip } from "@/components/SeverityChip";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { faultLabel } from "@/lib/faultLabel";
 import { formatTimeAgo } from "@/lib/utils";
 import type { FaultView } from "@/api/faults";
-
-function inferDataType(value: unknown): "str" | "int" | "bool" {
-  if (typeof value === "number") return "int";
-  if (typeof value === "boolean") return "bool";
-  return "str";
-}
 
 /** Subsequence match: every char of `query` appears in `target` in order,
  *  gaps allowed. Case-insensitive. Empty query matches everything. */
@@ -87,7 +75,7 @@ export default function FaultsPage() {
   }
 
   const showEmpty = filtered.length === 0;
-  const showNoMatch = showEmpty && faults.length > 0 && query.trim().length > 0;
+  const isFiltered = faults.length > 0 && query.trim().length > 0;
 
   return (
     <section className="space-y-6">
@@ -106,21 +94,14 @@ export default function FaultsPage() {
       </div>
 
       {showEmpty ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <TriangleAlert />
-            </EmptyMedia>
-            <EmptyTitle>
-              {showNoMatch ? t("faults.noMatchTitle") : t("faults.emptyTitle")}
-            </EmptyTitle>
-            <EmptyDescription>
-              {showNoMatch
-                ? t("faults.noMatchDescription")
-                : t("faults.emptyDescription")}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <ResourceEmpty
+          resourceName={t("common:common.fault").toLowerCase()}
+          filtered={isFiltered}
+          onClearFilters={() => setQuery("")}
+          showCreate={false}
+          title={isFiltered ? undefined : t("faults.emptyTitle")}
+          description={isFiltered ? undefined : t("faults.emptyDescription")}
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <Table>
@@ -151,7 +132,7 @@ function FaultRow({ fault }: { fault: FaultView }) {
   const { t } = useTranslation();
   const label = faultLabel({
     name: fault.attributeName,
-    dataType: inferDataType(fault.currentValue),
+    dataType: fault.dataType,
     currentValue: fault.currentValue,
   });
   const activeSince = formatTimeAgo(new Date(fault.lastChanged).getTime(), t);

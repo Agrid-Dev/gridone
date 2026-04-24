@@ -5,8 +5,6 @@
     "searchPlaceholder": "Rechercher par équipement ou défaut…",
     "emptyTitle": "Aucun défaut actif sur votre flotte.",
     "emptyDescription": "Tous les équipements signalent des attributs sains.",
-    "noMatchTitle": "Aucun défaut correspondant",
-    "noMatchDescription": "Essayez une autre recherche.",
     "unableToLoad": "Impossible de charger les défauts",
     "columns": {
       "device": "Équipement",

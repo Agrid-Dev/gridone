@@ -63,6 +63,7 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
         device_id=device.id,
         device_name=device.name,
         attribute_name=attr.name,
+        data_type=attr.data_type,
         severity=attr.severity,
         current_value=attr.current_value,
         last_updated=attr.last_updated,
