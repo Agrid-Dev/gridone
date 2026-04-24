@@ -240,17 +240,16 @@ class PhysicalDevice(CoreDevice):
         transports. Raises ConfirmationError if neither path succeeds within
         max_retries attempts.
         """
-        if self.get_attribute_value(attribute_name) == expected_value:
+        matches = lambda: self.get_attribute_value(attribute_name) == expected_value  # noqa: E731
+        if matches():
             return
         confirm_delay = 0.25
         for _ in range(max_retries):
             await asyncio.sleep(confirm_delay)
-            if self.get_attribute_value(attribute_name) == expected_value:
+            if matches():
                 return
             try:
-                actual_value = await self.read_attribute_value(attribute_name)
-                if actual_value == expected_value:
-                    return
+                await self.read_attribute_value(attribute_name)
                 confirm_delay *= 4
             except Exception as e:  # noqa: BLE001
                 logger.warning(
@@ -261,7 +260,7 @@ class PhysicalDevice(CoreDevice):
                     e,
                 )
             # Push may have arrived during the read — check cache once more.
-            if self.get_attribute_value(attribute_name) == expected_value:
+            if matches():
                 return
         actual_value = self.get_attribute_value(attribute_name)
         msg = (
