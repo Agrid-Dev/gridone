@@ -20,6 +20,7 @@ from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
 from api.routes import (
     assets_router,
+    automations_router,
     devices_router,
     drivers_router,
     health_router,
@@ -222,6 +223,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         assets_router,
         prefix="/assets",
         tags=["assets"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        automations_router,
+        prefix="/automations",
+        tags=["automations"],
         dependencies=jwt_dep,
     )
     app.include_router(
