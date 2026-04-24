@@ -43,9 +43,13 @@ class AutomationsService:
         self._action_dispatcher = action_dispatcher
         self._cache = {}
         self._handles = {}
+        self._started = False
 
     async def start(self) -> None:
         """Build storage, then register all persisted automations."""
+        if self._started:
+            return
+        self._started = True
         self._storage = await build_storage(self._storage_url)
         await self._storage.start()
         for automation in await self._storage.list():
@@ -144,6 +148,7 @@ class AutomationsService:
             await self._stop_trigger(automation_id)
         if hasattr(self, "_storage"):
             await self._storage.close()
+        self._started = False
 
     # Helpers
 
