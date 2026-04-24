@@ -8,18 +8,15 @@ from api.trigger_providers.change_event import (
     ChangeEventTriggerProvider,
     Condition,
     ConditionOperator,
-    _evaluate,
 )
 from automations.models import TriggerContext
+from devices_manager.interface import DevicesManagerInterface
 
 _NOW = datetime(2024, 1, 1, tzinfo=UTC)
 
 
 def _make_dm() -> MagicMock:
-    dm = MagicMock()
-    dm.add_device_attribute_listener = MagicMock()
-    dm.remove_device_attribute_listener = MagicMock()
-    return dm
+    return MagicMock(spec=DevicesManagerInterface)
 
 
 def _make_device(device_id: str) -> MagicMock:
@@ -35,7 +32,13 @@ def _make_attr(value: object, last_updated: datetime | None = _NOW) -> MagicMock
     return attr
 
 
-class TestEvaluate:
+async def _fire(dm: MagicMock, device_id: str, attr_name: str, attr: object) -> None:
+    """Call the callback captured by the DM mock."""
+    captured = dm.add_device_attribute_listener.call_args[0][0]
+    await captured(_make_device(device_id), attr_name, attr)
+
+
+class TestConditionEvaluate:
     @pytest.mark.parametrize(
         ("op", "threshold", "value", "expected"),
         [
@@ -51,27 +54,32 @@ class TestEvaluate:
             (ConditionOperator.EQ, 1, 0, False),
             (ConditionOperator.NE, 1, 0, True),
             (ConditionOperator.NE, 1, 1, False),
+            # other AttributeValueType variants
+            (ConditionOperator.EQ, True, True, True),
+            (ConditionOperator.EQ, True, False, False),
+            (ConditionOperator.EQ, "on", "on", True),
+            (ConditionOperator.EQ, "on", "off", False),
         ],
     )
     def test_operator(self, op, threshold, value, expected):
         c = Condition(operator=op, threshold=threshold)
-        assert _evaluate(c, value) is expected
+        assert c.evaluate(value) is expected
 
     def test_none_value_returns_false(self):
         c = Condition(operator=ConditionOperator.GT, threshold=10)
-        assert _evaluate(c, None) is False
+        assert c.evaluate(None) is False
 
     def test_incompatible_types_returns_false(self):
         c = Condition(operator=ConditionOperator.GT, threshold=10)
-        assert _evaluate(c, "not-a-number") is False
+        assert c.evaluate("not-a-number") is False
 
 
 class TestChangeEventTriggerProviderConfig:
     def test_has_id_and_trigger_schema(self):
         provider = ChangeEventTriggerProvider(_make_dm())
         assert provider.id == "change_event"
-        assert "source_id" in provider.trigger_schema["properties"]
-        assert "event_type" in provider.trigger_schema["properties"]
+        assert "device_id" in provider.trigger_schema["properties"]
+        assert "attribute" in provider.trigger_schema["properties"]
 
 
 class TestChangeEventTriggerProvider:
@@ -81,16 +89,16 @@ class TestChangeEventTriggerProvider:
         dm = _make_dm()
         provider = ChangeEventTriggerProvider(dm)
         handle_id = await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, AsyncMock()
+            {"device_id": "dev-01", "attribute": "temperature"}, AsyncMock()
         )
         assert isinstance(handle_id, str)
-        assert len(handle_id) == 16
+        assert len(handle_id) > 0
 
     async def test_register_subscribes_to_dm(self):
         dm = _make_dm()
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, AsyncMock()
+            {"device_id": "dev-01", "attribute": "temperature"}, AsyncMock()
         )
         dm.add_device_attribute_listener.assert_called_once()
 
@@ -98,49 +106,45 @@ class TestChangeEventTriggerProvider:
         dm = _make_dm()
         provider = ChangeEventTriggerProvider(dm)
         handle_id = await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, AsyncMock()
+            {"device_id": "dev-01", "attribute": "temperature"}, AsyncMock()
         )
         await provider.unregister(handle_id)
         dm.remove_device_attribute_listener.assert_called_once()
-        assert handle_id not in provider._listeners
 
     async def test_unregister_unknown_handle_is_safe(self):
         provider = ChangeEventTriggerProvider(_make_dm())
         await provider.unregister("nonexistent")  # must not raise
 
-    async def test_fires_on_matching_source_and_event(self):
+    async def test_fires_on_matching_device_and_attribute(self):
         dm = _make_dm()
         on_fire = AsyncMock()
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, on_fire
+            {"device_id": "dev-01", "attribute": "temperature"}, on_fire
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(_make_device("dev-01"), "temperature", _make_attr(30))
+        await _fire(dm, "dev-01", "temperature", _make_attr(30))
         on_fire.assert_called_once()
         ctx: TriggerContext = on_fire.call_args[0][0]
         assert ctx.timestamp == _NOW
 
-    async def test_ignores_wrong_source(self):
+    async def test_ignores_wrong_device(self):
         dm = _make_dm()
         on_fire = AsyncMock()
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, on_fire
+            {"device_id": "dev-01", "attribute": "temperature"}, on_fire
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(_make_device("other"), "temperature", _make_attr(30))
+        await _fire(dm, "other", "temperature", _make_attr(30))
         on_fire.assert_not_called()
 
-    async def test_ignores_wrong_event_type(self):
+    async def test_ignores_wrong_attribute(self):
         dm = _make_dm()
         on_fire = AsyncMock()
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, on_fire
+            {"device_id": "dev-01", "attribute": "temperature"}, on_fire
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(_make_device("dev-01"), "humidity", _make_attr(30))
+        await _fire(dm, "dev-01", "humidity", _make_attr(30))
         on_fire.assert_not_called()
 
     async def test_condition_met_fires(self):
@@ -149,14 +153,13 @@ class TestChangeEventTriggerProvider:
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
             {
-                "source_id": "dev-01",
-                "event_type": "temperature",
+                "device_id": "dev-01",
+                "attribute": "temperature",
                 "condition": {"operator": "gt", "threshold": 25},
             },
             on_fire,
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(_make_device("dev-01"), "temperature", _make_attr(30))
+        await _fire(dm, "dev-01", "temperature", _make_attr(30))
         on_fire.assert_called_once()
 
     async def test_condition_not_met_does_not_fire(self):
@@ -165,14 +168,13 @@ class TestChangeEventTriggerProvider:
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
             {
-                "source_id": "dev-01",
-                "event_type": "temperature",
+                "device_id": "dev-01",
+                "attribute": "temperature",
                 "condition": {"operator": "gt", "threshold": 25},
             },
             on_fire,
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(_make_device("dev-01"), "temperature", _make_attr(20))
+        await _fire(dm, "dev-01", "temperature", _make_attr(20))
         on_fire.assert_not_called()
 
     async def test_falls_back_to_now_when_last_updated_is_none(self):
@@ -180,12 +182,9 @@ class TestChangeEventTriggerProvider:
         on_fire = AsyncMock()
         provider = ChangeEventTriggerProvider(dm)
         await provider.register(
-            {"source_id": "dev-01", "event_type": "temperature"}, on_fire
+            {"device_id": "dev-01", "attribute": "temperature"}, on_fire
         )
-        listener = next(iter(provider._listeners.values()))
-        await listener._handle(
-            _make_device("dev-01"), "temperature", _make_attr(30, last_updated=None)
-        )
+        await _fire(dm, "dev-01", "temperature", _make_attr(30, last_updated=None))
         on_fire.assert_called_once()
         ctx: TriggerContext = on_fire.call_args[0][0]
         assert ctx.timestamp is not None
