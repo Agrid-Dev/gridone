@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+import asyncio
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,6 +20,7 @@ from devices_manager.core.driver import (
     UpdateStrategy,
 )
 from devices_manager.types import DataType, TransportProtocols
+from models.errors import ConfirmationError
 from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -181,6 +183,85 @@ class TestDeviceWrite:
     async def test_write_value_not_writable(self, device: PhysicalDevice):
         with pytest.raises(PermissionError):
             await device.write_attribute_value("humidity", 12)
+
+    @pytest.mark.asyncio
+    async def test_write_confirm_succeeds_via_push_update(
+        self, mock_push_transport_client
+    ):
+        """Push update arriving during confirmation window avoids active read."""
+        driver = Driver(
+            metadata=DriverMetadata(id="push_write_driver"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "output": AttributeDriver(
+                    name="output",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/output"},
+                    write={"topic": "/dev/output"},
+                    codecs=[CodecSpec(name="identity", argument="")],
+                ),
+            },
+        )
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="push_write_dev", name="Push Write Device", config={}),
+            driver=driver,
+            transport=mock_push_transport_client,
+        )
+        await device.init_listeners()
+        mock_push_transport_client.write = AsyncMock()
+        mock_push_transport_client.read = AsyncMock(
+            side_effect=TimeoutError("command-only GA")
+        )
+
+        async def deliver_push() -> None:
+            await asyncio.sleep(0.1)
+            await mock_push_transport_client.simulate_event("/dev/output", 25.0)
+
+        task = asyncio.create_task(deliver_push())
+        await device.write_attribute_value("output", 25.0, confirm=True)
+        await task
+
+        mock_push_transport_client.read.assert_not_called()
+        assert device.attributes["output"].current_value == 25.0
+
+    @pytest.mark.asyncio
+    async def test_write_confirm_raises_when_no_push_and_read_fails(
+        self, mock_push_transport_client
+    ):
+        """ConfirmationError is raised when push never arrives and active read fails."""
+        driver = Driver(
+            metadata=DriverMetadata(id="push_cmd_only_driver"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "output": AttributeDriver(
+                    name="output",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/output"},
+                    write={"topic": "/dev/output"},
+                    codecs=[CodecSpec(name="identity", argument="")],
+                ),
+            },
+        )
+        device = PhysicalDevice.from_base(
+            DeviceBase(
+                id="push_write_fail_dev", name="Push Write Fail Device", config={}
+            ),
+            driver=driver,
+            transport=mock_push_transport_client,
+        )
+        mock_push_transport_client.write = AsyncMock()
+        mock_push_transport_client.read = AsyncMock(
+            side_effect=TimeoutError("command-only GA")
+        )
+
+        with patch("asyncio.sleep"), pytest.raises(ConfirmationError):
+            await device.write_attribute_value("output", 25.0, confirm=True)
 
 
 class TestDevicesListeners:

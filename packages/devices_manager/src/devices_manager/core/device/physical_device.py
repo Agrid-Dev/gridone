@@ -232,16 +232,24 @@ class PhysicalDevice(CoreDevice):
         expected_value: AttributeValueType,
         max_retries: int = 3,
     ) -> None:
-        actual_value = self.get_attribute_value(attribute_name)
-        if actual_value == expected_value:
+        """Confirm a write landed by checking cached value and active reads.
+
+        Checks the cached attribute value first on each iteration — if a push
+        transport published an update that matches, confirmation succeeds without
+        an active read. Falls back to polling via read_attribute_value for pull
+        transports. Raises ConfirmationError if neither path succeeds within
+        max_retries attempts.
+        """
+        matches = lambda: self.get_attribute_value(attribute_name) == expected_value  # noqa: E731
+        if matches():
             return
         confirm_delay = 0.25
         for _ in range(max_retries):
+            await asyncio.sleep(confirm_delay)
+            if matches():
+                return
             try:
-                await asyncio.sleep(confirm_delay)
-                actual_value = await self.read_attribute_value(attribute_name)
-                if actual_value == expected_value:
-                    return
+                await self.read_attribute_value(attribute_name)
                 confirm_delay *= 4
             except Exception as e:  # noqa: BLE001
                 logger.warning(
@@ -251,6 +259,10 @@ class PhysicalDevice(CoreDevice):
                     type(e).__name__,
                     e,
                 )
+            # Push may have arrived during the read — check cache once more.
+            if matches():
+                return
+        actual_value = self.get_attribute_value(attribute_name)
         msg = (
             f"Failed to confirm attribute {attribute_name} value, "
             f"expected {expected_value} got {actual_value}"
@@ -285,7 +297,7 @@ class PhysicalDevice(CoreDevice):
             validated_value,
             self.id,
         )
-        if confirm and attribute_driver.confirm:
+        if confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
         self._update_attribute(attribute, validated_value)
         return attribute
