@@ -28,7 +28,6 @@ class AttributeDriver(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
-    confirm: bool = True
     codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
 
     @cached_property
