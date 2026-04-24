@@ -9,7 +9,7 @@ from automations.models import (
     Trigger,
     TriggerContext,
 )
-from automations.protocols import TriggerProvider
+from automations.protocols import AutomationsServiceInterface, TriggerProvider
 from automations.service import AutomationsService
 
 __all__ = [
@@ -18,6 +18,7 @@ __all__ = [
     "AutomationExecution",
     "AutomationUpdate",
     "AutomationsService",
+    "AutomationsServiceInterface",
     "ExecutionStatus",
     "Trigger",
     "TriggerContext",

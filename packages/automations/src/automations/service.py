@@ -13,6 +13,7 @@ from automations.models import (
     ExecutionStatus,
     TriggerContext,
 )
+from automations.storage.factory import build_storage
 from models.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -20,34 +21,32 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from automations.protocols import (
-        ActionServiceInterface,
-        OnFireCallback,
-        TriggerProvider,
-    )
+    from automations.protocols import ActionDispatcher, OnFireCallback, TriggerProvider
     from automations.storage.backend import AutomationsStorageBackend
 
 
 class AutomationsService:
     _cache: dict[str, Automation]
     _handles: dict[str, tuple[str, str]]  # automation_id → (provider_id, handle_id)
+    _storage: AutomationsStorageBackend
 
     def __init__(
         self,
-        storage: AutomationsStorageBackend,
+        storage_url: str,
         trigger_providers: Sequence[TriggerProvider],
-        actions: ActionServiceInterface,
+        action_dispatcher: ActionDispatcher,
     ) -> None:
-        self._storage = storage
+        self._storage_url = storage_url
         self._providers: dict[str, TriggerProvider] = {
             p.id: p for p in trigger_providers
         }
-        self._actions = actions
+        self._action_dispatcher = action_dispatcher
         self._cache = {}
         self._handles = {}
 
     async def start(self) -> None:
-        """Start storage and register all persisted automations."""
+        """Build storage, then register all persisted automations."""
+        self._storage = await build_storage(self._storage_url)
         await self._storage.start()
         for automation in await self._storage.list():
             await self._register_automation(automation)
@@ -137,10 +136,14 @@ class AutomationsService:
     ) -> Sequence[AutomationExecution]:
         return await self._storage.list_executions(automation_id)
 
+    def list_trigger_schemas(self) -> Sequence[dict]:
+        return [p.trigger_schema for p in self._providers.values()]
+
     async def close(self) -> None:
         for automation_id in list(self._handles):
             await self._stop_trigger(automation_id)
-        await self._storage.close()
+        if hasattr(self, "_storage"):
+            await self._storage.close()
 
     # Helpers
 
@@ -172,7 +175,11 @@ class AutomationsService:
             raise NotFoundError(msg)
         output_id, status, error = None, ExecutionStatus.SUCCESS, None
         try:
-            output_id = await self._actions.execute(automation.action_template_id)
+            await self._action_dispatcher(
+                template_id=automation.action_template_id,
+                user_id="system",
+                confirm=False,
+            )
         except Exception:
             logger.exception("Automation %r action failed", automation_id)
             status, error = ExecutionStatus.FAILED, "Action execution failed"

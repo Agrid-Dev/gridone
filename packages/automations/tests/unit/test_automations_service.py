@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from automations.models import (
@@ -43,15 +43,18 @@ def _make_provider(trigger_type: str = "schedule") -> MagicMock:
 def _make_service(
     storage: AsyncMock | None = None,
     providers: list[MagicMock] | None = None,
-    actions: AsyncMock | None = None,
+    action_dispatcher: AsyncMock | None = None,
 ) -> AutomationsService:
+    """Create a service with storage injected directly — no need to call start()."""
     if providers is None:
         providers = [_make_provider("schedule"), _make_provider("change_event")]
-    return AutomationsService(
-        storage=storage or _make_storage(),
+    svc = AutomationsService(
+        storage_url="postgresql://test",
         trigger_providers=providers,
-        actions=actions or AsyncMock(),
+        action_dispatcher=action_dispatcher or AsyncMock(),
     )
+    svc._storage = storage or _make_storage()
+    return svc
 
 
 def _create_params(**kwargs: object) -> AutomationCreate:
@@ -113,12 +116,24 @@ class TestCRUD:
         with pytest.raises(NotFoundError):
             await svc.delete("missing")
 
+    async def test_list_trigger_schemas_returns_provider_schemas(self):
+        p1 = _make_provider("schedule")
+        p1.trigger_schema = {"title": "Schedule"}
+        p2 = _make_provider("change_event")
+        p2.trigger_schema = {"title": "Change Event"}
+        svc = _make_service(providers=[p1, p2])
+        schemas = svc.list_trigger_schemas()
+        assert len(schemas) == 2
+        assert {"title": "Schedule"} in schemas
+        assert {"title": "Change Event"} in schemas
+
 
 class TestStart:
     async def test_start_calls_storage_start(self):
         storage = _make_storage()
-        svc = _make_service(storage=storage)
-        await svc.start()
+        svc = _make_service()
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
         storage.start.assert_called_once()
 
     async def test_start_registers_enabled_automations_from_storage(self):
@@ -132,8 +147,9 @@ class TestStart:
             enabled=True,
         )
         storage.list.return_value = [auto]
-        svc = _make_service(storage=storage, providers=[provider])
-        await svc.start()
+        svc = _make_service(providers=[provider])
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
         provider.register.assert_called_once()
 
     async def test_start_skips_disabled_automations(self):
@@ -147,8 +163,9 @@ class TestStart:
             enabled=False,
         )
         storage.list.return_value = [auto]
-        svc = _make_service(storage=storage, providers=[provider])
-        await svc.start()
+        svc = _make_service(providers=[provider])
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
         provider.register.assert_not_called()
 
 
@@ -324,32 +341,32 @@ _CTX = TriggerContext(timestamp=datetime(2024, 1, 1, tzinfo=UTC))
 
 
 class TestOnFire:
-    async def test_calls_action_with_template_id(self):
-        actions = AsyncMock()
-        actions.execute.return_value = "out-01"
-        svc = _make_service(actions=actions)
+    async def test_calls_action_dispatcher_with_template_id(self):
+        action_dispatcher = AsyncMock()
+        svc = _make_service(action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
-        actions.execute.assert_called_once_with(created.action_template_id)
+        action_dispatcher.assert_awaited_once_with(
+            template_id=created.action_template_id,
+            user_id="system",
+            confirm=False,
+        )
 
     async def test_logs_success_execution(self):
         storage = _make_storage()
-        actions = AsyncMock()
-        actions.execute.return_value = "out-01"
-        svc = _make_service(storage=storage, actions=actions)
+        action_dispatcher = AsyncMock()
+        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
         assert execution.status == ExecutionStatus.SUCCESS
-        assert execution.output_id == "out-01"
         assert execution.error is None
 
     async def test_logs_failed_execution_on_action_error(self):
         storage = _make_storage()
-        actions = AsyncMock()
-        actions.execute.side_effect = RuntimeError("boom")
-        svc = _make_service(storage=storage, actions=actions)
+        action_dispatcher = AsyncMock(side_effect=RuntimeError("boom"))
+        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
@@ -358,9 +375,8 @@ class TestOnFire:
         assert execution.output_id is None
 
     async def test_no_exception_propagated_on_action_error(self):
-        actions = AsyncMock()
-        actions.execute.side_effect = RuntimeError("boom")
-        svc = _make_service(actions=actions)
+        action_dispatcher = AsyncMock(side_effect=RuntimeError("boom"))
+        svc = _make_service(action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)  # must not raise
 
@@ -380,3 +396,11 @@ class TestClose:
         await svc.close()
         assert provider.unregister.call_count == 2
         storage.close.assert_called_once()
+
+    async def test_close_before_start_does_not_raise(self):
+        svc = AutomationsService(
+            storage_url="postgresql://test",
+            trigger_providers=[],
+            action_dispatcher=AsyncMock(),
+        )
+        await svc.close()  # _storage not set — must not raise
