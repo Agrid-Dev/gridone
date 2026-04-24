@@ -18,6 +18,8 @@ from models.errors import NotFoundError
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from automations.protocols import (
         ActionServiceInterface,
         OnFireCallback,
@@ -33,7 +35,7 @@ class AutomationsService:
     def __init__(
         self,
         storage: AutomationsStorageBackend,
-        trigger_providers: list[TriggerProvider],  # type: ignore[invalid-type-form]
+        trigger_providers: Sequence[TriggerProvider],
         actions: ActionServiceInterface,
     ) -> None:
         self._storage = storage
@@ -71,7 +73,7 @@ class AutomationsService:
             raise NotFoundError(msg)
         return automation
 
-    async def list(self, *, enabled: bool | None = None) -> list[Automation]:  # type: ignore[invalid-type-form]
+    async def list(self, *, enabled: bool | None = None) -> Sequence[Automation]:
         automations = list(self._cache.values())
         if enabled is None:
             return automations
@@ -130,7 +132,9 @@ class AutomationsService:
     async def _log_execution(self, execution: AutomationExecution) -> None:
         await self._storage.log_execution(execution)
 
-    async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]
+    async def list_executions(
+        self, automation_id: str
+    ) -> Sequence[AutomationExecution]:
         return await self._storage.list_executions(automation_id)
 
     async def close(self) -> None:

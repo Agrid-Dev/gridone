@@ -1,19 +1,15 @@
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import ClassVar
 from uuid import uuid4
 
 from croniter import croniter
 from pydantic import BaseModel, Field, field_validator
 
 from automations.models import TriggerContext
-
-if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
 
 logger = logging.getLogger(__name__)
 
