@@ -1,3 +1,17 @@
+## v0.57.0 (2026-04-24)
+
+### Feat
+
+- **ui**: add healthy/faulty filter and card badge to device list (AGR-466)
+
+### Fix
+
+- **ui**: ensure device name truncates inside flex parent (AGR-466)
+
+### Refactor
+
+- **ui**: move health filter from client to search-param driven server-side (AGR-466)
+
 ## v0.56.0 (2026-04-23)
 
 ### Feat
