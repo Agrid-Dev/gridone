@@ -168,6 +168,61 @@ class TestStart:
             await svc.start()
         provider.register.assert_not_called()
 
+    async def test_start_is_idempotent(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        storage.list.return_value = [
+            Automation(
+                id="a1",
+                name="a1",
+                trigger=_SCHEDULE,
+                action_template_id=_TMPL,
+                enabled=True,
+            ),
+            Automation(
+                id="a2",
+                name="a2",
+                trigger=_SCHEDULE,
+                action_template_id=_TMPL,
+                enabled=True,
+            ),
+        ]
+        svc = _make_service(providers=[provider])
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
+            await svc.start()
+        assert len(svc._handles) == 2
+        assert provider.register.call_count == 2
+
+    async def test_start_zero_automations_not_blocked(self):
+        storage = _make_storage()
+        storage.list.return_value = []
+        svc = _make_service()
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
+            await svc.start()
+        assert svc._handles == {}
+
+    async def test_start_after_close_restarts(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        storage.list.return_value = [
+            Automation(
+                id="a1",
+                name="a1",
+                trigger=_SCHEDULE,
+                action_template_id=_TMPL,
+                enabled=True,
+            ),
+        ]
+        svc = _make_service(providers=[provider])
+        with patch("automations.service.build_storage", return_value=storage):
+            await svc.start()
+            await svc.close()
+            await svc.start()
+        assert len(svc._handles) == 1
+        assert provider.register.call_count == 2
+
 
 class TestCache:
     async def test_empty_on_init(self):
@@ -310,6 +365,13 @@ class TestTriggers:
         result = await svc.disable(created.id)
         provider.unregister.assert_not_called()
         assert result.enabled is False
+
+    async def test_start_trigger_raises_if_already_registered(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        created = await svc.create(_create_params(enabled=True))
+        with pytest.raises(RuntimeError, match="already registered"):
+            await svc._start_trigger(created)
 
     async def test_register_passes_params_without_type(self):
         provider = _make_provider("schedule")
