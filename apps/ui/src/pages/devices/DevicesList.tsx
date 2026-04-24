@@ -9,6 +9,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { TypeFilter } from "@/components/FilterBar";
+import { HealthFilter } from "@/components/HealthFilter";
 import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
@@ -52,7 +53,10 @@ export default function DevicesList() {
         }
       />
 
-      <TypeFilter />
+      <div className="flex flex-wrap items-center gap-3">
+        <TypeFilter />
+        <HealthFilter />
+      </div>
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
