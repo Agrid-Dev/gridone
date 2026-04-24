@@ -1083,6 +1083,7 @@ class TestDevicesManagerListActiveFaults:
         assert view.device_id == "chiller"
         assert view.device_name == "Chiller"
         assert view.attribute_name == "alarm"
+        assert view.data_type == DataType.STRING
         assert view.severity == Severity.ALERT
         assert view.current_value == "critical"
         assert view.last_updated is not None

@@ -1,0 +1,16 @@
+{
+  "faults": {
+    "title": "Défauts actifs",
+    "subtitle": "Triage de la flotte",
+    "searchPlaceholder": "Rechercher par équipement ou défaut…",
+    "emptyTitle": "Aucun défaut actif sur votre flotte.",
+    "emptyDescription": "Tous les équipements signalent des attributs sains.",
+    "unableToLoad": "Impossible de charger les défauts",
+    "columns": {
+      "device": "Équipement",
+      "fault": "Défaut",
+      "severity": "Gravité",
+      "activeSince": "Actif depuis"
+    }
+  }
+}

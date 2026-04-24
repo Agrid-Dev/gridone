@@ -7,7 +7,7 @@ from devices_manager.dto import FaultView
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from models.errors import NotFoundError
-from models.types import Severity
+from models.types import DataType, Severity
 
 from api.dependencies import (
     get_current_token_payload,
@@ -22,6 +22,7 @@ _FAULT_A = FaultView(
     device_id="dev-1",
     device_name="Chiller 1",
     attribute_name="alarm",
+    data_type=DataType.BOOL,
     severity=Severity.ALERT,
     current_value=True,
     last_updated=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
@@ -31,6 +32,7 @@ _FAULT_B = FaultView(
     device_id="dev-2",
     device_name="Boiler 7",
     attribute_name="status",
+    data_type=DataType.STRING,
     severity=Severity.WARNING,
     current_value="error",
     last_updated=datetime(2026, 4, 20, 11, 0, tzinfo=UTC),

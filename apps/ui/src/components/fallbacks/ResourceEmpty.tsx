@@ -17,6 +17,8 @@ interface ResourceEmptyProps {
   filtered?: boolean;
   onClearFilters?: () => void;
   showCreate?: boolean;
+  title?: string;
+  description?: string;
 }
 
 export const ResourceEmpty: FC<ResourceEmptyProps> = ({
@@ -24,6 +26,8 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   filtered,
   onClearFilters,
   showCreate = true,
+  title,
+  description,
 }) => {
   const { t } = useTranslation();
   return (
@@ -33,14 +37,16 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
           <FileSearchCorner />
         </EmptyMedia>
         <EmptyTitle>
-          {filtered
-            ? t("empty.noMatch", { resourceName })
-            : t("empty.title", { resourceName })}
+          {title ??
+            (filtered
+              ? t("empty.noMatch", { resourceName })
+              : t("empty.title", { resourceName }))}
         </EmptyTitle>
         <EmptyDescription>
-          {filtered
-            ? t("empty.clearFiltersHint")
-            : t("empty.details", { resourceName })}
+          {description ??
+            (filtered
+              ? t("empty.clearFiltersHint")
+              : t("empty.details", { resourceName }))}
         </EmptyDescription>
       </EmptyHeader>
       {(filtered || showCreate) && (
