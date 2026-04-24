@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 
 from apps import AppsService
 from assets import AssetsManager
+from automations import AutomationsService
+from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
 from models.types import AttributeValueType, DataType
 from devices_manager import Attribute, CoreDevice, DevicesManager
@@ -27,6 +29,7 @@ from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
 from api.routes.users import auth_router, users_router
 from api.settings import load_settings
+from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
 
@@ -115,6 +118,17 @@ async def lifespan(app: FastAPI):
     )
     app.state.commands_service = commands_service
 
+    automations_svc = AutomationsService(
+        storage_url=settings.storage_url,
+        trigger_providers=[
+            ScheduleTriggerProvider(),
+            ChangeEventTriggerProvider(dm),
+        ],
+        action_dispatcher=commands_service.dispatch_from_template,
+    )
+    await automations_svc.start()
+    app.state.automations_service = automations_svc
+
     apps_svc = None
     try:
         apps_svc = await AppsService.from_storage(settings.storage_url, um)
@@ -166,6 +180,7 @@ async def lifespan(app: FastAPI):
         await dm.stop()
         await ts_service.close()
         await commands_service.close()
+        await automations_svc.close()
         await um.close()
         if apps_svc is not None:
             await apps_svc.close()

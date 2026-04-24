@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from apps import AppsService
 from assets import AssetsManager
+from automations import AutomationsServiceInterface
 from commands import CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -35,6 +36,10 @@ def get_commands_service(request: Request) -> CommandsServiceInterface:
 
 def get_apps_service(request: Request) -> AppsService:
     return request.app.state.apps_service
+
+
+def get_automations_service(request: Request) -> AutomationsServiceInterface:
+    return request.app.state.automations_service
 
 
 def get_assets_manager(request: Request) -> AssetsManager:
