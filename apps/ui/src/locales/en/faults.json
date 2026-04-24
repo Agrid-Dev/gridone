@@ -1,0 +1,18 @@
+{
+  "faults": {
+    "title": "Active faults",
+    "subtitle": "Fleet triage",
+    "searchPlaceholder": "Search by device or fault…",
+    "emptyTitle": "No active faults across your fleet.",
+    "emptyDescription": "All devices are reporting healthy attributes.",
+    "noMatchTitle": "No matching faults",
+    "noMatchDescription": "Try a different search term.",
+    "unableToLoad": "Unable to load faults",
+    "columns": {
+      "device": "Device",
+      "fault": "Fault",
+      "severity": "Severity",
+      "activeSince": "Active since"
+    }
+  }
+}

@@ -149,6 +149,7 @@
     "drivers": "Drivers",
     "transports": "Transports",
     "apps": "Applications",
+    "faults": "Défauts",
     "users": "Utilisateurs"
   }
 }
