@@ -1,10 +1,10 @@
 from notifications.interface import NotificationsServiceInterface
-from notifications.models import Notification, NotificationForUser
+from notifications.models import Notification, NotificationDispatch
 from notifications.notifications_service import NotificationsService
 
 __all__ = [
     "Notification",
-    "NotificationForUser",
+    "NotificationDispatch",
     "NotificationsService",
     "NotificationsServiceInterface",
 ]

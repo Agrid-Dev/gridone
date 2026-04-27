@@ -3,11 +3,11 @@ from typing import Protocol
 
 from models.pagination import Page, PaginationParams
 from models.types import Severity
-from notifications.models import Notification, NotificationForUser
+from notifications.models import Notification, NotificationDispatch
 
 
 class NotificationsStorageBackend(Protocol):
-    async def insert(  # noqa: PLR0913
+    async def upsert_notification(  # noqa: PLR0913
         self,
         title: str,
         body: str,
@@ -15,8 +15,13 @@ class NotificationsStorageBackend(Protocol):
         correlation_id: str | None,
         created_by: str | None,
         created_at: datetime,
-        user_ids: list[str],
     ) -> Notification: ...
+
+    async def dispatch_to_users(
+        self,
+        notification: Notification,
+        user_ids: list[str],
+    ) -> list[NotificationDispatch]: ...
 
     async def list_for_user(
         self,
@@ -25,18 +30,12 @@ class NotificationsStorageBackend(Protocol):
         severity: Severity | None,
         dismissed: bool | None,
         pagination: PaginationParams,
-    ) -> Page[NotificationForUser]: ...
+    ) -> Page[NotificationDispatch]: ...
 
     async def dismiss(
         self,
-        notification_id: int,
+        notification_id: str,
         user_id: str,
-    ) -> NotificationForUser | None: ...
-
-    async def get_users_with_active_correlation(
-        self,
-        user_ids: list[str],
-        correlation_id: str,
-    ) -> set[str]: ...
+    ) -> NotificationDispatch | None: ...
 
     async def close(self) -> None: ...

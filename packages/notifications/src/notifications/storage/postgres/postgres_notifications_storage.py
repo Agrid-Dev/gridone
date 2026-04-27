@@ -1,10 +1,12 @@
 from datetime import datetime
+from uuid import uuid4
 
 import asyncpg
 
+from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.types import Severity
-from notifications.models import Notification, NotificationForUser
+from notifications.models import Notification, NotificationDispatch
 
 
 class PostgresNotificationsStorage:
@@ -13,19 +15,28 @@ class PostgresNotificationsStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    def _row_to_notification_for_user(self, row: asyncpg.Record) -> NotificationForUser:
-        return NotificationForUser(
+    def _row_to_notification(self, row: asyncpg.Record) -> Notification:
+        return Notification(
             id=row["id"],
             title=row["title"],
             body=row["body"],
             severity=Severity(row["severity"]),
             correlation_id=row["correlation_id"],
+            created_by=row["created_by"],
             created_at=row["created_at"],
-            dismissed=row["dismissed"],
+        )
+
+    def _row_to_dispatch(
+        self, row: asyncpg.Record, notification: Notification
+    ) -> NotificationDispatch:
+        return NotificationDispatch(
+            notification=notification,
+            user_id=row["user_id"],
+            dispatched_at=row["dispatched_at"],
             dismissed_at=row["dismissed_at"],
         )
 
-    async def insert(  # noqa: PLR0913
+    async def upsert_notification(  # noqa: PLR0913
         self,
         title: str,
         body: str,
@@ -33,41 +44,89 @@ class PostgresNotificationsStorage:
         correlation_id: str | None,
         created_by: str | None,
         created_at: datetime,
-        user_ids: list[str],
     ) -> Notification:
-        async with self._pool.acquire() as conn, conn.transaction():
-            row = await conn.fetchrow(
+        notification_id = uuid4().hex[:16]
+
+        if correlation_id is None:
+            row = await self._pool.fetchrow(
                 """
                 INSERT INTO notifications
-                    (title, body, severity, correlation_id, created_by, created_at)
+                    (id, title, body, severity, created_by, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6)
-                RETURNING id
+                RETURNING
+                    id, title, body, severity, correlation_id, created_by, created_at
                 """,
+                notification_id,
                 title,
                 body,
                 severity,
-                correlation_id,
                 created_by,
                 created_at,
             )
-            notification_id: int = row["id"]
-            if user_ids:
-                await conn.executemany(
-                    """
-                    INSERT INTO notification_recipients (notification_id, user_id)
-                    VALUES ($1, $2)
-                    """,
-                    [(notification_id, uid) for uid in user_ids],
-                )
-        return Notification(
-            id=notification_id,
-            title=title,
-            body=body,
-            severity=severity,
-            correlation_id=correlation_id,
-            created_by=created_by,
-            created_at=created_at,
+            return self._row_to_notification(row)
+
+        row = await self._pool.fetchrow(
+            """
+            INSERT INTO notifications
+                (id, title, body, severity, correlation_id, created_by, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (correlation_id) DO NOTHING
+            RETURNING id, title, body, severity, correlation_id, created_by, created_at
+            """,
+            notification_id,
+            title,
+            body,
+            severity,
+            correlation_id,
+            created_by,
+            created_at,
         )
+        if row is not None:
+            return self._row_to_notification(row)
+
+        existing = await self._pool.fetchrow(
+            """
+            SELECT id, title, body, severity, correlation_id, created_by, created_at
+            FROM notifications
+            WHERE correlation_id = $1
+            """,
+            correlation_id,
+        )
+        if (
+            existing["title"] != title
+            or existing["body"] != body
+            or existing["severity"] != severity
+        ):
+            msg = (
+                f"A notification with correlation_id {correlation_id!r} already exists "
+                "with different content."
+            )
+            raise InvalidError(msg)
+        return self._row_to_notification(existing)
+
+    async def dispatch_to_users(
+        self,
+        notification: Notification,
+        user_ids: list[str],
+    ) -> list[NotificationDispatch]:
+        if not user_ids:
+            return []
+
+        rows = await self._pool.fetch(
+            """
+            INSERT INTO notification_dispatches (notification_id, user_id)
+            SELECT $1, uid
+            FROM unnest($2::text[]) AS uid
+            WHERE NOT EXISTS (
+                SELECT 1 FROM notification_dispatches
+                WHERE notification_id = $1 AND user_id = uid AND dismissed_at IS NULL
+            )
+            RETURNING user_id, dispatched_at, dismissed_at
+            """,
+            notification.id,
+            user_ids,
+        )
+        return [self._row_to_dispatch(r, notification) for r in rows]
 
     async def list_for_user(
         self,
@@ -76,8 +135,8 @@ class PostgresNotificationsStorage:
         severity: Severity | None,
         dismissed: bool | None,
         pagination: PaginationParams,
-    ) -> Page[NotificationForUser]:
-        filters = ["nr.user_id = $1"]
+    ) -> Page[NotificationDispatch]:
+        filters = ["nd.user_id = $1"]
         params: list[object] = [user_id]
         i = 2
 
@@ -85,15 +144,15 @@ class PostgresNotificationsStorage:
             filters.append(f"n.severity = ${i}")
             params.append(severity)
             i += 1
-        if dismissed is not None:
-            filters.append(f"nr.dismissed = ${i}")
-            params.append(dismissed)
-            i += 1
+        if dismissed is True:
+            filters.append("nd.dismissed_at IS NOT NULL")
+        elif dismissed is False:
+            filters.append("nd.dismissed_at IS NULL")
 
         where = " AND ".join(filters)
         base_query = f"""
             FROM notifications n
-            JOIN notification_recipients nr ON nr.notification_id = n.id
+            JOIN notification_dispatches nd ON nd.notification_id = n.id
             WHERE {where}
         """
 
@@ -102,8 +161,9 @@ class PostgresNotificationsStorage:
 
         rows = await self._pool.fetch(
             f"""
-            SELECT n.id, n.title, n.body, n.severity, n.correlation_id, n.created_at,
-                   nr.dismissed, nr.dismissed_at
+            SELECT n.id, n.title, n.body, n.severity, n.correlation_id,
+                   n.created_by, n.created_at,
+                   nd.user_id, nd.dispatched_at, nd.dismissed_at
             {base_query}
             ORDER BY n.created_at DESC
             LIMIT ${i} OFFSET ${i + 1}
@@ -112,76 +172,56 @@ class PostgresNotificationsStorage:
             pagination.limit,
             pagination.offset,
         )
+        items = [self._row_to_dispatch(r, self._row_to_notification(r)) for r in rows]
         return Page(
-            items=[self._row_to_notification_for_user(r) for r in rows],
-            total=total,
-            page=pagination.page,
-            size=pagination.size,
+            items=items, total=total, page=pagination.page, size=pagination.size
         )
 
     async def dismiss(
         self,
-        notification_id: int,
+        notification_id: str,
         user_id: str,
-    ) -> NotificationForUser | None:
+    ) -> NotificationDispatch | None:
         async with self._pool.acquire() as conn, conn.transaction():
-            row = await conn.fetchrow(
+            notification_row = await conn.fetchrow(
                 """
                 SELECT n.id, n.title, n.body, n.severity, n.correlation_id,
-                       n.created_at, nr.dismissed, nr.dismissed_at
+                       n.created_by, n.created_at
                 FROM notifications n
-                JOIN notification_recipients nr ON nr.notification_id = n.id
-                WHERE n.id = $1 AND nr.user_id = $2
+                JOIN notification_dispatches nd ON nd.notification_id = n.id
+                WHERE n.id = $1 AND nd.user_id = $2
                 """,
                 notification_id,
                 user_id,
             )
-            if row is None:
+            if notification_row is None:
                 return None
-            if row["dismissed"]:
-                return self._row_to_notification_for_user(row)
 
-            dismissed_row = await conn.fetchrow(
+            notification = self._row_to_notification(notification_row)
+
+            dispatch_row = await conn.fetchrow(
                 """
-                UPDATE notification_recipients
-                SET dismissed = TRUE, dismissed_at = now()
+                SELECT user_id, dispatched_at, dismissed_at
+                FROM notification_dispatches
                 WHERE notification_id = $1 AND user_id = $2
-                RETURNING dismissed_at
                 """,
                 notification_id,
                 user_id,
             )
-            return NotificationForUser(
-                id=row["id"],
-                title=row["title"],
-                body=row["body"],
-                severity=Severity(row["severity"]),
-                correlation_id=row["correlation_id"],
-                created_at=row["created_at"],
-                dismissed=True,
-                dismissed_at=dismissed_row["dismissed_at"],
-            )
+            if dispatch_row["dismissed_at"] is not None:
+                return self._row_to_dispatch(dispatch_row, notification)
 
-    async def get_users_with_active_correlation(
-        self,
-        user_ids: list[str],
-        correlation_id: str,
-    ) -> set[str]:
-        if not user_ids:
-            return set()
-        rows = await self._pool.fetch(
-            """
-            SELECT DISTINCT nr.user_id
-            FROM notifications n
-            JOIN notification_recipients nr ON nr.notification_id = n.id
-            WHERE n.correlation_id = $1
-              AND nr.dismissed = FALSE
-              AND nr.user_id = ANY($2)
-            """,
-            correlation_id,
-            user_ids,
-        )
-        return {row["user_id"] for row in rows}
+            updated_row = await conn.fetchrow(
+                """
+                UPDATE notification_dispatches
+                SET dismissed_at = now()
+                WHERE notification_id = $1 AND user_id = $2
+                RETURNING user_id, dispatched_at, dismissed_at
+                """,
+                notification_id,
+                user_id,
+            )
+            return self._row_to_dispatch(updated_row, notification)
 
     async def close(self) -> None:
         await self._pool.close()

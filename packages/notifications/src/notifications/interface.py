@@ -2,7 +2,7 @@ from typing import Protocol
 
 from models.pagination import Page, PaginationParams
 from models.types import Severity
-from notifications.models import Notification, NotificationForUser
+from notifications.models import NotificationDispatch
 
 
 class NotificationsServiceInterface(Protocol):
@@ -14,19 +14,19 @@ class NotificationsServiceInterface(Protocol):
         user_ids: list[str],
         correlation_id: str | None = None,
         created_by: str | None = None,
-    ) -> Notification: ...
+    ) -> list[NotificationDispatch]: ...
 
-    async def list(
+    async def list_for_user(
         self,
         user_id: str,
         *,
         severity: Severity | None = None,
         dismissed: bool | None = None,
         pagination: PaginationParams | None = None,
-    ) -> Page[NotificationForUser]: ...
+    ) -> Page[NotificationDispatch]: ...
 
     async def dismiss(
         self,
-        notification_id: int,
+        notification_id: str,
         user_id: str,
-    ) -> NotificationForUser: ...
+    ) -> NotificationDispatch: ...

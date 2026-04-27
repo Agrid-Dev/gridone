@@ -6,7 +6,7 @@ from models.types import Severity
 
 @dataclass(frozen=True)
 class Notification:
-    id: int
+    id: str
     title: str
     body: str
     severity: Severity
@@ -16,14 +16,10 @@ class Notification:
 
 
 @dataclass(frozen=True)
-class NotificationForUser:
-    """Notification enriched with per-user dismissal state."""
+class NotificationDispatch:
+    """A notification dispatched to a specific user."""
 
-    id: int
-    title: str
-    body: str
-    severity: Severity
-    correlation_id: str | None
-    created_at: datetime
-    dismissed: bool
+    notification: Notification
+    user_id: str
+    dispatched_at: datetime
     dismissed_at: datetime | None
