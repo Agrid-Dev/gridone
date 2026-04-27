@@ -1,16 +1,17 @@
 -- depends:
 
 CREATE TABLE IF NOT EXISTS notifications (
-    id             TEXT PRIMARY KEY,
+    id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     title          TEXT NOT NULL,
     body           TEXT NOT NULL,
     severity       TEXT NOT NULL,
     correlation_id TEXT,
+    created_by     TEXT,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS notification_recipients (
-    notification_id TEXT    NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
+    notification_id BIGINT  NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
     user_id         TEXT    NOT NULL,
     dismissed       BOOLEAN NOT NULL DEFAULT FALSE,
     dismissed_at    TIMESTAMPTZ,

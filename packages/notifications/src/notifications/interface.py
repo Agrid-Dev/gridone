@@ -5,14 +5,15 @@ from models.types import Severity
 from notifications.models import Notification, NotificationForUser
 
 
-class NotificationsManagerInterface(Protocol):
-    async def dispatch(
+class NotificationsServiceInterface(Protocol):
+    async def dispatch(  # noqa: PLR0913
         self,
         title: str,
         body: str,
         severity: Severity,
-        recipient_ids: list[str],
+        user_ids: list[str],
         correlation_id: str | None = None,
+        created_by: str | None = None,
     ) -> Notification: ...
 
     async def list(
@@ -26,6 +27,6 @@ class NotificationsManagerInterface(Protocol):
 
     async def dismiss(
         self,
-        notification_id: str,
+        notification_id: int,
         user_id: str,
     ) -> NotificationForUser: ...

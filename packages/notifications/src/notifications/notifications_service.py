@@ -1,54 +1,55 @@
 from datetime import UTC, datetime
-from typing import Self
-from uuid import uuid4
+from typing import TYPE_CHECKING
 
 from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import Severity
 from notifications.models import Notification, NotificationForUser
 from notifications.storage.factory import build_notifications_storage
-from notifications.storage.protocol import NotificationsStorageBackend
+
+if TYPE_CHECKING:
+    from notifications.storage.protocol import NotificationsStorageBackend
 
 
-class NotificationsManager:
-    def __init__(self, storage: NotificationsStorageBackend) -> None:
-        self._storage = storage
+class NotificationsService:
+    def __init__(self, storage_url: str) -> None:
+        self._storage_url = storage_url
+
+    async def start(self) -> None:
+        self._storage: NotificationsStorageBackend = await build_notifications_storage(
+            self._storage_url
+        )
 
     async def close(self) -> None:
         await self._storage.close()
 
-    @classmethod
-    async def from_storage(cls, storage_url: str) -> Self:
-        storage = await build_notifications_storage(storage_url)
-        return cls(storage)
-
-    async def dispatch(
+    async def dispatch(  # noqa: PLR0913
         self,
         title: str,
         body: str,
         severity: Severity,
-        recipient_ids: list[str],
+        user_ids: list[str],
         correlation_id: str | None = None,
+        created_by: str | None = None,
     ) -> Notification:
         active = (
-            await self._storage.get_recipients_with_active_correlation(
-                recipient_ids, correlation_id
+            await self._storage.get_users_with_active_correlation(
+                user_ids, correlation_id
             )
             if correlation_id is not None
             else set()
         )
-        effective_recipients = [uid for uid in recipient_ids if uid not in active]
+        effective_user_ids = [uid for uid in user_ids if uid not in active]
 
-        notification = Notification(
-            id=uuid4().hex[:16],
+        return await self._storage.insert(
             title=title,
             body=body,
             severity=severity,
             correlation_id=correlation_id,
+            created_by=created_by,
             created_at=datetime.now(UTC),
+            user_ids=effective_user_ids,
         )
-        await self._storage.insert(notification, effective_recipients)
-        return notification
 
     async def list(
         self,
@@ -67,7 +68,7 @@ class NotificationsManager:
 
     async def dismiss(
         self,
-        notification_id: str,
+        notification_id: int,
         user_id: str,
     ) -> NotificationForUser:
         result = await self._storage.dismiss(notification_id, user_id)

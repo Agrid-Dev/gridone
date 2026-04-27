@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import asyncpg
 
 from models.pagination import Page, PaginationParams
@@ -11,7 +13,7 @@ class PostgresNotificationsStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    def _row_to_model(self, row: asyncpg.Record) -> NotificationForUser:
+    def _row_to_notification_for_user(self, row: asyncpg.Record) -> NotificationForUser:
         return NotificationForUser(
             id=row["id"],
             title=row["title"],
@@ -23,33 +25,49 @@ class PostgresNotificationsStorage:
             dismissed_at=row["dismissed_at"],
         )
 
-    async def insert(
+    async def insert(  # noqa: PLR0913
         self,
-        notification: Notification,
-        recipient_ids: list[str],
-    ) -> None:
+        title: str,
+        body: str,
+        severity: Severity,
+        correlation_id: str | None,
+        created_by: str | None,
+        created_at: datetime,
+        user_ids: list[str],
+    ) -> Notification:
         async with self._pool.acquire() as conn, conn.transaction():
-            await conn.execute(
+            row = await conn.fetchrow(
                 """
                 INSERT INTO notifications
-                    (id, title, body, severity, correlation_id, created_at)
+                    (title, body, severity, correlation_id, created_by, created_at)
                 VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id
                 """,
-                notification.id,
-                notification.title,
-                notification.body,
-                notification.severity,
-                notification.correlation_id,
-                notification.created_at,
+                title,
+                body,
+                severity,
+                correlation_id,
+                created_by,
+                created_at,
             )
-            if recipient_ids:
+            notification_id: int = row["id"]
+            if user_ids:
                 await conn.executemany(
                     """
                     INSERT INTO notification_recipients (notification_id, user_id)
                     VALUES ($1, $2)
                     """,
-                    [(notification.id, uid) for uid in recipient_ids],
+                    [(notification_id, uid) for uid in user_ids],
                 )
+        return Notification(
+            id=notification_id,
+            title=title,
+            body=body,
+            severity=severity,
+            correlation_id=correlation_id,
+            created_by=created_by,
+            created_at=created_at,
+        )
 
     async def list_for_user(
         self,
@@ -95,7 +113,7 @@ class PostgresNotificationsStorage:
             pagination.offset,
         )
         return Page(
-            items=[self._row_to_model(r) for r in rows],
+            items=[self._row_to_notification_for_user(r) for r in rows],
             total=total,
             page=pagination.page,
             size=pagination.size,
@@ -103,7 +121,7 @@ class PostgresNotificationsStorage:
 
     async def dismiss(
         self,
-        notification_id: str,
+        notification_id: int,
         user_id: str,
     ) -> NotificationForUser | None:
         async with self._pool.acquire() as conn, conn.transaction():
@@ -121,7 +139,7 @@ class PostgresNotificationsStorage:
             if row is None:
                 return None
             if row["dismissed"]:
-                return self._row_to_model(row)
+                return self._row_to_notification_for_user(row)
 
             dismissed_row = await conn.fetchrow(
                 """
@@ -144,7 +162,7 @@ class PostgresNotificationsStorage:
                 dismissed_at=dismissed_row["dismissed_at"],
             )
 
-    async def get_recipients_with_active_correlation(
+    async def get_users_with_active_correlation(
         self,
         user_ids: list[str],
         correlation_id: str,
