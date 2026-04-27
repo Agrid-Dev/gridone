@@ -1,0 +1,69 @@
+{
+  "title": "Automations",
+  "subtitle": "Trigger-driven actions",
+  "singular": "Automation",
+  "comingSoon": "Coming soon",
+  "fields": {
+    "name": "Name",
+    "trigger": "Trigger",
+    "action": "Action",
+    "actionTemplate": "Command template",
+    "enabled": "Enabled",
+    "status": "Status"
+  },
+  "triggers": {
+    "schedule": "Schedule",
+    "changeEvent": "Attribute change",
+    "cron": "Cron expression",
+    "device": "Device",
+    "attribute": "Attribute",
+    "condition": "Condition",
+    "operator": "Operator",
+    "threshold": "Threshold"
+  },
+  "operators": {
+    "gt": ">",
+    "lt": "<",
+    "gte": "≥",
+    "lte": "≤",
+    "eq": "=",
+    "ne": "≠"
+  },
+  "executions": {
+    "title": "Executions",
+    "status": {
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "triggeredAt": "Triggered at",
+    "executedAt": "Executed at",
+    "error": "Error",
+    "empty": "No executions yet"
+  },
+  "actions": {
+    "create": "New automation",
+    "edit": "Edit",
+    "delete": "Delete",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "toasts": {
+    "created": "Automation created",
+    "updated": "Automation updated",
+    "deleted": "Automation deleted",
+    "enabled": "Automation enabled",
+    "disabled": "Automation disabled",
+    "saveError": "Failed to save automation"
+  },
+  "empty": {
+    "title": "No automations yet",
+    "details": "Create your first automation to react to schedule or device events.",
+    "cta": "New automation"
+  },
+  "deleteConfirm": {
+    "title": "Delete automation",
+    "details": "Delete \"{{name}}\"? This action cannot be undone."
+  },
+  "enabledBadge": "Enabled",
+  "disabledBadge": "Disabled"
+}
