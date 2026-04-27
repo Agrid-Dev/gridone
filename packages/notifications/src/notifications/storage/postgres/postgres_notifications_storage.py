@@ -183,45 +183,45 @@ class PostgresNotificationsStorage:
         user_id: str,
     ) -> NotificationDispatch | None:
         async with self._pool.acquire() as conn, conn.transaction():
-            notification_row = await conn.fetchrow(
+            # Dismiss the active dispatch (if any) in one round-trip.
+            updated = await conn.fetchrow(
+                """
+                UPDATE notification_dispatches nd
+                SET dismissed_at = now()
+                FROM notifications n
+                WHERE n.id = nd.notification_id
+                  AND nd.notification_id = $1
+                  AND nd.user_id = $2
+                  AND nd.dismissed_at IS NULL
+                RETURNING n.id, n.title, n.body, n.severity, n.correlation_id,
+                          n.created_by, n.created_at,
+                          nd.user_id, nd.dispatched_at, nd.dismissed_at
+                """,
+                notification_id,
+                user_id,
+            )
+            if updated is not None:
+                notification = self._row_to_notification(updated)
+                return self._row_to_dispatch(updated, notification)
+
+            # No active dispatch — idempotent (already dismissed) or never dispatched.
+            existing = await conn.fetchrow(
                 """
                 SELECT n.id, n.title, n.body, n.severity, n.correlation_id,
-                       n.created_by, n.created_at
+                       n.created_by, n.created_at,
+                       nd.user_id, nd.dispatched_at, nd.dismissed_at
                 FROM notifications n
                 JOIN notification_dispatches nd ON nd.notification_id = n.id
-                WHERE n.id = $1 AND nd.user_id = $2
+                WHERE nd.notification_id = $1 AND nd.user_id = $2
+                ORDER BY nd.dismissed_at DESC NULLS LAST
+                LIMIT 1
                 """,
                 notification_id,
                 user_id,
             )
-            if notification_row is None:
+            if existing is None:
                 return None
-
-            notification = self._row_to_notification(notification_row)
-
-            dispatch_row = await conn.fetchrow(
-                """
-                SELECT user_id, dispatched_at, dismissed_at
-                FROM notification_dispatches
-                WHERE notification_id = $1 AND user_id = $2
-                """,
-                notification_id,
-                user_id,
-            )
-            if dispatch_row["dismissed_at"] is not None:
-                return self._row_to_dispatch(dispatch_row, notification)
-
-            updated_row = await conn.fetchrow(
-                """
-                UPDATE notification_dispatches
-                SET dismissed_at = now()
-                WHERE notification_id = $1 AND user_id = $2
-                RETURNING user_id, dispatched_at, dismissed_at
-                """,
-                notification_id,
-                user_id,
-            )
-            return self._row_to_dispatch(updated_row, notification)
+            return self._row_to_dispatch(existing, self._row_to_notification(existing))
 
     async def close(self) -> None:
         await self._pool.close()

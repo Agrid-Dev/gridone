@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import Severity
-from notifications.models import Notification, NotificationForUser
+from notifications.models import Notification, NotificationDispatch
 from notifications.notifications_service import NotificationsService
 from notifications.storage.protocol import NotificationsStorageBackend
 
@@ -14,36 +14,28 @@ pytestmark = pytest.mark.asyncio
 
 _USER_A = "user-a"
 _USER_B = "user-b"
-_NOTIF_ID = 1
+_NOTIF_ID = "notif0000000001"
 _NOW = datetime.now(UTC)
 
-
-def _make_notification(notification_id: int = _NOTIF_ID) -> Notification:
-    return Notification(
-        id=notification_id,
-        title="Alert",
-        body="Something happened",
-        severity=Severity.ALERT,
-        correlation_id=None,
-        created_by=None,
-        created_at=_NOW,
-    )
+_NOTIFICATION = Notification(
+    id=_NOTIF_ID,
+    title="Alert",
+    body="Something happened",
+    severity=Severity.ALERT,
+    correlation_id=None,
+    created_by=None,
+    created_at=_NOW,
+)
 
 
-def _make_notification_for_user(
-    notification_id: int = _NOTIF_ID,
-    *,
-    dismissed: bool = False,
-) -> NotificationForUser:
-    return NotificationForUser(
-        id=notification_id,
-        title="Alert",
-        body="Something happened",
-        severity=Severity.ALERT,
-        correlation_id=None,
-        created_at=_NOW,
-        dismissed=dismissed,
-        dismissed_at=None,
+def _make_dispatch(
+    user_id: str = _USER_A, *, dismissed: bool = False
+) -> NotificationDispatch:
+    return NotificationDispatch(
+        notification=_NOTIFICATION,
+        user_id=user_id,
+        dispatched_at=_NOW,
+        dismissed_at=_NOW if dismissed else None,
     )
 
 
@@ -82,81 +74,76 @@ class TestStart:
 
 
 class TestDispatch:
-    async def test_no_correlation_id_dispatches_to_all(
+    async def test_upserts_notification_and_dispatches(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        storage.insert.return_value = _make_notification()
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = [_make_dispatch(_USER_A)]
+        result = await service.dispatch(
+            title="Alert",
+            body="Something happened",
+            severity=Severity.ALERT,
+            user_ids=[_USER_A],
+        )
+        storage.upsert_notification.assert_awaited_once()
+        storage.dispatch_to_users.assert_awaited_once_with(_NOTIFICATION, [_USER_A])
+        assert len(result) == 1
+
+    async def test_dispatch_returns_list_of_dispatches(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        storage.upsert_notification.return_value = _NOTIFICATION
+        expected = [_make_dispatch(_USER_A), _make_dispatch(_USER_B)]
+        storage.dispatch_to_users.return_value = expected
         result = await service.dispatch(
             title="Alert",
             body="Something happened",
             severity=Severity.ALERT,
             user_ids=[_USER_A, _USER_B],
         )
-        storage.get_users_with_active_correlation.assert_not_awaited()
-        assert storage.insert.call_args.kwargs["user_ids"] == [_USER_A, _USER_B]
-        assert isinstance(result, Notification)
-        assert result.correlation_id is None
+        assert result == expected
 
-    async def test_correlation_id_dedup_skips_active_users(
+    async def test_empty_when_all_already_dispatched(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        storage.get_users_with_active_correlation.return_value = {_USER_A}
-        storage.insert.return_value = _make_notification()
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = []
         result = await service.dispatch(
             title="Alert",
             body="Something happened",
             severity=Severity.ALERT,
-            user_ids=[_USER_A, _USER_B],
-            correlation_id="corr-1",
+            user_ids=[_USER_A],
         )
-        storage.get_users_with_active_correlation.assert_awaited_once_with(
-            [_USER_A, _USER_B], "corr-1"
-        )
-        assert storage.insert.call_args.kwargs["user_ids"] == [_USER_B]
-        assert result.correlation_id is None
+        assert result == []
 
-    async def test_correlation_id_all_deduped_inserts_empty_users(
+    async def test_invalid_error_propagates_on_content_conflict(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        storage.get_users_with_active_correlation.return_value = {_USER_A, _USER_B}
-        storage.insert.return_value = _make_notification()
-        await service.dispatch(
-            title="Alert",
-            body="Something happened",
-            severity=Severity.ALERT,
-            user_ids=[_USER_A, _USER_B],
-            correlation_id="corr-1",
-        )
-        assert storage.insert.call_args.kwargs["user_ids"] == []
-
-    async def test_correlation_id_no_active_dispatches_to_all(
-        self,
-        service: NotificationsService,
-        storage: AsyncMock,
-    ) -> None:
-        storage.get_users_with_active_correlation.return_value = set()
-        storage.insert.return_value = _make_notification()
-        await service.dispatch(
-            title="Alert",
-            body="Something happened",
-            severity=Severity.ALERT,
-            user_ids=[_USER_A, _USER_B],
-            correlation_id="corr-1",
-        )
-        assert storage.insert.call_args.kwargs["user_ids"] == [_USER_A, _USER_B]
+        storage.upsert_notification.side_effect = InvalidError("content mismatch")
+        with pytest.raises(InvalidError):
+            await service.dispatch(
+                title="Different title",
+                body="Something happened",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+                correlation_id="corr-1",
+            )
 
     async def test_created_by_forwarded_to_storage(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        storage.insert.return_value = _make_notification()
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = []
         await service.dispatch(
             title="Alert",
             body="Something happened",
@@ -164,10 +151,27 @@ class TestDispatch:
             user_ids=[_USER_A],
             created_by=_USER_B,
         )
-        assert storage.insert.call_args.kwargs["created_by"] == _USER_B
+        assert storage.upsert_notification.call_args.kwargs["created_by"] == _USER_B
+
+    async def test_correlation_id_forwarded_to_storage(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = []
+        await service.dispatch(
+            title="Alert",
+            body="Something happened",
+            severity=Severity.ALERT,
+            user_ids=[_USER_A],
+            correlation_id="corr-1",
+        )
+        kwargs = storage.upsert_notification.call_args.kwargs
+        assert kwargs["correlation_id"] == "corr-1"
 
 
-class TestList:
+class TestListForUser:
     async def test_delegates_to_storage_with_defaults(
         self,
         service: NotificationsService,
@@ -175,7 +179,7 @@ class TestList:
     ) -> None:
         expected = Page(items=[], total=0, page=1, size=50)
         storage.list_for_user.return_value = expected
-        result = await service.list(_USER_A)
+        result = await service.list_for_user(_USER_A)
         storage.list_for_user.assert_awaited_once_with(
             _USER_A,
             severity=None,
@@ -191,7 +195,7 @@ class TestList:
     ) -> None:
         storage.list_for_user.return_value = Page(items=[], total=0, page=2, size=10)
         pagination = PaginationParams(page=2, size=10)
-        await service.list(
+        await service.list_for_user(
             _USER_A,
             severity=Severity.WARNING,
             dismissed=False,
@@ -206,12 +210,12 @@ class TestList:
 
 
 class TestDismiss:
-    async def test_returns_notification_for_user_on_success(
+    async def test_returns_dispatch_on_success(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        expected = _make_notification_for_user(dismissed=True)
+        expected = _make_dispatch(dismissed=True)
         storage.dismiss.return_value = expected
         result = await service.dismiss(_NOTIF_ID, _USER_A)
         storage.dismiss.assert_awaited_once_with(_NOTIF_ID, _USER_A)
@@ -222,10 +226,10 @@ class TestDismiss:
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        already_dismissed = _make_notification_for_user(dismissed=True)
+        already_dismissed = _make_dispatch(dismissed=True)
         storage.dismiss.return_value = already_dismissed
         result = await service.dismiss(_NOTIF_ID, _USER_A)
-        assert result.dismissed is True
+        assert result.dismissed_at is not None
 
     async def test_not_found_raises_not_found_error(
         self,
