@@ -13,7 +13,7 @@
   },
   "triggers": {
     "schedule": "Schedule",
-    "changeEvent": "Attribute change",
+    "change_event": "Attribute change",
     "cron": "Cron expression",
     "device": "Device",
     "attribute": "Attribute",

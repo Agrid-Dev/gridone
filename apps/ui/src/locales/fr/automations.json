@@ -13,7 +13,7 @@
   },
   "triggers": {
     "schedule": "Planification",
-    "changeEvent": "Changement d'attribut",
+    "change_event": "Changement d'attribut",
     "cron": "Expression cron",
     "device": "Appareil",
     "attribute": "Attribut",
