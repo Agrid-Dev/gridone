@@ -22,6 +22,7 @@ gridone-timeseries = { workspace = true }
 gridone-automations = { workspace = true }
 gridone-commands = { workspace = true }
 gridone-migrations = { workspace = true }
+gridone-notifications = { workspace = true }
 
 
 
@@ -40,6 +41,7 @@ members = [
     "packages/timeseries",
     "packages/commands",
     "packages/models",
+    "packages/notifications",
 ]
 
 [dependency-groups]
@@ -75,7 +77,7 @@ fixable = ["ALL"]
 
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "models", "timeseries", "users"]
+known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "models", "notifications", "timeseries", "users"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/test_*.py" = ["SLF001", "T201", "TID252", "FBT001", "S101", "S106", "ANN201","ANN401", "PLR2004", "EM101","INP001", "ANN001"]
@@ -91,6 +93,7 @@ source = [
     "packages/automations/src",
     "packages/commands/src",
     "packages/devices-manager/src",
+    "packages/notifications/src",
     "packages/timeseries/src",
     "packages/users/src",
     "packages/apps/src",
