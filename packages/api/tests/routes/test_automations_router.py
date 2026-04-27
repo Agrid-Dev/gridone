@@ -28,6 +28,7 @@ _TRIGGER = Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"})
 _AUTO = Automation(
     id="auto-01",
     name="Morning Reset",
+    description="",
     trigger=_TRIGGER,
     action_template_id="tmpl-01",
     enabled=True,

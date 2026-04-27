@@ -28,6 +28,7 @@ class TriggerContext(BaseModel):
 
 class AutomationCreate(BaseModel):
     name: str
+    description: str = ""
     trigger: Trigger
     action_template_id: str
     enabled: bool = True
@@ -35,6 +36,7 @@ class AutomationCreate(BaseModel):
 
 class AutomationUpdate(BaseModel):
     name: str | None = None
+    description: str = ""
     trigger: Trigger | None = None
     action_template_id: str | None = None
     enabled: bool | None = None

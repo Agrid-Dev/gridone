@@ -34,6 +34,7 @@ def _automation(**kwargs: object) -> Automation:
     defaults: dict[str, object] = {
         "id": uuid4().hex[:16],
         "name": "test-auto",
+        "description": "",
         "trigger": _SCHEDULE,
         "action_template_id": "tmpl-01",
         "enabled": True,
@@ -64,11 +65,12 @@ async def storage():
 
 class TestCRUD:
     async def test_create_get_roundtrip(self, storage: PostgresStorage):
-        auto = _automation()
+        auto = _automation(description="My Desc")
         await storage.create(auto)
         fetched = await storage.get(auto.id)
         assert fetched.id == auto.id
         assert fetched.name == auto.name
+        assert fetched.description == "My Desc"
         assert fetched.action_template_id == auto.action_template_id
         assert fetched.enabled == auto.enabled
 
@@ -100,6 +102,7 @@ class TestCRUD:
         updated = Automation(
             id=auto.id,
             name="renamed",
+            description="Updated Desc",
             trigger=_CHANGE,
             action_template_id="tmpl-new",
             enabled=False,
@@ -107,7 +110,17 @@ class TestCRUD:
         await storage.update(updated)
         fetched = await storage.get(auto.id)
         assert fetched.name == "renamed"
+        assert fetched.description == "Updated Desc"
         assert fetched.enabled is False
+
+    async def test_update_description_only(self, storage: PostgresStorage):
+        auto = _automation(description="Old Desc")
+        await storage.create(auto)
+        updated = auto.model_copy(update={"description": "New Desc"})
+        await storage.update(updated)
+        fetched = await storage.get(auto.id)
+        assert fetched.name == auto.name
+        assert fetched.description == "New Desc"
 
     async def test_update_raises_not_found(self, storage: PostgresStorage):
         with pytest.raises(NotFoundError):

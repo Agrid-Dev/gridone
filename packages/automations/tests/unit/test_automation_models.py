@@ -74,18 +74,47 @@ class TestAutomationUseCases:
         assert a.id == "abc123def456abcd"
 
 
+class TestAutomationCreateDescription:
+    def test_description_defaults_to_empty_string(self):
+        a = AutomationCreate(
+            name="my-auto",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl-01",
+        )
+        assert a.description == ""
+
+    def test_description_can_be_set(self):
+        a = AutomationCreate(
+            name="my-auto",
+            description="Some info",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl-01",
+        )
+        assert a.description == "Some info"
+
+
 class TestAutomationUpdate:
     def test_all_fields_optional(self):
         u = AutomationUpdate()
         assert u.name is None
+        assert u.description == ""
         assert u.trigger is None
         assert u.action_template_id is None
         assert u.enabled is None
+
+    def test_description_omitted_not_in_fields_set(self):
+        u = AutomationUpdate()
+        assert "description" not in u.model_fields_set
 
     def test_name_only(self):
         u = AutomationUpdate(name="renamed")
         assert u.name == "renamed"
         assert u.trigger is None
+
+    def test_description_only(self):
+        u = AutomationUpdate(description="Some description")
+        assert u.description == "Some description"
+        assert u.name is None
 
     def test_trigger_only(self):
         u = AutomationUpdate(

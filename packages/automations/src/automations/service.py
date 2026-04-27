@@ -61,6 +61,7 @@ class AutomationsService:
         automation = Automation(
             id=uuid4().hex[:16],
             name=params.name,
+            description=params.description,
             trigger=params.trigger,
             action_template_id=params.action_template_id,
             enabled=params.enabled,
