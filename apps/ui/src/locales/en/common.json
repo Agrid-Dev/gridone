@@ -83,6 +83,7 @@
     "driver": "Driver",
     "device": "Device",
     "fault": "Fault",
+    "notification": "notification",
     "transport": "Transport",
     "type": "Type",
     "unknown": "Unknown",
@@ -152,6 +153,7 @@
     "apps": "Apps",
     "automations": "Automations",
     "faults": "Faults",
-    "users": "Users"
+    "users": "Users",
+    "notifications": "Notifications"
   }
 }

@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
+  Bell,
   Building2,
   Blocks,
   Cable,
@@ -26,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getHealth } from "@/api/health";
+import { useNotificationCount } from "@/hooks/useNotificationCount";
 
 function getInitials(name: string, username: string): string {
   if (name) {
@@ -62,6 +64,7 @@ export function Sidebar() {
     gcTime: Infinity,
   });
 
+  const unreadCount = useNotificationCount();
   const user = state.status === "authenticated" ? state.user : null;
   const version = health?.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
@@ -143,6 +146,21 @@ export function Sidebar() {
                 {activeIndicator(isActive)}
                 <TriangleAlert className="h-4 w-4" />
                 {t("app.faults")}
+              </>
+            )}
+          </NavLink>
+
+          <NavLink to="/notifications" className={navLinkClass}>
+            {({ isActive }) => (
+              <>
+                {activeIndicator(isActive)}
+                <Bell className="h-4 w-4" />
+                {t("app.notifications")}
+                {unreadCount > 0 && (
+                  <span className="ml-auto rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </>
             )}
           </NavLink>

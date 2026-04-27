@@ -83,6 +83,7 @@
     "driver": "Driver",
     "device": "Appareil",
     "fault": "Défaut",
+    "notification": "notification",
     "transport": "Transport",
     "type": "Type",
     "unknown": "Inconnu",
@@ -152,6 +153,7 @@
     "apps": "Applications",
     "automations": "Automatisations",
     "faults": "Défauts",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "notifications": "Notifications"
   }
 }

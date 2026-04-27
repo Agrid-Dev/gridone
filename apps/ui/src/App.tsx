@@ -4,6 +4,7 @@ import Assets from "./pages/assets";
 import Automations from "./pages/automations";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
+import NotificationsPage from "./pages/notifications";
 import Transports from "./pages/transports";
 import Drivers from "./pages/drivers";
 import LoginPage from "./pages/login/LoginPage";
@@ -29,6 +30,7 @@ function ProtectedLayout() {
             <Route path="/apps/*" element={<Apps />} />
             <Route path="/automations/*" element={<Automations />} />
             <Route path="/faults" element={<FaultsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
