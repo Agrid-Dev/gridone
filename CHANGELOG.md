@@ -1,3 +1,9 @@
+## v0.58.1 (2026-04-27)
+
+### Refactor
+
+- **api**: nest command-template routes under /commands/templates (AGR-533)
+
 ## v0.58.0 (2026-04-27)
 
 ### Feat
