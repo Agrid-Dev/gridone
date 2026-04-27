@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class ExecutionStatus(StrEnum):
@@ -27,7 +27,6 @@ class TriggerContext(BaseModel):
 
 
 class AutomationCreate(BaseModel):
-    title: str = Field(min_length=1)
     name: str
     description: str = ""
     trigger: Trigger
@@ -36,9 +35,8 @@ class AutomationCreate(BaseModel):
 
 
 class AutomationUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1)
     name: str | None = None
-    description: str | None = None
+    description: str = ""
     trigger: Trigger | None = None
     action_template_id: str | None = None
     enabled: bool | None = None

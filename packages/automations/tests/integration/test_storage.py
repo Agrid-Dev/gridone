@@ -33,7 +33,6 @@ _CHANGE = Trigger.model_validate(
 def _automation(**kwargs: object) -> Automation:
     defaults: dict[str, object] = {
         "id": uuid4().hex[:16],
-        "title": "Test Auto",
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
@@ -66,11 +65,10 @@ async def storage():
 
 class TestCRUD:
     async def test_create_get_roundtrip(self, storage: PostgresStorage):
-        auto = _automation(title="My Title", description="My Desc")
+        auto = _automation(description="My Desc")
         await storage.create(auto)
         fetched = await storage.get(auto.id)
         assert fetched.id == auto.id
-        assert fetched.title == "My Title"
         assert fetched.name == auto.name
         assert fetched.description == "My Desc"
         assert fetched.action_template_id == auto.action_template_id
@@ -103,7 +101,6 @@ class TestCRUD:
         await storage.create(auto)
         updated = Automation(
             id=auto.id,
-            title="Updated Title",
             name="renamed",
             description="Updated Desc",
             trigger=_CHANGE,
@@ -112,27 +109,17 @@ class TestCRUD:
         )
         await storage.update(updated)
         fetched = await storage.get(auto.id)
-        assert fetched.title == "Updated Title"
         assert fetched.name == "renamed"
         assert fetched.description == "Updated Desc"
         assert fetched.enabled is False
 
-    async def test_update_title_only(self, storage: PostgresStorage):
-        auto = _automation(title="Original Title", description="Desc")
-        await storage.create(auto)
-        updated = auto.model_copy(update={"title": "New Title"})
-        await storage.update(updated)
-        fetched = await storage.get(auto.id)
-        assert fetched.title == "New Title"
-        assert fetched.description == "Desc"
-
     async def test_update_description_only(self, storage: PostgresStorage):
-        auto = _automation(title="Title", description="Old Desc")
+        auto = _automation(description="Old Desc")
         await storage.create(auto)
         updated = auto.model_copy(update={"description": "New Desc"})
         await storage.update(updated)
         fetched = await storage.get(auto.id)
-        assert fetched.title == "Title"
+        assert fetched.name == auto.name
         assert fetched.description == "New Desc"
 
     async def test_update_raises_not_found(self, storage: PostgresStorage):
