@@ -19,9 +19,9 @@ class NotificationsManagerInterface(Protocol):
         self,
         user_id: str,
         *,
-        severity: Severity | None,
-        dismissed: bool | None,
-        pagination: PaginationParams,
+        severity: Severity | None = None,
+        dismissed: bool | None = None,
+        pagination: PaginationParams | None = None,
     ) -> Page[NotificationForUser]: ...
 
     async def dismiss(

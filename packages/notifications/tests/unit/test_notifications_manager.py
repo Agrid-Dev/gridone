@@ -18,20 +18,6 @@ _NOTIF_ID = "notif0000000001"
 _NOW = datetime.now(UTC)
 
 
-def _make_notification(
-    notification_id: str = _NOTIF_ID,
-    correlation_id: str | None = None,
-) -> Notification:
-    return Notification(
-        id=notification_id,
-        title="Alert",
-        body="Something happened",
-        severity=Severity.ALERT,
-        correlation_id=correlation_id,
-        created_at=_NOW,
-    )
-
-
 def _make_notification_for_user(
     notification_id: str = _NOTIF_ID,
     *,
