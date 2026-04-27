@@ -38,6 +38,23 @@ vi.mock("@/api/automations", () => ({
   deleteAutomation: () => mockDeleteAutomation(),
 }));
 
+vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
+vi.mock("@/api/assets", () => ({ getAssetTreeWithDevices: vi.fn() }));
+
+vi.mock("@/pages/devices/commands/presenters/CommandTemplatePresenter", () => ({
+  CommandTemplatePresenter: ({
+    template,
+  }: {
+    template: { write: { attribute: string } };
+  }) => <div data-testid="command-template">{template.write.attribute}</div>,
+}));
+
+vi.mock("./presenters/TriggerPresenter", () => ({
+  TriggerPresenter: ({ trigger }: { trigger: { type: string } }) => (
+    <div data-testid="trigger-presenter">type={trigger.type}</div>
+  ),
+}));
+
 vi.mock("react-router", async () => {
   const actual =
     await vi.importActual<typeof import("react-router")>("react-router");
@@ -50,16 +67,17 @@ vi.mock("react-i18next", () => ({
       const map: Record<string, string> = {
         title: "Automations",
         singular: "Automation",
-        "fields.name": "Name",
-        "fields.trigger": "Trigger",
-        "fields.status": "Status",
+        "flow.trigger": "Trigger",
+        "flow.action": "Action",
         "fields.actionTemplate": "Command template",
+        "fields.status": "Status",
         "actions.enable": "Enable",
         "actions.disable": "Disable",
         "actions.delete": "Delete",
         "executions.title": "Executions",
-        "executions.triggeredAt": "Triggered at",
-        "executions.executedAt": "Executed at",
+        "executions.timestamp": "Timestamp",
+        "executions.output": "Output",
+        "executions.viewBatch": "View command",
         "executions.error": "Error",
         "executions.empty": "No executions yet",
         "executions.status.success": "Success",
@@ -94,6 +112,7 @@ import AutomationDetail from "./AutomationDetail";
 const automation: Automation = {
   id: "a1",
   name: "Morning warmup",
+  description: "Boost heating before occupants arrive",
   enabled: true,
   actionTemplateId: "tpl-9f12",
   trigger: { type: "schedule", cron: "0 6 * * *" },
@@ -103,16 +122,36 @@ const execution: AutomationExecution = {
   id: "ex1",
   automationId: "a1",
   triggeredAt: "2026-04-25T06:00:00Z",
-  executedAt: null,
-  status: "failed",
-  error: "Timeout",
-  outputId: null,
+  executedAt: "2026-04-25T06:00:01Z",
+  status: "success",
+  error: null,
+  outputId: "batch-abc",
 };
 
 function setQueryResults(executions: AutomationExecution[] = []) {
   mockUseQuery.mockImplementation((opts: { queryKey: readonly unknown[] }) => {
     if (opts.queryKey[2] === "executions") {
       return { data: executions, isLoading: false };
+    }
+    if (opts.queryKey[0] === "command-templates") {
+      return {
+        data: {
+          id: "tpl-9f12",
+          name: "Boost",
+          target: { ids: ["d1"] },
+          write: {
+            attribute: "temperature_setpoint",
+            value: 22,
+            dataType: "float",
+          },
+          createdAt: "2026-01-01T00:00:00Z",
+          createdBy: "user1",
+        },
+        isLoading: false,
+      };
+    }
+    if (opts.queryKey[0] === "assets") {
+      return { data: [], isLoading: false };
     }
     return { data: automation, isLoading: false };
   });
@@ -143,20 +182,30 @@ afterEach(() => {
 });
 
 describe("AutomationDetail", () => {
-  it("renders the automation fields and an executions row with status badge", () => {
+  it("renders header (name, description, status), trigger and action presenters, and an execution row that links to its batch", () => {
     setQueryResults([execution]);
     renderDetail();
 
     expect(
       screen.getByRole("heading", { name: "Morning warmup" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Schedule")).toBeInTheDocument();
-    expect(screen.getByText("tpl-9f12")).toBeInTheDocument();
+    expect(
+      screen.getByText("Boost heating before occupants arrive"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
+      "type=schedule",
+    );
+    expect(screen.getByTestId("command-template")).toHaveTextContent(
+      "temperature_setpoint",
+    );
 
     const row = screen.getAllByRole("row").at(-1)!;
-    expect(within(row).getByText("Failed")).toBeInTheDocument();
-    expect(within(row).getByText("Timeout")).toBeInTheDocument();
-    expect(within(row).getByText("—")).toBeInTheDocument();
+    const batchLink = within(row).getByRole("link", { name: /View command/ });
+    expect(batchLink).toHaveAttribute(
+      "href",
+      "/devices/commands?batch_id=batch-abc",
+    );
   });
 
   it("hides write actions without automations:write permission", () => {
