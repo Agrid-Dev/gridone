@@ -20,6 +20,7 @@ class Permission(StrEnum):
     TIMESERIES_READ = "timeseries:read"
     AUTOMATIONS_READ = "automations:read"
     AUTOMATIONS_WRITE = "automations:write"
+    NOTIFICATIONS_WRITE = "notifications:write"
 
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
@@ -35,6 +36,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.DRIVERS_WRITE,
         Permission.TIMESERIES_READ,
         Permission.AUTOMATIONS_READ,
+        Permission.NOTIFICATIONS_WRITE,
     },
     Role.VIEWER: {
         Permission.USERS_READ_BASIC,

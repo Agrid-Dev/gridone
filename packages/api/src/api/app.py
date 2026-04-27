@@ -8,9 +8,10 @@ from assets import AssetsManager
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
-from models.types import AttributeValueType, DataType
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
+from models.types import AttributeValueType, DataType
+from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, create_service
 from users import UsersManager
 from users.auth import AuthService
@@ -24,6 +25,7 @@ from api.routes import (
     devices_router,
     drivers_router,
     health_router,
+    notifications_router,
     transports_router,
 )
 from api.routes import websocket as websocket_routes
@@ -78,6 +80,10 @@ async def lifespan(app: FastAPI):
     um = await UsersManager.from_storage(settings.storage_url)
     await um.ensure_default_admin()
     app.state.users_manager = um
+
+    notifications_svc = NotificationsService(settings.storage_url)
+    await notifications_svc.start()
+    app.state.notifications_service = notifications_svc
 
     async def _write_device(
         device_id: str,
@@ -182,6 +188,7 @@ async def lifespan(app: FastAPI):
         await ts_service.close()
         await commands_service.close()
         await automations_svc.close()
+        await notifications_svc.close()
         await um.close()
         if apps_svc is not None:
             await apps_svc.close()
@@ -229,6 +236,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         automations_router,
         prefix="/automations",
         tags=["automations"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        notifications_router,
+        prefix="/notifications",
+        tags=["notifications"],
         dependencies=jwt_dep,
     )
     app.include_router(
