@@ -5,7 +5,10 @@
   "comingSoon": "Bientôt disponible",
   "flow": {
     "trigger": "Déclencheur",
-    "action": "Action"
+    "action": "Action",
+    "actionType": {
+      "command": "Commande"
+    }
   },
   "fields": {
     "name": "Nom",

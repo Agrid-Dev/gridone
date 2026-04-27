@@ -41,12 +41,16 @@ vi.mock("@/api/automations", () => ({
 vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
 vi.mock("@/api/assets", () => ({ getAssetTreeWithDevices: vi.fn() }));
 
-vi.mock("@/pages/devices/commands/presenters/CommandTemplatePresenter", () => ({
-  CommandTemplatePresenter: ({
-    template,
-  }: {
-    template: { write: { attribute: string } };
-  }) => <div data-testid="command-template">{template.write.attribute}</div>,
+vi.mock("@/pages/devices/commands/presenters/TargetPresenter", () => ({
+  TargetPresenter: ({ target }: { target: { ids?: string[] } }) => (
+    <div data-testid="target-presenter">target-ids={target.ids?.join(",")}</div>
+  ),
+}));
+
+vi.mock("@/pages/devices/commands/presenters/WritePresenter", () => ({
+  WritePresenter: ({ write }: { write: { attribute: string } }) => (
+    <div data-testid="write-presenter">{write.attribute}</div>
+  ),
 }));
 
 vi.mock("./presenters/TriggerPresenter", () => ({
@@ -69,6 +73,7 @@ vi.mock("react-i18next", () => ({
         singular: "Automation",
         "flow.trigger": "Trigger",
         "flow.action": "Action",
+        "flow.actionType.command": "Command",
         "fields.actionTemplate": "Command template",
         "fields.status": "Status",
         "actions.enable": "Enable",
@@ -76,9 +81,7 @@ vi.mock("react-i18next", () => ({
         "actions.delete": "Delete",
         "executions.title": "Executions",
         "executions.timestamp": "Timestamp",
-        "executions.output": "Output",
         "executions.viewBatch": "View command",
-        "executions.error": "Error",
         "executions.empty": "No executions yet",
         "executions.status.success": "Success",
         "executions.status.failed": "Failed",
@@ -182,7 +185,7 @@ afterEach(() => {
 });
 
 describe("AutomationDetail", () => {
-  it("renders header (name, description, status), trigger and action presenters, and an execution row that links to its batch", () => {
+  it("renders header, trigger card, action card with template name first, and execution row linking to the batch", () => {
     setQueryResults([execution]);
     renderDetail();
 
@@ -193,10 +196,21 @@ describe("AutomationDetail", () => {
       screen.getByText("Boost heating before occupants arrive"),
     ).toBeInTheDocument();
     expect(screen.getByText("Enabled")).toBeInTheDocument();
-    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
-      "type=schedule",
+
+    expect(screen.getByText("Trigger")).toBeInTheDocument();
+    expect(screen.getByText("Action")).toBeInTheDocument();
+    expect(screen.getByText("Schedule")).toBeInTheDocument();
+    expect(screen.getByText("Command")).toBeInTheDocument();
+
+    const templateLink = screen.getByRole("link", { name: /Boost/ });
+    expect(templateLink).toHaveAttribute(
+      "href",
+      "/devices/commands/templates/tpl-9f12",
     );
-    expect(screen.getByTestId("command-template")).toHaveTextContent(
+    expect(screen.getByTestId("target-presenter")).toHaveTextContent(
+      "target-ids=d1",
+    );
+    expect(screen.getByTestId("write-presenter")).toHaveTextContent(
       "temperature_setpoint",
     );
 
@@ -206,6 +220,25 @@ describe("AutomationDetail", () => {
       "href",
       "/devices/commands?batch_id=batch-abc",
     );
+  });
+
+  it("renders error inline with the status badge in the same cell", () => {
+    setQueryResults([
+      {
+        ...execution,
+        id: "ex2",
+        status: "failed",
+        error: "Timeout waiting for device",
+        outputId: null,
+      },
+    ]);
+    renderDetail();
+
+    const row = screen.getAllByRole("row").at(-1)!;
+    expect(within(row).getByText("Failed")).toBeInTheDocument();
+    expect(
+      within(row).getByText("Timeout waiting for device"),
+    ).toBeInTheDocument();
   });
 
   it("hides write actions without automations:write permission", () => {

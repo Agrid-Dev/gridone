@@ -2,7 +2,15 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDown, ExternalLink } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ExternalLink,
+  History,
+  Terminal,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,15 +33,15 @@ import {
   getAutomation,
   listExecutions,
   type AutomationExecution,
-  type Trigger,
 } from "@/api/automations";
-import { getTemplate } from "@/api/commands";
+import { getTemplate, type CommandTemplate } from "@/api/commands";
 import {
   getAssetTreeWithDevices,
   type Asset,
   type AssetTreeNode,
 } from "@/api/assets";
-import { CommandTemplatePresenter } from "@/pages/devices/commands/presenters/CommandTemplatePresenter";
+import { TargetPresenter } from "@/pages/devices/commands/presenters/TargetPresenter";
+import { WritePresenter } from "@/pages/devices/commands/presenters/WritePresenter";
 import { AutomationStatusBadge } from "./components/AutomationStatusBadge";
 import { ExecutionStatusBadge } from "./components/ExecutionStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
@@ -98,9 +106,12 @@ export default function AutomationDetail() {
   }
 
   const isBusy = enableMutation.isPending || disableMutation.isPending;
+  const triggerSubtype = t(`triggers.${automation.trigger.type}`, {
+    defaultValue: automation.trigger.type,
+  });
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-8">
       <ResourceHeader
         title={automation.name}
         resourceName={t("title")}
@@ -124,20 +135,29 @@ export default function AutomationDetail() {
       />
 
       <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <AutomationStatusBadge enabled={automation.enabled} />
-        </div>
+        <AutomationStatusBadge enabled={automation.enabled} />
         {automation.description && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm leading-relaxed text-foreground/80">
             {automation.description}
           </p>
         )}
       </div>
 
-      <FlowSection
-        trigger={automation.trigger}
-        actionTemplateId={automation.actionTemplateId}
-      />
+      <div className="space-y-3">
+        <FlowCard icon={Zap} type={t("flow.trigger")} subtype={triggerSubtype}>
+          <TriggerPresenter trigger={automation.trigger} />
+        </FlowCard>
+
+        <FlowConnector />
+
+        <FlowCard
+          icon={Terminal}
+          type={t("flow.action")}
+          subtype={t("flow.actionType.command")}
+        >
+          <ActionContent templateId={automation.actionTemplateId} />
+        </FlowCard>
+      </div>
 
       <ExecutionsSection executions={executions} />
 
@@ -154,58 +174,51 @@ export default function AutomationDetail() {
   );
 }
 
-function FlowSection({
-  trigger,
-  actionTemplateId,
-}: {
-  trigger: Trigger;
-  actionTemplateId: string;
-}) {
-  const { t } = useTranslation("automations");
-  return (
-    <div className="space-y-3">
-      <FlowCard
-        label={t("flow.trigger")}
-        sublabel={t(`triggers.${trigger.type}`, { defaultValue: trigger.type })}
-      >
-        <TriggerPresenter trigger={trigger} />
-      </FlowCard>
-      <div className="flex justify-center text-muted-foreground">
-        <ArrowDown className="h-5 w-5" />
-      </div>
-      <FlowCard label={t("flow.action")} sublabel={t("fields.actionTemplate")}>
-        <ActionPresenter templateId={actionTemplateId} />
-      </FlowCard>
-    </div>
-  );
-}
-
 function FlowCard({
-  label,
-  sublabel,
+  icon: Icon,
+  type,
+  subtype,
   children,
 }: {
-  label: string;
-  sublabel: string;
+  icon: LucideIcon;
+  type: string;
+  subtype: string;
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {label}
-        </h3>
-        <span className="text-xs text-muted-foreground">·</span>
-        <span className="text-xs text-muted-foreground">{sublabel}</span>
+    <Card className="border-l-2 border-l-primary/40">
+      <CardContent className="space-y-4 py-5">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/80">
+            {type}
+          </span>
+          <span className="text-muted-foreground/40">·</span>
+          <span className="text-sm font-medium text-foreground/90">
+            {subtype}
+          </span>
+        </div>
+        <div className="pl-9">{children}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FlowConnector() {
+  return (
+    <div className="flex justify-center" aria-hidden="true">
+      <div className="flex flex-col items-center text-muted-foreground/50">
+        <div className="h-10 w-px border-l border-dashed border-current" />
+        <ChevronDown className="-mt-1 h-4 w-4" strokeWidth={2.5} />
       </div>
-      <Card>
-        <CardContent className="py-5">{children}</CardContent>
-      </Card>
     </div>
   );
 }
 
-function ActionPresenter({ templateId }: { templateId: string }) {
+function ActionContent({ templateId }: { templateId: string }) {
+  const { t } = useTranslation("automations");
   const { data: template, isLoading } = useQuery({
     queryKey: ["command-templates", templateId],
     queryFn: () => getTemplate(templateId),
@@ -223,20 +236,34 @@ function ActionPresenter({ templateId }: { templateId: string }) {
   if (!template) return null;
 
   return (
-    <div className="space-y-3">
-      <CommandTemplatePresenter
-        template={template}
-        assetsById={assetsById}
-        className="border-0 shadow-none"
-      />
-      <Link
-        to={`/devices/commands/templates/${encodeURIComponent(templateId)}`}
-        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
-      >
-        <ExternalLink className="h-3 w-3" />
-        {template.name ?? templateId}
-      </Link>
+    <div className="space-y-5">
+      {template.name && <TemplateName template={template} t={t} />}
+      <div className="space-y-4">
+        <TargetPresenter target={template.target} assetsById={assetsById} />
+        <WritePresenter write={template.write} />
+      </div>
     </div>
+  );
+}
+
+function TemplateName({
+  template,
+  t,
+}: {
+  template: CommandTemplate;
+  t: (k: string) => string;
+}) {
+  return (
+    <Link
+      to={`/devices/commands/templates/${encodeURIComponent(template.id)}`}
+      className="group inline-flex items-center gap-1.5 text-base font-semibold text-foreground hover:text-primary"
+    >
+      {template.name}
+      <ExternalLink
+        aria-label={t("fields.actionTemplate")}
+        className="h-3.5 w-3.5 text-muted-foreground/60 transition-colors group-hover:text-primary"
+      />
+    </Link>
   );
 }
 
@@ -248,8 +275,13 @@ function ExecutionsSection({
   const { t } = useTranslation("automations");
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-medium">{t("executions.title")}</h3>
+    <div className="space-y-3 border-t border-border/60 pt-6">
+      <div className="flex items-center gap-2">
+        <History className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/80">
+          {t("executions.title")}
+        </h3>
+      </div>
       {executions.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
           {t("executions.empty")}
@@ -259,10 +291,10 @@ function ExecutionsSection({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead>{t("executions.timestamp")}</TableHead>
+                <TableHead className="w-48">
+                  {t("executions.timestamp")}
+                </TableHead>
                 <TableHead>{t("fields.status")}</TableHead>
-                <TableHead>{t("executions.output")}</TableHead>
-                <TableHead>{t("executions.error")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -282,27 +314,27 @@ function ExecutionRow({ execution }: { execution: AutomationExecution }) {
   const timestamp = execution.executedAt ?? execution.triggeredAt;
   return (
     <TableRow>
-      <TableCell className="text-sm">
+      <TableCell className="text-sm tabular-nums">
         {new Date(timestamp).toLocaleString()}
       </TableCell>
       <TableCell>
-        <ExecutionStatusBadge status={execution.status} />
-      </TableCell>
-      <TableCell>
-        {execution.outputId ? (
-          <Link
-            to={`/devices/commands?batch_id=${encodeURIComponent(execution.outputId)}`}
-            className="inline-flex items-center gap-1 text-sm hover:underline"
-          >
-            <ExternalLink className="h-3 w-3" />
-            {t("executions.viewBatch")}
-          </Link>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {execution.error ?? "—"}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <ExecutionStatusBadge status={execution.status} />
+          {execution.error && (
+            <span className="text-sm text-destructive/90">
+              {execution.error}
+            </span>
+          )}
+          {execution.outputId && (
+            <Link
+              to={`/devices/commands?batch_id=${encodeURIComponent(execution.outputId)}`}
+              className="ml-auto inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t("executions.viewBatch")}
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
       </TableCell>
     </TableRow>
   );

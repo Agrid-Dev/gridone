@@ -5,7 +5,10 @@
   "comingSoon": "Coming soon",
   "flow": {
     "trigger": "Trigger",
-    "action": "Action"
+    "action": "Action",
+    "actionType": {
+      "command": "Command"
+    }
   },
   "fields": {
     "name": "Name",
