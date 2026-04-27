@@ -3,8 +3,13 @@
   "subtitle": "Trigger-driven actions",
   "singular": "Automation",
   "comingSoon": "Coming soon",
+  "flow": {
+    "trigger": "Trigger",
+    "action": "Action"
+  },
   "fields": {
     "name": "Name",
+    "description": "Description",
     "trigger": "Trigger",
     "action": "Action",
     "actionTemplate": "Command template",
@@ -19,7 +24,9 @@
     "attribute": "Attribute",
     "condition": "Condition",
     "operator": "Operator",
-    "threshold": "Threshold"
+    "threshold": "Threshold",
+    "noCondition": "No condition",
+    "unknownDevice": "Unknown device"
   },
   "operators": {
     "gt": ">",
@@ -37,6 +44,9 @@
     },
     "triggeredAt": "Triggered at",
     "executedAt": "Executed at",
+    "timestamp": "Timestamp",
+    "output": "Output",
+    "viewBatch": "View command",
     "error": "Error",
     "empty": "No executions yet"
   },
@@ -45,7 +55,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "enable": "Enable",
-    "disable": "Disable"
+    "disable": "Disable",
+    "rowMenu": "Actions"
   },
   "toasts": {
     "created": "Automation created",

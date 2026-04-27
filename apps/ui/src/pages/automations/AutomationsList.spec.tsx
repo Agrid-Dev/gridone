@@ -35,6 +35,7 @@ vi.mock("react-i18next", () => ({
         "actions.create": "New automation",
         "actions.enable": "Enable",
         "actions.disable": "Disable",
+        "actions.rowMenu": "Actions",
         "triggers.schedule": "Schedule",
         "triggers.change_event": "Attribute change",
         enabledBadge: "Enabled",
@@ -63,10 +64,12 @@ function makeAutomation(
   name: string,
   triggerType: string,
   enabled: boolean,
+  description = "",
 ): Automation {
   return {
     id,
     name,
+    description,
     enabled,
     actionTemplateId: `tpl-${id}`,
     trigger: { type: triggerType },
@@ -96,10 +99,16 @@ describe("AutomationsList", () => {
     expect(screen.getByText(/No automation yet/i)).toBeInTheDocument();
   });
 
-  it("renders a row per automation with translated trigger label and status", () => {
+  it("renders a row per automation with description, trigger label, and status", () => {
     mockUseQuery.mockReturnValue({
       data: [
-        makeAutomation("a1", "Morning warmup", "schedule", true),
+        makeAutomation(
+          "a1",
+          "Morning warmup",
+          "schedule",
+          true,
+          "Boost heating before occupants arrive",
+        ),
         makeAutomation("a2", "Cold alarm", "change_event", false),
       ],
       isLoading: false,
@@ -107,6 +116,9 @@ describe("AutomationsList", () => {
     renderList();
 
     const morning = screen.getByRole("row", { name: /Morning warmup/ });
+    expect(
+      within(morning).getByText("Boost heating before occupants arrive"),
+    ).toBeInTheDocument();
     expect(within(morning).getByText("Schedule")).toBeInTheDocument();
     expect(within(morning).getByText("Enabled")).toBeInTheDocument();
 

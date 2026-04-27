@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -103,7 +109,7 @@ export default function AutomationsList() {
               <TableHead>{t("fields.name")}</TableHead>
               <TableHead>{t("fields.trigger")}</TableHead>
               <TableHead>{t("fields.status")}</TableHead>
-              {canWrite && <TableHead className="w-32" />}
+              {canWrite && <TableHead className="w-12" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -145,6 +151,11 @@ function AutomationRow({
         <Link to={`/automations/${automation.id}`} className="hover:underline">
           {automation.name}
         </Link>
+        {automation.description && (
+          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+            {automation.description}
+          </p>
+        )}
       </TableCell>
       <TableCell>
         {t(`triggers.${automation.trigger.type}`, {
@@ -156,14 +167,24 @@ function AutomationRow({
       </TableCell>
       {canWrite && (
         <TableCell className="text-right">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggle}
-            disabled={isMutating}
-          >
-            {t(automation.enabled ? "actions.disable" : "actions.enable")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                aria-label={t("actions.rowMenu")}
+                disabled={isMutating}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={onToggle}>
+                {t(automation.enabled ? "actions.disable" : "actions.enable")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </TableCell>
       )}
     </TableRow>

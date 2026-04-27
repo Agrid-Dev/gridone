@@ -8,6 +8,7 @@ export type Trigger = { type: string } & Record<string, unknown>;
 export type Automation = {
   id: string;
   name: string;
+  description: string;
   trigger: Trigger;
   actionTemplateId: string;
   enabled: boolean;
@@ -15,6 +16,7 @@ export type Automation = {
 
 export type AutomationCreate = {
   name: string;
+  description?: string;
   trigger: Trigger;
   actionTemplateId: string;
   enabled?: boolean;
