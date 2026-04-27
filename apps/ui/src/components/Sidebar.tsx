@@ -10,6 +10,7 @@ import {
   LogOut,
   Puzzle,
   Settings,
+  TriangleAlert,
   Users,
 } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
@@ -121,6 +122,16 @@ export function Sidebar() {
                 {activeIndicator(isActive)}
                 <Blocks className="h-4 w-4" />
                 {t("app.apps")}
+              </>
+            )}
+          </NavLink>
+
+          <NavLink to="/faults" className={navLinkClass}>
+            {({ isActive }) => (
+              <>
+                {activeIndicator(isActive)}
+                <TriangleAlert className="h-4 w-4" />
+                {t("app.faults")}
               </>
             )}
           </NavLink>

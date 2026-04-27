@@ -82,6 +82,7 @@
     "attributes": "attrs",
     "driver": "Driver",
     "device": "Device",
+    "fault": "Fault",
     "transport": "Transport",
     "type": "Type",
     "unknown": "Unknown",
@@ -149,6 +150,7 @@
     "drivers": "Drivers",
     "transports": "Transports",
     "apps": "Apps",
+    "faults": "Faults",
     "users": "Users"
   }
 }
