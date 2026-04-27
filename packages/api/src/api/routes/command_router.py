@@ -173,7 +173,7 @@ async def dispatch_single_command(
 
 
 @router.post(
-    "/command-templates/",
+    "/commands/templates/",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
@@ -187,7 +187,7 @@ async def create_template(
 
 
 @router.get(
-    "/command-templates/",
+    "/commands/templates/",
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 async def list_templates(
@@ -206,7 +206,7 @@ async def list_templates(
 
 
 @router.get(
-    "/command-templates/{template_id}",
+    "/commands/templates/{template_id}",
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 async def get_template(
@@ -218,7 +218,7 @@ async def get_template(
 
 
 @router.delete(
-    "/command-templates/{template_id}",
+    "/commands/templates/{template_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
@@ -230,7 +230,7 @@ async def delete_template(
 
 
 @router.post(
-    "/command-templates/{template_id}/dispatch",
+    "/commands/templates/{template_id}/dispatch",
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )

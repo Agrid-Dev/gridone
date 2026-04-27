@@ -494,7 +494,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     # Command templates: viewer can READ, cannot WRITE; no-auth returns 401.
     pytest.param(
         "POST",
-        "/devices/command-templates/",
+        "/devices/commands/templates/",
         "viewer",
         403,
         {
@@ -509,7 +509,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "POST",
-        "/devices/command-templates/",
+        "/devices/commands/templates/",
         None,
         401,
         {
@@ -524,7 +524,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "DELETE",
-        "/devices/command-templates/any-id",
+        "/devices/commands/templates/any-id",
         "viewer",
         403,
         None,
@@ -532,7 +532,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "DELETE",
-        "/devices/command-templates/any-id",
+        "/devices/commands/templates/any-id",
         None,
         401,
         None,
@@ -540,7 +540,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "POST",
-        "/devices/command-templates/any-id/dispatch",
+        "/devices/commands/templates/any-id/dispatch",
         "viewer",
         403,
         None,
@@ -548,7 +548,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "POST",
-        "/devices/command-templates/any-id/dispatch",
+        "/devices/commands/templates/any-id/dispatch",
         None,
         401,
         None,
@@ -556,7 +556,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "GET",
-        "/devices/command-templates/",
+        "/devices/commands/templates/",
         None,
         401,
         None,
@@ -564,7 +564,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "GET",
-        "/devices/command-templates/any-id",
+        "/devices/commands/templates/any-id",
         None,
         401,
         None,

@@ -155,7 +155,7 @@ export function listTemplates(
 ): Promise<Page<CommandTemplate>> {
   const qs = params?.toString();
   return request<Page<CommandTemplate>>(
-    `/devices/command-templates/${qs ? `?${qs}` : ""}`,
+    `/devices/commands/templates/${qs ? `?${qs}` : ""}`,
     undefined,
     { camelCase: true },
   );
@@ -163,7 +163,7 @@ export function listTemplates(
 
 export function getTemplate(templateId: string): Promise<CommandTemplate> {
   return request<CommandTemplate>(
-    `/devices/command-templates/${encodeURIComponent(templateId)}`,
+    `/devices/commands/templates/${encodeURIComponent(templateId)}`,
     undefined,
     { camelCase: true },
   );
@@ -173,7 +173,7 @@ export function createTemplate(
   payload: CommandTemplateCreatePayload,
 ): Promise<CommandTemplate> {
   return request<CommandTemplate>(
-    "/devices/command-templates/",
+    "/devices/commands/templates/",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -185,7 +185,7 @@ export function createTemplate(
 
 export function deleteTemplate(templateId: string): Promise<void> {
   return request<void>(
-    `/devices/command-templates/${encodeURIComponent(templateId)}`,
+    `/devices/commands/templates/${encodeURIComponent(templateId)}`,
     { method: "DELETE" },
     { camelCase: true },
   );
@@ -195,7 +195,7 @@ export function dispatchTemplate(
   templateId: string,
 ): Promise<BatchDispatchResponse> {
   return request<BatchDispatchResponse>(
-    `/devices/command-templates/${encodeURIComponent(templateId)}/dispatch`,
+    `/devices/commands/templates/${encodeURIComponent(templateId)}/dispatch`,
     { method: "POST" },
     { camelCase: true },
   );

@@ -101,7 +101,7 @@ class TestCreateTemplate:
 
         async with async_client as ac:
             response = await ac.post(
-                "/command-templates/",
+                "/commands/templates/",
                 json={
                     "name": "Thermostats to auto",
                     "target": {"types": ["thermostat"]},
@@ -137,7 +137,7 @@ class TestCreateTemplate:
         mock_commands_service.save_template.return_value = _template(name=None)
         async with async_client as ac:
             response = await ac.post(
-                "/command-templates/",
+                "/commands/templates/",
                 json={
                     "target": {"ids": ["d1"]},
                     "write": {
@@ -157,7 +157,7 @@ class TestCreateTemplate:
     ):
         async with async_client as ac:
             response = await ac.post(
-                "/command-templates/",
+                "/commands/templates/",
                 json={
                     "name": "T",
                     "target": {"ids": ["d1"], "bogus": "x"},
@@ -188,7 +188,7 @@ class TestListTemplates:
             size=50,
         )
         async with async_client as ac:
-            response = await ac.get("/command-templates/")
+            response = await ac.get("/commands/templates/")
         assert response.status_code == 200
         body = response.json()
         assert body["total"] == 2
@@ -207,7 +207,7 @@ class TestGetTemplate:
     ):
         mock_commands_service.get_template.return_value = _template()
         async with async_client as ac:
-            response = await ac.get("/command-templates/abc1234567890def")
+            response = await ac.get("/commands/templates/abc1234567890def")
         assert response.status_code == 200
         assert response.json()["id"] == "abc1234567890def"
 
@@ -221,7 +221,7 @@ class TestGetTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.get("/command-templates/nope")
+            response = await ac.get("/commands/templates/nope")
         assert response.status_code == 404
 
 
@@ -234,7 +234,7 @@ class TestDeleteTemplate:
     ):
         mock_commands_service.delete_template.return_value = None
         async with async_client as ac:
-            response = await ac.delete("/command-templates/abc1234567890def")
+            response = await ac.delete("/commands/templates/abc1234567890def")
         assert response.status_code == 204
 
     @pytest.mark.asyncio
@@ -247,7 +247,7 @@ class TestDeleteTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.delete("/command-templates/nope")
+            response = await ac.delete("/commands/templates/nope")
         assert response.status_code == 404
 
 
@@ -262,7 +262,7 @@ class TestDispatchTemplate:
             "abc1234567890def", ["d1", "d2"]
         )
         async with async_client as ac:
-            response = await ac.post("/command-templates/abc1234567890def/dispatch")
+            response = await ac.post("/commands/templates/abc1234567890def/dispatch")
         assert response.status_code == 202
         assert response.json() == {"batch_id": "batch00000000001", "total": 2}
 
@@ -277,7 +277,7 @@ class TestDispatchTemplate:
     ):
         mock_commands_service.dispatch_from_template.return_value = []
         async with async_client as ac:
-            response = await ac.post("/command-templates/abc1234567890def/dispatch")
+            response = await ac.post("/commands/templates/abc1234567890def/dispatch")
         assert response.status_code == 422
 
     @pytest.mark.asyncio
@@ -290,5 +290,5 @@ class TestDispatchTemplate:
             "Template 'nope' not found"
         )
         async with async_client as ac:
-            response = await ac.post("/command-templates/nope/dispatch")
+            response = await ac.post("/commands/templates/nope/dispatch")
         assert response.status_code == 404
