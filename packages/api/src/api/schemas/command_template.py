@@ -1,4 +1,4 @@
-"""Request / response schemas for the ``/command-templates`` endpoints."""
+"""Request / response schemas for the ``/commands/templates`` endpoints."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ class AttributeWritePayload(BaseModel):
 
 
 class CommandTemplateCreatePayload(BaseModel):
-    """Request body for ``POST /command-templates``.
+    """Request body for ``POST /commands/templates``.
 
     ``name`` is the saved-vs-ephemeral signal: a non-null name marks the
     template as user-saved; ``None`` (or omitted) creates an ephemeral
@@ -58,7 +58,7 @@ class CommandTemplateCreatePayload(BaseModel):
 
 
 class CommandTemplateResponse(BaseModel):
-    """Response body for ``GET /command-templates/{id}`` and friends."""
+    """Response body for ``GET /commands/templates/{id}`` and friends."""
 
     id: str
     name: str | None

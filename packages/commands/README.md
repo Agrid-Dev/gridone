@@ -73,7 +73,7 @@ flowchart TD
 
     UI -->|"POST /devices/:device_id/commands"| DU["dispatch_unit(device_id, write)"]
     UI -->|"POST /devices/commands"| DB["dispatch_batch(target, write)"]
-    UI -->|"POST /devices/command-templates/:template_id/dispatch"| DFT["dispatch_from_template(template_id)"]
+    UI -->|"POST /devices/commands/templates/:template_id/dispatch"| DFT["dispatch_from_template(template_id)"]
 
     DU --> UC1["1 UnitCommand&#10;(no template)"]
     DB --> EPH[(ephemeral CommandTemplate&#10;name = NULL)]
@@ -94,7 +94,7 @@ flowchart TD
 
 Templates are a single table. What makes a row "a saved template" vs "the audit record of a past batch dispatch" is whether it has a `name`:
 
-| `name` value      | What the row means                       | Visible via `GET /devices/command-templates/` | Dispatchable by id         |
+| `name` value      | What the row means                       | Visible via `GET /devices/commands/templates/` | Dispatchable by id         |
 | ----------------- | ---------------------------------------- | --------------------------------------------- | -------------------------- |
 | `NOT NULL`        | User-saved template                      | yes                                           | yes                        |
 | `NULL` (ephemeral) | Audit snapshot of an ad-hoc batch        | no (filtered out)                             | no (`dispatch_from_template` raises 404) |

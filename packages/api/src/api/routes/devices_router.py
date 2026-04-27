@@ -56,7 +56,7 @@ def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
 router = APIRouter()
 # Command dispatch + templates live in their own router but are mounted
 # under /devices so URLs stay device-scoped (``/devices/commands``,
-# ``/devices/{id}/commands``, ``/devices/command-templates/...``).
+# ``/devices/{id}/commands``, ``/devices/commands/templates/...``).
 router.include_router(command_router)
 router.include_router(devices_ts_router)
 router.include_router(faults_router, prefix="/faults")
