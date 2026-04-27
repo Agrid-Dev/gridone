@@ -31,7 +31,9 @@ class PostgresStorage:
         trigger = _trigger_adapter.validate_python(json.loads(row["trigger"]))
         return Automation(
             id=row["id"],
+            title=row["title"],
             name=row["name"],
+            description=row["description"],
             trigger=trigger,
             action_template_id=row["action_template_id"],
             enabled=row["enabled"],
@@ -52,11 +54,14 @@ class PostgresStorage:
     async def create(self, automation: Automation) -> None:
         await self._pool.execute(
             """
-            INSERT INTO automations (id, name, trigger, action_template_id, enabled)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO automations
+                (id, title, name, description, trigger, action_template_id, enabled)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
             automation.id,
+            automation.title,
             automation.name,
+            automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
             automation.action_template_id,
             automation.enabled,
@@ -85,11 +90,14 @@ class PostgresStorage:
         result = await self._pool.execute(
             """
             UPDATE automations
-            SET name = $2, trigger = $3, action_template_id = $4, enabled = $5
+            SET title = $2, name = $3, description = $4,
+                trigger = $5, action_template_id = $6, enabled = $7
             WHERE id = $1
             """,
             automation.id,
+            automation.title,
             automation.name,
+            automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
             automation.action_template_id,
             automation.enabled,
