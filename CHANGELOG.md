@@ -1,3 +1,13 @@
+## v0.58.0 (2026-04-27)
+
+### Feat
+
+- **ui**: add global /faults triage page (AGR-467)
+
+### Refactor
+
+- **faults**: address PR review on /faults page
+
 ## v0.57.1 (2026-04-24)
 
 ### Fix
