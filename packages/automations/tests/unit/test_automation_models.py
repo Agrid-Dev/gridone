@@ -11,6 +11,7 @@ from automations.models import (
     ExecutionStatus,
     Trigger,
 )
+from pydantic import ValidationError
 
 _SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
 _CHANGE_TEMP = Trigger.model_validate(
@@ -60,12 +61,13 @@ class TestAutomationUseCases:
     )
     def test_use_case(self, name: str, trigger: Trigger):
         automation = AutomationCreate(
-            name=name, trigger=trigger, action_template_id="tmpl-01"
+            title="Test", name=name, trigger=trigger, action_template_id="tmpl-01"
         )
         assert automation.trigger == trigger
 
     def test_automation_id(self):
         a = Automation(
+            title="Test",
             name="test",
             trigger=Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"}),
             action_template_id="tmpl-01",
@@ -74,13 +76,65 @@ class TestAutomationUseCases:
         assert a.id == "abc123def456abcd"
 
 
+class TestAutomationCreateTitleDescription:
+    def test_title_required(self):
+        with pytest.raises(ValidationError):
+            AutomationCreate.model_validate(
+                {"name": "x", "trigger": _SCHEDULE, "action_template_id": "tmpl-01"}
+            )
+
+    def test_title_empty_rejected(self):
+        with pytest.raises(ValidationError):
+            AutomationCreate(
+                title="",
+                name="x",
+                trigger=_SCHEDULE,
+                action_template_id="tmpl-01",
+            )
+
+    def test_description_defaults_to_empty_string(self):
+        a = AutomationCreate(
+            title="My Auto",
+            name="x",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl-01",
+        )
+        assert a.description == ""
+
+    def test_description_can_be_set(self):
+        a = AutomationCreate(
+            title="My Auto",
+            name="x",
+            description="Some info",
+            trigger=_SCHEDULE,
+            action_template_id="tmpl-01",
+        )
+        assert a.description == "Some info"
+
+
 class TestAutomationUpdate:
     def test_all_fields_optional(self):
         u = AutomationUpdate()
+        assert u.title is None
         assert u.name is None
+        assert u.description is None
         assert u.trigger is None
         assert u.action_template_id is None
         assert u.enabled is None
+
+    def test_title_only(self):
+        u = AutomationUpdate(title="New Title")
+        assert u.title == "New Title"
+        assert u.name is None
+
+    def test_title_empty_rejected(self):
+        with pytest.raises(ValidationError):
+            AutomationUpdate(title="")
+
+    def test_description_only(self):
+        u = AutomationUpdate(description="Some description")
+        assert u.description == "Some description"
+        assert u.title is None
 
     def test_name_only(self):
         u = AutomationUpdate(name="renamed")

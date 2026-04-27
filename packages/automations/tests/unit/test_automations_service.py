@@ -59,6 +59,7 @@ def _make_service(
 
 def _create_params(**kwargs: object) -> AutomationCreate:
     defaults: dict[str, object] = {
+        "title": "Auto One",
         "name": "auto-1",
         "trigger": _SCHEDULE,
         "action_template_id": _TMPL,
@@ -141,6 +142,7 @@ class TestStart:
         provider = _make_provider("schedule")
         auto = Automation(
             id="abc123",
+            title="A",
             name="a",
             trigger=_SCHEDULE,
             action_template_id="tmpl",
@@ -157,6 +159,7 @@ class TestStart:
         provider = _make_provider("schedule")
         auto = Automation(
             id="abc123",
+            title="A",
             name="a",
             trigger=_SCHEDULE,
             action_template_id="tmpl",
@@ -174,6 +177,7 @@ class TestStart:
         storage.list.return_value = [
             Automation(
                 id="a1",
+                title="A1",
                 name="a1",
                 trigger=_SCHEDULE,
                 action_template_id=_TMPL,
@@ -181,6 +185,7 @@ class TestStart:
             ),
             Automation(
                 id="a2",
+                title="A2",
                 name="a2",
                 trigger=_SCHEDULE,
                 action_template_id=_TMPL,
@@ -209,6 +214,7 @@ class TestStart:
         storage.list.return_value = [
             Automation(
                 id="a1",
+                title="A1",
                 name="a1",
                 trigger=_SCHEDULE,
                 action_template_id=_TMPL,

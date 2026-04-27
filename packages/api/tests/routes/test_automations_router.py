@@ -27,7 +27,9 @@ pytestmark = pytest.mark.asyncio
 _TRIGGER = Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"})
 _AUTO = Automation(
     id="auto-01",
+    title="Morning Reset",
     name="Morning Reset",
+    description="",
     trigger=_TRIGGER,
     action_template_id="tmpl-01",
     enabled=True,
@@ -93,6 +95,7 @@ class TestCreateAutomation:
             resp = await c.post(
                 "/",
                 json={
+                    "title": "Morning Reset",
                     "name": "Morning Reset",
                     "trigger": {"type": "schedule", "cron": "0 * * * *"},
                     "action_template_id": "tmpl-01",
@@ -100,6 +103,31 @@ class TestCreateAutomation:
             )
         assert resp.status_code == 201
         assert resp.json()["id"] == "auto-01"
+
+    async def test_missing_title_returns_422(self, client, svc):
+        async with client as c:
+            resp = await c.post(
+                "/",
+                json={
+                    "name": "Morning Reset",
+                    "trigger": {"type": "schedule", "cron": "0 * * * *"},
+                    "action_template_id": "tmpl-01",
+                },
+            )
+        assert resp.status_code == 422
+
+    async def test_empty_title_returns_422(self, client, svc):
+        async with client as c:
+            resp = await c.post(
+                "/",
+                json={
+                    "title": "",
+                    "name": "Morning Reset",
+                    "trigger": {"type": "schedule", "cron": "0 * * * *"},
+                    "action_template_id": "tmpl-01",
+                },
+            )
+        assert resp.status_code == 422
 
 
 class TestGetAutomation:
@@ -125,6 +153,22 @@ class TestUpdateAutomation:
             resp = await c.patch("/auto-01", json={"name": "Renamed"})
         assert resp.status_code == 200
         assert resp.json()["name"] == "Renamed"
+
+    async def test_patch_title(self, client, svc):
+        updated = _AUTO.model_copy(update={"title": "New Title"})
+        svc.update.return_value = updated
+        async with client as c:
+            resp = await c.patch("/auto-01", json={"title": "New Title"})
+        assert resp.status_code == 200
+        assert resp.json()["title"] == "New Title"
+
+    async def test_patch_description(self, client, svc):
+        updated = _AUTO.model_copy(update={"description": "A description"})
+        svc.update.return_value = updated
+        async with client as c:
+            resp = await c.patch("/auto-01", json={"description": "A description"})
+        assert resp.status_code == 200
+        assert resp.json()["description"] == "A description"
 
     async def test_not_found_returns_404(self, client, svc):
         svc.update.side_effect = NotFoundError("not found")
