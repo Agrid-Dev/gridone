@@ -5,9 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronDown,
+  Clock,
   ExternalLink,
   History,
   Terminal,
+  TrendingUp,
   Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -45,6 +47,11 @@ import { WritePresenter } from "@/pages/devices/commands/presenters/WritePresent
 import { AutomationStatusBadge } from "./components/AutomationStatusBadge";
 import { ExecutionStatusBadge } from "./components/ExecutionStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
+
+const TRIGGER_ICONS: Record<string, LucideIcon> = {
+  schedule: Clock,
+  change_event: TrendingUp,
+};
 
 export default function AutomationDetail() {
   const { t } = useTranslation("automations");
@@ -144,7 +151,11 @@ export default function AutomationDetail() {
       </div>
 
       <div className="space-y-3">
-        <FlowCard icon={Zap} type={t("flow.trigger")} subtype={triggerSubtype}>
+        <FlowCard
+          icon={TRIGGER_ICONS[automation.trigger.type] ?? Zap}
+          type={t("flow.trigger")}
+          subtype={triggerSubtype}
+        >
           <TriggerPresenter trigger={automation.trigger} />
         </FlowCard>
 
@@ -186,21 +197,21 @@ function FlowCard({
   children: ReactNode;
 }) {
   return (
-    <Card className="border-l-2 border-l-primary/40">
+    <Card>
       <CardContent className="space-y-4 py-5">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/80">
+          {type}
+        </div>
         <div className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Icon className="h-3.5 w-3.5" />
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/80">
-            {type}
-          </span>
-          <span className="text-muted-foreground/40">·</span>
-          <span className="text-sm font-medium text-foreground/90">
+
+          <span className="text-sm font-semibold text-foreground/90">
             {subtype}
           </span>
         </div>
-        <div className="pl-9">{children}</div>
+        <div className="pl-4 border-l-2 border-l-primary">{children}</div>
       </CardContent>
     </Card>
   );
