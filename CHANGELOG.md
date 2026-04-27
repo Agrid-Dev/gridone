@@ -1,3 +1,10 @@
+## v0.59.0 (2026-04-27)
+
+### Feat
+
+- **ui**: add automations route skeleton and sidebar entry
+- **ui**: add automations API client
+
 ## v0.58.1 (2026-04-27)
 
 ### Refactor
