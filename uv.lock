@@ -19,6 +19,7 @@ members = [
     "gridone-devices-manager",
     "gridone-migrations",
     "gridone-models",
+    "gridone-notifications",
     "gridone-timeseries",
     "gridone-users",
 ]
@@ -945,6 +946,23 @@ requires-dist = [
 name = "gridone-models"
 version = "0.1.0"
 source = { editable = "packages/models" }
+
+[[package]]
+name = "gridone-notifications"
+version = "0.1.0"
+source = { editable = "packages/notifications" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "yoyo-migrations" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "yoyo-migrations", specifier = ">=8.2.0" },
+]
 
 [[package]]
 name = "gridone-timeseries"
