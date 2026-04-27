@@ -1,7 +1,7 @@
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronDown,
@@ -13,7 +13,6 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,14 +27,7 @@ import {
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
 import { usePermissions } from "@/contexts/AuthContext";
-import {
-  deleteAutomation,
-  disableAutomation,
-  enableAutomation,
-  getAutomation,
-  listExecutions,
-  type AutomationExecution,
-} from "@/api/automations";
+import { type AutomationExecution } from "@/api/automations";
 import { getTemplate, type CommandTemplate } from "@/api/commands";
 import {
   getAssetTreeWithDevices,
@@ -47,6 +39,7 @@ import { WritePresenter } from "@/pages/devices/commands/presenters/WritePresent
 import { AutomationStatusBadge } from "./components/AutomationStatusBadge";
 import { ExecutionStatusBadge } from "./components/ExecutionStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
+import { useAutomation } from "./useAutomation";
 
 const TRIGGER_ICONS: Record<string, LucideIcon> = {
   schedule: Clock,
@@ -56,52 +49,18 @@ const TRIGGER_ICONS: Record<string, LucideIcon> = {
 export default function AutomationDetail() {
   const { t } = useTranslation("automations");
   const { automationId } = useParams<{ automationId: string }>();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const can = usePermissions();
-  const id = automationId ?? "";
   const canWrite = can("automations:write");
-
-  const { data: automation, isLoading } = useQuery({
-    queryKey: ["automations", id],
-    queryFn: () => getAutomation(id),
-    enabled: !!id,
-  });
-
-  const { data: executions = [] } = useQuery({
-    queryKey: ["automations", id, "executions"],
-    queryFn: () => listExecutions(id),
-    enabled: !!id,
-  });
-
-  const enableMutation = useMutation({
-    mutationFn: () => enableAutomation(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-      toast.success(t("toasts.enabled"));
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const disableMutation = useMutation({
-    mutationFn: () => disableAutomation(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-      toast.success(t("toasts.disabled"));
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteAutomation(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-      queryClient.removeQueries({ queryKey: ["automations", id] });
-      toast.success(t("toasts.deleted"));
-      navigate("/automations");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
+  const {
+    automation,
+    isLoading,
+    executions,
+    enable,
+    disable,
+    isToggling,
+    remove,
+    isDeleting,
+  } = useAutomation(automationId ?? "");
 
   if (isLoading || !automation) {
     return (
@@ -112,7 +71,6 @@ export default function AutomationDetail() {
     );
   }
 
-  const isBusy = enableMutation.isPending || disableMutation.isPending;
   const triggerSubtype = t(`triggers.${automation.trigger.type}`, {
     defaultValue: automation.trigger.type,
   });
@@ -128,12 +86,8 @@ export default function AutomationDetail() {
           canWrite ? (
             <Button
               variant="outline"
-              onClick={() =>
-                automation.enabled
-                  ? disableMutation.mutate()
-                  : enableMutation.mutate()
-              }
-              disabled={isBusy}
+              onClick={automation.enabled ? disable : enable}
+              disabled={isToggling}
             >
               {t(automation.enabled ? "actions.disable" : "actions.enable")}
             </Button>
@@ -174,8 +128,8 @@ export default function AutomationDetail() {
 
       {canWrite && (
         <DangerZone
-          onDelete={() => deleteMutation.mutate()}
-          isDeleting={deleteMutation.isPending}
+          onDelete={remove}
+          isDeleting={isDeleting}
           confirmTitle={t("deleteConfirm.title")}
           confirmDetails={t("deleteConfirm.details", { name: automation.name })}
           deleteLabel={t("actions.delete")}

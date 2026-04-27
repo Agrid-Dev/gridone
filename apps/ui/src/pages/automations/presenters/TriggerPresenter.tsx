@@ -4,7 +4,7 @@ import type { Trigger } from "@/api/automations";
 import { SchedulePresenter } from "./SchedulePresenter";
 import { ChangeEventPresenter } from "./ChangeEventPresenter";
 
-const PROVIDER_PRESENTERS: Record<
+const TRIGGER_PROVIDER_PRESENTERS: Record<
   string,
   (props: { trigger: Trigger }) => ReactNode
 > = {
@@ -14,7 +14,7 @@ const PROVIDER_PRESENTERS: Record<
 
 export function TriggerPresenter({ trigger }: { trigger: Trigger }) {
   const { t } = useTranslation("automations");
-  const Presenter = PROVIDER_PRESENTERS[trigger.type];
+  const Presenter = TRIGGER_PROVIDER_PRESENTERS[trigger.type];
   if (!Presenter) {
     return (
       <p className="text-sm text-muted-foreground">
