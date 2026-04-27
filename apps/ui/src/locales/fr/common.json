@@ -150,6 +150,7 @@
     "drivers": "Drivers",
     "transports": "Transports",
     "apps": "Applications",
+    "automations": "Automatisations",
     "faults": "Défauts",
     "users": "Utilisateurs"
   }

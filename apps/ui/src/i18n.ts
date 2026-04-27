@@ -2,6 +2,7 @@ import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import enApps from "./locales/en/apps.json";
 import enAssets from "./locales/en/assets.json";
+import enAutomations from "./locales/en/automations.json";
 import enCommon from "./locales/en/common.json";
 import enDevices from "./locales/en/devices.json";
 import enDrivers from "./locales/en/drivers.json";
@@ -10,6 +11,7 @@ import enTransports from "./locales/en/transports.json";
 import enUsers from "./locales/en/users.json";
 import frApps from "./locales/fr/apps.json";
 import frAssets from "./locales/fr/assets.json";
+import frAutomations from "./locales/fr/automations.json";
 import frCommon from "./locales/fr/common.json";
 import frDevices from "./locales/fr/devices.json";
 import frDrivers from "./locales/fr/drivers.json";
@@ -26,6 +28,7 @@ i18n.use(initReactI18next).init({
       assets: enAssets,
       transports: enTransports,
       apps: enApps,
+      automations: enAutomations,
       drivers: enDrivers,
       faults: enFaults,
     },
@@ -36,6 +39,7 @@ i18n.use(initReactI18next).init({
       assets: frAssets,
       transports: frTransports,
       apps: frApps,
+      automations: frAutomations,
       drivers: frDrivers,
       faults: frFaults,
     },

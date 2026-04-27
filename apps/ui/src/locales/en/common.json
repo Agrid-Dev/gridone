@@ -150,6 +150,7 @@
     "drivers": "Drivers",
     "transports": "Transports",
     "apps": "Apps",
+    "automations": "Automations",
     "faults": "Faults",
     "users": "Users"
   }

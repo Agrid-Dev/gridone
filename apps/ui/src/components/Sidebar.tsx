@@ -12,6 +12,7 @@ import {
   Settings,
   TriangleAlert,
   Users,
+  Zap,
 } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -122,6 +123,16 @@ export function Sidebar() {
                 {activeIndicator(isActive)}
                 <Blocks className="h-4 w-4" />
                 {t("app.apps")}
+              </>
+            )}
+          </NavLink>
+
+          <NavLink to="/automations" className={navLinkClass}>
+            {({ isActive }) => (
+              <>
+                {activeIndicator(isActive)}
+                <Zap className="h-4 w-4" />
+                {t("app.automations")}
               </>
             )}
           </NavLink>

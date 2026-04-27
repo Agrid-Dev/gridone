@@ -1,0 +1,69 @@
+{
+  "title": "Automatisations",
+  "subtitle": "Actions déclenchées par événements",
+  "singular": "Automatisation",
+  "comingSoon": "Bientôt disponible",
+  "fields": {
+    "name": "Nom",
+    "trigger": "Déclencheur",
+    "action": "Action",
+    "actionTemplate": "Modèle de commande",
+    "enabled": "Activée",
+    "status": "Statut"
+  },
+  "triggers": {
+    "schedule": "Planification",
+    "changeEvent": "Changement d'attribut",
+    "cron": "Expression cron",
+    "device": "Appareil",
+    "attribute": "Attribut",
+    "condition": "Condition",
+    "operator": "Opérateur",
+    "threshold": "Seuil"
+  },
+  "operators": {
+    "gt": ">",
+    "lt": "<",
+    "gte": "≥",
+    "lte": "≤",
+    "eq": "=",
+    "ne": "≠"
+  },
+  "executions": {
+    "title": "Exécutions",
+    "status": {
+      "success": "Succès",
+      "failed": "Échec"
+    },
+    "triggeredAt": "Déclenchée à",
+    "executedAt": "Exécutée à",
+    "error": "Erreur",
+    "empty": "Aucune exécution pour le moment"
+  },
+  "actions": {
+    "create": "Nouvelle automatisation",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "enable": "Activer",
+    "disable": "Désactiver"
+  },
+  "toasts": {
+    "created": "Automatisation créée",
+    "updated": "Automatisation mise à jour",
+    "deleted": "Automatisation supprimée",
+    "enabled": "Automatisation activée",
+    "disabled": "Automatisation désactivée",
+    "saveError": "Échec de l'enregistrement de l'automatisation"
+  },
+  "empty": {
+    "title": "Aucune automatisation pour le moment",
+    "details": "Créez votre première automatisation pour réagir aux événements planifiés ou aux changements d'appareils.",
+    "cta": "Nouvelle automatisation"
+  },
+  "deleteConfirm": {
+    "title": "Supprimer l'automatisation",
+    "details": "Supprimer « {{name}} » ? Cette action est irréversible."
+  },
+  "enabledBadge": "Activée",
+  "disabledBadge": "Désactivée"
+}

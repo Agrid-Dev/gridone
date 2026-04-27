@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
+import Automations from "./pages/automations";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
 import Transports from "./pages/transports";
@@ -26,6 +27,7 @@ function ProtectedLayout() {
             <Route path="/transports/*" element={<Transports />} />
             <Route path="/drivers/*" element={<Drivers />} />
             <Route path="/apps/*" element={<Apps />} />
+            <Route path="/automations/*" element={<Automations />} />
             <Route path="/faults" element={<FaultsPage />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/settings" element={<SettingsPage />} />
