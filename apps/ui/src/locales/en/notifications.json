@@ -1,0 +1,27 @@
+{
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Inbox",
+    "unableToLoad": "Unable to load notifications",
+    "dismiss": "Dismiss",
+    "dismissSelected": "Dismiss selected ({{count}})",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "emptyTitle": "No notifications",
+    "emptyDescription": "You have no notifications yet.",
+    "emptyUnreadTitle": "All caught up",
+    "emptyUnreadDescription": "No unread notifications.",
+    "columns": {
+      "title": "Title",
+      "severity": "Severity",
+      "dispatchedAt": "Received",
+      "dismissedAt": "Dismissed at",
+      "actions": ""
+    },
+    "filter": {
+      "all": "All",
+      "unread": "Unread",
+      "dismissed": "Dismissed"
+    }
+  }
+}
