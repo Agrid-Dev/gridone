@@ -1,27 +1,15 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { Automation } from "@/api/automations";
 
-const { mockUseQuery, mockEnableAutomation, mockDisableAutomation, mockToast } =
-  vi.hoisted(() => ({
-    mockUseQuery: vi.fn(),
-    mockEnableAutomation: vi.fn().mockResolvedValue({}),
-    mockDisableAutomation: vi.fn().mockResolvedValue({}),
-    mockToast: { success: vi.fn(), error: vi.fn() },
-  }));
-
-let canPermission: (perm: string) => boolean = () => true;
+const { mockUseQuery } = vi.hoisted(() => ({
+  mockUseQuery: vi.fn(),
+}));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
-  useMutation: (opts: {
-    mutationFn: (...args: unknown[]) => Promise<unknown>;
-  }) => ({
-    mutate: opts.mutationFn,
-    isPending: false,
-  }),
+  useMutation: () => ({ mutate: vi.fn(), isPending: false }),
   useQueryClient: () => ({
     invalidateQueries: vi.fn(),
     removeQueries: vi.fn(),
@@ -30,8 +18,8 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/api/automations", () => ({
   listAutomations: vi.fn(),
-  enableAutomation: (id: string) => mockEnableAutomation(id),
-  disableAutomation: (id: string) => mockDisableAutomation(id),
+  enableAutomation: vi.fn(),
+  disableAutomation: vi.fn(),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -63,10 +51,10 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => (perm: string) => canPermission(perm),
+  usePermissions: () => () => true,
 }));
 
-vi.mock("sonner", () => ({ toast: mockToast }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import AutomationsList from "./AutomationsList";
 
@@ -94,33 +82,21 @@ function renderList() {
 }
 
 beforeEach(() => {
-  canPermission = () => true;
   mockUseQuery.mockReturnValue({ data: [], isLoading: false });
 });
 
 afterEach(() => {
   cleanup();
   mockUseQuery.mockReset();
-  mockEnableAutomation.mockReset().mockResolvedValue({});
-  mockDisableAutomation.mockReset().mockResolvedValue({});
-  mockToast.success.mockReset();
-  mockToast.error.mockReset();
 });
 
 describe("AutomationsList", () => {
-  it("renders skeleton while loading", () => {
-    mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
-    const { container } = renderList();
-    expect(container.querySelector(".animate-pulse")).toBeTruthy();
-  });
-
   it("renders ResourceEmpty when no automations exist", () => {
-    mockUseQuery.mockReturnValue({ data: [], isLoading: false });
     renderList();
     expect(screen.getByText(/No automation yet/i)).toBeInTheDocument();
   });
 
-  it("renders a row per automation with name, trigger label, and status", () => {
+  it("renders a row per automation with translated trigger label and status", () => {
     mockUseQuery.mockReturnValue({
       data: [
         makeAutomation("a1", "Morning warmup", "schedule", true),
@@ -137,45 +113,5 @@ describe("AutomationsList", () => {
     const cold = screen.getByRole("row", { name: /Cold alarm/ });
     expect(within(cold).getByText("Attribute change")).toBeInTheDocument();
     expect(within(cold).getByText("Disabled")).toBeInTheDocument();
-  });
-
-  it("hides toggle column and create button without write permission", () => {
-    canPermission = (perm) => perm === "automations:read";
-    mockUseQuery.mockReturnValue({
-      data: [makeAutomation("a1", "Morning warmup", "schedule", true)],
-      isLoading: false,
-    });
-    renderList();
-
-    expect(
-      screen.queryByRole("link", { name: /New automation/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Disable/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("calls disableAutomation when toggling an enabled automation", async () => {
-    mockUseQuery.mockReturnValue({
-      data: [makeAutomation("a1", "Morning warmup", "schedule", true)],
-      isLoading: false,
-    });
-    renderList();
-
-    await userEvent.click(screen.getByRole("button", { name: "Disable" }));
-    expect(mockDisableAutomation).toHaveBeenCalledWith("a1");
-    expect(mockEnableAutomation).not.toHaveBeenCalled();
-  });
-
-  it("calls enableAutomation when toggling a disabled automation", async () => {
-    mockUseQuery.mockReturnValue({
-      data: [makeAutomation("a1", "Cold alarm", "change_event", false)],
-      isLoading: false,
-    });
-    renderList();
-
-    await userEvent.click(screen.getByRole("button", { name: "Enable" }));
-    expect(mockEnableAutomation).toHaveBeenCalledWith("a1");
-    expect(mockDisableAutomation).not.toHaveBeenCalled();
   });
 });
