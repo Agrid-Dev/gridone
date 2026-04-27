@@ -60,7 +60,9 @@ class AutomationsService:
     async def create(self, params: AutomationCreate) -> Automation:
         automation = Automation(
             id=uuid4().hex[:16],
+            title=params.title,
             name=params.name,
+            description=params.description,
             trigger=params.trigger,
             action_template_id=params.action_template_id,
             enabled=params.enabled,
