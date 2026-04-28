@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import AutomationForm from "./components/form/AutomationForm";
 
 const NewAutomationPage: FC = () => {
   const { t } = useTranslation("automations");
@@ -12,9 +13,7 @@ const NewAutomationPage: FC = () => {
         resourceNameLinksBack
         backTo="/automations"
       />
-      <div className="pt-10 text-sm text-muted-foreground">
-        {t("comingSoon")}
-      </div>
+      <AutomationForm />
     </>
   );
 };
