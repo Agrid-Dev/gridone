@@ -23,7 +23,8 @@
       "statusLabel": "Statut",
       "all": "Toutes",
       "unread": "Non lues",
-      "dismissed": "Ignorées"
+      "dismissed": "Lues"
     }
-  }
+  },
+  "bulkPartialFailure": "{{failed}} sur {{total}} n'ont pas pu être marquées comme lues"
 }

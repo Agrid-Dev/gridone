@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   dismissNotification,
   listNotifications,
@@ -9,6 +11,7 @@ import type { Page } from "@/api/pagination";
 
 export function useNotifications(filter?: NotificationsFilter) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation("notifications");
 
   const {
     data,
@@ -27,8 +30,14 @@ export function useNotifications(filter?: NotificationsFilter) {
   });
 
   async function dismissMany(ids: string[]) {
-    await Promise.allSettled(ids.map(dismissNotification));
+    const results = await Promise.allSettled(ids.map(dismissNotification));
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed > 0) {
+      toast.error(
+        t("notifications.bulkPartialFailure", { failed, total: ids.length }),
+      );
+    }
   }
 
   return {

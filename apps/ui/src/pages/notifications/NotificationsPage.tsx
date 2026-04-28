@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { ErrorBoundary } from "react-error-boundary";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -7,6 +9,30 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { useNotificationsPage } from "@/hooks/useNotificationsPage";
 import { NotificationsFilterBar } from "./NotificationsFilterBar";
 import { NotificationsTable } from "./NotificationsTable";
+
+function NotificationsLayout({
+  actions,
+  children,
+}: {
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation("notifications");
+  return (
+    <ErrorBoundary
+      fallback={<ErrorFallback title={t("notifications.unableToLoad")} />}
+    >
+      <section className="space-y-6">
+        <ResourceHeader
+          title={t("notifications.title")}
+          resourceName={t("notifications.subtitle")}
+          actions={actions}
+        />
+        {children}
+      </section>
+    </ErrorBoundary>
+  );
+}
 
 export default function NotificationsPage() {
   const { t } = useTranslation("notifications");
@@ -31,6 +57,13 @@ export default function NotificationsPage() {
     clearFilters,
   } = useNotificationsPage();
 
+  const bulkAction =
+    selected.size > 0 ? (
+      <Button size="sm" variant="outline" onClick={handleBulkDismiss}>
+        {t("notifications.markSelectedAsRead", { count: selected.size })}
+      </Button>
+    ) : null;
+
   const filterBar = (
     <NotificationsFilterBar
       severityParam={severityParam}
@@ -40,44 +73,26 @@ export default function NotificationsPage() {
     />
   );
 
-  const bulkAction =
-    selected.size > 0 ? (
-      <Button size="sm" variant="outline" onClick={handleBulkDismiss}>
-        {t("notifications.markSelectedAsRead", { count: selected.size })}
-      </Button>
-    ) : null;
-
-  const header = (
-    <ResourceHeader
-      title={t("notifications.title")}
-      resourceName={t("notifications.subtitle")}
-      actions={bulkAction}
-    />
-  );
-
   if (loading) {
     return (
-      <section className="space-y-6">
-        {header}
+      <NotificationsLayout>
         <Skeleton className="h-64 w-full rounded-lg" />
-      </section>
+      </NotificationsLayout>
     );
   }
 
   if (error) {
     return (
-      <section className="space-y-6">
-        {header}
+      <NotificationsLayout>
         <ErrorFallback title={t("notifications.unableToLoad")} />
-      </section>
+      </NotificationsLayout>
     );
   }
 
   if (!data || data.total === 0) {
     const isUnreadFilter = statusParam === "unread";
     return (
-      <section className="space-y-6">
-        {header}
+      <NotificationsLayout actions={bulkAction}>
         {filterBar}
         <ResourceEmpty
           resourceName={tc("common.notification")}
@@ -95,13 +110,12 @@ export default function NotificationsPage() {
               : t("notifications.emptyDescription")
           }
         />
-      </section>
+      </NotificationsLayout>
     );
   }
 
   return (
-    <section className="space-y-6">
-      {header}
+    <NotificationsLayout actions={bulkAction}>
       {filterBar}
       <NotificationsTable
         data={data}
@@ -113,6 +127,6 @@ export default function NotificationsPage() {
         prevHref={prevHref}
         nextHref={nextHref}
       />
-    </section>
+    </NotificationsLayout>
   );
 }

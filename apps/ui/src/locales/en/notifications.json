@@ -25,5 +25,6 @@
       "unread": "Unread",
       "dismissed": "Dismissed"
     }
-  }
+  },
+  "bulkPartialFailure": "{{failed}} of {{total}} could not be marked as read"
 }
