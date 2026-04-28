@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from assets.manager import AssetsManager
 from assets.models import Asset, AssetType
-from commands import CommandsServiceInterface, UnitCommand
+from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from models.errors import NotFoundError
 from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
@@ -153,26 +153,29 @@ def async_client(app):
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
+def _batch_dispatch(batch_id: str, device_ids: list[str]) -> BatchCommandDispatch:
     now = datetime(2026, 1, 1, tzinfo=UTC)
-    return [
-        UnitCommand(
-            id=i,
-            batch_id=batch_id,
-            template_id=None,
-            device_id=device_id,
-            attribute="setpoint",
-            value=21.5,
-            data_type=DataType.FLOAT,
-            status=CommandStatus.PENDING,
-            status_details=None,
-            user_id="test-user",
-            created_at=now,
-            executed_at=now,
-            completed_at=None,
-        )
-        for i, device_id in enumerate(device_ids, start=1)
-    ]
+    return BatchCommandDispatch(
+        batch_id=batch_id,
+        commands=[
+            UnitCommand(
+                id=i,
+                batch_id=batch_id,
+                template_id=None,
+                device_id=device_id,
+                attribute="setpoint",
+                value=21.5,
+                data_type=DataType.FLOAT,
+                status=CommandStatus.PENDING,
+                status_details=None,
+                user_id="test-user",
+                created_at=now,
+                executed_at=now,
+                completed_at=None,
+            )
+            for i, device_id in enumerate(device_ids, start=1)
+        ],
+    )
 
 
 class TestDispatchAssetCommand:
@@ -182,7 +185,7 @@ class TestDispatchAssetCommand:
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+        mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "group01", ["t-a"]
         )
         async with async_client as ac:
@@ -212,7 +215,7 @@ class TestDispatchAssetCommand:
             id=_CHILD_ASSET_ID, parent_id=_ASSET_ID, type=AssetType.FLOOR, name="Floor"
         )
         assets_manager.get_descendants.return_value = [child]
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+        mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "group01", ["t-a", "t-b"]
         )
         async with async_client as ac:

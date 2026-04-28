@@ -1,7 +1,7 @@
 from commands.interface import CommandsServiceInterface
 from commands.models import (
     AttributeWrite,
-    BatchCommand,
+    BatchCommandDispatch,
     CommandStatus,
     CommandTemplate,
     CommandTemplateCreate,
@@ -19,7 +19,7 @@ from commands.service import CommandsService
 
 __all__ = [
     "AttributeWrite",
-    "BatchCommand",
+    "BatchCommandDispatch",
     "CommandResultHandler",
     "CommandStatus",
     "CommandTemplate",

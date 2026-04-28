@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import CommandsServiceInterface, UnitCommand
+from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesManagerInterface
 from devices_manager.core.device import Attribute
@@ -511,26 +511,29 @@ class TestDispatchSingleCommand:
 # ---------------------------------------------------------------------------
 
 
-def _batch_commands(batch_id: str, device_ids: list[str]) -> list[UnitCommand]:
+def _batch_dispatch(batch_id: str, device_ids: list[str]) -> BatchCommandDispatch:
     now = datetime(2026, 1, 1, tzinfo=UTC)
-    return [
-        UnitCommand(
-            id=i,
-            batch_id=batch_id,
-            template_id=None,
-            device_id=device_id,
-            attribute="temperature_setpoint",
-            value=22.5,
-            data_type=DataType.FLOAT,
-            status=CommandStatus.PENDING,
-            status_details=None,
-            user_id="test-user",
-            created_at=now,
-            executed_at=now,
-            completed_at=None,
-        )
-        for i, device_id in enumerate(device_ids, start=1)
-    ]
+    return BatchCommandDispatch(
+        batch_id=batch_id,
+        commands=[
+            UnitCommand(
+                id=i,
+                batch_id=batch_id,
+                template_id=None,
+                device_id=device_id,
+                attribute="temperature_setpoint",
+                value=22.5,
+                data_type=DataType.FLOAT,
+                status=CommandStatus.PENDING,
+                status_details=None,
+                user_id="test-user",
+                created_at=now,
+                executed_at=now,
+                completed_at=None,
+            )
+            for i, device_id in enumerate(device_ids, start=1)
+        ],
+    )
 
 
 _TYPED_WRITABLE_DEVICE = Device(
@@ -556,7 +559,7 @@ class TestDispatchBatchCommand:
     async def test_ids_target_returns_202(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+        mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "abc123", ["device1", "device1"]
         )
         async with async_client as ac:
@@ -569,7 +572,10 @@ class TestDispatchBatchCommand:
                 },
             )
         assert response.status_code == 202
-        assert response.json() == {"batch_id": "abc123", "total": 2}
+        body = response.json()
+        assert body["batch_id"] == "abc123"
+        assert [c["device_id"] for c in body["commands"]] == ["device1", "device1"]
+        assert all(c["batch_id"] == "abc123" for c in body["commands"])
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         assert kwargs["target"] == {"ids": ["device1", "device1"]}
@@ -582,7 +588,7 @@ class TestDispatchBatchCommand:
     async def test_types_filter_target_returns_202(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+        mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "grp-t", ["thermo1"]
         )
         async with async_client as ac:
@@ -595,7 +601,9 @@ class TestDispatchBatchCommand:
                 },
             )
         assert response.status_code == 202
-        assert response.json() == {"batch_id": "grp-t", "total": 1}
+        body = response.json()
+        assert body["batch_id"] == "grp-t"
+        assert [c["device_id"] for c in body["commands"]] == ["thermo1"]
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         assert kwargs["target"] == {"types": ["thermostat"]}
@@ -608,7 +616,7 @@ class TestDispatchBatchCommand:
         # saved templates can round-trip it back to the UI. The translation
         # into a `tags["asset_id"]` filter happens inside the composition-root
         # resolver, not at the HTTP boundary.
-        mock_commands_service.dispatch_batch.return_value = _batch_commands(
+        mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "grp-a", ["thermo1"]
         )
         async with async_client as ac:
@@ -641,7 +649,9 @@ class TestDispatchBatchCommand:
     async def test_target_resolves_to_empty_returns_422(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch_batch.return_value = []
+        mock_commands_service.dispatch_batch.return_value = BatchCommandDispatch(
+            batch_id="abc123", commands=[]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/commands",

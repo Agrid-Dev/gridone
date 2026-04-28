@@ -29,10 +29,10 @@ classDiagram
         +string created_by
     }
 
-    class BatchCommand {
-        <<logical grouping>>
+    class BatchCommandDispatch {
+        <<dispatch result>>
         +string batch_id
-        +string? template_id
+        +list~UnitCommand~ commands
     }
 
     class UnitCommand {
@@ -52,15 +52,14 @@ classDiagram
 
     CommandTemplate "1" *-- "1" Target : filter
     CommandTemplate "1" *-- "1" AttributeWrite : payload
-    BatchCommand "1" --> "0..1" CommandTemplate : template_id
-    BatchCommand "1" *-- "N" UnitCommand : shared batch_id
+    BatchCommandDispatch "1" *-- "N" UnitCommand : commands
     UnitCommand "N" --> "0..1" CommandTemplate : template_id
 ```
 
 ### Unit, batch, template — who holds what
 
 - **`UnitCommand`** is the only thing that is actually executed. One row per `(device_id, attribute)` write, with a lifecycle: `PENDING → SUCCESS | ERROR`. The writer absorbs exceptions and records `status_details`; callers never need `try/except`.
-- **`BatchCommand`** is not a table. It is the set of `unit_commands` that share a `batch_id`. One dispatch = one `batch_id` stamped on N unit rows. A summary DTO (`BatchCommand.from_unit_commands`) rehydrates the idea when needed for API responses.
+- **`BatchCommandDispatch`** is not a table. It is the dispatch result envelope returned by `dispatch_batch` / `dispatch_from_template`: a generated `batch_id` and the unit commands it stamped. The `batch_id` is generated even on empty resolves so the attempt is observable; callers (HTTP, automations) branch on `commands` emptiness.
 - **`CommandTemplate`** is the reusable `(target, write)` description. Saved templates (with a `name`) are what automations and the UI point at. Ephemeral templates (`name IS NULL`) are auto-created for every ad-hoc batch dispatch so the target survives for audit.
 - **`Target`** is an opaque `Mapping[str, Any]` from this package's point of view. The composition-root `TargetResolver` interprets it (today by forwarding the keys to `DevicesManager.list_devices`) and returns the list of matched device ids at dispatch time.
 - **`AttributeWrite`** groups `(attribute, value, data_type)` so every dispatcher takes it as one object instead of three kwargs.

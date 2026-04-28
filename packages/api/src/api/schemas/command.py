@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from commands import UnitCommand
 from devices_manager.types import AttributeValueType
 from fastapi import Query
 from models.types import DataType, SortOrder
@@ -108,7 +109,12 @@ class AssetCommand(BaseModel):
 
 
 class BatchDispatchResponse(BaseModel):
-    """Response body for accepted multi-device dispatches."""
+    """Response body for accepted multi-device dispatches.
+
+    Mirrors :class:`commands.BatchCommandDispatch`: the shared ``batch_id``
+    and the PENDING unit commands the dispatch fanned out to. Clients can
+    poll the commands history by ``batch_id`` to follow status changes.
+    """
 
     batch_id: str
-    total: int
+    commands: list[UnitCommand]

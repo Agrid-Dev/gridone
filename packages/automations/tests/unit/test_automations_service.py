@@ -48,10 +48,14 @@ def _make_service(
     """Create a service with storage injected directly — no need to call start()."""
     if providers is None:
         providers = [_make_provider("schedule"), _make_provider("change_event")]
+    # Default to a string-returning dispatcher so tests that don't care
+    # about the output_id still satisfy ``ActionDispatcher`` (typed as
+    # ``Awaitable[str]``); a bare ``AsyncMock()`` would feed a mock object
+    # into ``AutomationExecution.output_id``.
     svc = AutomationsService(
         storage_url="postgresql://test",
         trigger_providers=providers,
-        action_dispatcher=action_dispatcher or AsyncMock(),
+        action_dispatcher=action_dispatcher or AsyncMock(return_value="output-test"),
     )
     svc._storage = storage or _make_storage()
     return svc
@@ -404,7 +408,7 @@ _CTX = TriggerContext(timestamp=datetime(2024, 1, 1, tzinfo=UTC))
 
 class TestOnFire:
     async def test_calls_action_dispatcher_with_template_id(self):
-        action_dispatcher = AsyncMock()
+        action_dispatcher = AsyncMock(return_value="output-test")
         svc = _make_service(action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
@@ -416,7 +420,7 @@ class TestOnFire:
 
     async def test_logs_success_execution(self):
         storage = _make_storage()
-        action_dispatcher = AsyncMock()
+        action_dispatcher = AsyncMock(return_value="output-test")
         svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
@@ -424,6 +428,20 @@ class TestOnFire:
         assert execution.automation_id == created.id
         assert execution.status == ExecutionStatus.SUCCESS
         assert execution.error is None
+
+    async def test_logs_dispatcher_output_id(self):
+        # The action dispatcher returns an opaque identifier; the execution
+        # log captures it as ``output_id`` so the run can be traced back to
+        # whatever artefact the dispatcher produced (e.g. a batch of unit
+        # commands, when wired against the commands service).
+        storage = _make_storage()
+        action_dispatcher = AsyncMock(return_value="output-abc123")
+        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        execution = storage.log_execution.call_args[0][0]
+        assert execution.status == ExecutionStatus.SUCCESS
+        assert execution.output_id == "output-abc123"
 
     async def test_logs_failed_execution_on_action_error(self):
         storage = _make_storage()

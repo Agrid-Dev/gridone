@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from commands.filters import CommandsQueryFilters
 from commands.models import (
+    BatchCommandDispatch,
     CommandStatus,
     CommandTemplate,
     CommandTemplateCreate,
@@ -184,7 +185,7 @@ class CommandsService:
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
-    ) -> list[UnitCommand]:
+    ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
         Always creates an ephemeral :class:`CommandTemplate` (``name=None``)
@@ -202,7 +203,7 @@ class CommandsService:
 
     async def dispatch_from_template(
         self, *, template_id: str, user_id: str, confirm: bool = True
-    ) -> list[UnitCommand]:
+    ) -> BatchCommandDispatch:
         """Resolve a saved template and fan-out the write across matched devices.
 
         Raises :class:`NotFoundError` if the template doesn't exist or is
@@ -216,21 +217,22 @@ class CommandsService:
 
     async def _dispatch_template(
         self, *, template: CommandTemplate, user_id: str, confirm: bool
-    ) -> list[UnitCommand]:
+    ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
         :meth:`dispatch_batch` (ephemeral path) and
         :meth:`dispatch_from_template` (saved-template path).
 
-        An empty resolve logs a warning and returns ``[]`` — no exception,
-        no PENDING rows created.
+        An empty resolve logs a warning and returns a dispatch with an empty
+        ``commands`` list — no exception, no PENDING rows created. The
+        ``batch_id`` is still generated so the dispatch attempt is observable.
         """
+        batch_id = uuid4().hex[:16]
         device_ids = await self._target_resolver.resolve(template.target)
         if not device_ids:
             logger.warning("dispatch: template %r resolved to no devices", template.id)
-            return []
+            return BatchCommandDispatch(batch_id=batch_id, commands=[])
 
-        batch_id = uuid4().hex[:16]
         now = datetime.now(UTC)
         commands = await self._storage.save_commands(
             [
@@ -258,7 +260,7 @@ class CommandsService:
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-        return commands
+        return BatchCommandDispatch(batch_id=batch_id, commands=commands)
 
     async def _execute_all(
         self,

@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Sequence
-    from typing import Any
 
     from automations.models import (
         Automation,
@@ -15,7 +14,9 @@ if TYPE_CHECKING:
     )
 
     OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
-    ActionDispatcher = Callable[..., Awaitable[Any]]
+    # Returns the opaque ``output_id`` recorded on ``AutomationExecution``
+    # — an identifier the dispatcher mints for this run.
+    ActionDispatcher = Callable[..., Awaitable[str]]
 
 
 class TriggerProvider(Protocol):

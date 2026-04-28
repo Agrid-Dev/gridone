@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
     from commands.models import (
         AttributeWrite,
+        BatchCommandDispatch,
         CommandTemplate,
         CommandTemplateCreate,
         Target,
@@ -37,7 +38,7 @@ class CommandsServiceInterface(Protocol):
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
-    ) -> list[UnitCommand]: ...
+    ) -> BatchCommandDispatch: ...
 
     async def dispatch_from_template(
         self,
@@ -45,7 +46,7 @@ class CommandsServiceInterface(Protocol):
         template_id: str,
         user_id: str,
         confirm: bool = True,
-    ) -> list[UnitCommand]: ...
+    ) -> BatchCommandDispatch: ...
 
     async def await_pending(self) -> None: ...
 

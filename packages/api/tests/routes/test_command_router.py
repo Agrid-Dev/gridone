@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 from commands import (
     AttributeWrite,
+    BatchCommandDispatch,
     CommandsServiceInterface,
     CommandStatus,
     CommandTemplate,
@@ -67,26 +68,29 @@ def _template(
     )
 
 
-def _batch(template_id: str, device_ids: list[str]) -> list[UnitCommand]:
+def _batch(template_id: str, device_ids: list[str]) -> BatchCommandDispatch:
     now = datetime(2026, 1, 1, tzinfo=UTC)
-    return [
-        UnitCommand(
-            id=i,
-            batch_id="batch00000000001",
-            template_id=template_id,
-            device_id=device_id,
-            attribute="mode",
-            value="auto",
-            data_type=DataType.STRING,
-            status=CommandStatus.PENDING,
-            status_details=None,
-            user_id="test-user",
-            created_at=now,
-            executed_at=now,
-            completed_at=None,
-        )
-        for i, device_id in enumerate(device_ids, start=1)
-    ]
+    return BatchCommandDispatch(
+        batch_id="batch00000000001",
+        commands=[
+            UnitCommand(
+                id=i,
+                batch_id="batch00000000001",
+                template_id=template_id,
+                device_id=device_id,
+                attribute="mode",
+                value="auto",
+                data_type=DataType.STRING,
+                status=CommandStatus.PENDING,
+                status_details=None,
+                user_id="test-user",
+                created_at=now,
+                executed_at=now,
+                completed_at=None,
+            )
+            for i, device_id in enumerate(device_ids, start=1)
+        ],
+    )
 
 
 class TestCreateTemplate:
@@ -264,7 +268,9 @@ class TestDispatchTemplate:
         async with async_client as ac:
             response = await ac.post("/commands/templates/abc1234567890def/dispatch")
         assert response.status_code == 202
-        assert response.json() == {"batch_id": "batch00000000001", "total": 2}
+        body = response.json()
+        assert body["batch_id"] == "batch00000000001"
+        assert [c["device_id"] for c in body["commands"]] == ["d1", "d2"]
 
         kwargs = mock_commands_service.dispatch_from_template.call_args.kwargs
         assert kwargs["template_id"] == "abc1234567890def"
@@ -275,7 +281,9 @@ class TestDispatchTemplate:
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_from_template.return_value = []
+        mock_commands_service.dispatch_from_template.return_value = (
+            BatchCommandDispatch(batch_id="abc1234567890def", commands=[])
+        )
         async with async_client as ac:
             response = await ac.post("/commands/templates/abc1234567890def/dispatch")
         assert response.status_code == 422

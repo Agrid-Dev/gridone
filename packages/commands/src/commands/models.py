@@ -86,39 +86,16 @@ class UnitCommand(UnitCommandCreate):
 
 
 @dataclass
-class BatchCommand:
-    """Summary of a batch dispatch — one write fanned out across many devices.
+class BatchCommandDispatch:
+    """Result of a batch dispatch: the shared ``batch_id`` and the unit
+    commands it stamped.
 
-    Derived from the unit commands produced by ``dispatch_batch``. The target
-    lives on the linked :class:`CommandTemplate`; this DTO only surfaces the
-    fields every caller in this package needs today.
+    Returned by :meth:`CommandsService.dispatch_batch` and
+    :meth:`CommandsService.dispatch_from_template`. ``commands`` is empty
+    when the target resolved to no devices; callers (HTTP, automations)
+    branch on emptiness — the ``batch_id`` is still generated so the
+    dispatch attempt is observable.
     """
 
     batch_id: str
-    template_id: str | None
-    attribute: str
-    value: AttributeValueType
-    data_type: DataType
-    device_ids: list[str]
-    created_at: datetime
-    created_by: str
-
-    @classmethod
-    def from_unit_commands(cls, commands: list[UnitCommand]) -> BatchCommand:
-        if not commands:
-            msg = "cannot build BatchCommand from empty command list"
-            raise ValueError(msg)
-        first = commands[0]
-        if first.batch_id is None:
-            msg = "unit commands must carry a batch_id"
-            raise ValueError(msg)
-        return cls(
-            batch_id=first.batch_id,
-            template_id=first.template_id,
-            attribute=first.attribute,
-            value=first.value,
-            data_type=first.data_type,
-            device_ids=[c.device_id for c in commands],
-            created_at=first.created_at,
-            created_by=first.user_id,
-        )
+    commands: list[UnitCommand]

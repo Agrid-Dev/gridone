@@ -27,7 +27,7 @@ export type AssetCommandPayload = {
 
 export type BatchDispatchResponse = {
   batchId: string;
-  total: number;
+  commands: DeviceCommand[];
 };
 
 export type CommandStatus = "pending" | "success" | "error";

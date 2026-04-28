@@ -23,7 +23,6 @@ from api.dependencies import (
 from api.permissions import Permission
 from api.routes._command_helpers import (
     resolve_attribute_data_type_for_target,
-    to_batch_dispatch_response,
 )
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 
@@ -194,7 +193,7 @@ async def dispatch_asset_command(
         "types": [body.device_type],
     }
     data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
-    commands = await commands_svc.dispatch_batch(
+    dispatch = await commands_svc.dispatch_batch(
         target=target,
         write=AttributeWrite(
             attribute=body.attribute, value=body.value, data_type=data_type
@@ -202,7 +201,7 @@ async def dispatch_asset_command(
         user_id=user_id,
         confirm=body.confirm,
     )
-    if not commands:
+    if not dispatch.commands:
         msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
         raise NotFoundError(msg)
-    return to_batch_dispatch_response(commands)
+    return BatchDispatchResponse(batch_id=dispatch.batch_id, commands=dispatch.commands)
