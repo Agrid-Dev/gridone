@@ -5,13 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronDown,
-  Clock,
   ExternalLink,
   History,
   Terminal,
-  TrendingUp,
-  Zap,
-  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,11 +36,7 @@ import { AutomationStatusBadge } from "./components/AutomationStatusBadge";
 import { ExecutionStatusBadge } from "./components/ExecutionStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import { useAutomation } from "./useAutomation";
-
-const TRIGGER_ICONS: Record<string, LucideIcon> = {
-  schedule: Clock,
-  change_event: TrendingUp,
-};
+import BasePresenter from "./presenters/BasePresenter";
 
 export default function AutomationDetail() {
   const { t } = useTranslation("automations");
@@ -70,10 +62,6 @@ export default function AutomationDetail() {
       </section>
     );
   }
-
-  const triggerSubtype = t(`triggers.${automation.trigger.type}`, {
-    defaultValue: automation.trigger.type,
-  });
 
   return (
     <section className="space-y-8">
@@ -105,22 +93,16 @@ export default function AutomationDetail() {
       </div>
 
       <div className="space-y-3">
-        <FlowCard
-          icon={TRIGGER_ICONS[automation.trigger.type] ?? Zap}
-          type={t("flow.trigger")}
-          subtype={triggerSubtype}
-        >
+        <FlowCard type={t("flow.trigger")}>
           <TriggerPresenter trigger={automation.trigger} />
         </FlowCard>
 
         <FlowConnector />
 
-        <FlowCard
-          icon={Terminal}
-          type={t("flow.action")}
-          subtype={t("flow.actionType.command")}
-        >
-          <ActionContent templateId={automation.actionTemplateId} />
+        <FlowCard type={t("flow.action")}>
+          <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
+            <ActionContent templateId={automation.actionTemplateId} />
+          </BasePresenter>
         </FlowCard>
       </div>
 
@@ -140,14 +122,11 @@ export default function AutomationDetail() {
 }
 
 function FlowCard({
-  icon: Icon,
-  type,
-  subtype,
   children,
+  type,
 }: {
-  icon: LucideIcon;
   type: string;
-  subtype: string;
+
   children: ReactNode;
 }) {
   return (
@@ -156,16 +135,7 @@ function FlowCard({
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground/80">
           {type}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Icon className="h-3.5 w-3.5" />
-          </span>
-
-          <span className="text-sm font-semibold text-foreground/90">
-            {subtype}
-          </span>
-        </div>
-        <div className="pl-4 border-l-2 border-l-primary">{children}</div>
+        {children}
       </CardContent>
     </Card>
   );

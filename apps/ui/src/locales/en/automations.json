@@ -20,8 +20,11 @@
     "status": "Status"
   },
   "triggers": {
-    "schedule": "Schedule",
-    "change_event": "Attribute change",
+    "types": {
+      "schedule": "Schedule",
+      "change_event": "Attribute change",
+      "unknown": "Unknown trigger"
+    },
     "cron": "Cron expression",
     "device": "Device",
     "attribute": "Attribute",

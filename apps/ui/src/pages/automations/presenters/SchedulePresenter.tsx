@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
+import { Clock } from "lucide-react";
 import type { Trigger } from "@/api/automations";
+import type { TriggerDescriptor } from "./types";
 
-export function SchedulePresenter({ trigger }: { trigger: Trigger }) {
+export const SchedulePresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t } = useTranslation("automations");
   const cron = typeof trigger.cron === "string" ? trigger.cron : "";
   return (
@@ -14,4 +16,9 @@ export function SchedulePresenter({ trigger }: { trigger: Trigger }) {
       </div>
     </dl>
   );
-}
+};
+
+export const scheduleTriggerDescriptor: TriggerDescriptor = {
+  icon: Clock,
+  Presenter: SchedulePresenter,
+};

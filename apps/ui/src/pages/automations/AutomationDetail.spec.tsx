@@ -85,7 +85,7 @@ vi.mock("react-i18next", () => ({
         "executions.empty": "No executions yet",
         "executions.status.success": "Success",
         "executions.status.failed": "Failed",
-        "triggers.schedule": "Schedule",
+        "triggers.types.schedule": "Schedule",
         "deleteConfirm.title": "Delete automation",
         enabledBadge: "Enabled",
         disabledBadge: "Disabled",
@@ -199,7 +199,9 @@ describe("AutomationDetail", () => {
 
     expect(screen.getByText("Trigger")).toBeInTheDocument();
     expect(screen.getByText("Action")).toBeInTheDocument();
-    expect(screen.getByText("Schedule")).toBeInTheDocument();
+    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
+      "type=schedule",
+    );
     expect(screen.getByText("Command")).toBeInTheDocument();
 
     const templateLink = screen.getByRole("link", { name: /Boost/ });

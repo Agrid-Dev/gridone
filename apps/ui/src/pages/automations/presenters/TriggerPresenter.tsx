@@ -1,26 +1,29 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Trigger } from "@/api/automations";
-import { SchedulePresenter } from "./SchedulePresenter";
-import { ChangeEventPresenter } from "./ChangeEventPresenter";
+import { scheduleTriggerDescriptor } from "./SchedulePresenter";
+import { changeEventTriggerDescriptor } from "./ChangeEventPresenter";
+import { unknownTriggerDescriptor } from "./UnknownPresenter";
+import type { TriggerDescriptor } from "./types";
+import BasePresenter from "./BasePresenter";
 
-const TRIGGER_PROVIDER_PRESENTERS: Record<
-  string,
-  (props: { trigger: Trigger }) => ReactNode
-> = {
-  schedule: SchedulePresenter,
-  change_event: ChangeEventPresenter,
+const TRIGGER_PROVIDER_DESCRIPTORS: Record<string, TriggerDescriptor> = {
+  schedule: scheduleTriggerDescriptor,
+  change_event: changeEventTriggerDescriptor,
 };
 
 export function TriggerPresenter({ trigger }: { trigger: Trigger }) {
   const { t } = useTranslation("automations");
-  const Presenter = TRIGGER_PROVIDER_PRESENTERS[trigger.type];
-  if (!Presenter) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {t(`triggers.${trigger.type}`, { defaultValue: trigger.type })}
-      </p>
-    );
-  }
-  return <Presenter trigger={trigger} />;
+  const descriptor =
+    TRIGGER_PROVIDER_DESCRIPTORS[trigger.type] ?? unknownTriggerDescriptor;
+
+  return (
+    <BasePresenter
+      title={t(`triggers.types.${trigger.type}`, {
+        defaultValue: trigger.type,
+      })}
+      icon={descriptor.icon}
+    >
+      <descriptor.Presenter trigger={trigger} />
+    </BasePresenter>
+  );
 }

@@ -20,8 +20,11 @@
     "status": "Statut"
   },
   "triggers": {
-    "schedule": "Horaire",
-    "change_event": "Changement d'attribut",
+    "types": {
+      "schedule": "Horaire",
+      "change_event": "Changement d'attribut",
+      "unknown": "Déclencheur inconnu"
+    },
     "cron": "Expression cron",
     "device": "Appareil",
     "attribute": "Attribut",
