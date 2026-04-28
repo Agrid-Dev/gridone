@@ -36,7 +36,6 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.DRIVERS_WRITE,
         Permission.TIMESERIES_READ,
         Permission.AUTOMATIONS_READ,
-        Permission.NOTIFICATIONS_WRITE,
     },
     Role.VIEWER: {
         Permission.USERS_READ_BASIC,

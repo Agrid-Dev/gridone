@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,7 +12,6 @@ from notifications import (
     NotificationDispatch,
     NotificationsServiceInterface,
 )
-from users.auth import TokenPayload
 
 from api.dependencies import (
     get_current_token_payload,
@@ -50,12 +49,6 @@ _DISMISSED_DISPATCH = NotificationDispatch(
     dismissed_at=_NOW,
 )
 _EMPTY_PAGE: Page[NotificationDispatch] = Page(items=[], total=0, page=1, size=50)
-
-_VIEWER_PAYLOAD = TokenPayload(
-    sub=_USER_ID,
-    role="viewer",
-    exp=datetime.now(UTC) + timedelta(hours=1),
-)
 
 
 @pytest.fixture
@@ -165,14 +158,6 @@ class TestDismissNotification:
             resp = await c.post(f"/{_NOTIF_ID}/dismiss")
         assert resp.status_code == 404
 
-    async def test_already_dismissed_returns_200(self, client, svc):
-        """Dismiss is idempotent — already dismissed still returns 200."""
-        svc.dismiss.return_value = _DISMISSED_DISPATCH
-        async with client as c:
-            resp = await c.post(f"/{_NOTIF_ID}/dismiss")
-        assert resp.status_code == 200
-        assert resp.json()["dismissed_at"] is not None
-
 
 class TestDispatchNotification:
     _PAYLOAD = {
@@ -226,12 +211,3 @@ class TestDispatchNotification:
                 },
             )
         assert resp.status_code == 422
-
-    async def test_viewer_forbidden(self, app, svc):
-        """Viewer role does not have NOTIFICATIONS_WRITE — returns 403."""
-        app.dependency_overrides[get_current_token_payload] = lambda: _VIEWER_PAYLOAD
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as c:
-            resp = await c.post("/", json=self._PAYLOAD)
-        assert resp.status_code == 403

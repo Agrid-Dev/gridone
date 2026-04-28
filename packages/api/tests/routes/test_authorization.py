@@ -748,10 +748,10 @@ NOTIFICATIONS_ACCESS_CONTROL_SCENARIOS = [
     pytest.param(
         "POST", f"/notifications/{_NOTIF_ID}/dismiss", None, 401, id="dismiss-no-auth"
     ),
-    # Dispatch — requires NOTIFICATIONS_WRITE; viewer is forbidden, no-auth is 401
+    # Dispatch — requires NOTIFICATIONS_WRITE; admin-only for now (deferred endpoint)
     pytest.param("POST", "/notifications/", "viewer", 403, id="dispatch-viewer"),
     pytest.param("POST", "/notifications/", None, 401, id="dispatch-no-auth"),
-    pytest.param("POST", "/notifications/", "operator", 201, id="dispatch-operator"),
+    pytest.param("POST", "/notifications/", "operator", 403, id="dispatch-operator"),
 ]
 
 _DISPATCH_BODY = {
