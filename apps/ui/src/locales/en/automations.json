@@ -25,6 +25,8 @@
       "change_event": "Attribute change",
       "unknown": "Unknown trigger"
     },
+    "type": "Trigger type",
+
     "cron": "Cron expression",
     "device": "Device",
     "attribute": "Attribute",
@@ -62,7 +64,8 @@
     "delete": "Delete",
     "enable": "Enable",
     "disable": "Disable",
-    "rowMenu": "Actions"
+    "rowMenu": "Actions",
+    "pickTemplate": "Pick a command template"
   },
   "toasts": {
     "created": "Automation created",

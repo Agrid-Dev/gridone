@@ -92,6 +92,7 @@
     "allUsers": "Tous les utilisateurs",
     "allTemplates": "Tous les modèles",
     "template": "Modèle",
+    "pickATemplate": "Choisir un modèle",
     "batch": "Lot",
     "clearBatch": "Effacer le filtre de lot",
     "newCommand": "Nouvelle commande",

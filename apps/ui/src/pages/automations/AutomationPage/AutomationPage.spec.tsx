@@ -33,6 +33,7 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/api/automations", () => ({
   getAutomation: vi.fn(),
   listExecutions: vi.fn(),
+  listTriggerSchemas: vi.fn(),
   enableAutomation: vi.fn(),
   disableAutomation: vi.fn(),
   deleteAutomation: () => mockDeleteAutomation(),
@@ -110,7 +111,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import AutomationDetail from "./AutomationDetail";
+import AutomationPage from "./AutomationPage";
 
 const automation: Automation = {
   id: "a1",
@@ -164,10 +165,7 @@ function renderDetail() {
   return render(
     <MemoryRouter initialEntries={["/automations/a1"]}>
       <Routes>
-        <Route
-          path="/automations/:automationId"
-          element={<AutomationDetail />}
-        />
+        <Route path="/automations/:automationId" element={<AutomationPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -184,7 +182,7 @@ afterEach(() => {
   mockNavigate.mockReset();
 });
 
-describe("AutomationDetail", () => {
+describe("AutomationPage", () => {
   it("renders header, trigger card, action card with template name first, and execution row linking to the batch", () => {
     setQueryResults([execution]);
     renderDetail();
