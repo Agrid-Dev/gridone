@@ -1,3 +1,9 @@
+## v0.61.1 (2026-04-28)
+
+### Refactor
+
+- **automations**: return trigger schemas as dict keyed by provider id
+
 ## v0.61.0 (2026-04-28)
 
 ### Feat
