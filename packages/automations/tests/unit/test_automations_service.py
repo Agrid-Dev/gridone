@@ -126,10 +126,10 @@ class TestCRUD:
         p2 = _make_provider("change_event")
         p2.trigger_schema = {"title": "Change Event"}
         svc = _make_service(providers=[p1, p2])
-        schemas = svc.list_trigger_schemas()
-        assert len(schemas) == 2
-        assert {"title": "Schedule"} in schemas
-        assert {"title": "Change Event"} in schemas
+        assert svc.list_trigger_schemas() == {
+            "schedule": {"title": "Schedule"},
+            "change_event": {"title": "Change Event"},
+        }
 
 
 class TestStart:

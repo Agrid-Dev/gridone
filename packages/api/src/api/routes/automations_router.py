@@ -23,8 +23,8 @@ router = APIRouter()
 )
 async def list_trigger_schemas(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
-) -> list[dict]:
-    return list(svc.list_trigger_schemas())
+) -> dict[str, dict]:
+    return svc.list_trigger_schemas()
 
 
 @router.get(
