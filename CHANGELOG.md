@@ -1,3 +1,18 @@
+## v0.60.0 (2026-04-28)
+
+### Feat
+
+- **ui**: provider-specific icons on automation trigger card
+- **ui**: refine automation detail flow and executions
+- **ui**: rework automation detail as a trigger -> action flow
+- **ui**: row dropdown menu and description on automations list
+- **ui**: automation detail with executions and delete
+- **ui**: automations list view with enable/disable toggle
+
+### Refactor
+
+- **ui**: extract useAutomation hook, rename TRIGGER_PROVIDER_PRESENTERS
+
 ## v0.59.1 (2026-04-28)
 
 ### Fix
