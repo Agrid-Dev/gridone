@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { SeverityChip } from "@/components/SeverityChip";
-import { formatTimeAgo } from "@/lib/utils";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import type { NotificationDispatch } from "@/api/notifications";
-import { cn } from "@/lib/utils";
 
 type NotificationRowProps = {
   dispatch: NotificationDispatch;
@@ -23,12 +22,25 @@ export function NotificationRow({
   const { t } = useTranslation("notifications");
   const { t: tc } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [isTruncated, setIsTruncated] = useState(true);
+  const bodyRef = useRef<HTMLParagraphElement>(null);
   const isDismissed = dispatch.dismissedAt !== null;
   const notifId = dispatch.notification.id;
 
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el) {
+      // In jsdom scrollHeight is 0; treat that as truncated to keep toggle visible
+      setIsTruncated(
+        el.scrollHeight === 0 || el.scrollHeight > el.clientHeight,
+      );
+    }
+  }, []);
+
+  const tc_ = tc as (key: string, options?: unknown) => string;
   const receivedAgo = formatTimeAgo(
     new Date(dispatch.dispatchedAt).getTime(),
-    tc as (key: string, options?: unknown) => string,
+    tc_,
   );
 
   return (
@@ -49,6 +61,7 @@ export function NotificationRow({
             {dispatch.notification.title}
           </p>
           <p
+            ref={bodyRef}
             className={cn(
               "text-sm text-muted-foreground",
               !expanded && "line-clamp-2",
@@ -56,40 +69,36 @@ export function NotificationRow({
           >
             {dispatch.notification.body}
           </p>
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-primary hover:underline"
-          >
-            {expanded
-              ? t("notifications.showLess")
-              : t("notifications.showMore")}
-          </button>
+          {isTruncated && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs text-primary hover:underline"
+            >
+              {expanded
+                ? t("notifications.showLess")
+                : t("notifications.showMore")}
+            </button>
+          )}
         </div>
       </TableCell>
       <TableCell>
         <SeverityChip severity={dispatch.notification.severity} />
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
         {receivedAgo}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
         {isDismissed && dispatch.dismissedAt
-          ? formatTimeAgo(
-              new Date(dispatch.dismissedAt).getTime(),
-              tc as (key: string, options?: unknown) => string,
-            )
+          ? formatTimeAgo(new Date(dispatch.dismissedAt).getTime(), tc_)
           : "—"}
       </TableCell>
       <TableCell className="w-24 text-right">
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={isDismissed}
-          onClick={() => onDismiss(notifId)}
-        >
-          {t("notifications.dismiss")}
-        </Button>
+        {!isDismissed && (
+          <Button variant="ghost" size="sm" onClick={() => onDismiss(notifId)}>
+            {t("notifications.markAsRead")}
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );
