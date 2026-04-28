@@ -99,8 +99,8 @@ class CoreDevice(ABC):
         attribute: Attribute,
         new_value: AttributeValueType | None,
     ) -> None:
-        attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
-        if self.on_update:
+        changed = attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
+        if changed and self.on_update:
             self.on_update(self, attribute.name, attribute)
 
     @abstractmethod

@@ -327,6 +327,49 @@ class TestDevicesListeners:
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["humidity"].current_value == 65.0
 
+    @pytest.mark.asyncio
+    async def test_on_update_fires_only_on_value_change_pull(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        """Regression AGR-534: callback must fire only when value changes."""
+        calls: list[tuple[str, object]] = []
+        device.on_update = lambda _d, name, attr: calls.append(
+            (name, attr.current_value)
+        )
+
+        mock_transport_client.read = AsyncMock(return_value=25.5)
+        await device.read_attribute_value("temperature")
+        await device.read_attribute_value("temperature")
+        mock_transport_client.read = AsyncMock(return_value=26.0)
+        await device.read_attribute_value("temperature")
+
+        assert calls == [("temperature", 25.5), ("temperature", 26.0)]
+
+    @pytest.mark.asyncio
+    async def test_on_update_fires_only_on_value_change_push(
+        self,
+        device_w_push_transport: PhysicalDevice,
+        mock_push_transport_client,
+    ):
+        """Regression AGR-534: push listener must fire callback only on changes."""
+        calls: list[tuple[str, object]] = []
+        device_w_push_transport.on_update = lambda _d, name, attr: calls.append(
+            (name, attr.current_value)
+        )
+        await device_w_push_transport.init_listeners()
+
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25}}
+        )
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25}}
+        )
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 26}}
+        )
+
+        assert calls == [("temperature", 25), ("temperature", 26)]
+
 
 class TestCoreDeviceCanWrite:
     def test_writable_attribute_returns_true(self, device: PhysicalDevice):
