@@ -610,7 +610,7 @@ def _build_automations_mock() -> AsyncMock:
     svc = AsyncMock()
     svc.list.return_value = []
     svc.list_executions.return_value = []
-    svc.list_trigger_schemas = MagicMock(return_value=[])
+    svc.list_trigger_schemas = MagicMock(return_value={})
     return svc
 
 

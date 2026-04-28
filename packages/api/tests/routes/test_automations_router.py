@@ -45,7 +45,7 @@ _EXECUTION = AutomationExecution(
 @pytest.fixture
 def svc() -> AsyncMock:
     mock = AsyncMock(spec=AutomationsServiceInterface)
-    mock.list_trigger_schemas = MagicMock(return_value=[])
+    mock.list_trigger_schemas = MagicMock(return_value={})
     return mock
 
 
@@ -197,15 +197,15 @@ class TestListExecutions:
 
 class TestListTriggerSchemas:
     async def test_returns_schemas(self, client, svc):
-        svc.list_trigger_schemas.return_value = [{"title": "Schedule"}]
+        svc.list_trigger_schemas.return_value = {"schedule": {"title": "Schedule"}}
         async with client as c:
             resp = await c.get("/triggers")
         assert resp.status_code == 200
-        assert resp.json() == [{"title": "Schedule"}]
+        assert resp.json() == {"schedule": {"title": "Schedule"}}
 
     async def test_not_shadowed_by_id_route(self, client, svc):
         """Ensure /triggers is not captured as /{automation_id}."""
-        svc.list_trigger_schemas.return_value = []
+        svc.list_trigger_schemas.return_value = {}
         async with client as c:
             resp = await c.get("/triggers")
         assert resp.status_code == 200

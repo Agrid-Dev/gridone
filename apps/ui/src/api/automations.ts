@@ -36,8 +36,8 @@ export type AutomationExecution = {
 
 export type TriggerSchema = Record<string, unknown>;
 
-export function listTriggerSchemas(): Promise<TriggerSchema[]> {
-  return request<TriggerSchema[]>("/automations/triggers");
+export function listTriggerSchemas(): Promise<Record<string, TriggerSchema>> {
+  return request<Record<string, TriggerSchema>>("/automations/triggers");
 }
 
 export function listAutomations(enabled?: boolean): Promise<Automation[]> {

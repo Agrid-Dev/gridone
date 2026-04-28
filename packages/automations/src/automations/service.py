@@ -141,8 +141,8 @@ class AutomationsService:
     ) -> Sequence[AutomationExecution]:
         return await self._storage.list_executions(automation_id)
 
-    def list_trigger_schemas(self) -> Sequence[dict]:
-        return [p.trigger_schema for p in self._providers.values()]
+    def list_trigger_schemas(self) -> dict[str, dict]:
+        return {p.id: p.trigger_schema for p in self._providers.values()}
 
     async def close(self) -> None:
         for automation_id in list(self._handles):
