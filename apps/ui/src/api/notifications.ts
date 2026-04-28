@@ -1,8 +1,6 @@
-import { type Severity } from "./devices";
+import type { Severity } from "./severity";
 import { request } from "./request";
 import type { Page } from "./pagination";
-
-export type { Severity };
 
 export type Notification = {
   id: string;

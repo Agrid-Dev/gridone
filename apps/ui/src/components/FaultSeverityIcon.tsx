@@ -1,6 +1,6 @@
 import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Severity } from "@/api/devices";
+import type { Severity } from "@/api/severity";
 import { cn } from "@/lib/utils";
 
 const SEVERITY_ICON_CLASSES: Record<Severity, string> = {

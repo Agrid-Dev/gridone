@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import type { Severity } from "@/api/devices";
+import type { Severity } from "@/api/severity";
 import { cn } from "@/lib/utils";
 
 export type { Severity };

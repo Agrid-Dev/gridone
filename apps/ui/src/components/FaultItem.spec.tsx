@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { FaultItem } from "./FaultItem";
-import type { FaultAttribute, Severity } from "@/api/devices";
+import type { FaultAttribute } from "@/api/devices";
+import type { Severity } from "@/api/severity";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
