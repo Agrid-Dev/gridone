@@ -1,3 +1,13 @@
+## v0.59.1 (2026-04-28)
+
+### Fix
+
+- attribute callbacks on change rather than on update
+
+### Refactor
+
+- separate attribute update listener policy
+
 ## v0.59.0 (2026-04-27)
 
 ### Feat
