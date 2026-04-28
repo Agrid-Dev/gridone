@@ -1,3 +1,9 @@
+## v0.61.0 (2026-04-28)
+
+### Feat
+
+- **commands**: return BatchCommandDispatch and capture output_id in automations
+
 ## v0.60.0 (2026-04-28)
 
 ### Feat
