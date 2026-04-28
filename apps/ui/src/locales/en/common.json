@@ -83,6 +83,7 @@
     "driver": "Driver",
     "device": "Device",
     "fault": "Fault",
+    "notification": "notification",
     "transport": "Transport",
     "type": "Type",
     "unknown": "Unknown",
@@ -108,14 +109,14 @@
     "timeAgo": {
       "future": "In the future",
       "justNow": "just now",
-      "seconds_one": "{{count}} second",
-      "seconds_other": "{{count}} seconds",
-      "minutes_one": "{{count}} minute",
-      "minutes_other": "{{count}} minutes",
-      "hours_one": "{{count}} hour",
-      "hours_other": "{{count}} hours",
-      "days_one": "{{count}} day",
-      "days_other": "{{count}} days"
+      "seconds_one": "{{count}} second ago",
+      "seconds_other": "{{count}} seconds ago",
+      "minutes_one": "{{count}} minute ago",
+      "minutes_other": "{{count}} minutes ago",
+      "hours_one": "{{count}} hour ago",
+      "hours_other": "{{count}} hours ago",
+      "days_one": "{{count}} day ago",
+      "days_other": "{{count}} days ago"
     },
     "severity": {
       "alert": "alert",
@@ -152,6 +153,7 @@
     "apps": "Apps",
     "automations": "Automations",
     "faults": "Faults",
-    "users": "Users"
+    "users": "Users",
+    "notifications": "Notifications"
   }
 }

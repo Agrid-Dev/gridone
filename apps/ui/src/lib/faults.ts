@@ -1,9 +1,5 @@
-import type {
-  Device,
-  DeviceAttribute,
-  FaultAttribute,
-  Severity,
-} from "@/api/devices";
+import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
+import type { Severity } from "@/api/severity";
 
 const SEVERITY_RANK: Record<Severity, number> = {
   alert: 0,

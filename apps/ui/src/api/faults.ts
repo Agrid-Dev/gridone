@@ -1,4 +1,5 @@
-import type { DeviceAttribute, Severity } from "./devices";
+import type { DeviceAttribute } from "./devices";
+import type { Severity } from "./severity";
 import { request } from "./request";
 
 export type FaultView = {

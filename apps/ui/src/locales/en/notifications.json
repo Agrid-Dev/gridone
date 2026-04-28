@@ -1,0 +1,30 @@
+{
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Inbox",
+    "unableToLoad": "Unable to load notifications",
+    "markAsRead": "Mark as read",
+    "markSelectedAsRead": "Mark as read ({{count}})",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "emptyTitle": "No notifications",
+    "emptyDescription": "You have no notifications yet.",
+    "emptyUnreadTitle": "All caught up",
+    "emptyUnreadDescription": "No unread notifications.",
+    "columns": {
+      "title": "Title",
+      "severity": "Severity",
+      "dispatchedAt": "Received",
+      "readAt": "Read at",
+      "actions": ""
+    },
+    "filter": {
+      "severityLabel": "Severity",
+      "statusLabel": "Status",
+      "all": "All",
+      "unread": "Unread",
+      "dismissed": "Dismissed"
+    }
+  },
+  "bulkPartialFailure": "{{failed}} of {{total}} could not be marked as read"
+}

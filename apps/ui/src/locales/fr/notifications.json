@@ -1,0 +1,30 @@
+{
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Boîte de réception",
+    "unableToLoad": "Impossible de charger les notifications",
+    "markAsRead": "Marquer comme lue",
+    "markSelectedAsRead": "Marquer comme lues ({{count}})",
+    "showMore": "Voir plus",
+    "showLess": "Voir moins",
+    "emptyTitle": "Aucune notification",
+    "emptyDescription": "Vous n'avez pas encore de notifications.",
+    "emptyUnreadTitle": "Tout est lu",
+    "emptyUnreadDescription": "Aucune notification non lue.",
+    "columns": {
+      "title": "Titre",
+      "severity": "Sévérité",
+      "dispatchedAt": "Reçue le",
+      "readAt": "Lue le",
+      "actions": ""
+    },
+    "filter": {
+      "severityLabel": "Sévérité",
+      "statusLabel": "Statut",
+      "all": "Toutes",
+      "unread": "Non lues",
+      "dismissed": "Lues"
+    }
+  },
+  "bulkPartialFailure": "{{failed}} sur {{total}} n'ont pas pu être marquées comme lues"
+}

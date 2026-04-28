@@ -3,7 +3,8 @@ import { request } from "./request";
 
 export type AttributeKind = "standard" | "fault";
 
-export type Severity = "alert" | "warning" | "info";
+import type { Severity } from "./severity";
+export type { Severity };
 
 export type DeviceAttribute = {
   kind: AttributeKind;
