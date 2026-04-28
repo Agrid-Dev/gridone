@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from commands import BatchCommand
 from models.errors import InvalidError
 
 from api.devices_filter import to_list_devices_kwargs
-from api.schemas.command import BatchDispatchResponse
 
 if TYPE_CHECKING:
-    from commands import UnitCommand
     from devices_manager import DevicesManagerInterface
     from models.types import DataType
 
@@ -60,14 +57,3 @@ def resolve_attribute_data_type_for_target(
         )
         raise InvalidError(msg)
     return matching[0].attributes[attribute].data_type
-
-
-def to_batch_dispatch_response(commands: list[UnitCommand]) -> BatchDispatchResponse:
-    """Project a ``dispatch_batch`` return into the HTTP response schema.
-
-    ``dispatch_batch`` guarantees a non-empty list of commands sharing the
-    same generated ``batch_id``; :meth:`BatchCommand.from_unit_commands`
-    enforces that invariant.
-    """
-    batch = BatchCommand.from_unit_commands(commands)
-    return BatchDispatchResponse(batch_id=batch.batch_id, total=len(commands))

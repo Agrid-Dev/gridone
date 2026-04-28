@@ -125,13 +125,25 @@ async def lifespan(app: FastAPI):
     )
     app.state.commands_service = commands_service
 
+    async def _automation_action_dispatcher(
+        *, template_id: str, user_id: str, confirm: bool = False
+    ) -> str:
+        # Bridges commands → automations: projects ``BatchCommandDispatch``
+        # down to the opaque ``output_id`` the automations service stores on
+        # ``AutomationExecution``. Keeping this map at the composition root
+        # means the automations package stays unaware of ``batch_id``.
+        dispatch = await commands_service.dispatch_from_template(
+            template_id=template_id, user_id=user_id, confirm=confirm
+        )
+        return dispatch.batch_id
+
     automations_svc = AutomationsService(
         storage_url=settings.storage_url,
         trigger_providers=[
             ScheduleTriggerProvider(),
             ChangeEventTriggerProvider(dm),
         ],
-        action_dispatcher=commands_service.dispatch_from_template,
+        action_dispatcher=_automation_action_dispatcher,
     )
     await automations_svc.start()
     app.state.automations_service = automations_svc

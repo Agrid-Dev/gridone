@@ -26,7 +26,6 @@ from api.permissions import Permission
 from api.routes._command_helpers import (
     resolve_attribute_data_type,
     resolve_attribute_data_type_for_target,
-    to_batch_dispatch_response,
 )
 from api.schemas.command import (
     BatchDeviceCommand,
@@ -128,7 +127,7 @@ async def dispatch_batch_command(
 ) -> BatchDispatchResponse:
     target = body.target.model_dump(exclude_none=True)
     data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
-    commands = await commands_svc.dispatch_batch(
+    dispatch = await commands_svc.dispatch_batch(
         target=target,
         write=AttributeWrite(
             attribute=body.attribute, value=body.value, data_type=data_type
@@ -136,12 +135,12 @@ async def dispatch_batch_command(
         user_id=user_id,
         confirm=body.confirm,
     )
-    if not commands:
+    if not dispatch.commands:
         raise HTTPException(
             status_code=422,
             detail="Target resolved to no devices",
         )
-    return to_batch_dispatch_response(commands)
+    return BatchDispatchResponse(batch_id=dispatch.batch_id, commands=dispatch.commands)
 
 
 @router.post(
@@ -239,12 +238,12 @@ async def dispatch_template(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    commands = await commands_svc.dispatch_from_template(
+    dispatch = await commands_svc.dispatch_from_template(
         template_id=template_id, user_id=user_id
     )
-    if not commands:
+    if not dispatch.commands:
         raise HTTPException(
             status_code=422,
             detail="Target resolved to no devices",
         )
-    return to_batch_dispatch_response(commands)
+    return BatchDispatchResponse(batch_id=dispatch.batch_id, commands=dispatch.commands)

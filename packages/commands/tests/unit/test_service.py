@@ -206,25 +206,23 @@ class TestDispatchBatch:
 
         device_writer.side_effect = slow_writer
 
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
             write=MODE_AUTO,
             user_id="u1",
         )
 
-        assert len(commands) == 3
+        assert len(dispatch.commands) == 3
         # Commands are returned in the resolver order with a shared batch_id
         # and PENDING status before the background task has a chance to run.
-        assert [c.device_id for c in commands] == ["d1", "d2", "d3"]
-        batch_ids = {c.batch_id for c in commands}
-        assert len(batch_ids) == 1
-        batch_id = commands[0].batch_id
-        assert batch_id is not None
-        assert len(batch_id) == 16
-        assert all(c.status == CommandStatus.PENDING for c in commands)
+        assert [c.device_id for c in dispatch.commands] == ["d1", "d2", "d3"]
+        # The dispatch's batch_id is stamped on every unit command.
+        assert len(dispatch.batch_id) == 16
+        assert all(c.batch_id == dispatch.batch_id for c in dispatch.commands)
+        assert all(c.status == CommandStatus.PENDING for c in dispatch.commands)
 
         # Storage reflects the same PENDING state while the writer is blocked.
-        page = await service.get_commands(batch_id=batch_id)
+        page = await service.get_commands(batch_id=dispatch.batch_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.PENDING for c in page.items)
 
@@ -240,7 +238,7 @@ class TestDispatchBatch:
         target_resolver.resolve.side_effect = None
         target_resolver.resolve.return_value = ["t1", "t2"]
 
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target=target,
             write=MODE_AUTO,
             user_id="u1",
@@ -249,7 +247,7 @@ class TestDispatchBatch:
 
         # Every unit row links to the same auto-created ephemeral template
         # and the resolver is called with the stored target (not the raw one).
-        template_ids = {c.template_id for c in commands}
+        template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
         template_id = next(iter(template_ids))
         assert template_id is not None
@@ -279,14 +277,14 @@ class TestDispatchBatch:
         # A unified dispatch path means explicit-ids batches now also
         # create an ephemeral template. Every batch is template-backed;
         # a cleanup job sweeps ephemerals later.
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2"]},
             write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
 
-        template_ids = {c.template_id for c in commands}
+        template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
         template_id = next(iter(template_ids))
         assert template_id is not None
@@ -296,7 +294,7 @@ class TestDispatchBatch:
         assert template.name is None
         assert template.target == {"ids": ["d1", "d2"]}
 
-    async def test_empty_resolve_returns_empty_list(
+    async def test_empty_resolve_returns_empty_dispatch(
         self,
         service: CommandsService,
         target_resolver: AsyncMock,
@@ -307,15 +305,17 @@ class TestDispatchBatch:
         target_resolver.resolve.return_value = []
 
         with caplog.at_level(logging.WARNING, logger="commands.service"):
-            commands = await service.dispatch_batch(
+            dispatch = await service.dispatch_batch(
                 target={"types": ["unknown_type"]},
                 write=MODE_AUTO,
                 user_id="u1",
             )
 
-        assert commands == []
+        # batch_id is generated even on empty resolve so the attempt is
+        # observable; commands is empty and no rows are persisted.
+        assert dispatch.commands == []
+        assert len(dispatch.batch_id) == 16
         device_writer.assert_not_awaited()
-        # No PENDING rows persisted.
         page = await service.get_commands()
         assert page.items == []
         # A warning was logged so operators can notice stale filters.
@@ -327,15 +327,14 @@ class TestDispatchBatch:
         device_writer: AsyncMock,
         result_handler: AsyncMock,
     ):
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
             write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
 
-        batch_id = commands[0].batch_id
-        page = await service.get_commands(batch_id=batch_id)
+        page = await service.get_commands(batch_id=dispatch.batch_id)
         assert len(page.items) == 3
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
         assert device_writer.await_count == 3
@@ -357,15 +356,14 @@ class TestDispatchBatch:
 
         device_writer.side_effect = writer
 
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2", "d3"]},
             write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
 
-        batch_id = commands[0].batch_id
-        page = await service.get_commands(batch_id=batch_id)
+        page = await service.get_commands(batch_id=dispatch.batch_id)
         by_device = {c.device_id: c for c in page.items}
         assert by_device["d1"].status == CommandStatus.SUCCESS
         assert by_device["d2"].status == CommandStatus.ERROR
@@ -383,15 +381,14 @@ class TestDispatchBatch:
     ):
         device_writer.side_effect = RuntimeError("nope")
 
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2"]},
             write=MODE_AUTO,
             user_id="u1",
         )
         await service.await_pending()
 
-        batch_id = commands[0].batch_id
-        page = await service.get_commands(batch_id=batch_id)
+        page = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
         result_handler.assert_not_awaited()
 
@@ -416,7 +413,7 @@ class TestDispatchBatch:
 
         device_writer.side_effect = slow_writer
 
-        commands = await service.dispatch_batch(
+        dispatch = await service.dispatch_batch(
             target={"ids": ["d1", "d2"]},
             write=MODE_AUTO,
             user_id="u1",
@@ -431,8 +428,7 @@ class TestDispatchBatch:
         await service.close()
         await release_task
 
-        batch_id = commands[0].batch_id
-        page = await service.get_commands(batch_id=batch_id)
+        page = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.status == CommandStatus.SUCCESS for c in page.items)
 
     async def test_await_pending_is_idempotent(
@@ -506,11 +502,11 @@ class TestTemplateCrud:
             ),
             user_id="u1",
         )
-        commands = await service.dispatch_from_template(
+        dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u1"
         )
         await service.await_pending()
-        assert all(c.template_id == template.id for c in commands)
+        assert all(c.template_id == template.id for c in dispatch.commands)
 
         await service.delete_template(template.id)
 
@@ -527,7 +523,7 @@ class TestTemplateCrud:
         demoted = await service._storage.get_template(template.id)
         assert demoted is not None
         assert demoted.name is None
-        history = await service.get_commands(batch_id=commands[0].batch_id)
+        history = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.template_id == template.id for c in history.items)
 
     async def test_delete_template_raises_on_unknown_id(
@@ -567,16 +563,16 @@ class TestTemplateCrud:
         target_resolver.resolve.side_effect = None
         target_resolver.resolve.return_value = ["t1", "t2"]
 
-        commands = await service.dispatch_from_template(
+        dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u2"
         )
         await service.await_pending()
 
         target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
-        assert [c.device_id for c in commands] == ["t1", "t2"]
-        assert all(c.template_id == template.id for c in commands)
+        assert [c.device_id for c in dispatch.commands] == ["t1", "t2"]
+        assert all(c.template_id == template.id for c in dispatch.commands)
         # user_id on commands is whoever dispatched, not who saved the template.
-        assert all(c.user_id == "u2" for c in commands)
+        assert all(c.user_id == "u2" for c in dispatch.commands)
 
     async def test_dispatch_from_template_raises_on_unknown_id(
         self,

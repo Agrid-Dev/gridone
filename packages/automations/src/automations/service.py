@@ -184,7 +184,7 @@ class AutomationsService:
             raise NotFoundError(msg)
         output_id, status, error = None, ExecutionStatus.SUCCESS, None
         try:
-            await self._action_dispatcher(
+            output_id = await self._action_dispatcher(
                 template_id=automation.action_template_id,
                 user_id="system",
                 confirm=False,
