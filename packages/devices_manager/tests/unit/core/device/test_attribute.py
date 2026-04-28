@@ -69,8 +69,7 @@ def float_attribute() -> Attribute:
 
 def test_update_value_same(float_attribute) -> None:
     previous_value = float_attribute.current_value
-    changed = float_attribute._update_value(previous_value)
-    assert changed is False
+    float_attribute._update_value(previous_value)
     assert float_attribute.current_value == previous_value
     assert (
         abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())
@@ -81,8 +80,7 @@ def test_update_value_same(float_attribute) -> None:
 
 def test_update_value_different(float_attribute) -> None:
     new_value = float_attribute.current_value + 2
-    changed = float_attribute._update_value(new_value)
-    assert changed is True
+    float_attribute._update_value(new_value)
     assert float_attribute.current_value == new_value
     assert (
         abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())

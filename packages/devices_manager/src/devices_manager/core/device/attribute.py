@@ -47,20 +47,13 @@ class Attribute(BaseModel):
             self.current_value = self.ensure_type(self.current_value)
         return self
 
-    def _update_value(self, new_value: AttributeValueType) -> bool:
-        """
-        Update the attribute value and timestamp.
-        Returns True if the value actually changed, False otherwise.
-        This method is private and should only be called from Device._update_attribute
-        to ensure that update listeners are properly executed.
-        """
+    def _update_value(self, new_value: AttributeValueType) -> None:
+        """Update the attribute value and timestamp."""
         previous_value = self.current_value
         object.__setattr__(self, "current_value", self.ensure_type(new_value))
         object.__setattr__(self, "last_updated", datetime.now(UTC))
-        changed = new_value != previous_value
-        if changed:
+        if self.current_value != previous_value:
             object.__setattr__(self, "last_changed", datetime.now(UTC))
-        return changed
 
     @classmethod
     def create(
