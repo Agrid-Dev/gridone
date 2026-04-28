@@ -3,8 +3,8 @@
     "title": "Notifications",
     "subtitle": "Boîte de réception",
     "unableToLoad": "Impossible de charger les notifications",
-    "dismiss": "Ignorer",
-    "dismissSelected": "Ignorer la sélection ({{count}})",
+    "markAsRead": "Marquer comme lue",
+    "markSelectedAsRead": "Marquer comme lues ({{count}})",
     "showMore": "Voir plus",
     "showLess": "Voir moins",
     "emptyTitle": "Aucune notification",
@@ -15,10 +15,12 @@
       "title": "Titre",
       "severity": "Sévérité",
       "dispatchedAt": "Reçue le",
-      "dismissedAt": "Ignorée le",
+      "readAt": "Lue le",
       "actions": ""
     },
     "filter": {
+      "severityLabel": "Sévérité",
+      "statusLabel": "Statut",
       "all": "Toutes",
       "unread": "Non lues",
       "dismissed": "Ignorées"

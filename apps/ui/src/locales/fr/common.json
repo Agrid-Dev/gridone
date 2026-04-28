@@ -109,14 +109,14 @@
     "timeAgo": {
       "future": "Dans le futur",
       "justNow": "moins d'une minute",
-      "seconds_one": "{{count}} seconde",
-      "seconds_other": "{{count}} secondes",
-      "minutes_one": "{{count}} minute",
-      "minutes_other": "{{count}} minutes",
-      "hours_one": "{{count}} heure",
-      "hours_other": "{{count}} heures",
-      "days_one": "{{count}} jour",
-      "days_other": "{{count}} jours"
+      "seconds_one": "il y a {{count}} seconde",
+      "seconds_other": "il y a {{count}} secondes",
+      "minutes_one": "il y a {{count}} minute",
+      "minutes_other": "il y a {{count}} minutes",
+      "hours_one": "il y a {{count}} heure",
+      "hours_other": "il y a {{count}} heures",
+      "days_one": "il y a {{count}} jour",
+      "days_other": "il y a {{count}} jours"
     },
     "severity": {
       "alert": "alerte",

@@ -3,8 +3,8 @@
     "title": "Notifications",
     "subtitle": "Inbox",
     "unableToLoad": "Unable to load notifications",
-    "dismiss": "Dismiss",
-    "dismissSelected": "Dismiss selected ({{count}})",
+    "markAsRead": "Mark as read",
+    "markSelectedAsRead": "Mark as read ({{count}})",
     "showMore": "Show more",
     "showLess": "Show less",
     "emptyTitle": "No notifications",
@@ -15,10 +15,12 @@
       "title": "Title",
       "severity": "Severity",
       "dispatchedAt": "Received",
-      "dismissedAt": "Dismissed at",
+      "readAt": "Read at",
       "actions": ""
     },
     "filter": {
+      "severityLabel": "Severity",
+      "statusLabel": "Status",
       "all": "All",
       "unread": "Unread",
       "dismissed": "Dismissed"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { NotificationDispatch } from "@/api/notifications";
@@ -12,8 +12,8 @@ vi.mock("react-i18next", () => ({
         "notifications.title": "Notifications",
         "notifications.subtitle": "Inbox",
         "notifications.unableToLoad": "Unable to load notifications",
-        "notifications.dismiss": "Dismiss",
-        "notifications.dismissSelected": "Dismiss selected ({{count}})",
+        "notifications.markAsRead": "Mark as read",
+        "notifications.markSelectedAsRead": "Mark as read ({{count}})",
         "notifications.showMore": "Show more",
         "notifications.showLess": "Show less",
         "notifications.emptyTitle": "No notifications",
@@ -23,12 +23,15 @@ vi.mock("react-i18next", () => ({
         "notifications.columns.title": "Title",
         "notifications.columns.severity": "Severity",
         "notifications.columns.dispatchedAt": "Received",
-        "notifications.columns.dismissedAt": "Dismissed at",
+        "notifications.columns.readAt": "Read at",
+        "notifications.filter.severityLabel": "Severity",
+        "notifications.filter.statusLabel": "Status",
         "notifications.filter.all": "All",
         "notifications.filter.unread": "Unread",
         "notifications.filter.dismissed": "Dismissed",
-        "common:common.previous": "Previous",
-        "common:common.next": "Next",
+        "common.previous": "Previous",
+        "common.next": "Next",
+        "common.notification": "notification",
         "empty.noMatch": "No matching {{resourceName}}",
         "empty.title": "No {{resourceName}} yet",
         "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
@@ -37,9 +40,9 @@ vi.mock("react-i18next", () => ({
         "common.severity.warning": "warning",
         "common.severity.info": "info",
         "common.timeAgo.justNow": "just now",
-        "common.timeAgo.minutes": "{{count}} minutes",
-        "common.timeAgo.hours": "{{count}} hours",
-        "common.timeAgo.days": "{{count}} days",
+        "common.timeAgo.minutes": "{{count}} minutes ago",
+        "common.timeAgo.hours": "{{count}} hours ago",
+        "common.timeAgo.days": "{{count}} days ago",
       };
       let value = map[key] ?? key;
       if (opts) {
@@ -84,7 +87,10 @@ function makeDispatch(
   };
 }
 
-function makePage(items: NotificationDispatch[]): Page<NotificationDispatch> {
+function makePage(
+  items: NotificationDispatch[],
+  extra: Partial<Page<NotificationDispatch>> = {},
+): Page<NotificationDispatch> {
   return {
     items,
     total: items.length,
@@ -92,6 +98,7 @@ function makePage(items: NotificationDispatch[]): Page<NotificationDispatch> {
     size: 20,
     totalPages: 1,
     links: { self: "", first: "", last: "", next: null, prev: null },
+    ...extra,
   };
 }
 
@@ -121,7 +128,7 @@ afterEach(() => {
 });
 
 describe("NotificationsPage", () => {
-  it("renders a row per dispatch with title, severity chip, and dismiss button", () => {
+  it("renders a row per dispatch with title, severity chip, and mark-as-read button", () => {
     renderPage();
     expect(screen.getByText("System alert")).toBeInTheDocument();
     const chip = screen.getByText("alert");
@@ -129,10 +136,12 @@ describe("NotificationsPage", () => {
       "data-severity",
       "alert",
     );
-    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Mark as read" }),
+    ).toBeInTheDocument();
   });
 
-  it("shows body collapsed by default and expands on Show more", async () => {
+  it("shows body toggle and expands/collapses on click", async () => {
     renderPage();
     const showMore = screen.getByRole("button", { name: "Show more" });
     expect(showMore).toBeInTheDocument();
@@ -146,9 +155,9 @@ describe("NotificationsPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("calls dismiss with the notification id when Dismiss is clicked", async () => {
+  it("calls dismiss with the notification id when Mark as read is clicked", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mark as read" }));
     expect(mockDismiss).toHaveBeenCalledWith("n1");
   });
 
@@ -156,7 +165,8 @@ describe("NotificationsPage", () => {
     renderPage();
     const [, rowCheckbox] = screen.getAllByRole("checkbox");
     await userEvent.click(rowCheckbox);
-    const bulkBtn = screen.getByRole("button", { name: /Dismiss selected/ });
+    // Bulk button shows count: "Mark as read (1)"
+    const bulkBtn = screen.getByRole("button", { name: "Mark as read (1)" });
     expect(bulkBtn).toBeInTheDocument();
     await userEvent.click(bulkBtn);
     expect(mockDismissMany).toHaveBeenCalledWith(["n1"]);
@@ -175,7 +185,7 @@ describe("NotificationsPage", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
-  it("dismissed row has disabled dismiss button and shows dismissed-at time", () => {
+  it("dismissed row has no mark-as-read button", () => {
     const dismissed = makeDispatch({
       notification: {
         id: "n2",
@@ -196,8 +206,9 @@ describe("NotificationsPage", () => {
       dismissMany: mockDismissMany,
     });
     renderPage();
-    const row = within(screen.getAllByRole("row")[1]);
-    expect(row.getByRole("button", { name: "Dismiss" })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Mark as read" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows loading skeleton while loading", () => {
@@ -217,7 +228,7 @@ describe("NotificationsPage", () => {
     mockUseNotifications.mockReturnValue({
       page: undefined,
       loading: false,
-      error: "Network error",
+      error: new Error("Network error"),
       dismiss: mockDismiss,
       dismissMany: mockDismissMany,
     });
@@ -225,5 +236,34 @@ describe("NotificationsPage", () => {
     expect(
       screen.getByText("Unable to load notifications"),
     ).toBeInTheDocument();
+  });
+
+  it("renders pagination links when totalPages > 1", () => {
+    mockUseNotifications.mockReturnValue({
+      page: makePage([makeDispatch()], {
+        totalPages: 3,
+        page: 2,
+        links: {
+          self: "http://localhost/notifications/?page=2",
+          first: "http://localhost/notifications/?page=1",
+          last: "http://localhost/notifications/?page=3",
+          prev: "http://localhost/notifications/?page=1",
+          next: "http://localhost/notifications/?page=3",
+        },
+      }),
+      loading: false,
+      error: null,
+      dismiss: mockDismiss,
+      dismissMany: mockDismissMany,
+    });
+    renderPage();
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    const links = screen.getAllByRole("link");
+    expect(links.some((l) => l.getAttribute("href")?.includes("page=1"))).toBe(
+      true,
+    );
+    expect(links.some((l) => l.getAttribute("href")?.includes("page=3"))).toBe(
+      true,
+    );
   });
 });
