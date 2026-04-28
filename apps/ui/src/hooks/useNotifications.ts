@@ -27,19 +27,14 @@ export function useNotifications(filter?: NotificationsFilter) {
   });
 
   async function dismissMany(ids: string[]) {
-    await Promise.all(ids.map(dismissNotification));
+    await Promise.allSettled(ids.map(dismissNotification));
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
   }
 
   return {
     page: data,
     loading: isLoading,
-    error:
-      queryError instanceof Error
-        ? queryError.message
-        : queryError
-          ? String(queryError)
-          : null,
+    error: queryError ?? null,
     dismiss,
     dismissMany,
   };
