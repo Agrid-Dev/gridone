@@ -239,3 +239,53 @@ class TestDismiss:
         storage.dismiss.return_value = None
         with pytest.raises(NotFoundError):
             await service.dismiss(_NOTIF_ID, _USER_A)
+
+
+class TestDispatchBodySanitization:
+    async def test_raises_on_script_injection(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        with pytest.raises(InvalidError):
+            await service.dispatch(
+                title="Alert",
+                body="<script>alert(1)</script>",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        storage.upsert_notification.assert_not_awaited()
+
+    async def test_raises_on_disallowed_link_scheme(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        with pytest.raises(InvalidError):
+            await service.dispatch(
+                title="Alert",
+                body="[click](javascript:void(0))",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        storage.upsert_notification.assert_not_awaited()
+
+    async def test_passes_clean_markdown_body(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = [_make_dispatch(_USER_A)]
+        body = (
+            "A **new** [device](resource://device/abc) was found "
+            "via *[driver](https://example.com/driver)*."
+        )
+        result = await service.dispatch(
+            title="Alert",
+            body=body,
+            severity=Severity.ALERT,
+            user_ids=[_USER_A],
+        )
+        assert len(result) == 1
+        storage.upsert_notification.assert_awaited_once()
