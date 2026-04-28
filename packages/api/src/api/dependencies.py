@@ -8,6 +8,7 @@ from devices_manager import DevicesManagerInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from models.pagination import PaginationParams
+from notifications import NotificationsServiceInterface
 from timeseries import TimeSeriesService
 from users import UsersManager
 from users.auth import AuthService, InvalidTokenError, TokenPayload
@@ -40,6 +41,10 @@ def get_apps_service(request: Request) -> AppsService:
 
 def get_automations_service(request: Request) -> AutomationsServiceInterface:
     return request.app.state.automations_service
+
+
+def get_notifications_service(request: Request) -> NotificationsServiceInterface:
+    return request.app.state.notifications_service
 
 
 def get_assets_manager(request: Request) -> AssetsManager:

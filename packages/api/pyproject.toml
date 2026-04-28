@@ -11,6 +11,7 @@ dependencies = [
     "gridone-assets",
     "gridone-automations",
     "gridone-commands",
+    "gridone-notifications",
     "fastapi>=0.123.8",
     "gridone-users",
     "httpx>=0.28.1",
@@ -35,4 +36,4 @@ module-root = "src"
 ignore=[]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../devices_manager/src", "../timeseries/src"]
+pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../devices_manager/src", "../timeseries/src", "../notifications/src"]

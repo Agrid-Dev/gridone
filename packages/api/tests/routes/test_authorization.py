@@ -7,6 +7,13 @@ import pytest
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
+from models.pagination import Page
+from models.types import Severity
+from notifications import (
+    Notification,
+    NotificationDispatch,
+    NotificationsServiceInterface,
+)
 
 from api.dependencies import (
     get_apps_service,
@@ -15,6 +22,7 @@ from api.dependencies import (
     get_commands_service,
     get_current_user_id,
     get_device_manager,
+    get_notifications_service,
     get_ts_service,
     get_users_manager,
 )
@@ -22,6 +30,7 @@ from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
 from api.routes.devices_router import router as devices_router
+from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from users import Role, User
@@ -674,4 +683,103 @@ def test_automations_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers)
+        assert resp.status_code == expected_status
+
+
+# --- Notifications RBAC ---
+
+_NOTIF_ID = "notif0000000001"
+_NOW = datetime(2026, 1, 1, tzinfo=UTC)
+_NOTIF = Notification(
+    id=_NOTIF_ID,
+    title="Alert",
+    body="Something happened",
+    severity=Severity.ALERT,
+    correlation_id=None,
+    created_by=None,
+    created_at=_NOW,
+)
+_DISPATCH = NotificationDispatch(
+    notification=_NOTIF,
+    user_id="test-user",
+    dispatched_at=_NOW,
+    dismissed_at=None,
+)
+_EMPTY_PAGE: Page[NotificationDispatch] = Page(items=[], total=0, page=1, size=50)
+
+
+def _build_notifications_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersManager()
+    notifications_svc = AsyncMock(spec=NotificationsServiceInterface)
+    notifications_svc.list_for_user.return_value = _EMPTY_PAGE
+    notifications_svc.dismiss.return_value = _DISPATCH
+    notifications_svc.dispatch.return_value = [_DISPATCH]
+    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_notifications_service] = lambda: notifications_svc
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(
+        notifications_router, prefix="/notifications", dependencies=jwt_dep
+    )
+    return app
+
+
+@pytest.fixture
+def notifications_app() -> FastAPI:
+    return _build_notifications_app()
+
+
+NOTIFICATIONS_ACCESS_CONTROL_SCENARIOS = [
+    # List — any authenticated user can read their own notifications
+    pytest.param("GET", "/notifications/", "viewer", 200, id="list-viewer"),
+    pytest.param("GET", "/notifications/", "operator", 200, id="list-operator"),
+    pytest.param("GET", "/notifications/", None, 401, id="list-no-auth"),
+    # Dismiss — any authenticated user can dismiss their own notification
+    pytest.param(
+        "POST",
+        f"/notifications/{_NOTIF_ID}/dismiss",
+        "viewer",
+        200,
+        id="dismiss-viewer",
+    ),
+    pytest.param(
+        "POST", f"/notifications/{_NOTIF_ID}/dismiss", None, 401, id="dismiss-no-auth"
+    ),
+    # Dispatch — requires NOTIFICATIONS_WRITE; admin-only for now (deferred endpoint)
+    pytest.param("POST", "/notifications/", "viewer", 403, id="dispatch-viewer"),
+    pytest.param("POST", "/notifications/", None, 401, id="dispatch-no-auth"),
+    pytest.param("POST", "/notifications/", "operator", 403, id="dispatch-operator"),
+]
+
+_DISPATCH_BODY = {
+    "title": "Alert",
+    "body": "Something happened",
+    "severity": "alert",
+    "user_ids": ["user-a"],
+}
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    NOTIFICATIONS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_notifications_access_control(
+    notifications_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    body = (
+        _DISPATCH_BODY if endpoint == "/notifications/" and method == "POST" else None
+    )
+    with TestClient(notifications_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status
