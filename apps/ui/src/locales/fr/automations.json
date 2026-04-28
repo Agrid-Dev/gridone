@@ -3,8 +3,16 @@
   "subtitle": "Actions déclenchées par événements",
   "singular": "Automatisation",
   "comingSoon": "Bientôt disponible",
+  "flow": {
+    "trigger": "Déclencheur",
+    "action": "Action",
+    "actionType": {
+      "command": "Commande"
+    }
+  },
   "fields": {
     "name": "Nom",
+    "description": "Description",
     "trigger": "Déclencheur",
     "action": "Action",
     "actionTemplate": "Modèle de commande",
@@ -12,14 +20,16 @@
     "status": "Statut"
   },
   "triggers": {
-    "schedule": "Planification",
-    "changeEvent": "Changement d'attribut",
+    "schedule": "Horaire",
+    "change_event": "Changement d'attribut",
     "cron": "Expression cron",
     "device": "Appareil",
     "attribute": "Attribut",
     "condition": "Condition",
     "operator": "Opérateur",
-    "threshold": "Seuil"
+    "threshold": "Seuil",
+    "noCondition": "Sans condition",
+    "unknownDevice": "Appareil inconnu"
   },
   "operators": {
     "gt": ">",
@@ -37,6 +47,9 @@
     },
     "triggeredAt": "Déclenchée à",
     "executedAt": "Exécutée à",
+    "timestamp": "Horodatage",
+    "output": "Résultat",
+    "viewBatch": "Commande exécutée",
     "error": "Erreur",
     "empty": "Aucune exécution pour le moment"
   },
@@ -45,7 +58,8 @@
     "edit": "Modifier",
     "delete": "Supprimer",
     "enable": "Activer",
-    "disable": "Désactiver"
+    "disable": "Désactiver",
+    "rowMenu": "Actions"
   },
   "toasts": {
     "created": "Automatisation créée",
