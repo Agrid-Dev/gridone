@@ -16,3 +16,23 @@ class ConfirmationError(ValueError):
 
 class BlockedUserError(Exception):
     """Raised when a blocked user attempts to authenticate."""
+
+
+class StorageError(Exception):
+    """Base class for storage-related failures raised by services."""
+
+
+class UnsupportedStorageError(StorageError):
+    """Raised when a service is given a storage URL scheme it cannot handle.
+
+    This is a configuration error (e.g. unknown URL scheme, malformed URL) and
+    should surface as a 4xx-class problem to API callers.
+    """
+
+
+class StorageConnectionError(StorageError):
+    """Raised when a service cannot reach or initialize its storage backend.
+
+    This is an infrastructure error (e.g. database unreachable, migration
+    failed) and should surface as a 5xx-class problem to API callers.
+    """

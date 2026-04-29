@@ -188,21 +188,32 @@ JOIN devices_manager.devices d ON d.id = ts.device_id
 # the API layer joins data from both services if needed
 ```
 
-#### 7. Encapsulate service bootstrap
+#### 7. Service shape
 
-Use a factory method instead of exposing storage factories to the API layer.
+Every service satisfies the `models.service.Service` protocol:
+
+- Constructor `__init__(self, storage_url: str | None, ...deps)` — takes the storage URL and any collaborators. No work happens here.
+- `async def start(self)` — builds storage from the storage URL (memory backend if `None`), runs migrations, starts background tasks. Raises `models.errors.UnsupportedStorageError` for an unknown URL scheme and `models.errors.StorageConnectionError` when the backend cannot be reached or initialized.
+- `async def stop(self)` — tears down background tasks and closes storage. Idempotent.
+
+`Service` is a `Protocol`, not a base class — services declare conformance structurally and avoid an extra inheritance edge.
+
+Class names end in `Service` (`UsersService`, not `UsersManager`). Storage builders live inside the service's `start` — the API layer never imports `*Storage` or `build_*_storage`.
 
 ```python
 # BAD (in app.py)
 from users.storage.postgres import PostgresUsersStorage, run_migrations
 storage = PostgresUsersStorage(url)
 await run_migrations(url)
-users_manager = UsersManager(storage)
+users_service = UsersService(storage)
 ```
 
 ```python
 # GOOD (in app.py)
-users_manager = await UsersManager.from_storage(settings.storage_url)
+users_service = UsersService(settings.storage_url)
+await users_service.start()
+# ...
+await users_service.stop()
 ```
 
 #### 8. Defaults belong in one place
@@ -353,7 +364,7 @@ async def create_user(self, params):
 
 #### 20. Use short random IDs
 
-Use 16-character hex strings (e.g., `uuid4().hex[:16]`) instead of full UUIDs for entity identifiers. They are shorter, more readable in logs and URLs, and still provide sufficient collision resistance.
+Use `models.ids.gen_id()` for every entity identifier. It returns a 16-character hex string (`uuid4().hex[:16]`) — shorter than a full UUID, more readable in logs and URLs, with sufficient collision resistance. Do not inline `uuid4().hex[:16]` or `str(uuid.uuid4())` in service code.
 
 #### 21. Add docstrings for non-obvious logic
 
@@ -424,8 +435,11 @@ Build small, single-purpose adapters (e.g., `byte_convert`, `slice`, `json_point
 - [ ] No storage implementation detail is mentioned outside `/storage`
 - [ ] Storage layer manages its own lifecycle (background tasks, connections, migrations)
 - [ ] No cross-service database references (foreign keys, joins across package schemas)
-- [ ] Service bootstrap is encapsulated (factory method, not raw storage init in `app.py`)
+- [ ] Service satisfies the `models.service.Service` protocol, named `*Service`, exposes `__init__(storage_url, ...deps)` + `async start` / `async stop`
+- [ ] Storage is built inside `start`; the API layer never imports `*Storage` or `build_*_storage`
+- [ ] Unsupported URL schemes raise `models.errors.UnsupportedStorageError`; reachability/initialization failures raise `models.errors.StorageConnectionError`
 - [ ] Defaults are defined in exactly one place (service level)
+- [ ] Entity IDs come from `models.ids.gen_id()` — no inline `uuid4().hex[:16]`
 
 #### Testing
 
