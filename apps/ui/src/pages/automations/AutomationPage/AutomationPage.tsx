@@ -28,6 +28,8 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
     isToggling,
     editingSection,
     setEditingSection,
+    update,
+    submittingSection,
   } = useAutomationEdit(automationId);
   const { automation, isLoading, remove, isDeleting } = useAutomation(
     automationId ?? "",
@@ -81,13 +83,12 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
                 }
               : undefined
           }
+          isSubmitting={submittingSection === "trigger"}
         >
           {editingSection === "trigger" ? (
             <TriggerForm
               initialValue={automation.trigger}
-              onSave={(values) => {
-                console.log("saving trigger", values);
-              }}
+              onSave={(trigger) => update("trigger", { trigger })}
             />
           ) : (
             <TriggerPresenter trigger={automation.trigger} />
@@ -105,14 +106,15 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
                 }
               : undefined
           }
+          isSubmitting={submittingSection === "action"}
         >
           {editingSection === "action" ? (
             <ActionForm
               initialValue={automation.actionTemplateId}
               onCancel={() => setEditingSection(null)}
-              onSubmit={(actionTemplateId) => {
-                console.log("saving ActionForm", actionTemplateId);
-              }}
+              onSubmit={(actionTemplateId) =>
+                update("action", { actionTemplateId })
+              }
             />
           ) : (
             <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
