@@ -10,7 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
 from timeseries import TimeSeriesService
-from users import UsersManager
+from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
 from users.models import Role
 
@@ -27,8 +27,8 @@ def get_ts_service(request: Request) -> TimeSeriesService:
     return request.app.state.ts_service
 
 
-def get_users_manager(request: Request) -> UsersManager:
-    return request.app.state.users_manager
+def get_users_service(request: Request) -> UsersService:
+    return request.app.state.users_service
 
 
 def get_commands_service(request: Request) -> CommandsServiceInterface:
@@ -81,9 +81,9 @@ async def get_current_token_payload(
 
 async def get_current_user_id(
     payload: TokenPayload = Depends(get_current_token_payload),
-    um: UsersManager = Depends(get_users_manager),
+    users_service: UsersService = Depends(get_users_service),
 ) -> str:
-    if await um.is_blocked(payload.sub):
+    if await users_service.is_blocked(payload.sub):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been blocked. Contact an administrator.",

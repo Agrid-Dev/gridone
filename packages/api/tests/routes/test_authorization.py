@@ -24,7 +24,7 @@ from api.dependencies import (
     get_device_manager,
     get_notifications_service,
     get_ts_service,
-    get_users_manager,
+    get_users_service,
 )
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
@@ -37,7 +37,7 @@ from users import Role, User
 from users.auth import AuthService
 
 
-class MockUsersManager:
+class MockUsersService:
     """Shared mock for auth + users routers."""
 
     def __init__(self) -> None:
@@ -121,8 +121,8 @@ def _build_app() -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_apps_service] = lambda: _build_apps_service_mock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
@@ -310,10 +310,10 @@ def _build_devices_app() -> FastAPI:
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
-    manager = MockUsersManager()
+    manager = MockUsersService()
     dm = MagicMock()
     dm.list_active_faults.return_value = []
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")
@@ -422,8 +422,8 @@ def _build_commands_app() -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: MagicMock()
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
     app.dependency_overrides[get_assets_manager] = lambda: MagicMock()
@@ -618,8 +618,8 @@ def _build_automations_app() -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_automations_service] = lambda: (
         _build_automations_mock()
     )
@@ -712,12 +712,12 @@ def _build_notifications_app() -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
+    manager = MockUsersService()
     notifications_svc = AsyncMock(spec=NotificationsServiceInterface)
     notifications_svc.list_for_user.return_value = _EMPTY_PAGE
     notifications_svc.dismiss.return_value = _DISPATCH
     notifications_svc.dispatch.return_value = [_DISPATCH]
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_notifications_service] = lambda: notifications_svc
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]

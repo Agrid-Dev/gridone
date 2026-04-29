@@ -14,7 +14,7 @@ from models.resource_reference import ResourceReference
 from models.types import AttributeValueType, DataType, Severity
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, create_service
-from users import UsersManager
+from users import UsersService
 from users.auth import AuthService
 
 from api.dependencies import get_current_user_id
@@ -78,9 +78,9 @@ async def lifespan(app: FastAPI):
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    um = await UsersManager.from_storage(settings.storage_url)
-    await um.ensure_default_admin()
-    app.state.users_manager = um
+    users_service = UsersService(settings.storage_url)
+    await users_service.start()
+    app.state.users_service = users_service
 
     notifications_svc = NotificationsService(settings.storage_url)
     await notifications_svc.start()
@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
 
     apps_svc = None
     try:
-        apps_svc = await AppsService.from_storage(settings.storage_url, um)
+        apps_svc = await AppsService.from_storage(settings.storage_url, users_service)
         app.state.apps_service = apps_svc
         await apps_svc.start_health_check()
     except ValueError:
@@ -214,7 +214,7 @@ async def lifespan(app: FastAPI):
         await commands_service.close()
         await automations_svc.close()
         await notifications_svc.close()
-        await um.close()
+        await users_service.stop()
         if apps_svc is not None:
             await apps_svc.close()
         if am is not None:

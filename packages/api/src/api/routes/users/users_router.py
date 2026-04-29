@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from models.errors import NotFoundError
 from pydantic import BaseModel
-from users import Role, User, UserCreate, UserType, UserUpdate, UsersManager
+from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
 from users.auth import TokenPayload
 from users.models import Role as RoleEnum
 from users.validation import PasswordField, UsernameField
@@ -11,7 +11,7 @@ from users.validation import PasswordField, UsernameField
 from api.dependencies import (
     get_current_token_payload,
     get_current_user_id,
-    get_users_manager,
+    get_users_service,
     require_permission,
 )
 from api.permissions import Permission, get_permissions_for_role
@@ -54,7 +54,7 @@ class UserUpdateRequest(BaseModel):
 @router.get("/")
 async def list_users(
     payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[User] | list[UserBasic]:
     perms = get_permissions_for_role(RoleEnum(payload.role))
     if Permission.USERS_READ in perms:
@@ -76,7 +76,7 @@ async def list_users(
 )
 async def create_user(
     body: UserCreateRequest,
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     try:
         return await um.create_user(
@@ -101,7 +101,7 @@ async def create_user(
 )
 async def get_user(
     user_id: str,
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     try:
         return await um.get_by_id(user_id)
@@ -117,7 +117,7 @@ async def get_user(
 async def update_user(
     user_id: str,
     body: UserUpdateRequest,
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     try:
         return await um.update_user(
@@ -145,7 +145,7 @@ async def update_user(
 async def delete_user(
     user_id: str,
     current_user_id: Annotated[str, Depends(get_current_user_id)],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> None:
     if user_id == current_user_id:
         raise HTTPException(
@@ -166,7 +166,7 @@ async def delete_user(
 async def block_user(
     user_id: str,
     current_user_id: Annotated[str, Depends(get_current_user_id)],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     if user_id == current_user_id:
         raise HTTPException(
@@ -183,6 +183,6 @@ async def block_user(
 )
 async def unblock_user(
     user_id: str,
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     return await um.unblock_user(user_id)
