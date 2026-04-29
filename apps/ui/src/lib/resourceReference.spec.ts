@@ -15,13 +15,6 @@ describe("parseResourceReference", () => {
     });
   });
 
-  it("preserves ids that contain slashes after the type segment", () => {
-    expect(parseResourceReference("resource://device/site-a/dev-1")).toEqual({
-      type: "device",
-      id: "site-a/dev-1",
-    });
-  });
-
   it.each([
     "",
     "not-a-uri",
@@ -29,6 +22,7 @@ describe("parseResourceReference", () => {
     "resource:///abc",
     "resource://bogus/abc",
     "https://device/abc",
+    "resource://device/site-a/dev-1",
   ])("returns null for malformed input %s", (input) => {
     expect(parseResourceReference(input)).toBeNull();
   });
@@ -49,7 +43,7 @@ describe("resourceTypeToPath", () => {
     ["asset", "/assets/x"],
     ["automation", "/automations/x"],
     ["fault", "/faults"],
-    ["command", "/devices/commands"],
+    ["command", "/devices/commands?batch_id=x"],
   ])("maps %s to %s", (type, expected) => {
     expect(resourceTypeToPath(type, "x")).toBe(expected);
   });

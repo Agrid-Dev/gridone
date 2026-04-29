@@ -10,8 +10,12 @@ ResourceType = Literal[
 
 _RESOURCE_TYPES: frozenset[str] = frozenset(get_args(ResourceType))
 
-_URI_PATTERN = re.compile(r"^resource://([^/]+)/(.+)$")
-"""Matches resource://<resource_type>/<resource_id> — e.g. resource://device/abc123"""
+_URI_PATTERN = re.compile(r"^resource://([^/]+)/([^/]+)$")
+"""Matches resource://<resource_type>/<resource_id> — e.g. resource://device/abc123.
+
+Slashes are not allowed in either segment: resources are not nested and IDs are
+opaque short hex strings, so a flat grammar keeps URIs unambiguous.
+"""
 
 
 @dataclass(frozen=True)

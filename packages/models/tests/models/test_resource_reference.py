@@ -33,6 +33,7 @@ class TestResourceReferenceParse:
             "resource://device/",
             "",
             "resource://building/abc",
+            "resource://device/site-a/dev-1",
         ],
     )
     def test_invalid_input_raises(self, uri: str) -> None:

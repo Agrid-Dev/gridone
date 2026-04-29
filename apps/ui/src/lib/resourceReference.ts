@@ -15,7 +15,7 @@ export type ResourceReference = {
   id: string;
 };
 
-const URI_PATTERN = /^resource:\/\/([^/]+)\/(.+)$/;
+const URI_PATTERN = /^resource:\/\/([^/]+)\/([^/]+)$/;
 
 export function parseResourceReference(uri: string): ResourceReference | null {
   const match = URI_PATTERN.exec(uri);
@@ -44,6 +44,6 @@ export function resourceTypeToPath(type: ResourceType, id: string): string {
     case "fault":
       return "/faults";
     case "command":
-      return "/devices/commands";
+      return `/devices/commands?batch_id=${id}`;
   }
 }

@@ -38,7 +38,7 @@ describe("NotificationBody", () => {
     ["asset", "resource://asset/a1", "/assets/a1"],
     ["automation", "resource://automation/auto1", "/automations/auto1"],
     ["fault", "resource://fault/f1", "/faults"],
-    ["command", "resource://command/c1", "/devices/commands"],
+    ["command", "resource://command/c1", "/devices/commands?batch_id=c1"],
   ])("renders %s reference as internal link to %s", (_type, uri, expected) => {
     renderBody(`open [target](${uri})`);
     const link = screen.getByRole("link", { name: "target" });
@@ -62,5 +62,13 @@ describe("NotificationBody", () => {
     renderBody("[click](javascript:alert(1))");
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.getByText("click")).toBeInTheDocument();
+  });
+
+  it("renders consecutive newlines as separate paragraphs", () => {
+    const { container } = renderBody("first paragraph\n\nsecond paragraph");
+    const paragraphs = container.querySelectorAll("p");
+    expect(paragraphs).toHaveLength(2);
+    expect(paragraphs[0].textContent).toBe("first paragraph");
+    expect(paragraphs[1].textContent).toBe("second paragraph");
   });
 });
