@@ -1,3 +1,13 @@
+## v0.61.2 (2026-04-29)
+
+### Fix
+
+- comments
+
+### Refactor
+
+- **models**: add Service base, StorageError, gen_id helpers
+
 ## v0.61.1 (2026-04-28)
 
 ### Refactor
