@@ -5,9 +5,9 @@ from models.service import Service
 pytestmark = pytest.mark.asyncio
 
 
-class _FakeService(Service):
+class _FakeService:
     def __init__(self, storage_url: str | None) -> None:
-        super().__init__(storage_url)
+        self.storage_url = storage_url
         self.started = False
         self.stopped = False
 
@@ -18,24 +18,22 @@ class _FakeService(Service):
         self.stopped = True
 
 
-async def test_service_is_abstract() -> None:
-    with pytest.raises(TypeError):
-        Service(storage_url=None)
+class _NotAService:
+    async def start(self) -> None: ...
 
 
-async def test_subclass_stores_storage_url() -> None:
-    svc = _FakeService("postgresql://example")
-    assert svc._storage_url == "postgresql://example"
+async def test_conforming_class_satisfies_protocol() -> None:
+    assert isinstance(_FakeService(None), Service)
 
 
-async def test_subclass_accepts_none_storage_url() -> None:
-    svc = _FakeService(None)
-    assert svc._storage_url is None
+async def test_class_missing_methods_does_not_satisfy_protocol() -> None:
+    assert not isinstance(_NotAService(), Service)
 
 
-async def test_subclass_lifecycle() -> None:
-    svc = _FakeService(None)
+async def test_protocol_lifecycle_roundtrip() -> None:
+    svc: Service = _FakeService("postgresql://example")
     await svc.start()
-    assert svc.started
     await svc.stop()
+    assert isinstance(svc, _FakeService)
+    assert svc.started
     assert svc.stopped

@@ -1,27 +1,32 @@
-from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
 
 
-class Service(ABC):
-    """Common shape for every gridone service.
+@runtime_checkable
+class Service(Protocol):
+    """Lifecycle shape every gridone service implements.
 
-    A subclass takes its ``storage_url`` (and any collaborators) at ``__init__``,
-    builds its storage inside ``start``, and tears it down inside ``stop``.
+    A service stores its ``storage_url`` (and any collaborators) at
+    ``__init__``, builds its storage inside ``start``, and tears it down inside
+    ``stop``.
 
-    ``start`` MUST raise ``models.errors.StorageError`` when the storage URL is
-    unsupported or unreachable. The composition root in ``apps/api_server`` is
-    responsible for ordering ``start`` / ``stop`` calls and propagating failures.
+    ``start`` MUST raise ``models.errors.UnsupportedStorageError`` when the URL
+    scheme is unsupported, and ``models.errors.StorageConnectionError`` when
+    the backend cannot be reached or initialized. The composition root in
+    ``apps/api_server`` orders ``start`` / ``stop`` calls and propagates
+    failures.
 
-    A ``None`` ``storage_url`` selects the in-memory backend, intended for tests
-    and ephemeral runs.
+    A ``None`` ``storage_url`` selects the in-memory backend, intended for
+    tests and ephemeral runs.
+
+    This is a Protocol, not an ABC: services declare conformance structurally
+    and stay free of an extra base class, which keeps test mocks and
+    dependency injection ergonomic.
     """
 
-    def __init__(self, storage_url: str | None) -> None:
-        self._storage_url = storage_url
-
-    @abstractmethod
     async def start(self) -> None:
         """Build storage and bring the service to a ready state."""
+        ...
 
-    @abstractmethod
     async def stop(self) -> None:
         """Release storage and any background resources held by the service."""
+        ...
