@@ -88,7 +88,8 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
           {editingSection === "trigger" ? (
             <TriggerForm
               initialValue={automation.trigger}
-              onSave={(trigger) => update("trigger", { trigger })}
+              onSubmit={(trigger) => update("trigger", { trigger })}
+              onCancel={() => setEditingSection(null)}
             />
           ) : (
             <TriggerPresenter trigger={automation.trigger} />

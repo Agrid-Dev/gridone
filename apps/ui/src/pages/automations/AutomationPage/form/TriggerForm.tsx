@@ -17,10 +17,15 @@ import { FieldShell } from "@/components/forms/controllers/FieldShell";
 
 interface TriggerFormProps {
   initialValue?: Trigger;
-  onSave?: (trigger: Trigger) => void;
+  onSubmit: (trigger: Trigger) => void;
+  onCancel: () => void;
 }
 
-const TriggerForm: FC<TriggerFormProps> = ({ initialValue, onSave }) => {
+const TriggerForm: FC<TriggerFormProps> = ({
+  initialValue,
+  onSubmit,
+  onCancel,
+}) => {
   const { t } = useTranslation("automations");
   const {
     isLoading,
@@ -57,12 +62,14 @@ const TriggerForm: FC<TriggerFormProps> = ({ initialValue, onSave }) => {
           </SelectContent>
         </Select>
       </FieldShell>
-      {schema && (
+      {type && schema && (
         <GenericTriggerFormBody
           key={type}
+          type={type}
           schema={schema}
           initialValue={initialValueForType}
-          onSave={onSave}
+          onSubmit={onSubmit}
+          onCancel={onCancel}
         />
       )}
     </div>

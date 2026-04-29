@@ -8,9 +8,11 @@ import { type Trigger, type TriggerSchema } from "@/api/automations";
 import { useGenericTriggerForm } from "./useGenericTriggerForm";
 
 interface GenericTriggerFormBodyProps {
+  type: string;
   schema: TriggerSchema;
   initialValue?: Trigger;
-  onSave?: (trigger: Trigger) => void;
+  onSubmit: (trigger: Trigger) => void;
+  onCancel: () => void;
 }
 
 type JsonSchemaProperty = {
@@ -25,11 +27,13 @@ type SchemaShape = {
 };
 
 const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
+  type,
   schema,
   initialValue,
-  onSave,
+  onSubmit,
+  onCancel,
 }) => {
-  const { t } = useTranslation("automations");
+  const { t } = useTranslation(["common", "automations"]);
 
   const initialDefaults = initialValue
     ? Object.fromEntries(
@@ -45,12 +49,12 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   const { properties = {}, required = [] } = schema as SchemaShape;
   const requiredSet = new Set(required);
 
-  const onSubmit = (values: Record<string, unknown>) => {
-    onSave?.(values);
+  const handleFormSubmit = (values: Record<string, unknown>) => {
+    onSubmit({ type, ...values } as Trigger);
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <div className="grid gap-4">
         {Object.entries(properties).map(([name, property]) => {
           const label = property.title ?? toLabel(name);
@@ -91,8 +95,14 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
         })}
       </div>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={!formState.isValid}>
+      <div className="flex align-middle justify-end gap-2 mt-8">
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          {t("common:common.cancel")}
+        </Button>
+        <Button
+          type="submit"
+          disabled={!formState.isValid || !formState.isDirty}
+        >
           {t("common:common.save")}
         </Button>
       </div>
