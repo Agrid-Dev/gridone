@@ -20,6 +20,7 @@ from users.auth import AuthService
 from api.dependencies import get_current_user_id
 from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
+from api.notification_listeners.fault import FaultNotificationListener
 from api.routes import (
     assets_router,
     automations_router,
@@ -168,6 +169,7 @@ async def lifespan(app: FastAPI):
         )
 
     dm.add_device_discovery_listener(on_device_discovered)
+    FaultNotificationListener(dm, um, notifications_svc).register()
 
     async def on_attribute_update(
         device: CoreDevice,
@@ -191,7 +193,7 @@ async def lifespan(app: FastAPI):
             [
                 DataPoint(
                     timestamp=attribute.last_changed or datetime.now(UTC),
-                    value=attribute.current_value,  # ty: ignore[invalid-argument-type]
+                    value=attribute.current_value,  # type: ignore[invalid-argument-type]
                 )
             ],
             create_if_not_found=True,
