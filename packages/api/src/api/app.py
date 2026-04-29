@@ -167,7 +167,7 @@ async def lifespan(app: FastAPI):
         app.state.assets_manager = None
 
     async def on_device_discovered(device: CoreDevice) -> None:
-        users = await um.list_users()
+        users = await users_service.list_users()
         await notifications_svc.dispatch(
             title="New device discovered",
             body=f"A new device [{device.name}]({ResourceReference('device', device.id).serialize()}) was recognised by a driver and successfully registered.",
