@@ -16,3 +16,7 @@ class ConfirmationError(ValueError):
 
 class BlockedUserError(Exception):
     """Raised when a blocked user attempts to authenticate."""
+
+
+class StorageError(Exception):
+    """Raised when a service cannot build or reach its storage backend."""
