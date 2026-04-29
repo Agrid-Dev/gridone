@@ -8,6 +8,7 @@ import pytest
 from devices_manager import DevicesManager
 from devices_manager.core.device import (
     Attribute,
+    CoreDevice,
     DeviceBase,
     FaultAttribute,
     PhysicalDevice,
@@ -313,6 +314,127 @@ class TestDevicesManagerDiscovery:
             {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
         )
         assert len(dm.list_devices()) == 0
+
+    def test_add_discovery_listener_returns_id(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        listener_id = dm.add_device_discovery_listener(lambda _: None)
+        assert isinstance(listener_id, str)
+        assert len(listener_id) > 0
+
+    def test_remove_nonexistent_discovery_listener_is_safe(self):
+        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm.remove_device_discovery_listener("nonexistent")  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_discovery_listener_called_on_new_device(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        received: list[CoreDevice] = []
+        dm.add_device_discovery_listener(received.append)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await asyncio.sleep(0.05)
+
+        assert len(received) == 1
+        assert received[0].config["vendor_id"] == "abc"
+
+    @pytest.mark.asyncio
+    async def test_multiple_discovery_listeners_all_fire(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        calls_a: list[CoreDevice] = []
+        calls_b: list[CoreDevice] = []
+        dm.add_device_discovery_listener(calls_a.append)
+        dm.add_device_discovery_listener(calls_b.append)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await asyncio.sleep(0.05)
+
+        assert len(calls_a) == 1
+        assert len(calls_b) == 1
+
+    @pytest.mark.asyncio
+    async def test_removed_discovery_listener_not_called(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        received: list[CoreDevice] = []
+        listener_id = dm.add_device_discovery_listener(received.append)
+        dm.remove_device_discovery_listener(listener_id)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await asyncio.sleep(0.05)
+
+        assert received == []
+
+    @pytest.mark.asyncio
+    async def test_discovery_listener_not_called_for_existing_device(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        config: DeviceConfig = {"vendor_id": "abc", "gateway_id": "gtw"}
+        existing = PhysicalDevice.from_base(
+            DeviceBase(id="xyz", name="Existing", config=config),
+            driver=driver_w_push_transport,
+            transport=mock_push_transport_client,
+        )
+        dm = DevicesManager(
+            devices={existing.id: existing},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        received: list[CoreDevice] = []
+        dm.add_device_discovery_listener(received.append)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await asyncio.sleep(0.05)
+
+        assert received == []
 
 
 class TestDevicesManagerListTransports:

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 from .core.device import Attribute, CoreDevice
 
 AttributeListener = Callable[[CoreDevice, str, Attribute], Awaitable[None] | None]
+DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
 
 if TYPE_CHECKING:
     import builtins
@@ -195,8 +196,15 @@ class DevicesManagerInterface(Protocol):
 
     def remove_device_attribute_listener(self, listener_id: str) -> None: ...
 
+    def add_device_discovery_listener(
+        self, callback: DeviceDiscoveredListener
+    ) -> str: ...
+
+    def remove_device_discovery_listener(self, listener_id: str) -> None: ...
+
 
 __all__ = [
+    "DeviceDiscoveredListener",
     "DeviceRegistryInterface",
     "DevicesManagerInterface",
     "DiscoveryManagerInterface",
