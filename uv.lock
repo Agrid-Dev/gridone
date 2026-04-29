@@ -956,6 +956,7 @@ source = { editable = "packages/notifications" }
 dependencies = [
     { name = "asyncpg" },
     { name = "gridone-models" },
+    { name = "markdown-it-py" },
     { name = "yoyo-migrations" },
 ]
 
@@ -963,6 +964,7 @@ dependencies = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "gridone-models", editable = "packages/models" },
+    { name = "markdown-it-py", specifier = ">=4.0.0" },
     { name = "yoyo-migrations", specifier = ">=8.2.0" },
 ]
 

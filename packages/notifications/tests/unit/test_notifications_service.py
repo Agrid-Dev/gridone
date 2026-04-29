@@ -239,3 +239,43 @@ class TestDismiss:
         storage.dismiss.return_value = None
         with pytest.raises(NotFoundError):
             await service.dismiss(_NOTIF_ID, _USER_A)
+
+
+class TestDispatchBodySanitization:
+    async def test_validate_body_called_on_dispatch(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        storage.upsert_notification.return_value = _NOTIFICATION
+        storage.dispatch_to_users.return_value = [_make_dispatch(_USER_A)]
+        with patch(
+            "notifications.notifications_service.validate_body"
+        ) as mock_validate:
+            await service.dispatch(
+                title="Alert",
+                body="some body",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        mock_validate.assert_called_once_with("some body")
+
+    async def test_storage_not_called_when_validate_raises(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        with (
+            patch(
+                "notifications.notifications_service.validate_body",
+                side_effect=InvalidError("bad body"),
+            ),
+            pytest.raises(InvalidError),
+        ):
+            await service.dispatch(
+                title="Alert",
+                body="bad body",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        storage.upsert_notification.assert_not_awaited()

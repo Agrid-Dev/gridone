@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import Severity
+from notifications.body_sanitizer import validate_body
 from notifications.models import Notification, NotificationDispatch
 from notifications.storage.factory import build_notifications_storage
 
@@ -35,6 +36,7 @@ class NotificationsService:
         correlation_id: str | None = None,
         created_by: str | None = None,
     ) -> list[NotificationDispatch]:
+        validate_body(body)
         notification = await self._upsert_notification(
             title=title,
             body=body,

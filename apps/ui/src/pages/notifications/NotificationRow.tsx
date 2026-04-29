@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { SeverityChip } from "@/components/SeverityChip";
+import { NotificationBody } from "./NotificationBody";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import type { NotificationDispatch } from "@/api/notifications";
 
@@ -23,7 +24,7 @@ export function NotificationRow({
   const { t: tc } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(true);
-  const bodyRef = useRef<HTMLParagraphElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const isDismissed = dispatch.dismissedAt !== null;
   const notifId = dispatch.notification.id;
 
@@ -60,15 +61,15 @@ export function NotificationRow({
           <p className="font-medium leading-none">
             {dispatch.notification.title}
           </p>
-          <p
+          <div
             ref={bodyRef}
             className={cn(
               "text-sm text-muted-foreground",
               !expanded && "line-clamp-2",
             )}
           >
-            {dispatch.notification.body}
-          </p>
+            <NotificationBody body={dispatch.notification.body} />
+          </div>
           {isTruncated && (
             <button
               type="button"
