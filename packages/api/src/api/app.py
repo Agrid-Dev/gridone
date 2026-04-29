@@ -10,7 +10,7 @@ from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
-from models.types import AttributeValueType, DataType
+from models.types import AttributeValueType, DataType, Severity
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, create_service
 from users import UsersManager
@@ -164,6 +164,17 @@ async def lifespan(app: FastAPI):
     except ValueError:
         logger.warning("Assets package requires PostgreSQL — assets disabled")
         app.state.assets_manager = None
+
+    async def on_device_discovered(device: CoreDevice) -> None:
+        users = await um.list_users()
+        await notifications_svc.dispatch(
+            title="New device discovered",
+            body=f"[{device.name}](resource://device/{device.id}) was discovered.",
+            severity=Severity.INFO,
+            user_ids=[u.id for u in users],
+        )
+
+    dm.add_device_discovery_listener(on_device_discovered)
 
     async def on_attribute_update(
         device: CoreDevice, attribute_name: str, attribute: Attribute

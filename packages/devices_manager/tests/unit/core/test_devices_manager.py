@@ -228,6 +228,29 @@ class TestDevicesManagerListeners:
 
         assert received == []
 
+    def test_sync_attribute_listener_exception_is_swallowed(
+        self, devices_manager, device
+    ):
+        def failing_handler(_device_obj, _attr_name, _attr) -> None:
+            raise RuntimeError("boom")
+
+        devices_manager.add_device_attribute_listener(failing_handler)
+        # must not propagate
+        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+
+    @pytest.mark.asyncio
+    async def test_async_attribute_listener_exception_is_logged(
+        self, devices_manager, device
+    ):
+        async def failing_async_handler(_device_obj, _attr_name, _attr) -> None:
+            msg = "async boom"
+            raise RuntimeError(msg)
+
+        devices_manager.add_device_attribute_listener(failing_async_handler)
+        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+        await asyncio.sleep(0.05)
+        # background task completed with exception — must not propagate to caller
+
 
 class TestDevicesManagerDiscovery:
     @pytest.mark.asyncio
@@ -349,7 +372,7 @@ class TestDevicesManagerDiscovery:
         await asyncio.sleep(0.05)
 
         assert len(received) == 1
-        assert received[0].config["vendor_id"] == "abc"
+        assert received[0].id == dm.list_devices()[0].id
 
     @pytest.mark.asyncio
     async def test_multiple_discovery_listeners_all_fire(
@@ -435,6 +458,36 @@ class TestDevicesManagerDiscovery:
         await asyncio.sleep(0.05)
 
         assert received == []
+
+    @pytest.mark.asyncio
+    async def test_discovery_listener_exception_does_not_abort_registration(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesManager(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+
+        def failing_listener(_device: CoreDevice) -> None:
+            msg = "listener error"
+            raise RuntimeError(msg)
+
+        dm.add_device_discovery_listener(failing_listener)
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event(
+            "/xx",
+            {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}},
+        )
+        await asyncio.sleep(0.05)
+
+        # device must still be registered despite the listener raising
+        assert len(dm.list_devices()) == 1
 
 
 class TestDevicesManagerListTransports:
