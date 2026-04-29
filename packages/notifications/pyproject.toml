@@ -8,6 +8,7 @@ requires-python = ">=3.13"
 dependencies = [
     "asyncpg>=0.30.0",
     "gridone-models",
+    "markdown-it-py>=4.0.0",
     "yoyo-migrations>=8.2.0",
 ]
 

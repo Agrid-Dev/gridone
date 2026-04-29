@@ -242,50 +242,40 @@ class TestDismiss:
 
 
 class TestDispatchBodySanitization:
-    async def test_raises_on_script_injection(
-        self,
-        service: NotificationsService,
-        storage: AsyncMock,
-    ) -> None:
-        with pytest.raises(InvalidError):
-            await service.dispatch(
-                title="Alert",
-                body="<script>alert(1)</script>",
-                severity=Severity.ALERT,
-                user_ids=[_USER_A],
-            )
-        storage.upsert_notification.assert_not_awaited()
-
-    async def test_raises_on_disallowed_link_scheme(
-        self,
-        service: NotificationsService,
-        storage: AsyncMock,
-    ) -> None:
-        with pytest.raises(InvalidError):
-            await service.dispatch(
-                title="Alert",
-                body="[click](javascript:void(0))",
-                severity=Severity.ALERT,
-                user_ids=[_USER_A],
-            )
-        storage.upsert_notification.assert_not_awaited()
-
-    async def test_passes_clean_markdown_body(
+    async def test_validate_body_called_on_dispatch(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
         storage.upsert_notification.return_value = _NOTIFICATION
         storage.dispatch_to_users.return_value = [_make_dispatch(_USER_A)]
-        body = (
-            "A **new** [device](resource://device/abc) was found "
-            "via *[driver](https://example.com/driver)*."
-        )
-        result = await service.dispatch(
-            title="Alert",
-            body=body,
-            severity=Severity.ALERT,
-            user_ids=[_USER_A],
-        )
-        assert len(result) == 1
-        storage.upsert_notification.assert_awaited_once()
+        with patch(
+            "notifications.notifications_service.validate_body"
+        ) as mock_validate:
+            await service.dispatch(
+                title="Alert",
+                body="some body",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        mock_validate.assert_called_once_with("some body")
+
+    async def test_storage_not_called_when_validate_raises(
+        self,
+        service: NotificationsService,
+        storage: AsyncMock,
+    ) -> None:
+        with (
+            patch(
+                "notifications.notifications_service.validate_body",
+                side_effect=InvalidError("bad body"),
+            ),
+            pytest.raises(InvalidError),
+        ):
+            await service.dispatch(
+                title="Alert",
+                body="bad body",
+                severity=Severity.ALERT,
+                user_ids=[_USER_A],
+            )
+        storage.upsert_notification.assert_not_awaited()
