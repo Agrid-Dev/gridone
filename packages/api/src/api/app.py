@@ -10,6 +10,7 @@ from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
+from models.resource_reference import ResourceReference
 from models.types import AttributeValueType, DataType, Severity
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, create_service
@@ -169,9 +170,10 @@ async def lifespan(app: FastAPI):
         users = await um.list_users()
         await notifications_svc.dispatch(
             title="New device discovered",
-            body=f"[{device.name}](resource://device/{device.id}) was discovered.",
+            body=f"A new device [{device.name}]({ResourceReference('device', device.id).serialize()}) was recognised by a driver and successfully registered.",
             severity=Severity.INFO,
-            user_ids=[u.id for u in users],
+            user_ids=[u.id for u in users if not u.is_blocked],
+            correlation_id=device.id,
         )
 
     dm.add_device_discovery_listener(on_device_discovered)
