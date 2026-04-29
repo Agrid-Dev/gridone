@@ -238,6 +238,32 @@ describe("NotificationsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders markdown formatting and resource references in the body", () => {
+    mockUseNotifications.mockReturnValue({
+      page: makePage([
+        makeDispatch({
+          notification: {
+            id: "n1",
+            title: "Discovery",
+            body: "A **new device** was discovered for [thermostat](resource://device/d1).",
+            severity: "info",
+            correlationId: null,
+            createdBy: null,
+            createdAt: DISPATCHED_AT,
+          },
+        }),
+      ]),
+      loading: false,
+      error: null,
+      dismiss: mockDismiss,
+      dismissMany: mockDismissMany,
+    });
+    const { container } = renderPage();
+    expect(container.querySelector("strong")?.textContent).toBe("new device");
+    const link = screen.getByRole("link", { name: "thermostat" });
+    expect(link).toHaveAttribute("href", "/devices/d1");
+  });
+
   it("renders pagination links when totalPages > 1", () => {
     mockUseNotifications.mockReturnValue({
       page: makePage([makeDispatch()], {
