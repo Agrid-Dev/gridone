@@ -1,12 +1,13 @@
 from models.errors import BlockedUserError, NotFoundError
 from models.ids import gen_id
+from models.service import Service
 from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage import build_users_storage
 from users.storage.storage_backend import UsersStorageBackend
 
 
-class UsersService:
+class UsersService(Service):
     def __init__(self, storage_url: str | None) -> None:
         self._storage_url = storage_url
         self._storage: UsersStorageBackend | None = None
