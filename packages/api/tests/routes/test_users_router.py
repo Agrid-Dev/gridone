@@ -10,7 +10,7 @@ from models.errors import BlockedUserError, NotFoundError
 from users import Role, User
 from users.auth import AuthService
 
-from api.dependencies import get_current_user_id, get_users_manager
+from api.dependencies import get_current_user_id, get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -73,7 +73,7 @@ def app(users_manager: AsyncMock) -> FastAPI:
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    app.dependency_overrides[get_users_manager] = lambda: users_manager
+    app.dependency_overrides[get_users_service] = lambda: users_manager
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(users_router, prefix="/users", dependencies=jwt_dep)

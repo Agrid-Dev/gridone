@@ -8,11 +8,11 @@ Domain package for user management and authentication primitives.
 - Password hashing and verification
 - JWT service (`AuthService`) without HTTP framework coupling
 - Storage abstraction (`UsersStorageBackend`) and implementations
-- High-level user operations (`UsersManager`)
+- High-level user operations (`UsersService`)
 
 ## Design notes
 
-- `UsersManager` exposes public `User` models at its API boundaries.
+- `UsersService` exposes public `User` models at its API boundaries.
 - `UserInDB` stays internal to storage/manager internals.
 - Not-found cases raise `common.errors.NotFound`.
 - No FastAPI dependency exists in this package; HTTP wiring belongs to `gridone-api`.

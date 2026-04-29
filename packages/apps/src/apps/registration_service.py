@@ -17,7 +17,7 @@ from apps.storage.storage_backend import (
     RegistrationRequestStorageBackend,
 )
 from models.errors import InvalidError, NotFoundError
-from users import User, UserCreate, UsersManagerInterface
+from users import User, UserCreate, UsersServiceInterface
 from users.models import UserType
 from users.password import hash_password
 
@@ -29,7 +29,7 @@ class RegistrationService:
         self,
         storage: RegistrationRequestStorageBackend,
         app_storage: AppStorageBackend,
-        users_manager: UsersManagerInterface,
+        users_manager: UsersServiceInterface,
     ) -> None:
         self._storage = storage
         self._app_storage = app_storage

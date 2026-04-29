@@ -1,7 +1,7 @@
 from apps.apps_manager import AppsManager
 from apps.registration_service import RegistrationService
 from apps.storage import build_apps_storages
-from users import UsersManagerInterface
+from users import UsersServiceInterface
 
 
 class AppsService:
@@ -15,7 +15,7 @@ class AppsService:
 
     @classmethod
     async def from_storage(
-        cls, storage_url: str, users_manager: UsersManagerInterface
+        cls, storage_url: str, users_manager: UsersServiceInterface
     ) -> "AppsService":
         reg_storage, app_storage = await build_apps_storages(storage_url)
         registration = RegistrationService(reg_storage, app_storage, users_manager)

@@ -4,14 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
-from users import UsersManager
+from users import UsersService
 from users.auth import AuthService, InvalidTokenError
 from users.models import Role
 from users.validation import get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
     get_current_user_id,
-    get_users_manager,
+    get_users_service,
 )
 from api.permissions import get_permissions_for_role
 
@@ -71,7 +71,7 @@ async def login(
     request: Request,
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> TokenResponse:
     user = await um.authenticate(form_data.username, form_data.password)
@@ -102,7 +102,7 @@ async def refresh(
     response: Response,
     body: RefreshRequest | None = None,
     auth_service: AuthService = Depends(get_auth_service),
-    um: UsersManager = Depends(get_users_manager),
+    um: UsersService = Depends(get_users_service),
 ) -> TokenResponse:
     # Cookie takes precedence; fall back to JSON body (for Postman/Swagger)
     token = request.cookies.get("refresh_token")
@@ -171,7 +171,7 @@ class MeResponse(BaseModel):
 @router.get("/me", response_model=MeResponse)
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
-    um: Annotated[UsersManager, Depends(get_users_manager)],
+    um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
     user = await um.get_by_id(current_user_id)
     return MeResponse(
