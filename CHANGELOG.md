@@ -1,3 +1,12 @@
+## v0.63.1 (2026-04-30)
+
+### Fix
+
+- **ui**: final type-check stragglers
+- **ui**: clean up spec type errors
+- **ui**: tighten runtime types in forms, charts, and Asset model
+- **ui**: clear i18n type errors
+
 ## v0.63.0 (2026-04-30)
 
 ### Feat
