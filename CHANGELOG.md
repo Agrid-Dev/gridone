@@ -1,3 +1,19 @@
+## v0.62.0 (2026-04-30)
+
+### Feat
+
+- **ui**: wire mutations in automation edit
+- **ui**: bootstrap automation create-update routes
+
+### Fix
+
+- **ui**: automation trigger form actions
+
+### Refactor
+
+- **ui**: merge automation details with form
+- **ui**: fully extract automations trigger presenters to reuse in form
+
 ## v0.61.10 (2026-04-30)
 
 ### Refactor
