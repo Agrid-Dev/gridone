@@ -1,3 +1,9 @@
+## v0.61.10 (2026-04-30)
+
+### Refactor
+
+- **automations**: migrate to common Service shape (AGR-543)
+
 ## v0.61.9 (2026-04-30)
 
 ### Refactor
