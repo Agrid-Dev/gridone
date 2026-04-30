@@ -5,6 +5,7 @@ import type automations from "../locales/en/automations.json";
 import type common from "../locales/en/common.json";
 import type devices from "../locales/en/devices.json";
 import type drivers from "../locales/en/drivers.json";
+import type faults from "../locales/en/faults.json";
 import type notifications from "../locales/en/notifications.json";
 import type transports from "../locales/en/transports.json";
 import type users from "../locales/en/users.json";
@@ -21,6 +22,7 @@ declare module "i18next" {
       transports: typeof transports;
       apps: typeof apps;
       drivers: typeof drivers;
+      faults: typeof faults;
       notifications: typeof notifications;
     };
   }

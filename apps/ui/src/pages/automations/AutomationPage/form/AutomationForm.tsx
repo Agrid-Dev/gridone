@@ -4,7 +4,7 @@ import { type Automation } from "@/api/automations";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import TriggerForm from "./TriggerForm";
-import { TriggerPresenter } from "../../presenters/TriggerPresenter";
+import { TriggerPresenter } from "../presenters/TriggerPresenter";
 import { Card } from "@/components/ui";
 import { useTranslation } from "react-i18next";
 
@@ -25,7 +25,7 @@ const AutomationForm: FC<AutomationFormProps> = ({ initialValues }) => {
           {initialValues ? (
             <TriggerPresenter trigger={initialValues.trigger} />
           ) : (
-            <TriggerForm />
+            <TriggerForm onSubmit={() => {}} onCancel={() => {}} />
           )}
         </div>
       </Card>
