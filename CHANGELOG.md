@@ -1,3 +1,9 @@
+## v0.63.0 (2026-04-30)
+
+### Feat
+
+- **ui**: add metadata card to automation page (AGR-550) (#259)
+
 ## v0.62.1 (2026-04-30)
 
 ### Fix
