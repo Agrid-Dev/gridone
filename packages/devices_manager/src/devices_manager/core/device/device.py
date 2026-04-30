@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
@@ -13,9 +13,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeUpdateCallback = Callable[
+# (device, attribute_name, previous, new). `previous` is `None` for the first
+# event ever observed for this attribute (i.e. its `current_value` was `None`
+# before the mutation); otherwise it's an immutable snapshot of the attribute's
+# state before the value changed. On the first post-restart event `previous`
+# reflects the persisted state, not `None`. Listeners can compare `previous`
+# and `new` to detect transitions without maintaining per-listener state.
+AttributeListener = Callable[
     ["CoreDevice", str, "Attribute | None", Attribute],
-    None,
+    Awaitable[None] | None,
 ]
 
 
@@ -27,7 +33,7 @@ class CoreDevice(ABC):
     kind: ClassVar[DeviceKind]
     type: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
-    on_update: AttributeUpdateCallback | None = field(default=None, repr=False)
+    on_update: AttributeListener | None = field(default=None, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
 
     @property

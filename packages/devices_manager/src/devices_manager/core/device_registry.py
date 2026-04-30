@@ -12,7 +12,14 @@ from devices_manager.storage.memory import MemoryDeviceStorage
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 
-from .device import Attribute, CoreDevice, DeviceBase, PhysicalDevice, VirtualDevice
+from .device import (
+    Attribute,
+    AttributeListener,
+    CoreDevice,
+    DeviceBase,
+    PhysicalDevice,
+    VirtualDevice,
+)
 from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
@@ -30,12 +37,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeUpdateCallback = Callable[
-    [CoreDevice, str, "Attribute | None", Attribute],
-    None,
-]
-
-
 DriverResolver = Callable[[str], "Driver"]
 TransportResolver = Callable[[str], "TransportClient"]
 
@@ -46,7 +47,7 @@ class DeviceRegistry:
     _devices: dict[str, CoreDevice]
     _resolve_driver: DriverResolver
     _resolve_transport: TransportResolver
-    _on_attribute_update: AttributeUpdateCallback | None
+    _on_attribute_update: AttributeListener | None
     _storage: DeviceStorageBackend
 
     def __init__(
@@ -56,7 +57,7 @@ class DeviceRegistry:
         resolve_driver: DriverResolver,
         resolve_transport: TransportResolver,
         storage: DeviceStorageBackend | None = None,
-        on_attribute_update: AttributeUpdateCallback | None = None,
+        on_attribute_update: AttributeListener | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
