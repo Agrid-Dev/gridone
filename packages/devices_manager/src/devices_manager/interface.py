@@ -5,9 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Protocol
 
-from .core.device import Attribute, CoreDevice
+from .core.device import Attribute, AttributeListener, CoreDevice
 
-AttributeListener = Callable[[CoreDevice, str, Attribute], Awaitable[None] | None]
 DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
 
 if TYPE_CHECKING:

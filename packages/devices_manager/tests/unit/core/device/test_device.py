@@ -333,7 +333,7 @@ class TestDevicesListeners:
     ):
         """Regression AGR-534: callback must fire only when value changes."""
         calls: list[tuple[str, object]] = []
-        device.on_update = lambda _d, name, attr: calls.append(
+        device.on_update = lambda _d, name, _prev, attr: calls.append(
             (name, attr.current_value)
         )
 
@@ -353,7 +353,7 @@ class TestDevicesListeners:
     ):
         """Regression AGR-534: push listener must fire callback only on changes."""
         calls: list[tuple[str, object]] = []
-        device_w_push_transport.on_update = lambda _d, name, attr: calls.append(
+        device_w_push_transport.on_update = lambda _d, name, _prev, attr: calls.append(
             (name, attr.current_value)
         )
         await device_w_push_transport.init_listeners()

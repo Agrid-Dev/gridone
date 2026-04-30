@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
     from devices_manager.types import AttributeValueType, DeviceConfig
 
-    from .device import AttributeUpdateCallback
+    from .device import AttributeListener
     from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ class PhysicalDevice(CoreDevice):
         transport: TransportClient,
         driver: Driver,
         initial_values: dict[str, AttributeValueType] | None = None,
-        on_update: AttributeUpdateCallback | None = None,
+        on_update: AttributeListener | None = None,
     ) -> PhysicalDevice:
         return cls(
             id=base.id,

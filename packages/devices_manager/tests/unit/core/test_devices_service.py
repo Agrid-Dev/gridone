@@ -175,7 +175,7 @@ class TestDevicesServiceSync:
 
 class TestDevicesServiceListeners:
     def test_add_device_attribute_listener_returns_id(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _attribute) -> None:
+        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
             pass
 
         listener_id = devices_manager.add_device_attribute_listener(callback)
@@ -184,7 +184,7 @@ class TestDevicesServiceListeners:
         assert len(listener_id) > 0
 
     def test_add_device_attribute_listener_registers_handler(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _attribute) -> None:
+        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
             pass
 
         devices_manager.add_device_attribute_listener(callback)
@@ -192,7 +192,7 @@ class TestDevicesServiceListeners:
         assert len(devices_manager._attribute_update_handlers) == 1
 
     def test_remove_device_attribute_listener_removes_handler(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _attribute) -> None:
+        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
             pass
 
         listener_id = devices_manager.add_device_attribute_listener(callback)
@@ -207,7 +207,7 @@ class TestDevicesServiceListeners:
     def test_handler_called_on_attribute_update(self, devices_manager, device):
         received: list[tuple[str, object]] = []
 
-        def handler(_device_obj, attribute_name, attribute) -> None:
+        def handler(_device_obj, attribute_name, _previous, attribute) -> None:
             received.append((attribute_name, attribute.current_value))
 
         devices_manager.add_device_attribute_listener(handler)
@@ -220,7 +220,7 @@ class TestDevicesServiceListeners:
     ):
         received: list[object] = []
 
-        def handler(_device_obj, _attr_name, attribute) -> None:
+        def handler(_device_obj, _attr_name, _previous, attribute) -> None:
             received.append(attribute.current_value)
 
         listener_id = devices_manager.add_device_attribute_listener(handler)
@@ -232,7 +232,7 @@ class TestDevicesServiceListeners:
     def test_sync_attribute_listener_exception_is_swallowed(
         self, devices_manager, device
     ):
-        def failing_handler(_device_obj, _attr_name, _attr) -> None:
+        def failing_handler(_device_obj, _attr_name, _previous, _attr) -> None:
             raise RuntimeError("boom")
 
         devices_manager.add_device_attribute_listener(failing_handler)
@@ -243,7 +243,9 @@ class TestDevicesServiceListeners:
     async def test_async_attribute_listener_exception_is_logged(
         self, devices_manager, device
     ):
-        async def failing_async_handler(_device_obj, _attr_name, _attr) -> None:
+        async def failing_async_handler(
+            _device_obj, _attr_name, _previous, _attr
+        ) -> None:
             msg = "async boom"
             raise RuntimeError(msg)
 
@@ -251,6 +253,87 @@ class TestDevicesServiceListeners:
         device._update_attribute(device.attributes["temperature_setpoint"], 22)
         await asyncio.sleep(0.05)
         # background task completed with exception — must not propagate to caller
+
+    def test_first_update_previous_is_none(self, devices_manager, device):
+        """First update: previous=None."""
+        attr = device.attributes["temperature_setpoint"]
+        assert attr.current_value is None
+
+        received: list[object] = []
+
+        def handler(_device_obj, _attr_name, previous, _attribute) -> None:
+            received.append(previous)
+
+        devices_manager.add_device_attribute_listener(handler)
+        device._update_attribute(attr, 21)
+
+        assert received == [None]
+
+    def test_second_update_previous_equals_prior_value(self, devices_manager, device):
+        """Second update: previous.current_value equals the value before mutation."""
+        attr = device.attributes["temperature_setpoint"]
+        device._update_attribute(attr, 21)
+
+        received_previous: list[Attribute | None] = []
+
+        def handler(
+            _device_obj, _attr_name, previous: Attribute | None, _attribute
+        ) -> None:
+            received_previous.append(previous)
+
+        devices_manager.add_device_attribute_listener(handler)
+        device._update_attribute(attr, 22)
+
+        assert len(received_previous) == 1
+        prev = received_previous[0]
+        assert isinstance(prev, Attribute)
+        assert prev.current_value == 21
+
+    def test_snapshot_is_independent_of_subsequent_mutation(
+        self, devices_manager, device
+    ):
+        """Mutating the new attribute doesn't retroactively change previous."""
+        attr = device.attributes["temperature_setpoint"]
+        device._update_attribute(attr, 21)
+
+        captured_previous = []
+        captured_attr = []
+
+        def handler(_device_obj, _attr_name, previous, attribute) -> None:
+            captured_previous.append(previous)
+            captured_attr.append(attribute)
+
+        devices_manager.add_device_attribute_listener(handler)
+        device._update_attribute(attr, 22)
+
+        assert captured_previous[0].current_value == 21
+        # mutate the live attribute further
+        device._update_attribute(attr, 99)
+        # the snapshot must not have changed
+        assert captured_previous[0].current_value == 21
+
+    def test_handler_receives_correct_previous_attribute_sequence(
+        self, devices_manager, device
+    ):
+        """Handler receives correct (previous, attribute) pair per call."""
+        attr = device.attributes["temperature_setpoint"]
+        calls: list[tuple[object, object]] = []
+
+        def handler(_device_obj, _attr_name, previous, attribute) -> None:
+            calls.append(
+                (
+                    previous.current_value if previous is not None else None,
+                    attribute.current_value,
+                )
+            )
+
+        devices_manager.add_device_attribute_listener(handler)
+
+        device._update_attribute(attr, 10)
+        device._update_attribute(attr, 20)
+        device._update_attribute(attr, 30)
+
+        assert calls == [(None, 10), (10, 20), (20, 30)]
 
 
 _DISCOVERY_EVENT = {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}

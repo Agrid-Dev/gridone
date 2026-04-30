@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
@@ -13,7 +13,16 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeUpdateCallback = Callable[["CoreDevice", str, Attribute], None]
+# (device, attribute_name, previous, new). `previous` is `None` for the first
+# event ever observed for this attribute (i.e. its `current_value` was `None`
+# before the mutation); otherwise it's an immutable snapshot of the attribute's
+# state before the value changed. On the first post-restart event `previous`
+# reflects the persisted state, not `None`. Listeners can compare `previous`
+# and `new` to detect transitions without maintaining per-listener state.
+AttributeListener = Callable[
+    ["CoreDevice", str, "Attribute | None", Attribute],
+    Awaitable[None] | None,
+]
 
 
 @dataclass(kw_only=True)
@@ -24,7 +33,7 @@ class CoreDevice(ABC):
     kind: ClassVar[DeviceKind]
     type: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
-    on_update: AttributeUpdateCallback | None = field(default=None, repr=False)
+    on_update: AttributeListener | None = field(default=None, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
 
     @property
@@ -100,9 +109,10 @@ class CoreDevice(ABC):
     ) -> None:
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
+        previous = attribute.model_copy() if previous_value is not None else None
         attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
         if self.on_update and attribute.current_value != previous_value:
-            self.on_update(self, attribute.name, attribute)
+            self.on_update(self, attribute.name, previous, attribute)
 
     @abstractmethod
     async def read_attribute_value(

@@ -170,7 +170,10 @@ async def lifespan(app: FastAPI):
     dm.add_device_discovery_listener(on_device_discovered)
 
     async def on_attribute_update(
-        device: CoreDevice, attribute_name: str, attribute: Attribute
+        device: CoreDevice,
+        attribute_name: str,
+        _previous: Attribute | None,
+        attribute: Attribute,
     ) -> None:
         """On device attribute update:
         - broadcast to websocket
