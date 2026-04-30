@@ -1,3 +1,9 @@
+## v0.61.8 (2026-04-30)
+
+### Refactor
+
+- **timeseries**: migrate TimeseriesService to common Service shape
+
 ## v0.61.7 (2026-04-30)
 
 ### Refactor
