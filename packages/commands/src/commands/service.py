@@ -4,7 +4,6 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from commands.filters import CommandsQueryFilters
 from commands.models import (
@@ -17,7 +16,9 @@ from commands.models import (
 )
 from commands.storage import build_storage
 from models.errors import InvalidError, NotFoundError
+from models.ids import gen_id
 from models.pagination import Page, PaginationParams
+from models.service import Service
 from models.types import SortOrder
 
 if TYPE_CHECKING:
@@ -32,43 +33,38 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CommandsService:
+class CommandsService(Service):
+    _storage: CommandsStorage
+
     def __init__(
         self,
-        storage: CommandsStorage,
+        storage_url: str | None,
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
     ) -> None:
-        self._storage = storage
+        self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
         self._target_resolver = target_resolver
         self._tasks: set[asyncio.Task[object]] = set()
 
-    async def await_pending(self) -> None:
+    async def start(self) -> None:
+        self._storage = await build_storage(self._storage_url)
+
+    async def stop(self) -> None:
+        await self._await_pending()
+        if hasattr(self, "_storage"):
+            await self._storage.close()
+
+    async def _await_pending(self) -> None:
         """Wait for all in-flight background tasks spawned by batch dispatches.
 
-        Safe to call repeatedly and when no tasks are pending. Does not close
-        the service — use :meth:`close` for shutdown.
+        Safe to call repeatedly and when no tasks are pending. Folded into
+        :meth:`stop` so external callers don't need to drain tasks themselves.
         """
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
-
-    async def close(self) -> None:
-        await self.await_pending()
-        await self._storage.close()
-
-    @classmethod
-    async def from_storage(
-        cls,
-        storage_url: str,
-        device_writer: DeviceWriter,
-        result_handler: CommandResultHandler,
-        target_resolver: TargetResolver,
-    ) -> CommandsService:
-        storage = await build_storage(storage_url)
-        return cls(storage, device_writer, result_handler, target_resolver)
 
     # ------------------------------------------------------------------
     # Template CRUD
@@ -85,7 +81,7 @@ class CommandsService:
         kept around for audit until a cleanup job prunes it).
         """
         created = CommandTemplate(
-            id=uuid4().hex[:16],
+            id=gen_id(),
             name=template.name,
             target=template.target,
             write=template.write,
@@ -227,7 +223,7 @@ class CommandsService:
         ``commands`` list — no exception, no PENDING rows created. The
         ``batch_id`` is still generated so the dispatch attempt is observable.
         """
-        batch_id = uuid4().hex[:16]
+        batch_id = gen_id()
         device_ids = await self._target_resolver.resolve(template.target)
         if not device_ids:
             logger.warning("dispatch: template %r resolved to no devices", template.id)

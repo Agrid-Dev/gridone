@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+import pytest_asyncio
 
 from commands.models import (
     AttributeWrite,
@@ -14,9 +15,14 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from commands.storage.memory import MemoryStorage
-from models.errors import InvalidError, NotFoundError
+from models.errors import (
+    InvalidError,
+    NotFoundError,
+    StorageConnectionError,
+    UnsupportedStorageError,
+)
 from models.pagination import PaginationParams
+from models.service import Service
 from models.types import DataType
 
 pytestmark = pytest.mark.asyncio
@@ -54,18 +60,97 @@ def target_resolver() -> AsyncMock:
     return mock
 
 
-@pytest.fixture
-def service(
+def _make_service(
     device_writer: AsyncMock,
     result_handler: AsyncMock,
     target_resolver: AsyncMock,
+    *,
+    storage_url: str | None = None,
 ) -> CommandsService:
     return CommandsService(
-        storage=MemoryStorage(),
+        storage_url,
         device_writer=device_writer,
         result_handler=result_handler,
         target_resolver=target_resolver,
     )
+
+
+@pytest_asyncio.fixture
+async def service(
+    device_writer: AsyncMock,
+    result_handler: AsyncMock,
+    target_resolver: AsyncMock,
+):
+    svc = _make_service(device_writer, result_handler, target_resolver)
+    await svc.start()
+    yield svc
+    await svc.stop()
+
+
+class TestCommandsServiceProtocol:
+    async def test_satisfies_service_protocol(
+        self,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+        target_resolver: AsyncMock,
+    ):
+        svc = _make_service(device_writer, result_handler, target_resolver)
+        assert isinstance(svc, Service)
+
+
+class TestCommandsServiceLifecycle:
+    async def test_start_stop_in_memory_mode(
+        self,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+        target_resolver: AsyncMock,
+    ):
+        svc = _make_service(device_writer, result_handler, target_resolver)
+        await svc.start()
+        # Memory storage is wired and usable.
+        page = await svc.get_commands()
+        assert page.items == []
+        await svc.stop()
+        # Stop is idempotent.
+        await svc.stop()
+
+    async def test_start_unsupported_url_scheme(
+        self,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+        target_resolver: AsyncMock,
+    ):
+        svc = _make_service(
+            device_writer,
+            result_handler,
+            target_resolver,
+            storage_url="redis://nope",
+        )
+        with pytest.raises(UnsupportedStorageError):
+            await svc.start()
+
+    async def test_start_postgres_failure_wrapped(
+        self,
+        device_writer: AsyncMock,
+        result_handler: AsyncMock,
+        target_resolver: AsyncMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        async def fake_postgres_build(_url: str):  # noqa: ANN202
+            msg = "boom"
+            raise RuntimeError(msg)
+
+        monkeypatch.setattr(
+            "commands.storage.postgres.build_postgres_storage", fake_postgres_build
+        )
+        svc = _make_service(
+            device_writer,
+            result_handler,
+            target_resolver,
+            storage_url="postgresql://nope",
+        )
+        with pytest.raises(StorageConnectionError):
+            await svc.start()
 
 
 class TestDispatchUnit:
@@ -227,7 +312,7 @@ class TestDispatchBatch:
         assert all(c.status == CommandStatus.PENDING for c in page.items)
 
         gate.set()
-        await service.await_pending()
+        await service._await_pending()
 
     async def test_every_batch_creates_an_ephemeral_template(
         self,
@@ -243,7 +328,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
 
         # Every unit row links to the same auto-created ephemeral template
         # and the resolver is called with the stored target (not the raw one).
@@ -282,7 +367,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
 
         template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
@@ -332,7 +417,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert len(page.items) == 3
@@ -361,7 +446,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         by_device = {c.device_id: c for c in page.items}
@@ -386,7 +471,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
@@ -398,13 +483,19 @@ class TestDispatchBatch:
     ):
         # Safe to call on a freshly-constructed service that has no in-flight
         # background tasks.
-        await service.await_pending()
+        await service._await_pending()
 
-    async def test_close_awaits_in_flight_tasks(
+    async def test_stop_awaits_in_flight_tasks(
         self,
-        service: CommandsService,
         device_writer: AsyncMock,
+        result_handler: AsyncMock,
+        target_resolver: AsyncMock,
     ):
+        # Use a service we control end-to-end so the fixture's teardown
+        # doesn't double-stop the same instance.
+        svc = _make_service(device_writer, result_handler, target_resolver)
+        await svc.start()
+
         gate = asyncio.Event()
 
         async def slow_writer(*_args: object, **_kwargs: object) -> WriteResult:
@@ -413,23 +504,24 @@ class TestDispatchBatch:
 
         device_writer.side_effect = slow_writer
 
-        dispatch = await service.dispatch_batch(
+        await svc.dispatch_batch(
             target={"ids": ["d1", "d2"]},
             write=MODE_AUTO,
             user_id="u1",
         )
 
-        # Release the writer slightly after kicking off close().
+        # Release the writer slightly after kicking off stop().
         async def releaser() -> None:
             await asyncio.sleep(0)
             gate.set()
 
         release_task = asyncio.create_task(releaser())
-        await service.close()
+        await svc.stop()
         await release_task
 
-        page = await service.get_commands(batch_id=dispatch.batch_id)
-        assert all(c.status == CommandStatus.SUCCESS for c in page.items)
+        # stop() drained the in-flight batch before returning.
+        assert svc._tasks == set()
+        assert result_handler.await_count == 2
 
     async def test_await_pending_is_idempotent(
         self,
@@ -442,9 +534,9 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service.await_pending()
+        await service._await_pending()
         # A second call should be a no-op and not hang.
-        await service.await_pending()
+        await service._await_pending()
 
 
 class TestTemplateCrud:
@@ -505,7 +597,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u1"
         )
-        await service.await_pending()
+        await service._await_pending()
         assert all(c.template_id == template.id for c in dispatch.commands)
 
         await service.delete_template(template.id)
@@ -566,7 +658,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u2"
         )
-        await service.await_pending()
+        await service._await_pending()
 
         target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
         assert [c.device_id for c in dispatch.commands] == ["t1", "t2"]
