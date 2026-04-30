@@ -7,7 +7,7 @@ import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
 
 export const useDrivers = (filters?: Record<string, string>) => {
-  const { t } = useTranslation("drivers");
+  const { t } = useTranslation(["drivers", "common"]);
   const navigate = useNavigate();
   const driversListQuery = useQuery<Driver[]>({
     queryKey: ["drivers", filters],

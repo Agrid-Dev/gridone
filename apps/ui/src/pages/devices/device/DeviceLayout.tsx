@@ -11,7 +11,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function DeviceLayout() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
   const can = usePermissions();

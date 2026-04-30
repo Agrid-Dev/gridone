@@ -49,7 +49,7 @@ export function resolveTimeRange(range: TimeRange): {
   return { last: range.preset };
 }
 
-export function rangeLabel(range: TimeRange, t: TFunction): string {
+export function rangeLabel(range: TimeRange, t: TFunction<"devices">): string {
   if (range.kind === "custom") {
     return t("deviceDetails.rangeCustom");
   }
@@ -58,9 +58,12 @@ export function rangeLabel(range: TimeRange, t: TFunction): string {
   }
   const option = PRESET_OPTIONS.find((o) => o.value === range.preset);
   if (!option) return range.preset;
-  return t(`deviceDetails.${option.unitKey}`, {
-    count: option.count,
-  });
+  return t(
+    `deviceDetails.${option.unitKey}` as "deviceDetails.rangeLastMinutes",
+    {
+      count: option.count,
+    },
+  );
 }
 
 const VALID_PRESETS = new Set<string>([

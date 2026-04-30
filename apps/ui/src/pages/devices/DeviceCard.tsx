@@ -11,7 +11,7 @@ import { getStandardDeviceEntry } from "./standard-devices/registry";
 
 /** Default card content for devices without a registered standard type. */
 function DefaultCardContent({ device }: { device: Device }) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const configEntries = Object.entries(device.config ?? {});
 
   return (

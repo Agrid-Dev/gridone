@@ -21,7 +21,7 @@ const STEP_KEYS = [
 ] as const;
 
 export default function NewCommandPage() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common", "assets"]);
   const can = usePermissions();
   const navigate = useNavigate();
   const { deviceId, assetId } = useParams<{

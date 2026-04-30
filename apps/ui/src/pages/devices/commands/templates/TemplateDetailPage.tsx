@@ -17,7 +17,7 @@ import { TemplateExecutions } from "./TemplateExecutions";
 import { useTemplate } from "./useTemplate";
 
 export default function TemplateDetailPage() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const { templateId = "" } = useParams<{ templateId: string }>();
   const {

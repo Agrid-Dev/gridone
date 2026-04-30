@@ -39,7 +39,7 @@ export function AssetForm({
   isEdit = false,
   excludeId,
 }: AssetFormProps) {
-  const { t } = useTranslation("assets");
+  const { t } = useTranslation(["assets", "common"]);
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),

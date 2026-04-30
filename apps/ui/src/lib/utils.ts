@@ -35,9 +35,11 @@ export function getLastUpdateTime(
   return lastUpdate;
 }
 
+import type { TFunction } from "i18next";
+
 export function formatTimeAgo(
   timestamp: number,
-  t: (key: string, options?: unknown) => string,
+  t: TFunction<"common">,
 ): string {
   const now = Date.now();
   const diffMs = now - timestamp;

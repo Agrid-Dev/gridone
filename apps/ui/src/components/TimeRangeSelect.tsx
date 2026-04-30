@@ -91,9 +91,10 @@ export function TimeRangeSelect({
               }`}
               onClick={() => handlePreset(option.value)}
             >
-              {t(`deviceDetails.${option.unitKey}`, {
-                count: option.count,
-              })}
+              {t(
+                `deviceDetails.${option.unitKey}` as "deviceDetails.rangeLastMinutes",
+                { count: option.count },
+              )}
             </button>
           ))}
         </div>

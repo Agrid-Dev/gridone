@@ -7,7 +7,7 @@ import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
 
 export const useTransports = () => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const navigate = useNavigate();
   const transportsListQuery = useQuery<Transport[]>({
     queryKey: ["transports"],

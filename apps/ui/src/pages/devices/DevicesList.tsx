@@ -13,7 +13,7 @@ import { HealthFilter } from "@/components/HealthFilter";
 import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const filters = useFilterParams();
   const [, setSearchParams] = useSearchParams();
   const { devices, loading, error } = useDevicesList(filters);

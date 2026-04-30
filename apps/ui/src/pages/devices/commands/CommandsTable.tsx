@@ -43,7 +43,7 @@ export function CommandsTable({
   prevHref,
   nextHref,
 }: CommandsTableProps) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
 
   if (error) {
     return (

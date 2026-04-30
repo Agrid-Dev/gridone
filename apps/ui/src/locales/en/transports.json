@@ -2,6 +2,11 @@
   "title": "Transports",
   "listTitle": "List of available transports ({{count}})",
   "subtitle": "Integration channels",
+  "backToList": "Back to list",
+  "feedback": {
+    "created": "Transport {{transportId}} created",
+    "deleted": "Transport deleted"
+  },
   "createTitle": "Create transport",
   "editTitle": "Edit transport",
   "createSubtitle": "Configure a new connection",

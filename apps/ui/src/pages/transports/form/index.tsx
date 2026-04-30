@@ -23,7 +23,7 @@ const TransportForm: FC<TransportFormProps> = ({
   transport,
   configSchemas,
 }) => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const {
     baseFormMethods,
     configFormMethods,
@@ -114,7 +114,7 @@ const TransportForm: FC<TransportFormProps> = ({
 
 const TransportFormWrapper: FC<{ transport?: Transport }> = ({ transport }) => {
   const { isLoading, configSchemas } = useTransportConfigSchemas();
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   if (isLoading) {
     return <p>Loading</p>;
   }

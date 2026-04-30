@@ -34,7 +34,7 @@ type Lookups = {
 };
 
 export function buildCommandColumns(
-  t: TFunction,
+  t: TFunction<readonly ["devices", "common"]>,
   lookups: Lookups,
 ): ColumnDef<DeviceCommand>[] {
   const { showDevice = true, showTemplate = true } = lookups;

@@ -71,7 +71,7 @@ function useAttributeOptions(devices: Device[], deviceId: string | undefined) {
 export function useCommands({
   deviceId: fixedDeviceId,
 }: UseCommandsOptions = {}) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Read filter values from URL (already in API format)

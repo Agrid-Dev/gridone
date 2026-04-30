@@ -59,7 +59,7 @@ function getUserInitials(name: string, username: string): string {
 }
 
 export default function UsersPage() {
-  const { t } = useTranslation("users");
+  const { t } = useTranslation(["users", "common"]);
   const queryClient = useQueryClient();
   const { state } = useAuth();
   const currentUserId = state.status === "authenticated" ? state.user.id : null;

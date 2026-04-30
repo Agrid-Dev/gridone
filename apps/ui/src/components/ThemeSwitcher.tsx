@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const options = [
-  { value: "light" as const, icon: Sun, labelKey: "appearance.light" },
-  { value: "system" as const, icon: Monitor, labelKey: "appearance.system" },
-  { value: "dark" as const, icon: Moon, labelKey: "appearance.dark" },
-];
+  { value: "light", icon: Sun, labelKey: "appearance.light" },
+  { value: "system", icon: Monitor, labelKey: "appearance.system" },
+  { value: "dark", icon: Moon, labelKey: "appearance.dark" },
+] as const;
 
 export function ThemeSwitcher() {
   const { t } = useTranslation();

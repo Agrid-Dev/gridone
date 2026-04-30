@@ -15,7 +15,7 @@ import TransportDiscoveryButton from "@/components/TransportDiscoveryButton";
 import { usePermissions } from "@/contexts/AuthContext";
 
 function TransportEdit() {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -84,7 +84,7 @@ function TransportEdit() {
 }
 
 export default function TransportEditWrapper() {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   return (
     <section className="space-y-6">
       <ResourceHeader
