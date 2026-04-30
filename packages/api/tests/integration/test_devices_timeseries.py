@@ -1,4 +1,9 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import pytest
+import pytest_asyncio
 from devices_manager import DevicesManager, VirtualDevice
 from devices_manager.core.device import Attribute
 from devices_manager.types import DataType
@@ -6,7 +11,6 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from timeseries.domain import SeriesKey
 from timeseries.service import TimeSeriesService
-from timeseries.storage import MemoryStorage
 
 from api.dependencies import (
     get_current_token_payload,
@@ -16,6 +20,9 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 pytestmark = pytest.mark.asyncio
 
@@ -36,9 +43,12 @@ def virtual_device() -> VirtualDevice:
     )
 
 
-@pytest.fixture
-def ts_service() -> TimeSeriesService:
-    return TimeSeriesService(storage=MemoryStorage())
+@pytest_asyncio.fixture
+async def ts_service() -> AsyncIterator[TimeSeriesService]:
+    service = TimeSeriesService(storage_url=None)
+    await service.start()
+    yield service
+    await service.stop()
 
 
 @pytest.fixture
