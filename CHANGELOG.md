@@ -1,3 +1,9 @@
+## v0.61.6 (2026-04-30)
+
+### Refactor
+
+- **commands**: migrate CommandsService to common Service shape
+
 ## v0.61.5 (2026-04-30)
 
 ### Refactor
