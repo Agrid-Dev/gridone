@@ -1,9 +1,9 @@
 from datetime import datetime
-from uuid import uuid4
 
 import asyncpg
 
 from models.errors import InvalidError
+from models.ids import gen_id
 from models.pagination import Page, PaginationParams
 from models.types import Severity
 from notifications.models import Notification, NotificationDispatch
@@ -45,7 +45,7 @@ class PostgresNotificationsStorage:
         created_by: str | None,
         created_at: datetime,
     ) -> Notification:
-        notification_id = uuid4().hex[:16]
+        notification_id = gen_id()
 
         if correlation_id is None:
             row = await self._pool.fetchrow(
