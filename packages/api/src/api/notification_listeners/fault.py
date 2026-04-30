@@ -1,29 +1,25 @@
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from devices_manager import Attribute, CoreDevice, FaultAttribute
-from devices_manager.interface import DevicesServiceInterface
 from models.resource_reference import ResourceReference
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
-from users.interface import UsersServiceInterface
+
+from api.notification_listeners import RecipientsGetter
+
+_FaultListener = Callable[
+    [CoreDevice, str, Attribute | None, Attribute], Coroutine[Any, Any, None]
+]
 
 
-class FaultNotificationListener:
-    """Dispatches notifications on fault attribute healthy↔faulty transitions."""
+def on_fault_transition(
+    notifications: NotificationsServiceInterface,
+    recipients: RecipientsGetter,
+) -> _FaultListener:
+    """Listener: dispatch notifications on fault healthy↔faulty transitions."""
 
-    def __init__(
-        self,
-        dm: DevicesServiceInterface,
-        um: UsersServiceInterface,
-        notifications: NotificationsServiceInterface,
-    ) -> None:
-        self._dm = dm
-        self._um = um
-        self._notifications = notifications
-
-    def register(self) -> None:
-        self._dm.add_device_attribute_listener(self._on_attribute_update)
-
-    async def _on_attribute_update(
-        self,
+    async def listener(
         device: CoreDevice,
         attribute_name: str,
         previous: Attribute | None,
@@ -36,23 +32,24 @@ class FaultNotificationListener:
         if attribute.is_faulty == prev_is_faulty:
             return
 
-        users = await self._um.list_users()
-        user_ids = [u.id for u in users if not u.is_blocked]
+        user_ids = await recipients()
         device_link = (
             f"[{device.name}]({ResourceReference('device', device.id).serialize()})"
         )
 
         if attribute.is_faulty:
-            await self._notifications.dispatch(
+            await notifications.dispatch(
                 title=f"New fault on {device.name} ({attribute_name})",
-                body=f"Device {device_link} has a new active fault on attribute `{attribute_name}`.",
+                body=f"Device {device_link} has a new active fault on attribute `{attribute_name}` (value: {attribute.current_value}).",
                 severity=attribute.severity,
                 user_ids=user_ids,
             )
         else:
-            await self._notifications.dispatch(
+            await notifications.dispatch(
                 title=f"Fault resolved on {device.name} ({attribute_name})",
-                body=f"The fault on attribute `{attribute_name}` of device {device_link} has been resolved.",
+                body=f"The fault on attribute `{attribute_name}` of device {device_link} has been resolved (value: {attribute.current_value}).",
                 severity=Severity.INFO,
                 user_ids=user_ids,
             )
+
+    return listener
