@@ -89,8 +89,8 @@ vi.mock("react-i18next", () => ({
         "fields.description": "Description",
         "automations:fields.name": "Name",
         "automations:fields.description": "Description",
-        "metadata.title": "Information",
-        "metadata.edit": "Edit information",
+        "metadata.title": "Automation",
+        "metadata.edit": "Edit automation",
         "metadata.noDescription": "No description",
         "common.edit": "Edit",
         "actions.enable": "Enable",
@@ -276,7 +276,7 @@ describe("AutomationPage", () => {
     setQueryResults();
     renderDetail();
 
-    const editButton = screen.getByRole("button", { name: "Edit information" });
+    const editButton = screen.getByRole("button", { name: "Edit automation" });
     const metadataCard = editButton.closest("[aria-busy]") as HTMLElement;
     expect(metadataCard).not.toBeNull();
     expect(
