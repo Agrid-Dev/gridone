@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import AutomationForm from "./components/form/AutomationForm";
+import AutomationForm from "./AutomationPage/form/AutomationForm";
 
 const NewAutomationPage: FC = () => {
   const { t } = useTranslation("automations");
