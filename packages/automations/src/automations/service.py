@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from automations.protocols import ActionDispatcher, OnFireCallback, TriggerProvider
+    from automations.protocols import ActionProvider, OnFireCallback, TriggerProvider
     from automations.storage.backend import AutomationsStorageBackend
 
 
@@ -35,13 +35,15 @@ class AutomationsService(Service):
         self,
         storage_url: str | None,
         trigger_providers: Sequence[TriggerProvider],
-        action_dispatcher: ActionDispatcher,
+        action_providers: Sequence[ActionProvider],
     ) -> None:
         self._storage_url = storage_url
         self._providers: dict[str, TriggerProvider] = {
             p.id: p for p in trigger_providers
         }
-        self._action_dispatcher = action_dispatcher
+        self._action_providers: dict[str, ActionProvider] = {
+            p.id: p for p in action_providers
+        }
         self._cache = {}
         self._handles = {}
         self._started = False
@@ -64,7 +66,7 @@ class AutomationsService(Service):
             name=params.name,
             description=params.description,
             trigger=params.trigger,
-            action_template_id=params.action_template_id,
+            action=params.action,
             enabled=params.enabled,
         )
         await self._storage.create(automation)
@@ -145,6 +147,9 @@ class AutomationsService(Service):
     def list_trigger_schemas(self) -> dict[str, dict]:
         return {p.id: p.trigger_schema for p in self._providers.values()}
 
+    def list_action_schemas(self) -> dict[str, dict]:
+        return {p.id: p.action_schema for p in self._action_providers.values()}
+
     async def stop(self) -> None:
         for automation_id in list(self._handles):
             await self._stop_trigger(automation_id)
@@ -185,11 +190,10 @@ class AutomationsService(Service):
             raise NotFoundError(msg)
         output_id, status, error = None, ExecutionStatus.SUCCESS, None
         try:
-            output_id = await self._action_dispatcher(
-                template_id=automation.action_template_id,
-                user_id="system",
-                confirm=False,
-            )
+            action_type = automation.action.type
+            provider = self._action_providers[action_type]
+            action_params = automation.action.model_dump(exclude={"type"})
+            output_id = await provider.execute(action_params)
         except Exception:
             logger.exception("Automation %r action failed", automation_id)
             status, error = ExecutionStatus.FAILED, "Action execution failed"

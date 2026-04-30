@@ -14,9 +14,6 @@ if TYPE_CHECKING:
     )
 
     OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
-    # Returns the opaque ``output_id`` recorded on ``AutomationExecution``
-    # — an identifier the dispatcher mints for this run.
-    ActionDispatcher = Callable[..., Awaitable[str]]
 
 
 class TriggerProvider(Protocol):
@@ -43,6 +40,17 @@ class TriggerProvider(Protocol):
         ...
 
 
+class ActionProvider(Protocol):
+    """Executes one class of automation action."""
+
+    id: str
+    action_schema: dict
+
+    async def execute(self, action_params: dict) -> str | None:
+        """Execute the action. Returns an opaque output_id, or None."""
+        ...
+
+
 class AutomationsServiceInterface(Protocol):
     async def create(self, params: AutomationCreate) -> Automation: ...
     async def get(self, automation_id: str) -> Automation: ...
@@ -57,3 +65,4 @@ class AutomationsServiceInterface(Protocol):
         self, automation_id: str
     ) -> Sequence[AutomationExecution]: ...
     def list_trigger_schemas(self) -> dict[str, dict]: ...
+    def list_action_schemas(self) -> dict[str, dict]: ...

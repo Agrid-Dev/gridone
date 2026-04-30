@@ -6,6 +6,7 @@ import asyncpg
 from pydantic import TypeAdapter
 
 from automations.models import (
+    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -14,6 +15,7 @@ from automations.models import (
 from models.errors import NotFoundError
 
 _trigger_adapter: TypeAdapter[Trigger] = TypeAdapter(Trigger)
+_action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
 
 class PostgresStorage:
@@ -29,12 +31,13 @@ class PostgresStorage:
     @staticmethod
     def _row_to_automation(row: asyncpg.Record) -> Automation:
         trigger = _trigger_adapter.validate_python(json.loads(row["trigger"]))
+        action = _action_adapter.validate_python(json.loads(row["action"]))
         return Automation(
             id=row["id"],
             name=row["name"],
             description=row["description"],
             trigger=trigger,
-            action_template_id=row["action_template_id"],
+            action=action,
             enabled=row["enabled"],
         )
 
@@ -54,14 +57,14 @@ class PostgresStorage:
         await self._pool.execute(
             """
             INSERT INTO automations
-                (id, name, description, trigger, action_template_id, enabled)
+                (id, name, description, trigger, action, enabled)
             VALUES ($1, $2, $3, $4, $5, $6)
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            automation.action_template_id,
+            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
         )
 
@@ -89,14 +92,14 @@ class PostgresStorage:
             """
             UPDATE automations
             SET name = $2, description = $3,
-                trigger = $4, action_template_id = $5, enabled = $6
+                trigger = $4, action = $5, enabled = $6
             WHERE id = $1
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            automation.action_template_id,
+            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
         )
         if result == "UPDATE 0":

@@ -22,6 +22,17 @@ class Trigger(BaseModel):
     type: str
 
 
+class Action(BaseModel):
+    """Opaque action descriptor stored with an Automation.
+
+    ``type`` identifies the provider (e.g. "command_template", "notification").
+    Extra fields are provider-specific params passed to ``ActionProvider.execute``.
+    """
+
+    model_config = ConfigDict(extra="allow")
+    type: str
+
+
 class TriggerContext(BaseModel):
     timestamp: datetime
 
@@ -30,7 +41,7 @@ class AutomationCreate(BaseModel):
     name: str
     description: str = ""
     trigger: Trigger
-    action_template_id: str
+    action: Action
     enabled: bool = True
 
 
@@ -38,7 +49,7 @@ class AutomationUpdate(BaseModel):
     name: str | None = None
     description: str = ""
     trigger: Trigger | None = None
-    action_template_id: str | None = None
+    action: Action | None = None
     enabled: bool | None = None
 
 
