@@ -1,6 +1,5 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Info } from "lucide-react";
 import BasePresenter from "./BasePresenter";
 
 interface MetadataPresenterProps {
@@ -15,7 +14,7 @@ const MetadataPresenter: FC<MetadataPresenterProps> = ({
   const { t } = useTranslation("automations");
 
   return (
-    <BasePresenter title={name} icon={Info} color="secondary">
+    <BasePresenter title={name}>
       {description ? (
         <p className="text-sm leading-relaxed text-foreground/80">
           {description}
