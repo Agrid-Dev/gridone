@@ -118,12 +118,13 @@ async def lifespan(app: FastAPI):
             create_if_not_found=True,
         )
 
-    commands_service = await CommandsService.from_storage(
+    commands_service = CommandsService(
         settings.storage_url,
         device_writer=_write_device,
         result_handler=_on_command_success,
         target_resolver=_CompositeTargetResolver(dm),
     )
+    await commands_service.start()
     app.state.commands_service = commands_service
 
     async def _automation_action_dispatcher(
@@ -206,7 +207,7 @@ async def lifespan(app: FastAPI):
     finally:
         await dm.stop()
         await ts_service.close()
-        await commands_service.close()
+        await commands_service.stop()
         await automations_svc.close()
         await notifications_svc.stop()
         await users_service.stop()
