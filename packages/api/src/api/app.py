@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from apps import AppsService
-from assets import AssetsManager
+from assets import AssetsService
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
@@ -36,8 +36,6 @@ from api.settings import load_settings
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
-
-logger = logging.getLogger(__name__)
 
 
 class _CompositeTargetResolver:
@@ -154,13 +152,9 @@ async def lifespan(app: FastAPI):
     await apps_svc.start()
     app.state.apps_service = apps_svc
 
-    try:
-        am = await AssetsManager.from_storage(settings.storage_url)
-        await am.ensure_default_root()
-        app.state.assets_manager = am
-    except ValueError:
-        logger.warning("Assets package requires PostgreSQL — assets disabled")
-        app.state.assets_manager = None
+    assets_service = AssetsService(settings.storage_url)
+    await assets_service.start()
+    app.state.assets_service = assets_service
 
     async def on_device_discovered(device: CoreDevice) -> None:
         users = await users_service.list_users()
@@ -212,8 +206,7 @@ async def lifespan(app: FastAPI):
         await notifications_svc.stop()
         await users_service.stop()
         await apps_svc.stop()
-        if am is not None:
-            await am.close()
+        await assets_service.stop()
         await websocket_manager.close_all()
 
 

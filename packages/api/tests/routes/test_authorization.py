@@ -17,7 +17,7 @@ from notifications import (
 
 from api.dependencies import (
     get_apps_service,
-    get_assets_manager,
+    get_assets_service,
     get_automations_service,
     get_commands_service,
     get_current_user_id,
@@ -424,7 +424,7 @@ def _build_commands_app() -> FastAPI:
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: MagicMock()
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
-    app.dependency_overrides[get_assets_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_assets_service] = lambda: MagicMock()
     app.dependency_overrides[get_commands_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]

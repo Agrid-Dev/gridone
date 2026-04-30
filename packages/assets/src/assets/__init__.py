@@ -1,4 +1,3 @@
-from assets.manager import AssetsManager
 from assets.models import (
     Asset,
     AssetCreate,
@@ -6,12 +5,13 @@ from assets.models import (
     AssetUpdate,
     get_asset_create_schema,
 )
+from assets.service import AssetsService
 
 __all__ = [
     "Asset",
     "AssetCreate",
     "AssetType",
     "AssetUpdate",
-    "AssetsManager",
+    "AssetsService",
     "get_asset_create_schema",
 ]
