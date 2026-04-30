@@ -7,7 +7,7 @@ from assets.models import Asset, AssetType
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from models.errors import NotFoundError
 from commands.models import CommandStatus
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
@@ -75,7 +75,7 @@ _LIGHT = Device(
 def _make_dm() -> MagicMock:
     devices = {d.id: d for d in (_THERMOSTAT_A, _THERMOSTAT_B, _LIGHT)}
 
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
 
     def _list_devices(
         *,

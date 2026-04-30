@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
@@ -73,7 +73,7 @@ def _make_dm(
 ) -> MagicMock:
     all_devices = {d.id: d for d in (devices or [_PHYSICAL_DEVICE])}
 
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
 
     def _list_devices(  # noqa: PLR0913
         *,

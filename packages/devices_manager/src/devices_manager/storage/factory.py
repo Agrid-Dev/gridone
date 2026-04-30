@@ -1,17 +1,33 @@
-from pathlib import Path
+from __future__ import annotations
 
-from .storage_backend import DevicesManagerStorage
-from .yaml.core_file_storage import CoreFileStorage
+from typing import TYPE_CHECKING
 
-POSTGRES_PREFIXES = "postgresql"
+from models.errors import StorageConnectionError, UnsupportedStorageError
+
+from .memory import MemoryDevicesStorage
+
+if TYPE_CHECKING:
+    from .storage_backend import DevicesManagerStorage
+
+_POSTGRES_PREFIX = "postgresql"
 
 
-def make_storage(url: str) -> DevicesManagerStorage:
-    return CoreFileStorage(Path(url))
+async def build_storage(url: str | None = None) -> DevicesManagerStorage:
+    """Build a devices_manager storage backend from a connection URL.
 
+    ``url=None`` selects the in-memory backend. A ``postgresql://`` URL
+    builds the postgres backend, applying yoyo migrations and opening an
+    asyncpg pool.
 
-async def build_storage(url: str) -> DevicesManagerStorage:
-    if url.startswith(POSTGRES_PREFIXES):
+    Raises:
+        UnsupportedStorageError: the URL scheme is not recognised.
+        StorageConnectionError: the postgres backend cannot be reached or
+            initialized (migration failure, connection refused, ...).
+    """
+    if url is None:
+        return MemoryDevicesStorage()
+
+    if url.startswith(_POSTGRES_PREFIX):
         import json  # noqa: PLC0415
 
         import asyncpg  # noqa: PLC0415
@@ -29,12 +45,18 @@ async def build_storage(url: str) -> DevicesManagerStorage:
                 schema="pg_catalog",
             )
 
-        run_migrations(url)
-        pool = await asyncpg.create_pool(
-            dsn=url, min_size=1, max_size=3, init=_init_connection
-        )
+        try:
+            run_migrations(url)
+            pool = await asyncpg.create_pool(
+                dsn=url, min_size=1, max_size=3, init=_init_connection
+            )
+        except Exception as exc:
+            msg = "Failed to initialize devices_manager postgres backend"
+            raise StorageConnectionError(msg) from exc
         return PostgresDevicesManagerStorage(pool)
-    return make_storage(url)
+
+    msg = f"Unsupported devices_manager storage URL scheme: {url!r}"
+    raise UnsupportedStorageError(msg)
 
 
-__all__ = ["build_storage", "make_storage"]
+__all__ = ["build_storage"]

@@ -9,12 +9,12 @@ from models.errors import InvalidError
 from api.devices_filter import to_list_devices_kwargs
 
 if TYPE_CHECKING:
-    from devices_manager import DevicesManagerInterface
+    from devices_manager import DevicesServiceInterface
     from models.types import DataType
 
 
 def resolve_attribute_data_type(
-    dm: DevicesManagerInterface,
+    dm: DevicesServiceInterface,
     device_ids: list[str],
     attribute: str,
 ) -> DataType:
@@ -34,7 +34,7 @@ def resolve_attribute_data_type(
 
 
 def resolve_attribute_data_type_for_target(
-    dm: DevicesManagerInterface,
+    dm: DevicesServiceInterface,
     target: dict[str, Any],
     attribute: str,
 ) -> DataType:

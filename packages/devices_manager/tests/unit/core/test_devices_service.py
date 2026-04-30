@@ -1,12 +1,11 @@
 import asyncio
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
 import pytest_asyncio
 
-from devices_manager import DevicesManager
+from devices_manager import DevicesService
 from devices_manager.core.device import (
     Attribute,
     CoreDevice,
@@ -25,6 +24,7 @@ from devices_manager.dto import (
     TransportCreate,
     TransportUpdate,
     VirtualDeviceCreate,
+    device_from_public,
     device_to_public,
     driver_to_public,
     transport_to_public,
@@ -32,7 +32,7 @@ from devices_manager.dto import (
 from devices_manager.dto import (
     PhysicalDeviceCreate as DeviceCreate,
 )
-from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
+from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import (
     AttributeValueType,
     DataType,
@@ -49,23 +49,23 @@ from models.types import Severity
 
 @pytest.fixture
 def devices_manager(mock_transport_client, device, driver):
-    return DevicesManager(
+    return DevicesService(
         devices={device.id: device},
         drivers={driver.id: driver},
         transports={mock_transport_client.id: mock_transport_client},
     )
 
 
-class TestDevicesManagerInit:
+class TestDevicesServiceInit:
     def test_init_empty(self):
-        manager = DevicesManager(devices={}, drivers={}, transports={})
-        assert isinstance(manager, DevicesManager)
+        manager = DevicesService(devices={}, drivers={}, transports={})
+        assert isinstance(manager, DevicesService)
 
 
-class TestDevicesManagerSync:
+class TestDevicesServiceSync:
     @pytest.mark.asyncio
     async def test_start_sync_with_polling_enabled(self, devices_manager, device):
-        await devices_manager.start_sync()
+        await devices_manager.start()
 
         assert devices_manager._running is True
         assert device.syncing is True
@@ -83,13 +83,13 @@ class TestDevicesManagerSync:
             driver=driver,
             transport=mock_transport_client,
         )
-        manager = DevicesManager(
+        manager = DevicesService(
             devices={device_no_poll.id: device_no_poll},
             drivers={driver.metadata.id: driver},
             transports={"t1": mock_transport_client},
         )
 
-        await manager.start_sync()
+        await manager.start()
 
         assert device_no_poll.syncing is True
 
@@ -105,13 +105,13 @@ class TestDevicesManagerSync:
             driver=driver,
             transport=mock_transport_client,
         )
-        manager = DevicesManager(
+        manager = DevicesService(
             devices={device1.id: device1, device2.id: device2},
             drivers={"test_driver": driver},
             transports={"t1": mock_transport_client},
         )
 
-        await manager.start_sync()
+        await manager.start()
 
         assert device1.syncing is True
         assert device2.syncing is True
@@ -132,24 +132,24 @@ class TestDevicesManagerSync:
             driver=driver,
             transport=mock_transport_client,
         )
-        manager = DevicesManager(
+        manager = DevicesService(
             devices={device1.id: device1, device2.id: device2},
             drivers={"test_driver": driver},
             transports={"t1": mock_transport_client},
         )
         mock_transport_client.read = AsyncMock(return_value="25.5")
 
-        await manager.start_sync()
+        await manager.start()
         await asyncio.sleep(0.1)  # Should send first poll for both
-        await manager.stop_sync()
+        await manager.stop()
 
         assert mock_transport_client.read.call_count >= 2 * n_readable_attrs
 
     @pytest.mark.asyncio
     async def test_stop_sync(self, devices_manager, device):
-        await devices_manager.start_sync()
+        await devices_manager.start()
 
-        await devices_manager.stop_sync()
+        await devices_manager.stop()
 
         assert devices_manager._running is False
         assert device.syncing is False
@@ -158,7 +158,7 @@ class TestDevicesManagerSync:
     async def test_stop_sync_no_tasks(self, devices_manager):
         devices_manager._running = True
 
-        await devices_manager.stop_sync()
+        await devices_manager.stop()
 
         assert devices_manager._running is False
 
@@ -166,14 +166,14 @@ class TestDevicesManagerSync:
     async def test_devices_are_polled_during_sync(
         self, devices_manager, mock_transport_client
     ):
-        await devices_manager.start_sync()
+        await devices_manager.start()
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await asyncio.sleep(0.1)
-        await devices_manager.stop_sync()
+        await devices_manager.stop()
         assert mock_transport_client.read.called
 
 
-class TestDevicesManagerListeners:
+class TestDevicesServiceListeners:
     def test_add_device_attribute_listener_returns_id(self, devices_manager):
         def callback(_device_obj, _attribute_name, _attribute) -> None:
             pass
@@ -258,10 +258,10 @@ _DISCOVERY_EVENT = {"id": "abc", "gateway_id": "gtw", "payload": {"temperature":
 
 @pytest_asyncio.fixture
 async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client):
-    """DevicesManager with discovery already registered on the push transport."""
+    """DevicesService with discovery already registered on the push transport."""
     driver_id = driver_w_push_transport.id
     transport_id = mock_push_transport_client.id
-    dm = DevicesManager(
+    dm = DevicesService(
         devices={},
         drivers={driver_id: driver_w_push_transport},
         transports={transport_id: mock_push_transport_client},
@@ -270,7 +270,7 @@ async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client)
     return dm
 
 
-class TestDevicesManagerDiscovery:
+class TestDevicesServiceDiscovery:
     @pytest.mark.asyncio
     async def test_devices_manager_adds_device_on_discovery(
         self, dm_with_discovery, mock_push_transport_client
@@ -301,7 +301,7 @@ class TestDevicesManagerDiscovery:
             driver=driver_w_push_transport,
             transport=mock_push_transport_client,
         )
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={device.id: device},
             drivers={driver_id: driver_w_push_transport},
             transports={transport_id: mock_push_transport_client},
@@ -325,13 +325,13 @@ class TestDevicesManagerDiscovery:
         assert len(dm_with_discovery.list_devices()) == 0
 
     def test_add_discovery_listener_returns_id(self):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm = DevicesService(devices={}, drivers={}, transports={})
         listener_id = dm.add_device_discovery_listener(lambda _: None)
         assert isinstance(listener_id, str)
         assert len(listener_id) > 0
 
     def test_remove_nonexistent_discovery_listener_is_safe(self):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm = DevicesService(devices={}, drivers={}, transports={})
         dm.remove_device_discovery_listener("nonexistent")  # must not raise
 
     @pytest.mark.asyncio
@@ -387,7 +387,7 @@ class TestDevicesManagerDiscovery:
             driver=driver_w_push_transport,
             transport=mock_push_transport_client,
         )
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={existing.id: existing},
             drivers={driver_id: driver_w_push_transport},
             transports={transport_id: mock_push_transport_client},
@@ -437,7 +437,7 @@ class TestDevicesManagerDiscovery:
         assert received[0].id == dm_with_discovery.list_devices()[0].id
 
 
-class TestDevicesManagerListTransports:
+class TestDevicesServiceListTransports:
     def test_transport_ids(self, devices_manager):
         transport_ids = devices_manager.transport_ids
         assert isinstance(transport_ids, set)
@@ -450,7 +450,7 @@ class TestDevicesManagerListTransports:
         assert all(isinstance(t, TransportBase) for t in transports)
 
 
-class TestDevicesManagerGetTransport:
+class TestDevicesServiceGetTransport:
     def test_get_transport_existing(self, devices_manager, mock_transport_client):
         transport = devices_manager.get_transport(mock_transport_client.id)
         assert isinstance(transport, TransportBase)
@@ -461,7 +461,7 @@ class TestDevicesManagerGetTransport:
             devices_manager.get_transport("non-existing-id")
 
 
-class TestDevicesManagerAddTransport:
+class TestDevicesServiceAddTransport:
     @pytest.mark.asyncio
     async def test_add_transport(self, devices_manager):
         transport_data = TransportCreate(
@@ -476,10 +476,10 @@ class TestDevicesManagerAddTransport:
         assert devices_manager.get_transport(new_transport.id) is not None
 
 
-class TestDevicesManagerDeleteTransport:
+class TestDevicesServiceDeleteTransport:
     @pytest.mark.asyncio
     async def test_delete_transport(self, mock_push_transport_client):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={},
             drivers={},
             transports={mock_push_transport_client.id: mock_push_transport_client},
@@ -501,7 +501,7 @@ class TestDevicesManagerDeleteTransport:
             await devices_manager.delete_transport(transport_id)
 
 
-class TestDevicesManagerUpdateTransport:
+class TestDevicesServiceUpdateTransport:
     @pytest.mark.asyncio
     async def test_update_non_existing_transport(self, devices_manager):
         with pytest.raises(NotFoundError):
@@ -511,7 +511,7 @@ class TestDevicesManagerUpdateTransport:
 
     @pytest.mark.asyncio
     async def test_update_empty_payload(self, mock_transport_client):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={},
             drivers={},
             transports={mock_transport_client.id: mock_transport_client},
@@ -534,7 +534,7 @@ class TestDevicesManagerUpdateTransport:
 
     @pytest.mark.asyncio
     async def test_update_transport_config_ok(self, mock_transport_client):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={},
             drivers={},
             transports={mock_transport_client.id: mock_transport_client},
@@ -548,7 +548,7 @@ class TestDevicesManagerUpdateTransport:
         assert dm.get_transport(transport_id).config.model_dump() == new_config
 
 
-class TestDevicesManagerDrivers:
+class TestDevicesServiceDrivers:
     def test_list_driver_ids(self, devices_manager):
         driver_ids = devices_manager.driver_ids
         assert isinstance(driver_ids, set)
@@ -561,7 +561,7 @@ class TestDevicesManagerDrivers:
         assert all(isinstance(d, DriverSpec) for d in drivers)
 
     def test_list_drivers_filter_by_type(self, thermostat_driver, other_http_driver):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={},
             drivers={
                 thermostat_driver.id: thermostat_driver,
@@ -576,7 +576,7 @@ class TestDevicesManagerDrivers:
         assert result[0].id == thermostat_driver.id
 
     def test_list_drivers_filter_by_type_no_match(self, driver):
-        dm = DevicesManager(devices={}, drivers={driver.id: driver}, transports={})
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
 
         result = dm.list_drivers(device_type="unknown")
 
@@ -594,7 +594,7 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_add_driver_ok(self, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm = DevicesService(devices={}, drivers={}, transports={})
         driver_dto = driver_to_public(driver)
 
         created = await dm.add_driver(driver_dto)
@@ -605,7 +605,7 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_add_driver_conflict(self, driver):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm = DevicesService(devices={}, drivers={}, transports={})
         driver_dto = driver_to_public(driver)
 
         await dm.add_driver(driver_dto)
@@ -615,7 +615,7 @@ class TestDevicesManagerDrivers:
 
     @pytest.mark.asyncio
     async def test_delete_driver_ok(self, driver):
-        dm = DevicesManager(devices={}, drivers={driver.id: driver}, transports={})
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
         await dm.delete_driver(driver.id)
         with pytest.raises(NotFoundError):
             dm.get_driver(driver.id)
@@ -673,14 +673,14 @@ def _mock_device_registry(
     return registry
 
 
-def _dm_with_mock_registry(mock_reg: MagicMock) -> DevicesManager:
-    """Build a DevicesManager and swap in a mock device registry."""
-    dm = DevicesManager(devices={}, drivers={}, transports={})
+def _dm_with_mock_registry(mock_reg: MagicMock) -> DevicesService:
+    """Build a DevicesService and swap in a mock device registry."""
+    dm = DevicesService(devices={}, drivers={}, transports={})
     dm._device_registry = mock_reg
     return dm
 
 
-class TestDevicesManagerDeviceDelegation:
+class TestDevicesServiceDeviceDelegation:
     """DM device methods delegate to the registry and handle side-effects."""
 
     @pytest.mark.asyncio
@@ -814,12 +814,12 @@ class TestDevicesManagerDeviceDelegation:
     @pytest.mark.asyncio
     async def test_delete_device_stops_sync(self, driver, mock_transport_client):
         device = _make_physical_device("d1", driver, mock_transport_client)
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={device.id: device},
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_sync()
+        await dm.start()
         assert device.syncing is True
 
         await dm.delete_device("d1")
@@ -889,36 +889,48 @@ class TestDevicesManagerDeviceDelegation:
         assert result is mock_attr
 
 
-class TestDevicesManagerStorage:
-    """Tests for storage integration (from_storage, attribute persistence)."""
+class TestDevicesServiceStorage:
+    """Tests for storage integration via ``start`` and attribute persistence."""
 
-    @pytest.fixture
-    def seeded_db(self, tmp_path: Path, device, driver, mock_transport_client) -> Path:
-        """Seed a tmp_path DB with one transport, one driver, one device."""
-        cfs = CoreFileStorage(tmp_path)
-        asyncio.run(
-            cfs.transports.write(
-                mock_transport_client.id,
-                transport_to_public(mock_transport_client),
-            )
+    @pytest_asyncio.fixture
+    async def seeded_storage(
+        self, device, driver, mock_transport_client
+    ) -> MemoryDevicesStorage:
+        """A memory storage seeded with one transport, one driver, one device."""
+        storage = MemoryDevicesStorage()
+        await storage.transports.write(
+            mock_transport_client.id, transport_to_public(mock_transport_client)
         )
-        asyncio.run(cfs.drivers.write(driver.id, driver_to_public(driver)))
-        asyncio.run(cfs.devices.write(device.id, device_to_public(device)))
-        return tmp_path
+        await storage.drivers.write(driver.id, driver_to_public(driver))
+        await storage.devices.write(device.id, device_to_public(device))
+        return storage
 
     @pytest.mark.asyncio
-    async def test_from_storage(
-        self, seeded_db: Path, device, driver, mock_transport_client
+    async def test_start_populates_from_storage(
+        self,
+        seeded_storage: MemoryDevicesStorage,
+        device,
+        driver,
+        mock_transport_client,
+        monkeypatch,
     ):
-        dm = await DevicesManager.from_storage(str(seeded_db))
-        assert device.id in dm.device_ids
-        assert driver.id in dm.driver_ids
-        assert mock_transport_client.id in dm.transport_ids
+        async def _build(_url: str | None) -> MemoryDevicesStorage:
+            return seeded_storage
+
+        monkeypatch.setattr("devices_manager.service.build_storage", _build)
+        dm = DevicesService(storage_url="memory://test")
+        try:
+            await dm.start()
+            assert device.id in dm.device_ids
+            assert driver.id in dm.driver_ids
+            assert mock_transport_client.id in dm.transport_ids
+        finally:
+            await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_attribute_restored_after_restart(self, tmp_path: Path):
-        """Write attribute -> restart DM -> verify value is restored."""
-        cfs = CoreFileStorage(tmp_path)
+    async def test_attribute_restored_after_restart(self, monkeypatch):
+        """Write attribute -> restart -> verify value is restored."""
+        storage = MemoryDevicesStorage()
         device_dto = Device(
             id="vd1",
             kind=DeviceKind.VIRTUAL,
@@ -931,15 +943,28 @@ class TestDevicesManagerStorage:
             },
             is_faulty=False,
         )
-        await cfs.devices.write(device_dto.id, device_dto)
+        await storage.devices.write(device_dto.id, device_dto)
 
-        dm = await DevicesManager.from_storage(str(tmp_path))
-        await dm.write_device_attribute("vd1", "value", 42.0)
-        await asyncio.sleep(0.05)
+        async def _build(_url: str | None) -> MemoryDevicesStorage:
+            return storage
 
-        dm2 = await DevicesManager.from_storage(str(tmp_path))
-        restored = dm2.get_device("vd1")
-        assert restored.attributes["value"].current_value == 42.0
+        monkeypatch.setattr("devices_manager.service.build_storage", _build)
+
+        dm = DevicesService(storage_url="memory://test")
+        await dm.start()
+        try:
+            await dm.write_device_attribute("vd1", "value", 42.0)
+            await asyncio.sleep(0.05)
+        finally:
+            await dm.stop()
+
+        dm2 = DevicesService(storage_url="memory://test")
+        await dm2.start()
+        try:
+            restored = dm2.get_device("vd1")
+            assert restored.attributes["value"].current_value == 42.0
+        finally:
+            await dm2.stop()
 
 
 class TestVirtualDeviceSync:
@@ -952,15 +977,15 @@ class TestVirtualDeviceSync:
                 "x": Attribute.create("x", DataType.FLOAT, {"read"}),
             },
         )
-        dm = DevicesManager(devices={vd.id: vd}, drivers={}, transports={})
-        await dm.start_sync()
+        dm = DevicesService(devices={vd.id: vd}, drivers={}, transports={})
+        await dm.start()
         assert vd.syncing is False
-        await dm.stop_sync()
+        await dm.stop()
 
 
-class TestVirtualDeviceFromDto:
+class TestVirtualDeviceRestore:
     @pytest.mark.asyncio
-    async def test_from_dto_restores_virtual_device(self):
+    async def test_restore_virtual_device_from_dto(self):
         vd_dto = Device(
             id="vd1",
             kind=DeviceKind.VIRTUAL,
@@ -972,14 +997,18 @@ class TestVirtualDeviceFromDto:
             },
             is_faulty=False,
         )
-        dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
-        assert "vd1" in dm.device_ids
-        result = dm.get_device("vd1")
-        assert result.kind == DeviceKind.VIRTUAL
-        assert result.name == "Restored"
+        vd = device_from_public(vd_dto, drivers={}, transports={})
+        dm = DevicesService(devices={vd.id: vd})
+        try:
+            assert "vd1" in dm.device_ids
+            result = dm.get_device("vd1")
+            assert result.kind == DeviceKind.VIRTUAL
+            assert result.name == "Restored"
+        finally:
+            await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_from_dto_virtual_device_no_driver_or_transport(self):
+    async def test_virtual_device_has_no_driver_or_transport(self):
         vd_dto = Device(
             id="vd2",
             kind=DeviceKind.VIRTUAL,
@@ -989,13 +1018,17 @@ class TestVirtualDeviceFromDto:
             },
             is_faulty=False,
         )
-        dm = await DevicesManager.from_dto(devices=[vd_dto], drivers=[], transports=[])
-        result = dm.get_device("vd2")
-        assert result.driver_id is None
-        assert result.transport_id is None
+        vd = device_from_public(vd_dto, drivers={}, transports={})
+        dm = DevicesService(devices={vd.id: vd})
+        try:
+            result = dm.get_device("vd2")
+            assert result.driver_id is None
+            assert result.transport_id is None
+        finally:
+            await dm.stop()
 
 
-class TestDevicesManagerRestartSync:
+class TestDevicesServiceRestartSync:
     @pytest.mark.asyncio
     async def test_update_device_transport_restarts_sync(
         self,
@@ -1004,7 +1037,7 @@ class TestDevicesManagerRestartSync:
         mock_transport_client,
         second_mock_transport_client,
     ):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={device.id: device},
             drivers={driver.id: driver},
             transports={
@@ -1012,7 +1045,7 @@ class TestDevicesManagerRestartSync:
                 second_mock_transport_client.id: second_mock_transport_client,
             },
         )
-        await dm.start_sync()
+        await dm.start()
         assert device.syncing is True
 
         update = DeviceUpdate(transport_id=second_mock_transport_client.id)
@@ -1020,18 +1053,18 @@ class TestDevicesManagerRestartSync:
 
         updated = dm._device_registry.get(device.id)
         assert updated.syncing is True
-        await dm.stop_sync()
+        await dm.stop()
 
     @pytest.mark.asyncio
     async def test_update_device_config_restarts_sync(
         self, device, driver, mock_transport_client
     ):
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={device.id: device},
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_sync()
+        await dm.start()
         assert device.syncing is True
 
         update = DeviceUpdate(config={"some_id": "new_value"})
@@ -1039,7 +1072,7 @@ class TestDevicesManagerRestartSync:
 
         updated = dm._device_registry.get(device.id)
         assert updated.syncing is True
-        await dm.stop_sync()
+        await dm.stop()
 
     @pytest.mark.asyncio
     async def test_update_transport_restarts_sync_for_affected_devices(
@@ -1055,12 +1088,12 @@ class TestDevicesManagerRestartSync:
             driver=driver,
             transport=mock_transport_client,
         )
-        dm = DevicesManager(
+        dm = DevicesService(
             devices={device1.id: device1, device2.id: device2},
             drivers={driver.id: driver},
             transports={mock_transport_client.id: mock_transport_client},
         )
-        await dm.start_sync()
+        await dm.start()
         assert device1.syncing is True
         assert device2.syncing is True
 
@@ -1071,11 +1104,11 @@ class TestDevicesManagerRestartSync:
 
         assert device1.syncing is True
         assert device2.syncing is True
-        await dm.stop_sync()
+        await dm.stop()
 
 
-class TestDevicesManagerListActiveFaults:
-    """Tests for DevicesManager.list_active_faults."""
+class TestDevicesServiceListActiveFaults:
+    """Tests for DevicesService.list_active_faults."""
 
     @staticmethod
     def _make_fault_attr(  # noqa: PLR0913
@@ -1144,46 +1177,46 @@ class TestDevicesManagerListActiveFaults:
     @pytest.fixture
     def dm(self):
         chiller, boiler, healthy = self._make_devices()
-        return DevicesManager(
+        return DevicesService(
             devices={d.id: d for d in (chiller, boiler, healthy)},
             drivers={},
             transports={},
         )
 
-    def test_returns_only_faulty_attributes(self, dm: DevicesManager):
+    def test_returns_only_faulty_attributes(self, dm: DevicesService):
         faults = dm.list_active_faults()
         assert [f.device_id for f in faults] == ["chiller", "boiler"]
 
-    def test_sorted_by_last_updated_desc(self, dm: DevicesManager):
+    def test_sorted_by_last_updated_desc(self, dm: DevicesService):
         faults = dm.list_active_faults()
         assert faults[0].last_updated > faults[1].last_updated
 
-    def test_filter_by_severity(self, dm: DevicesManager):
+    def test_filter_by_severity(self, dm: DevicesService):
         faults = dm.list_active_faults(severity=Severity.ALERT)
         assert len(faults) == 1
         assert faults[0].device_id == "chiller"
         assert faults[0].severity == Severity.ALERT
 
-    def test_filter_by_device_id(self, dm: DevicesManager):
+    def test_filter_by_device_id(self, dm: DevicesService):
         faults = dm.list_active_faults(device_id="boiler")
         assert len(faults) == 1
         assert faults[0].device_id == "boiler"
         assert faults[0].attribute_name == "status"
 
-    def test_filter_by_device_id_without_faults(self, dm: DevicesManager):
+    def test_filter_by_device_id_without_faults(self, dm: DevicesService):
         faults = dm.list_active_faults(device_id="healthy")
         assert faults == []
 
-    def test_filter_by_unknown_device_raises(self, dm: DevicesManager):
+    def test_filter_by_unknown_device_raises(self, dm: DevicesService):
         with pytest.raises(NotFoundError):
             dm.list_active_faults(device_id="nope")
 
-    def test_combined_filters(self, dm: DevicesManager):
+    def test_combined_filters(self, dm: DevicesService):
         faults = dm.list_active_faults(severity=Severity.WARNING, device_id="chiller")
         assert faults == []
 
     def test_empty_manager(self):
-        dm = DevicesManager(devices={}, drivers={}, transports={})
+        dm = DevicesService(devices={}, drivers={}, transports={})
         assert dm.list_active_faults() == []
 
     def test_ignores_non_fault_attributes(self):
@@ -1196,10 +1229,10 @@ class TestDevicesManagerListActiveFaults:
                 ),
             },
         )
-        dm = DevicesManager(devices={device.id: device}, drivers={}, transports={})
+        dm = DevicesService(devices={device.id: device}, drivers={}, transports={})
         assert dm.list_active_faults() == []
 
-    def test_fault_view_fields(self, dm: DevicesManager):
+    def test_fault_view_fields(self, dm: DevicesService):
         faults = dm.list_active_faults(device_id="chiller")
         view = faults[0]
         assert view.device_id == "chiller"

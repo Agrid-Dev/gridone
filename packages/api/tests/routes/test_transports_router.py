@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from devices_manager.dto import Transport, build_transport
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
@@ -32,7 +32,7 @@ def _get_transport(transport_id: str) -> Transport:
 
 @pytest.fixture
 def dm() -> MagicMock:
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
     mock.list_transports.return_value = list(_TRANSPORTS_BY_ID.values())
     mock.get_transport.side_effect = _get_transport
     mock.add_transport = AsyncMock(

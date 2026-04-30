@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003
 
 from commands import AttributeWrite, CommandsServiceInterface, UnitCommand
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from models.pagination import Page, PaginationParams
 
@@ -121,7 +121,7 @@ async def list_device_commands(
 )
 async def dispatch_batch_command(
     body: BatchDeviceCommand,
-    dm: DevicesManagerInterface = Depends(get_device_manager),
+    dm: DevicesServiceInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
@@ -150,7 +150,7 @@ async def dispatch_batch_command(
 async def dispatch_single_command(
     device_id: str,
     body: SingleDeviceCommand,
-    dm: DevicesManagerInterface = Depends(get_device_manager),
+    dm: DevicesServiceInterface = Depends(get_device_manager),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> UnitCommand:

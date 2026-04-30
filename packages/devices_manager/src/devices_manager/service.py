@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from models.errors import ForbiddenError
+from models.ids import gen_id
+from models.service import Service
 
 from .core.device import (
     Attribute,
@@ -36,6 +37,7 @@ from .dto import (
     transport_to_public,
 )
 from .storage.factory import build_storage
+from .storage.memory import MemoryDevicesStorage
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -70,59 +72,121 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
     )
 
 
-class DevicesManager:
-    _device_registry: DeviceRegistry
-    _transport_registry: TransportRegistry
-    _driver_registry: DriverRegistry
+class DevicesService(Service):
     _discovery_manager: PhysicalDevicesDiscoveryManager
-    _running: bool
-    _attribute_update_handlers: dict[str, AttributeListener]
-    _discovery_listeners: dict[str, DeviceDiscoveredListener]
-    _background_tasks: set[asyncio.Task[Any]]
-    _storage: DevicesManagerStorage | None
+    _storage: DevicesManagerStorage
 
     def __init__(
         self,
-        devices: dict[str, CoreDevice],
-        drivers: dict[str, Driver],
-        transports: dict[str, TransportClient],
+        storage_url: str | None = None,
         *,
-        storage: DevicesManagerStorage | None = None,
+        drivers: dict[str, Driver] | None = None,
+        transports: dict[str, TransportClient] | None = None,
+        devices: dict[str, CoreDevice] | None = None,
     ) -> None:
-        self._storage = storage
+        self._storage_url = storage_url
+        # Always start with an in-memory storage so the registries are
+        # immediately usable. ``start()`` upgrades to the configured backend
+        # (e.g. postgres) by re-pointing the registries at the new storage
+        # and replaying the existing stored entries.
+        self._storage = MemoryDevicesStorage()
         self._running = False
-        self._attribute_update_handlers = {}
-        self._discovery_listeners = {}
-        self._background_tasks = set()
+        self._attribute_update_handlers: dict[str, AttributeListener] = {}
+        self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
+        self._background_tasks: set[asyncio.Task[Any]] = set()
+
         self._transport_registry = TransportRegistry(
             transports,
-            storage=storage.transports if storage else None,
+            storage=self._storage.transports,
         )
         self._driver_registry = DriverRegistry(
             drivers,
-            storage=storage.drivers if storage else None,
+            storage=self._storage.drivers,
         )
         self._device_registry = DeviceRegistry(
             devices,
             resolve_driver=self._driver_registry.get,
             resolve_transport=self._transport_registry.get,
             on_attribute_update=self._on_attribute_update,
-            storage=storage.devices if storage else None,
+            storage=self._storage.devices,
         )
 
-    # -- Sync lifecycle --
+    # -- Lifecycle --
 
-    async def start_sync(self) -> None:
-        """Start synchronizing all devices."""
+    async def start(self) -> None:
+        """Build storage, populate registries, and start syncing devices."""
+        if self._storage_url is not None:
+            new_storage = await build_storage(self._storage_url)
+            self._storage = new_storage
+            self._transport_registry.set_storage(new_storage.transports)
+            self._driver_registry.set_storage(new_storage.drivers)
+            self._device_registry.set_storage(new_storage.devices)
+            await self._populate_from_storage()
+
+        self._register_attribute_persistence_listener()
+
         self._running = True
         for device in self._device_registry.all.values():
             await device.start_sync()
 
-    async def stop_sync(self) -> None:
-        """Stop synchronizing all devices."""
+    async def stop(self) -> None:
+        """Stop syncing, close transports, and release storage."""
+        self._running = False
         for device in self._device_registry.all.values():
             await device.stop_sync()
-        self._running = False
+        await asyncio.gather(
+            *(t.close() for t in self._transport_registry.all.values())
+        )
+        await self._storage.close()
+
+    async def _populate_from_storage(self) -> None:
+        """Restore drivers/transports/devices from storage into the registries."""
+        for transport_dto in await self._storage.transports.read_all():
+            try:
+                await self._transport_registry.add(transport_dto)
+            except Exception:
+                logger.exception("Failed to init transport %s", transport_dto.id)
+        for driver_dto in await self._storage.drivers.read_all():
+            try:
+                await self._driver_registry.add(driver_dto)
+            except Exception:
+                logger.exception("Failed to init driver %s", driver_dto.id)
+        for device_dto in await self._storage.devices.read_all():
+            await self._restore_device(device_dto)
+
+    async def _restore_device(self, d: Device) -> None:
+        logger.info("Adding device %s", d.id)
+        try:
+            device = device_from_public(
+                d,
+                self._driver_registry.all,
+                self._transport_registry.all,
+                on_update=self._on_attribute_update,
+            )
+            await self._device_registry.register(device)
+        except KeyError:
+            logger.exception(
+                "Cannot create device %s: missing driver or transport", d.id
+            )
+        except Exception:
+            logger.exception("Failed to init device %s", d.id)
+
+    def _register_attribute_persistence_listener(self) -> None:
+        """Persist attribute values on change.
+
+        The listener is async and fire-and-forget: it does not block the
+        polling or write hot path.
+        """
+        storage = self._storage
+
+        async def _persist_attribute(
+            device: CoreDevice,
+            _attribute_name: str,
+            attribute: Attribute,
+        ) -> None:
+            await storage.save_attribute(device.id, attribute)
+
+        self.add_device_attribute_listener(_persist_attribute)
 
     # -- Devices (delegated to DeviceRegistry) --
 
@@ -182,9 +246,15 @@ class DevicesManager:
         return device_to_public(device)
 
     async def read_device(self, device_id: str) -> Device:
+        """Force a fresh read of the device's attributes.
+
+        Distinct from :meth:`get_device`, which returns the cached DTO
+        without contacting the transport. Polling, when running, also
+        refreshes attributes in the background — this method exists so
+        callers can request data on demand.
+        """
         device = self._device_registry.get(device_id)
-        if not self._running:
-            await device.update_once()
+        await device.update_once()
         return device_to_public(device)
 
     async def write_device_attribute(
@@ -261,7 +331,7 @@ class DevicesManager:
 
     def add_device_attribute_listener(self, callback: AttributeListener) -> str:
         """Register a handler for attribute updates. Returns an opaque listener ID."""
-        listener_id = uuid4().hex[:16]
+        listener_id = gen_id()
         self._attribute_update_handlers[listener_id] = callback
         return listener_id
 
@@ -271,7 +341,7 @@ class DevicesManager:
 
     def add_device_discovery_listener(self, callback: DeviceDiscoveredListener) -> str:
         """Register a handler called when a new device is discovered."""
-        listener_id = uuid4().hex[:16]
+        listener_id = gen_id()
         self._discovery_listeners[listener_id] = callback
         return listener_id
 
@@ -307,91 +377,6 @@ class DevicesManager:
                 context=discovery_context
             )
         return self._discovery_manager
-
-    # -- Bootstrap --
-
-    async def _restore_device(self, d: Device) -> None:
-        logger.info("Adding device %s", d.id)
-        try:
-            device = device_from_public(
-                d,
-                self._driver_registry.all,
-                self._transport_registry.all,
-                on_update=self._on_attribute_update,
-            )
-            await self._device_registry.register(device)
-        except KeyError:
-            logger.exception(
-                "Cannot create device %s: missing driver or transport", d.id
-            )
-        except Exception:
-            logger.exception("Failed to init device %s", d.id)
-
-    @classmethod
-    async def _populate(
-        cls,
-        dm: DevicesManager,
-        devices: list[Device],
-        drivers: list[DriverSpec],
-        transports: list[Transport],
-    ) -> None:
-        """Populate registries from DTOs during bootstrap."""
-        for t in transports:
-            try:
-                await dm._transport_registry.add(t)
-            except Exception:
-                logger.exception("Failed to init transport %s", t.id)
-        for d in drivers:
-            try:
-                await dm._driver_registry.add(d)
-            except Exception:
-                logger.exception("Failed to init driver %s", d.id)
-        for d in devices:
-            await dm._restore_device(d)
-
-    @classmethod
-    async def from_dto(
-        cls,
-        devices: list[Device],
-        drivers: list[DriverSpec],
-        transports: list[Transport],
-    ) -> DevicesManager:
-        dm = cls(devices={}, drivers={}, transports={})
-        await cls._populate(dm, devices, drivers, transports)
-        return dm
-
-    @classmethod
-    async def from_storage(cls, url: str) -> DevicesManager:
-        repository = await build_storage(url)
-        dm = cls(devices={}, drivers={}, transports={}, storage=repository)
-        await cls._populate(
-            dm,
-            devices=await repository.devices.read_all(),
-            drivers=await repository.drivers.read_all(),
-            transports=await repository.transports.read_all(),
-        )
-        dm._register_attribute_persistence_listener()
-        return dm
-
-    def _register_attribute_persistence_listener(self) -> None:
-        """Register a listener that persists attribute values on change.
-
-        The listener is async and fire-and-forget: it does not block
-        the polling or write hot path.
-        """
-        if not self._storage:
-            return
-
-        storage = self._storage
-
-        async def _persist_attribute(
-            device: CoreDevice,
-            _attribute_name: str,
-            attribute: Attribute,
-        ) -> None:
-            await storage.save_attribute(device.id, attribute)
-
-        self.add_device_attribute_listener(_persist_attribute)
 
     # -- Transports (delegated to TransportRegistry) --
 
@@ -473,11 +458,3 @@ class DevicesManager:
         self._driver_registry.get(driver_id)
         self._assert_driver_not_used(driver_id)
         await self._driver_registry.remove(driver_id)
-
-    async def stop(self) -> None:
-        await self.stop_sync()
-        await asyncio.gather(
-            *(t.close() for t in self._transport_registry.all.values())
-        )
-        if self._storage:
-            await self._storage.close()

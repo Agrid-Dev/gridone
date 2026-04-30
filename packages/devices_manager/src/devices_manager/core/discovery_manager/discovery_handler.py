@@ -7,8 +7,9 @@ import logging
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
-from devices_manager.core.device import CoreDevice, DeviceBase, PhysicalDevice
+from devices_manager.core.device import DeviceBase, PhysicalDevice
 from devices_manager.core.transports import PushTransportClient
+from models.ids import gen_id
 
 if TYPE_CHECKING:
     from devices_manager.core.driver import DiscoveryListener, Driver
@@ -83,7 +84,7 @@ class DiscoveryHandler:
             initial_attribute_values = self.try_parsing_attributes(payload)
             device = PhysicalDevice.from_base(
                 DeviceBase(
-                    id=CoreDevice.gen_id(),
+                    id=gen_id(),
                     name=self.try_parsing_name(device_config),
                     config=device_config,
                 ),

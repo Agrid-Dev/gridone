@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from devices_manager.dto import DriverSpec
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
@@ -45,7 +45,7 @@ _DRIVERS_BY_ID = {d.id: d for d in _DRIVERS}
 
 @pytest.fixture
 def dm() -> MagicMock:
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
     mock.list_drivers.return_value = list(_DRIVERS)
 
     def _get_driver(driver_id: str) -> DriverSpec:

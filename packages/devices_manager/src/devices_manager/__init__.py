@@ -11,10 +11,10 @@ from .core.device_registry import DeviceRegistry
 from .core.driver import Driver
 from .interface import (
     DeviceRegistryInterface,
-    DevicesManagerInterface,
+    DevicesServiceInterface,
     DiscoveryManagerInterface,
 )
-from .main import DevicesManager
+from .service import DevicesService
 
 __all__ = [
     "Attribute",
@@ -22,8 +22,8 @@ __all__ = [
     "DeviceBase",
     "DeviceRegistry",
     "DeviceRegistryInterface",
-    "DevicesManager",
-    "DevicesManagerInterface",
+    "DevicesService",
+    "DevicesServiceInterface",
     "DiscoveryManagerInterface",
     "Driver",
     "PhysicalDevice",

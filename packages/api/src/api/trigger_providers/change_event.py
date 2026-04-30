@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from devices_manager import Attribute, CoreDevice
-    from devices_manager.interface import DevicesManagerInterface
+    from devices_manager.interface import DevicesServiceInterface
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class ChangeEventListener:
         self,
         trigger: ChangeEventTrigger,
         on_fire: Callable[[TriggerContext], Awaitable[None]],
-        devices_manager: DevicesManagerInterface,
+        devices_manager: DevicesServiceInterface,
     ) -> None:
         self._trigger = trigger
         self._on_fire = on_fire
@@ -106,7 +106,7 @@ class ChangeEventTriggerProvider:
     id = "change_event"
     trigger_schema: ClassVar[dict] = ChangeEventTrigger.model_json_schema()
 
-    def __init__(self, devices_manager: DevicesManagerInterface) -> None:
+    def __init__(self, devices_manager: DevicesServiceInterface) -> None:
         self._dm = devices_manager
         self._listeners: dict[str, ChangeEventListener] = {}
 

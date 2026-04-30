@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import pytest_asyncio
 
 from devices_manager.core.device import (
     Attribute,
@@ -71,16 +72,17 @@ def on_attribute_update():
     return MagicMock()
 
 
-@pytest.fixture
-def device_registry(
+@pytest_asyncio.fixture
+async def device_registry(
     device, driver, mock_transport_client, on_attribute_update
 ) -> DeviceRegistry:
-    return DeviceRegistry(
-        {device.id: device},
+    registry = DeviceRegistry(
         resolve_driver=_make_driver_resolver(driver),
         resolve_transport=_make_transport_resolver(mock_transport_client),
         on_attribute_update=on_attribute_update,
     )
+    await registry.register(device)
+    return registry
 
 
 @pytest.fixture

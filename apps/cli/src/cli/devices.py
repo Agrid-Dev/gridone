@@ -10,8 +10,8 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.config import get_db_path
-from devices_manager import DevicesManager
+from cli.config import get_storage_url
+from devices_manager import DevicesService
 
 from .formatters import autoformat_value, device_to_table
 
@@ -20,16 +20,22 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 console = Console()
 
 
+async def _make_service() -> DevicesService:
+    svc = DevicesService(get_storage_url())
+    await svc.start()
+    return svc
+
+
 @app.callback()
 def _init(ctx: typer.Context) -> None:
     ctx.ensure_object(dict)
     if "dm" not in ctx.obj:
-        ctx.obj["dm"] = asyncio.run(DevicesManager.from_storage(str(get_db_path())))
+        ctx.obj["dm"] = asyncio.run(_make_service())
 
 
 @app.command("list")
 def list_all(ctx: typer.Context) -> None:
-    dm: DevicesManager = ctx.obj["dm"]
+    dm: DevicesService = ctx.obj["dm"]
     devices = dm.list_devices()
     print(f"Read {len(devices)} devices")
     table = Table(title=f"Devices ({len(devices)})")
@@ -47,7 +53,7 @@ def list_all(ctx: typer.Context) -> None:
     console.print(table)
 
 
-async def _read_device_async(dm: DevicesManager, device_id: str) -> None:
+async def _read_device_async(dm: DevicesService, device_id: str) -> None:
     """
     Async implementation that performs device manager initialization and
     reads attributes from the device using async drivers/transports.
@@ -67,7 +73,7 @@ def read(ctx: typer.Context, device_id: str) -> None:
 
 
 async def _write_device_async(
-    dm: DevicesManager,
+    dm: DevicesService,
     device_id: str,
     attribute: str,
     value: float,
@@ -106,8 +112,7 @@ def write(
     )
 
 
-async def _watch_device(dm: DevicesManager, device_id: str) -> None:
-    await dm.start_sync()
+async def _watch_device(dm: DevicesService, device_id: str) -> None:
     device = dm.get_device(device_id)
     console.print(
         f"Watching device [bold blue]{device_id}[/bold blue] using driver "
@@ -125,7 +130,7 @@ async def _watch_device(dm: DevicesManager, device_id: str) -> None:
                     current = new
                 await asyncio.sleep(0.2)
     except KeyboardInterrupt:
-        await dm.stop_sync()
+        await dm.stop()
         console.print("\n👋 Goodbye")
 
 
@@ -135,7 +140,7 @@ def watch(ctx: typer.Context, device_id: str) -> None:
     asyncio.run(_watch_device(ctx.obj["dm"], device_id))
 
 
-async def _discover(dm: DevicesManager, driver_id: str, transport_id: str) -> None:
+async def _discover(dm: DevicesService, driver_id: str, transport_id: str) -> None:
     device_ids = dm.device_ids
 
     console.print("Starting device discovery (press Ctrl+C to quit)")

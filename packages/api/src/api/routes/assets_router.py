@@ -8,7 +8,7 @@ from assets import (
     get_asset_create_schema,
 )
 from commands import AttributeWrite, CommandsServiceInterface
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query, status
 from models.errors import NotFoundError
 from pydantic import BaseModel
@@ -54,7 +54,7 @@ async def get_tree(
 )
 async def get_tree_with_devices(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> list[dict]:
     tree = await assets_svc.get_tree()
     all_devices = dm.list_devices()
@@ -135,7 +135,7 @@ async def update_asset(
 async def delete_asset(
     asset_id: str,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> None:
     linked_devices = dm.list_devices(tags={"asset_id": [asset_id]})
     for device in linked_devices:
@@ -164,7 +164,7 @@ async def reorder_children(
 async def list_asset_devices(
     asset_id: str,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> list[str]:
     await assets_svc.get_by_id(asset_id)
     return [d.id for d in dm.list_devices(tags={"asset_id": [asset_id]})]
@@ -179,7 +179,7 @@ async def dispatch_asset_command(
     asset_id: str,
     body: AssetCommand,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     commands_svc: Annotated[CommandsServiceInterface, Depends(get_commands_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> BatchDispatchResponse:

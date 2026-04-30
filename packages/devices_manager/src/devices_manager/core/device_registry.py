@@ -8,11 +8,11 @@ from devices_manager.dto import (
     PhysicalDeviceCreate,
     device_to_public,
 )
-from devices_manager.storage import DeviceStorageBackend, NullStorageBackend
+from devices_manager.storage.memory import MemoryDeviceStorage
 from models.errors import InvalidError, NotFoundError
+from models.ids import gen_id
 
 from .device import Attribute, CoreDevice, DeviceBase, PhysicalDevice, VirtualDevice
-from .id import gen_id
 from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
         DeviceUpdate,
         VirtualDeviceCreate,
     )
+    from devices_manager.storage import DeviceStorageBackend
     from devices_manager.types import AttributeValueType, DataType
 
     from .driver import Driver
@@ -51,16 +52,25 @@ class DeviceRegistry:
         *,
         resolve_driver: DriverResolver,
         resolve_transport: TransportResolver,
-        on_attribute_update: AttributeUpdateCallback | None = None,
         storage: DeviceStorageBackend | None = None,
+        on_attribute_update: AttributeUpdateCallback | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
         self._resolve_transport = resolve_transport
         self._on_attribute_update = on_attribute_update
-        self._storage = storage or NullStorageBackend()
+        self._storage = storage if storage is not None else MemoryDeviceStorage()
         for device in self._devices.values():
             device.on_update = self._on_attribute_update
+
+    def set_storage(self, storage: DeviceStorageBackend) -> None:
+        """Swap the persistence backend after construction.
+
+        Used by ``DevicesService.start`` to upgrade from the default
+        in-memory storage to a real backend (e.g. postgres) without
+        rebuilding the registry.
+        """
+        self._storage = storage
 
     @property
     def all(self) -> dict[str, CoreDevice]:
