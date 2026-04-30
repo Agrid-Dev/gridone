@@ -1,3 +1,9 @@
+## v0.61.5 (2026-04-30)
+
+### Refactor
+
+- **apps**: migrate AppsService to common Service shape
+
 ## v0.61.4 (2026-04-30)
 
 ### Fix
