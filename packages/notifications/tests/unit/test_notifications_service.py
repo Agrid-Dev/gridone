@@ -5,6 +5,7 @@ import pytest
 
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
+from models.service import Service
 from models.types import Severity
 from notifications.models import Notification, NotificationDispatch
 from notifications.notifications_service import NotificationsService
@@ -51,14 +52,18 @@ def service(storage: AsyncMock) -> NotificationsService:
     return svc
 
 
-class TestClose:
+class TestStop:
     async def test_delegates_to_storage(
         self,
         service: NotificationsService,
         storage: AsyncMock,
     ) -> None:
-        await service.close()
+        await service.stop()
         storage.close.assert_awaited_once()
+
+    async def test_idempotent_when_storage_not_started(self) -> None:
+        svc = NotificationsService("postgresql://test")
+        await svc.stop()
 
 
 class TestStart:
@@ -71,6 +76,19 @@ class TestStart:
             svc = NotificationsService("postgresql://test")
             await svc.start()
         assert svc._storage is mock_storage
+
+    async def test_none_url_builds_memory_storage(self) -> None:
+        svc = NotificationsService(None)
+        await svc.start()
+        try:
+            page = await svc.list_for_user("u")
+            assert page.total == 0
+        finally:
+            await svc.stop()
+
+
+async def test_satisfies_service_protocol() -> None:
+    assert isinstance(NotificationsService(None), Service)
 
 
 class TestDispatch:

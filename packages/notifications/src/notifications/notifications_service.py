@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
+from models.service import Service
 from models.types import Severity
 from notifications.body_sanitizer import validate_body
 from notifications.models import Notification, NotificationDispatch
@@ -15,17 +16,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class NotificationsService:
-    def __init__(self, storage_url: str) -> None:
+class NotificationsService(Service):
+    _storage: "NotificationsStorageBackend"
+
+    def __init__(self, storage_url: str | None) -> None:
         self._storage_url = storage_url
 
     async def start(self) -> None:
-        self._storage: NotificationsStorageBackend = await build_notifications_storage(
-            self._storage_url
-        )
+        self._storage = await build_notifications_storage(self._storage_url)
 
-    async def close(self) -> None:
-        await self._storage.close()
+    async def stop(self) -> None:
+        if hasattr(self, "_storage"):
+            await self._storage.close()
 
     async def dispatch(  # noqa: PLR0913
         self,
