@@ -35,9 +35,7 @@ const EditableCard: FC<EditableCardProps> = ({
       )}
       aria-busy={isSubmitting}
     >
-      <CardContent
-        className={cn("space-y-4 py-5", variant === "ghost" && "px-0 sm:px-2")}
-      >
+      <CardContent className="space-y-4 py-5">
         <div className="flex min-h-9 items-center justify-between">
           <TypographyEyebrow>{title}</TypographyEyebrow>
           {onClickEdit && (
