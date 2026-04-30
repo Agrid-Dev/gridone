@@ -1,3 +1,9 @@
+## v0.61.9 (2026-04-30)
+
+### Refactor
+
+- **devices_manager**: migrate to common Service shape (AGR-544)
+
 ## v0.61.8 (2026-04-30)
 
 ### Refactor
