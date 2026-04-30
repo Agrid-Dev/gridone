@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from devices_manager import DevicesManager, VirtualDevice
+from devices_manager import DevicesService, VirtualDevice
 from devices_manager.core.device import Attribute
 from devices_manager.types import DataType
 from fastapi import FastAPI
@@ -51,25 +51,25 @@ async def ts_service() -> AsyncIterator[TimeSeriesService]:
     await service.stop()
 
 
-@pytest.fixture
-def integration_app(
+@pytest_asyncio.fixture
+async def integration_app(
     virtual_device: VirtualDevice,
     ts_service: TimeSeriesService,
     admin_token_payload,
-) -> FastAPI:
+) -> AsyncIterator[FastAPI]:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
-    dm = DevicesManager(
-        devices={virtual_device.id: virtual_device},
-        drivers={},
-        transports={},
-    )
+    dm = DevicesService(devices={virtual_device.id: virtual_device})
+    await dm.start()
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
-    return app
+    try:
+        yield app
+    finally:
+        await dm.stop()
 
 
 @pytest.fixture

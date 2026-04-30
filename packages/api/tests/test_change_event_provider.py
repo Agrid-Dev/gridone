@@ -10,13 +10,13 @@ from api.trigger_providers.change_event import (
     ConditionOperator,
 )
 from automations.models import TriggerContext
-from devices_manager.interface import DevicesManagerInterface
+from devices_manager.interface import DevicesServiceInterface
 
 _NOW = datetime(2024, 1, 1, tzinfo=UTC)
 
 
 def _make_dm() -> MagicMock:
-    return MagicMock(spec=DevicesManagerInterface)
+    return MagicMock(spec=DevicesServiceInterface)
 
 
 def _make_device(device_id: str) -> MagicMock:

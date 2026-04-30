@@ -4,7 +4,7 @@ from apps import AppsService
 from assets import AssetsService
 from automations import AutomationsServiceInterface
 from commands import CommandsServiceInterface
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from models.pagination import PaginationParams
@@ -19,7 +19,7 @@ from api.permissions import Permission, get_permissions_for_role
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
-def get_device_manager(request: Request) -> DevicesManagerInterface:
+def get_device_manager(request: Request) -> DevicesServiceInterface:
     return request.app.state.device_manager
 
 

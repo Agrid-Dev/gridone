@@ -7,7 +7,7 @@
 ```mermaid
 graph TD
     subgraph Facade
-        DM[DevicesManager]
+        DM[DevicesService]
     end
 
     subgraph Registries
@@ -29,14 +29,14 @@ graph TD
 
     subgraph Storage
         SB[StorageBackend]
-        YAML[YAML Backend]
+        MEM[Memory Backend]
         PG[Postgres Backend]
     end
 
     DM --> DR
     DM --> TrR
     DM --> DrvR
-    DM -->|"start_sync / stop_sync"| D
+    DM -->|"start / stop"| D
 
     DR --> D
     DR -.->|"resolve_driver(id)"| Drv
@@ -52,17 +52,17 @@ graph TD
     PD -->|"uses"| TC
     PD -->|"start_sync: init_listeners + poll loop"| PD
 
-    SB --> YAML
+    SB --> MEM
     SB --> PG
     DM -->|"persists via"| SB
 ```
 
 ### Key design decisions
 
-- **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`. Physical devices start transport listeners and spawn their own poll task. Virtual devices are no-ops. The facade just calls these methods — no centralized polling manager.
-- **Registries are pure in-memory.** `DeviceRegistry`, `TransportRegistry`, and `DriverRegistry` handle CRUD on in-memory dicts. Persistence is the facade's responsibility.
-- **Facade = orchestration recipes.** `DevicesManager` methods are short sequences: delegate to registry, toggle sync, persist. No business logic lives in the facade.
-- **Dependency inversion via resolvers.** `DeviceRegistry` doesn't depend on `DriverRegistry` or `TransportRegistry` — it receives `resolve_driver` / `resolve_transport` callables, injected by the facade. `DeviceRegistryInterface` allows the facade itself to be tested with mocks.
+- **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`. Physical devices start transport listeners and spawn their own poll task. Virtual devices are no-ops. The service drives these via `start()` / `stop()` — no centralized polling manager.
+- **Registries are pure in-memory.** `DeviceRegistry`, `TransportRegistry`, and `DriverRegistry` handle CRUD on in-memory dicts. Persistence is the service's responsibility.
+- **Service = orchestration recipes.** `DevicesService` methods are short sequences: delegate to registry, toggle sync, persist. No business logic lives in the service.
+- **Dependency inversion via resolvers.** `DeviceRegistry` doesn't depend on `DriverRegistry` or `TransportRegistry` — it receives `resolve_driver` / `resolve_transport` callables, injected by the service. `DeviceRegistryInterface` allows the service itself to be tested with mocks.
 
 ## Storage architecture
 
@@ -83,30 +83,39 @@ All methods are async (`read`, `write`, `read_all`, `list_all`, `delete`).
 
 ### Backends
 
-- YAML backend for local development:
-  `storage/yaml/`
-- PostgreSQL backend for production (including TimescaleDB):
-  `storage/postgres/`
+- In-memory backend for tests and ephemeral runs: `storage/memory.py`
+- PostgreSQL backend for production (including TimescaleDB): `storage/postgres/`
 
 Both backends implement the same abstraction, so application logic does not change.
 
-### Factory pattern
+### Factory
 
 `storage/factory.py` provides:
 
-- `async build_storage(url: str) -> DevicesManagerStorage`
+- `async build_storage(url: str | None) -> DevicesManagerStorage`
 
 Resolution rules:
 
-- `postgresql://...` or `postgres://...` -> PostgreSQL backend
-- Any other value -> YAML backend path
+- `None` -> in-memory backend
+- `postgresql://...` -> PostgreSQL backend
+- Any other URL -> raises `UnsupportedStorageError`
 
-## Clean architecture boundary
+## Service shape
 
-`DevicesManager` is storage-agnostic: it only depends on `DevicesManagerStorage`, never on concrete backend classes.
+`DevicesService` follows the common service shape (`__init__(storage_url, ...)` + `async start` / `async stop`):
 
 ```python
-dm = await DevicesManager.from_storage("postgresql://user:pass@host/db")
-# or
-dm = await DevicesManager.from_storage("/path/to/yaml/dir")
+from devices_manager import DevicesService
+
+# In-memory (tests, ephemeral runs)
+svc = DevicesService()
+await svc.start()
+...
+await svc.stop()
+
+# PostgreSQL
+svc = DevicesService("postgresql://user:pass@host/db")
+await svc.start()
+...
+await svc.stop()
 ```

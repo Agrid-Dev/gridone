@@ -8,10 +8,10 @@ from devices_manager.dto import (
     TransportUpdate,
     transport_to_public,
 )
-from devices_manager.storage import NullStorageBackend
+from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
+from models.ids import gen_id
 
-from .id import gen_id
 from .transports import (
     TransportClient,
     TransportMetadata,
@@ -36,7 +36,13 @@ class TransportRegistry:
         storage: StorageBackend[Transport] | None = None,
     ) -> None:
         self._transports = transports if transports is not None else {}
-        self._storage = storage or NullStorageBackend()
+        self._storage = (
+            storage if storage is not None else MemoryStorageBackend[Transport]()
+        )
+
+    def set_storage(self, storage: StorageBackend[Transport]) -> None:
+        """Swap the persistence backend after construction."""
+        self._storage = storage
 
     @property
     def all(self) -> dict[str, TransportClient]:

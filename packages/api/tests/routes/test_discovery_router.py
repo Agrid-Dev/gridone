@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesManagerInterface, DiscoveryManagerInterface
+from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
 from devices_manager.dto import DriverSpec, build_transport
 from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
@@ -45,7 +45,7 @@ def discovery() -> MagicMock:
 
 @pytest.fixture
 def dm(discovery) -> MagicMock:
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
     mock.transport_ids = {"my-mqtt"}
     mock.driver_ids = {"test_push_driver"}
     mock.list_drivers.return_value = [_MQTT_DRIVER]

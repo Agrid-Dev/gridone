@@ -1,12 +1,8 @@
-import asyncio
-from collections.abc import Generator
-from pathlib import Path
-from tempfile import TemporaryDirectory
-
 import pytest
+import pytest_asyncio
 
 from devices_manager.dto import Device, DriverSpec, build_transport
-from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
+from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import TransportProtocols
 
 TEST_DEVICE = Device.model_validate(
@@ -53,20 +49,13 @@ TEST_TRANSPORT = build_transport(
 )
 
 
-@pytest.fixture
-def mock_core_file_storage() -> Generator[CoreFileStorage]:
-    with TemporaryDirectory() as temp_dir:
-        (Path(temp_dir) / "devices").mkdir()
-        (Path(temp_dir) / "drivers").mkdir()
-        (Path(temp_dir) / "transports").mkdir()
-        core_file_storage = CoreFileStorage(Path(temp_dir))
-        asyncio.run(core_file_storage.devices.write(TEST_DEVICE.id, TEST_DEVICE))
-        asyncio.run(core_file_storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER))
-        asyncio.run(
-            core_file_storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
-        )
-
-        yield core_file_storage
+@pytest_asyncio.fixture
+async def seeded_memory_storage() -> MemoryDevicesStorage:
+    storage = MemoryDevicesStorage()
+    await storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
+    await storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)
+    await storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
+    return storage
 
 
 OPEN_METEO_RESPONSE = {

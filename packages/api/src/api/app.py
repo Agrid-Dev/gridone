@@ -8,7 +8,7 @@ from assets import AssetsService
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
-from devices_manager import Attribute, CoreDevice, DevicesManager
+from devices_manager import Attribute, CoreDevice, DevicesService
 from fastapi import Depends, FastAPI
 from models.resource_reference import ResourceReference
 from models.types import AttributeValueType, DataType, Severity
@@ -39,7 +39,7 @@ from api.websocket.schemas import DeviceUpdateMessage
 
 
 class _CompositeTargetResolver:
-    """TargetResolver backed by DevicesManager.
+    """TargetResolver backed by DevicesService.
 
     The target is an opaque dict whose keys match ``DM.list_devices`` kwargs,
     plus the ``asset_id`` alias. ``asset_id`` is translated into a
@@ -49,7 +49,7 @@ class _CompositeTargetResolver:
     (``setDeviceTag(id, "asset_id", assetId)``).
     """
 
-    def __init__(self, dm: DevicesManager) -> None:
+    def __init__(self, dm: DevicesService) -> None:
         self._dm = dm
 
     async def resolve(self, target: Target) -> list[str]:
@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
 
-    dm = await DevicesManager.from_storage(settings.storage_url)
+    dm = DevicesService(settings.storage_url)
     ts_service = TimeSeriesService(settings.storage_url)
     await ts_service.start()
     app.state.device_manager = dm
@@ -196,7 +196,10 @@ async def lifespan(app: FastAPI):
 
     dm.add_device_attribute_listener(on_attribute_update)
 
-    await dm.start_sync()
+    # Start the devices service last so listeners are registered before
+    # storage is restored and polling begins.
+    await dm.start()
+
     try:
         yield
     finally:

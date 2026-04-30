@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-from devices_manager import DevicesManagerInterface
+from devices_manager import DevicesServiceInterface
 from devices_manager.dto import FaultView
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -42,7 +42,7 @@ _FAULT_B = FaultView(
 
 @pytest.fixture
 def dm() -> MagicMock:
-    mock = MagicMock(spec=DevicesManagerInterface)
+    mock = MagicMock(spec=DevicesServiceInterface)
     mock.list_active_faults.return_value = [_FAULT_A, _FAULT_B]
     return mock
 

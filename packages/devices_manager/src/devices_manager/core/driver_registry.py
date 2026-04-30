@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import DriverSpec, driver_from_public, driver_to_public
-from devices_manager.storage import NullStorageBackend
+from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
@@ -26,7 +26,13 @@ class DriverRegistry:
         storage: StorageBackend[DriverSpec] | None = None,
     ) -> None:
         self._drivers = drivers if drivers is not None else {}
-        self._storage = storage or NullStorageBackend()
+        self._storage = (
+            storage if storage is not None else MemoryStorageBackend[DriverSpec]()
+        )
+
+    def set_storage(self, storage: StorageBackend[DriverSpec]) -> None:
+        """Swap the persistence backend after construction."""
+        self._storage = storage
 
     @property
     def all(self) -> dict[str, Driver]:

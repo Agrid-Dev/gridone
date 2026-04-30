@@ -1,4 +1,4 @@
-"""Abstract interfaces for DevicesManager consumed by the API layer."""
+"""Abstract interfaces for DevicesService consumed by the API layer."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 class DeviceRegistryInterface(Protocol):
-    """Protocol for device registry operations used by DevicesManager."""
+    """Protocol for device registry operations used by DevicesService."""
 
     @property
     def all(self) -> dict[str, CoreDevice]: ...
@@ -96,7 +96,7 @@ class DiscoveryManagerInterface(Protocol):
     ) -> builtins.list[DiscoveryConfig]: ...
 
 
-class DevicesManagerInterface(Protocol):
+class DevicesServiceInterface(Protocol):
     """Protocol that the API layer uses to interact with device management."""
 
     # -- properties --
@@ -206,6 +206,6 @@ class DevicesManagerInterface(Protocol):
 __all__ = [
     "DeviceDiscoveredListener",
     "DeviceRegistryInterface",
-    "DevicesManagerInterface",
+    "DevicesServiceInterface",
     "DiscoveryManagerInterface",
 ]
