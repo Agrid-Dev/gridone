@@ -37,7 +37,7 @@ function fuzzyMatch(target: string, query: string): boolean {
 }
 
 export default function FaultsPage() {
-  const { t } = useTranslation("faults");
+  const { t } = useTranslation(["faults", "common"]);
   const { faults, loading, error } = useFaultsList();
   const [query, setQuery] = useState("");
 

@@ -32,7 +32,7 @@ type TransportCardProps = {
 };
 
 function TransportCard({ transport }: TransportCardProps) {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const status = transport.connectionState?.status ?? "unknown";
   const statusLabel = t(`status.${status}`, {
     defaultValue: status.replace(/_/g, " "),
@@ -79,7 +79,7 @@ function TransportCard({ transport }: TransportCardProps) {
 }
 
 export default function TransportsList() {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const can = usePermissions();
 
   const {

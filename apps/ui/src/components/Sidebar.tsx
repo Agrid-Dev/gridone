@@ -53,7 +53,7 @@ const activeIndicator = (isActive: boolean) =>
   ) : null;
 
 export function Sidebar() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(["common", "users"]);
   const { state, logout } = useAuth();
   const can = usePermissions();
   const navigate = useNavigate();

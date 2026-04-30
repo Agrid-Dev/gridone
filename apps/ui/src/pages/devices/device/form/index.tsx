@@ -28,7 +28,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     submitDisabled,
   } = useDeviceForm(device);
 
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

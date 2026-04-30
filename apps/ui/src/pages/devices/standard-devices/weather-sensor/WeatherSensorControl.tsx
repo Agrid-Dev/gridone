@@ -25,7 +25,9 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
       <div className="mb-5 flex flex-col items-center gap-1">
         <WeatherIcon className="h-10 w-10 text-muted-foreground" />
         <span className="text-xs text-muted-foreground">
-          {t(`controls.weatherCodes.${weather.labelKey}`)}
+          {t(
+            `controls.weatherCodes.${weather.labelKey}` as "controls.weatherCodes.clearSky",
+          )}
         </span>
       </div>
 

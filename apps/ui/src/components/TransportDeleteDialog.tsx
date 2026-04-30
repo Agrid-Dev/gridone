@@ -24,7 +24,7 @@ export function TransportDeleteDialog({
   onConfirm,
   isDeleting,
 }: TransportDeleteDialogProps) {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>

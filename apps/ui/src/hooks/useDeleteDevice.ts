@@ -8,7 +8,7 @@ import { ApiError } from "@/api/apiError";
 export const useDeleteDevice = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const deleteMutation = useMutation({
     mutationFn: deleteDevice,
     onSuccess: () => {

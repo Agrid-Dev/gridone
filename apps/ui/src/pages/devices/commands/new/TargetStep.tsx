@@ -233,7 +233,7 @@ function FiltersModeBody({
   devices,
   assetsList,
 }: FiltersModeBodyProps) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
 
   const deviceTypes = useMemo(() => {
     const types = new Set<string>();

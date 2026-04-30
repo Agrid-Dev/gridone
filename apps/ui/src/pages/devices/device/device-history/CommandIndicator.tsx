@@ -58,7 +58,7 @@ export function CommandIndicator({
           </p>
           {user?.title && <p className="text-muted-foreground">{user.title}</p>}
           <p className="text-xs text-muted-foreground mt-1">
-            {new Date(command.timestamp).toLocaleString()}
+            {new Date(command.executedAt).toLocaleString()}
           </p>
         </div>
         {previousValue !== undefined && newValue !== undefined && (

@@ -21,7 +21,7 @@ import { FaultAttributesSection } from "@/components/FaultAttributesSection";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const { deviceId } = useParams<{ deviceId: string }>();
   const { device, draft, savingAttr, feedback, handleDraftChange, handleSave } =
     useDeviceDetails(deviceId);
@@ -144,7 +144,7 @@ function AttributeCards({
   ) => void;
   onSave: (name: string) => void;
 }) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
 
   return (
     <>

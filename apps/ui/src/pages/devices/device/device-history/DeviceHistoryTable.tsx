@@ -34,7 +34,7 @@ import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 const PAGE_SIZE = 20;
 
 export default function DeviceHistoryTable() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const {
     availableAttributes,
     dataTypes,

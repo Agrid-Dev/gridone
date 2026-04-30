@@ -34,9 +34,7 @@ export function useNotifications(filter?: NotificationsFilter) {
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
     const failed = results.filter((r) => r.status === "rejected").length;
     if (failed > 0) {
-      toast.error(
-        t("notifications.bulkPartialFailure", { failed, total: ids.length }),
-      );
+      toast.error(t("bulkPartialFailure", { failed, total: ids.length }));
     }
   }
 

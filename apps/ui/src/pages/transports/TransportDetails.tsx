@@ -24,7 +24,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function TransportDetails() {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const { transport_id: transportId } = useParams<{ transport_id: string }>();
   const can = usePermissions();
 
@@ -71,7 +71,7 @@ export default function TransportDetails() {
     return (
       <ErrorFallback
         title={t("common:errors.default")}
-        message={t("common:errors.loadError", { transportId })}
+        message={t("common:errors.loadError")}
       />
     );
   }

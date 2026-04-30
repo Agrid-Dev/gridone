@@ -27,7 +27,7 @@ export function DeviceLinkDialog({
   onOpenChange,
   existingDeviceIds,
 }: DeviceLinkDialogProps) {
-  const { t } = useTranslation("assets");
+  const { t } = useTranslation(["assets", "common"]);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);

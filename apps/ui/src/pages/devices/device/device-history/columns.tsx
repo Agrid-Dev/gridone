@@ -23,7 +23,7 @@ function isRecent(timestamp: string) {
 export function buildColumns(
   attributes: string[],
   dataTypes: Record<string, string>,
-  t: TFunction,
+  t: TFunction<readonly ["devices", "common"]>,
   commandsMap: Map<number, DeviceCommand>,
   usersMap: Map<string, User>,
 ): ColumnDef<MergedRow>[] {
@@ -36,7 +36,7 @@ export function buildColumns(
         className="-ml-3"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       >
-        {t("common.timestamp")}
+        {t("common:common.timestamp")}
         <ArrowUpDown className="ml-2 h-3.5 w-3.5" />
       </Button>
     ),

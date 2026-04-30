@@ -32,7 +32,7 @@ type DiscoveryMutationContext = {
 function TransportDiscoveryButton({
   transport,
 }: TransportDiscoveryButtonProps) {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const queryClient = useQueryClient();
   const [pendingDriverId, setPendingDriverId] = useState<string | null>(null);
 
@@ -191,14 +191,14 @@ function TransportDiscoveryButton({
 }
 
 const DiscoveryNotSupported: FC = () => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   return <TypographyP>{t("discovery.protocolNotSupported")}</TypographyP>;
 };
 
 const TransportDiscoverButtonWrapper: FC<
   TransportDiscoveryButtonProps & { className?: string }
 > = ({ transport, className }) => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const supportsDiscovery = transport.protocol === "mqtt";
   return (
     <Card className={className}>

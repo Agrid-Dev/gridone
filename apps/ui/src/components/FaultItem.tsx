@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { SeverityChip } from "./SeverityChip";
 import type { FaultAttribute } from "@/api/devices";
 import { faultLabel } from "@/lib/faultLabel";
@@ -64,7 +65,7 @@ export function FaultItem({ attribute, onClick }: FaultItemProps) {
 
 function relativeLastChanged(
   lastChanged: string | null,
-  t: (key: string, options?: unknown) => string,
+  t: TFunction<"common">,
 ): string {
   if (!lastChanged) return t("common.timeAgo.justNow");
   const timestamp = new Date(lastChanged).getTime();

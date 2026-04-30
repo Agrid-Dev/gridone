@@ -15,7 +15,7 @@ import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetDetail() {
-  const { t } = useTranslation("assets");
+  const { t } = useTranslation(["assets", "common", "devices"]);
   const { assetId } = useParams<{ assetId: string }>();
   const queryClient = useQueryClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);

@@ -12,7 +12,8 @@
     "protocol": "Protocole",
     "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
     "updateStrategy": "Strat\u00e9gie de mise \u00e0 jour",
-    "deviceConfig": "Configuration des appareils"
+    "deviceConfig": "Configuration des appareils",
+    "none": "Aucun"
   },
   "actions": {
     "create": "Nouveau driver",

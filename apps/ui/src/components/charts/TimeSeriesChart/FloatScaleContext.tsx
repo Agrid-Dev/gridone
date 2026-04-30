@@ -1,7 +1,7 @@
 import { type MutableRefObject, type RefObject, createContext } from "react";
 
 export type FloatScaleContextType = {
-  panelRef: RefObject<HTMLDivElement | null>;
+  panelRef: RefObject<HTMLDivElement>;
   yScaleRef: MutableRefObject<((v: number) => number) | null>;
 };
 

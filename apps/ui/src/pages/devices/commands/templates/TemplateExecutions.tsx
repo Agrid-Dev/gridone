@@ -16,7 +16,7 @@ const PAGE_SIZE = 50;
  *  everything" flag through useCommands + CommandsFilterBar. The template
  *  column is omitted: the table is already scoped to this template. */
 export function TemplateExecutions({ templateId }: { templateId: string }) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const { devices } = useDevicesList();
   const { users } = useUsers();
 

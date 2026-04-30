@@ -28,7 +28,7 @@ function RequestStatusBadge({ status }: { status: string }) {
   const { t } = useTranslation("apps");
   return (
     <Badge variant="outline" className={statusStyles[status]}>
-      {t(`requests.${status}`)}
+      {t(`requests.${status}` as "requests.pending")}
     </Badge>
   );
 }

@@ -37,7 +37,7 @@ import { TargetPresenter } from "../presenters/TargetPresenter";
 import { WritePresenter } from "../presenters/WritePresenter";
 
 export default function TemplatesListPage() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const [searchParams] = useSearchParams();
 

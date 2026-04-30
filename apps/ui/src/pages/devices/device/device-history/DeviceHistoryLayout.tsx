@@ -48,7 +48,7 @@ import {
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
 export default function DeviceHistoryLayout() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const { deviceId } = useParams<{ deviceId: string }>();
   const { data: device, isLoading, error } = useDevice(deviceId);
@@ -114,7 +114,7 @@ export default function DeviceHistoryLayout() {
 }
 
 function HistoryToolbar() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const location = useLocation();
   const navigate = useNavigate();
   const {

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 
 import type {
   FloatPanelEntry,
@@ -30,7 +30,7 @@ export function useChartTooltip({
   panels,
 }: UseChartTooltipArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const floatPanelRef = useRef<HTMLDivElement | null>(null);
+  const floatPanelRef = useRef<HTMLDivElement>(null);
   const floatYScaleRef = useRef<((v: number) => number) | null>(null);
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [cursorY, setCursorY] = useState<number | null>(null);
@@ -39,7 +39,7 @@ export function useChartTooltip({
   const chartRight = width - MARGIN.right;
 
   const handlePointerMove = useCallback(
-    (e: PointerEvent) => {
+    (e: React.PointerEvent<HTMLDivElement>) => {
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect) return;
       const x = e.clientX - rect.left;

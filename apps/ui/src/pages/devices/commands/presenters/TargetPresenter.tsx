@@ -15,7 +15,7 @@ type TargetPresenterProps = {
 };
 
 type PresenterContext = {
-  t: TFunction;
+  t: TFunction<"devices">;
   assetsById?: Record<string, Asset>;
 };
 
@@ -55,7 +55,9 @@ export function TargetPresenter({
     .filter(([key, value]) => SUB_PRESENTERS[key] && !isEmptyValue(value))
     .map(([key, value]) => ({
       key,
-      label: t(`commands.targetPresenter.labels.${key}`),
+      label: t(
+        `commands.targetPresenter.labels.${key}` as "commands.targetPresenter.labels.ids",
+      ),
       content: SUB_PRESENTERS[key](value as never, ctx),
     }));
 

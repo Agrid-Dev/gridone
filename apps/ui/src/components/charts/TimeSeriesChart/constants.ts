@@ -17,7 +17,10 @@ export const CHART_COLORS = Array.from(
 export const MAX_STRING_VALUES = 10;
 export const OTHER_COLOR = "hsl(var(--muted-foreground) / 0.4)";
 export const BOOL_COLOR = CHART_COLORS[CHART_COLORS.length - 1];
-export const lineChartTheme = { ...lightTheme, colors: CHART_COLORS };
+export const lineChartTheme: typeof lightTheme = {
+  ...lightTheme,
+  colors: CHART_COLORS,
+};
 
 export const floatAccessors = {
   xAccessor: (d: FloatDatum) => d.timestamp,

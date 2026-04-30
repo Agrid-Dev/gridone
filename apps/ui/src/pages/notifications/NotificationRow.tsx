@@ -38,10 +38,9 @@ export function NotificationRow({
     }
   }, []);
 
-  const tc_ = tc as (key: string, options?: unknown) => string;
   const receivedAgo = formatTimeAgo(
     new Date(dispatch.dispatchedAt).getTime(),
-    tc_,
+    tc,
   );
 
   return (
@@ -91,7 +90,7 @@ export function NotificationRow({
       </TableCell>
       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
         {isDismissed && dispatch.dismissedAt
-          ? formatTimeAgo(new Date(dispatch.dismissedAt).getTime(), tc_)
+          ? formatTimeAgo(new Date(dispatch.dismissedAt).getTime(), tc)
           : "—"}
       </TableCell>
       <TableCell className="w-24 text-right">

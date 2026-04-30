@@ -33,7 +33,7 @@ type CommandWizardProps = {
 };
 
 export function CommandWizard(props: CommandWizardProps) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const {
     control,
     setValue,
