@@ -10,8 +10,7 @@ from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesService
 from fastapi import Depends, FastAPI
-from models.resource_reference import ResourceReference
-from models.types import AttributeValueType, DataType, Severity
+from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, TimeSeriesService
 from users import UsersService
@@ -20,6 +19,8 @@ from users.auth import AuthService
 from api.dependencies import get_current_user_id
 from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
+from api.notification_listeners.device import on_device_discovered
+from api.notification_listeners.fault import on_fault_transition
 from api.routes import (
     assets_router,
     automations_router,
@@ -157,17 +158,14 @@ async def lifespan(app: FastAPI):
     await assets_service.start()
     app.state.assets_service = assets_service
 
-    async def on_device_discovered(device: CoreDevice) -> None:
+    async def recipients() -> list[str]:
         users = await users_service.list_users()
-        await notifications_svc.dispatch(
-            title="New device discovered",
-            body=f"A new device [{device.name}]({ResourceReference('device', device.id).serialize()}) was recognised by a driver and successfully registered.",
-            severity=Severity.INFO,
-            user_ids=[u.id for u in users if not u.is_blocked],
-            correlation_id=device.id,
-        )
+        return [u.id for u in users if not u.is_blocked]
 
-    dm.add_device_discovery_listener(on_device_discovered)
+    dm.add_device_discovery_listener(
+        on_device_discovered(notifications_svc, recipients)
+    )
+    dm.add_device_attribute_listener(on_fault_transition(notifications_svc, recipients))
 
     async def on_attribute_update(
         device: CoreDevice,

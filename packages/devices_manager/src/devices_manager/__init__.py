@@ -4,6 +4,7 @@ from .core.device import (
     Attribute,
     CoreDevice,
     DeviceBase,
+    FaultAttribute,
     PhysicalDevice,
     VirtualDevice,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "DevicesServiceInterface",
     "DiscoveryManagerInterface",
     "Driver",
+    "FaultAttribute",
     "PhysicalDevice",
     "VirtualDevice",
 ]
