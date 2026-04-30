@@ -1,3 +1,13 @@
+## v0.61.4 (2026-04-30)
+
+### Fix
+
+- **api**: use users_service.stop() in lifespan teardown
+
+### Refactor
+
+- **notifications**: migrate to common Service shape
+
 ## v0.61.3 (2026-04-29)
 
 ### Fix
