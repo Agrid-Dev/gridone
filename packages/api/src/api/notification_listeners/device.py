@@ -1,6 +1,3 @@
-from collections.abc import Callable, Coroutine
-from typing import Any
-
 from devices_manager import CoreDevice
 from models.resource_reference import ResourceReference
 from models.types import Severity
@@ -8,13 +5,11 @@ from notifications.interface import NotificationsServiceInterface
 
 from api.notification_listeners import RecipientsGetter
 
-_DeviceListener = Callable[[CoreDevice], Coroutine[Any, Any, None]]
-
 
 def on_device_discovered(
     notifications: NotificationsServiceInterface,
     recipients: RecipientsGetter,
-) -> _DeviceListener:
+):
     """Listener: dispatch a notification when a new device is registered."""
 
     async def listener(device: CoreDevice) -> None:
