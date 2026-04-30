@@ -1,3 +1,9 @@
+## v0.61.7 (2026-04-30)
+
+### Refactor
+
+- **assets**: migrate AssetsService to common Service shape
+
 ## v0.61.6 (2026-04-30)
 
 ### Refactor
