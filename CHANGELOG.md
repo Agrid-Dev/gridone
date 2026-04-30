@@ -1,3 +1,9 @@
+## v0.62.1 (2026-04-30)
+
+### Fix
+
+- **ui**: unblock release build and prep tsconfig for type-check
+
 ## v0.62.0 (2026-04-30)
 
 ### Feat
