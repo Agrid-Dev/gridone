@@ -3,14 +3,14 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@/components/ui";
 import { ThermostatControl } from "../ThermostatControl";
-import type { Device } from "@/api/devices";
+import { DeviceType, type Device } from "@/api/devices";
 import type { StandardControlProps } from "../../registry";
 
 // --- Mocks ---
 
 const mockChangeAndSave = vi.fn();
 const mockChangeAndSaveNow = vi.fn();
-const mockIsSaving = vi.fn(() => false);
+const mockIsSaving = vi.fn((_name: string) => false);
 
 vi.mock("@/hooks/useDebouncedAttributeWrite", () => ({
   useDebouncedAttributeWrite: () => ({
@@ -96,7 +96,7 @@ function makeThermostat(
   return {
     id: "dev-1",
     name: "Living Room Thermostat",
-    type: "thermostat",
+    type: DeviceType.Thermostat,
     tags: {},
     driverId: "drv-1",
     transportId: "tr-1",
