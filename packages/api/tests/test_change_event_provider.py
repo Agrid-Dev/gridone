@@ -35,7 +35,7 @@ def _make_attr(value: object, last_updated: datetime | None = _NOW) -> MagicMock
 async def _fire(dm: MagicMock, device_id: str, attr_name: str, attr: object) -> None:
     """Call the callback captured by the DM mock."""
     captured = dm.add_device_attribute_listener.call_args[0][0]
-    await captured(_make_device(device_id), attr_name, attr)
+    await captured(_make_device(device_id), attr_name, None, attr)
 
 
 class TestConditionEvaluate:

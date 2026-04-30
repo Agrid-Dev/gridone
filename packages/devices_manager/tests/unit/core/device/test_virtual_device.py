@@ -97,7 +97,12 @@ class TestVirtualDeviceWrite:
     async def test_write_triggers_on_update_callback(self):
         received: list[tuple[str, object]] = []
 
-        def on_update(_dev: object, attr_name: str, attr: Attribute) -> None:
+        def on_update(
+            _dev: object,
+            attr_name: str,
+            _previous: Attribute | None,
+            attr: Attribute,
+        ) -> None:
             received.append((attr_name, attr.current_value))
 
         device = _make_virtual_device()
