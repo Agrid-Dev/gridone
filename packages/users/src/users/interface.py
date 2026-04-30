@@ -1,11 +1,11 @@
-"""Abstract interface for UsersManager consumed by other packages."""
+"""Abstract interface for UsersService consumed by other packages."""
 
 from typing import Protocol
 
 from users.models import User, UserCreate
 
 
-class UsersManagerInterface(Protocol):
+class UsersServiceInterface(Protocol):
     """Protocol that other packages use to interact with user management."""
 
     async def create_user(
@@ -20,4 +20,4 @@ class UsersManagerInterface(Protocol):
     async def unblock_user(self, user_id: str) -> User: ...
 
 
-__all__ = ["UsersManagerInterface"]
+__all__ = ["UsersServiceInterface"]

@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
     from .core.driver import Driver
     from .core.transports import TransportClient
-    from .interface import AttributeListener
+    from .interface import AttributeListener, DeviceDiscoveredListener
     from .storage import DevicesManagerStorage
     from .types import AttributeValueType, DataType
 
@@ -77,6 +77,7 @@ class DevicesManager:
     _discovery_manager: PhysicalDevicesDiscoveryManager
     _running: bool
     _attribute_update_handlers: dict[str, AttributeListener]
+    _discovery_listeners: dict[str, DeviceDiscoveredListener]
     _background_tasks: set[asyncio.Task[Any]]
     _storage: DevicesManagerStorage | None
 
@@ -91,6 +92,7 @@ class DevicesManager:
         self._storage = storage
         self._running = False
         self._attribute_update_handlers = {}
+        self._discovery_listeners = {}
         self._background_tasks = set()
         self._transport_registry = TransportRegistry(
             transports,
@@ -238,11 +240,7 @@ class DevicesManager:
         """Dispatch attribute update to all registered handlers."""
         for handler in self._attribute_update_handlers.values():
             try:
-                result = handler(device, attribute_name, attribute)
-                if asyncio.iscoroutine(result):
-                    task = asyncio.create_task(result)
-                    self._background_tasks.add(task)
-                    task.add_done_callback(self._on_handler_task_done)
+                self._schedule_if_coroutine(handler(device, attribute_name, attribute))
             except Exception:
                 logger.exception(
                     "Attribute update handler failed for %s.%s",
@@ -253,7 +251,13 @@ class DevicesManager:
     def _on_handler_task_done(self, task: asyncio.Task[Any]) -> None:
         self._background_tasks.discard(task)
         if not task.cancelled() and (exc := task.exception()):
-            logger.error("Async attribute update handler failed", exc_info=exc)
+            logger.error("Async handler failed", exc_info=exc)
+
+    def _schedule_if_coroutine(self, result: object) -> None:
+        if asyncio.iscoroutine(result):
+            task = asyncio.create_task(result)
+            self._background_tasks.add(task)
+            task.add_done_callback(self._on_handler_task_done)
 
     def add_device_attribute_listener(self, callback: AttributeListener) -> str:
         """Register a handler for attribute updates. Returns an opaque listener ID."""
@@ -265,11 +269,26 @@ class DevicesManager:
         """Unregister a previously registered attribute update handler."""
         self._attribute_update_handlers.pop(listener_id, None)
 
+    def add_device_discovery_listener(self, callback: DeviceDiscoveredListener) -> str:
+        """Register a handler called when a new device is discovered."""
+        listener_id = uuid4().hex[:16]
+        self._discovery_listeners[listener_id] = callback
+        return listener_id
+
+    def remove_device_discovery_listener(self, listener_id: str) -> None:
+        """Unregister a previously registered discovery handler."""
+        self._discovery_listeners.pop(listener_id, None)
+
     # -- Discovery --
 
     async def _register_and_persist_device(self, device: CoreDevice) -> None:
         """Register device and persist to storage. Used by discovery."""
         await self._device_registry.register(device)
+        for listener in self._discovery_listeners.values():
+            try:
+                self._schedule_if_coroutine(listener(device))
+            except Exception:
+                logger.exception("Discovery listener failed for device %s", device.id)
 
     @property
     def discovery_manager(self) -> PhysicalDevicesDiscoveryManager:

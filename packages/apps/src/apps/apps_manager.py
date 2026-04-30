@@ -8,7 +8,7 @@ from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
 from apps.storage.storage_backend import AppStorageBackend
 from models.errors import InvalidError, NotFoundError
-from users import UsersManagerInterface
+from users import UsersServiceInterface
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class AppsManager:
     def __init__(
         self,
         app_storage: AppStorageBackend,
-        users_manager: UsersManagerInterface,
+        users_manager: UsersServiceInterface,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._app_storage = app_storage

@@ -1,6 +1,6 @@
-from users.interface import UsersManagerInterface
-from users.manager import UsersManager
+from users.interface import UsersServiceInterface
 from users.models import Role, User, UserCreate, UserInDB, UserType, UserUpdate
+from users.service import UsersService
 
 __all__ = [
     "Role",
@@ -9,6 +9,6 @@ __all__ = [
     "UserInDB",
     "UserType",
     "UserUpdate",
-    "UsersManager",
-    "UsersManagerInterface",
+    "UsersService",
+    "UsersServiceInterface",
 ]

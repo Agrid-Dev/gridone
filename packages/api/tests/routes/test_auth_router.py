@@ -2,7 +2,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_users_manager
+from api.dependencies import get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
 from models.errors import BlockedUserError
@@ -16,7 +16,7 @@ from users.validation import (
 )
 
 
-class MockUsersManager:
+class MockUsersService:
     def __init__(self) -> None:
         self._credentials = {"admin": "admin", "blocked": "blocked"}
         self._users = {
@@ -62,8 +62,8 @@ def app() -> FastAPI:
     app.include_router(router)
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersManager()
-    app.dependency_overrides[get_users_manager] = lambda: manager
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
     register_exception_handlers(app)
     return app
 

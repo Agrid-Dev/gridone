@@ -10,10 +10,11 @@ from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from commands import CommandsService, Target, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesManager
 from fastapi import Depends, FastAPI
-from models.types import AttributeValueType, DataType
+from models.resource_reference import ResourceReference
+from models.types import AttributeValueType, DataType, Severity
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, create_service
-from users import UsersManager
+from users import UsersService
 from users.auth import AuthService
 
 from api.dependencies import get_current_user_id
@@ -77,9 +78,9 @@ async def lifespan(app: FastAPI):
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    um = await UsersManager.from_storage(settings.storage_url)
-    await um.ensure_default_admin()
-    app.state.users_manager = um
+    users_service = UsersService(settings.storage_url)
+    await users_service.start()
+    app.state.users_service = users_service
 
     notifications_svc = NotificationsService(settings.storage_url)
     await notifications_svc.start()
@@ -150,7 +151,7 @@ async def lifespan(app: FastAPI):
 
     apps_svc = None
     try:
-        apps_svc = await AppsService.from_storage(settings.storage_url, um)
+        apps_svc = await AppsService.from_storage(settings.storage_url, users_service)
         app.state.apps_service = apps_svc
         await apps_svc.start_health_check()
     except ValueError:
@@ -164,6 +165,18 @@ async def lifespan(app: FastAPI):
     except ValueError:
         logger.warning("Assets package requires PostgreSQL — assets disabled")
         app.state.assets_manager = None
+
+    async def on_device_discovered(device: CoreDevice) -> None:
+        users = await users_service.list_users()
+        await notifications_svc.dispatch(
+            title="New device discovered",
+            body=f"A new device [{device.name}]({ResourceReference('device', device.id).serialize()}) was recognised by a driver and successfully registered.",
+            severity=Severity.INFO,
+            user_ids=[u.id for u in users if not u.is_blocked],
+            correlation_id=device.id,
+        )
+
+    dm.add_device_discovery_listener(on_device_discovered)
 
     async def on_attribute_update(
         device: CoreDevice, attribute_name: str, attribute: Attribute

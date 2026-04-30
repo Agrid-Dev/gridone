@@ -1,3 +1,14 @@
+## v0.61.3 (2026-04-29)
+
+### Fix
+
+- service inheritance
+
+### Refactor
+
+- **users**: migrate to common Service shape (AGR-539)
+- **users**: migrate to common Service shape (AGR-539)
+
 ## v0.61.2 (2026-04-29)
 
 ### Fix

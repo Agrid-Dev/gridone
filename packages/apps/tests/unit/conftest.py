@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from apps.models import App, AppStatus, RegistrationRequest
-from users import UsersManagerInterface
+from users import UsersServiceInterface
 from users.models import User, UserType
 
 VALID_CONFIG = (
@@ -84,7 +84,7 @@ def app_storage() -> InMemoryAppStorage:
 
 @pytest.fixture
 def users_manager() -> AsyncMock:
-    mock = AsyncMock(spec=UsersManagerInterface)
+    mock = AsyncMock(spec=UsersServiceInterface)
     mock.create_user.return_value = User(
         id="new-user-id",
         username="placeholder",
