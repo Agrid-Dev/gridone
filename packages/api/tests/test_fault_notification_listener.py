@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from devices_manager import Attribute, FaultAttribute
-from devices_manager.interface import DevicesManagerInterface
+from devices_manager.interface import DevicesServiceInterface
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
@@ -14,7 +14,7 @@ _NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _make_dm() -> MagicMock:
-    return MagicMock(spec=DevicesManagerInterface)
+    return MagicMock(spec=DevicesServiceInterface)
 
 
 def _make_um(users: list | None = None) -> AsyncMock:
@@ -76,10 +76,11 @@ async def _fire(
     dm: MagicMock,
     device: MagicMock,
     attr_name: str,
+    previous: Attribute | None,
     attribute: Attribute,
 ) -> None:
     captured = dm.add_device_attribute_listener.call_args[0][0]
-    await captured(device, attr_name, attribute)
+    await captured(device, attr_name, previous, attribute)
 
 
 class TestFaultNotificationListenerRegistration:
@@ -99,41 +100,38 @@ class TestFaultNotificationListenerDispatch:
         listener = FaultNotificationListener(dm, _make_um(), notifications)
         listener.register()
 
-        await _fire(dm, _make_device(), "temperature", _make_standard_attr())
+        await _fire(dm, _make_device(), "temperature", None, _make_standard_attr())
 
         notifications.dispatch.assert_not_called()
 
-    async def test_initial_faulty_state_dispatches_alert(self):
+    async def test_none_previous_to_faulty_dispatches_alert(self):
         dm = _make_dm()
         notifications = _make_notifications()
         um = _make_um([_make_user("u1")])
         listener = FaultNotificationListener(dm, um, notifications)
         listener.register()
 
-        attr = _make_fault_attr(current_value=True, healthy_values=[False])
-        assert attr.is_faulty
-        await _fire(dm, _make_device(), "alarm", attr)
+        faulty = _make_fault_attr(current_value=True, healthy_values=[False])
+        await _fire(dm, _make_device(), "alarm", None, faulty)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
         assert call.kwargs["severity"] == Severity.WARNING
         assert "New fault" in call.kwargs["title"]
 
-    async def test_initial_healthy_state_no_dispatch(self):
+    async def test_none_previous_to_healthy_no_dispatch(self):
         dm = _make_dm()
         notifications = _make_notifications()
         listener = FaultNotificationListener(dm, _make_um(), notifications)
         listener.register()
 
-        attr = _make_fault_attr(current_value=False, healthy_values=[False])
-        assert not attr.is_faulty
-        await _fire(dm, _make_device(), "alarm", attr)
+        healthy = _make_fault_attr(current_value=False, healthy_values=[False])
+        await _fire(dm, _make_device(), "alarm", None, healthy)
 
         notifications.dispatch.assert_not_called()
 
     @pytest.mark.parametrize(
-        "severity",
-        [Severity.INFO, Severity.WARNING, Severity.ALERT],
+        "severity", [Severity.INFO, Severity.WARNING, Severity.ALERT]
     )
     async def test_healthy_to_faulty_dispatches_with_attribute_severity(
         self, severity: Severity
@@ -144,28 +142,13 @@ class TestFaultNotificationListenerDispatch:
         listener = FaultNotificationListener(dm, um, notifications)
         listener.register()
 
-        device = _make_device()
-
-        # Establish healthy state (no dispatch)
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(
-                current_value=False, healthy_values=[False], severity=severity
-            ),
+        healthy = _make_fault_attr(
+            current_value=False, healthy_values=[False], severity=severity
         )
-        notifications.dispatch.assert_not_called()
-
-        # Transition to faulty
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(
-                current_value=True, healthy_values=[False], severity=severity
-            ),
+        faulty = _make_fault_attr(
+            current_value=True, healthy_values=[False], severity=severity
         )
+        await _fire(dm, _make_device(), "alarm", healthy, faulty)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
@@ -180,100 +163,62 @@ class TestFaultNotificationListenerDispatch:
         listener = FaultNotificationListener(dm, um, notifications)
         listener.register()
 
-        device = _make_device()
-
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(current_value=True, healthy_values=[False]),
-        )
-        notifications.dispatch.reset_mock()
-
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(current_value=False, healthy_values=[False]),
-        )
+        faulty = _make_fault_attr(current_value=True, healthy_values=[False])
+        healthy = _make_fault_attr(current_value=False, healthy_values=[False])
+        await _fire(dm, _make_device(), "alarm", faulty, healthy)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
         assert call.kwargs["severity"] == Severity.INFO
         assert "resolved" in call.kwargs["title"].lower()
 
-    async def test_faulty_value_change_no_dispatch(self):
+    async def test_faulty_to_faulty_no_dispatch(self):
         """Value changes but attribute remains faulty — no duplicate alert."""
         dm = _make_dm()
         notifications = _make_notifications()
-        um = _make_um([_make_user("u1")])
-        listener = FaultNotificationListener(dm, um, notifications)
+        listener = FaultNotificationListener(dm, _make_um(), notifications)
         listener.register()
 
-        device = _make_device()
-
-        # Both values are faulty (healthy_values=[0])
-        await _fire(
-            dm,
-            device,
-            "error_code",
-            _make_fault_attr(
-                current_value=1,
-                healthy_values=[0],
-                data_type=DataType.INT,
-                name="error_code",
-            ),
+        faulty_v1 = _make_fault_attr(
+            current_value=1,
+            healthy_values=[0],
+            data_type=DataType.INT,
+            name="error_code",
         )
-        notifications.dispatch.reset_mock()
-
-        await _fire(
-            dm,
-            device,
-            "error_code",
-            _make_fault_attr(
-                current_value=2,
-                healthy_values=[0],
-                data_type=DataType.INT,
-                name="error_code",
-            ),
+        faulty_v2 = _make_fault_attr(
+            current_value=2,
+            healthy_values=[0],
+            data_type=DataType.INT,
+            name="error_code",
         )
+        await _fire(dm, _make_device(), "error_code", faulty_v1, faulty_v2)
 
         notifications.dispatch.assert_not_called()
 
-    async def test_resolved_then_healthy_update_no_dispatch(self):
-        """After fault is resolved, a subsequent healthy update must not re-dispatch."""
+    async def test_healthy_to_healthy_no_dispatch(self):
+        """No transition — healthy stays healthy, no notification."""
+        dm = _make_dm()
+        notifications = _make_notifications()
+        listener = FaultNotificationListener(dm, _make_um(), notifications)
+        listener.register()
+
+        healthy = _make_fault_attr(current_value=False, healthy_values=[False])
+        await _fire(dm, _make_device(), "alarm", healthy, healthy)
+
+        notifications.dispatch.assert_not_called()
+
+    async def test_title_includes_attribute_name(self):
         dm = _make_dm()
         notifications = _make_notifications()
         um = _make_um([_make_user("u1")])
         listener = FaultNotificationListener(dm, um, notifications)
         listener.register()
 
-        device = _make_device()
+        faulty = _make_fault_attr(current_value=True, healthy_values=[False])
+        await _fire(dm, _make_device(), "high_pressure_alarm", None, faulty)
 
-        # Go faulty then resolve
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(current_value=True, healthy_values=[False]),
-        )
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(current_value=False, healthy_values=[False]),
-        )
-        notifications.dispatch.reset_mock()
-
-        # Another healthy update — state in dict is already False
-        await _fire(
-            dm,
-            device,
-            "alarm",
-            _make_fault_attr(current_value=False, healthy_values=[False]),
-        )
-
-        notifications.dispatch.assert_not_called()
+        call = notifications.dispatch.call_args
+        assert "high_pressure_alarm" in call.kwargs["title"]
 
     async def test_blocked_users_excluded_from_dispatch(self):
         dm = _make_dm()
@@ -284,14 +229,14 @@ class TestFaultNotificationListenerDispatch:
         listener = FaultNotificationListener(dm, um, notifications)
         listener.register()
 
-        attr = _make_fault_attr(current_value=True, healthy_values=[False])
-        await _fire(dm, _make_device(), "alarm", attr)
+        faulty = _make_fault_attr(current_value=True, healthy_values=[False])
+        await _fire(dm, _make_device(), "alarm", None, faulty)
 
         call = notifications.dispatch.call_args
         assert call.kwargs["user_ids"] == ["u1", "u3"]
 
-    async def test_two_fault_attributes_tracked_independently(self):
-        """Distinct attribute names on the same device have separate fault states."""
+    async def test_two_fault_attributes_dispatch_independently(self):
+        """Two distinct fault attributes on the same device each trigger their own alert."""
         dm = _make_dm()
         notifications = _make_notifications()
         um = _make_um([_make_user("u1")])
@@ -299,22 +244,14 @@ class TestFaultNotificationListenerDispatch:
         listener.register()
 
         device = _make_device()
+        faulty_1 = _make_fault_attr(
+            current_value=True, healthy_values=[False], name="alarm_1"
+        )
+        faulty_2 = _make_fault_attr(
+            current_value=True, healthy_values=[False], name="alarm_2"
+        )
 
-        await _fire(
-            dm,
-            device,
-            "alarm_1",
-            _make_fault_attr(
-                current_value=True, healthy_values=[False], name="alarm_1"
-            ),
-        )
-        await _fire(
-            dm,
-            device,
-            "alarm_2",
-            _make_fault_attr(
-                current_value=True, healthy_values=[False], name="alarm_2"
-            ),
-        )
+        await _fire(dm, device, "alarm_1", None, faulty_1)
+        await _fire(dm, device, "alarm_2", None, faulty_2)
 
         assert notifications.dispatch.call_count == 2
