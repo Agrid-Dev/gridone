@@ -81,7 +81,10 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
   const queryClient = useQueryClient();
 
   const zodSchema = useMemo(
-    () => z.fromJSONSchema(schema) as z.ZodObject,
+    () =>
+      z.fromJSONSchema(
+        schema as Parameters<typeof z.fromJSONSchema>[0],
+      ) as z.ZodObject,
     [schema],
   );
 

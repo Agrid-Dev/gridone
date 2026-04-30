@@ -4,7 +4,7 @@ import { request } from "./request";
 export type Asset = {
   id: string;
   parentId: string | null;
-  type: string;
+  type: AssetType;
   name: string;
   path: string[];
   position: number;
