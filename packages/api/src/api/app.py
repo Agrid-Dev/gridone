@@ -206,7 +206,7 @@ async def lifespan(app: FastAPI):
         await dm.stop()
         await ts_service.stop()
         await commands_service.stop()
-        await automations_svc.close()
+        await automations_svc.stop()
         await notifications_svc.stop()
         await users_service.stop()
         await apps_svc.stop()

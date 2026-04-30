@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
-from uuid import uuid4
 
 from automations.models import (
     Automation,
@@ -15,6 +14,8 @@ from automations.models import (
 )
 from automations.storage.factory import build_storage
 from models.errors import NotFoundError
+from models.ids import gen_id
+from models.service import Service
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +26,14 @@ if TYPE_CHECKING:
     from automations.storage.backend import AutomationsStorageBackend
 
 
-class AutomationsService:
+class AutomationsService(Service):
     _cache: dict[str, Automation]
     _handles: dict[str, tuple[str, str]]  # automation_id → (provider_id, handle_id)
     _storage: AutomationsStorageBackend
 
     def __init__(
         self,
-        storage_url: str,
+        storage_url: str | None,
         trigger_providers: Sequence[TriggerProvider],
         action_dispatcher: ActionDispatcher,
     ) -> None:
@@ -59,7 +60,7 @@ class AutomationsService:
 
     async def create(self, params: AutomationCreate) -> Automation:
         automation = Automation(
-            id=uuid4().hex[:16],
+            id=gen_id(),
             name=params.name,
             description=params.description,
             trigger=params.trigger,
@@ -144,7 +145,7 @@ class AutomationsService:
     def list_trigger_schemas(self) -> dict[str, dict]:
         return {p.id: p.trigger_schema for p in self._providers.values()}
 
-    async def close(self) -> None:
+    async def stop(self) -> None:
         for automation_id in list(self._handles):
             await self._stop_trigger(automation_id)
         if hasattr(self, "_storage"):
@@ -194,7 +195,7 @@ class AutomationsService:
             status, error = ExecutionStatus.FAILED, "Action execution failed"
         await self._log_execution(
             AutomationExecution(
-                id=uuid4().hex[:16],
+                id=gen_id(),
                 automation_id=automation_id,
                 triggered_at=context.timestamp,
                 executed_at=datetime.now(UTC),
