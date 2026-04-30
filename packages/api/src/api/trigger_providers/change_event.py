@@ -87,6 +87,7 @@ class ChangeEventListener:
         self,
         device: CoreDevice,
         attr_name: str,
+        _previous: Attribute | None,
         attr: Attribute,
     ) -> None:
         if device.id != self._trigger.device_id:

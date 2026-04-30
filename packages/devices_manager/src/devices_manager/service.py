@@ -182,6 +182,7 @@ class DevicesService(Service):
         async def _persist_attribute(
             device: CoreDevice,
             _attribute_name: str,
+            _previous: Attribute | None,
             attribute: Attribute,
         ) -> None:
             await storage.save_attribute(device.id, attribute)
@@ -305,12 +306,18 @@ class DevicesService(Service):
     # -- Attribute listeners --
 
     def _on_attribute_update(
-        self, device: CoreDevice, attribute_name: str, attribute: Attribute
+        self,
+        device: CoreDevice,
+        attribute_name: str,
+        previous: Attribute | None,
+        attribute: Attribute,
     ) -> None:
         """Dispatch attribute update to all registered handlers."""
         for handler in self._attribute_update_handlers.values():
             try:
-                self._schedule_if_coroutine(handler(device, attribute_name, attribute))
+                self._schedule_if_coroutine(
+                    handler(device, attribute_name, previous, attribute)
+                )
             except Exception:
                 logger.exception(
                     "Attribute update handler failed for %s.%s",

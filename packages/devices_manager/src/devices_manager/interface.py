@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING, Protocol
 
 from .core.device import Attribute, CoreDevice
 
-AttributeListener = Callable[[CoreDevice, str, Attribute], Awaitable[None] | None]
+AttributeListener = Callable[
+    [CoreDevice, str, Attribute | None, Attribute],
+    Awaitable[None] | None,
+]
 DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
 
 if TYPE_CHECKING:

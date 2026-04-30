@@ -30,7 +30,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-AttributeUpdateCallback = Callable[[CoreDevice, str, Attribute], None]
+AttributeUpdateCallback = Callable[
+    [CoreDevice, str, "Attribute | None", Attribute],
+    None,
+]
 
 
 DriverResolver = Callable[[str], "Driver"]
