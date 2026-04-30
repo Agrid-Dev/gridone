@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import MagicMock
 
 import pytest
+from devices_manager.interface import DevicesServiceInterface
 from users.auth import TokenPayload
 
 
@@ -9,6 +11,11 @@ _ADMIN_PAYLOAD = TokenPayload(
     role="admin",
     exp=datetime.now(UTC) + timedelta(hours=1),
 )
+
+
+@pytest.fixture
+def mock_dm() -> MagicMock:
+    return MagicMock(spec=DevicesServiceInterface)
 
 
 @pytest.fixture

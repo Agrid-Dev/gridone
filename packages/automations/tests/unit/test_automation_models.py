@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from automations.models import (
+    Action,
     Automation,
     AutomationCreate,
     AutomationExecution,
@@ -22,6 +23,49 @@ _CHANGE_MODE = Trigger.model_validate(
 _CHANGE_OCC = Trigger.model_validate(
     {"type": "change_event", "source_id": "src-01", "event_type": "occupancy"}
 )
+
+_CMD_ACTION = Action.model_validate(
+    {"type": "command_template", "template_id": "tmpl-01"}
+)
+_NOTIF_ACTION = Action.model_validate(
+    {
+        "type": "notification",
+        "title": "Hot!",
+        "body": "Too hot",
+        "severity": "alert",
+        "user_ids": ["u1"],
+    }
+)
+
+
+class TestAction:
+    def test_type_field_required(self):
+        a = Action.model_validate(
+            {"type": "command_template", "template_id": "tmpl-01"}
+        )
+        assert a.type == "command_template"
+
+    def test_extra_fields_preserved(self):
+        a = Action.model_validate(
+            {"type": "notification", "title": "Hot!", "severity": "alert"}
+        )
+        assert a.model_dump() == {
+            "type": "notification",
+            "title": "Hot!",
+            "severity": "alert",
+        }
+
+    def test_dump_excludes_type(self):
+        a = Action.model_validate(
+            {"type": "command_template", "template_id": "tmpl-01"}
+        )
+        dumped = a.model_dump(exclude={"type"})
+        assert dumped == {"template_id": "tmpl-01"}
+        assert "type" not in dumped
+
+    def test_any_type_string_accepted(self):
+        a = Action.model_validate({"type": "webhook", "url": "https://example.com"})
+        assert a.type == "webhook"
 
 
 class TestTrigger:
@@ -59,28 +103,26 @@ class TestAutomationUseCases:
         ],
     )
     def test_use_case(self, name: str, trigger: Trigger):
-        automation = AutomationCreate(
-            name=name, trigger=trigger, action_template_id="tmpl-01"
-        )
+        automation = AutomationCreate(name=name, trigger=trigger, action=_CMD_ACTION)
         assert automation.trigger == trigger
 
     def test_automation_id(self):
         a = Automation(
             name="test",
             trigger=Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"}),
-            action_template_id="tmpl-01",
+            action=_CMD_ACTION,
             id="abc123def456abcd",
         )
         assert a.id == "abc123def456abcd"
 
+    def test_automation_with_notification_action(self):
+        a = AutomationCreate(name="notif", trigger=_SCHEDULE, action=_NOTIF_ACTION)
+        assert a.action.type == "notification"
+
 
 class TestAutomationCreateDescription:
     def test_description_defaults_to_empty_string(self):
-        a = AutomationCreate(
-            name="my-auto",
-            trigger=_SCHEDULE,
-            action_template_id="tmpl-01",
-        )
+        a = AutomationCreate(name="my-auto", trigger=_SCHEDULE, action=_CMD_ACTION)
         assert a.description == ""
 
     def test_description_can_be_set(self):
@@ -88,7 +130,7 @@ class TestAutomationCreateDescription:
             name="my-auto",
             description="Some info",
             trigger=_SCHEDULE,
-            action_template_id="tmpl-01",
+            action=_CMD_ACTION,
         )
         assert a.description == "Some info"
 
@@ -99,7 +141,7 @@ class TestAutomationUpdate:
         assert u.name is None
         assert u.description == ""
         assert u.trigger is None
-        assert u.action_template_id is None
+        assert u.action is None
         assert u.enabled is None
 
     def test_description_omitted_not_in_fields_set(self):
@@ -122,6 +164,12 @@ class TestAutomationUpdate:
         )
         assert u.trigger is not None
         assert u.trigger.type == "schedule"
+        assert u.name is None
+
+    def test_action_only(self):
+        u = AutomationUpdate(action=_CMD_ACTION)
+        assert u.action is not None
+        assert u.action.type == "command_template"
         assert u.name is None
 
     def test_enabled_only(self):

@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 from automations.models import (
+    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -29,6 +30,10 @@ _CHANGE = Trigger.model_validate(
     {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
 )
 
+_CMD_ACTION = Action.model_validate(
+    {"type": "command_template", "template_id": "tmpl-01"}
+)
+
 
 def _automation(**kwargs: object) -> Automation:
     defaults: dict[str, object] = {
@@ -36,7 +41,7 @@ def _automation(**kwargs: object) -> Automation:
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action_template_id": "tmpl-01",
+        "action": _CMD_ACTION,
         "enabled": True,
     }
     return Automation(**{**defaults, **kwargs})  # type: ignore[arg-type]
@@ -71,7 +76,10 @@ class TestCRUD:
         assert fetched.id == auto.id
         assert fetched.name == auto.name
         assert fetched.description == "My Desc"
-        assert fetched.action_template_id == auto.action_template_id
+        assert fetched.action.model_dump() == {
+            "type": "command_template",
+            "template_id": "tmpl-01",
+        }
         assert fetched.enabled == auto.enabled
 
     async def test_get_raises_not_found(self, storage: PostgresStorage):
@@ -104,13 +112,22 @@ class TestCRUD:
             name="renamed",
             description="Updated Desc",
             trigger=_CHANGE,
-            action_template_id="tmpl-new",
+            action=Action.model_validate(
+                {
+                    "type": "notification",
+                    "title": "Hot!",
+                    "body": "Too hot",
+                    "severity": "alert",
+                    "user_ids": ["u1"],
+                }
+            ),
             enabled=False,
         )
         await storage.update(updated)
         fetched = await storage.get(auto.id)
         assert fetched.name == "renamed"
         assert fetched.description == "Updated Desc"
+        assert fetched.action.type == "notification"
         assert fetched.enabled is False
 
     async def test_update_description_only(self, storage: PostgresStorage):
@@ -136,6 +153,43 @@ class TestCRUD:
     async def test_delete_raises_not_found(self, storage: PostgresStorage):
         with pytest.raises(NotFoundError):
             await storage.delete("nonexistent")
+
+
+class TestActionJSONB:
+    async def test_command_template_roundtrip(self, storage: PostgresStorage):
+        auto = _automation(
+            action=Action.model_validate(
+                {"type": "command_template", "template_id": "tmpl-42"}
+            )
+        )
+        await storage.create(auto)
+        fetched = await storage.get(auto.id)
+        assert fetched.action.model_dump() == {
+            "type": "command_template",
+            "template_id": "tmpl-42",
+        }
+
+    async def test_notification_roundtrip(self, storage: PostgresStorage):
+        auto = _automation(
+            action=Action.model_validate(
+                {
+                    "type": "notification",
+                    "title": "Alert",
+                    "body": "Hot",
+                    "severity": "alert",
+                    "user_ids": ["u1", "u2"],
+                }
+            )
+        )
+        await storage.create(auto)
+        fetched = await storage.get(auto.id)
+        assert fetched.action.model_dump() == {
+            "type": "notification",
+            "title": "Alert",
+            "body": "Hot",
+            "severity": "alert",
+            "user_ids": ["u1", "u2"],
+        }
 
 
 class TestTriggerJSONB:

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from automations.models import (
+    Action,
     Automation,
     AutomationCreate,
     AutomationUpdate,
@@ -24,7 +25,16 @@ _SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
 _CHANGE = Trigger.model_validate(
     {"type": "change_event", "device_id": "src-01", "attribute": "temperature"}
 )
-_TMPL = "tmpl-abc"
+_ACTION = Action.model_validate({"type": "command_template", "template_id": "tmpl-abc"})
+_NOTIF_ACTION = Action.model_validate(
+    {
+        "type": "notification",
+        "title": "Hot!",
+        "body": "Too hot",
+        "severity": "alert",
+        "user_ids": ["u1"],
+    }
+)
 
 
 def _make_storage() -> AsyncMock:
@@ -41,22 +51,31 @@ def _make_provider(trigger_type: str = "schedule") -> MagicMock:
     return provider
 
 
+def _make_action_provider(action_type: str = "command_template") -> MagicMock:
+    provider = MagicMock()
+    provider.id = action_type
+    provider.action_schema = {}
+    provider.execute = AsyncMock(return_value="output-test")
+    return provider
+
+
 def _make_service(
     storage: AsyncMock | None = None,
     providers: list[MagicMock] | None = None,
-    action_dispatcher: AsyncMock | None = None,
+    action_providers: list[MagicMock] | None = None,
 ) -> AutomationsService:
     """Create a service with storage injected directly — no need to call start()."""
     if providers is None:
         providers = [_make_provider("schedule"), _make_provider("change_event")]
-    # Default to a string-returning dispatcher so tests that don't care
-    # about the output_id still satisfy ``ActionDispatcher`` (typed as
-    # ``Awaitable[str]``); a bare ``AsyncMock()`` would feed a mock object
-    # into ``AutomationExecution.output_id``.
+    if action_providers is None:
+        action_providers = [
+            _make_action_provider("command_template"),
+            _make_action_provider("notification"),
+        ]
     svc = AutomationsService(
         storage_url="postgresql://test",
         trigger_providers=providers,
-        action_dispatcher=action_dispatcher or AsyncMock(return_value="output-test"),
+        action_providers=action_providers,
     )
     svc._storage = storage or _make_storage()
     return svc
@@ -66,7 +85,7 @@ def _create_params(**kwargs: object) -> AutomationCreate:
     defaults: dict[str, object] = {
         "name": "auto-1",
         "trigger": _SCHEDULE,
-        "action_template_id": _TMPL,
+        "action": _ACTION,
     }
     return AutomationCreate(**{**defaults, **kwargs})  # type: ignore[arg-type]
 
@@ -154,7 +173,7 @@ class TestStart:
             id="abc123",
             name="a",
             trigger=_SCHEDULE,
-            action_template_id="tmpl",
+            action=_ACTION,
             enabled=True,
         )
         storage.list.return_value = [auto]
@@ -170,7 +189,7 @@ class TestStart:
             id="abc123",
             name="a",
             trigger=_SCHEDULE,
-            action_template_id="tmpl",
+            action=_ACTION,
             enabled=False,
         )
         storage.list.return_value = [auto]
@@ -187,14 +206,14 @@ class TestStart:
                 id="a1",
                 name="a1",
                 trigger=_SCHEDULE,
-                action_template_id=_TMPL,
+                action=_ACTION,
                 enabled=True,
             ),
             Automation(
                 id="a2",
                 name="a2",
                 trigger=_SCHEDULE,
-                action_template_id=_TMPL,
+                action=_ACTION,
                 enabled=True,
             ),
         ]
@@ -222,7 +241,7 @@ class TestStart:
                 id="a1",
                 name="a1",
                 trigger=_SCHEDULE,
-                action_template_id=_TMPL,
+                action=_ACTION,
                 enabled=True,
             ),
         ]
@@ -414,21 +433,31 @@ _CTX = TriggerContext(timestamp=datetime(2024, 1, 1, tzinfo=UTC))
 
 
 class TestOnFire:
-    async def test_calls_action_dispatcher_with_template_id(self):
-        action_dispatcher = AsyncMock(return_value="output-test")
-        svc = _make_service(action_dispatcher=action_dispatcher)
+    async def test_calls_action_provider_execute(self):
+        action_provider = _make_action_provider("command_template")
+        svc = _make_service(action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
-        action_dispatcher.assert_awaited_once_with(
-            template_id=created.action_template_id,
-            user_id="system",
-            confirm=False,
+        action_provider.execute.assert_awaited_once_with({"template_id": "tmpl-abc"})
+
+    async def test_calls_notification_action_provider(self):
+        notif_provider = _make_action_provider("notification")
+        svc = _make_service(action_providers=[notif_provider])
+        created = await svc.create(_create_params(action=_NOTIF_ACTION, enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        notif_provider.execute.assert_awaited_once_with(
+            {
+                "title": "Hot!",
+                "body": "Too hot",
+                "severity": "alert",
+                "user_ids": ["u1"],
+            }
         )
 
     async def test_logs_success_execution(self):
         storage = _make_storage()
-        action_dispatcher = AsyncMock(return_value="output-test")
-        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
+        action_provider = _make_action_provider("command_template")
+        svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
@@ -436,14 +465,11 @@ class TestOnFire:
         assert execution.status == ExecutionStatus.SUCCESS
         assert execution.error is None
 
-    async def test_logs_dispatcher_output_id(self):
-        # The action dispatcher returns an opaque identifier; the execution
-        # log captures it as ``output_id`` so the run can be traced back to
-        # whatever artefact the dispatcher produced (e.g. a batch of unit
-        # commands, when wired against the commands service).
+    async def test_logs_provider_output_id(self):
         storage = _make_storage()
-        action_dispatcher = AsyncMock(return_value="output-abc123")
-        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
+        action_provider = _make_action_provider("command_template")
+        action_provider.execute.return_value = "output-abc123"
+        svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
@@ -452,8 +478,9 @@ class TestOnFire:
 
     async def test_logs_failed_execution_on_action_error(self):
         storage = _make_storage()
-        action_dispatcher = AsyncMock(side_effect=RuntimeError("boom"))
-        svc = _make_service(storage=storage, action_dispatcher=action_dispatcher)
+        action_provider = _make_action_provider("command_template")
+        action_provider.execute.side_effect = RuntimeError("boom")
+        svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
@@ -462,8 +489,9 @@ class TestOnFire:
         assert execution.output_id is None
 
     async def test_no_exception_propagated_on_action_error(self):
-        action_dispatcher = AsyncMock(side_effect=RuntimeError("boom"))
-        svc = _make_service(action_dispatcher=action_dispatcher)
+        action_provider = _make_action_provider("command_template")
+        action_provider.execute.side_effect = RuntimeError("boom")
+        svc = _make_service(action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)  # must not raise
 
@@ -471,6 +499,28 @@ class TestOnFire:
         svc = _make_service()
         with pytest.raises(NotFoundError):
             await svc._make_on_fire("nonexistent")(_CTX)
+
+    async def test_logs_failed_execution_on_unknown_action_type(self):
+        storage = _make_storage()
+        svc = _make_service(storage=storage, action_providers=[])
+        created = await svc.create(_create_params(enabled=False))
+        await svc._make_on_fire(created.id)(_CTX)
+        execution = storage.log_execution.call_args[0][0]
+        assert execution.status == ExecutionStatus.FAILED
+        assert execution.output_id is None
+
+
+class TestActionSchemas:
+    async def test_returns_provider_schemas(self):
+        p1 = _make_action_provider("command_template")
+        p1.action_schema = {"title": "Command"}
+        p2 = _make_action_provider("notification")
+        p2.action_schema = {"title": "Notification"}
+        svc = _make_service(action_providers=[p1, p2])
+        assert svc.list_action_schemas() == {
+            "command_template": {"title": "Command"},
+            "notification": {"title": "Notification"},
+        }
 
 
 class TestStop:
@@ -488,6 +538,6 @@ class TestStop:
         svc = AutomationsService(
             storage_url="postgresql://test",
             trigger_providers=[],
-            action_dispatcher=AsyncMock(),
+            action_providers=[],
         )
         await svc.stop()  # _storage not set — must not raise

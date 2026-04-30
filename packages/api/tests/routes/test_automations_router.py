@@ -9,7 +9,7 @@ from automations import (
     AutomationExecution,
     AutomationsServiceInterface,
 )
-from automations.models import ExecutionStatus, Trigger
+from automations.models import Action, ExecutionStatus, Trigger
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
@@ -25,12 +25,13 @@ from api.routes.automations_router import router
 pytestmark = pytest.mark.asyncio
 
 _TRIGGER = Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"})
+_ACTION = Action.model_validate({"type": "command_template", "template_id": "tmpl-01"})
 _AUTO = Automation(
     id="auto-01",
     name="Morning Reset",
     description="",
     trigger=_TRIGGER,
-    action_template_id="tmpl-01",
+    action=_ACTION,
     enabled=True,
 )
 _EXECUTION = AutomationExecution(
@@ -46,6 +47,7 @@ _EXECUTION = AutomationExecution(
 def svc() -> AsyncMock:
     mock = AsyncMock(spec=AutomationsServiceInterface)
     mock.list_trigger_schemas = MagicMock(return_value={})
+    mock.list_action_schemas = MagicMock(return_value={})
     return mock
 
 
@@ -96,11 +98,47 @@ class TestCreateAutomation:
                 json={
                     "name": "Morning Reset",
                     "trigger": {"type": "schedule", "cron": "0 * * * *"},
-                    "action_template_id": "tmpl-01",
+                    "action": {"type": "command_template", "template_id": "tmpl-01"},
                 },
             )
         assert resp.status_code == 201
         assert resp.json()["id"] == "auto-01"
+
+    async def test_notification_action_accepted(self, client, svc):
+        notif_auto = _AUTO.model_copy(
+            update={
+                "action": Action.model_validate(
+                    {
+                        "type": "notification",
+                        "title": "Hot!",
+                        "body": "Too hot",
+                        "severity": "alert",
+                        "user_ids": ["u1"],
+                    }
+                )
+            }
+        )
+        svc.create.return_value = notif_auto
+        async with client as c:
+            resp = await c.post(
+                "/",
+                json={
+                    "name": "Temp Alert",
+                    "trigger": {
+                        "type": "change_event",
+                        "device_id": "d1",
+                        "attribute": "temperature",
+                    },
+                    "action": {
+                        "type": "notification",
+                        "title": "Hot!",
+                        "body": "Too hot",
+                        "severity": "alert",
+                        "user_ids": ["u1"],
+                    },
+                },
+            )
+        assert resp.status_code == 201
 
 
 class TestGetAutomation:
@@ -193,6 +231,29 @@ class TestListExecutions:
             resp = await c.get("/auto-01/executions")
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+class TestListActionSchemas:
+    async def test_returns_schemas(self, client, svc):
+        svc.list_action_schemas.return_value = {
+            "notification": {"title": "Notification"},
+            "command_template": {"title": "Command"},
+        }
+        async with client as c:
+            resp = await c.get("/actions")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "notification" in body
+        assert "command_template" in body
+
+    async def test_not_shadowed_by_id_route(self, client, svc):
+        """Ensure /actions is not captured as /{automation_id}."""
+        svc.list_action_schemas.return_value = {}
+        async with client as c:
+            resp = await c.get("/actions")
+        assert resp.status_code == 200
+        svc.list_action_schemas.assert_called_once()
+        svc.get.assert_not_called()
 
 
 class TestListTriggerSchemas:

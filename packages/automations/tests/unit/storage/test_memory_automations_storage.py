@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 from automations.models import (
+    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -28,7 +29,9 @@ def _automation(**kwargs: object) -> Automation:
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action_template_id": "tmpl-01",
+        "action": Action.model_validate(
+            {"type": "command_template", "template_id": "tmpl-01"}
+        ),
         "enabled": True,
     }
     return Automation(**{**defaults, **kwargs})  # type: ignore[arg-type]
