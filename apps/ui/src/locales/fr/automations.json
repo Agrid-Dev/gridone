@@ -20,8 +20,12 @@
     "status": "Statut"
   },
   "triggers": {
-    "schedule": "Horaire",
-    "change_event": "Changement d'attribut",
+    "types": {
+      "schedule": "Horaire",
+      "change_event": "Changement d'attribut",
+      "unknown": "Déclencheur inconnu"
+    },
+    "type": "Type de déclencheur",
     "cron": "Expression cron",
     "device": "Appareil",
     "attribute": "Attribut",
@@ -59,7 +63,8 @@
     "delete": "Supprimer",
     "enable": "Activer",
     "disable": "Désactiver",
-    "rowMenu": "Actions"
+    "rowMenu": "Actions",
+    "pickTemplate": "Choisir un modèle de commande"
   },
   "toasts": {
     "created": "Automatisation créée",

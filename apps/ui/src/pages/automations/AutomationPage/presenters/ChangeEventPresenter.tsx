@@ -2,10 +2,12 @@ import { type ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { TrendingUp } from "lucide-react";
 import { getDevice } from "@/api/devices";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
 import type { Trigger } from "@/api/automations";
+import type { TriggerDescriptor } from "./types";
 
 type Condition = {
   operator: "gt" | "lt" | "gte" | "lte" | "eq" | "ne";
@@ -18,7 +20,7 @@ function isCondition(value: unknown): value is Condition {
   return typeof v.operator === "string" && "threshold" in v;
 }
 
-export function ChangeEventPresenter({ trigger }: { trigger: Trigger }) {
+export const ChangeEventPresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t } = useTranslation("automations");
   const deviceId = typeof trigger.deviceId === "string" ? trigger.deviceId : "";
   const attribute =
@@ -64,7 +66,7 @@ export function ChangeEventPresenter({ trigger }: { trigger: Trigger }) {
       </Row>
     </dl>
   );
-}
+};
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -78,3 +80,8 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
     </div>
   );
 }
+
+export const changeEventTriggerDescriptor: TriggerDescriptor = {
+  icon: TrendingUp,
+  Presenter: ChangeEventPresenter,
+};

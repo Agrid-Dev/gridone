@@ -33,6 +33,7 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/api/automations", () => ({
   getAutomation: vi.fn(),
   listExecutions: vi.fn(),
+  listTriggerSchemas: vi.fn(),
   enableAutomation: vi.fn(),
   disableAutomation: vi.fn(),
   deleteAutomation: () => mockDeleteAutomation(),
@@ -85,7 +86,7 @@ vi.mock("react-i18next", () => ({
         "executions.empty": "No executions yet",
         "executions.status.success": "Success",
         "executions.status.failed": "Failed",
-        "triggers.schedule": "Schedule",
+        "triggers.types.schedule": "Schedule",
         "deleteConfirm.title": "Delete automation",
         enabledBadge: "Enabled",
         disabledBadge: "Disabled",
@@ -110,7 +111,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import AutomationDetail from "./AutomationDetail";
+import AutomationPage from "./AutomationPage";
 
 const automation: Automation = {
   id: "a1",
@@ -164,10 +165,7 @@ function renderDetail() {
   return render(
     <MemoryRouter initialEntries={["/automations/a1"]}>
       <Routes>
-        <Route
-          path="/automations/:automationId"
-          element={<AutomationDetail />}
-        />
+        <Route path="/automations/:automationId" element={<AutomationPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -184,7 +182,7 @@ afterEach(() => {
   mockNavigate.mockReset();
 });
 
-describe("AutomationDetail", () => {
+describe("AutomationPage", () => {
   it("renders header, trigger card, action card with template name first, and execution row linking to the batch", () => {
     setQueryResults([execution]);
     renderDetail();
@@ -199,7 +197,9 @@ describe("AutomationDetail", () => {
 
     expect(screen.getByText("Trigger")).toBeInTheDocument();
     expect(screen.getByText("Action")).toBeInTheDocument();
-    expect(screen.getByText("Schedule")).toBeInTheDocument();
+    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
+      "type=schedule",
+    );
     expect(screen.getByText("Command")).toBeInTheDocument();
 
     const templateLink = screen.getByRole("link", { name: /Boost/ });

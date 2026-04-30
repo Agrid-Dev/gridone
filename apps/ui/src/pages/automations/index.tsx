@@ -3,8 +3,7 @@ import { lazy, FC, Suspense } from "react";
 
 const AutomationsList = lazy(() => import("./AutomationsList"));
 const NewAutomationPage = lazy(() => import("./NewAutomationPage"));
-const AutomationDetail = lazy(() => import("./AutomationDetail"));
-const EditAutomationPage = lazy(() => import("./EditAutomationPage"));
+const AutomationDetail = lazy(() => import("./AutomationPage/AutomationPage"));
 
 const Automations: FC = () => (
   <Routes>
@@ -29,14 +28,6 @@ const Automations: FC = () => (
       element={
         <Suspense>
           <AutomationDetail />
-        </Suspense>
-      }
-    />
-    <Route
-      path=":automationId/edit"
-      element={
-        <Suspense>
-          <EditAutomationPage />
         </Suspense>
       }
     />

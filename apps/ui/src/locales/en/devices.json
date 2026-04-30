@@ -92,6 +92,7 @@
     "allUsers": "All users",
     "allTemplates": "All templates",
     "template": "Template",
+    "pickATemplate": "Pick a template",
     "batch": "Batch",
     "clearBatch": "Clear batch filter",
     "newCommand": "New command",
