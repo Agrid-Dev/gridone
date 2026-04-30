@@ -1,31 +1,39 @@
-import uuid
-
 from assets.models import Asset, AssetCreate, AssetType, AssetUpdate
+from assets.storage import build_assets_storage
 from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
 from models.errors import InvalidError, NotFoundError
+from models.ids import gen_id
+from models.service import Service
 
 
-class AssetsManager:
-    def __init__(self, storage: AssetsStorageBackend) -> None:
-        self._storage = storage
+class AssetsService(Service):
+    def __init__(self, storage_url: str | None) -> None:
+        self._storage_url = storage_url
+        self._storage: AssetsStorageBackend | None = None
 
-    async def close(self) -> None:
-        await self._storage.close()
+    async def start(self) -> None:
+        self._storage = await build_assets_storage(self._storage_url)
+        await self.ensure_default_root()
 
-    @classmethod
-    async def from_storage(cls, storage_url: str) -> "AssetsManager":
-        from assets.storage import build_assets_storage  # noqa: PLC0415
+    async def stop(self) -> None:
+        if self._storage is not None:
+            await self._storage.close()
+            self._storage = None
 
-        storage = await build_assets_storage(storage_url)
-        return cls(storage)
+    @property
+    def _backend(self) -> AssetsStorageBackend:
+        if self._storage is None:
+            msg = "AssetsService.start() must be called before use"
+            raise RuntimeError(msg)
+        return self._storage
 
     @staticmethod
     def _to_public(asset: AssetInDB) -> Asset:
         return Asset.model_validate(asset.model_dump())
 
     async def _get_or_raise(self, asset_id: str) -> AssetInDB:
-        asset = await self._storage.get_by_id(asset_id)
+        asset = await self._backend.get_by_id(asset_id)
         if asset is None:
             msg = f"Asset '{asset_id}' not found"
             raise NotFoundError(msg)
@@ -33,16 +41,16 @@ class AssetsManager:
 
     async def ensure_default_root(self) -> None:
         """Create the default root organization if no assets exist."""
-        roots = await self._storage.list_by_parent(None)
+        roots = await self._backend.list_by_parent(None)
         if roots:
             return
         root = AssetInDB(
-            id=str(uuid.uuid4()),
+            id=gen_id(),
             parent_id=None,
             type=AssetType.ORG,
             name="Organization",
         )
-        await self._storage.save(root)
+        await self._backend.save(root)
 
     async def get_by_id(self, asset_id: str) -> Asset:
         asset = await self._get_or_raise(asset_id)
@@ -55,9 +63,9 @@ class AssetsManager:
         asset_type: str | None = None,
     ) -> list[Asset]:
         if parent_id is not None:
-            assets = await self._storage.list_by_parent(parent_id)
+            assets = await self._backend.list_by_parent(parent_id)
         else:
-            assets = await self._storage.list_all()
+            assets = await self._backend.list_all()
 
         result = [self._to_public(a) for a in assets]
 
@@ -67,7 +75,7 @@ class AssetsManager:
         return result
 
     async def get_tree(self) -> list[dict]:
-        all_assets = await self._storage.list_all()
+        all_assets = await self._backend.list_all()
         by_parent: dict[str | None, list[Asset]] = {}
         for a in all_assets:
             pub = self._to_public(a)
@@ -86,13 +94,13 @@ class AssetsManager:
         return build(None)
 
     async def create_asset(self, data: AssetCreate) -> Asset:
-        parent = await self._storage.get_by_id(data.parent_id)
+        parent = await self._backend.get_by_id(data.parent_id)
         if parent is None:
             msg = f"Parent asset '{data.parent_id}' not found"
             raise NotFoundError(msg)
 
-        asset_id = str(uuid.uuid4())
-        position = await self._storage.get_next_position(data.parent_id)
+        asset_id = gen_id()
+        position = await self._backend.get_next_position(data.parent_id)
         asset = AssetInDB(
             id=asset_id,
             parent_id=data.parent_id,
@@ -100,7 +108,7 @@ class AssetsManager:
             name=data.name,
             position=position,
         )
-        await self._storage.save(asset)
+        await self._backend.save(asset)
 
         # Re-fetch to get the computed path from the trigger
         saved = await self._get_or_raise(asset_id)
@@ -123,7 +131,7 @@ class AssetsManager:
                 if current == asset_id:
                     msg = "Cannot set parent: would create a circular dependency"
                     raise InvalidError(msg)
-                ancestor = await self._storage.get_by_id(current)
+                ancestor = await self._backend.get_by_id(current)
                 if ancestor is None:
                     msg = f"Parent asset '{new_parent_id}' not found"
                     raise NotFoundError(msg)
@@ -131,7 +139,7 @@ class AssetsManager:
 
         # Validate: if becoming root, check no other root exists
         if new_parent_id is None and existing.parent_id is not None:
-            roots = await self._storage.list_by_parent(None)
+            roots = await self._backend.list_by_parent(None)
             other_roots = [r for r in roots if r.id != asset_id]
             if other_roots:
                 msg = "A root asset already exists"
@@ -144,11 +152,11 @@ class AssetsManager:
             name=new_name,
             position=existing.position,
         )
-        await self._storage.save(updated)
+        await self._backend.save(updated)
 
         # If parent changed, update all descendant paths
         if new_parent_id != existing.parent_id:
-            await self._storage.update_descendant_paths(asset_id)
+            await self._backend.update_descendant_paths(asset_id)
 
         saved = await self._get_or_raise(asset_id)
         return self._to_public(saved)
@@ -158,20 +166,20 @@ class AssetsManager:
         if asset.parent_id is None:
             msg = "Cannot delete the root asset."
             raise InvalidError(msg)
-        children = await self._storage.get_children(asset_id)
+        children = await self._backend.get_children(asset_id)
         if children:
             msg = "Cannot delete asset with children. Remove children first."
             raise InvalidError(msg)
-        await self._storage.delete(asset_id)
+        await self._backend.delete(asset_id)
 
     async def get_descendants(self, asset_id: str) -> list[Asset]:
         await self._get_or_raise(asset_id)
-        assets = await self._storage.get_descendants(asset_id)
+        assets = await self._backend.get_descendants(asset_id)
         return [self._to_public(a) for a in assets]
 
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
-        await self._storage.reorder_siblings(parent_id, ordered_ids)
+        await self._backend.reorder_siblings(parent_id, ordered_ids)
 
 
-__all__ = ["AssetsManager"]
+__all__ = ["AssetsService"]

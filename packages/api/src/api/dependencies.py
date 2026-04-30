@@ -1,7 +1,7 @@
 from collections.abc import Callable
 
 from apps import AppsService
-from assets import AssetsManager
+from assets import AssetsService
 from automations import AutomationsServiceInterface
 from commands import CommandsServiceInterface
 from devices_manager import DevicesManagerInterface
@@ -47,8 +47,8 @@ def get_notifications_service(request: Request) -> NotificationsServiceInterface
     return request.app.state.notifications_service
 
 
-def get_assets_manager(request: Request) -> AssetsManager:
-    return request.app.state.assets_manager
+def get_assets_service(request: Request) -> AssetsService:
+    return request.app.state.assets_service
 
 
 def get_auth_service(request: Request) -> AuthService:

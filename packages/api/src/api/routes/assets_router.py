@@ -3,7 +3,7 @@ from typing import Annotated
 from assets import (
     Asset,
     AssetCreate,
-    AssetsManager,
+    AssetsService,
     AssetUpdate,
     get_asset_create_schema,
 )
@@ -14,7 +14,7 @@ from models.errors import NotFoundError
 from pydantic import BaseModel
 
 from api.dependencies import (
-    get_assets_manager,
+    get_assets_service,
     get_commands_service,
     get_current_user_id,
     get_device_manager,
@@ -43,9 +43,9 @@ async def get_schema() -> dict:
 
 @router.get("/tree", dependencies=[Depends(require_permission(Permission.ASSETS_READ))])
 async def get_tree(
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> list[dict]:
-    return await am.get_tree()
+    return await assets_svc.get_tree()
 
 
 @router.get(
@@ -53,10 +53,10 @@ async def get_tree(
     dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
 )
 async def get_tree_with_devices(
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[dict]:
-    tree = await am.get_tree()
+    tree = await assets_svc.get_tree()
     all_devices = dm.list_devices()
     name_map = {d.id: d.name for d in all_devices}
     links: dict[str, list[str]] = {}
@@ -82,11 +82,11 @@ async def get_tree_with_devices(
     dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
 )
 async def list_assets(
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     parent_id: str | None = Query(None),
     type: str | None = Query(None),
 ) -> list[Asset]:
-    return await am.list_all(parent_id=parent_id, asset_type=type)
+    return await assets_svc.list_all(parent_id=parent_id, asset_type=type)
 
 
 @router.get(
@@ -96,9 +96,9 @@ async def list_assets(
 )
 async def get_asset(
     asset_id: str,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> Asset:
-    return await am.get_by_id(asset_id)
+    return await assets_svc.get_by_id(asset_id)
 
 
 @router.post(
@@ -109,9 +109,9 @@ async def get_asset(
 )
 async def create_asset(
     body: AssetCreate,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> Asset:
-    return await am.create_asset(body)
+    return await assets_svc.create_asset(body)
 
 
 @router.put(
@@ -122,9 +122,9 @@ async def create_asset(
 async def update_asset(
     asset_id: str,
     body: AssetUpdate,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> Asset:
-    return await am.update_asset(asset_id, body)
+    return await assets_svc.update_asset(asset_id, body)
 
 
 @router.delete(
@@ -134,13 +134,13 @@ async def update_asset(
 )
 async def delete_asset(
     asset_id: str,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> None:
     linked_devices = dm.list_devices(tags={"asset_id": [asset_id]})
     for device in linked_devices:
         await dm.delete_device_tag(device.id, "asset_id")
-    await am.delete_asset(asset_id)
+    await assets_svc.delete_asset(asset_id)
 
 
 @router.put(
@@ -151,9 +151,9 @@ async def delete_asset(
 async def reorder_children(
     asset_id: str,
     body: ReorderRequest,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
 ) -> None:
-    await am.reorder_siblings(asset_id, body.ordered_ids)
+    await assets_svc.reorder_siblings(asset_id, body.ordered_ids)
 
 
 @router.get(
@@ -163,10 +163,10 @@ async def reorder_children(
 )
 async def list_asset_devices(
     asset_id: str,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
 ) -> list[str]:
-    await am.get_by_id(asset_id)
+    await assets_svc.get_by_id(asset_id)
     return [d.id for d in dm.list_devices(tags={"asset_id": [asset_id]})]
 
 
@@ -178,15 +178,15 @@ async def list_asset_devices(
 async def dispatch_asset_command(
     asset_id: str,
     body: AssetCommand,
-    am: Annotated[AssetsManager, Depends(get_assets_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     dm: Annotated[DevicesManagerInterface, Depends(get_device_manager)],
     commands_svc: Annotated[CommandsServiceInterface, Depends(get_commands_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> BatchDispatchResponse:
-    await am.get_by_id(asset_id)
+    await assets_svc.get_by_id(asset_id)
     asset_ids = [asset_id]
     if body.recursive:
-        descendants = await am.get_descendants(asset_id)
+        descendants = await assets_svc.get_descendants(asset_id)
         asset_ids.extend(a.id for a in descendants)
     target: dict = {
         "tags": {"asset_id": asset_ids},

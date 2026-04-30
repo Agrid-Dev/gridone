@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from assets.manager import AssetsManager
+from assets import AssetsService
 from assets.models import Asset, AssetType
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from models.errors import NotFoundError
@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import (
-    get_assets_manager,
+    get_assets_service,
     get_commands_service,
     get_current_token_payload,
     get_current_user_id,
@@ -117,17 +117,17 @@ def dm():
 
 
 @pytest.fixture
-def assets_manager():
-    am = MagicMock(spec=AssetsManager)
-    am.get_by_id = AsyncMock(
+def assets_service():
+    svc = MagicMock(spec=AssetsService)
+    svc.get_by_id = AsyncMock(
         return_value=Asset(
             id=_ASSET_ID, parent_id=None, type=AssetType.BUILDING, name="HQ"
         )
     )
-    am.get_descendants = AsyncMock(return_value=[])
-    am.get_tree = AsyncMock(return_value=[])
-    am.get_tree_with_devices = AsyncMock(return_value=[])
-    return am
+    svc.get_descendants = AsyncMock(return_value=[])
+    svc.get_tree = AsyncMock(return_value=[])
+    svc.get_tree_with_devices = AsyncMock(return_value=[])
+    return svc
 
 
 @pytest.fixture
@@ -136,12 +136,12 @@ def mock_commands_service():
 
 
 @pytest.fixture
-def app(dm, assets_manager, mock_commands_service, admin_token_payload) -> FastAPI:
+def app(dm, assets_service, mock_commands_service, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
-    app.dependency_overrides[get_assets_manager] = lambda: assets_manager
+    app.dependency_overrides[get_assets_service] = lambda: assets_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
@@ -208,13 +208,13 @@ class TestDispatchAssetCommand:
     async def test_recursive_includes_descendant_assets(
         self,
         async_client: AsyncClient,
-        assets_manager: MagicMock,
+        assets_service: MagicMock,
         mock_commands_service: AsyncMock,
     ):
         child = Asset(
             id=_CHILD_ASSET_ID, parent_id=_ASSET_ID, type=AssetType.FLOOR, name="Floor"
         )
-        assets_manager.get_descendants.return_value = [child]
+        assets_service.get_descendants.return_value = [child]
         mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "group01", ["t-a", "t-b"]
         )
@@ -229,7 +229,7 @@ class TestDispatchAssetCommand:
                 },
             )
         assert response.status_code == 202
-        assets_manager.get_descendants.assert_awaited_once_with(_ASSET_ID)
+        assets_service.get_descendants.assert_awaited_once_with(_ASSET_ID)
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         target = kwargs["target"]
         assert sorted(target["tags"]["asset_id"]) == sorted(
@@ -258,9 +258,9 @@ class TestDispatchAssetCommand:
     async def test_unknown_asset_returns_404(
         self,
         async_client: AsyncClient,
-        assets_manager: MagicMock,
+        assets_service: MagicMock,
     ):
-        assets_manager.get_by_id.side_effect = NotFoundError(
+        assets_service.get_by_id.side_effect = NotFoundError(
             "Asset 'missing' not found"
         )
         async with async_client as ac:
@@ -285,9 +285,9 @@ class TestListAssetDevices:
 
     @pytest.mark.asyncio
     async def test_unknown_asset_returns_404(
-        self, async_client: AsyncClient, assets_manager: MagicMock
+        self, async_client: AsyncClient, assets_service: MagicMock
     ):
-        assets_manager.get_by_id.side_effect = NotFoundError("not found")
+        assets_service.get_by_id.side_effect = NotFoundError("not found")
         async with async_client as ac:
             response = await ac.get("/missing/devices")
         assert response.status_code == 404
@@ -296,9 +296,9 @@ class TestListAssetDevices:
 class TestDeleteAsset:
     @pytest.mark.asyncio
     async def test_cleans_up_linked_device_tags(
-        self, async_client: AsyncClient, assets_manager: MagicMock, dm: MagicMock
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
     ):
-        assets_manager.delete_asset = AsyncMock()
+        assets_service.delete_asset = AsyncMock()
         async with async_client as ac:
             response = await ac.delete(f"/{_ASSET_ID}")
         assert response.status_code == 204
@@ -308,27 +308,27 @@ class TestDeleteAsset:
             call.args[0] for call in dm.delete_device_tag.await_args_list
         }
         assert called_device_ids == {"t-a", "l-1"}
-        assets_manager.delete_asset.assert_awaited_once_with(_ASSET_ID)
+        assets_service.delete_asset.assert_awaited_once_with(_ASSET_ID)
 
     @pytest.mark.asyncio
     async def test_no_linked_devices_still_deletes(
-        self, async_client: AsyncClient, assets_manager: MagicMock, dm: MagicMock
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
     ):
-        assets_manager.delete_asset = AsyncMock()
+        assets_service.delete_asset = AsyncMock()
         async with async_client as ac:
             response = await ac.delete(f"/{_CHILD_ASSET_ID}")
         assert response.status_code == 204
         # Only t-b is linked to _CHILD_ASSET_ID
         assert dm.delete_device_tag.await_count == 1
-        assets_manager.delete_asset.assert_awaited_once_with(_CHILD_ASSET_ID)
+        assets_service.delete_asset.assert_awaited_once_with(_CHILD_ASSET_ID)
 
 
 class TestGetTreeWithDevices:
     @pytest.mark.asyncio
     async def test_enriches_nodes_with_linked_devices(
-        self, async_client: AsyncClient, assets_manager: MagicMock
+        self, async_client: AsyncClient, assets_service: MagicMock
     ):
-        assets_manager.get_tree.return_value = [
+        assets_service.get_tree.return_value = [
             {"id": _ASSET_ID, "name": "HQ", "children": []}
         ]
         async with async_client as ac:
@@ -341,9 +341,9 @@ class TestGetTreeWithDevices:
 
     @pytest.mark.asyncio
     async def test_device_without_asset_tag_not_linked(
-        self, async_client: AsyncClient, assets_manager: MagicMock
+        self, async_client: AsyncClient, assets_service: MagicMock
     ):
-        assets_manager.get_tree.return_value = [
+        assets_service.get_tree.return_value = [
             {"id": _ASSET_ID, "name": "HQ", "children": []}
         ]
         async with async_client as ac:

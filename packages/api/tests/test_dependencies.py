@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock
 
-from api.dependencies import get_apps_service, get_automations_service
+from api.dependencies import (
+    get_apps_service,
+    get_assets_service,
+    get_automations_service,
+)
 
 
 class TestGetAppsService:
@@ -23,5 +27,16 @@ class TestGetAutomationsService:
         request.app.state.automations_service = sentinel
 
         result = get_automations_service(request)
+
+        assert result is sentinel
+
+
+class TestGetAssetsService:
+    def test_returns_assets_service_from_state(self):
+        sentinel = object()
+        request = MagicMock()
+        request.app.state.assets_service = sentinel
+
+        result = get_assets_service(request)
 
         assert result is sentinel
