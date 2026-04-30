@@ -5,13 +5,17 @@ import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
 import { useTranslation } from "react-i18next";
+import type { DevicesFilter } from "@/api/devices";
 
-export const useDrivers = (filters?: Record<string, string>) => {
+// Driver listing only filters by `types`; other DevicesFilter dimensions
+// (ids, assetId, isFaulty) are accepted from the shared filter UI but
+// ignored by the backend.
+export const useDrivers = (filters?: DevicesFilter) => {
   const { t } = useTranslation(["drivers", "common"]);
   const navigate = useNavigate();
   const driversListQuery = useQuery<Driver[]>({
     queryKey: ["drivers", filters],
-    queryFn: () => getDrivers(filters),
+    queryFn: () => getDrivers(filters as Record<string, string> | undefined),
     initialData: [],
   });
   const handleApiError = (err: ApiError) => {

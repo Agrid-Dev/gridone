@@ -10,7 +10,9 @@ import type { StandardControlProps } from "../../registry";
 
 const mockChangeAndSave = vi.fn();
 const mockChangeAndSaveNow = vi.fn();
-const mockIsSaving = vi.fn((_name: string) => false);
+const mockIsSaving: ReturnType<typeof vi.fn<(name: string) => boolean>> = vi.fn(
+  () => false,
+);
 
 vi.mock("@/hooks/useDebouncedAttributeWrite", () => ({
   useDebouncedAttributeWrite: () => ({
