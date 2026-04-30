@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { TypographyH4 } from "@/components/ui/typography";
+import { Info } from "lucide-react";
+import BasePresenter from "./BasePresenter";
 
 interface MetadataPresenterProps {
   name: string;
@@ -14,8 +15,7 @@ const MetadataPresenter: FC<MetadataPresenterProps> = ({
   const { t } = useTranslation("automations");
 
   return (
-    <div className="space-y-2">
-      <TypographyH4>{name}</TypographyH4>
+    <BasePresenter title={name} icon={Info} color="secondary">
       {description ? (
         <p className="text-sm leading-relaxed text-foreground/80">
           {description}
@@ -25,7 +25,7 @@ const MetadataPresenter: FC<MetadataPresenterProps> = ({
           {t("metadata.noDescription")}
         </p>
       )}
-    </div>
+    </BasePresenter>
   );
 };
 
