@@ -214,7 +214,7 @@ async def lifespan(app: FastAPI):
         await commands_service.close()
         await automations_svc.close()
         await notifications_svc.stop()
-        await um.close()
+        await users_service.stop()
         if apps_svc is not None:
             await apps_svc.close()
         if am is not None:
