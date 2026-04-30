@@ -74,6 +74,7 @@
     "create": "Create",
     "save": "Save",
     "delete": "Delete",
+    "edit": "Edit",
     "dangerZone": "Danger zone",
     "dangerZoneDescription": "Irreversible actions. Please proceed with caution.",
     "saving": "Saving...",

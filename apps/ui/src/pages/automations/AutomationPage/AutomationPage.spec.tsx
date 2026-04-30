@@ -4,9 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import type { Automation, AutomationExecution } from "@/api/automations";
 
-const { mockUseQuery, mockDeleteAutomation, mockNavigate } = vi.hoisted(() => ({
+const {
+  mockUseQuery,
+  mockDeleteAutomation,
+  mockUpdateAutomation,
+  mockNavigate,
+} = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
   mockDeleteAutomation: vi.fn().mockResolvedValue(undefined),
+  mockUpdateAutomation: vi.fn().mockResolvedValue(undefined),
   mockNavigate: vi.fn(),
 }));
 
@@ -37,6 +43,8 @@ vi.mock("@/api/automations", () => ({
   enableAutomation: vi.fn(),
   disableAutomation: vi.fn(),
   deleteAutomation: () => mockDeleteAutomation(),
+  updateAutomation: (id: string, payload: unknown) =>
+    mockUpdateAutomation(id, payload),
 }));
 
 vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
@@ -77,6 +85,14 @@ vi.mock("react-i18next", () => ({
         "flow.actionType.command": "Command",
         "fields.actionTemplate": "Command template",
         "fields.status": "Status",
+        "fields.name": "Name",
+        "fields.description": "Description",
+        "automations:fields.name": "Name",
+        "automations:fields.description": "Description",
+        "metadata.title": "Information",
+        "metadata.edit": "Edit information",
+        "metadata.noDescription": "No description",
+        "common.edit": "Edit",
         "actions.enable": "Enable",
         "actions.disable": "Disable",
         "actions.delete": "Delete",
@@ -93,6 +109,9 @@ vi.mock("react-i18next", () => ({
         "common.dangerZone": "Danger zone",
         "common.dangerZoneDescription": "Irreversible.",
         "common.cancel": "Cancel",
+        "common:common.cancel": "Cancel",
+        "common.save": "Save",
+        "common:common.save": "Save",
         "common.delete": "Delete",
         "toasts.deleted": "Deleted",
       };
@@ -179,6 +198,7 @@ afterEach(() => {
   cleanup();
   mockUseQuery.mockReset();
   mockDeleteAutomation.mockReset().mockResolvedValue(undefined);
+  mockUpdateAutomation.mockReset().mockResolvedValue(undefined);
   mockNavigate.mockReset();
 });
 
@@ -188,8 +208,8 @@ describe("AutomationPage", () => {
     renderDetail();
 
     expect(
-      screen.getByRole("heading", { name: "Morning warmup" }),
-    ).toBeInTheDocument();
+      screen.getAllByRole("heading", { name: "Morning warmup" }).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByText("Boost heating before occupants arrive"),
     ).toBeInTheDocument();
@@ -250,6 +270,41 @@ describe("AutomationPage", () => {
       screen.queryByRole("button", { name: "Disable" }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Danger zone")).not.toBeInTheDocument();
+  });
+
+  it("edits the metadata card with required title and optional description", async () => {
+    setQueryResults();
+    renderDetail();
+
+    const editButton = screen.getByRole("button", { name: "Edit information" });
+    const metadataCard = editButton.closest("[aria-busy]") as HTMLElement;
+    expect(metadataCard).not.toBeNull();
+    expect(
+      within(metadataCard).getByText("Boost heating before occupants arrive"),
+    ).toBeInTheDocument();
+
+    await userEvent.click(editButton);
+
+    const nameInput = await within(metadataCard).findByLabelText(/Name/);
+    const descriptionInput = within(metadataCard).getByLabelText(/Description/);
+
+    await userEvent.clear(nameInput);
+    expect(
+      within(metadataCard).getByRole("button", { name: "Save" }),
+    ).toBeDisabled();
+
+    await userEvent.type(nameInput, "Boosted morning warmup");
+    await userEvent.clear(descriptionInput);
+    await userEvent.type(descriptionInput, "Updated description");
+
+    await userEvent.click(
+      within(metadataCard).getByRole("button", { name: "Save" }),
+    );
+
+    expect(mockUpdateAutomation).toHaveBeenCalledWith("a1", {
+      name: "Boosted morning warmup",
+      description: "Updated description",
+    });
   });
 
   it("deletes and navigates back to /automations after confirming", async () => {

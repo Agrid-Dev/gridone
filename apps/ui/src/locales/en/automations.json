@@ -10,6 +10,11 @@
       "command": "Command"
     }
   },
+  "metadata": {
+    "title": "Information",
+    "edit": "Edit information",
+    "noDescription": "No description"
+  },
   "fields": {
     "name": "Name",
     "description": "Description",

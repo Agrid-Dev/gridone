@@ -8,6 +8,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
 import { AutomationStatusBadge } from "../components/AutomationStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
+import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
 import BasePresenter from "./presenters/BasePresenter";
 import AutomationExecutionHistory from "./AutomationExecutionHistory";
@@ -18,6 +19,7 @@ import CommandTemplatePresenter from "./presenters/CommandTemplatePresenter";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
 import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
+import MetadataForm from "./form/MetadataForm";
 
 const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
   const { t } = useTranslation("automations");
@@ -66,12 +68,37 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
 
       <div className="space-y-3">
         <AutomationStatusBadge enabled={automation.enabled} />
-        {automation.description && (
-          <p className="text-sm leading-relaxed text-foreground/80">
-            {automation.description}
-          </p>
-        )}
       </div>
+
+      <EditableCard
+        title={t("metadata.title")}
+        variant="ghost"
+        editLabel={t("metadata.edit")}
+        onClickEdit={
+          canWrite && editingSection === null
+            ? () => {
+                setEditingSection("metadata");
+              }
+            : undefined
+        }
+        isSubmitting={submittingSection === "metadata"}
+      >
+        {editingSection === "metadata" ? (
+          <MetadataForm
+            initialValue={{
+              name: automation.name,
+              description: automation.description,
+            }}
+            onSubmit={(values) => update("metadata", values)}
+            onCancel={() => setEditingSection(null)}
+          />
+        ) : (
+          <MetadataPresenter
+            name={automation.name}
+            description={automation.description}
+          />
+        )}
+      </EditableCard>
 
       <div className="space-y-3">
         <EditableCard
