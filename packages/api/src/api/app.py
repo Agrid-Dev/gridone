@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI
 from models.resource_reference import ResourceReference
 from models.types import AttributeValueType, DataType, Severity
 from notifications import NotificationsService
-from timeseries import DataPoint, SeriesKey, create_service
+from timeseries import DataPoint, SeriesKey, TimeSeriesService
 from users import UsersService
 from users.auth import AuthService
 
@@ -72,7 +72,8 @@ async def lifespan(app: FastAPI):
     app.state.websocket_manager = websocket_manager
 
     dm = await DevicesManager.from_storage(settings.storage_url)
-    ts_service = await create_service(settings.storage_url)
+    ts_service = TimeSeriesService(settings.storage_url)
+    await ts_service.start()
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
@@ -200,7 +201,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await dm.stop()
-        await ts_service.close()
+        await ts_service.stop()
         await commands_service.stop()
         await automations_svc.close()
         await notifications_svc.stop()

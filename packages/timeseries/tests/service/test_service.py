@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
+import pytest_asyncio
 
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
@@ -11,16 +13,21 @@ from timeseries.domain import (
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
-from timeseries.storage import MemoryStorage
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 pytestmark = pytest.mark.asyncio
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
 
 
-@pytest.fixture
-def service() -> TimeSeriesService:
-    return TimeSeriesService(storage=MemoryStorage())
+@pytest_asyncio.fixture
+async def service() -> AsyncIterator[TimeSeriesService]:
+    service = TimeSeriesService(storage_url=None)
+    await service.start()
+    yield service
+    await service.stop()
 
 
 class TestCreateSeries:

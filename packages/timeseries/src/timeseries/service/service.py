@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from models.errors import InvalidError, NotFoundError
+from models.errors import InvalidError, NotFoundError, StorageConnectionError
+from models.service import Service
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
@@ -16,24 +17,69 @@ from timeseries.domain import (
 )
 from timeseries.exporters.csv import to_csv
 from timeseries.exporters.png import to_png
+from timeseries.storage import build_storage
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.storage import TimeSeriesStorage
+    from timeseries.storage.postgres import PostgresStorage
 
 
 logger = logging.getLogger(__name__)
+_POSTGRES_PREFIX = "postgresql"
 
 
-class TimeSeriesService:
-    _storage: TimeSeriesStorage
+class TimeSeriesService(Service):
+    _storage: TimeSeriesStorage | None
 
-    def __init__(self, storage: TimeSeriesStorage) -> None:
+    def __init__(self, storage_url: str | None = None) -> None:
+        self._storage_url = storage_url
+        self._storage = None
+
+    async def start(self) -> None:
+        if self._is_postgres:
+            await self._start_postgres()
+            return
+
+        self._storage = await build_storage(self._storage_url)
+
+    async def _start_postgres(self) -> None:
+        from timeseries.storage.postgres import run_migrations  # noqa: PLC0415
+
+        storage = None
+        try:
+            run_migrations(cast("str", self._storage_url))
+            storage = await build_storage(self._storage_url)
+            postgres_storage = cast("PostgresStorage", storage)
+            await postgres_storage.try_enable_hypertable()
+        except StorageConnectionError:
+            raise
+        except Exception as e:
+            if storage is not None:
+                await storage.close()
+            msg = "Failed to initialize timeseries postgres backend"
+            raise StorageConnectionError(msg) from e
+
         self._storage = storage
 
-    async def close(self) -> None:
-        await self._storage.close()
+    async def stop(self) -> None:
+        if self._storage is not None:
+            await self._storage.close()
+            self._storage = None
+
+    @property
+    def _backend(self) -> TimeSeriesStorage:
+        if self._storage is None:
+            msg = "TimeSeriesService.start() must be called before use"
+            raise RuntimeError(msg)
+        return self._storage
+
+    @property
+    def _is_postgres(self) -> bool:
+        return self._storage_url is not None and self._storage_url.startswith(
+            _POSTGRES_PREFIX
+        )
 
     async def create_series(
         self,
@@ -43,7 +89,7 @@ class TimeSeriesService:
         metric: str,
     ) -> TimeSeries:
         key = SeriesKey(owner_id=owner_id, metric=metric)
-        existing = await self._storage.get_series_by_key(key)
+        existing = await self._backend.get_series_by_key(key)
         if existing is not None:
             msg = f"Series already exists for {key}"
             raise InvalidError(msg)
@@ -52,17 +98,17 @@ class TimeSeriesService:
             owner_id=owner_id,
             metric=metric,
         )
-        return await self._storage.create_series(series)
+        return await self._backend.create_series(series)
 
     async def get_series(self, series_id: str) -> TimeSeries:
-        series = await self._storage.get_series(series_id)
+        series = await self._backend.get_series(series_id)
         if series is None:
             msg = f"Series not found: {series_id}"
             raise NotFoundError(msg)
         return series
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None:
-        return await self._storage.get_series_by_key(key)
+        return await self._backend.get_series_by_key(key)
 
     async def list_series(
         self,
@@ -70,7 +116,7 @@ class TimeSeriesService:
         owner_id: str | None = None,
         metric: str | None = None,
     ) -> list[TimeSeries]:
-        return await self._storage.list_series(
+        return await self._backend.list_series(
             owner_id=owner_id,
             metric=metric,
         )
@@ -83,7 +129,8 @@ class TimeSeriesService:
         create_if_not_found: bool = False,
         validate_data_type: DataType | None = None,
     ) -> None:
-        series = await self._storage.get_series_by_key(key)
+        storage = self._backend
+        series = await storage.get_series_by_key(key)
         if series is None and not create_if_not_found:
             msg = f"No series found for {key}"
             raise NotFoundError(msg)
@@ -96,7 +143,7 @@ class TimeSeriesService:
             else:
                 data_type = VALUE_TYPE_MAP[type(points[0].value)]
             logger.debug("Creating series %s", key)
-            series = await self._storage.create_series(
+            series = await storage.create_series(
                 TimeSeries(
                     data_type=data_type,
                     owner_id=key.owner_id,
@@ -107,7 +154,7 @@ class TimeSeriesService:
         for p in points:
             validate_value_type(p.value, expected)
         logger.debug("Upserting %d points for %s", len(points), key)
-        await self._storage.upsert_points(key, points)
+        await storage.upsert_points(key, points)
 
     async def fetch_points(
         self,
@@ -120,9 +167,10 @@ class TimeSeriesService:
     ) -> list[DataPoint]:
         if last is not None and start is None:
             start = resolve_last(last)
-        points = await self._storage.fetch_points(key, start=start, end=end)
+        storage = self._backend
+        points = await storage.fetch_points(key, start=start, end=end)
         if carry_forward and start is not None:
-            previous = await self._storage.fetch_point_before(key, before=start)
+            previous = await storage.fetch_point_before(key, before=start)
             if previous is not None:
                 carried = DataPoint(timestamp=start, value=previous.value)
                 points = [carried, *points]

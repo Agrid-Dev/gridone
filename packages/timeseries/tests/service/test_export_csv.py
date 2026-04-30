@@ -3,20 +3,27 @@ from __future__ import annotations
 import csv
 import io
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
+import pytest_asyncio
 
 from models.errors import NotFoundError
 from timeseries.domain import DataPoint, DataType
 from timeseries.service import TimeSeriesService
-from timeseries.storage import MemoryStorage
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture
-def service() -> TimeSeriesService:
-    return TimeSeriesService(storage=MemoryStorage())
+@pytest_asyncio.fixture
+async def service() -> AsyncIterator[TimeSeriesService]:
+    service = TimeSeriesService(storage_url=None)
+    await service.start()
+    yield service
+    await service.stop()
 
 
 def parse_csv(csv_str: str) -> tuple[list[str], list[list[str]]]:

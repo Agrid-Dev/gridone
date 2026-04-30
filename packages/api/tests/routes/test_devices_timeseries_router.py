@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -6,7 +9,7 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
-from timeseries import TimeSeriesService, create_service
+from timeseries import TimeSeriesService
 from timeseries.domain import DataPoint, DataType, SeriesKey
 
 from api.dependencies import (
@@ -16,6 +19,9 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 pytestmark = pytest.mark.asyncio
 
@@ -41,8 +47,11 @@ def _make_dm(known_ids: list[str] | None = None) -> MagicMock:
 
 
 @pytest_asyncio.fixture
-async def ts_service() -> TimeSeriesService:
-    return await create_service()
+async def ts_service() -> AsyncIterator[TimeSeriesService]:
+    service = TimeSeriesService(storage_url=None)
+    await service.start()
+    yield service
+    await service.stop()
 
 
 @pytest.fixture
