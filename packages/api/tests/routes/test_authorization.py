@@ -106,14 +106,12 @@ def _build_apps_service_mock() -> AsyncMock:
         status=AppStatus.REGISTERED,
         manifest=dummy_req.config,
     )
-    reg = AsyncMock()
-    reg.list_registration_requests = AsyncMock(return_value=[])
-    reg.accept_registration_request = AsyncMock(
+    service = AsyncMock()
+    service.list_registration_requests = AsyncMock(return_value=[])
+    service.accept_registration_request = AsyncMock(
         return_value=(dummy_req, dummy_user, dummy_app)
     )
-    reg.discard_registration_request = AsyncMock(return_value=dummy_req)
-    service = AsyncMock()
-    service.registration = reg
+    service.discard_registration_request = AsyncMock(return_value=dummy_req)
     return service
 
 

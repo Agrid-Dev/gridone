@@ -149,14 +149,9 @@ async def lifespan(app: FastAPI):
     await automations_svc.start()
     app.state.automations_service = automations_svc
 
-    apps_svc = None
-    try:
-        apps_svc = await AppsService.from_storage(settings.storage_url, users_service)
-        app.state.apps_service = apps_svc
-        await apps_svc.start_health_check()
-    except ValueError:
-        logger.warning("Apps package requires PostgreSQL — apps disabled")
-        app.state.apps_service = None
+    apps_svc = AppsService(settings.storage_url, users_service)
+    await apps_svc.start()
+    app.state.apps_service = apps_svc
 
     try:
         am = await AssetsManager.from_storage(settings.storage_url)
@@ -215,8 +210,7 @@ async def lifespan(app: FastAPI):
         await automations_svc.close()
         await notifications_svc.stop()
         await users_service.stop()
-        if apps_svc is not None:
-            await apps_svc.close()
+        await apps_svc.stop()
         if am is not None:
             await am.close()
         await websocket_manager.close_all()

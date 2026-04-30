@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import asyncpg
 
@@ -7,10 +8,9 @@ from apps.storage.postgres.postgres_app_storage import PostgresAppStorage
 from apps.storage.postgres.postgres_registration_storage import (
     PostgresRegistrationRequestStorage,
 )
-from apps.storage.storage_backend import (
-    AppStorageBackend,
-    RegistrationRequestStorageBackend,
-)
+
+if TYPE_CHECKING:
+    from apps.storage.factory import AppsStorages
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +32,16 @@ def run_migrations(database_url: str) -> None:
             backend.apply_migrations(to_apply)
 
 
-async def build(
-    url: str,
-) -> tuple[RegistrationRequestStorageBackend, AppStorageBackend]:
+async def build(url: str) -> "AppsStorages":
     """Build both postgres storage backends sharing a single connection pool."""
+    from apps.storage.factory import AppsStorages  # noqa: PLC0415
+
     run_migrations(url)
     pool = await asyncpg.create_pool(dsn=url, min_size=1, max_size=3)
-    return PostgresRegistrationRequestStorage(pool), PostgresAppStorage(pool)
+    return AppsStorages(
+        registration=PostgresRegistrationRequestStorage(pool),
+        apps=PostgresAppStorage(pool),
+    )
 
 
 __all__ = [
