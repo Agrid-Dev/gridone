@@ -5,7 +5,8 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 
-from apps.models import App, AppStatus, RegistrationRequest
+from apps.models import App, AppStatus
+from apps.storage.memory import MemoryAppStorage, MemoryRegistrationStorage
 from users import UsersServiceInterface
 from users.models import User, UserType
 
@@ -15,44 +16,6 @@ VALID_CONFIG = (
     "description: A test application\n"
     "icon: https://example.com/icon.png\n"
 )
-
-
-class InMemoryRegistrationStorage:
-    """Minimal in-memory storage for registration requests."""
-
-    def __init__(self) -> None:
-        self._requests: dict[str, RegistrationRequest] = {}
-
-    async def get_by_id(self, request_id: str) -> RegistrationRequest | None:
-        return self._requests.get(request_id)
-
-    async def list_all(self) -> list[RegistrationRequest]:
-        return list(self._requests.values())
-
-    async def save(self, request: RegistrationRequest) -> None:
-        self._requests[request.id] = request
-
-    async def close(self) -> None:
-        pass
-
-
-class InMemoryAppStorage:
-    """Minimal in-memory storage for apps."""
-
-    def __init__(self) -> None:
-        self._apps: dict[str, App] = {}
-
-    async def get_by_id(self, app_id: str) -> App | None:
-        return self._apps.get(app_id)
-
-    async def list_all(self) -> list[App]:
-        return list(self._apps.values())
-
-    async def save(self, app: App) -> None:
-        self._apps[app.id] = app
-
-    async def close(self) -> None:
-        pass
 
 
 def make_app(
@@ -73,13 +36,13 @@ def make_app(
 
 
 @pytest.fixture
-def reg_storage() -> InMemoryRegistrationStorage:
-    return InMemoryRegistrationStorage()
+def reg_storage() -> MemoryRegistrationStorage:
+    return MemoryRegistrationStorage()
 
 
 @pytest.fixture
-def app_storage() -> InMemoryAppStorage:
-    return InMemoryAppStorage()
+def app_storage() -> MemoryAppStorage:
+    return MemoryAppStorage()
 
 
 @pytest.fixture

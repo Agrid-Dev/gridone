@@ -10,9 +10,6 @@ from conftest import make_app
 from apps.apps_manager import AppsManager
 from apps.errors import AppUnreachableError
 from apps.models import App, AppStatus
-from apps.registration_service import RegistrationService
-from apps.service import AppsService
-from apps.storage.factory import build_apps_storages
 from models.errors import InvalidError, NotFoundError
 
 pytestmark = pytest.mark.asyncio
@@ -375,58 +372,3 @@ class TestAppsManagerLifecycle:
     async def test_close_shuts_down_without_error(self, app_storage, users_manager):
         manager = AppsManager(app_storage, users_manager)
         await manager.close()
-
-
-class TestStorageFactory:
-    async def test_build_apps_storages_delegates_to_postgres(
-        self, reg_storage, app_storage, monkeypatch
-    ):
-        async def mock_build(_url: str):  # noqa: ANN202
-            return reg_storage, app_storage
-
-        monkeypatch.setattr("apps.storage.postgres.build", mock_build)
-
-        result = await build_apps_storages("postgresql://fake")
-        assert result == (reg_storage, app_storage)
-
-
-class TestAppsServiceLifecycle:
-    async def test_from_storage_rejects_non_postgres(self, users_manager):
-        with pytest.raises(ValueError, match="requires PostgreSQL"):
-            await AppsService.from_storage("/data/not-postgres", users_manager)
-
-    async def test_from_storage_success(
-        self, reg_storage, app_storage, users_manager, monkeypatch
-    ):
-        async def mock_build(_url: str):  # noqa: ANN202
-            return reg_storage, app_storage
-
-        monkeypatch.setattr("apps.service.build_apps_storages", mock_build)
-        service = await AppsService.from_storage("postgresql://fake", users_manager)
-        assert service.registration is not None
-        assert service.apps is not None
-        await service.close()
-
-    async def test_init_and_attributes(self, reg_storage, app_storage, users_manager):
-        registration = RegistrationService(reg_storage, app_storage, users_manager)
-        apps_mgr = AppsManager(app_storage, users_manager)
-        service = AppsService(registration, apps_mgr)
-
-        assert service.registration is registration
-        assert service.apps is apps_mgr
-
-    async def test_close_delegates(self, reg_storage, app_storage, users_manager):
-        registration = RegistrationService(reg_storage, app_storage, users_manager)
-        apps_mgr = AppsManager(app_storage, users_manager)
-        service = AppsService(registration, apps_mgr)
-        await service.close()
-
-    async def test_start_health_check_delegates(
-        self, reg_storage, app_storage, users_manager
-    ):
-        registration = RegistrationService(reg_storage, app_storage, users_manager)
-        apps_mgr = AppsManager(app_storage, users_manager)
-        service = AppsService(registration, apps_mgr)
-        await service.start_health_check(interval_seconds=3600)
-        assert apps_mgr._health_task is not None
-        await service.close()

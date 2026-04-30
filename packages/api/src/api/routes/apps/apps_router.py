@@ -16,7 +16,7 @@ router = APIRouter()
 async def list_apps(
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> list[App]:
-    return await service.apps.list_apps()
+    return await service.list_apps()
 
 
 @router.get(
@@ -27,7 +27,7 @@ async def get_app(
     app_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> App:
-    return await service.apps.get_app(app_id)
+    return await service.get_app(app_id)
 
 
 @router.get(
@@ -38,7 +38,7 @@ async def get_config_schema(
     app_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> dict:
-    return await service.apps.get_config_schema(app_id)
+    return await service.get_config_schema(app_id)
 
 
 @router.get(
@@ -49,7 +49,7 @@ async def get_config(
     app_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> dict:
-    return await service.apps.get_config(app_id)
+    return await service.get_config(app_id)
 
 
 @router.patch(
@@ -61,7 +61,7 @@ async def update_config(
     config: Annotated[dict[str, Any], Body()],
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> dict:
-    return await service.apps.update_config(app_id, config)
+    return await service.update_config(app_id, config)
 
 
 @router.post(
@@ -73,7 +73,7 @@ async def enable_app(
     app_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> App:
-    return await service.apps.enable_app(app_id)
+    return await service.enable_app(app_id)
 
 
 @router.post(
@@ -85,4 +85,4 @@ async def disable_app(
     app_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> App:
-    return await service.apps.disable_app(app_id)
+    return await service.disable_app(app_id)

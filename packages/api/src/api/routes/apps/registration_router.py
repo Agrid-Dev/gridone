@@ -45,7 +45,7 @@ async def create_registration_request(
     body: RegistrationRequestCreateBody,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    req = await service.registration.create_registration_request(
+    req = await service.create_registration_request(
         RegistrationRequestCreate(
             username=body.username,
             password=body.password,
@@ -63,7 +63,7 @@ async def create_registration_request(
 async def list_registration_requests(
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> list[RegistrationRequestResponse]:
-    requests = await service.registration.list_registration_requests()
+    requests = await service.list_registration_requests()
     return [_to_response(r) for r in requests]
 
 
@@ -75,7 +75,7 @@ async def get_registration_request(
     request_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    req = await service.registration.get_registration_request(request_id)
+    req = await service.get_registration_request(request_id)
     return _to_response(req)
 
 
@@ -89,9 +89,7 @@ async def accept_registration_request(
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
     try:
-        req, _user, _app = await service.registration.accept_registration_request(
-            request_id
-        )
+        req, _user, _app = await service.accept_registration_request(request_id)
     except InvalidError:
         raise
     except ValueError as e:
@@ -108,5 +106,5 @@ async def discard_registration_request(
     request_id: str,
     service: Annotated[AppsService, Depends(get_apps_service)],
 ) -> RegistrationRequestResponse:
-    req = await service.registration.discard_registration_request(request_id)
+    req = await service.discard_registration_request(request_id)
     return _to_response(req)
