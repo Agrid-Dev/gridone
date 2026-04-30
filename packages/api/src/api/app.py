@@ -169,7 +169,7 @@ async def lifespan(app: FastAPI):
         )
 
     dm.add_device_discovery_listener(on_device_discovered)
-    FaultNotificationListener(dm, um, notifications_svc).register()
+    FaultNotificationListener(dm, users_service, notifications_svc).register()
 
     async def on_attribute_update(
         device: CoreDevice,
@@ -193,7 +193,7 @@ async def lifespan(app: FastAPI):
             [
                 DataPoint(
                     timestamp=attribute.last_changed or datetime.now(UTC),
-                    value=attribute.current_value,  # type: ignore[invalid-argument-type]
+                    value=attribute.current_value,  # ty: ignore[invalid-argument-type]
                 )
             ],
             create_if_not_found=True,
