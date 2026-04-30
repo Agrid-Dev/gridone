@@ -304,6 +304,7 @@ describe("AutomationPage", () => {
     expect(mockUpdateAutomation).toHaveBeenCalledWith("a1", {
       name: "Boosted morning warmup",
       description: "Updated description",
+      enabled: true,
     });
   });
 

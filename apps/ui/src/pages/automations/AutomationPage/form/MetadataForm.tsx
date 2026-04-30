@@ -1,15 +1,17 @@
 import { FC } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
+import { SwitchController } from "@/components/forms/controllers/SwitchController";
 
 const metadataSchema = z.object({
   name: z.string().trim().min(1),
   description: z.string(),
+  enabled: z.boolean(),
 });
 
 export type MetadataFormValues = z.infer<typeof metadataSchema>;
@@ -31,6 +33,7 @@ const MetadataForm: FC<MetadataFormProps> = ({
     mode: "onChange",
     defaultValues: initialValue,
   });
+  const enabled = useWatch({ control, name: "enabled" });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -45,6 +48,13 @@ const MetadataForm: FC<MetadataFormProps> = ({
           name="description"
           control={control}
           label={t("automations:fields.description")}
+        />
+        <SwitchController
+          name="enabled"
+          control={control}
+          label={t(
+            enabled ? "automations:enabledBadge" : "automations:disabledBadge",
+          )}
         />
       </div>
 
