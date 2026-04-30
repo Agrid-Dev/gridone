@@ -16,6 +16,7 @@ from automations.service import AutomationsService
 from automations.storage.backend import AutomationsStorageBackend
 
 from models.errors import NotFoundError
+from models.service import Service
 
 pytestmark = pytest.mark.asyncio
 
@@ -68,6 +69,12 @@ def _create_params(**kwargs: object) -> AutomationCreate:
         "action_template_id": _TMPL,
     }
     return AutomationCreate(**{**defaults, **kwargs})  # type: ignore[arg-type]
+
+
+class TestServiceProtocol:
+    async def test_satisfies_service_protocol(self):
+        svc = _make_service()
+        assert isinstance(svc, Service)
 
 
 class TestCRUD:
@@ -207,7 +214,7 @@ class TestStart:
             await svc.start()
         assert svc._handles == {}
 
-    async def test_start_after_close_restarts(self):
+    async def test_start_after_stop_restarts(self):
         storage = _make_storage()
         provider = _make_provider("schedule")
         storage.list.return_value = [
@@ -222,7 +229,7 @@ class TestStart:
         svc = _make_service(providers=[provider])
         with patch("automations.service.build_storage", return_value=storage):
             await svc.start()
-            await svc.close()
+            await svc.stop()
             await svc.start()
         assert len(svc._handles) == 1
         assert provider.register.call_count == 2
@@ -466,21 +473,21 @@ class TestOnFire:
             await svc._make_on_fire("nonexistent")(_CTX)
 
 
-class TestClose:
-    async def test_close_unregisters_all_triggers_and_storage(self):
+class TestStop:
+    async def test_stop_unregisters_all_triggers_and_storage(self):
         storage = _make_storage()
         provider = _make_provider("schedule")
         svc = _make_service(storage=storage, providers=[provider])
         await svc.create(_create_params(enabled=True))
         await svc.create(_create_params(enabled=True))
-        await svc.close()
+        await svc.stop()
         assert provider.unregister.call_count == 2
         storage.close.assert_called_once()
 
-    async def test_close_before_start_does_not_raise(self):
+    async def test_stop_before_start_does_not_raise(self):
         svc = AutomationsService(
             storage_url="postgresql://test",
             trigger_providers=[],
             action_dispatcher=AsyncMock(),
         )
-        await svc.close()  # _storage not set — must not raise
+        await svc.stop()  # _storage not set — must not raise
