@@ -10,6 +10,11 @@
       "command": "Command"
     }
   },
+  "metadata": {
+    "title": "Automation",
+    "edit": "Edit automation",
+    "noDescription": "No description"
+  },
   "fields": {
     "name": "Name",
     "description": "Description",

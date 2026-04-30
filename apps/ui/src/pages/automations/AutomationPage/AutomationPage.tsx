@@ -2,12 +2,11 @@ import { useParams } from "react-router";
 import { type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
-import { AutomationStatusBadge } from "../components/AutomationStatusBadge";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
+import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
 import BasePresenter from "./presenters/BasePresenter";
 import AutomationExecutionHistory from "./AutomationExecutionHistory";
@@ -18,14 +17,12 @@ import CommandTemplatePresenter from "./presenters/CommandTemplatePresenter";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
 import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
+import MetadataForm from "./form/MetadataForm";
 
 const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
   const { t } = useTranslation("automations");
   const {
     canWrite,
-    enable,
-    disable,
-    isToggling,
     editingSection,
     setEditingSection,
     update,
@@ -51,27 +48,39 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
         resourceName={t("title")}
         resourceNameLinksBack
         backTo="/automations"
-        actions={
-          canWrite ? (
-            <Button
-              variant="outline"
-              onClick={() => (automation.enabled ? disable() : enable())}
-              disabled={isToggling}
-            >
-              {t(automation.enabled ? "actions.disable" : "actions.enable")}
-            </Button>
-          ) : undefined
-        }
       />
 
-      <div className="space-y-3">
-        <AutomationStatusBadge enabled={automation.enabled} />
-        {automation.description && (
-          <p className="text-sm leading-relaxed text-foreground/80">
-            {automation.description}
-          </p>
+      <EditableCard
+        title={t("metadata.title")}
+        variant="ghost"
+        editLabel={t("metadata.edit")}
+        onClickEdit={
+          canWrite && editingSection === null
+            ? () => {
+                setEditingSection("metadata");
+              }
+            : undefined
+        }
+        isSubmitting={submittingSection === "metadata"}
+      >
+        {editingSection === "metadata" ? (
+          <MetadataForm
+            initialValue={{
+              name: automation.name,
+              description: automation.description,
+              enabled: automation.enabled,
+            }}
+            onSubmit={(values) => update("metadata", values)}
+            onCancel={() => setEditingSection(null)}
+          />
+        ) : (
+          <MetadataPresenter
+            name={automation.name}
+            description={automation.description}
+            enabled={automation.enabled}
+          />
         )}
-      </div>
+      </EditableCard>
 
       <div className="space-y-3">
         <EditableCard

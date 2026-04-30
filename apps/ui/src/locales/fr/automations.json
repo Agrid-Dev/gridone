@@ -10,6 +10,11 @@
       "command": "Commande"
     }
   },
+  "metadata": {
+    "title": "Automatisation",
+    "edit": "Modifier l'automatisation",
+    "noDescription": "Aucune description"
+  },
   "fields": {
     "name": "Nom",
     "description": "Description",
