@@ -28,6 +28,16 @@ async def list_trigger_schemas(
 
 
 @router.get(
+    "/actions",
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],
+)
+async def list_action_schemas(
+    svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+) -> dict[str, dict]:
+    return svc.list_action_schemas()
+
+
+@router.get(
     "/",
     response_model=list[Automation],
     dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],

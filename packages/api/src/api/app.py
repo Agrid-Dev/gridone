@@ -16,6 +16,8 @@ from timeseries import DataPoint, SeriesKey, TimeSeriesService
 from users import UsersService
 from users.auth import AuthService
 
+from api.action_providers.commands import CommandsActionProvider
+from api.action_providers.notifications import NotificationsActionProvider
 from api.dependencies import get_current_user_id
 from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
@@ -127,25 +129,16 @@ async def lifespan(app: FastAPI):
     await commands_service.start()
     app.state.commands_service = commands_service
 
-    async def _automation_action_dispatcher(
-        *, template_id: str, user_id: str, confirm: bool = False
-    ) -> str:
-        # Bridges commands → automations: projects ``BatchCommandDispatch``
-        # down to the opaque ``output_id`` the automations service stores on
-        # ``AutomationExecution``. Keeping this map at the composition root
-        # means the automations package stays unaware of ``batch_id``.
-        dispatch = await commands_service.dispatch_from_template(
-            template_id=template_id, user_id=user_id, confirm=confirm
-        )
-        return dispatch.batch_id
-
     automations_svc = AutomationsService(
         storage_url=settings.storage_url,
         trigger_providers=[
             ScheduleTriggerProvider(),
             ChangeEventTriggerProvider(dm),
         ],
-        action_dispatcher=_automation_action_dispatcher,
+        action_providers=[
+            CommandsActionProvider(commands_service),
+            NotificationsActionProvider(notifications_svc),
+        ],
     )
     await automations_svc.start()
     app.state.automations_service = automations_svc
