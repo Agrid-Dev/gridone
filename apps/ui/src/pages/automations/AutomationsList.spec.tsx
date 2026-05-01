@@ -36,8 +36,8 @@ vi.mock("react-i18next", () => ({
         "actions.enable": "Enable",
         "actions.disable": "Disable",
         "actions.rowMenu": "Actions",
-        "triggers.schedule": "Schedule",
-        "triggers.change_event": "Attribute change",
+        "triggers.types.schedule": "Schedule",
+        "triggers.types.change_event": "Attribute change",
         enabledBadge: "Enabled",
         disabledBadge: "Disabled",
       };
