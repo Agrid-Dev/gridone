@@ -158,7 +158,7 @@ function AutomationRow({
         )}
       </TableCell>
       <TableCell>
-        {t(`triggers.${automation.trigger.type}`, {
+        {t(`triggers.types.${automation.trigger.type}`, {
           defaultValue: automation.trigger.type,
         })}
       </TableCell>

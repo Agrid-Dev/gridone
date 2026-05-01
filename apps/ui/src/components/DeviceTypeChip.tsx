@@ -3,11 +3,18 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/api/devices";
 
-const ICONS: Record<DeviceType, typeof Thermometer> = {
+export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
   [DeviceType.Thermostat]: Thermometer,
   [DeviceType.Awhp]: Fan,
   [DeviceType.WeatherSensor]: CloudSun,
 };
+
+export function deviceTypeIcon(
+  type: DeviceType | string | null | undefined,
+): typeof Thermometer | null {
+  if (!type) return null;
+  return DEVICE_TYPE_ICONS[type as DeviceType] ?? CircleHelp;
+}
 
 type DeviceTypeChipProps = {
   type: DeviceType | string | null;
@@ -17,7 +24,7 @@ export function DeviceTypeChip({ type }: DeviceTypeChipProps) {
   const { t } = useTranslation();
   if (!type) return null;
 
-  const Icon = ICONS[type as DeviceType] ?? CircleHelp;
+  const Icon = deviceTypeIcon(type) ?? CircleHelp;
 
   return (
     <Badge variant="secondary" className="gap-1">
