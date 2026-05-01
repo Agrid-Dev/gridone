@@ -6,7 +6,6 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({
     t: (key: string, opts?: { defaultValue?: string }) => {
       const map: Record<string, string> = {
-        "triggers.addCondition": "Add a condition",
         "triggers.operator": "Operator",
         "triggers.threshold": "Threshold",
         "operators.gt": ">",
@@ -71,26 +70,27 @@ function flattenToText(node: React.ReactNode): string {
   return "";
 }
 
-import { ConditionEditor } from "./ConditionEditor";
+import { ConditionEditor, defaultConditionFor } from "./ConditionEditor";
 
 afterEach(cleanup);
 
 describe("ConditionEditor", () => {
-  it("disables the toggle when no dataType is known", () => {
-    render(
-      <ConditionEditor value={null} onChange={vi.fn()} dataType={undefined} />,
+  it("renders nothing while the dataType is unknown", () => {
+    const { container } = render(
+      <ConditionEditor
+        value={defaultConditionFor("int")}
+        onChange={vi.fn()}
+        dataType={undefined}
+      />,
     );
-    const toggle = screen.getByRole("switch");
-    expect(toggle).toBeDisabled();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("turning the toggle on emits a default condition for the dataType", () => {
-    const onChange = vi.fn();
-    render(<ConditionEditor value={null} onChange={onChange} dataType="int" />);
-
-    fireEvent.click(screen.getByRole("switch"));
-
-    expect(onChange).toHaveBeenCalledWith({ operator: "gt", threshold: 0 });
+  it("renders nothing while the value is still null (parent will seed)", () => {
+    const { container } = render(
+      <ConditionEditor value={null} onChange={vi.fn()} dataType="int" />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("limits operators to eq/ne when dataType is bool", () => {
@@ -146,7 +146,7 @@ describe("ConditionEditor", () => {
     });
   });
 
-  it("turning the toggle off emits null", () => {
+  it("changing the operator emits a new condition with the same threshold", () => {
     const onChange = vi.fn();
     render(
       <ConditionEditor
@@ -156,10 +156,10 @@ describe("ConditionEditor", () => {
       />,
     );
 
-    // The condition toggle is the first switch (the threshold switch only
-    // renders for bool dataType).
-    fireEvent.click(screen.getAllByRole("switch")[0]);
+    fireEvent.change(screen.getAllByTestId("select")[0], {
+      target: { value: "lte" },
+    });
 
-    expect(onChange).toHaveBeenCalledWith(null);
+    expect(onChange).toHaveBeenCalledWith({ operator: "lte", threshold: 5 });
   });
 });

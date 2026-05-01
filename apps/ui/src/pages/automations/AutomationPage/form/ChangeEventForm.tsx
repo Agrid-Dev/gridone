@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Controller, useController, useForm } from "react-hook-form";
@@ -9,7 +9,11 @@ import { DeviceAttributePicker } from "@/components/forms/resourcePickers/Device
 import { getDevice } from "@/api/devices";
 import { type Trigger } from "@/api/automations";
 import { type CustomTriggerFormProps } from "../presenters/types";
-import { ConditionEditor, type Condition } from "./ConditionEditor";
+import {
+  ConditionEditor,
+  defaultConditionFor,
+  type Condition,
+} from "./ConditionEditor";
 
 const conditionSchema = z.object({
   operator: z.enum(["gt", "lt", "gte", "lte", "eq", "ne"]),
@@ -19,10 +23,18 @@ const conditionSchema = z.object({
 const formSchema = z.object({
   deviceId: z.string().min(1),
   attribute: z.string().min(1),
-  condition: z.union([conditionSchema, z.null()]),
+  // Allow null transiently in form state — the editor needs the dataType to
+  // know what shape of threshold to seed, and the dataType only resolves once
+  // the picked device has been fetched. The refine below makes save unavailable
+  // until the seeding effect populates a Condition.
+  condition: z
+    .union([conditionSchema, z.null()])
+    .refine((v): v is Condition => v !== null, {
+      message: "Required",
+    }),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.input<typeof formSchema>;
 
 const ChangeEventForm: FC<CustomTriggerFormProps> = ({
   type,
@@ -32,19 +44,22 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
 }) => {
   const { t } = useTranslation("common");
 
-  const { control, handleSubmit, formState, setValue } = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    mode: "onChange",
-    defaultValues: {
-      deviceId:
-        typeof initialValue?.deviceId === "string" ? initialValue.deviceId : "",
-      attribute:
-        typeof initialValue?.attribute === "string"
-          ? initialValue.attribute
-          : "",
-      condition: extractCondition(initialValue?.condition),
-    },
-  });
+  const { control, handleSubmit, formState, setValue, watch } =
+    useForm<FormValues>({
+      resolver: zodResolver(formSchema),
+      mode: "onChange",
+      defaultValues: {
+        deviceId:
+          typeof initialValue?.deviceId === "string"
+            ? initialValue.deviceId
+            : "",
+        attribute:
+          typeof initialValue?.attribute === "string"
+            ? initialValue.attribute
+            : "",
+        condition: extractCondition(initialValue?.condition),
+      },
+    });
 
   const { field: deviceField } = useController({ control, name: "deviceId" });
   const { field: attrField } = useController({ control, name: "attribute" });
@@ -60,6 +75,22 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
       ? device.attributes[attrField.value]?.dataType
       : undefined;
 
+  const condition = watch("condition");
+
+  // Seed a default condition once the watched attribute's dataType resolves.
+  // Covers the create flow (condition starts null) and the legacy edit flow
+  // where a stored automation has condition = null. shouldDirty: false keeps
+  // a fresh edit-flow form clean so accidental saves don't slip in a default
+  // the user never touched.
+  useEffect(() => {
+    if (dataType && condition === null) {
+      setValue("condition", defaultConditionFor(dataType), {
+        shouldValidate: true,
+        shouldDirty: false,
+      });
+    }
+  }, [dataType, condition, setValue]);
+
   const submit = (values: FormValues) => {
     onSubmit({ type, ...values } as Trigger);
   };
@@ -70,8 +101,10 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
         deviceId={deviceField.value || undefined}
         attribute={attrField.value || undefined}
         onChange={({ deviceId, attribute }) => {
-          // Reset the condition when the watched attribute changes — its
-          // dataType (and therefore valid threshold shape) may have changed.
+          // Reset the condition when the watched attribute changes — the
+          // dataType (and therefore valid threshold shape) may differ. The
+          // seeding effect re-populates a default once the new dataType
+          // resolves.
           if (attribute !== attrField.value) {
             setValue("condition", null, {
               shouldDirty: true,

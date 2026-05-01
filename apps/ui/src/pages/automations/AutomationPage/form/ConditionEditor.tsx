@@ -9,7 +9,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 
 export type ConditionOperator = "gt" | "lt" | "gte" | "lte" | "eq" | "ne";
@@ -31,10 +30,10 @@ const BOOL_OPERATORS: ConditionOperator[] = ["eq", "ne"];
 
 interface ConditionEditorProps {
   value: Condition | null;
-  onChange: (next: Condition | null) => void;
+  onChange: (next: Condition) => void;
   /** Data type of the watched attribute. Drives the threshold input shape and
-   *  the available operators. Undefined while no attribute is picked or its
-   *  device hasn't loaded yet. */
+   *  the available operators. The editor renders nothing until the parent has
+   *  seeded `value` with a non-null Condition for the resolved dataType. */
   dataType: string | undefined;
   disabled?: boolean;
 }
@@ -46,96 +45,58 @@ export const ConditionEditor: FC<ConditionEditorProps> = ({
   disabled,
 }) => {
   const { t } = useTranslation("automations");
-  const switchId = useId();
   const operatorId = useId();
   const thresholdId = useId();
 
-  const enabled = value !== null;
-  const hasDataType = !!dataType;
+  if (!dataType || !value) return null;
+
   const operators = operatorsFor(dataType);
 
-  const handleToggle = (next: boolean) => {
-    if (next) {
-      onChange({
-        operator: operators[0] ?? "eq",
-        threshold: defaultThreshold(dataType),
-      });
-    } else {
-      onChange(null);
-    }
-  };
-
-  const handleOperatorChange = (operator: ConditionOperator) => {
-    if (!value) return;
-    onChange({ ...value, operator });
-  };
-
-  const handleThresholdChange = (threshold: Threshold) => {
-    if (!value) return;
-    onChange({ ...value, threshold });
-  };
-
   return (
-    <div className="space-y-3">
-      <Field>
-        <div className="flex items-center gap-3">
-          <Switch
-            id={switchId}
-            checked={enabled}
-            onCheckedChange={handleToggle}
-            disabled={disabled || !hasDataType}
-          />
-          <FieldLabel htmlFor={switchId} className="cursor-pointer">
-            {t("triggers.addCondition")}
-          </FieldLabel>
-        </div>
-      </Field>
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
+      <FieldShell id={operatorId} label={t("triggers.operator")} required>
+        <Select
+          value={value.operator}
+          onValueChange={(v) =>
+            onChange({ ...value, operator: v as ConditionOperator })
+          }
+          disabled={disabled}
+        >
+          <SelectTrigger id={operatorId}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {operators.map((op) => (
+              <SelectItem key={op} value={op}>
+                <span className="font-mono">
+                  {t(`operators.${op}`, { defaultValue: op })}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </FieldShell>
 
-      {enabled && value && hasDataType && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 lg:gap-4">
-          <FieldShell id={operatorId} label={t("triggers.operator")} required>
-            <Select
-              value={value.operator}
-              onValueChange={(v) =>
-                handleOperatorChange(v as ConditionOperator)
-              }
-              disabled={disabled}
-            >
-              <SelectTrigger id={operatorId}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {operators.map((op) => (
-                  <SelectItem key={op} value={op}>
-                    <span className="font-mono">
-                      {t(`operators.${op}`, { defaultValue: op })}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FieldShell>
-
-          <FieldShell id={thresholdId} label={t("triggers.threshold")} required>
-            <ThresholdInput
-              id={thresholdId}
-              value={value.threshold}
-              onChange={handleThresholdChange}
-              dataType={dataType}
-              disabled={disabled}
-            />
-          </FieldShell>
-        </div>
-      )}
+      <FieldShell id={thresholdId} label={t("triggers.threshold")} required>
+        <ThresholdInput
+          id={thresholdId}
+          value={value.threshold}
+          onChange={(threshold) => onChange({ ...value, threshold })}
+          dataType={dataType}
+          disabled={disabled}
+        />
+      </FieldShell>
     </div>
   );
 };
 
-function operatorsFor(dataType: string | undefined): ConditionOperator[] {
+export function operatorsFor(
+  dataType: string | undefined,
+): ConditionOperator[] {
   return dataType === "bool" ? BOOL_OPERATORS : ALL_OPERATORS;
 }
 
-function defaultThreshold(dataType: string | undefined): Threshold {
+export function defaultThreshold(dataType: string | undefined): Threshold {
   switch (dataType) {
     case "bool":
       return false;
@@ -145,6 +106,13 @@ function defaultThreshold(dataType: string | undefined): Threshold {
     default:
       return "";
   }
+}
+
+export function defaultConditionFor(dataType: string): Condition {
+  return {
+    operator: operatorsFor(dataType)[0] ?? "eq",
+    threshold: defaultThreshold(dataType),
+  };
 }
 
 interface ThresholdInputProps {

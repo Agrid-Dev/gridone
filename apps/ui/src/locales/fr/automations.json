@@ -38,7 +38,6 @@
     "operator": "Opérateur",
     "threshold": "Seuil",
     "noCondition": "Sans condition",
-    "addCondition": "Ajouter une condition",
     "unknownDevice": "Appareil inconnu"
   },
   "operators": {
