@@ -82,15 +82,17 @@ export const DevicePicker: FC<DevicePickerProps> = ({
             const Icon = deviceTypeIcon(device.type);
             return (
               <SelectItem key={device.id} value={device.id}>
-                <span>{device.name}</span>
-                {device.type && (
-                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    {Icon && <Icon className="h-3 w-3" />}
-                    {t(`common.deviceTypes.${device.type}`, {
-                      defaultValue: device.type,
-                    })}
-                  </span>
-                )}
+                <span className="flex items-baseline gap-2">
+                  <span>{device.name}</span>
+                  {device.type && (
+                    <span className="inline-flex items-baseline gap-1 text-xs text-muted-foreground">
+                      {Icon && <Icon className="h-3 w-3" />}
+                      {t(`common.deviceTypes.${device.type}`, {
+                        defaultValue: device.type,
+                      })}
+                    </span>
+                  )}
+                </span>
               </SelectItem>
             );
           })}
