@@ -1,3 +1,15 @@
+## v0.64.0 (2026-05-01)
+
+### Feat
+
+- **ui**: show device type icon and label in DevicePicker options (AGR-552)
+- **ui**: custom change_event trigger form with device-attribute picker (AGR-552)
+
+### Fix
+
+- **ui**: align device name and type label on a shared baseline (AGR-552)
+- **ui**: localise trigger type column in automations list (AGR-552)
+
 ## v0.63.1 (2026-04-30)
 
 ### Fix
