@@ -39,6 +39,7 @@
     "operator": "Operator",
     "threshold": "Threshold",
     "noCondition": "No condition",
+    "addCondition": "Add a condition",
     "unknownDevice": "Unknown device"
   },
   "operators": {
