@@ -12,9 +12,14 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
 }));
 
-vi.mock("@/api/devices", () => ({
-  listDevices: (...args: unknown[]) => mockListDevices(...args),
-}));
+vi.mock("@/api/devices", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/api/devices")>("@/api/devices");
+  return {
+    ...actual,
+    listDevices: (...args: unknown[]) => mockListDevices(...args),
+  };
+});
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({

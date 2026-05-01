@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { deviceTypeIcon } from "@/components/DeviceTypeChip";
 
 interface DevicePickerProps {
   value: string | undefined;
@@ -77,11 +78,22 @@ export const DevicePicker: FC<DevicePickerProps> = ({
           <SelectValue placeholder={resolvedPlaceholder} />
         </SelectTrigger>
         <SelectContent>
-          {devices.map((device) => (
-            <SelectItem key={device.id} value={device.id}>
-              {device.name}
-            </SelectItem>
-          ))}
+          {devices.map((device) => {
+            const Icon = deviceTypeIcon(device.type);
+            return (
+              <SelectItem key={device.id} value={device.id}>
+                <span>{device.name}</span>
+                {device.type && (
+                  <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    {Icon && <Icon className="h-3 w-3" />}
+                    {t(`common.deviceTypes.${device.type}`, {
+                      defaultValue: device.type,
+                    })}
+                  </span>
+                )}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </FieldShell>
