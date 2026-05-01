@@ -8,6 +8,7 @@ import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
 import type { Trigger } from "@/api/automations";
 import type { TriggerDescriptor } from "./types";
+import { ChangeEventForm } from "../form/ChangeEventForm";
 
 type Condition = {
   operator: "gt" | "lt" | "gte" | "lte" | "eq" | "ne";
@@ -84,4 +85,5 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export const changeEventTriggerDescriptor: TriggerDescriptor = {
   icon: TrendingUp,
   Presenter: ChangeEventPresenter,
+  CustomFormRenderer: ChangeEventForm,
 };

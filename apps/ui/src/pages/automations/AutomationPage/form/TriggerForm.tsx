@@ -38,6 +38,9 @@ const TriggerForm: FC<TriggerFormProps> = ({
 
   if (isLoading) return <Skeleton className="h-32 w-full" />;
 
+  const descriptor = type ? getTriggerDescriptor(type) : null;
+  const CustomForm = descriptor?.CustomFormRenderer;
+
   return (
     <div className="space-y-3">
       <FieldShell id="trigger-type-picker" label={t("triggers.type")}>
@@ -62,16 +65,25 @@ const TriggerForm: FC<TriggerFormProps> = ({
           </SelectContent>
         </Select>
       </FieldShell>
-      {type && schema && (
-        <GenericTriggerFormBody
-          key={type}
-          type={type}
-          schema={schema}
-          initialValue={initialValueForType}
-          onSubmit={onSubmit}
-          onCancel={onCancel}
-        />
-      )}
+      {type &&
+        (CustomForm ? (
+          <CustomForm
+            key={type}
+            type={type}
+            initialValue={initialValueForType}
+            onSubmit={onSubmit}
+            onCancel={onCancel}
+          />
+        ) : schema ? (
+          <GenericTriggerFormBody
+            key={type}
+            type={type}
+            schema={schema}
+            initialValue={initialValueForType}
+            onSubmit={onSubmit}
+            onCancel={onCancel}
+          />
+        ) : null)}
     </div>
   );
 };

@@ -142,6 +142,19 @@
     "clearFiltersHint": "Try adjusting or clearing your filters.",
     "clearFilters": "Clear filters"
   },
+  "pickers": {
+    "device": {
+      "label": "Device",
+      "placeholder": "Select a device",
+      "noDevices": "No devices available"
+    },
+    "attribute": {
+      "label": "Attribute",
+      "placeholder": "Select an attribute",
+      "pickDeviceFirst": "Pick a device first",
+      "noMatching": "No matching attributes"
+    }
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Device control dashboard",

@@ -142,6 +142,19 @@
     "clearFiltersHint": "Essayez d'ajuster ou de supprimer vos filtres.",
     "clearFilters": "Effacer les filtres"
   },
+  "pickers": {
+    "device": {
+      "label": "Appareil",
+      "placeholder": "S\u00e9lectionner un appareil",
+      "noDevices": "Aucun appareil disponible"
+    },
+    "attribute": {
+      "label": "Attribut",
+      "placeholder": "S\u00e9lectionner un attribut",
+      "pickDeviceFirst": "S\u00e9lectionnez d'abord un appareil",
+      "noMatching": "Aucun attribut correspondant"
+    }
+  },
   "app": {
     "title": "Gridone",
     "subtitle": "Tableau de bord de contrôle des appareils",
