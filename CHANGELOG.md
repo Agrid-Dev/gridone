@@ -1,3 +1,9 @@
+## v0.66.0 (2026-05-04)
+
+### Feat
+
+- **ui**: add automation creation wizard (AGR-549)
+
 ## v0.65.1 (2026-05-04)
 
 ### Fix
