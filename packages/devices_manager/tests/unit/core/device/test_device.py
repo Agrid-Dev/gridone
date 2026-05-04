@@ -328,6 +328,63 @@ class TestDevicesListeners:
         assert device.attributes["humidity"].current_value == 65.0
 
     @pytest.mark.asyncio
+    async def test_init_listeners_continues_when_one_registration_fails(
+        self, mock_push_transport_client
+    ):
+        original_register_listener = mock_push_transport_client.register_listener
+
+        async def register_listener(topic, callback) -> str:
+            if topic == "/dev/temperature":
+                msg = "broker down"
+                raise RuntimeError(msg)
+            return await original_register_listener(topic, callback)
+
+        mock_push_transport_client.register_listener = AsyncMock(
+            side_effect=register_listener
+        )
+        driver = Driver(
+            metadata=DriverMetadata(id="partial_push"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "temperature": AttributeDriver(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/temperature"},
+                    write=None,
+                    codecs=[
+                        CodecSpec(name="json_pointer", argument="/payload/temperature")
+                    ],
+                ),
+                "humidity": AttributeDriver(
+                    name="humidity",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/humidity"},
+                    write=None,
+                    codecs=[
+                        CodecSpec(name="json_pointer", argument="/payload/humidity")
+                    ],
+                ),
+            },
+        )
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d4", name="Partial push device", config={}),
+            driver=driver,
+            transport=mock_push_transport_client,
+        )
+
+        await device.init_listeners()
+        await mock_push_transport_client.simulate_event(
+            "/dev/humidity", {"payload": {"humidity": 65.0}}
+        )
+
+        assert mock_push_transport_client.register_listener.await_count == 2
+        assert device.attributes["temperature"].current_value is None
+        assert device.attributes["humidity"].current_value == 65.0
+
+    @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_pull(
         self, device: PhysicalDevice, mock_transport_client
     ):

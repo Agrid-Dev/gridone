@@ -127,7 +127,10 @@ class DevicesService(Service):
 
         self._running = True
         for device in self._device_registry.all.values():
-            await device.start_sync()
+            try:
+                await device.start_sync()
+            except Exception:
+                logger.exception("Failed to start sync for device %s", device.id)
 
     async def stop(self) -> None:
         """Stop syncing, close transports, and release storage."""

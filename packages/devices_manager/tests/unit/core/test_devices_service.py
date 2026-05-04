@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
@@ -45,6 +46,12 @@ from models.errors import (
     NotFoundError,
 )
 from models.types import Severity
+
+
+class FailingStartPhysicalDevice(PhysicalDevice):
+    async def start_sync(self) -> None:
+        msg = "boom"
+        raise RuntimeError(msg)
 
 
 @pytest.fixture
@@ -115,6 +122,35 @@ class TestDevicesServiceSync:
 
         assert device1.syncing is True
         assert device2.syncing is True
+
+    @pytest.mark.asyncio
+    async def test_start_sync_continues_when_one_device_fails(
+        self, mock_transport_client, driver, caplog
+    ):
+        driver.update_strategy = UpdateStrategy(polling_enabled=False)
+        device1 = FailingStartPhysicalDevice.from_base(
+            DeviceBase(id="device1", name="device1", config={}),
+            transport=mock_transport_client,
+            driver=driver,
+        )
+        device2 = PhysicalDevice.from_base(
+            DeviceBase(id="device2", name="device2", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        manager = DevicesService(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={"test_driver": driver},
+            transports={"t1": mock_transport_client},
+        )
+
+        with caplog.at_level(logging.ERROR, logger="devices_manager.service"):
+            await manager.start()
+
+        assert "Failed to start sync for device device1" in caplog.text
+        assert device2.syncing is True
+
+        await manager.stop()
 
     @pytest.mark.asyncio
     async def test_start_sync_all_devices_are_polled(
