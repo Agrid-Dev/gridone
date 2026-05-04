@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, FormEvent, useState } from "react";
 import { Button } from "@/components/ui";
 import CommandTemplatePicker from "@/components/forms/resourcePickers/CommandTemplatePicker";
 import { useTranslation } from "react-i18next";
@@ -9,19 +9,29 @@ interface ActionFormProps {
   initialValue?: string; // actionTemplateId
   onSubmit: (actionTemplateId: string) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
 const ActionForm: FC<ActionFormProps> = ({
   initialValue,
   onSubmit,
   onCancel,
+  formId,
+  hideActions,
 }) => {
   const [actionTemplateId, setActionTemplateId] = useState<string | undefined>(
     initialValue,
   );
   const { t } = useTranslation(["common", "automations"]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (actionTemplateId) onSubmit(actionTemplateId);
+  };
+
   return (
-    <div>
+    <form id={formId} onSubmit={handleSubmit}>
       <CommandTemplatePicker
         value={actionTemplateId}
         onSelect={(template) => setActionTemplateId(template.id)}
@@ -32,9 +42,10 @@ const ActionForm: FC<ActionFormProps> = ({
           />
         }
       />
-      <div className="flex align-middle justify-end gap-2 mt-8">
-        {onCancel && (
+      {!hideActions && (
+        <div className="flex align-middle justify-end gap-2 mt-8">
           <Button
+            type="button"
             onClick={() => {
               setActionTemplateId(initialValue);
               onCancel();
@@ -43,17 +54,15 @@ const ActionForm: FC<ActionFormProps> = ({
           >
             {t("common:common.cancel")}
           </Button>
-        )}
-        <Button
-          onClick={() => {
-            if (actionTemplateId) onSubmit(actionTemplateId);
-          }}
-          disabled={!actionTemplateId || actionTemplateId === initialValue}
-        >
-          {t("common:common.save")}
-        </Button>
-      </div>
-    </div>
+          <Button
+            type="submit"
+            disabled={!actionTemplateId || actionTemplateId === initialValue}
+          >
+            {t("common:common.save")}
+          </Button>
+        </div>
+      )}
+    </form>
   );
 };
 

@@ -12,6 +12,8 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
   initialValue,
   onSubmit,
   onCancel,
+  formId,
+  hideActions,
 }) => {
   const { t } = useTranslation("common");
   const {
@@ -25,7 +27,7 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
   } = useChangeEventForm({ type, initialValue, onSubmit });
 
   return (
-    <form onSubmit={submit} className="space-y-6">
+    <form id={formId} onSubmit={submit} className="space-y-6">
       <DeviceAttributePicker
         deviceId={deviceId || undefined}
         attribute={attribute || undefined}
@@ -45,17 +47,19 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
         )}
       />
 
-      <div className="flex align-middle justify-end gap-2 mt-8">
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          disabled={!formState.isValid || !formState.isDirty}
-        >
-          {t("common.save")}
-        </Button>
-      </div>
+      {!hideActions && (
+        <div className="flex align-middle justify-end gap-2 mt-8">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            disabled={!formState.isValid || !formState.isDirty}
+          >
+            {t("common.save")}
+          </Button>
+        </div>
+      )}
     </form>
   );
 };

@@ -7,6 +7,8 @@ export type CustomTriggerFormProps = {
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 };
 
 export type TriggerDescriptor = {
