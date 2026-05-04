@@ -1,6 +1,5 @@
 import { FC, useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -130,14 +129,23 @@ const ThresholdInput: FC<ThresholdInputProps> = ({
   dataType,
   disabled,
 }) => {
+  const { t } = useTranslation("common");
+
   if (dataType === "bool") {
     return (
-      <Switch
-        id={id}
-        checked={value === true}
-        onCheckedChange={(v) => onChange(v)}
+      <Select
+        value={value === true ? "true" : "false"}
+        onValueChange={(v) => onChange(v === "true")}
         disabled={disabled}
-      />
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="true">{t("common.true")}</SelectItem>
+          <SelectItem value="false">{t("common.false")}</SelectItem>
+        </SelectContent>
+      </Select>
     );
   }
   if (dataType === "int" || dataType === "float") {
