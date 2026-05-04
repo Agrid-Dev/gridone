@@ -1,3 +1,19 @@
+## v0.65.0 (2026-05-04)
+
+### Feat
+
+- **ui**: make change_event condition mandatory and drop the toggle (AGR-551)
+- **ui**: add ConditionEditor for change_event triggers (AGR-551)
+
+### Fix
+
+- **ui**: look up attribute dataType by name, not by dict key (AGR-551)
+
+### Refactor
+
+- **ui**: use a Select for bool threshold in ConditionEditor (AGR-551)
+- **ui**: extract useChangeEventForm hook and resolve dataType from cache (AGR-551)
+
 ## v0.64.0 (2026-05-01)
 
 ### Feat
