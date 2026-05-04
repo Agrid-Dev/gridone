@@ -1,19 +1,12 @@
-import { FC, useEffect } from "react";
-import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { Controller, useController, useForm } from "react-hook-form";
+import { useEffect } from "react";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Button } from "@/components/ui";
-import { DeviceAttributePicker } from "@/components/forms/resourcePickers/DeviceAttributePicker";
-import { getDevice } from "@/api/devices";
+import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDevice } from "@/hooks/useDevice";
 import { type Trigger } from "@/api/automations";
-import { type CustomTriggerFormProps } from "../presenters/types";
-import {
-  ConditionEditor,
-  defaultConditionFor,
-  type Condition,
-} from "./ConditionEditor";
+import { type CustomTriggerFormProps } from "../../presenters/types";
+import { defaultConditionFor, type Condition } from "./ConditionEditor";
 
 const conditionSchema = z.object({
   operator: z.enum(["gt", "lt", "gte", "lte", "eq", "ne"]),
@@ -25,8 +18,8 @@ const formSchema = z.object({
   attribute: z.string().min(1),
   // Allow null transiently in form state — the editor needs the dataType to
   // know what shape of threshold to seed, and the dataType only resolves once
-  // the picked device has been fetched. The refine below makes save unavailable
-  // until the seeding effect populates a Condition.
+  // the picked device's data is in cache. The refine below blocks save until
+  // the seeding effect populates a Condition.
   condition: z
     .union([conditionSchema, z.null()])
     .refine((v): v is Condition => v !== null, {
@@ -34,16 +27,20 @@ const formSchema = z.object({
     }),
 });
 
-type FormValues = z.input<typeof formSchema>;
+export type FormValues = z.input<typeof formSchema>;
 
-const ChangeEventForm: FC<CustomTriggerFormProps> = ({
+const OPERATORS = ["gt", "lt", "gte", "lte", "eq", "ne"] as const;
+
+type UseChangeEventFormParams = Pick<
+  CustomTriggerFormProps,
+  "type" | "initialValue" | "onSubmit"
+>;
+
+export function useChangeEventForm({
   type,
   initialValue,
   onSubmit,
-  onCancel,
-}) => {
-  const { t } = useTranslation("common");
-
+}: UseChangeEventFormParams) {
   const { control, handleSubmit, formState, setValue, watch } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
@@ -64,12 +61,24 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
   const { field: deviceField } = useController({ control, name: "deviceId" });
   const { field: attrField } = useController({ control, name: "attribute" });
 
-  const { data: device } = useQuery({
-    queryKey: ["devices", deviceField.value],
-    queryFn: () => getDevice(deviceField.value),
-    enabled: !!deviceField.value,
-  });
+  // Primary source for the picked attribute's dataType: the cached device list
+  // already loaded by DevicePicker. Same query key, no extra request.
+  const { devices } = useDevicesList();
+  const deviceFromList = devices.find((d) => d.id === deviceField.value);
 
+  const dataTypeFromList =
+    attrField.value && deviceFromList
+      ? deviceFromList.attributes[attrField.value]?.dataType
+      : undefined;
+
+  // Fallback fetch: kicks in only when the list hasn't resolved a dataType yet
+  // (e.g. deep-linking into an edit page before the list arrives). Passing
+  // `undefined` to useDevice disables it via its internal `enabled: !!deviceId`.
+  const { data: deviceFromFetch } = useDevice(
+    dataTypeFromList ? undefined : deviceField.value || undefined,
+  );
+
+  const device = deviceFromList ?? deviceFromFetch;
   const dataType =
     attrField.value && device
       ? device.attributes[attrField.value]?.dataType
@@ -91,60 +100,40 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
     }
   }, [dataType, condition, setValue]);
 
-  const submit = (values: FormValues) => {
-    onSubmit({ type, ...values } as Trigger);
+  const handlePickerChange = ({
+    deviceId,
+    attribute,
+  }: {
+    deviceId: string;
+    attribute: string;
+  }) => {
+    // Reset the condition when the watched attribute changes — the dataType
+    // (and therefore valid threshold shape) may differ. The seeding effect
+    // re-populates a default once the new dataType resolves.
+    if (attribute !== attrField.value) {
+      setValue("condition", null, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    deviceField.onChange(deviceId);
+    attrField.onChange(attribute);
   };
 
-  return (
-    <form onSubmit={handleSubmit(submit)} className="space-y-6">
-      <DeviceAttributePicker
-        deviceId={deviceField.value || undefined}
-        attribute={attrField.value || undefined}
-        onChange={({ deviceId, attribute }) => {
-          // Reset the condition when the watched attribute changes — the
-          // dataType (and therefore valid threshold shape) may differ. The
-          // seeding effect re-populates a default once the new dataType
-          // resolves.
-          if (attribute !== attrField.value) {
-            setValue("condition", null, {
-              shouldDirty: true,
-              shouldValidate: true,
-            });
-          }
-          deviceField.onChange(deviceId);
-          attrField.onChange(attribute);
-        }}
-        required
-      />
+  const submit = handleSubmit((values: FormValues) => {
+    onSubmit({ type, ...values } as Trigger);
+  });
 
-      <Controller
-        control={control}
-        name="condition"
-        render={({ field }) => (
-          <ConditionEditor
-            value={field.value}
-            onChange={field.onChange}
-            dataType={dataType}
-          />
-        )}
-      />
-
-      <div className="flex align-middle justify-end gap-2 mt-8">
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          {t("common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          disabled={!formState.isValid || !formState.isDirty}
-        >
-          {t("common.save")}
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-const OPERATORS = ["gt", "lt", "gte", "lte", "eq", "ne"] as const;
+  return {
+    control,
+    formState,
+    submit,
+    deviceId: deviceField.value,
+    attribute: attrField.value,
+    dataType,
+    handlePickerChange,
+  };
+}
 
 function extractCondition(value: unknown): Condition | null {
   if (!value || typeof value !== "object") return null;
@@ -166,6 +155,3 @@ function extractCondition(value: unknown): Condition | null {
     threshold,
   };
 }
-
-export default ChangeEventForm;
-export { ChangeEventForm };
