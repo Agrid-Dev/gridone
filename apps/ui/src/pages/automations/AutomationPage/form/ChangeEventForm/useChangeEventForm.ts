@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useDevice } from "@/hooks/useDevice";
+import { type Device } from "@/api/devices";
 import { type Trigger } from "@/api/automations";
 import { type CustomTriggerFormProps } from "../../presenters/types";
 import { defaultConditionFor, type Condition } from "./ConditionEditor";
@@ -66,10 +67,7 @@ export function useChangeEventForm({
   const { devices } = useDevicesList();
   const deviceFromList = devices.find((d) => d.id === deviceField.value);
 
-  const dataTypeFromList =
-    attrField.value && deviceFromList
-      ? deviceFromList.attributes[attrField.value]?.dataType
-      : undefined;
+  const dataTypeFromList = lookupDataType(deviceFromList, attrField.value);
 
   // Fallback fetch: kicks in only when the list hasn't resolved a dataType yet
   // (e.g. deep-linking into an edit page before the list arrives). Passing
@@ -79,10 +77,7 @@ export function useChangeEventForm({
   );
 
   const device = deviceFromList ?? deviceFromFetch;
-  const dataType =
-    attrField.value && device
-      ? device.attributes[attrField.value]?.dataType
-      : undefined;
+  const dataType = lookupDataType(device, attrField.value);
 
   const condition = watch("condition");
 
@@ -133,6 +128,19 @@ export function useChangeEventForm({
     dataType,
     handlePickerChange,
   };
+}
+
+// Look up an attribute by its `name` field rather than dict key. Backend ships
+// attribute names as snake_case values, but request.ts deep-camelCases dict
+// keys — so `device.attributes["temperature_setpoint"]` misses while
+// `device.attributes[i].name === "temperature_setpoint"` matches.
+function lookupDataType(
+  device: Device | undefined,
+  attributeName: string | undefined,
+): string | undefined {
+  if (!device || !attributeName) return undefined;
+  return Object.values(device.attributes).find((a) => a.name === attributeName)
+    ?.dataType;
 }
 
 function extractCondition(value: unknown): Condition | null {
