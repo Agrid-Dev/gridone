@@ -33,14 +33,14 @@ def on_fault_transition(
         if attribute.is_faulty:
             await notifications.dispatch(
                 title=f"New fault on {device.name} ({attribute_name})",
-                body=f"Device {device_link} has a new active fault on attribute `{attribute_name}` (value: {attribute.current_value}).",
+                body=f"Device {device_link} has a new active fault on attribute **{attribute_name}** (value: {attribute.current_value}).",
                 severity=attribute.severity,
                 user_ids=user_ids,
             )
         else:
             await notifications.dispatch(
                 title=f"Fault resolved on {device.name} ({attribute_name})",
-                body=f"The fault on attribute `{attribute_name}` of device {device_link} has been resolved (value: {attribute.current_value}).",
+                body=f"The fault on attribute **{attribute_name}** of device {device_link} has been resolved (value: {attribute.current_value}).",
                 severity=Severity.INFO,
                 user_ids=user_ids,
             )
