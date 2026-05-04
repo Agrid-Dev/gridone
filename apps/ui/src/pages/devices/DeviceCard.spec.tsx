@@ -1,23 +1,19 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { createI18nMock } from "@/test/i18nMock";
 import { DeviceCard } from "./DeviceCard";
 import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "common.severity.alert": "alert",
-        "common.severity.warning": "warning",
-        "common.severity.info": "info",
-        "common:common.attributes": "attributes",
-        "common:common.deviceTypes.unknown": "Unknown",
-      };
-      return map[key] ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "common.severity.alert": "alert",
+    "common.severity.warning": "warning",
+    "common.severity.info": "info",
+    "common:common.attributes": "attributes",
+    "common:common.deviceTypes.unknown": "Unknown",
   }),
-}));
+);
 
 const fault = (
   overrides: Partial<FaultAttribute> & {

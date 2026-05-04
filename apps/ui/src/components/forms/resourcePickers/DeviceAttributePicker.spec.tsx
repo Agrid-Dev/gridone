@@ -2,6 +2,7 @@ import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { Device } from "@/api/devices";
+import { createI18nMock } from "@/test/i18nMock";
 
 function flattenToText(node: React.ReactNode): string {
   if (node == null || typeof node === "boolean") return "";
@@ -35,22 +36,17 @@ vi.mock("@/api/devices", async () => {
   };
 });
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "pickers.device.label": "Device",
-        "pickers.device.placeholder": "Select a device",
-        "pickers.device.noDevices": "No devices available",
-        "pickers.attribute.label": "Attribute",
-        "pickers.attribute.placeholder": "Select an attribute",
-        "pickers.attribute.pickDeviceFirst": "Pick a device first",
-        "pickers.attribute.noMatching": "No matching attributes",
-      };
-      return map[key] ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "pickers.device.label": "Device",
+    "pickers.device.placeholder": "Select a device",
+    "pickers.device.noDevices": "No devices available",
+    "pickers.attribute.label": "Attribute",
+    "pickers.attribute.placeholder": "Select an attribute",
+    "pickers.attribute.pickDeviceFirst": "Pick a device first",
+    "pickers.attribute.noMatching": "No matching attributes",
   }),
-}));
+);
 
 vi.mock("@/components/ui/select", () => ({
   Select: ({

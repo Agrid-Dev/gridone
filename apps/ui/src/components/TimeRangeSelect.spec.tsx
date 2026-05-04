@@ -2,25 +2,19 @@ import React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
+import { createI18nMock } from "@/test/i18nMock";
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: { count?: number }) => {
-      const map: Record<string, string> = {
-        "deviceDetails.rangeAll": "All time",
-        "deviceDetails.rangeCustom": "Custom range",
-        "deviceDetails.rangeApply": "Apply",
-      };
-      if (map[key]) return map[key];
-      if (key === "deviceDetails.rangeLastMinutes")
-        return `Last ${opts?.count} min`;
-      if (key === "deviceDetails.rangeLastHours") return `Last ${opts?.count}h`;
-      if (key === "deviceDetails.rangeLastDays") return `Last ${opts?.count}d`;
-      return key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "deviceDetails.rangeAll": "All time",
+    "deviceDetails.rangeCustom": "Custom range",
+    "deviceDetails.rangeApply": "Apply",
+    "deviceDetails.rangeLastMinutes": "Last {{count}} min",
+    "deviceDetails.rangeLastHours": "Last {{count}}h",
+    "deviceDetails.rangeLastDays": "Last {{count}}d",
   }),
-}));
+);
 
 afterEach(cleanup);
 

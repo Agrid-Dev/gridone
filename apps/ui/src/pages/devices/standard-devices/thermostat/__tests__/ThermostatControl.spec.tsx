@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui";
 import { ThermostatControl } from "../ThermostatControl";
 import { DeviceType, type Device } from "@/api/devices";
@@ -22,11 +23,7 @@ vi.mock("@/hooks/useDebouncedAttributeWrite", () => ({
   }),
 }));
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => key,
-  }),
-}));
+vi.mock("react-i18next", () => createI18nMock({}));
 
 // --- Fixtures ---
 

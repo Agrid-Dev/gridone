@@ -3,43 +3,33 @@ import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { FaultView } from "@/api/faults";
+import { createI18nMock } from "@/test/i18nMock";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, string>) => {
-      const map: Record<string, string> = {
-        "faults.title": "Active faults",
-        "faults.subtitle": "Fleet triage",
-        "faults.searchPlaceholder": "Search by device or fault",
-        "faults.emptyTitle": "No active faults across your fleet.",
-        "faults.emptyDescription": "All devices are healthy.",
-        "faults.unableToLoad": "Unable to load faults",
-        "faults.columns.device": "Device",
-        "faults.columns.fault": "Fault",
-        "faults.columns.severity": "Severity",
-        "faults.columns.activeSince": "Active since",
-        "common:common.fault": "fault",
-        "empty.noMatch": "No matching {{resourceName}}",
-        "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
-        "empty.clearFilters": "Clear filters",
-        "common.severity.alert": "alert",
-        "common.severity.warning": "warning",
-        "common.severity.info": "info",
-        "common.timeAgo.justNow": "just now",
-        "common.timeAgo.minutes": "a few minutes ago",
-        "common.timeAgo.hours": "a few hours ago",
-        "common.timeAgo.days": "a few days ago",
-      };
-      let value = map[key] ?? key;
-      if (opts) {
-        for (const [k, v] of Object.entries(opts)) {
-          value = value.replaceAll(`{{${k}}}`, v);
-        }
-      }
-      return value;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "faults.title": "Active faults",
+    "faults.subtitle": "Fleet triage",
+    "faults.searchPlaceholder": "Search by device or fault",
+    "faults.emptyTitle": "No active faults across your fleet.",
+    "faults.emptyDescription": "All devices are healthy.",
+    "faults.unableToLoad": "Unable to load faults",
+    "faults.columns.device": "Device",
+    "faults.columns.fault": "Fault",
+    "faults.columns.severity": "Severity",
+    "faults.columns.activeSince": "Active since",
+    "common:common.fault": "fault",
+    "empty.noMatch": "No matching {{resourceName}}",
+    "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
+    "empty.clearFilters": "Clear filters",
+    "common.severity.alert": "alert",
+    "common.severity.warning": "warning",
+    "common.severity.info": "info",
+    "common.timeAgo.justNow": "just now",
+    "common.timeAgo.minutes": "a few minutes ago",
+    "common.timeAgo.hours": "a few hours ago",
+    "common.timeAgo.days": "a few days ago",
   }),
-}));
+);
 
 const mockUseFaultsList = vi.fn();
 vi.mock("@/hooks/useFaultsList", () => ({

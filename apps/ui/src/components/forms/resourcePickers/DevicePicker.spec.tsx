@@ -2,6 +2,7 @@ import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import type { Device } from "@/api/devices";
+import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery, mockListDevices } = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
@@ -21,18 +22,13 @@ vi.mock("@/api/devices", async () => {
   };
 });
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "pickers.device.label": "Device",
-        "pickers.device.placeholder": "Select a device",
-        "pickers.device.noDevices": "No devices available",
-      };
-      return map[key] ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "pickers.device.label": "Device",
+    "pickers.device.placeholder": "Select a device",
+    "pickers.device.noDevices": "No devices available",
   }),
-}));
+);
 
 // Stub the shadcn Select with a native <select> so jsdom can drive it without
 // Radix's pointer-event quirks. The picker's rendering & callback wiring are

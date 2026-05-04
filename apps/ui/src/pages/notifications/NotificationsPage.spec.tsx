@@ -4,56 +4,46 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { NotificationDispatch } from "@/api/notifications";
 import type { Page } from "@/api/pagination";
+import { createI18nMock } from "@/test/i18nMock";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, unknown>) => {
-      const map: Record<string, string> = {
-        "notifications.title": "Notifications",
-        "notifications.subtitle": "Inbox",
-        "notifications.unableToLoad": "Unable to load notifications",
-        "notifications.markAsRead": "Mark as read",
-        "notifications.markSelectedAsRead": "Mark as read ({{count}})",
-        "notifications.showMore": "Show more",
-        "notifications.showLess": "Show less",
-        "notifications.emptyTitle": "No notifications",
-        "notifications.emptyDescription": "You have no notifications yet.",
-        "notifications.emptyUnreadTitle": "All caught up",
-        "notifications.emptyUnreadDescription": "No unread notifications.",
-        "notifications.columns.title": "Title",
-        "notifications.columns.severity": "Severity",
-        "notifications.columns.dispatchedAt": "Received",
-        "notifications.columns.readAt": "Read at",
-        "notifications.filter.severityLabel": "Severity",
-        "notifications.filter.statusLabel": "Status",
-        "notifications.filter.all": "All",
-        "notifications.filter.unread": "Unread",
-        "notifications.filter.dismissed": "Dismissed",
-        "common.previous": "Previous",
-        "common.next": "Next",
-        "common.notification": "notification",
-        "empty.noMatch": "No matching {{resourceName}}",
-        "empty.title": "No {{resourceName}} yet",
-        "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
-        "empty.clearFilters": "Clear filters",
-        "common.severity.alert": "alert",
-        "common.severity.warning": "warning",
-        "common.severity.info": "info",
-        "common.timeAgo.justNow": "just now",
-        "common.timeAgo.minutes": "{{count}} minutes ago",
-        "common.timeAgo.hours": "{{count}} hours ago",
-        "common.timeAgo.days": "{{count}} days ago",
-      };
-      let value = map[key] ?? key;
-      if (opts) {
-        for (const [k, v] of Object.entries(opts)) {
-          value = value.replaceAll(`{{${k}}}`, String(v));
-        }
-      }
-      return value;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "notifications.title": "Notifications",
+    "notifications.subtitle": "Inbox",
+    "notifications.unableToLoad": "Unable to load notifications",
+    "notifications.markAsRead": "Mark as read",
+    "notifications.markSelectedAsRead": "Mark as read ({{count}})",
+    "notifications.showMore": "Show more",
+    "notifications.showLess": "Show less",
+    "notifications.emptyTitle": "No notifications",
+    "notifications.emptyDescription": "You have no notifications yet.",
+    "notifications.emptyUnreadTitle": "All caught up",
+    "notifications.emptyUnreadDescription": "No unread notifications.",
+    "notifications.columns.title": "Title",
+    "notifications.columns.severity": "Severity",
+    "notifications.columns.dispatchedAt": "Received",
+    "notifications.columns.readAt": "Read at",
+    "notifications.filter.severityLabel": "Severity",
+    "notifications.filter.statusLabel": "Status",
+    "notifications.filter.all": "All",
+    "notifications.filter.unread": "Unread",
+    "notifications.filter.dismissed": "Dismissed",
+    "common.previous": "Previous",
+    "common.next": "Next",
+    "common.notification": "notification",
+    "empty.noMatch": "No matching {{resourceName}}",
+    "empty.title": "No {{resourceName}} yet",
+    "empty.clearFiltersHint": "Try adjusting or clearing your filters.",
+    "empty.clearFilters": "Clear filters",
+    "common.severity.alert": "alert",
+    "common.severity.warning": "warning",
+    "common.severity.info": "info",
+    "common.timeAgo.justNow": "just now",
+    "common.timeAgo.minutes": "{{count}} minutes ago",
+    "common.timeAgo.hours": "{{count}} hours ago",
+    "common.timeAgo.days": "{{count}} days ago",
   }),
-}));
+);
 
 const mockDismiss = vi.fn();
 const mockDismissMany = vi.fn();
