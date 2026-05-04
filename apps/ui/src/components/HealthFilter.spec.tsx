@@ -2,21 +2,17 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router";
+import { createI18nMock } from "@/test/i18nMock";
 import { HealthFilter } from "./HealthFilter";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "devices.health.label": "Health",
-        "devices.health.all": "All",
-        "devices.health.healthy": "Healthy",
-        "devices.health.faulty": "Faulty",
-      };
-      return map[key] ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "devices.health.label": "Health",
+    "devices.health.all": "All",
+    "devices.health.healthy": "Healthy",
+    "devices.health.faulty": "Faulty",
   }),
-}));
+);
 
 afterEach(cleanup);
 

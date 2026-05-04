@@ -3,6 +3,7 @@ import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
 import type { Automation, AutomationExecution } from "@/api/automations";
+import { createI18nMock } from "@/test/i18nMock";
 
 const {
   mockUseQuery,
@@ -74,55 +75,47 @@ vi.mock("react-router", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, string>) => {
-      const map: Record<string, string> = {
-        title: "Automations",
-        singular: "Automation",
-        "flow.trigger": "Trigger",
-        "flow.action": "Action",
-        "flow.actionType.command": "Command",
-        "fields.actionTemplate": "Command template",
-        "fields.status": "Status",
-        "fields.name": "Name",
-        "fields.description": "Description",
-        "automations:fields.name": "Name",
-        "automations:fields.description": "Description",
-        "metadata.title": "Automation",
-        "metadata.edit": "Edit automation",
-        "metadata.noDescription": "No description",
-        "common.edit": "Edit",
-        "actions.enable": "Enable",
-        "actions.disable": "Disable",
-        "actions.delete": "Delete",
-        "executions.title": "Executions",
-        "executions.timestamp": "Timestamp",
-        "executions.viewBatch": "View command",
-        "executions.empty": "No executions yet",
-        "executions.status.success": "Success",
-        "executions.status.failed": "Failed",
-        "triggers.types.schedule": "Schedule",
-        "deleteConfirm.title": "Delete automation",
-        enabledBadge: "Enabled",
-        disabledBadge: "Disabled",
-        "common.dangerZone": "Danger zone",
-        "common.dangerZoneDescription": "Irreversible.",
-        "common.cancel": "Cancel",
-        "common:common.cancel": "Cancel",
-        "common.save": "Save",
-        "common:common.save": "Save",
-        "common.delete": "Delete",
-        "toasts.deleted": "Deleted",
-      };
-      if (key === "deleteConfirm.details") {
-        return `Delete "${opts?.name ?? ""}"?`;
-      }
-      if (map[key] !== undefined) return map[key];
-      return opts?.defaultValue ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    title: "Automations",
+    singular: "Automation",
+    "flow.trigger": "Trigger",
+    "flow.action": "Action",
+    "flow.actionType.command": "Command",
+    "fields.actionTemplate": "Command template",
+    "fields.status": "Status",
+    "fields.name": "Name",
+    "fields.description": "Description",
+    "automations:fields.name": "Name",
+    "automations:fields.description": "Description",
+    "metadata.title": "Automation",
+    "metadata.edit": "Edit automation",
+    "metadata.noDescription": "No description",
+    "common.edit": "Edit",
+    "actions.enable": "Enable",
+    "actions.disable": "Disable",
+    "actions.delete": "Delete",
+    "executions.title": "Executions",
+    "executions.timestamp": "Timestamp",
+    "executions.viewBatch": "View command",
+    "executions.empty": "No executions yet",
+    "executions.status.success": "Success",
+    "executions.status.failed": "Failed",
+    "triggers.types.schedule": "Schedule",
+    "deleteConfirm.title": "Delete automation",
+    "deleteConfirm.details": 'Delete "{{name}}"?',
+    enabledBadge: "Enabled",
+    disabledBadge: "Disabled",
+    "common.dangerZone": "Danger zone",
+    "common.dangerZoneDescription": "Irreversible.",
+    "common.cancel": "Cancel",
+    "common:common.cancel": "Cancel",
+    "common.save": "Save",
+    "common:common.save": "Save",
+    "common.delete": "Delete",
+    "toasts.deleted": "Deleted",
   }),
-}));
+);
 
 vi.mock("@/contexts/AuthContext", () => ({
   usePermissions: () => (perm: string) => canPermission(perm),

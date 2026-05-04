@@ -1,30 +1,24 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { createI18nMock } from "@/test/i18nMock";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
 import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: { ago?: string; count?: number }) => {
-      const map: Record<string, string> = {
-        "deviceDetails.activeFaults.title": "Active faults",
-        "deviceDetails.activeFaults.empty": "No active faults.",
-        "common.severity.alert": "alert",
-        "common.severity.warning": "warning",
-        "common.severity.info": "info",
-        "common.faults.ok": "OK",
-        "common.timeAgo.justNow": "just now",
-      };
-      if (map[key]) return map[key];
-      if (key === "common.faults.activeSince")
-        return `Active since ${opts?.ago ?? ""}`;
-      if (key === "common.timeAgo.minutes") return `${opts?.count} minutes`;
-      if (key === "common.timeAgo.hours") return `${opts?.count} hours`;
-      if (key === "common.timeAgo.days") return `${opts?.count} days`;
-      return key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "deviceDetails.activeFaults.title": "Active faults",
+    "deviceDetails.activeFaults.empty": "No active faults.",
+    "common.severity.alert": "alert",
+    "common.severity.warning": "warning",
+    "common.severity.info": "info",
+    "common.faults.ok": "OK",
+    "common.faults.activeSince": "Active since {{ago}}",
+    "common.timeAgo.justNow": "just now",
+    "common.timeAgo.minutes": "{{count}} minutes",
+    "common.timeAgo.hours": "{{count}} hours",
+    "common.timeAgo.days": "{{count}} days",
   }),
-}));
+);
 
 const plain: DeviceAttribute = {
   kind: "standard",

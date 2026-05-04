@@ -1,24 +1,22 @@
 import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { createI18nMock } from "@/test/i18nMock";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: { defaultValue?: string }) => {
-      const map: Record<string, string> = {
-        "triggers.operator": "Operator",
-        "triggers.threshold": "Threshold",
-        "operators.gt": ">",
-        "operators.lt": "<",
-        "operators.gte": "≥",
-        "operators.lte": "≤",
-        "operators.eq": "=",
-        "operators.ne": "≠",
-      };
-      return map[key] ?? opts?.defaultValue ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "triggers.operator": "Operator",
+    "triggers.threshold": "Threshold",
+    "operators.gt": ">",
+    "operators.lt": "<",
+    "operators.gte": "≥",
+    "operators.lte": "≤",
+    "operators.eq": "=",
+    "operators.ne": "≠",
+    "common.true": "True",
+    "common.false": "False",
   }),
-}));
+);
 
 // Stub shadcn Select with a native <select> for jsdom-friendly interaction.
 vi.mock("@/components/ui/select", () => ({

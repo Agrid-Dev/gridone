@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { Automation } from "@/api/automations";
+import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery } = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
@@ -22,34 +23,27 @@ vi.mock("@/api/automations", () => ({
   disableAutomation: vi.fn(),
 }));
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, string>) => {
-      const map: Record<string, string> = {
-        title: "Automations",
-        subtitle: "Trigger-driven actions",
-        singular: "Automation",
-        "fields.name": "Name",
-        "fields.trigger": "Trigger",
-        "fields.status": "Status",
-        "actions.create": "New automation",
-        "actions.enable": "Enable",
-        "actions.disable": "Disable",
-        "actions.rowMenu": "Actions",
-        "triggers.types.schedule": "Schedule",
-        "triggers.types.change_event": "Attribute change",
-        enabledBadge: "Enabled",
-        disabledBadge: "Disabled",
-      };
-      if (key === "empty.title") return `No ${opts?.resourceName ?? ""} yet`;
-      if (key === "empty.details")
-        return `No ${opts?.resourceName ?? ""} details`;
-      if (key === "empty.new") return `Create a ${opts?.resourceName ?? ""}`;
-      if (map[key] !== undefined) return map[key];
-      return opts?.defaultValue ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    title: "Automations",
+    subtitle: "Trigger-driven actions",
+    singular: "Automation",
+    "fields.name": "Name",
+    "fields.trigger": "Trigger",
+    "fields.status": "Status",
+    "actions.create": "New automation",
+    "actions.enable": "Enable",
+    "actions.disable": "Disable",
+    "actions.rowMenu": "Actions",
+    "triggers.types.schedule": "Schedule",
+    "triggers.types.change_event": "Attribute change",
+    enabledBadge: "Enabled",
+    disabledBadge: "Disabled",
+    "empty.title": "No {{resourceName}} yet",
+    "empty.details": "No {{resourceName}} details",
+    "empty.new": "Create a {{resourceName}}",
   }),
-}));
+);
 
 vi.mock("@/contexts/AuthContext", () => ({
   usePermissions: () => () => true,

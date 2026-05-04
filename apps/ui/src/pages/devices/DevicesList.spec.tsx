@@ -3,32 +3,28 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { Device, DevicesFilter } from "@/api/devices";
+import { createI18nMock } from "@/test/i18nMock";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key: string) => {
-      const map: Record<string, string> = {
-        "devices.title": "Devices",
-        "devices.subtitle": "Connected fleet",
-        "devices.actions.add": "Add",
-        "devices.health.label": "Health",
-        "devices.health.all": "All",
-        "devices.health.healthy": "Healthy",
-        "devices.health.faulty": "Faulty",
-        "deviceDetails.history": "History",
-        "commands.newCommand": "New command",
-        "common.type": "Type",
-        "common.allTypes": "All types",
-        "common:common.device": "Device",
-        "common:common.attributes": "attributes",
-        "common.severity.alert": "alert",
-        "common.severity.warning": "warning",
-        "common.severity.info": "info",
-      };
-      return map[key] ?? key;
-    },
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "devices.title": "Devices",
+    "devices.subtitle": "Connected fleet",
+    "devices.actions.add": "Add",
+    "devices.health.label": "Health",
+    "devices.health.all": "All",
+    "devices.health.healthy": "Healthy",
+    "devices.health.faulty": "Faulty",
+    "deviceDetails.history": "History",
+    "commands.newCommand": "New command",
+    "common.type": "Type",
+    "common.allTypes": "All types",
+    "common:common.device": "Device",
+    "common:common.attributes": "attributes",
+    "common.severity.alert": "alert",
+    "common.severity.warning": "warning",
+    "common.severity.info": "info",
   }),
-}));
+);
 
 const mockUseDevicesList = vi.fn();
 vi.mock("@/hooks/useDevicesList", () => ({
