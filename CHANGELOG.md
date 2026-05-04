@@ -1,3 +1,9 @@
+## v0.65.1 (2026-05-04)
+
+### Fix
+
+- remove backticks from attribute name (#266)
+
 ## v0.65.0 (2026-05-04)
 
 ### Feat
