@@ -21,15 +21,15 @@ class TriggerProvider(Protocol):
 
     Each provider owns one class of trigger (e.g. schedule, change_event).
     The service dispatches register/unregister calls to the matching provider
-    based on the trigger's ``type`` field.
+    based on the trigger's ``provider_id`` field.
     """
 
     id: str
-    trigger_schema: dict
+    params_schema: dict
 
     async def register(
         self,
-        trigger_params: dict,
+        params: dict,
         on_fire: OnFireCallback,
     ) -> str:
         """Activate a trigger. Returns an opaque handle used to unregister."""
@@ -44,9 +44,9 @@ class ActionProvider(Protocol):
     """Executes one class of automation action."""
 
     id: str
-    action_schema: dict
+    params_schema: dict
 
-    async def execute(self, action_params: dict) -> str | None:
+    async def execute(self, params: dict) -> str | None:
         """Execute the action. Returns an opaque output_id, or None."""
         ...
 

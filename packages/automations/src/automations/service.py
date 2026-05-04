@@ -145,10 +145,10 @@ class AutomationsService(Service):
         return await self._storage.list_executions(automation_id)
 
     def list_trigger_schemas(self) -> dict[str, dict]:
-        return {p.id: p.trigger_schema for p in self._providers.values()}
+        return {p.id: p.params_schema for p in self._providers.values()}
 
     def list_action_schemas(self) -> dict[str, dict]:
-        return {p.id: p.action_schema for p in self._action_providers.values()}
+        return {p.id: p.params_schema for p in self._action_providers.values()}
 
     async def stop(self) -> None:
         for automation_id in list(self._handles):
@@ -168,12 +168,11 @@ class AutomationsService(Service):
         if automation.id in self._handles:
             msg = f"Trigger for automation {automation.id!r} is already registered"
             raise RuntimeError(msg)
-        trigger_type = automation.trigger.type
-        provider = self._providers[trigger_type]
-        trigger_params = automation.trigger.model_dump(exclude={"type"})
+        provider_id = automation.trigger.provider_id
+        provider = self._providers[provider_id]
         on_fire = self._make_on_fire(automation.id)
-        handle_id = await provider.register(trigger_params, on_fire)
-        self._handles[automation.id] = (trigger_type, handle_id)
+        handle_id = await provider.register(automation.trigger.params, on_fire)
+        self._handles[automation.id] = (provider_id, handle_id)
 
     async def _stop_trigger(self, automation_id: str) -> None:
         handle = self._handles.pop(automation_id, None)
@@ -190,10 +189,8 @@ class AutomationsService(Service):
             raise NotFoundError(msg)
         output_id, status, error = None, ExecutionStatus.SUCCESS, None
         try:
-            action_type = automation.action.type
-            provider = self._action_providers[action_type]
-            action_params = automation.action.model_dump(exclude={"type"})
-            output_id = await provider.execute(action_params)
+            provider = self._action_providers[automation.action.provider_id]
+            output_id = await provider.execute(automation.action.params)
         except Exception:
             logger.exception("Automation %r action failed", automation_id)
             status, error = ExecutionStatus.FAILED, "Action execution failed"

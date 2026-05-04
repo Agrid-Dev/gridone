@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field
 
 
 class ExecutionStatus(StrEnum):
@@ -12,25 +12,13 @@ class ExecutionStatus(StrEnum):
 
 
 class Trigger(BaseModel):
-    """Opaque trigger descriptor stored with an Automation.
-
-    ``type`` identifies the provider (e.g. "schedule", "change_event").
-    Extra fields are provider-specific params passed to ``TriggerProvider.register``.
-    """
-
-    model_config = ConfigDict(extra="allow")
-    type: str
+    provider_id: str
+    params: dict = Field(default_factory=dict)
 
 
 class Action(BaseModel):
-    """Opaque action descriptor stored with an Automation.
-
-    ``type`` identifies the provider (e.g. "command_template", "notification").
-    Extra fields are provider-specific params passed to ``ActionProvider.execute``.
-    """
-
-    model_config = ConfigDict(extra="allow")
-    type: str
+    provider_id: str
+    params: dict = Field(default_factory=dict)
 
 
 class TriggerContext(BaseModel):

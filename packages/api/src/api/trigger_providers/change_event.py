@@ -105,7 +105,7 @@ class ChangeEventListener:
 
 class ChangeEventTriggerProvider:
     id = "change_event"
-    trigger_schema: ClassVar[dict] = ChangeEventTrigger.model_json_schema()
+    params_schema: ClassVar[dict] = ChangeEventTrigger.model_json_schema()
 
     def __init__(self, devices_manager: DevicesServiceInterface) -> None:
         self._dm = devices_manager
@@ -113,11 +113,11 @@ class ChangeEventTriggerProvider:
 
     async def register(
         self,
-        trigger_params: dict,
+        params: dict,
         on_fire: Callable[[TriggerContext], Awaitable[None]],
     ) -> str:
         handle_id = uuid4().hex[:16]
-        trigger = ChangeEventTrigger(**trigger_params)
+        trigger = ChangeEventTrigger(**params)
         listener = ChangeEventListener(trigger, on_fire, self._dm)
         await listener.start()
         self._listeners[handle_id] = listener
