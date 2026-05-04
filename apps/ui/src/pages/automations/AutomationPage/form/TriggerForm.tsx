@@ -19,12 +19,16 @@ interface TriggerFormProps {
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
 const TriggerForm: FC<TriggerFormProps> = ({
   initialValue,
   onSubmit,
   onCancel,
+  formId,
+  hideActions,
 }) => {
   const { t } = useTranslation("automations");
   const {
@@ -73,6 +77,8 @@ const TriggerForm: FC<TriggerFormProps> = ({
             initialValue={initialValueForType}
             onSubmit={onSubmit}
             onCancel={onCancel}
+            formId={formId}
+            hideActions={hideActions}
           />
         ) : schema ? (
           <GenericTriggerFormBody
@@ -82,6 +88,8 @@ const TriggerForm: FC<TriggerFormProps> = ({
             initialValue={initialValueForType}
             onSubmit={onSubmit}
             onCancel={onCancel}
+            formId={formId}
+            hideActions={hideActions}
           />
         ) : null)}
     </div>

@@ -20,12 +20,16 @@ interface MetadataFormProps {
   initialValue: MetadataFormValues;
   onSubmit: (values: MetadataFormValues) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
 const MetadataForm: FC<MetadataFormProps> = ({
   initialValue,
   onSubmit,
   onCancel,
+  formId,
+  hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
   const { control, handleSubmit, formState } = useForm<MetadataFormValues>({
@@ -36,7 +40,7 @@ const MetadataForm: FC<MetadataFormProps> = ({
   const enabled = useWatch({ control, name: "enabled" });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="grid gap-4">
         <InputController
           name="name"
@@ -58,17 +62,19 @@ const MetadataForm: FC<MetadataFormProps> = ({
         />
       </div>
 
-      <div className="flex align-middle justify-end gap-2 mt-8">
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          {t("common:common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          disabled={!formState.isValid || !formState.isDirty}
-        >
-          {t("common:common.save")}
-        </Button>
-      </div>
+      {!hideActions && (
+        <div className="flex align-middle justify-end gap-2 mt-8">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {t("common:common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            disabled={!formState.isValid || !formState.isDirty}
+          >
+            {t("common:common.save")}
+          </Button>
+        </div>
+      )}
     </form>
   );
 };

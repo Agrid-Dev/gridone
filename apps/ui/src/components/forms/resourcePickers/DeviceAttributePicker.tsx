@@ -45,8 +45,10 @@ export const DeviceAttributePicker: FC<DeviceAttributePickerProps> = ({
   const { t } = useTranslation("common");
   const attributeFieldId = useId();
 
+  // Singular key — `["devices", undefined]` collides with `useDevicesList`'s
+  // cache, and `enabled: false` doesn't prevent reading existing cached data.
   const { data: device } = useQuery({
-    queryKey: ["devices", deviceId],
+    queryKey: ["device", deviceId],
     queryFn: () => getDevice(deviceId!),
     enabled: !!deviceId,
   });

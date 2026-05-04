@@ -13,6 +13,8 @@ interface GenericTriggerFormBodyProps {
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
   onCancel: () => void;
+  formId?: string;
+  hideActions?: boolean;
 }
 
 type JsonSchemaProperty = {
@@ -32,6 +34,8 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   initialValue,
   onSubmit,
   onCancel,
+  formId,
+  hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
 
@@ -54,7 +58,11 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+    <form
+      id={formId}
+      onSubmit={handleSubmit(handleFormSubmit)}
+      className="space-y-4"
+    >
       <div className="grid gap-4">
         {Object.entries(properties).map(([name, property]) => {
           const label = property.title ?? toLabel(name);
@@ -95,17 +103,19 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
         })}
       </div>
 
-      <div className="flex align-middle justify-end gap-2 mt-8">
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          {t("common:common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          disabled={!formState.isValid || !formState.isDirty}
-        >
-          {t("common:common.save")}
-        </Button>
-      </div>
+      {!hideActions && (
+        <div className="flex align-middle justify-end gap-2 mt-8">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {t("common:common.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            disabled={!formState.isValid || !formState.isDirty}
+          >
+            {t("common:common.save")}
+          </Button>
+        </div>
+      )}
     </form>
   );
 };
