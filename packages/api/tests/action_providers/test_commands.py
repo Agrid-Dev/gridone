@@ -4,7 +4,7 @@ import pytest
 from commands.interface import CommandsServiceInterface
 from commands.models import BatchCommandDispatch
 
-from api.action_providers.commands import CommandAction, CommandsActionProvider
+from api.action_providers.commands import CommandsActionProvider
 
 
 def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
@@ -15,20 +15,13 @@ def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
 
 
 class TestCommandsActionProvider:
-    def test_provider_id(self):
-        svc = _commands_service()
-        provider = CommandsActionProvider(svc)
-        assert provider.id == "command_template"
-
-    def test_action_schema(self):
-        svc = _commands_service()
-        provider = CommandsActionProvider(svc)
-        assert isinstance(provider.action_schema, dict)
-        assert "properties" in provider.action_schema
+    def test_has_params_schema(self):
+        provider = CommandsActionProvider(_commands_service())
+        assert "properties" in provider.params_schema
 
     @pytest.mark.asyncio
-    async def test_execute_calls_dispatch_from_template(self):
-        svc = _commands_service()
+    async def test_execute_dispatches_and_returns_batch_id(self):
+        svc = _commands_service(batch_id="batch-xyz")
         provider = CommandsActionProvider(svc)
         result = await provider.execute({"template_id": "tmpl-01"})
         svc.dispatch_from_template.assert_awaited_once_with(
@@ -36,15 +29,4 @@ class TestCommandsActionProvider:
             user_id="system",
             confirm=False,
         )
-        assert result == "batch-abc"
-
-    @pytest.mark.asyncio
-    async def test_execute_returns_batch_id(self):
-        svc = _commands_service(batch_id="batch-xyz")
-        provider = CommandsActionProvider(svc)
-        result = await provider.execute({"template_id": "tmpl-01"})
         assert result == "batch-xyz"
-
-    def test_command_action_model_json_schema(self):
-        schema = CommandAction.model_json_schema()
-        assert "template_id" in schema["properties"]

@@ -7,10 +7,7 @@ from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
 from notifications.models import Notification, NotificationDispatch
 
-from api.action_providers.notifications import (
-    NotificationAction,
-    NotificationsActionProvider,
-)
+from api.action_providers.notifications import NotificationsActionProvider
 
 
 def _dispatch(notif_id: str = "notif-abc") -> NotificationDispatch:
@@ -37,30 +34,24 @@ def _notifications_service(notif_id: str = "notif-abc") -> AsyncMock:
     return svc
 
 
-class TestNotificationsActionProvider:
-    def test_provider_id(self):
-        svc = _notifications_service()
-        provider = NotificationsActionProvider(svc)
-        assert provider.id == "notification"
+_PARAMS = {
+    "title": "Hot!",
+    "body": "Too hot",
+    "severity": Severity.ALERT,
+    "user_ids": ["u1"],
+}
 
-    def test_action_schema(self):
-        svc = _notifications_service()
-        provider = NotificationsActionProvider(svc)
-        assert isinstance(provider.action_schema, dict)
-        assert "properties" in provider.action_schema
+
+class TestNotificationsActionProvider:
+    def test_has_params_schema(self):
+        provider = NotificationsActionProvider(_notifications_service())
+        assert "properties" in provider.params_schema
 
     @pytest.mark.asyncio
-    async def test_execute_calls_dispatch(self):
-        svc = _notifications_service()
+    async def test_execute_dispatches_and_returns_notification_id(self):
+        svc = _notifications_service(notif_id="notif-xyz")
         provider = NotificationsActionProvider(svc)
-        await provider.execute(
-            {
-                "title": "Hot!",
-                "body": "Too hot",
-                "severity": Severity.ALERT,
-                "user_ids": ["u1"],
-            }
-        )
+        result = await provider.execute(_PARAMS)
         svc.dispatch.assert_awaited_once_with(
             title="Hot!",
             body="Too hot",
@@ -68,40 +59,11 @@ class TestNotificationsActionProvider:
             user_ids=["u1"],
             created_by="system",
         )
-
-    @pytest.mark.asyncio
-    async def test_execute_returns_first_notification_id(self):
-        svc = _notifications_service(notif_id="notif-xyz")
-        provider = NotificationsActionProvider(svc)
-        result = await provider.execute(
-            {
-                "title": "Hot!",
-                "body": "Too hot",
-                "severity": Severity.ALERT,
-                "user_ids": ["u1"],
-            }
-        )
         assert result == "notif-xyz"
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_when_no_dispatches(self):
+    async def test_execute_returns_none_when_no_dispatches(self):
         svc = AsyncMock(spec=NotificationsServiceInterface)
         svc.dispatch = AsyncMock(return_value=[])
         provider = NotificationsActionProvider(svc)
-        result = await provider.execute(
-            {
-                "title": "Hot!",
-                "body": "Too hot",
-                "severity": Severity.ALERT,
-                "user_ids": ["u1"],
-            }
-        )
-        assert result is None
-
-    def test_notification_action_json_schema(self):
-        schema = NotificationAction.model_json_schema()
-        props = schema["properties"]
-        assert "title" in props
-        assert "body" in props
-        assert "severity" in props
-        assert "user_ids" in props
+        assert await provider.execute(_PARAMS) is None

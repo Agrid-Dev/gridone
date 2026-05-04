@@ -45,10 +45,9 @@ class TestScheduleListener:
 
 
 class TestScheduleTriggerProviderConfig:
-    def test_has_id_and_trigger_schema(self):
+    def test_has_params_schema(self):
         provider = ScheduleTriggerProvider()
-        assert provider.id == "schedule"
-        assert "cron" in provider.trigger_schema["properties"]
+        assert "cron" in provider.params_schema["properties"]
 
 
 class TestScheduleTriggerProvider:

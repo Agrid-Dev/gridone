@@ -25,14 +25,13 @@ pytestmark = [
     pytest.mark.skipif(POSTGRES_URL is None, reason="POSTGRES_TEST_URL not set"),
 ]
 
-_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
-_CHANGE = Trigger.model_validate(
-    {"type": "change_event", "source_id": "src-01", "event_type": "temperature"}
+_SCHEDULE = Trigger(provider_id="schedule", params={"cron": "0 11 * * *"})
+_CHANGE = Trigger(
+    provider_id="change_event",
+    params={"source_id": "src-01", "event_type": "temperature"},
 )
 
-_CMD_ACTION = Action.model_validate(
-    {"type": "command_template", "template_id": "tmpl-01"}
-)
+_CMD_ACTION = Action(provider_id="command_template", params={"template_id": "tmpl-01"})
 
 
 def _automation(**kwargs: object) -> Automation:
@@ -77,8 +76,8 @@ class TestCRUD:
         assert fetched.name == auto.name
         assert fetched.description == "My Desc"
         assert fetched.action.model_dump() == {
-            "type": "command_template",
-            "template_id": "tmpl-01",
+            "provider_id": "command_template",
+            "params": {"template_id": "tmpl-01"},
         }
         assert fetched.enabled == auto.enabled
 
@@ -112,14 +111,14 @@ class TestCRUD:
             name="renamed",
             description="Updated Desc",
             trigger=_CHANGE,
-            action=Action.model_validate(
-                {
-                    "type": "notification",
+            action=Action(
+                provider_id="notification",
+                params={
                     "title": "Hot!",
                     "body": "Too hot",
                     "severity": "alert",
                     "user_ids": ["u1"],
-                }
+                },
             ),
             enabled=False,
         )
@@ -127,7 +126,7 @@ class TestCRUD:
         fetched = await storage.get(auto.id)
         assert fetched.name == "renamed"
         assert fetched.description == "Updated Desc"
-        assert fetched.action.type == "notification"
+        assert fetched.action.provider_id == "notification"
         assert fetched.enabled is False
 
     async def test_update_description_only(self, storage: PostgresStorage):
@@ -158,63 +157,63 @@ class TestCRUD:
 class TestActionJSONB:
     async def test_command_template_roundtrip(self, storage: PostgresStorage):
         auto = _automation(
-            action=Action.model_validate(
-                {"type": "command_template", "template_id": "tmpl-42"}
+            action=Action(
+                provider_id="command_template", params={"template_id": "tmpl-42"}
             )
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
         assert fetched.action.model_dump() == {
-            "type": "command_template",
-            "template_id": "tmpl-42",
+            "provider_id": "command_template",
+            "params": {"template_id": "tmpl-42"},
         }
 
     async def test_notification_roundtrip(self, storage: PostgresStorage):
         auto = _automation(
-            action=Action.model_validate(
-                {
-                    "type": "notification",
+            action=Action(
+                provider_id="notification",
+                params={
                     "title": "Alert",
                     "body": "Hot",
                     "severity": "alert",
                     "user_ids": ["u1", "u2"],
-                }
+                },
             )
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
         assert fetched.action.model_dump() == {
-            "type": "notification",
-            "title": "Alert",
-            "body": "Hot",
-            "severity": "alert",
-            "user_ids": ["u1", "u2"],
+            "provider_id": "notification",
+            "params": {
+                "title": "Alert",
+                "body": "Hot",
+                "severity": "alert",
+                "user_ids": ["u1", "u2"],
+            },
         }
 
 
 class TestTriggerJSONB:
     async def test_schedule_trigger_roundtrip(self, storage: PostgresStorage):
         auto = _automation(
-            trigger=Trigger.model_validate({"type": "schedule", "cron": "30 8 * * 1-5"})
+            trigger=Trigger(provider_id="schedule", params={"cron": "30 8 * * 1-5"})
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
-        assert fetched.trigger.type == "schedule"
-        assert fetched.trigger.model_extra is not None
-        assert fetched.trigger.model_extra["cron"] == "30 8 * * 1-5"
+        assert fetched.trigger.provider_id == "schedule"
+        assert fetched.trigger.params == {"cron": "30 8 * * 1-5"}
 
     async def test_change_event_trigger_roundtrip(self, storage: PostgresStorage):
         auto = _automation(
-            trigger=Trigger.model_validate(
-                {"type": "change_event", "source_id": "dev-1", "event_type": "mode"}
+            trigger=Trigger(
+                provider_id="change_event",
+                params={"source_id": "dev-1", "event_type": "mode"},
             )
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
-        assert fetched.trigger.type == "change_event"
-        assert fetched.trigger.model_extra is not None
-        assert fetched.trigger.model_extra["source_id"] == "dev-1"
-        assert fetched.trigger.model_extra["event_type"] == "mode"
+        assert fetched.trigger.provider_id == "change_event"
+        assert fetched.trigger.params == {"source_id": "dev-1", "event_type": "mode"}
 
 
 class TestExecutions:

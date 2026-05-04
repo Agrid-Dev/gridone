@@ -21,19 +21,20 @@ from models.service import Service
 
 pytestmark = pytest.mark.asyncio
 
-_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
-_CHANGE = Trigger.model_validate(
-    {"type": "change_event", "device_id": "src-01", "attribute": "temperature"}
+_SCHEDULE = Trigger(provider_id="schedule", params={"cron": "0 11 * * *"})
+_CHANGE = Trigger(
+    provider_id="change_event",
+    params={"device_id": "src-01", "attribute": "temperature"},
 )
-_ACTION = Action.model_validate({"type": "command_template", "template_id": "tmpl-abc"})
-_NOTIF_ACTION = Action.model_validate(
-    {
-        "type": "notification",
+_ACTION = Action(provider_id="command_template", params={"template_id": "tmpl-abc"})
+_NOTIF_ACTION = Action(
+    provider_id="notification",
+    params={
         "title": "Hot!",
         "body": "Too hot",
         "severity": "alert",
         "user_ids": ["u1"],
-    }
+    },
 )
 
 
@@ -54,7 +55,7 @@ def _make_provider(trigger_type: str = "schedule") -> MagicMock:
 def _make_action_provider(action_type: str = "command_template") -> MagicMock:
     provider = MagicMock()
     provider.id = action_type
-    provider.action_schema = {}
+    provider.params_schema = {}
     provider.execute = AsyncMock(return_value="output-test")
     return provider
 
@@ -148,9 +149,9 @@ class TestCRUD:
 
     async def test_list_trigger_schemas_returns_provider_schemas(self):
         p1 = _make_provider("schedule")
-        p1.trigger_schema = {"title": "Schedule"}
+        p1.params_schema = {"title": "Schedule"}
         p2 = _make_provider("change_event")
-        p2.trigger_schema = {"title": "Change Event"}
+        p2.params_schema = {"title": "Change Event"}
         svc = _make_service(providers=[p1, p2])
         assert svc.list_trigger_schemas() == {
             "schedule": {"title": "Schedule"},
@@ -403,13 +404,12 @@ class TestTriggers:
         with pytest.raises(RuntimeError, match="already registered"):
             await svc._start_trigger(created)
 
-    async def test_register_passes_params_without_type(self):
+    async def test_register_passes_trigger_params(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
         await svc.create(_create_params(trigger=_SCHEDULE, enabled=True))
         call_params = provider.register.call_args[0][0]
-        assert "type" not in call_params
-        assert call_params["cron"] == "0 11 * * *"
+        assert call_params == {"cron": "0 11 * * *"}
 
 
 class TestExecutions:
@@ -433,39 +433,29 @@ _CTX = TriggerContext(timestamp=datetime(2024, 1, 1, tzinfo=UTC))
 
 
 class TestOnFire:
-    async def test_calls_action_provider_execute(self):
-        action_provider = _make_action_provider("command_template")
-        svc = _make_service(action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False))
+    @pytest.mark.parametrize(
+        ("action", "expected_params"),
+        [
+            (_ACTION, {"template_id": "tmpl-abc"}),
+            (
+                _NOTIF_ACTION,
+                {
+                    "title": "Hot!",
+                    "body": "Too hot",
+                    "severity": "alert",
+                    "user_ids": ["u1"],
+                },
+            ),
+        ],
+    )
+    async def test_dispatches_to_action_provider(self, action, expected_params):
+        provider = _make_action_provider(action.provider_id)
+        svc = _make_service(action_providers=[provider])
+        created = await svc.create(_create_params(action=action, enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
-        action_provider.execute.assert_awaited_once_with({"template_id": "tmpl-abc"})
-
-    async def test_calls_notification_action_provider(self):
-        notif_provider = _make_action_provider("notification")
-        svc = _make_service(action_providers=[notif_provider])
-        created = await svc.create(_create_params(action=_NOTIF_ACTION, enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
-        notif_provider.execute.assert_awaited_once_with(
-            {
-                "title": "Hot!",
-                "body": "Too hot",
-                "severity": "alert",
-                "user_ids": ["u1"],
-            }
-        )
+        provider.execute.assert_awaited_once_with(expected_params)
 
     async def test_logs_success_execution(self):
-        storage = _make_storage()
-        action_provider = _make_action_provider("command_template")
-        svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
-        execution = storage.log_execution.call_args[0][0]
-        assert execution.automation_id == created.id
-        assert execution.status == ExecutionStatus.SUCCESS
-        assert execution.error is None
-
-    async def test_logs_provider_output_id(self):
         storage = _make_storage()
         action_provider = _make_action_provider("command_template")
         action_provider.execute.return_value = "output-abc123"
@@ -473,7 +463,9 @@ class TestOnFire:
         created = await svc.create(_create_params(enabled=False))
         await svc._make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
+        assert execution.automation_id == created.id
         assert execution.status == ExecutionStatus.SUCCESS
+        assert execution.error is None
         assert execution.output_id == "output-abc123"
 
     async def test_logs_failed_execution_on_action_error(self):
@@ -513,9 +505,9 @@ class TestOnFire:
 class TestActionSchemas:
     async def test_returns_provider_schemas(self):
         p1 = _make_action_provider("command_template")
-        p1.action_schema = {"title": "Command"}
+        p1.params_schema = {"title": "Command"}
         p2 = _make_action_provider("notification")
-        p2.action_schema = {"title": "Notification"}
+        p2.params_schema = {"title": "Notification"}
         svc = _make_service(action_providers=[p1, p2])
         assert svc.list_action_schemas() == {
             "command_template": {"title": "Command"},

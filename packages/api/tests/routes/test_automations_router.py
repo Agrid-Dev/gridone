@@ -24,8 +24,8 @@ from api.routes.automations_router import router
 
 pytestmark = pytest.mark.asyncio
 
-_TRIGGER = Trigger.model_validate({"type": "schedule", "cron": "0 * * * *"})
-_ACTION = Action.model_validate({"type": "command_template", "template_id": "tmpl-01"})
+_TRIGGER = Trigger(provider_id="schedule", params={"cron": "0 * * * *"})
+_ACTION = Action(provider_id="command_template", params={"template_id": "tmpl-01"})
 _AUTO = Automation(
     id="auto-01",
     name="Morning Reset",
@@ -97,8 +97,14 @@ class TestCreateAutomation:
                 "/",
                 json={
                     "name": "Morning Reset",
-                    "trigger": {"type": "schedule", "cron": "0 * * * *"},
-                    "action": {"type": "command_template", "template_id": "tmpl-01"},
+                    "trigger": {
+                        "provider_id": "schedule",
+                        "params": {"cron": "0 * * * *"},
+                    },
+                    "action": {
+                        "provider_id": "command_template",
+                        "params": {"template_id": "tmpl-01"},
+                    },
                 },
             )
         assert resp.status_code == 201
@@ -107,14 +113,14 @@ class TestCreateAutomation:
     async def test_notification_action_accepted(self, client, svc):
         notif_auto = _AUTO.model_copy(
             update={
-                "action": Action.model_validate(
-                    {
-                        "type": "notification",
+                "action": Action(
+                    provider_id="notification",
+                    params={
                         "title": "Hot!",
                         "body": "Too hot",
                         "severity": "alert",
                         "user_ids": ["u1"],
-                    }
+                    },
                 )
             }
         )
@@ -125,16 +131,17 @@ class TestCreateAutomation:
                 json={
                     "name": "Temp Alert",
                     "trigger": {
-                        "type": "change_event",
-                        "device_id": "d1",
-                        "attribute": "temperature",
+                        "provider_id": "change_event",
+                        "params": {"device_id": "d1", "attribute": "temperature"},
                     },
                     "action": {
-                        "type": "notification",
-                        "title": "Hot!",
-                        "body": "Too hot",
-                        "severity": "alert",
-                        "user_ids": ["u1"],
+                        "provider_id": "notification",
+                        "params": {
+                            "title": "Hot!",
+                            "body": "Too hot",
+                            "severity": "alert",
+                            "user_ids": ["u1"],
+                        },
                     },
                 },
             )

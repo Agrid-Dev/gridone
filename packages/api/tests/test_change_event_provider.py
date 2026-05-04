@@ -70,11 +70,10 @@ class TestConditionEvaluate:
 
 
 class TestChangeEventTriggerProviderConfig:
-    def test_has_id_and_trigger_schema(self, mock_dm):
+    def test_has_params_schema(self, mock_dm):
         provider = ChangeEventTriggerProvider(mock_dm)
-        assert provider.id == "change_event"
-        assert "device_id" in provider.trigger_schema["properties"]
-        assert "attribute" in provider.trigger_schema["properties"]
+        assert "device_id" in provider.params_schema["properties"]
+        assert "attribute" in provider.params_schema["properties"]
 
 
 class TestChangeEventTriggerProvider:

@@ -20,7 +20,7 @@ from models.ids import gen_id
 pytestmark = pytest.mark.asyncio
 
 
-_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+_SCHEDULE = Trigger(provider_id="schedule", params={"cron": "0 11 * * *"})
 
 
 def _automation(**kwargs: object) -> Automation:
@@ -29,8 +29,8 @@ def _automation(**kwargs: object) -> Automation:
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action": Action.model_validate(
-            {"type": "command_template", "template_id": "tmpl-01"}
+        "action": Action(
+            provider_id="command_template", params={"template_id": "tmpl-01"}
         ),
         "enabled": True,
     }
