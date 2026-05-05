@@ -1,3 +1,10 @@
+## v0.66.1 (2026-05-05)
+
+### Fix
+
+- **devices-manager**: drop redundant try/except in init_listeners
+- **devices-manager**: tolerate transport startup failures
+
 ## v0.66.0 (2026-05-04)
 
 ### Feat
