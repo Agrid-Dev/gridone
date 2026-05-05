@@ -122,9 +122,15 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
             <ActionForm
               initialValue={automation.actionTemplateId}
               onCancel={() => setEditingSection(null)}
-              onSubmit={(actionTemplateId) =>
-                update("action", { actionTemplateId })
-              }
+              onSubmit={(result) => {
+                if (result.kind === "templateId") {
+                  update("action", { actionTemplateId: result.templateId });
+                  return;
+                }
+                // ``inlineCommand`` lands in commit 3 — placeholder body never
+                // emits this kind today, so the branch is unreachable.
+                throw new Error("inline command submit not implemented yet");
+              }}
             />
           ) : (
             <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
