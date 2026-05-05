@@ -66,7 +66,10 @@ export type CommandTemplate = {
 export type CommandTemplateCreatePayload = {
   target: DevicesFilter;
   write: AttributeWrite;
-  name: string;
+  /** ``null`` marks the template as ephemeral — the inline command flow in
+   *  the automation form uses this to save a template "without a name" so
+   *  it doesn't show up in the named templates list. */
+  name: string | null;
 };
 
 export function getCommands(

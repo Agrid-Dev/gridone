@@ -22,13 +22,20 @@ const NewAutomationPage: FC = () => {
     currentStep,
     metadata,
     trigger,
-    actionTemplateId,
+    action,
     submitMetadata,
     submitTrigger,
     submitAction,
     goPrevious,
     isSubmitting,
   } = useCreateAutomation();
+
+  // Re-seed the action form when the user navigates back and forth: the
+  // template-id branch carries a string the picker can pre-select; an
+  // ``inlineCommand`` payload is form state that lives inside the wizard
+  // so we don't pre-seed the picker for it.
+  const initialActionTemplateId =
+    action?.kind === "templateId" ? action.templateId : undefined;
 
   const onTrigger = currentStep !== "metadata";
   const onAction = currentStep === "action";
@@ -91,7 +98,7 @@ const NewAutomationPage: FC = () => {
                 <ActionForm
                   formId={WIZARD_FORM_ID}
                   hideActions
-                  initialValue={actionTemplateId ?? undefined}
+                  initialValue={initialActionTemplateId}
                   onSubmit={submitAction}
                   onCancel={goPrevious}
                 />

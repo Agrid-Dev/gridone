@@ -8,6 +8,7 @@ import {
   type Automation,
   type Trigger,
 } from "@/api/automations";
+import { createTemplate } from "@/api/commands";
 import { type MetadataFormValues } from "../form/MetadataForm";
 import type { ActionFormResult } from "../presenters/types";
 
@@ -32,19 +33,24 @@ export function useCreateAutomation() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("metadata");
   const [metadata, setMetadata] = useState<MetadataFormValues | null>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
-  const [actionTemplateId, setActionTemplateId] = useState<string | null>(null);
+  const [action, setAction] = useState<ActionFormResult | null>(null);
 
   const { mutate, isPending } = useMutation({
-    mutationFn: ({
+    // Single chained mutation: inline actions create their backing template
+    // first (with ``name: null`` to mark it ephemeral), then the automation
+    // is created against the resolved templateId. Either step failing
+    // surfaces as one error toast — the user sees a single attempt.
+    mutationFn: async ({
       values,
       triggerValue,
-      templateId,
+      actionResult,
     }: {
       values: MetadataFormValues;
       triggerValue: Trigger;
-      templateId: string;
-    }) =>
-      createAutomation({
+      actionResult: ActionFormResult;
+    }) => {
+      const templateId = await resolveTemplateId(actionResult);
+      return createAutomation({
         name: values.name,
         description: values.description,
         enabled: values.enabled,
@@ -53,7 +59,8 @@ export function useCreateAutomation() {
           providerId: "command_template",
           params: { templateId },
         },
-      }),
+      });
+    },
     onSuccess: (automation: Automation) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.created"));
@@ -74,16 +81,8 @@ export function useCreateAutomation() {
 
   const submitAction = (result: ActionFormResult) => {
     if (!metadata || !trigger) return;
-    if (result.kind !== "templateId") {
-      // ``inlineCommand`` lands in commit 3.
-      throw new Error("inline command submit not implemented yet");
-    }
-    setActionTemplateId(result.templateId);
-    mutate({
-      values: metadata,
-      triggerValue: trigger,
-      templateId: result.templateId,
-    });
+    setAction(result);
+    mutate({ values: metadata, triggerValue: trigger, actionResult: result });
   };
 
   const goPrevious = () => {
@@ -102,11 +101,17 @@ export function useCreateAutomation() {
     currentStep,
     metadata,
     trigger,
-    actionTemplateId,
+    action,
     submitMetadata,
     submitTrigger,
     submitAction,
     goPrevious,
     isSubmitting: isPending,
   };
+}
+
+async function resolveTemplateId(result: ActionFormResult): Promise<string> {
+  if (result.kind === "templateId") return result.templateId;
+  const template = await createTemplate({ ...result.payload, name: null });
+  return template.id;
 }

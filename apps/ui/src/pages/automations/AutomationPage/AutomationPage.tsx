@@ -35,7 +35,8 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
     canWrite,
     editingSection,
     setEditingSection,
-    update,
+    updateField,
+    updateAction,
     submittingSection,
   } = useAutomationEdit(automationId);
   const { automation, isLoading, remove, isDeleting } = useAutomation(
@@ -80,7 +81,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
               description: automation.description,
               enabled: automation.enabled,
             }}
-            onSubmit={(values) => update("metadata", values)}
+            onSubmit={(values) => updateField("metadata", values)}
             onCancel={() => setEditingSection(null)}
           />
         ) : (
@@ -107,7 +108,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
           {editingSection === "trigger" ? (
             <TriggerForm
               initialValue={automation.trigger}
-              onSubmit={(trigger) => update("trigger", { trigger })}
+              onSubmit={(trigger) => updateField("trigger", { trigger })}
               onCancel={() => setEditingSection(null)}
             />
           ) : (
@@ -132,20 +133,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
             <ActionForm
               initialValue={initialActionTemplateId(automation)}
               onCancel={() => setEditingSection(null)}
-              onSubmit={(result) => {
-                if (result.kind === "templateId") {
-                  update("action", {
-                    action: {
-                      providerId: "command_template",
-                      params: { templateId: result.templateId },
-                    },
-                  });
-                  return;
-                }
-                // ``inlineCommand`` lands in commit 3 — placeholder body never
-                // emits this kind today, so the branch is unreachable.
-                throw new Error("inline command submit not implemented yet");
-              }}
+              onSubmit={updateAction}
             />
           ) : (
             <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
