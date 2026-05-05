@@ -312,7 +312,7 @@ class TestDispatchBatch:
         assert all(c.status == CommandStatus.PENDING for c in page.items)
 
         gate.set()
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
     async def test_every_batch_creates_an_ephemeral_template(
         self,
@@ -328,7 +328,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         # Every unit row links to the same auto-created ephemeral template
         # and the resolver is called with the stored target (not the raw one).
@@ -341,7 +341,7 @@ class TestDispatchBatch:
         # The ephemeral template is persisted on the storage layer — we
         # reach into it directly because the public ``get_template`` only
         # surfaces user-saved templates, not ephemerals.
-        template = await service._storage.get_template(template_id)
+        template = await service._storage.get_template(template_id)  # noqa: SLF001
         assert template is not None
         assert template.name is None
         assert template.target == target
@@ -367,14 +367,14 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
         template_id = next(iter(template_ids))
         assert template_id is not None
 
-        template = await service._storage.get_template(template_id)
+        template = await service._storage.get_template(template_id)  # noqa: SLF001
         assert template is not None
         assert template.name is None
         assert template.target == {"ids": ["d1", "d2"]}
@@ -417,7 +417,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert len(page.items) == 3
@@ -446,7 +446,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         by_device = {c.device_id: c for c in page.items}
@@ -471,7 +471,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
@@ -483,7 +483,7 @@ class TestDispatchBatch:
     ):
         # Safe to call on a freshly-constructed service that has no in-flight
         # background tasks.
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
     async def test_stop_awaits_in_flight_tasks(
         self,
@@ -520,7 +520,7 @@ class TestDispatchBatch:
         await release_task
 
         # stop() drained the in-flight batch before returning.
-        assert svc._tasks == set()
+        assert svc._tasks == set()  # noqa: SLF001
         assert result_handler.await_count == 2
 
     async def test_await_pending_is_idempotent(
@@ -534,9 +534,9 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
         # A second call should be a no-op and not hang.
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
 
 class TestTemplateCrud:
@@ -597,7 +597,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u1"
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
         assert all(c.template_id == template.id for c in dispatch.commands)
 
         await service.delete_template(template.id)
@@ -612,7 +612,7 @@ class TestTemplateCrud:
         # commands keep their ``template_id`` pointer for audit. A later
         # cleanup job reaps the row and the SQL cascade detaches history
         # at that point.
-        demoted = await service._storage.get_template(template.id)
+        demoted = await service._storage.get_template(template.id)  # noqa: SLF001
         assert demoted is not None
         assert demoted.name is None
         history = await service.get_commands(batch_id=dispatch.batch_id)
@@ -658,7 +658,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u2"
         )
-        await service._await_pending()
+        await service._await_pending()  # noqa: SLF001
 
         target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
         assert [c.device_id for c in dispatch.commands] == ["t1", "t2"]

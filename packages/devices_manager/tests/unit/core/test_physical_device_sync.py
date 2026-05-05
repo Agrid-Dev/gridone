@@ -36,27 +36,27 @@ class TestPhysicalDeviceSync:
 
     @pytest.mark.asyncio
     async def test_start_sync_spawns_poll_task(self, device: PhysicalDevice):
-        assert device._poll_task is None
+        assert device._poll_task is None  # noqa: SLF001
         await device.start_sync()
-        assert device._poll_task is not None
-        assert not device._poll_task.done()
+        assert device._poll_task is not None  # noqa: SLF001
+        assert not device._poll_task.done()  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio
     async def test_stop_sync_cancels_poll_task(self, device: PhysicalDevice):
         await device.start_sync()
-        task = device._poll_task
+        task = device._poll_task  # noqa: SLF001
         await device.stop_sync()
-        assert device._poll_task is None
+        assert device._poll_task is None  # noqa: SLF001
         assert task is not None
         assert task.done()
 
     @pytest.mark.asyncio
     async def test_start_sync_idempotent(self, device: PhysicalDevice):
         await device.start_sync()
-        first_task = device._poll_task
+        first_task = device._poll_task  # noqa: SLF001
         await device.start_sync()
-        assert device._poll_task is first_task
+        assert device._poll_task is first_task  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio
@@ -78,7 +78,7 @@ class TestPhysicalDeviceSync:
         )
         await device.start_sync()
         assert device.syncing is True
-        assert device._poll_task is None
+        assert device._poll_task is None  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio

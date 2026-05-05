@@ -103,7 +103,7 @@ async def storage():
     """
     assert POSTGRES_URL is not None
     store = await build_postgres_storage(POSTGRES_URL)
-    async with store._pool.acquire() as conn:
+    async with store._pool.acquire() as conn:  # noqa: SLF001
         await conn.execute("DELETE FROM unit_commands")
         await conn.execute("DELETE FROM command_templates")
 
@@ -350,7 +350,7 @@ class TestTemplates:
             _unit(batch_id="bcas", template_id=template.id)
         )
 
-        async with storage._pool.acquire() as conn:
+        async with storage._pool.acquire() as conn:  # noqa: SLF001
             await conn.execute(
                 "DELETE FROM command_templates WHERE id = $1", template.id
             )

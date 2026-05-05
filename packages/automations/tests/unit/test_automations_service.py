@@ -78,7 +78,7 @@ def _make_service(
         trigger_providers=providers,
         action_providers=action_providers,
     )
-    svc._storage = storage or _make_storage()
+    svc._storage = storage or _make_storage()  # noqa: SLF001
     return svc
 
 
@@ -222,7 +222,7 @@ class TestStart:
         with patch("automations.service.build_storage", return_value=storage):
             await svc.start()
             await svc.start()
-        assert len(svc._handles) == 2
+        assert len(svc._handles) == 2  # noqa: SLF001
         assert provider.register.call_count == 2
 
     async def test_start_zero_automations_not_blocked(self):
@@ -232,7 +232,7 @@ class TestStart:
         with patch("automations.service.build_storage", return_value=storage):
             await svc.start()
             await svc.start()
-        assert svc._handles == {}
+        assert svc._handles == {}  # noqa: SLF001
 
     async def test_start_after_stop_restarts(self):
         storage = _make_storage()
@@ -251,7 +251,7 @@ class TestStart:
             await svc.start()
             await svc.stop()
             await svc.start()
-        assert len(svc._handles) == 1
+        assert len(svc._handles) == 1  # noqa: SLF001
         assert provider.register.call_count == 2
 
 
@@ -402,7 +402,7 @@ class TestTriggers:
         svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
         with pytest.raises(RuntimeError, match="already registered"):
-            await svc._start_trigger(created)
+            await svc._start_trigger(created)  # noqa: SLF001
 
     async def test_register_passes_trigger_params(self):
         provider = _make_provider("schedule")
@@ -452,7 +452,7 @@ class TestOnFire:
         provider = _make_action_provider(action.provider_id)
         svc = _make_service(action_providers=[provider])
         created = await svc.create(_create_params(action=action, enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         provider.execute.assert_awaited_once_with(expected_params)
 
     async def test_logs_success_execution(self):
@@ -461,7 +461,7 @@ class TestOnFire:
         action_provider.execute.return_value = "output-abc123"
         svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
         assert execution.status == ExecutionStatus.SUCCESS
@@ -474,7 +474,7 @@ class TestOnFire:
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
         assert execution.error is not None
@@ -485,18 +485,18 @@ class TestOnFire:
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)  # must not raise
+        await svc._make_on_fire(created.id)(_CTX)  # must not raise  # noqa: SLF001
 
     async def test_raises_not_found_when_automation_missing(self):
         svc = _make_service()
         with pytest.raises(NotFoundError):
-            await svc._make_on_fire("nonexistent")(_CTX)
+            await svc._make_on_fire("nonexistent")(_CTX)  # noqa: SLF001
 
     async def test_logs_failed_execution_on_unknown_action_type(self):
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
         assert execution.output_id is None

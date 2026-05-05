@@ -38,7 +38,7 @@ def service(storage: MemoryUsersStorage) -> UsersService:
     # Inject the shared storage so tests can seed UserInDB rows directly (with
     # pre-computed hashed_password) without paying bcrypt for every fixture.
     # Skipping ``start`` also keeps the default-admin seed out of assertions.
-    svc._storage = storage
+    svc._storage = storage  # noqa: SLF001
     return svc
 
 

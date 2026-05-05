@@ -249,7 +249,7 @@ class TestHealthCheck:
         response.is_success = True
         http_client.get.return_value = response
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
 
         http_client.get.assert_called_once_with(
             "https://myapp.example.com/health",
@@ -267,7 +267,7 @@ class TestHealthCheck:
         response.is_success = False
         http_client.get.return_value = response
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
 
         updated = await app_storage.get_by_id("app-1")
         assert updated is not None
@@ -279,7 +279,7 @@ class TestHealthCheck:
         await app_storage.save(make_app(status=AppStatus.HEALTHY))
         http_client.get.side_effect = httpx.ConnectError("unreachable")
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
 
         updated = await app_storage.get_by_id("app-1")
         assert updated is not None
@@ -302,17 +302,17 @@ class TestHealthCheck:
 
         app_storage.save = tracked_save
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
 
         assert len(save_calls) == 0
 
     async def test_start_and_stop_health_check(self, apps_manager):
         await apps_manager.start_health_check(interval_seconds=3600)
-        assert apps_manager._health_task is not None
-        assert not apps_manager._health_task.done()
+        assert apps_manager._health_task is not None  # noqa: SLF001
+        assert not apps_manager._health_task.done()  # noqa: SLF001
 
         await apps_manager.stop_health_check()
-        assert apps_manager._health_task is None
+        assert apps_manager._health_task is None  # noqa: SLF001
 
     async def test_health_check_loop_runs_and_sleeps(
         self, apps_manager, app_storage, http_client
@@ -331,7 +331,7 @@ class TestHealthCheck:
         asyncio.sleep = cancel_on_sleep  # type: ignore[assignment]
         try:
             with pytest.raises(asyncio.CancelledError):
-                await apps_manager._health_check_loop(60)
+                await apps_manager._health_check_loop(60)  # noqa: SLF001
         finally:
             asyncio.sleep = original_sleep
 

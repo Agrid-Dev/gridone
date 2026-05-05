@@ -41,7 +41,7 @@ class TestTimeSeriesServiceLifecycle:
         service = TimeSeriesService(storage_url=None)
         await service.start()
         try:
-            assert isinstance(service._storage, MemoryStorage)
+            assert isinstance(service._storage, MemoryStorage)  # noqa: SLF001
         finally:
             await service.stop()
 
@@ -49,7 +49,7 @@ class TestTimeSeriesServiceLifecycle:
         service = TimeSeriesService(storage_url=None)
         await service.start()
         await service.stop()
-        assert service._storage is None
+        assert service._storage is None  # noqa: SLF001
 
     async def test_methods_require_start(self):
         service = TimeSeriesService(storage_url=None)
