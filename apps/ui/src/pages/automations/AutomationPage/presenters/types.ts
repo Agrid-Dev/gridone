@@ -26,11 +26,15 @@ export type TriggerDescriptor = {
 /** What an action-type form contributes upward. The host (ActionForm) collects
  *  one of these from the active descriptor and hands it to the parent's submit
  *  flow. ``templateId`` reuses an existing template; ``inlineCommand`` carries
- *  the payload for a template the parent will create on the fly. A future
- *  ``notification`` kind slots in here without further refactor. */
+ *  the (target, write) pair for a template the parent will create on the fly
+ *  (with ``name: null``, marking it ephemeral). A future ``notification`` kind
+ *  slots in here without further refactor. */
 export type ActionFormResult =
   | { kind: "templateId"; templateId: string }
-  | { kind: "inlineCommand"; payload: CommandTemplateCreatePayload };
+  | {
+      kind: "inlineCommand";
+      payload: Omit<CommandTemplateCreatePayload, "name">;
+    };
 
 export type CustomActionFormProps = {
   initialValue?: ActionFormResult;

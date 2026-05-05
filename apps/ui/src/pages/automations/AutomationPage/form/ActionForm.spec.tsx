@@ -9,10 +9,6 @@ vi.mock("react-i18next", () =>
     "automations:actions.types.command_template":
       "Use an existing command template",
     "automations:actions.types.command_inline": "Define a new command",
-    "automations:actions.types.command_inline_comingSoon":
-      "Defining a command inline is coming soon.",
-    "actions.types.command_inline_comingSoon":
-      "Defining a command inline is coming soon.",
     "common:common.cancel": "Cancel",
     "common:common.save": "Save",
   }),
@@ -59,6 +55,13 @@ vi.mock("@/components/forms/resourcePickers/CommandTemplatePicker", () => ({
   ),
 }));
 
+// Inline body queries devices + asset tree and renders the full wizard. Stub
+// it down to a marker so the spec only asserts mode switching, not the
+// wizard's rendering (covered by the wizard's own tests).
+vi.mock("./actionTypes/InlineCommandForm", () => ({
+  InlineCommandForm: () => <div data-testid="inline-command-form" />,
+}));
+
 // TitlePresenter wraps its title in nested spans + Icon — strip it so spec
 // assertions can read the label off the select option directly.
 vi.mock("../presenters/BasePresenter", () => ({
@@ -94,7 +97,7 @@ describe("ActionForm", () => {
     );
   });
 
-  it("switches to the inline body and disables save when the inline placeholder yields no result", () => {
+  it("switches to the inline body and gates submit until the inline form yields a payload", () => {
     render(
       <ActionForm
         initialValue="tpl-1"
@@ -107,10 +110,10 @@ describe("ActionForm", () => {
       target: { value: "command_inline" },
     });
 
-    expect(
-      screen.getByText("Defining a command inline is coming soon."),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("inline-command-form")).toBeInTheDocument();
     expect(screen.queryByTestId("template-picker")).not.toBeInTheDocument();
+    // Inline form hasn't fired ``onChange`` with a payload yet — Save stays
+    // gated.
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 });

@@ -8,6 +8,7 @@ import {
   dispatchSingleCommand,
   type AttributeValue,
   type CommandTemplate,
+  type CommandTemplateCreatePayload,
 } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
 import {
@@ -31,10 +32,16 @@ export type UseCommandWizardArgs = {
    *  entry point passes ``{assetId}``. When omitted, the user picks a target
    *  through the wizard's first step. */
   predefinedTarget?: DevicesFilter;
-  /** Callback after a successful dispatch. The caller owns navigation. */
-  onDispatched: (result: DispatchResult) => void;
-  /** Callback after a successful save-as-template. */
-  onSaved: (template: CommandTemplate) => void;
+  /** When true the review step is skipped — the embedded automation form
+   *  has its own review surface, so the wizard stops at the command step. */
+  skipReview?: boolean;
+  /** Callback after a successful dispatch. The caller owns navigation.
+   *  Optional: callers wiring an ``overrideAction`` don't dispatch from the
+   *  wizard. */
+  onDispatched?: (result: DispatchResult) => void;
+  /** Callback after a successful save-as-template. Optional for the same
+   *  reason as ``onDispatched``. */
+  onSaved?: (template: CommandTemplate) => void;
 };
 
 const DRAFT_KEY = "commands.wizard.draft";
@@ -43,6 +50,7 @@ const DRAFT_DEBOUNCE_MS = 250;
 export function useCommandWizard({
   devices,
   predefinedTarget,
+  skipReview = false,
   onDispatched,
   onSaved,
 }: UseCommandWizardArgs) {
@@ -51,6 +59,10 @@ export function useCommandWizard({
 
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
   const initialStep = isPredefined ? 1 : 0;
+  // Last visitable step index. With ``skipReview`` the command step is the
+  // last; otherwise it's the review step. Drives ``handleNext`` clamping
+  // and the wizard's "we're on the last step" UI gate.
+  const lastStep = skipReview ? 1 : 2;
 
   const { control, watch, setValue, getValues, trigger, reset } =
     useForm<WizardFormValues>({
@@ -76,7 +88,7 @@ export function useCommandWizard({
   const setStep = (idx: number) => {
     // When the target is predefined, step 0 isn't reachable.
     const min = isPredefined ? 1 : 0;
-    const clamped = Math.max(min, Math.min(2, idx));
+    const clamped = Math.max(min, Math.min(lastStep, idx));
     const next = new URLSearchParams(searchParams);
     next.set("step", String(clamped + 1));
     setSearchParams(next);
@@ -164,7 +176,7 @@ export function useCommandWizard({
       onSuccess: (result) => {
         clearDraft();
         queryClient.invalidateQueries({ queryKey: ["commands"] });
-        onDispatched(result);
+        onDispatched?.(result);
       },
     },
   );
@@ -174,7 +186,7 @@ export function useCommandWizard({
     onSuccess: (template) => {
       clearDraft();
       queryClient.invalidateQueries({ queryKey: ["command-templates"] });
-      onSaved(template);
+      onSaved?.(template);
     },
   });
 
@@ -194,6 +206,27 @@ export function useCommandWizard({
 
   const handleDispatch = () => dispatchMutation.mutate(getValues());
   const handleSave = () => saveMutation.mutate(getValues());
+
+  /** Build the (target, write) pair the parent needs to e.g. save the command
+   *  as an unnamed template when running inside the automation action form.
+   *  Returns ``null`` while the form is incomplete. */
+  const getCommandPayload = (): Omit<
+    CommandTemplateCreatePayload,
+    "name"
+  > | null => {
+    const v = getValues();
+    if (!v.attribute || v.value === undefined || !v.attributeDataType) {
+      return null;
+    }
+    return {
+      target: effectiveTarget,
+      write: {
+        attribute: v.attribute,
+        value: v.value as AttributeValue,
+        dataType: v.attributeDataType,
+      },
+    };
+  };
 
   return {
     control,
@@ -215,6 +248,8 @@ export function useCommandWizard({
     handleCancel,
     handleDispatch,
     handleSave,
+    getCommandPayload,
+    isLastStep: step === lastStep,
   };
 }
 

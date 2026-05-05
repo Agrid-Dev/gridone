@@ -73,9 +73,9 @@
     "type": "Action type",
     "types": {
       "command_template": "Use an existing command template",
-      "command_inline": "Define a new command",
-      "command_inline_comingSoon": "Defining a command inline is coming soon."
-    }
+      "command_inline": "Define a new command"
+    },
+    "useCommand": "Use this command"
   },
   "toasts": {
     "created": "Automation created",

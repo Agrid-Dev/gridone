@@ -7,6 +7,7 @@ import { getAsset, getAssetTreeWithDevices } from "@/api/assets";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import type { DevicesFilter } from "@/api/devices";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -89,29 +90,33 @@ export default function NewCommandPage() {
         backTo={backHref}
       />
       <StepSubtitle predefined={!!predefinedTarget} />
-      <CommandWizard
-        devices={devices}
-        assetTree={assetTree}
-        assetsList={assetsList}
-        predefinedTarget={predefinedTarget}
-        onCancel={() => navigate(-1)}
-        onDispatched={(result) => {
-          if (result.kind === "batch") {
-            toast.success(t("commands.new.feedback.batchDispatched"));
-            navigate(`/devices/commands?batch_id=${result.batchId}`);
-          } else {
-            toast.success(t("commands.new.feedback.dispatched"));
-            const listUrl = deviceId
-              ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
-              : "/devices/commands";
-            navigate(listUrl);
-          }
-        }}
-        onSaved={(template) => {
-          toast.success(t("commands.new.save.savedFeedback"));
-          navigate(`/devices/commands/templates/${template.id}`);
-        }}
-      />
+      <Card>
+        <CardContent className="py-6">
+          <CommandWizard
+            devices={devices}
+            assetTree={assetTree}
+            assetsList={assetsList}
+            predefinedTarget={predefinedTarget}
+            onCancel={() => navigate(-1)}
+            onDispatched={(result) => {
+              if (result.kind === "batch") {
+                toast.success(t("commands.new.feedback.batchDispatched"));
+                navigate(`/devices/commands?batch_id=${result.batchId}`);
+              } else {
+                toast.success(t("commands.new.feedback.dispatched"));
+                const listUrl = deviceId
+                  ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
+                  : "/devices/commands";
+                navigate(listUrl);
+              }
+            }}
+            onSaved={(template) => {
+              toast.success(t("commands.new.save.savedFeedback"));
+              navigate(`/devices/commands/templates/${template.id}`);
+            }}
+          />
+        </CardContent>
+      </Card>
       {assetId && lockedAsset && (
         <p className="text-xs text-muted-foreground">
           <Link to={`/assets/${lockedAsset.id}`} className="hover:underline">

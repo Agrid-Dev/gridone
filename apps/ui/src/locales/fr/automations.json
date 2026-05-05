@@ -72,9 +72,9 @@
     "type": "Type d'action",
     "types": {
       "command_template": "Utiliser un modèle de commande existant",
-      "command_inline": "Définir une nouvelle commande",
-      "command_inline_comingSoon": "La définition d'une commande à la volée arrive bientôt."
-    }
+      "command_inline": "Définir une nouvelle commande"
+    },
+    "useCommand": "Utiliser cette commande"
   },
   "toasts": {
     "created": "Automatisation créée",

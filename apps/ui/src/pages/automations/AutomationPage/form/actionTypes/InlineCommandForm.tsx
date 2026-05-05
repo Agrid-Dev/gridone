@@ -1,15 +1,44 @@
-import { FC } from "react";
+import { FC, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useDevicesList } from "@/hooks/useDevicesList";
+import { getAssetTreeWithDevices, type AssetTreeNode } from "@/api/assets";
+import { CommandWizard } from "@/pages/devices/commands/new/CommandWizard";
+import { flattenAssetTree } from "@/pages/devices/commands/new/types";
 import type { CustomActionFormProps } from "../../presenters/types";
 
-/** Placeholder body for the ``command_inline`` action type. The composer that
- *  lets the user define a command on the fly lands in commit 2 — until then,
- *  this body emits no result, which keeps the action form's submit gated. */
-export const InlineCommandForm: FC<CustomActionFormProps> = () => {
-  const { t } = useTranslation("automations");
+export const InlineCommandForm: FC<CustomActionFormProps> = ({ onChange }) => {
+  const { t } = useTranslation(["automations", "common"]);
+  const { devices, loading: devicesLoading } = useDevicesList();
+  const { data: assetTree = [], isLoading: assetTreeLoading } = useQuery<
+    AssetTreeNode[]
+  >({
+    queryKey: ["assets", "tree-with-devices"],
+    queryFn: getAssetTreeWithDevices,
+  });
+
+  const assetsList = useMemo(() => flattenAssetTree(assetTree), [assetTree]);
+
+  if (devicesLoading || assetTreeLoading) {
+    return <Skeleton className="h-64 w-full" />;
+  }
+
   return (
-    <p className="text-sm text-muted-foreground">
-      {t("actions.types.command_inline_comingSoon")}
-    </p>
+    // Left margin + border signals nesting inside the action card; the
+    // wizard's own stepper Next/Back buttons stay visible inside.
+    <div className="ml-2 border-l-2 border-muted pl-4">
+      <CommandWizard
+        devices={devices}
+        assetTree={assetTree}
+        assetsList={assetsList}
+        skipReview
+        overrideAction={{
+          label: t("automations:actions.useCommand"),
+          onAction: (payload) => onChange({ kind: "inlineCommand", payload }),
+        }}
+        onCancel={() => onChange(null)}
+      />
+    </div>
   );
 };
