@@ -11,10 +11,8 @@ vi.mock("react-i18next", () =>
     "automations:actions.types.command_inline": "Define a new command",
     "automations:actions.types.command_inline_comingSoon":
       "Defining a command inline is coming soon.",
-    "automations:actions.pickTemplate": "Pick a command template",
     "actions.types.command_inline_comingSoon":
       "Defining a command inline is coming soon.",
-    "actions.pickTemplate": "Pick a command template",
     "common:common.cancel": "Cancel",
     "common:common.save": "Save",
   }),

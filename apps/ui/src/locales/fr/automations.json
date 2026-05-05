@@ -69,7 +69,6 @@
     "enable": "Activer",
     "disable": "Désactiver",
     "rowMenu": "Actions",
-    "pickTemplate": "Choisir un modèle de commande",
     "type": "Type d'action",
     "types": {
       "command_template": "Utiliser un modèle de commande existant",

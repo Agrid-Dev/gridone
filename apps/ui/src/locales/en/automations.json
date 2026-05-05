@@ -70,7 +70,6 @@
     "enable": "Enable",
     "disable": "Disable",
     "rowMenu": "Actions",
-    "pickTemplate": "Pick a command template",
     "type": "Action type",
     "types": {
       "command_template": "Use an existing command template",
