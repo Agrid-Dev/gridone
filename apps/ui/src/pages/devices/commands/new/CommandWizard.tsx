@@ -10,13 +10,13 @@ import { CommandSummary } from "./summaries";
 import { TargetStep } from "./TargetStep";
 import type { CommandWizardState } from "./useCommandWizard";
 
-export type SubmitAction = {
+export type Submit = {
   label: string;
-  /** The wizard hands its current ``getCommandPayload()`` result so the
-   *  caller doesn't have to read it from the wizard state. ``null`` is
-   *  filtered out by the wizard before this fires (the button is gated on
-   *  ``commandValid``), so callers can rely on a non-null payload. */
-  onAction: (payload: Omit<CommandTemplateCreatePayload, "name">) => void;
+  /** Fires once with the validated, non-null payload after the user clicks
+   *  the wizard's terminal button. The wizard runs RHF validation and
+   *  marks itself submitted internally — callers just react to the
+   *  payload (e.g. dispatch it, or hand it to a parent form). */
+  onSubmit: (payload: Omit<CommandTemplateCreatePayload, "name">) => void;
 };
 
 type CommandWizardProps = {
@@ -24,22 +24,20 @@ type CommandWizardProps = {
    *  everything it needs (devices, asset lookups, validation) off this
    *  one prop — callers don't pre-thread data. */
   wizard: CommandWizardState;
-  /** Terminal action: one button at the end of the last visible step. The
-   *  standalone wizard wires this to a Dispatch-mutation handler; the
-   *  inline action form bubbles the payload up to the automation submit. */
-  submitAction: SubmitAction;
+  /** Terminal action: one button at the end of the last visible step. */
+  submit: Submit;
   onCancel: () => void;
   /** Fires when the user re-opens an already-submitted wizard via the Edit
    *  affordance. Inline embeddings use this to clear their parent's stale
    *  payload until the user re-confirms. */
-  onEdit?: () => void;
+  onReopen?: () => void;
 };
 
 export function CommandWizard({
   wizard,
-  submitAction,
+  submit,
   onCancel,
-  onEdit,
+  onReopen,
 }: CommandWizardProps) {
   const { t } = useTranslation(["devices", "common"]);
   const {
@@ -60,6 +58,7 @@ export function CommandWizard({
     step,
     isFirstStep,
     submitted,
+    markSubmitted,
     reopen,
     handleNext,
     handleBack,
@@ -93,12 +92,16 @@ export function CommandWizard({
     if (!ok) return;
     const payload = getCommandPayload();
     if (!payload) return;
-    submitAction.onAction(payload);
+    submit.onSubmit(payload);
+    // Collapse to done summaries so the user sees the command was taken.
+    // Callers don't need to opt in — every confirmed payload yields the
+    // same visual feedback.
+    markSubmitted();
   };
 
-  const handleEdit = () => {
+  const handleReopen = () => {
     reopen();
-    onEdit?.();
+    onReopen?.();
   };
 
   // ``commandIsLast`` flips the command step's footer into the submit
@@ -159,7 +162,7 @@ export function CommandWizard({
             <SubmitFooter
               onBack={onBack}
               backLabel={backLabel}
-              submitLabel={submitAction.label}
+              submitLabel={submit.label}
               submitDisabled={!commandValid}
               onSubmit={fireSubmit}
             />
@@ -188,7 +191,7 @@ export function CommandWizard({
               <SubmitFooter
                 onBack={onBack}
                 backLabel={backLabel}
-                submitLabel={submitAction.label}
+                submitLabel={submit.label}
                 submitDisabled={!commandValid}
                 onSubmit={fireSubmit}
               />
@@ -199,7 +202,7 @@ export function CommandWizard({
 
       {submitted && (
         <div className="flex justify-end pt-2">
-          <Button type="button" variant="outline" onClick={handleEdit}>
+          <Button type="button" variant="outline" onClick={handleReopen}>
             {t("commands.new.edit")}
           </Button>
         </div>

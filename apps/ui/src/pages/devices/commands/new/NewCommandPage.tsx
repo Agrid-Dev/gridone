@@ -122,11 +122,6 @@ function WizardCard({ predefinedTarget, deviceId }: WizardCardProps) {
     return <Skeleton className="h-64 w-full rounded-lg" />;
   }
 
-  const handleDispatch = () => {
-    const payload = wizard.getCommandPayload();
-    if (payload) mutations.dispatch(payload);
-  };
-
   const templateName = (wizard.values.templateName ?? "").trim();
   const handleSave = () => {
     const payload = wizard.getCommandPayload();
@@ -141,11 +136,11 @@ function WizardCard({ predefinedTarget, deviceId }: WizardCardProps) {
         <CommandWizard
           wizard={wizard}
           onCancel={() => navigate(-1)}
-          submitAction={{
+          submit={{
             label: mutations.isDispatching
               ? t("devices:commands.new.dispatching")
               : t("devices:commands.new.dispatch"),
-            onAction: handleDispatch,
+            onSubmit: (payload) => mutations.dispatch(payload),
           }}
         />
         {wizard.isLastStep && wizard.commandValid && (

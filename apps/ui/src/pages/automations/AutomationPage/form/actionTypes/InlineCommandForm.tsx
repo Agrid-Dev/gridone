@@ -19,19 +19,14 @@ export const InlineCommandForm: FC<CustomActionFormProps> = ({ onChange }) => {
     <div className="ml-2 border-l-2 border-muted pl-4">
       <CommandWizard
         wizard={wizard}
-        submitAction={{
+        submit={{
           label: t("automations:actions.useCommand"),
-          onAction: (payload) => {
-            onChange({ kind: "inlineCommand", payload });
-            // Collapse the wizard to its done-state summaries so the user
-            // sees the command was accepted.
-            wizard.markSubmitted();
-          },
+          onSubmit: (payload) => onChange({ kind: "inlineCommand", payload }),
         }}
         // When the user re-opens the wizard to tweak the command, drop
         // the parent's stale payload until they re-confirm. Keeps the
         // automation form's Save gated against unverified state.
-        onEdit={() => onChange(null)}
+        onReopen={() => onChange(null)}
         onCancel={() => onChange(null)}
       />
     </div>
