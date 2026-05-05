@@ -1,3 +1,9 @@
+## v0.66.2 (2026-05-05)
+
+### Refactor
+
+- **quality**: enforce ruff SLF001, silence existing violations (AGR-524)
+
 ## v0.66.1 (2026-05-05)
 
 ### Fix
