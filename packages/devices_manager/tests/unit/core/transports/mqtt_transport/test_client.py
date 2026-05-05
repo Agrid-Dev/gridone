@@ -57,7 +57,8 @@ async def test_connect_success(
     await mqtt_client.connect()
     assert mqtt_client.connection_state.is_connected is True
     mock_aiomqtt_client.__aenter__.assert_awaited_once()
-    assert len(mqtt_client._background_tasks) == 1  # _handle_incoming_messages task
+    # _handle_incoming_messages task
+    assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
 
 
 @pytest.mark.asyncio
@@ -66,20 +67,20 @@ async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: Asyn
     await mqtt_client.close()
     mock_aiomqtt_client.__aexit__.assert_awaited_once()
     assert mqtt_client.connection_state.is_connected is False
-    assert len(mqtt_client._background_tasks) == 0
+    assert len(mqtt_client._background_tasks) == 0  # noqa: SLF001
 
 
 @pytest.mark.asyncio
 async def test_subscribe(mqtt_client, mock_aiomqtt_client):
     await mqtt_client.connect()
-    await mqtt_client._subscribe("test/topic")
+    await mqtt_client._subscribe("test/topic")  # noqa: SLF001
     mock_aiomqtt_client.subscribe.assert_awaited_once_with("test/topic")
 
 
 @pytest.mark.asyncio
 async def test_unsubscribe(mqtt_client, mock_aiomqtt_client):
     await mqtt_client.connect()
-    await mqtt_client._unsubscribe("test/topic")
+    await mqtt_client._unsubscribe("test/topic")  # noqa: SLF001
     mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
 
 
@@ -131,7 +132,7 @@ async def test_handle_incoming_messages(
     await mqtt_client.register_listener(mqtt_read_address.topic, callback)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
-    await mqtt_client._handle_incoming_messages()
+    await mqtt_client._handle_incoming_messages()  # noqa: SLF001
 
     callback.assert_called_once_with('{"value": 42}')
 

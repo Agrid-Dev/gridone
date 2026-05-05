@@ -852,7 +852,7 @@ class TestDeviceRegistryUpdate:
         other_http_driver,
         on_attribute_update,
     ):
-        device.attributes["temperature"]._update_value(42.0)
+        device.attributes["temperature"]._update_value(42.0)  # noqa: SLF001
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver, other_http_driver),
@@ -1047,7 +1047,7 @@ class TestDeviceRegistryRebuild:
         other_http_driver,
         mock_transport_client,
     ):
-        device.attributes["temperature"]._update_value(25.5)
+        device.attributes["temperature"]._update_value(25.5)  # noqa: SLF001
         result = device_registry.rebuild_physical_device(
             device, other_http_driver, mock_transport_client
         )

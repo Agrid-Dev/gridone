@@ -104,12 +104,12 @@ def test_cache_hit() -> None:
     registry.register("home/+/temperature", "h1")
     registry.register("home/kitchen/temperature", "h2")
     # First call. Cold cache.
-    assert len(registry._cache) == 0
+    assert len(registry._cache) == 0  # noqa: SLF001
     matches = registry.match_topic(Topic("home/kitchen/temperature"))
     assert matches == {"h1", "h2"}
     # Second call. Should hit cache.
-    assert len(registry._cache) == 1
-    with patch.object(registry, "_match_topic", wraps=registry._match_topic) as spy:
+    assert len(registry._cache) == 1  # noqa: SLF001
+    with patch.object(registry, "_match_topic", wraps=registry._match_topic) as spy:  # noqa: SLF001
         matches = registry.match_topic(Topic("home/kitchen/temperature"))
         spy.assert_not_called()
     assert matches == {"h1", "h2"}
@@ -122,10 +122,10 @@ def test_invalidate_cache_on_unregister() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert len(registry._cache) == 2  # noqa: SLF001
     registry.unregister("h2")
-    assert "home/kitchen/temperature" not in registry._cache
-    assert "home/bathroom/temperature" in registry._cache
+    assert "home/kitchen/temperature" not in registry._cache  # noqa: SLF001
+    assert "home/bathroom/temperature" in registry._cache  # noqa: SLF001
 
 
 def test_invalidate_cache_on_register() -> None:
@@ -135,7 +135,7 @@ def test_invalidate_cache_on_register() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert len(registry._cache) == 2  # noqa: SLF001
     registry.register("home/kitchen/temperature", "h4")
     matched_topics = registry.match_topic(Topic("home/kitchen/temperature"))
     assert "h1" in matched_topics
@@ -151,6 +151,6 @@ def test_invalidate_cache_on_unregister_wildcard() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert len(registry._cache) == 2  # noqa: SLF001
     registry.unregister("h1")
-    assert len(registry._cache) == 0
+    assert len(registry._cache) == 0  # noqa: SLF001

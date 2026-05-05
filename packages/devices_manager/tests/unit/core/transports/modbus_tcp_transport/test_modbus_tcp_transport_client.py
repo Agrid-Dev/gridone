@@ -50,11 +50,11 @@ def transport() -> ModbusTCPTransportClient:
     config = ModbusTCPTransportConfig(host="localhost", port=502)
     t = ModbusTCPTransportClient(metadata, config)
     # Bypass real connection logic.
-    t._client = DummyModbusClient()  # type: ignore[attr-defined]
+    t._client = DummyModbusClient()  # type: ignore[attr-defined]  # noqa: SLF001
     t.connection_state = TransportConnectionState.connected()
     # Ensure connection lock exists for @connected decorator.
     if not hasattr(t, "_connection_lock"):
-        t._connection_lock = asyncio.Lock()
+        t._connection_lock = asyncio.Lock()  # noqa: SLF001
     return t
 
 
@@ -82,7 +82,7 @@ async def test_read_holding_register_multi(transport: ModbusTCPTransportClient) 
     )
     value = await transport.read(address)
     assert value == [0, 1, 2]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert transport._client.last_call == (  # type: ignore[attr-defined]  # noqa: SLF001
         "read_holding_registers",
         10,
         3,
@@ -100,7 +100,7 @@ async def test_read_input_register_multi(transport: ModbusTCPTransportClient) ->
     )
     value = await transport.read(address)
     assert value == [0, 1]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert transport._client.last_call == (  # type: ignore[attr-defined]  # noqa: SLF001
         "read_input_registers",
         5,
         2,
@@ -119,7 +119,7 @@ async def test_write_holding_register_single(
         count=1,
     )
     await transport.write(address, 42)
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert transport._client.last_call == (  # type: ignore[attr-defined]  # noqa: SLF001
         "write_register",
         7,
         42,
@@ -138,7 +138,7 @@ async def test_write_holding_register_multi(
         count=2,
     )
     await transport.write(address, [1, 2])  # ty: ignore[invalid-argument-type]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert transport._client.last_call == (  # type: ignore[attr-defined]  # noqa: SLF001
         "write_registers",
         7,
         [1, 2],

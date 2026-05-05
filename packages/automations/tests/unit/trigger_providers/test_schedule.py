@@ -21,9 +21,9 @@ class TestScheduleListener:
     async def test_start_creates_task_and_stop_cancels_it(self):
         listener = ScheduleListener("* * * * *", AsyncMock())
         await listener.start()
-        assert listener._task is not None
+        assert listener._task is not None  # noqa: SLF001
         await listener.stop()
-        assert listener._task is None
+        assert listener._task is None  # noqa: SLF001
 
     async def test_on_fire_called_when_cron_fires(self):
         fired = asyncio.Event()
@@ -63,15 +63,15 @@ class TestScheduleTriggerProvider:
     async def test_register_starts_listener(self):
         provider = ScheduleTriggerProvider()
         handle_id = await provider.register({"cron": "* * * * *"}, AsyncMock())
-        assert handle_id in provider._listeners
-        assert provider._listeners[handle_id]._task is not None
+        assert handle_id in provider._listeners  # noqa: SLF001
+        assert provider._listeners[handle_id]._task is not None  # noqa: SLF001
         await provider.unregister(handle_id)
 
     async def test_unregister_stops_and_removes_listener(self):
         provider = ScheduleTriggerProvider()
         handle_id = await provider.register({"cron": "* * * * *"}, AsyncMock())
         await provider.unregister(handle_id)
-        assert handle_id not in provider._listeners
+        assert handle_id not in provider._listeners  # noqa: SLF001
 
     async def test_unregister_unknown_handle_is_safe(self):
         provider = ScheduleTriggerProvider()
@@ -83,9 +83,9 @@ class TestScheduleTriggerProvider:
         h1 = await provider.register({"cron": "* * * * *"}, on_fire)
         h2 = await provider.register({"cron": "0 11 * * *"}, on_fire)
         assert h1 != h2
-        assert len(provider._listeners) == 2
+        assert len(provider._listeners) == 2  # noqa: SLF001
         await provider.unregister(h1)
-        assert len(provider._listeners) == 1
+        assert len(provider._listeners) == 1  # noqa: SLF001
         await provider.unregister(h2)
 
     async def test_invalid_cron_raises(self):

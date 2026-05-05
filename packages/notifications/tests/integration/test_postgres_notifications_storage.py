@@ -37,7 +37,7 @@ async def storage():
     store: PostgresNotificationsStorage = (  # type: ignore[assignment]
         await build_notifications_storage(POSTGRES_URL)
     )
-    async with store._pool.acquire() as conn:
+    async with store._pool.acquire() as conn:  # noqa: SLF001
         await conn.execute("DELETE FROM notification_dispatches")
         await conn.execute("DELETE FROM notifications")
 

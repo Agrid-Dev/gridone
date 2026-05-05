@@ -69,7 +69,7 @@ async def test_connected_decorator_runs_connect_only_once() -> None:
 
     assert results == ["a", "b", "c"]
     assert client.connection_state.is_connected
-    assert client._connect_count == 1
+    assert client._connect_count == 1  # noqa: SLF001
 
 
 @pytest.mark.asyncio
