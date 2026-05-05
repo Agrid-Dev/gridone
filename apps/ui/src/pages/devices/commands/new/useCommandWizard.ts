@@ -1,13 +1,8 @@
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  createTemplate,
-  dispatchBatchCommand,
-  dispatchSingleCommand,
   type AttributeValue,
-  type CommandTemplate,
   type CommandTemplateCreatePayload,
 } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
@@ -19,10 +14,6 @@ import {
   type WritableAttribute,
 } from "./types";
 
-export type DispatchResult =
-  | { kind: "single" }
-  | { kind: "batch"; batchId: string };
-
 export type UseCommandWizardArgs = {
   devices: Device[];
   /** Pre-defined target for the wizard. When set, the target step is skipped
@@ -32,36 +23,33 @@ export type UseCommandWizardArgs = {
    *  entry point passes ``{assetId}``. When omitted, the user picks a target
    *  through the wizard's first step. */
   predefinedTarget?: DevicesFilter;
-  /** When true the review step is skipped — the embedded automation form
-   *  has its own review surface, so the wizard stops at the command step. */
+  /** When true the review step is skipped. The embedded automation form
+   *  has its own global review surface, so it stops the wizard at the
+   *  command step. */
   skipReview?: boolean;
-  /** Callback after a successful dispatch. The caller owns navigation.
-   *  Optional: callers wiring an ``overrideAction`` don't dispatch from the
-   *  wizard. */
-  onDispatched?: (result: DispatchResult) => void;
-  /** Callback after a successful save-as-template. Optional for the same
-   *  reason as ``onDispatched``. */
-  onSaved?: (template: CommandTemplate) => void;
 };
 
 const DRAFT_KEY = "commands.wizard.draft";
 const DRAFT_DEBOUNCE_MS = 250;
 
+/** Form progression for the command wizard — owns the react-hook-form
+ *  instance, derived ``selectedDevices`` / ``compatibleAttributes`` /
+ *  ``effectiveTarget`` / validation, URL-driven step navigation, and
+ *  localStorage drafts. Side-effect-free w.r.t. backend writes: callers wire
+ *  their own submit through ``getCommandPayload`` (e.g. the standalone
+ *  wizard combines this with ``useCommandMutations``; the inline action
+ *  form bubbles the payload up to its parent). */
 export function useCommandWizard({
   devices,
   predefinedTarget,
   skipReview = false,
-  onDispatched,
-  onSaved,
 }: UseCommandWizardArgs) {
-  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
   const initialStep = isPredefined ? 1 : 0;
-  // Last visitable step index. With ``skipReview`` the command step is the
-  // last; otherwise it's the review step. Drives ``handleNext`` clamping
-  // and the wizard's "we're on the last step" UI gate.
+  // Last visitable step index. ``skipReview`` makes the command step the
+  // last; otherwise it's the review step.
   const lastStep = skipReview ? 1 : 2;
 
   const { control, watch, setValue, getValues, trigger, reset } =
@@ -75,7 +63,7 @@ export function useCommandWizard({
     });
 
   // -- URL-driven step ------------------------------------------------------
-  const step = parseStep(searchParams.get("step"), initialStep);
+  const step = parseStep(searchParams.get("step"), initialStep, lastStep);
 
   useEffect(() => {
     if (searchParams.get("step") === null) {
@@ -86,7 +74,6 @@ export function useCommandWizard({
   }, []);
 
   const setStep = (idx: number) => {
-    // When the target is predefined, step 0 isn't reachable.
     const min = isPredefined ? 1 : 0;
     const clamped = Math.max(min, Math.min(lastStep, idx));
     const next = new URLSearchParams(searchParams);
@@ -144,8 +131,8 @@ export function useCommandWizard({
     [selectedDevices],
   );
 
-  // If the selected attribute is no longer compatible after the selection
-  // changes, clear it so step 2 doesn't display stale state.
+  // If the picked attribute leaves the compatible set after the selection
+  // changes, clear it so the command step doesn't show stale state.
   useEffect(() => {
     if (
       values.attribute &&
@@ -164,52 +151,14 @@ export function useCommandWizard({
     selectedDevices.length,
   );
 
-  // -- Mutations ------------------------------------------------------------
   const effectiveTarget = useMemo(
     () => buildTarget(values, selectedDevices, predefinedTarget),
     [values, selectedDevices, predefinedTarget],
   );
 
-  const dispatchMutation = useMutation<DispatchResult, Error, WizardFormValues>(
-    {
-      mutationFn: (v) => dispatch(v, selectedDevices, effectiveTarget),
-      onSuccess: (result) => {
-        clearDraft();
-        queryClient.invalidateQueries({ queryKey: ["commands"] });
-        onDispatched?.(result);
-      },
-    },
-  );
-
-  const saveMutation = useMutation<CommandTemplate, Error, WizardFormValues>({
-    mutationFn: (v) => saveTemplate(v, effectiveTarget),
-    onSuccess: (template) => {
-      clearDraft();
-      queryClient.invalidateQueries({ queryKey: ["command-templates"] });
-      onSaved?.(template);
-    },
-  });
-
-  const handleNext = async () => {
-    const ok = await trigger();
-    if (!ok) return;
-    if (step === 0 && !targetValid) return;
-    if (step === 1 && !commandValid) return;
-    setStep(step + 1);
-  };
-
-  const handleBack = () => setStep(step - 1);
-
-  const handleCancel = () => {
-    clearDraft();
-  };
-
-  const handleDispatch = () => dispatchMutation.mutate(getValues());
-  const handleSave = () => saveMutation.mutate(getValues());
-
-  /** Build the (target, write) pair the parent needs to e.g. save the command
-   *  as an unnamed template when running inside the automation action form.
-   *  Returns ``null`` while the form is incomplete. */
+  /** Build the (target, write) pair. Returns ``null`` while the form is
+   *  incomplete. The standalone wizard hands this to ``useCommandMutations``;
+   *  the inline action form bubbles it up to the automation submit. */
   const getCommandPayload = (): Omit<
     CommandTemplateCreatePayload,
     "name"
@@ -228,36 +177,60 @@ export function useCommandWizard({
     };
   };
 
+  const handleNext = async () => {
+    const ok = await trigger();
+    if (!ok) return;
+    if (step === 0 && !targetValid) return;
+    if (step === 1 && !commandValid) return;
+    setStep(step + 1);
+  };
+
+  const handleBack = () => setStep(step - 1);
+
+  const handleCancel = () => {
+    clearDraft();
+  };
+
   return {
     control,
     setValue,
     values,
-    step,
+    watch,
+    getValues,
+    reset,
+    trigger,
     selectedDevices,
     compatibleAttributes,
+    effectiveTarget,
     targetValid,
     commandValid,
     isPredefined,
+    skipReview,
+    step,
+    lastStep,
     isFirstStep: step === initialStep,
-    isDispatching: dispatchMutation.isPending,
-    isSaving: saveMutation.isPending,
-    dispatchError: dispatchMutation.error,
-    saveError: saveMutation.error,
+    isLastStep: step === lastStep,
     handleNext,
     handleBack,
     handleCancel,
-    handleDispatch,
-    handleSave,
     getCommandPayload,
-    isLastStep: step === lastStep,
+    /** Used by ``useCommandMutations`` to clear the draft after a successful
+     *  dispatch / save. */
+    clearDraft,
   };
 }
 
-function parseStep(raw: string | null, fallback: number): number {
+export type CommandWizardState = ReturnType<typeof useCommandWizard>;
+
+function parseStep(
+  raw: string | null,
+  fallback: number,
+  lastStep: number,
+): number {
   if (raw === null) return fallback;
   const n = parseInt(raw, 10);
   if (isNaN(n)) return fallback;
-  return Math.max(0, Math.min(2, n - 1));
+  return Math.max(0, Math.min(lastStep, n - 1));
 }
 
 function isTargetValid(
@@ -278,10 +251,8 @@ function isCommandValid(
   return v.value !== undefined && v.value !== "";
 }
 
-/** Build the DevicesFilter to send as the ``target`` on dispatch/save. When
- *  a predefined target is provided, it wins — the form's target fields are
- *  inert in that case. Otherwise the result reflects the user's choice of
- *  target mode. */
+/** Build the ``DevicesFilter`` to send as ``target``. Predefined wins;
+ *  otherwise reflects the user's ``targetMode``. */
 function buildTarget(
   values: WizardFormValues,
   selectedDevices: Device[],
@@ -297,59 +268,6 @@ function buildTarget(
     };
   }
   return { ids: selectedDevices.map((d) => d.id) };
-}
-
-async function dispatch(
-  v: WizardFormValues,
-  selectedDevices: Device[],
-  target: DevicesFilter,
-): Promise<DispatchResult> {
-  if (!v.attribute || v.value === undefined) {
-    throw new Error("Form incomplete");
-  }
-  if (selectedDevices.length === 0) {
-    throw new Error("No devices selected");
-  }
-  const attribute = v.attribute;
-  const value = v.value as AttributeValue;
-
-  // Single-device fast path: one explicit id in the target and no other
-  // filter. Everything else goes through the batch endpoint so the server
-  // resolves at dispatch time (important for asset-based targets).
-  if (
-    target.ids &&
-    target.ids.length === 1 &&
-    !target.types &&
-    !target.assetId
-  ) {
-    await dispatchSingleCommand(target.ids[0], { attribute, value });
-    return { kind: "single" };
-  }
-
-  const res = await dispatchBatchCommand({ attribute, value, target });
-  return { kind: "batch", batchId: res.batchId };
-}
-
-async function saveTemplate(
-  v: WizardFormValues,
-  target: DevicesFilter,
-): Promise<CommandTemplate> {
-  if (!v.attribute || v.value === undefined || !v.attributeDataType) {
-    throw new Error("Form incomplete");
-  }
-  const name = (v.templateName ?? "").trim();
-  if (!name) {
-    throw new Error("Template name required");
-  }
-  return createTemplate({
-    target,
-    write: {
-      attribute: v.attribute,
-      value: v.value as AttributeValue,
-      dataType: v.attributeDataType,
-    },
-    name,
-  });
 }
 
 // -- Draft persistence ------------------------------------------------------
