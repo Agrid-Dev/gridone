@@ -1,4 +1,4 @@
-import type { Asset, AssetTreeNode } from "@/api/assets";
+import type { AssetTreeNode } from "@/api/assets";
 import type { Device, DeviceAttribute, DevicesFilter } from "@/api/devices";
 
 export type AttributeDataType = "int" | "float" | "bool" | "str";
@@ -132,25 +132,4 @@ function collectSubtreeDeviceIds(node: AssetTreeNode): string[] {
   const here = (node.devices ?? []).map((d) => d.id);
   const below = node.children.flatMap(collectSubtreeDeviceIds);
   return [...here, ...below];
-}
-
-/** Flatten the asset tree into a sorted list for the filter dropdown. */
-export function flattenAssetTree(tree: AssetTreeNode[]): Asset[] {
-  const out: Asset[] = [];
-  const walk = (nodes: AssetTreeNode[]) => {
-    for (const n of nodes) {
-      out.push({
-        id: n.id,
-        parentId: n.parentId,
-        type: n.type,
-        name: n.name,
-        path: n.path,
-        position: n.position,
-      });
-      walk(n.children);
-    }
-  };
-  walk(tree);
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
 }
