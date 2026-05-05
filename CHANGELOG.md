@@ -1,3 +1,9 @@
+## v0.67.1 (2026-05-05)
+
+### Fix
+
+- **ui**: keep notification polling continuous in background tabs (AGR-575)
+
 ## v0.67.0 (2026-05-05)
 
 ### Feat
