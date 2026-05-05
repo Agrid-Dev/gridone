@@ -6,6 +6,8 @@ import {
   type CommandTemplateCreatePayload,
 } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
+import { useAssetTree } from "@/hooks/useAssetTree";
+import { useDevicesList } from "@/hooks/useDevicesList";
 import {
   intersectWritableAttributes,
   isEmptyFilter,
@@ -15,7 +17,6 @@ import {
 } from "./types";
 
 export type UseCommandWizardArgs = {
-  devices: Device[];
   /** Pre-defined target for the wizard. When set, the target step is skipped
    *  (initial step is the command step) and the filter is treated as the
    *  authoritative target. Callers build this from URL params — e.g. the
@@ -35,16 +36,25 @@ const DRAFT_DEBOUNCE_MS = 250;
 /** Form progression for the command wizard — owns the react-hook-form
  *  instance, derived ``selectedDevices`` / ``compatibleAttributes`` /
  *  ``effectiveTarget`` / validation, URL-driven step navigation, and
- *  localStorage drafts. Side-effect-free w.r.t. backend writes: callers wire
- *  their own submit through ``getCommandPayload`` (e.g. the standalone
- *  wizard combines this with ``useCommandMutations``; the inline action
- *  form bubbles the payload up to its parent). */
+ *  localStorage drafts. Self-fetches the device list + asset tree it
+ *  needs; consumers don't pre-thread those.
+ *
+ *  Side-effect-free w.r.t. backend writes: callers fire their own submit
+ *  by reading ``getCommandPayload()`` and handing the result to
+ *  ``useCommandMutations`` (standalone) or up to a parent form (inline). */
 export function useCommandWizard({
-  devices,
   predefinedTarget,
   skipReview = false,
-}: UseCommandWizardArgs) {
+}: UseCommandWizardArgs = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { devices, loading: devicesLoading } = useDevicesList();
+  const {
+    assetTree,
+    assetsList,
+    assetsById,
+    isLoading: assetsLoading,
+  } = useAssetTree();
+  const isLoading = devicesLoading || assetsLoading;
 
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
   const initialStep = isPredefined ? 1 : 0;
@@ -201,6 +211,11 @@ export function useCommandWizard({
   const reopen = () => setSubmitted(false);
 
   return {
+    isLoading,
+    devices,
+    assetTree,
+    assetsList,
+    assetsById,
     control,
     setValue,
     values,

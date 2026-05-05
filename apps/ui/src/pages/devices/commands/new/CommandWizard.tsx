@@ -1,9 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import type { Asset, AssetTreeNode } from "@/api/assets";
 import type { CommandTemplateCreatePayload } from "@/api/commands";
-import type { Device, DevicesFilter } from "@/api/devices";
 import { TargetPresenter } from "../presenters/TargetPresenter";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
@@ -22,15 +20,10 @@ export type SubmitAction = {
 };
 
 type CommandWizardProps = {
-  /** Form-progression state. The parent owns the hook so it can read
-   *  ``commandValid`` / ``getCommandPayload`` for its own submit wiring
-   *  (e.g. the standalone wizard composes this with ``useCommandMutations``). */
+  /** Form-progression state from ``useCommandWizard``. The wizard reads
+   *  everything it needs (devices, asset lookups, validation) off this
+   *  one prop — callers don't pre-thread data. */
   wizard: CommandWizardState;
-  devices: Device[];
-  assetTree: AssetTreeNode[];
-  assetsList: Asset[];
-  predefinedTarget?: DevicesFilter;
-  assetsById?: Record<string, Asset>;
   /** Terminal action: one button at the end of the last visible step. The
    *  standalone wizard wires this to a Dispatch-mutation handler; the
    *  inline action form bubbles the payload up to the automation submit. */
@@ -44,16 +37,16 @@ type CommandWizardProps = {
 
 export function CommandWizard({
   wizard,
-  devices,
-  assetTree,
-  assetsList,
-  assetsById,
   submitAction,
   onCancel,
   onEdit,
 }: CommandWizardProps) {
   const { t } = useTranslation(["devices", "common"]);
   const {
+    devices,
+    assetTree,
+    assetsList,
+    assetsById,
     control,
     setValue,
     values,

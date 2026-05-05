@@ -3,10 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getAsset } from "@/api/assets";
-import type { Asset, AssetTreeNode } from "@/api/assets";
-import type { CommandTemplate } from "@/api/commands";
-import type { Device, DevicesFilter } from "@/api/devices";
+import { getAsset, type Asset } from "@/api/assets";
+import type { DevicesFilter } from "@/api/devices";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -16,14 +14,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
-import { useAssetTree } from "@/hooks/useAssetTree";
-import { useDevicesList } from "@/hooks/useDevicesList";
 import { CommandWizard } from "./CommandWizard";
-import {
-  useCommandMutations,
-  type DispatchResult,
-} from "./useCommandMutations";
-import { useCommandWizard } from "./useCommandWizard";
+import { useCommandMutations } from "./useCommandMutations";
+import { useCommandWizard, type CommandWizardState } from "./useCommandWizard";
 
 const STEP_KEYS = [
   "commands.new.subtitle.target",
@@ -34,7 +27,6 @@ const STEP_KEYS = [
 export default function NewCommandPage() {
   const { t } = useTranslation(["devices", "common", "assets"]);
   const can = usePermissions();
-  const navigate = useNavigate();
   const { deviceId, assetId } = useParams<{
     deviceId?: string;
     assetId?: string;
@@ -50,14 +42,6 @@ export default function NewCommandPage() {
     if (assetId) return { assetId };
     return undefined;
   }, [deviceId, assetId]);
-
-  const { devices, loading: devicesLoading } = useDevicesList();
-  const {
-    assetTree,
-    assetsList,
-    assetsById,
-    isLoading: assetTreeLoading,
-  } = useAssetTree();
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],
@@ -77,8 +61,6 @@ export default function NewCommandPage() {
     return <ErrorFallback title={t("common:errors.default")} />;
   }
 
-  const blocked = devicesLoading || (!!assetId && assetTreeLoading);
-
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -88,35 +70,7 @@ export default function NewCommandPage() {
         backTo={backHref}
       />
       <StepSubtitle predefined={!!predefinedTarget} />
-      {blocked ? (
-        <Skeleton className="h-64 w-full rounded-lg" />
-      ) : (
-        <WizardCard
-          devices={devices}
-          assetTree={assetTree}
-          assetsList={assetsList}
-          assetsById={assetsById}
-          predefinedTarget={predefinedTarget}
-          deviceId={deviceId}
-          onCancel={() => navigate(-1)}
-          onDispatched={(result) => {
-            if (result.kind === "batch") {
-              toast.success(t("commands.new.feedback.batchDispatched"));
-              navigate(`/devices/commands?batch_id=${result.batchId}`);
-            } else {
-              toast.success(t("commands.new.feedback.dispatched"));
-              const listUrl = deviceId
-                ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
-                : "/devices/commands";
-              navigate(listUrl);
-            }
-          }}
-          onSaved={(template) => {
-            toast.success(t("commands.new.save.savedFeedback"));
-            navigate(`/devices/commands/templates/${template.id}`);
-          }}
-        />
-      )}
+      <WizardCard predefinedTarget={predefinedTarget} deviceId={deviceId} />
       {assetId && lockedAsset && (
         <p className="text-xs text-muted-foreground">
           <Link to={`/assets/${lockedAsset.id}`} className="hover:underline">
@@ -129,63 +83,81 @@ export default function NewCommandPage() {
 }
 
 type WizardCardProps = {
-  devices: Device[];
-  assetTree: AssetTreeNode[];
-  assetsList: Asset[];
-  assetsById: Record<string, Asset>;
   predefinedTarget?: DevicesFilter;
   deviceId?: string;
-  onCancel: () => void;
-  onDispatched: (result: DispatchResult) => void;
-  onSaved: (template: CommandTemplate) => void;
 };
 
-/** Wraps the wizard + its dispatch / save mutations + the save-as-template
- *  panel. Owns both hooks so it can pass the form-progression state to the
- *  wizard component while the mutations consume the same state. */
-function WizardCard({
-  devices,
-  assetTree,
-  assetsList,
-  assetsById,
-  predefinedTarget,
-  onCancel,
-  onDispatched,
-  onSaved,
-}: WizardCardProps) {
+/** Owns the standalone wizard + dispatch/save mutations + the
+ *  save-as-template sibling panel. The wizard hook fetches its own data, so
+ *  this component stays focused on orchestration: it builds payloads from
+ *  the wizard's getters and hands them to the (independent) mutations
+ *  hook, then navigates / clears drafts on success. */
+function WizardCard({ predefinedTarget, deviceId }: WizardCardProps) {
   const { t } = useTranslation(["devices", "common"]);
+  const navigate = useNavigate();
 
-  const wizard = useCommandWizard({ devices, predefinedTarget });
+  const wizard = useCommandWizard({ predefinedTarget });
   const mutations = useCommandMutations({
-    wizard,
-    onDispatched,
-    onSaved,
+    onDispatched: (result) => {
+      wizard.clearDraft();
+      if (result.kind === "batch") {
+        toast.success(t("devices:commands.new.feedback.batchDispatched"));
+        navigate(`/devices/commands?batch_id=${result.batchId}`);
+      } else {
+        toast.success(t("devices:commands.new.feedback.dispatched"));
+        const listUrl = deviceId
+          ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
+          : "/devices/commands";
+        navigate(listUrl);
+      }
+    },
+    onSaved: (template) => {
+      wizard.clearDraft();
+      toast.success(t("devices:commands.new.save.savedFeedback"));
+      navigate(`/devices/commands/templates/${template.id}`);
+    },
   });
+
+  if (wizard.isLoading) {
+    return <Skeleton className="h-64 w-full rounded-lg" />;
+  }
+
+  const handleDispatch = () => {
+    const payload = wizard.getCommandPayload();
+    if (payload) mutations.dispatch(payload);
+  };
+
+  const templateName = (wizard.values.templateName ?? "").trim();
+  const handleSave = () => {
+    const payload = wizard.getCommandPayload();
+    if (payload && templateName.length > 0) {
+      mutations.saveTemplate({ ...payload, name: templateName });
+    }
+  };
 
   return (
     <Card>
       <CardContent className="space-y-6 py-6">
         <CommandWizard
           wizard={wizard}
-          devices={devices}
-          assetTree={assetTree}
-          assetsList={assetsList}
-          assetsById={assetsById}
-          predefinedTarget={predefinedTarget}
-          onCancel={onCancel}
+          onCancel={() => navigate(-1)}
           submitAction={{
             label: mutations.isDispatching
               ? t("devices:commands.new.dispatching")
               : t("devices:commands.new.dispatch"),
-            onAction: () => mutations.handleDispatch(),
+            onAction: handleDispatch,
           }}
         />
         {wizard.isLastStep && wizard.commandValid && (
           <SaveAsTemplatePanel
             wizard={wizard}
             isSaving={mutations.isSaving}
-            canSave={mutations.canSave}
-            onSave={() => mutations.handleSave()}
+            canSave={
+              templateName.length > 0 &&
+              !mutations.isSaving &&
+              wizard.commandValid
+            }
+            onSave={handleSave}
           />
         )}
       </CardContent>
@@ -194,7 +166,7 @@ function WizardCard({
 }
 
 type SaveAsTemplatePanelProps = {
-  wizard: ReturnType<typeof useCommandWizard>;
+  wizard: CommandWizardState;
   isSaving: boolean;
   canSave: boolean;
   onSave: () => void;
