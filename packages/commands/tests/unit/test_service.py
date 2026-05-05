@@ -338,22 +338,19 @@ class TestDispatchBatch:
         assert template_id is not None
         target_resolver.resolve.assert_awaited_once_with(target)
 
-        # The ephemeral template is persisted on the storage layer — we
-        # reach into it directly because the public ``get_template`` only
-        # surfaces user-saved templates, not ephemerals.
-        template = await service._storage.get_template(template_id)  # noqa: SLF001
-        assert template is not None
+        # The ephemeral template is addressable through the public
+        # ``get_template`` API — automations referencing an inline-created
+        # template need to read it back by id.
+        template = await service.get_template(template_id)
         assert template.name is None
         assert template.target == target
         assert template.write == MODE_AUTO
         assert template.created_by == "u1"
 
-        # Ephemerals don't leak into the named-templates list or into the
-        # public ``get_template`` surface.
+        # …but ephemerals stay out of the named-templates list so the
+        # /commands/templates page doesn't fill up with audit rows.
         page = await service.list_templates()
         assert page.total == 0
-        with pytest.raises(NotFoundError):
-            await service.get_template(template_id)
 
     async def test_ids_only_batch_also_creates_a_template(
         self,
@@ -602,18 +599,15 @@ class TestTemplateCrud:
 
         await service.delete_template(template.id)
 
-        # The template is gone from the user's view…
-        with pytest.raises(NotFoundError):
-            await service.get_template(template.id)
+        # The template drops out of ``list_templates`` but the row itself
+        # survives with ``name = NULL`` so historical unit commands keep
+        # their ``template_id`` pointer for audit (and so an automation
+        # referencing the id can still read + dispatch it). A later cleanup
+        # job reaps the row and the SQL cascade detaches history at that
+        # point.
         page = await service.list_templates()
         assert page.total == 0
-
-        # …but the row survives with ``name = NULL`` so historical unit
-        # commands keep their ``template_id`` pointer for audit. A later
-        # cleanup job reaps the row and the SQL cascade detaches history
-        # at that point.
-        demoted = await service._storage.get_template(template.id)  # noqa: SLF001
-        assert demoted is not None
+        demoted = await service.get_template(template.id)
         assert demoted.name is None
         history = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.template_id == template.id for c in history.items)
@@ -675,16 +669,33 @@ class TestTemplateCrud:
                 template_id="does-not-exist", user_id="u1"
             )
 
-    async def test_dispatch_from_template_refuses_ephemeral_templates(
+    async def test_dispatch_from_template_dispatches_ephemeral_templates(
         self,
         service: CommandsService,
     ):
-        # Ephemerals live on the storage layer for audit but are not
-        # dispatchable by id through the public API — a user holding an
-        # ephemeral id cannot bypass the "saved templates only" contract.
+        # Ephemeral templates are addressable by id — automations reference
+        # the inline-created template they own and need to dispatch through
+        # it when their trigger fires.
         ephemeral = await service.save_template(
             CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
             user_id="u1",
         )
-        with pytest.raises(NotFoundError):
-            await service.dispatch_from_template(template_id=ephemeral.id, user_id="u1")
+        dispatch = await service.dispatch_from_template(
+            template_id=ephemeral.id, user_id="u1"
+        )
+        await service._await_pending()  # noqa: SLF001
+        assert all(c.template_id == ephemeral.id for c in dispatch.commands)
+
+    async def test_get_template_returns_ephemeral_by_id(
+        self,
+        service: CommandsService,
+    ):
+        # Mirrors the automation flow: an inline-created template is saved
+        # without a name and then read back by id by the automation page.
+        ephemeral = await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+        fetched = await service.get_template(ephemeral.id)
+        assert fetched.id == ephemeral.id
+        assert fetched.name is None
