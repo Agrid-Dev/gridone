@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 from automations.models import (
+    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -19,7 +20,7 @@ from models.ids import gen_id
 pytestmark = pytest.mark.asyncio
 
 
-_SCHEDULE = Trigger.model_validate({"type": "schedule", "cron": "0 11 * * *"})
+_SCHEDULE = Trigger(provider_id="schedule", params={"cron": "0 11 * * *"})
 
 
 def _automation(**kwargs: object) -> Automation:
@@ -28,7 +29,9 @@ def _automation(**kwargs: object) -> Automation:
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action_template_id": "tmpl-01",
+        "action": Action(
+            provider_id="command_template", params={"template_id": "tmpl-01"}
+        ),
         "enabled": True,
     }
     return Automation(**{**defaults, **kwargs})  # type: ignore[arg-type]

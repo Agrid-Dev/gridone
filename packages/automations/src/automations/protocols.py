@@ -14,9 +14,6 @@ if TYPE_CHECKING:
     )
 
     OnFireCallback = Callable[[TriggerContext], Awaitable[None]]
-    # Returns the opaque ``output_id`` recorded on ``AutomationExecution``
-    # — an identifier the dispatcher mints for this run.
-    ActionDispatcher = Callable[..., Awaitable[str]]
 
 
 class TriggerProvider(Protocol):
@@ -24,15 +21,15 @@ class TriggerProvider(Protocol):
 
     Each provider owns one class of trigger (e.g. schedule, change_event).
     The service dispatches register/unregister calls to the matching provider
-    based on the trigger's ``type`` field.
+    based on the trigger's ``provider_id`` field.
     """
 
     id: str
-    trigger_schema: dict
+    params_schema: dict
 
     async def register(
         self,
-        trigger_params: dict,
+        params: dict,
         on_fire: OnFireCallback,
     ) -> str:
         """Activate a trigger. Returns an opaque handle used to unregister."""
@@ -40,6 +37,17 @@ class TriggerProvider(Protocol):
 
     async def unregister(self, trigger_id: str) -> None:
         """Deactivate a previously registered trigger."""
+        ...
+
+
+class ActionProvider(Protocol):
+    """Executes one class of automation action."""
+
+    id: str
+    params_schema: dict
+
+    async def execute(self, params: dict) -> str | None:
+        """Execute the action. Returns an opaque output_id, or None."""
         ...
 
 
@@ -57,3 +65,4 @@ class AutomationsServiceInterface(Protocol):
         self, automation_id: str
     ) -> Sequence[AutomationExecution]: ...
     def list_trigger_schemas(self) -> dict[str, dict]: ...
+    def list_action_schemas(self) -> dict[str, dict]: ...

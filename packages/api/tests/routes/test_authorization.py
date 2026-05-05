@@ -15,6 +15,8 @@ from notifications import (
     NotificationsServiceInterface,
 )
 
+from automations import AutomationsServiceInterface
+
 from api.dependencies import (
     get_apps_service,
     get_assets_service,
@@ -605,10 +607,11 @@ def test_commands_access_control(
 
 
 def _build_automations_mock() -> AsyncMock:
-    svc = AsyncMock()
+    svc = AsyncMock(spec=AutomationsServiceInterface)
     svc.list.return_value = []
     svc.list_executions.return_value = []
     svc.list_trigger_schemas = MagicMock(return_value={})
+    svc.list_action_schemas = MagicMock(return_value={})
     return svc
 
 
@@ -639,6 +642,8 @@ AUTOMATIONS_ACCESS_CONTROL_SCENARIOS = [
     pytest.param("GET", "/automations/", None, 401, id="list-no-auth"),
     pytest.param("GET", "/automations/triggers", "viewer", 200, id="triggers-viewer"),
     pytest.param("GET", "/automations/triggers", None, 401, id="triggers-no-auth"),
+    pytest.param("GET", "/automations/actions", "viewer", 200, id="actions-viewer"),
+    pytest.param("GET", "/automations/actions", None, 401, id="actions-no-auth"),
     # Write endpoints — only admin; operator and viewer are forbidden
     pytest.param("POST", "/automations/", "operator", 403, id="create-operator"),
     pytest.param("POST", "/automations/", "viewer", 403, id="create-viewer"),

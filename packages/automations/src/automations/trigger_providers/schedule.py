@@ -58,17 +58,17 @@ class ScheduleListener:
 
 class ScheduleTriggerProvider:
     id = "schedule"
-    trigger_schema: ClassVar[dict] = ScheduleTrigger.model_json_schema()
+    params_schema: ClassVar[dict] = ScheduleTrigger.model_json_schema()
 
     def __init__(self) -> None:
         self._listeners: dict[str, ScheduleListener] = {}
 
     async def register(
         self,
-        trigger_params: dict,
+        params: dict,
         on_fire: Callable[[TriggerContext], Awaitable[None]],
     ) -> str:
-        trigger = ScheduleTrigger(**trigger_params)
+        trigger = ScheduleTrigger(**params)
         handle_id = uuid4().hex[:16]
         listener = ScheduleListener(trigger.cron, on_fire)
         await listener.start()
