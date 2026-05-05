@@ -180,9 +180,7 @@
       "off": "OFF",
       "summary": {
         "deviceCount_one": "{{count}} appareil",
-        "deviceCount_other": "{{count}} appareils",
-        "andMore_one": "et {{count}} de plus",
-        "andMore_other": "et {{count}} de plus"
+        "deviceCount_other": "{{count}} appareils"
       },
       "feedback": {
         "dispatched": "Commande envoyée",

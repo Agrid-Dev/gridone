@@ -52,7 +52,12 @@ export default function NewCommandPage() {
   }, [deviceId, assetId]);
 
   const { devices, loading: devicesLoading } = useDevicesList();
-  const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
+  const {
+    assetTree,
+    assetsList,
+    assetsById,
+    isLoading: assetTreeLoading,
+  } = useAssetTree();
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],
@@ -90,6 +95,7 @@ export default function NewCommandPage() {
           devices={devices}
           assetTree={assetTree}
           assetsList={assetsList}
+          assetsById={assetsById}
           predefinedTarget={predefinedTarget}
           deviceId={deviceId}
           onCancel={() => navigate(-1)}
@@ -126,6 +132,7 @@ type WizardCardProps = {
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
+  assetsById: Record<string, Asset>;
   predefinedTarget?: DevicesFilter;
   deviceId?: string;
   onCancel: () => void;
@@ -140,6 +147,7 @@ function WizardCard({
   devices,
   assetTree,
   assetsList,
+  assetsById,
   predefinedTarget,
   onCancel,
   onDispatched,
@@ -162,6 +170,7 @@ function WizardCard({
           devices={devices}
           assetTree={assetTree}
           assetsList={assetsList}
+          assetsById={assetsById}
           predefinedTarget={predefinedTarget}
           onCancel={onCancel}
           submitAction={{

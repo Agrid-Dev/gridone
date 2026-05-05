@@ -180,9 +180,7 @@
       "off": "OFF",
       "summary": {
         "deviceCount_one": "{{count}} device",
-        "deviceCount_other": "{{count}} devices",
-        "andMore_one": "and {{count}} more",
-        "andMore_other": "and {{count}} more"
+        "deviceCount_other": "{{count}} devices"
       },
       "feedback": {
         "dispatched": "Command dispatched",

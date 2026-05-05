@@ -1,40 +1,10 @@
-import { useTranslation } from "react-i18next";
-import { Badge } from "@/components/ui/badge";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { Device } from "@/api/devices";
 import type { WizardFormValues } from "./types";
 
-const MAX_NAMES = 10;
-
-export function TargetSummary({
-  selectedDevices,
-}: {
-  selectedDevices: Device[];
-}) {
-  const { t } = useTranslation("devices");
-  const shown = selectedDevices.slice(0, MAX_NAMES);
-  const extra = selectedDevices.length - shown.length;
-
-  return (
-    <div className="space-y-1.5">
-      <Badge variant="outline">
-        {t("commands.new.summary.deviceCount", {
-          count: selectedDevices.length,
-        })}
-      </Badge>
-      {shown.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          {shown.map((d) => d.name || d.id).join(", ")}
-          {extra > 0 && (
-            <span> {t("commands.new.summary.andMore", { count: extra })}</span>
-          )}
-        </p>
-      )}
-    </div>
-  );
-}
-
+/** Inline ``attribute = value`` summary shown when the command step is
+ *  collapsed. The target step's done-summary uses ``TargetPresenter``
+ *  directly so by-filter targets render with their asset / type chips. */
 export function CommandSummary({ values }: { values: WizardFormValues }) {
   if (!values.attribute || values.value === undefined) {
     return <span>—</span>;

@@ -10,7 +10,12 @@ import type { CustomActionFormProps } from "../../presenters/types";
 export const InlineCommandForm: FC<CustomActionFormProps> = ({ onChange }) => {
   const { t } = useTranslation(["automations", "common"]);
   const { devices, loading: devicesLoading } = useDevicesList();
-  const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
+  const {
+    assetTree,
+    assetsList,
+    assetsById,
+    isLoading: assetTreeLoading,
+  } = useAssetTree();
 
   // Form-progression hook only — no dispatch / save mutations from inside
   // the action form. The submit action just bubbles the payload up; the
@@ -30,6 +35,7 @@ export const InlineCommandForm: FC<CustomActionFormProps> = ({ onChange }) => {
         devices={devices}
         assetTree={assetTree}
         assetsList={assetsList}
+        assetsById={assetsById}
         submitAction={{
           label: t("automations:actions.useCommand"),
           onAction: (payload) => {

@@ -4,10 +4,11 @@ import { Separator } from "@/components/ui/separator";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import type { CommandTemplateCreatePayload } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
+import { TargetPresenter } from "../presenters/TargetPresenter";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
 import { StepSection } from "./StepSection";
-import { CommandSummary, TargetSummary } from "./summaries";
+import { CommandSummary } from "./summaries";
 import { TargetStep } from "./TargetStep";
 import type { CommandWizardState } from "./useCommandWizard";
 
@@ -46,6 +47,7 @@ export function CommandWizard({
   devices,
   assetTree,
   assetsList,
+  assetsById,
   submitAction,
   onCancel,
   onEdit,
@@ -57,6 +59,7 @@ export function CommandWizard({
     values,
     selectedDevices,
     compatibleAttributes,
+    effectiveTarget,
     targetValid,
     commandValid,
     isPredefined,
@@ -117,7 +120,12 @@ export function CommandWizard({
             number={1}
             title={t("commands.new.steps.target")}
             state={stateOf(0)}
-            summary={<TargetSummary selectedDevices={selectedDevices} />}
+            summary={
+              <TargetPresenter
+                target={effectiveTarget}
+                assetsById={assetsById}
+              />
+            }
           >
             <div className="space-y-5">
               <TargetStep
