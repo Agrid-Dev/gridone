@@ -35,6 +35,10 @@ type CommandWizardProps = {
    *  inline action form bubbles the payload up to the automation submit. */
   submitAction: SubmitAction;
   onCancel: () => void;
+  /** Fires when the user re-opens an already-submitted wizard via the Edit
+   *  affordance. Inline embeddings use this to clear their parent's stale
+   *  payload until the user re-confirms. */
+  onEdit?: () => void;
 };
 
 export function CommandWizard({
@@ -44,6 +48,7 @@ export function CommandWizard({
   assetsList,
   submitAction,
   onCancel,
+  onEdit,
 }: CommandWizardProps) {
   const { t } = useTranslation(["devices", "common"]);
   const {
@@ -58,14 +63,21 @@ export function CommandWizard({
     skipReview,
     step,
     isFirstStep,
+    submitted,
+    reopen,
     handleNext,
     handleBack,
     handleCancel,
     getCommandPayload,
+    trigger,
   } = wizard;
 
-  const stateOf = (idx: number) =>
-    idx < step ? "done" : idx === step ? "active" : "pending";
+  const stateOf = (idx: number) => {
+    // Once the user confirms, every visible step collapses to its summary
+    // so they get immediate feedback that the command was accepted.
+    if (submitted) return "done";
+    return idx < step ? "done" : idx === step ? "active" : "pending";
+  };
 
   const onBack = isFirstStep
     ? () => {
@@ -77,9 +89,20 @@ export function CommandWizard({
     ? t("common:common.cancel")
     : t("commands.new.back");
 
-  const fireSubmit = () => {
+  const fireSubmit = async () => {
+    // Run RHF validation across the whole form before bubbling the payload —
+    // ``commandValid`` is a synchronous derivation; ``trigger`` also surfaces
+    // any pending zod-level errors on individual fields.
+    const ok = await trigger();
+    if (!ok) return;
     const payload = getCommandPayload();
-    if (payload) submitAction.onAction(payload);
+    if (!payload) return;
+    submitAction.onAction(payload);
+  };
+
+  const handleEdit = () => {
+    reopen();
+    onEdit?.();
   };
 
   // ``commandIsLast`` flips the command step's footer into the submit
@@ -171,6 +194,14 @@ export function CommandWizard({
             </div>
           </StepSection>
         </>
+      )}
+
+      {submitted && (
+        <div className="flex justify-end pt-2">
+          <Button type="button" variant="outline" onClick={handleEdit}>
+            {t("commands.new.edit")}
+          </Button>
+        </div>
       )}
     </div>
   );

@@ -172,6 +172,7 @@
       "affectedDevices": "Devices ({{count}})",
       "next": "Next",
       "back": "Back",
+      "edit": "Edit",
       "dispatch": "Dispatch",
       "dispatching": "Dispatching…",
       "valueChange": "Value",

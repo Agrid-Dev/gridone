@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
 import {
@@ -191,6 +191,15 @@ export function useCommandWizard({
     clearDraft();
   };
 
+  // ``submitted`` is in-memory acknowledgement that the user clicked the
+  // wizard's terminal action. The wizard's step-section state collapses to
+  // "done" so the user gets visible feedback that their command was taken.
+  // Drives the inline action-form embedding only — the standalone wizard's
+  // Dispatch action navigates away on success and never sees this state.
+  const [submitted, setSubmitted] = useState(false);
+  const markSubmitted = () => setSubmitted(true);
+  const reopen = () => setSubmitted(false);
+
   return {
     control,
     setValue,
@@ -214,6 +223,9 @@ export function useCommandWizard({
     handleBack,
     handleCancel,
     getCommandPayload,
+    submitted,
+    markSubmitted,
+    reopen,
     /** Used by ``useCommandMutations`` to clear the draft after a successful
      *  dispatch / save. */
     clearDraft,

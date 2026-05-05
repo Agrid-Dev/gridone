@@ -172,6 +172,7 @@
       "affectedDevices": "Appareils ({{count}})",
       "next": "Suivant",
       "back": "Retour",
+      "edit": "Modifier",
       "dispatch": "Envoyer",
       "dispatching": "Envoi…",
       "valueChange": "Valeur",
