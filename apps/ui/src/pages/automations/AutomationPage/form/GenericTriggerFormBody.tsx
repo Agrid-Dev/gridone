@@ -39,11 +39,7 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
 }) => {
   const { t } = useTranslation(["common", "automations"]);
 
-  const initialDefaults = initialValue
-    ? Object.fromEntries(
-        Object.entries(initialValue).filter(([k]) => k !== "type"),
-      )
-    : undefined;
+  const initialDefaults = initialValue?.params;
 
   const { control, handleSubmit, formState } = useGenericTriggerForm(
     schema,
@@ -54,7 +50,7 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   const requiredSet = new Set(required);
 
   const handleFormSubmit = (values: Record<string, unknown>) => {
-    onSubmit({ type, ...values } as Trigger);
+    onSubmit({ providerId: type, params: values } as Trigger);
   };
 
   return (

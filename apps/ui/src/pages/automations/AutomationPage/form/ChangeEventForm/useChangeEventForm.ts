@@ -42,20 +42,16 @@ export function useChangeEventForm({
   initialValue,
   onSubmit,
 }: UseChangeEventFormParams) {
+  const params = initialValue?.params;
   const { control, handleSubmit, formState, setValue, watch } =
     useForm<FormValues>({
       resolver: zodResolver(formSchema),
       mode: "onChange",
       defaultValues: {
-        deviceId:
-          typeof initialValue?.deviceId === "string"
-            ? initialValue.deviceId
-            : "",
+        deviceId: typeof params?.deviceId === "string" ? params.deviceId : "",
         attribute:
-          typeof initialValue?.attribute === "string"
-            ? initialValue.attribute
-            : "",
-        condition: extractCondition(initialValue?.condition),
+          typeof params?.attribute === "string" ? params.attribute : "",
+        condition: extractCondition(params?.condition),
       },
     });
 
@@ -116,7 +112,7 @@ export function useChangeEventForm({
   };
 
   const submit = handleSubmit((values: FormValues) => {
-    onSubmit({ type, ...values } as Trigger);
+    onSubmit({ providerId: type, params: values } as Trigger);
   });
 
   return {

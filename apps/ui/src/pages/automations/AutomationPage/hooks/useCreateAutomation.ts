@@ -9,6 +9,7 @@ import {
   type Trigger,
 } from "@/api/automations";
 import { type MetadataFormValues } from "../form/MetadataForm";
+import type { ActionFormResult } from "../presenters/types";
 
 export type WizardStep = "metadata" | "trigger" | "action";
 
@@ -48,7 +49,10 @@ export function useCreateAutomation() {
         description: values.description,
         enabled: values.enabled,
         trigger: triggerValue,
-        actionTemplateId: templateId,
+        action: {
+          providerId: "command_template",
+          params: { templateId },
+        },
       }),
     onSuccess: (automation: Automation) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
@@ -68,10 +72,18 @@ export function useCreateAutomation() {
     setCurrentStep("action");
   };
 
-  const submitAction = (templateId: string) => {
+  const submitAction = (result: ActionFormResult) => {
     if (!metadata || !trigger) return;
-    setActionTemplateId(templateId);
-    mutate({ values: metadata, triggerValue: trigger, templateId });
+    if (result.kind !== "templateId") {
+      // ``inlineCommand`` lands in commit 3.
+      throw new Error("inline command submit not implemented yet");
+    }
+    setActionTemplateId(result.templateId);
+    mutate({
+      values: metadata,
+      triggerValue: trigger,
+      templateId: result.templateId,
+    });
   };
 
   const goPrevious = () => {

@@ -5,6 +5,7 @@ import { Terminal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
+import type { Automation } from "@/api/automations";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
@@ -18,6 +19,15 @@ import { useAutomationEdit } from "./hooks/useAutomationEdit";
 import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
 import MetadataForm from "./form/MetadataForm";
+
+/** Extract the underlying templateId from a ``command_template`` action.
+ *  The UI only renders/edits this kind today; other providers (e.g.
+ *  ``notification``) pass through untouched and yield ``undefined`` here. */
+function initialActionTemplateId(automation: Automation): string | undefined {
+  if (automation.action.providerId !== "command_template") return undefined;
+  const id = automation.action.params.templateId;
+  return typeof id === "string" ? id : undefined;
+}
 
 const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
   const { t } = useTranslation("automations");
@@ -120,16 +130,27 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
         >
           {editingSection === "action" ? (
             <ActionForm
-              initialValue={automation.actionTemplateId}
+              initialValue={initialActionTemplateId(automation)}
               onCancel={() => setEditingSection(null)}
-              onSubmit={(actionTemplateId) =>
-                update("action", { actionTemplateId })
-              }
+              onSubmit={(result) => {
+                if (result.kind === "templateId") {
+                  update("action", {
+                    action: {
+                      providerId: "command_template",
+                      params: { templateId: result.templateId },
+                    },
+                  });
+                  return;
+                }
+                // ``inlineCommand`` lands in commit 3 — placeholder body never
+                // emits this kind today, so the branch is unreachable.
+                throw new Error("inline command submit not implemented yet");
+              }}
             />
           ) : (
             <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
               <CommandTemplatePresenter
-                templateId={automation.actionTemplateId}
+                templateId={initialActionTemplateId(automation) ?? ""}
               />
             </BasePresenter>
           )}
