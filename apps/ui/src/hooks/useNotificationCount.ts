@@ -6,6 +6,8 @@ export function useNotificationCount(): number {
     queryKey: ["notifications", "count"],
     queryFn: () => listNotifications({ dismissed: false, size: 1 }),
     refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
     select: (p) => p.total,
   });
   return data ?? 0;

@@ -21,6 +21,8 @@ export function useNotifications(filter?: NotificationsFilter) {
     queryKey: ["notifications", filter],
     queryFn: () => listNotifications(filter),
     refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   });
 
   const { mutate: dismiss } = useMutation({
