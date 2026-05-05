@@ -1,25 +1,16 @@
-import { FC, useMemo } from "react";
+import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { getAssetTreeWithDevices, type AssetTreeNode } from "@/api/assets";
+import { useAssetTree } from "@/hooks/useAssetTree";
 import { CommandWizard } from "@/pages/devices/commands/new/CommandWizard";
 import { useCommandWizard } from "@/pages/devices/commands/new/useCommandWizard";
-import { flattenAssetTree } from "@/pages/devices/commands/new/types";
 import type { CustomActionFormProps } from "../../presenters/types";
 
 export const InlineCommandForm: FC<CustomActionFormProps> = ({ onChange }) => {
   const { t } = useTranslation(["automations", "common"]);
   const { devices, loading: devicesLoading } = useDevicesList();
-  const { data: assetTree = [], isLoading: assetTreeLoading } = useQuery<
-    AssetTreeNode[]
-  >({
-    queryKey: ["assets", "tree-with-devices"],
-    queryFn: getAssetTreeWithDevices,
-  });
-
-  const assetsList = useMemo(() => flattenAssetTree(assetTree), [assetTree]);
+  const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
 
   // Form-progression hook only — no dispatch / save mutations from inside
   // the action form. The submit action just bubbles the payload up; the

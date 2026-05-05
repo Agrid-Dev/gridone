@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getAsset, getAssetTreeWithDevices } from "@/api/assets";
+import { getAsset } from "@/api/assets";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import type { CommandTemplate } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { CommandWizard } from "./CommandWizard";
 import {
@@ -23,7 +24,6 @@ import {
   type DispatchResult,
 } from "./useCommandMutations";
 import { useCommandWizard } from "./useCommandWizard";
-import { flattenAssetTree } from "./types";
 
 const STEP_KEYS = [
   "commands.new.subtitle.target",
@@ -52,15 +52,7 @@ export default function NewCommandPage() {
   }, [deviceId, assetId]);
 
   const { devices, loading: devicesLoading } = useDevicesList();
-
-  const { data: assetTree = [], isLoading: assetTreeLoading } = useQuery<
-    AssetTreeNode[]
-  >({
-    queryKey: ["assets", "tree-with-devices"],
-    queryFn: getAssetTreeWithDevices,
-  });
-
-  const assetsList = useMemo(() => flattenAssetTree(assetTree), [assetTree]);
+  const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],

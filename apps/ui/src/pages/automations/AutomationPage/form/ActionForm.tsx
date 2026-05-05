@@ -58,7 +58,7 @@ const ActionForm: FC<ActionFormProps> = ({
     result?.kind === "templateId" && result.templateId === initialValue;
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-6">
       <FieldShell id="action-type-picker" label={t("automations:actions.type")}>
         <Select onValueChange={handleTypeChange} value={type}>
           <SelectTrigger className="w-full sm:w-80">
