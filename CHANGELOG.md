@@ -1,3 +1,14 @@
+## v0.67.0 (2026-05-05)
+
+### Feat
+
+- **ui**: action type select on automation form (AGR-529)
+
+### Fix
+
+- **ui**: align automation wire shape with backend (provider_id, action)
+- **ui**: make template picker reflect the user's pick (AGR-529)
+
 ## v0.66.2 (2026-05-05)
 
 ### Refactor
