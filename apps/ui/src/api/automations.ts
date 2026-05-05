@@ -3,14 +3,27 @@ import { request } from "./request";
 
 export type ExecutionStatus = "success" | "failed";
 
-export type Trigger = { type: string } & Record<string, unknown>;
+/** Polymorphic trigger/action envelope. ``providerId`` discriminates the
+ *  variant (``schedule`` / ``change_event`` / ``command_template`` / ...);
+ *  ``params`` carries the variant-specific shape. The deep camelCase pass on
+ *  responses turns the wire's snake_case (``provider_id``, inner field names
+ *  like ``device_id``) into the UI camelCase shown here. */
+export type Trigger = {
+  providerId: string;
+  params: Record<string, unknown>;
+};
+
+export type Action = {
+  providerId: string;
+  params: Record<string, unknown>;
+};
 
 export type Automation = {
   id: string;
   name: string;
   description: string;
   trigger: Trigger;
-  actionTemplateId: string;
+  action: Action;
   enabled: boolean;
 };
 
@@ -18,7 +31,7 @@ export type AutomationCreate = {
   name: string;
   description?: string;
   trigger: Trigger;
-  actionTemplateId: string;
+  action: Action;
   enabled?: boolean;
 };
 

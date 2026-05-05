@@ -65,8 +65,11 @@ function makeAutomation(
     name,
     description,
     enabled,
-    actionTemplateId: `tpl-${id}`,
-    trigger: { type: triggerType },
+    action: {
+      providerId: "command_template",
+      params: { templateId: `tpl-${id}` },
+    },
+    trigger: { providerId: triggerType, params: {} },
   };
 }
 

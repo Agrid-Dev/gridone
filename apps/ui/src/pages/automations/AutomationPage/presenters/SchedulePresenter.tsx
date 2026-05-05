@@ -5,7 +5,8 @@ import type { TriggerDescriptor } from "./types";
 
 export const SchedulePresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t } = useTranslation("automations");
-  const cron = typeof trigger.cron === "string" ? trigger.cron : "";
+  const cron =
+    typeof trigger.params.cron === "string" ? trigger.params.cron : "";
   return (
     <dl className="space-y-1">
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

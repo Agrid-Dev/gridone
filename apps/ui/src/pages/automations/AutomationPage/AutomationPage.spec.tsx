@@ -64,8 +64,8 @@ vi.mock("@/pages/devices/commands/presenters/WritePresenter", () => ({
 }));
 
 vi.mock("./presenters/TriggerPresenter", () => ({
-  TriggerPresenter: ({ trigger }: { trigger: { type: string } }) => (
-    <div data-testid="trigger-presenter">type={trigger.type}</div>
+  TriggerPresenter: ({ trigger }: { trigger: { providerId: string } }) => (
+    <div data-testid="trigger-presenter">type={trigger.providerId}</div>
   ),
 }));
 
@@ -130,8 +130,11 @@ const automation: Automation = {
   name: "Morning warmup",
   description: "Boost heating before occupants arrive",
   enabled: true,
-  actionTemplateId: "tpl-9f12",
-  trigger: { type: "schedule", cron: "0 6 * * *" },
+  action: {
+    providerId: "command_template",
+    params: { templateId: "tpl-9f12" },
+  },
+  trigger: { providerId: "schedule", params: { cron: "0 6 * * *" } },
 };
 
 const execution: AutomationExecution = {

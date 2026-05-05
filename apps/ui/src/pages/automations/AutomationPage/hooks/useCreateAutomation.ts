@@ -49,7 +49,10 @@ export function useCreateAutomation() {
         description: values.description,
         enabled: values.enabled,
         trigger: triggerValue,
-        actionTemplateId: templateId,
+        action: {
+          providerId: "command_template",
+          params: { templateId },
+        },
       }),
     onSuccess: (automation: Automation) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });

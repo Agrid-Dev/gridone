@@ -23,10 +23,11 @@ function isCondition(value: unknown): value is Condition {
 
 export const ChangeEventPresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t } = useTranslation("automations");
-  const deviceId = typeof trigger.deviceId === "string" ? trigger.deviceId : "";
+  const params = trigger.params;
+  const deviceId = typeof params.deviceId === "string" ? params.deviceId : "";
   const attribute =
-    typeof trigger.attribute === "string" ? trigger.attribute : "";
-  const condition = isCondition(trigger.condition) ? trigger.condition : null;
+    typeof params.attribute === "string" ? params.attribute : "";
+  const condition = isCondition(params.condition) ? params.condition : null;
 
   const { data: device } = useQuery({
     queryKey: ["devices", deviceId],

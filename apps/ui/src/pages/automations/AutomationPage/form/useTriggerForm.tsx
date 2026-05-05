@@ -12,7 +12,9 @@ export function useTriggerForm(initialValue?: Trigger) {
     queryFn: listTriggerSchemas,
   });
 
-  const [type, setType] = useState<string | undefined>(initialValue?.type);
+  const [type, setType] = useState<string | undefined>(
+    initialValue?.providerId,
+  );
 
   const schema = type && schemas ? schemas[type] : undefined;
 
@@ -24,6 +26,8 @@ export function useTriggerForm(initialValue?: Trigger) {
     clearType: () => setType(undefined),
     schema,
     initialValueForType:
-      initialValue && initialValue.type === type ? initialValue : undefined,
+      initialValue && initialValue.providerId === type
+        ? initialValue
+        : undefined,
   };
 }
