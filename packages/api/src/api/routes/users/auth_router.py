@@ -88,8 +88,8 @@ async def login(
         response,
         access_token,
         refresh_token,
-        access_max_age=auth_service._access_token_expire_minutes * 60,
-        refresh_max_age=auth_service._refresh_token_expire_minutes * 60,
+        access_max_age=auth_service.access_token_expire_minutes * 60,
+        refresh_max_age=auth_service.refresh_token_expire_minutes * 60,
         secure=request.app.state.cookie_secure,
     )
 
@@ -137,8 +137,8 @@ async def refresh(
         response,
         access_token,
         refresh_token,
-        access_max_age=auth_service._access_token_expire_minutes * 60,
-        refresh_max_age=auth_service._refresh_token_expire_minutes * 60,
+        access_max_age=auth_service.access_token_expire_minutes * 60,
+        refresh_max_age=auth_service.refresh_token_expire_minutes * 60,
         secure=request.app.state.cookie_secure,
     )
 

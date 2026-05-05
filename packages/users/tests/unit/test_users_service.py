@@ -34,12 +34,10 @@ def storage() -> MemoryUsersStorage:
 
 @pytest.fixture
 def service(storage: MemoryUsersStorage) -> UsersService:
-    svc = UsersService(storage_url=None)
-    # Inject the shared storage so tests can seed UserInDB rows directly (with
+    # Inject a pre-built storage so tests can seed UserInDB rows directly (with
     # pre-computed hashed_password) without paying bcrypt for every fixture.
     # Skipping ``start`` also keeps the default-admin seed out of assertions.
-    svc._storage = storage
-    return svc
+    return UsersService(storage=storage)
 
 
 class TestBlockUser:

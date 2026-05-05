@@ -20,7 +20,7 @@ _action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
 class PostgresStorage:
     def __init__(self, pool: asyncpg.Pool, dsn: str) -> None:
-        self._pool = pool
+        self.pool = pool
         self._dsn = dsn
 
     @classmethod
@@ -54,7 +54,7 @@ class PostgresStorage:
         )
 
     async def create(self, automation: Automation) -> None:
-        await self._pool.execute(
+        await self.pool.execute(
             """
             INSERT INTO automations
                 (id, name, description, trigger, action, enabled)
@@ -69,7 +69,7 @@ class PostgresStorage:
         )
 
     async def get(self, automation_id: str) -> Automation:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             "SELECT * FROM automations WHERE id = $1",
             automation_id,
         )
@@ -80,15 +80,15 @@ class PostgresStorage:
 
     async def list(self, *, enabled: bool | None = None) -> list[Automation]:  # type: ignore[invalid-type-form]
         if enabled is None:
-            rows = await self._pool.fetch("SELECT * FROM automations")
+            rows = await self.pool.fetch("SELECT * FROM automations")
         else:
-            rows = await self._pool.fetch(
+            rows = await self.pool.fetch(
                 "SELECT * FROM automations WHERE enabled = $1", enabled
             )
         return [self._row_to_automation(r) for r in rows]
 
     async def update(self, automation: Automation) -> None:
-        result = await self._pool.execute(
+        result = await self.pool.execute(
             """
             UPDATE automations
             SET name = $2, description = $3,
@@ -107,7 +107,7 @@ class PostgresStorage:
             raise NotFoundError(msg)
 
     async def delete(self, automation_id: str) -> None:
-        result = await self._pool.execute(
+        result = await self.pool.execute(
             "DELETE FROM automations WHERE id = $1",
             automation_id,
         )
@@ -116,7 +116,7 @@ class PostgresStorage:
             raise NotFoundError(msg)
 
     async def log_execution(self, execution: AutomationExecution) -> None:
-        await self._pool.execute(
+        await self.pool.execute(
             """
             INSERT INTO automation_executions
                 (id, automation_id, triggered_at, executed_at, status, error, output_id)
@@ -132,7 +132,7 @@ class PostgresStorage:
         )
 
     async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]
-        rows = await self._pool.fetch(
+        rows = await self.pool.fetch(
             """
             SELECT * FROM automation_executions
             WHERE automation_id = $1
@@ -148,4 +148,4 @@ class PostgresStorage:
         run_migrations(self._dsn)
 
     async def close(self) -> None:
-        await self._pool.close()
+        await self.pool.close()

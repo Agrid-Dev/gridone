@@ -196,7 +196,7 @@ class TestUpsertPoints:
         await storage.create_series(_make_series())
         now = datetime.now(tz=UTC)
         # Insert a command row directly to get a valid FK reference.
-        cmd_id = await storage._pool.fetchval(
+        cmd_id = await storage.pool.fetchval(
             """INSERT INTO unit_commands
             (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
@@ -212,7 +212,7 @@ class TestUpsertPoints:
     async def test_coalesce_preserves_command_id_when_absent(self, storage):
         await storage.create_series(_make_series())
         now = datetime.now(tz=UTC)
-        cmd_id = await storage._pool.fetchval(
+        cmd_id = await storage.pool.fetchval(
             """INSERT INTO unit_commands
             (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
@@ -230,7 +230,7 @@ class TestUpsertPoints:
     async def test_command_id_overwritten_when_provided(self, storage):
         await storage.create_series(_make_series())
         now = datetime.now(tz=UTC)
-        cmd1_id = await storage._pool.fetchval(
+        cmd1_id = await storage.pool.fetchval(
             """INSERT INTO unit_commands
             (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)
@@ -238,7 +238,7 @@ class TestUpsertPoints:
             RETURNING id""",
             now,
         )
-        cmd2_id = await storage._pool.fetchval(
+        cmd2_id = await storage.pool.fetchval(
             """INSERT INTO unit_commands
             (batch_id, device_id, attribute, value, data_type, status,
              status_details, user_id, created_at)

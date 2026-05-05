@@ -38,7 +38,7 @@ class VirtualDevice(CoreDevice):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
-        self._update_attribute(attribute, validated_value)
+        self.update_attribute(attribute, validated_value)
         logger.info(
             "Wrote attribute '%s' with value '%s' to virtual device '%s'",
             attribute_name,

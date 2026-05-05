@@ -2,6 +2,9 @@ from pymodbus.client import AsyncModbusTcpClient
 
 from devices_manager.core.transports import PullTransportClient
 from devices_manager.core.transports.connected import connected
+from devices_manager.core.transports.transport_connection_state import (
+    TransportConnectionState,
+)
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.cast.bool import cast_as_bool
 from devices_manager.types import AttributeValueType, TransportProtocols
@@ -22,11 +25,22 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
     config: ModbusTCPTransportConfig
 
     def __init__(
-        self, metadata: TransportMetadata, config: ModbusTCPTransportConfig
+        self,
+        metadata: TransportMetadata,
+        config: ModbusTCPTransportConfig,
+        *,
+        client: AsyncModbusTcpClient | None = None,
     ) -> None:
         super().__init__(metadata, config)
+        if client is not None:
+            # Pre-built client = test seam. Skip the network round-trip in
+            # ``connect`` and report as already connected.
+            self._client = client
+            self.connection_state = TransportConnectionState.connected()
 
     async def connect(self) -> None:
+        if self.connection_state.is_connected:
+            return
         self._client = AsyncModbusTcpClient(
             host=self.config.host, port=self.config.port
         )

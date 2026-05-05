@@ -46,6 +46,11 @@ class TransportClient[T_TransportAddress](ABC):
     def id(self) -> str:
         return self.metadata.id
 
+    @property
+    def background_task_count(self) -> int:
+        """Number of in-flight transport-owned background tasks."""
+        return len(self._background_tasks)
+
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> T_TransportAddress:

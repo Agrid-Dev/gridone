@@ -15,13 +15,13 @@ class MockTransportClient:
     id = "mock-id"
     connection_state: TransportConnectionState
     _connection_lock: asyncio.Lock
-    _connect_count: int  # counts how many times _connect has run
+    connect_count: int  # counts how many times _connect has run
     _fail_connect: bool  # whether the client should fail when connecting (for testing)
 
     def __init__(self, *, fail_connect: bool = False) -> None:
         self.connection_state = TransportConnectionState.idle()
         self._connection_lock = asyncio.Lock()
-        self._connect_count = 0
+        self.connect_count = 0
         self._fail_connect = fail_connect
 
     async def connect(self):
@@ -31,7 +31,7 @@ class MockTransportClient:
             if self.connection_state.is_connected:
                 return
 
-            self._connect_count += 1
+            self.connect_count += 1
             await asyncio.sleep(0.05)  # simulate slow connection
             if self._fail_connect:
                 raise ValueError("I was asked to fail")  # noqa: TRY003
@@ -69,7 +69,7 @@ async def test_connected_decorator_runs_connect_only_once() -> None:
 
     assert results == ["a", "b", "c"]
     assert client.connection_state.is_connected
-    assert client._connect_count == 1
+    assert client.connect_count == 1
 
 
 @pytest.mark.asyncio

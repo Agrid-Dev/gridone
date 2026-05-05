@@ -61,7 +61,7 @@ async def storage():
     assert POSTGRES_URL is not None
     store = await PostgresStorage.from_url(POSTGRES_URL)
     await store.start()
-    async with store._pool.acquire() as conn:
+    async with store.pool.acquire() as conn:
         await conn.execute("DELETE FROM automations")  # cascades to executions
     yield store
     await store.close()

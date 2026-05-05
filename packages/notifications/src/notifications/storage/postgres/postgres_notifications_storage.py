@@ -13,7 +13,7 @@ class PostgresNotificationsStorage:
     """PostgreSQL-backed storage for notifications."""
 
     def __init__(self, pool: asyncpg.Pool) -> None:
-        self._pool = pool
+        self.pool = pool
 
     def _row_to_notification(self, row: asyncpg.Record) -> Notification:
         return Notification(
@@ -48,7 +48,7 @@ class PostgresNotificationsStorage:
         notification_id = gen_id()
 
         if correlation_id is None:
-            row = await self._pool.fetchrow(
+            row = await self.pool.fetchrow(
                 """
                 INSERT INTO notifications
                     (id, title, body, severity, created_by, created_at)
@@ -65,7 +65,7 @@ class PostgresNotificationsStorage:
             )
             return self._row_to_notification(row)
 
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             """
             INSERT INTO notifications
                 (id, title, body, severity, correlation_id, created_by, created_at)
@@ -84,7 +84,7 @@ class PostgresNotificationsStorage:
         if row is not None:
             return self._row_to_notification(row)
 
-        existing = await self._pool.fetchrow(
+        existing = await self.pool.fetchrow(
             """
             SELECT id, title, body, severity, correlation_id, created_by, created_at
             FROM notifications
@@ -112,7 +112,7 @@ class PostgresNotificationsStorage:
         if not user_ids:
             return []
 
-        rows = await self._pool.fetch(
+        rows = await self.pool.fetch(
             """
             INSERT INTO notification_dispatches (notification_id, user_id)
             SELECT $1, uid
@@ -156,10 +156,10 @@ class PostgresNotificationsStorage:
             WHERE {where}
         """
 
-        count_row = await self._pool.fetchrow(f"SELECT COUNT(*) {base_query}", *params)
+        count_row = await self.pool.fetchrow(f"SELECT COUNT(*) {base_query}", *params)
         total: int = count_row["count"]
 
-        rows = await self._pool.fetch(
+        rows = await self.pool.fetch(
             f"""
             SELECT n.id, n.title, n.body, n.severity, n.correlation_id,
                    n.created_by, n.created_at,
@@ -182,7 +182,7 @@ class PostgresNotificationsStorage:
         notification_id: str,
         user_id: str,
     ) -> NotificationDispatch | None:
-        async with self._pool.acquire() as conn, conn.transaction():
+        async with self.pool.acquire() as conn, conn.transaction():
             # Dismiss the active dispatch (if any) in one round-trip.
             updated = await conn.fetchrow(
                 """
@@ -224,4 +224,4 @@ class PostgresNotificationsStorage:
             return self._row_to_dispatch(existing, self._row_to_notification(existing))
 
     async def close(self) -> None:
-        await self._pool.close()
+        await self.pool.close()

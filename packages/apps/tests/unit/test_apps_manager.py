@@ -249,7 +249,7 @@ class TestHealthCheck:
         response.is_success = True
         http_client.get.return_value = response
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager.check_all_apps_health()
 
         http_client.get.assert_called_once_with(
             "https://myapp.example.com/health",
@@ -267,7 +267,7 @@ class TestHealthCheck:
         response.is_success = False
         http_client.get.return_value = response
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager.check_all_apps_health()
 
         updated = await app_storage.get_by_id("app-1")
         assert updated is not None
@@ -279,7 +279,7 @@ class TestHealthCheck:
         await app_storage.save(make_app(status=AppStatus.HEALTHY))
         http_client.get.side_effect = httpx.ConnectError("unreachable")
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager.check_all_apps_health()
 
         updated = await app_storage.get_by_id("app-1")
         assert updated is not None
@@ -302,41 +302,38 @@ class TestHealthCheck:
 
         app_storage.save = tracked_save
 
-        await apps_manager._check_all_apps_health()
+        await apps_manager.check_all_apps_health()
 
         assert len(save_calls) == 0
 
     async def test_start_and_stop_health_check(self, apps_manager):
         await apps_manager.start_health_check(interval_seconds=3600)
-        assert apps_manager._health_task is not None
-        assert not apps_manager._health_task.done()
+        assert apps_manager.is_health_check_running
 
         await apps_manager.stop_health_check()
-        assert apps_manager._health_task is None
+        assert not apps_manager.is_health_check_running
 
     async def test_health_check_loop_runs_and_sleeps(
         self, apps_manager, app_storage, http_client
     ):
-        """Verify the loop body executes _check_all_apps_health then sleeps."""
+        """Verify the background loop sweeps app health at each iteration."""
         await app_storage.save(make_app(status=AppStatus.REGISTERED))
         response = AsyncMock()
         response.is_success = True
         http_client.get.return_value = response
 
-        original_sleep = asyncio.sleep
-
-        async def cancel_on_sleep(_seconds: float) -> None:
-            raise asyncio.CancelledError
-
-        asyncio.sleep = cancel_on_sleep  # type: ignore[assignment]
+        # interval=0 so the loop yields and runs the next iteration ASAP.
+        await apps_manager.start_health_check(interval_seconds=0)
         try:
-            with pytest.raises(asyncio.CancelledError):
-                await apps_manager._health_check_loop(60)
+            for _ in range(100):
+                if http_client.get.call_count >= 1:
+                    break
+                await asyncio.sleep(0)
         finally:
-            asyncio.sleep = original_sleep
+            await apps_manager.stop_health_check()
 
-        # The loop body ran once before being cancelled
-        http_client.get.assert_called_once()
+        # The loop body ran at least once.
+        assert http_client.get.call_count >= 1
 
 
 class TestAppModel:

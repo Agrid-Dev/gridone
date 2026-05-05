@@ -53,7 +53,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                     self._client_instance.__aenter__(), timeout=TIMEOUT
                 )
                 self._background_tasks.add(
-                    asyncio.create_task(self._handle_incoming_messages())
+                    asyncio.create_task(self.handle_incoming_messages())
                 )
                 await super().connect()
 
@@ -77,7 +77,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
 
     async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
         listener_id = self._handlers_registry.register(topic, callback)
-        await self._subscribe(topic)
+        await self.subscribe(topic)
         self._message_handlers.register(topic, listener_id)
         logger.debug("New listener registered on topic %s", topic)
         return listener_id
@@ -89,18 +89,18 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
             # no other handlers on this topic, unsubscribe
-            asyncio.create_task(self._unsubscribe(topic))  # noqa: RUF006
+            asyncio.create_task(self.unsubscribe(topic))  # noqa: RUF006
 
     @connected
-    async def _subscribe(self, topic: str) -> None:
+    async def subscribe(self, topic: str) -> None:
         await self._client.subscribe(topic)
 
     @connected
-    async def _unsubscribe(self, topic: str) -> None:
+    async def unsubscribe(self, topic: str) -> None:
         await self._client.unsubscribe(topic)
 
     @connected
-    async def _handle_incoming_messages(self) -> None:
+    async def handle_incoming_messages(self) -> None:
         async for message in self._client.messages:
             callback_ids = self._message_handlers.match_topic(message.topic)
             logger.debug(

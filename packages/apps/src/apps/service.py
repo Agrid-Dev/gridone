@@ -53,6 +53,14 @@ class AppsService(Service):
         if hasattr(self, "_storages"):
             await self._storages.close()
 
+    @property
+    def is_health_check_running(self) -> bool:
+        """True while the background health-check task is alive."""
+        return (
+            hasattr(self, "_apps_manager")
+            and self._apps_manager.is_health_check_running
+        )
+
     # ── App CRUD / proxy / enable-disable (delegated to AppsManager) ─────
 
     async def list_apps(self) -> list[App]:

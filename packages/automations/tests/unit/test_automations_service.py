@@ -73,13 +73,12 @@ def _make_service(
             _make_action_provider("command_template"),
             _make_action_provider("notification"),
         ]
-    svc = AutomationsService(
+    return AutomationsService(
         storage_url="postgresql://test",
         trigger_providers=providers,
         action_providers=action_providers,
+        storage=storage or _make_storage(),
     )
-    svc._storage = storage or _make_storage()
-    return svc
 
 
 def _create_params(**kwargs: object) -> AutomationCreate:
@@ -222,7 +221,7 @@ class TestStart:
         with patch("automations.service.build_storage", return_value=storage):
             await svc.start()
             await svc.start()
-        assert len(svc._handles) == 2
+        assert svc.registered_count == 2
         assert provider.register.call_count == 2
 
     async def test_start_zero_automations_not_blocked(self):
@@ -232,7 +231,7 @@ class TestStart:
         with patch("automations.service.build_storage", return_value=storage):
             await svc.start()
             await svc.start()
-        assert svc._handles == {}
+        assert svc.registered_count == 0
 
     async def test_start_after_stop_restarts(self):
         storage = _make_storage()
@@ -251,7 +250,7 @@ class TestStart:
             await svc.start()
             await svc.stop()
             await svc.start()
-        assert len(svc._handles) == 1
+        assert svc.registered_count == 1
         assert provider.register.call_count == 2
 
 
@@ -402,7 +401,7 @@ class TestTriggers:
         svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True))
         with pytest.raises(RuntimeError, match="already registered"):
-            await svc._start_trigger(created)
+            await svc.start_trigger(created)
 
     async def test_register_passes_trigger_params(self):
         provider = _make_provider("schedule")
@@ -452,7 +451,7 @@ class TestOnFire:
         provider = _make_action_provider(action.provider_id)
         svc = _make_service(action_providers=[provider])
         created = await svc.create(_create_params(action=action, enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc.make_on_fire(created.id)(_CTX)
         provider.execute.assert_awaited_once_with(expected_params)
 
     async def test_logs_success_execution(self):
@@ -461,7 +460,7 @@ class TestOnFire:
         action_provider.execute.return_value = "output-abc123"
         svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc.make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
         assert execution.status == ExecutionStatus.SUCCESS
@@ -474,7 +473,7 @@ class TestOnFire:
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(storage=storage, action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc.make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
         assert execution.error is not None
@@ -485,18 +484,18 @@ class TestOnFire:
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(action_providers=[action_provider])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)  # must not raise
+        await svc.make_on_fire(created.id)(_CTX)  # must not raise
 
     async def test_raises_not_found_when_automation_missing(self):
         svc = _make_service()
         with pytest.raises(NotFoundError):
-            await svc._make_on_fire("nonexistent")(_CTX)
+            await svc.make_on_fire("nonexistent")(_CTX)
 
     async def test_logs_failed_execution_on_unknown_action_type(self):
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
         created = await svc.create(_create_params(enabled=False))
-        await svc._make_on_fire(created.id)(_CTX)
+        await svc.make_on_fire(created.id)(_CTX)
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
         assert execution.output_id is None

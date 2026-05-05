@@ -15,6 +15,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
+from commands.storage import MemoryStorage
 from models.errors import (
     InvalidError,
     NotFoundError,
@@ -75,13 +76,25 @@ def _make_service(
     )
 
 
+@pytest.fixture
+def storage_backend() -> MemoryStorage:
+    return MemoryStorage()
+
+
 @pytest_asyncio.fixture
 async def service(
     device_writer: AsyncMock,
     result_handler: AsyncMock,
     target_resolver: AsyncMock,
+    storage_backend: MemoryStorage,
 ):
-    svc = _make_service(device_writer, result_handler, target_resolver)
+    svc = CommandsService(
+        storage_url=None,
+        device_writer=device_writer,
+        result_handler=result_handler,
+        target_resolver=target_resolver,
+        storage=storage_backend,
+    )
     await svc.start()
     yield svc
     await svc.stop()
@@ -312,11 +325,12 @@ class TestDispatchBatch:
         assert all(c.status == CommandStatus.PENDING for c in page.items)
 
         gate.set()
-        await service._await_pending()
+        await service.await_pending_tasks()
 
     async def test_every_batch_creates_an_ephemeral_template(
         self,
         service: CommandsService,
+        storage_backend: MemoryStorage,
         target_resolver: AsyncMock,
     ):
         target = {"types": ["thermostat"], "tags": {"asset_id": ["a1"]}}
@@ -328,7 +342,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         # Every unit row links to the same auto-created ephemeral template
         # and the resolver is called with the stored target (not the raw one).
@@ -341,7 +355,7 @@ class TestDispatchBatch:
         # The ephemeral template is persisted on the storage layer — we
         # reach into it directly because the public ``get_template`` only
         # surfaces user-saved templates, not ephemerals.
-        template = await service._storage.get_template(template_id)
+        template = await storage_backend.get_template(template_id)
         assert template is not None
         assert template.name is None
         assert template.target == target
@@ -358,6 +372,7 @@ class TestDispatchBatch:
     async def test_ids_only_batch_also_creates_a_template(
         self,
         service: CommandsService,
+        storage_backend: MemoryStorage,
     ):
         # A unified dispatch path means explicit-ids batches now also
         # create an ephemeral template. Every batch is template-backed;
@@ -367,14 +382,14 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
         template_id = next(iter(template_ids))
         assert template_id is not None
 
-        template = await service._storage.get_template(template_id)
+        template = await storage_backend.get_template(template_id)
         assert template is not None
         assert template.name is None
         assert template.target == {"ids": ["d1", "d2"]}
@@ -417,7 +432,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert len(page.items) == 3
@@ -446,7 +461,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         by_device = {c.device_id: c for c in page.items}
@@ -471,7 +486,7 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         page = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.status == CommandStatus.ERROR for c in page.items)
@@ -483,7 +498,7 @@ class TestDispatchBatch:
     ):
         # Safe to call on a freshly-constructed service that has no in-flight
         # background tasks.
-        await service._await_pending()
+        await service.await_pending_tasks()
 
     async def test_stop_awaits_in_flight_tasks(
         self,
@@ -520,7 +535,7 @@ class TestDispatchBatch:
         await release_task
 
         # stop() drained the in-flight batch before returning.
-        assert svc._tasks == set()
+        assert svc.pending_tasks_count == 0
         assert result_handler.await_count == 2
 
     async def test_await_pending_is_idempotent(
@@ -534,9 +549,9 @@ class TestDispatchBatch:
             write=MODE_AUTO,
             user_id="u1",
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
         # A second call should be a no-op and not hang.
-        await service._await_pending()
+        await service.await_pending_tasks()
 
 
 class TestTemplateCrud:
@@ -587,6 +602,7 @@ class TestTemplateCrud:
     async def test_delete_template_demotes_to_ephemeral(
         self,
         service: CommandsService,
+        storage_backend: MemoryStorage,
     ):
         template = await service.save_template(
             CommandTemplateCreate(
@@ -597,7 +613,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u1"
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
         assert all(c.template_id == template.id for c in dispatch.commands)
 
         await service.delete_template(template.id)
@@ -612,7 +628,7 @@ class TestTemplateCrud:
         # commands keep their ``template_id`` pointer for audit. A later
         # cleanup job reaps the row and the SQL cascade detaches history
         # at that point.
-        demoted = await service._storage.get_template(template.id)
+        demoted = await storage_backend.get_template(template.id)
         assert demoted is not None
         assert demoted.name is None
         history = await service.get_commands(batch_id=dispatch.batch_id)
@@ -658,7 +674,7 @@ class TestTemplateCrud:
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u2"
         )
-        await service._await_pending()
+        await service.await_pending_tasks()
 
         target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
         assert [c.device_id for c in dispatch.commands] == ["t1", "t2"]

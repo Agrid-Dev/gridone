@@ -42,22 +42,27 @@ class CommandsService(Service):
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
+        *,
+        storage: CommandsStorage | None = None,
     ) -> None:
         self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
         self._target_resolver = target_resolver
         self._tasks: set[asyncio.Task[object]] = set()
+        if storage is not None:
+            self._storage = storage
 
     async def start(self) -> None:
-        self._storage = await build_storage(self._storage_url)
+        if not hasattr(self, "_storage"):
+            self._storage = await build_storage(self._storage_url)
 
     async def stop(self) -> None:
-        await self._await_pending()
+        await self.await_pending_tasks()
         if hasattr(self, "_storage"):
             await self._storage.close()
 
-    async def _await_pending(self) -> None:
+    async def await_pending_tasks(self) -> None:
         """Wait for all in-flight background tasks spawned by batch dispatches.
 
         Safe to call repeatedly and when no tasks are pending. Folded into
@@ -65,6 +70,11 @@ class CommandsService(Service):
         """
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
+
+    @property
+    def pending_tasks_count(self) -> int:
+        """Number of in-flight background tasks. Useful for test observability."""
+        return len(self._tasks)
 
     # ------------------------------------------------------------------
     # Template CRUD

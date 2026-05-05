@@ -29,8 +29,8 @@ class AuthService:
         refresh_token_expire_minutes: int = 60 * 24 * 7,
     ) -> None:
         self._secret_key = secret_key
-        self._access_token_expire_minutes = access_token_expire_minutes
-        self._refresh_token_expire_minutes = refresh_token_expire_minutes
+        self.access_token_expire_minutes = access_token_expire_minutes
+        self.refresh_token_expire_minutes = refresh_token_expire_minutes
 
     def _create_token(
         self, user_id: str, *, role: str, kind: str, expire_minutes: int
@@ -44,7 +44,7 @@ class AuthService:
             user_id,
             role=role,
             kind=_ACCESS,
-            expire_minutes=self._access_token_expire_minutes,
+            expire_minutes=self.access_token_expire_minutes,
         )
 
     def create_refresh_token(self, user_id: str, role: str) -> str:
@@ -52,7 +52,7 @@ class AuthService:
             user_id,
             role=role,
             kind=_REFRESH,
-            expire_minutes=self._refresh_token_expire_minutes,
+            expire_minutes=self.refresh_token_expire_minutes,
         )
 
     def decode_token(self, token: str, *, expected_type: str = _ACCESS) -> TokenPayload:

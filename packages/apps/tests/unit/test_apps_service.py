@@ -38,7 +38,7 @@ class TestAppsServiceLifecycle:
         service = AppsService(storage_url=None, users_service=users_manager)
         await service.start()
         # Health-check task started inside start.
-        assert service._apps_manager._health_task is not None
+        assert service.is_health_check_running
         await service.stop()
         # Stop is idempotent.
         await service.stop()

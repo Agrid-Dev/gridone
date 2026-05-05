@@ -36,6 +36,11 @@ class ScheduleListener:
         self._on_fire = on_fire
         self._task: asyncio.Task[None] | None = None
 
+    @property
+    def is_running(self) -> bool:
+        """True while the cron-watcher task is alive."""
+        return self._task is not None and not self._task.done()
+
     async def start(self) -> None:
         self._task = asyncio.create_task(self._run())
 
@@ -62,6 +67,20 @@ class ScheduleTriggerProvider:
 
     def __init__(self) -> None:
         self._listeners: dict[str, ScheduleListener] = {}
+
+    @property
+    def handle_count(self) -> int:
+        """Number of active trigger registrations."""
+        return len(self._listeners)
+
+    def is_handle_running(self, handle_id: str) -> bool:
+        """True when ``handle_id`` is registered and its watcher is alive."""
+        listener = self._listeners.get(handle_id)
+        return listener is not None and listener.is_running
+
+    def has_handle(self, handle_id: str) -> bool:
+        """True when ``handle_id`` is registered (regardless of task state)."""
+        return handle_id in self._listeners
 
     async def register(
         self,

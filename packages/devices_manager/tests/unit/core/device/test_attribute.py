@@ -69,7 +69,7 @@ def float_attribute() -> Attribute:
 
 def test_update_value_same(float_attribute) -> None:
     previous_value = float_attribute.current_value
-    float_attribute._update_value(previous_value)
+    float_attribute.update_value(previous_value)
     assert float_attribute.current_value == previous_value
     assert (
         abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())
@@ -80,7 +80,7 @@ def test_update_value_same(float_attribute) -> None:
 
 def test_update_value_different(float_attribute) -> None:
     new_value = float_attribute.current_value + 2
-    float_attribute._update_value(new_value)
+    float_attribute.update_value(new_value)
     assert float_attribute.current_value == new_value
     assert (
         abs(float_attribute.last_updated.timestamp() - datetime.now(UTC).timestamp())
@@ -205,9 +205,9 @@ def test_fault_attribute_is_faulty_reacts_to_value_update():
         last_changed=_NOW,
     )
     assert attr.is_faulty is False
-    attr._update_value(new_value=True)
+    attr.update_value(new_value=True)
     assert attr.is_faulty is True
-    attr._update_value(new_value=False)
+    attr.update_value(new_value=False)
     assert attr.is_faulty is False
 
 

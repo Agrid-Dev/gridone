@@ -47,7 +47,7 @@ class Attribute(BaseModel):
             self.current_value = self.ensure_type(self.current_value)
         return self
 
-    def _update_value(self, new_value: AttributeValueType) -> None:
+    def update_value(self, new_value: AttributeValueType) -> None:
         """Update the attribute value and timestamp."""
         previous_value = self.current_value
         object.__setattr__(self, "current_value", self.ensure_type(new_value))

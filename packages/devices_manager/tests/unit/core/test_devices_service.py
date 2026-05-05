@@ -67,7 +67,7 @@ class TestDevicesServiceSync:
     async def test_start_sync_with_polling_enabled(self, devices_manager, device):
         await devices_manager.start()
 
-        assert devices_manager._running is True
+        assert devices_manager.running is True
         assert device.syncing is True
 
     @pytest.mark.asyncio
@@ -151,16 +151,16 @@ class TestDevicesServiceSync:
 
         await devices_manager.stop()
 
-        assert devices_manager._running is False
+        assert devices_manager.running is False
         assert device.syncing is False
 
     @pytest.mark.asyncio
     async def test_stop_sync_no_tasks(self, devices_manager):
-        devices_manager._running = True
+        devices_manager.running = True
 
         await devices_manager.stop()
 
-        assert devices_manager._running is False
+        assert devices_manager.running is False
 
     @pytest.mark.asyncio
     async def test_devices_are_polled_during_sync(
@@ -183,23 +183,6 @@ class TestDevicesServiceListeners:
         assert isinstance(listener_id, str)
         assert len(listener_id) > 0
 
-    def test_add_device_attribute_listener_registers_handler(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
-            pass
-
-        devices_manager.add_device_attribute_listener(callback)
-
-        assert len(devices_manager._attribute_update_handlers) == 1
-
-    def test_remove_device_attribute_listener_removes_handler(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
-            pass
-
-        listener_id = devices_manager.add_device_attribute_listener(callback)
-        devices_manager.remove_device_attribute_listener(listener_id)
-
-        assert len(devices_manager._attribute_update_handlers) == 0
-
     def test_remove_nonexistent_listener_is_safe(self, devices_manager):
         # must not raise
         devices_manager.remove_device_attribute_listener("nonexistent")
@@ -211,7 +194,7 @@ class TestDevicesServiceListeners:
             received.append((attribute_name, attribute.current_value))
 
         devices_manager.add_device_attribute_listener(handler)
-        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+        device.update_attribute(device.attributes["temperature_setpoint"], 22)
 
         assert received == [("temperature_setpoint", 22)]
 
@@ -225,7 +208,7 @@ class TestDevicesServiceListeners:
 
         listener_id = devices_manager.add_device_attribute_listener(handler)
         devices_manager.remove_device_attribute_listener(listener_id)
-        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+        device.update_attribute(device.attributes["temperature_setpoint"], 22)
 
         assert received == []
 
@@ -237,7 +220,7 @@ class TestDevicesServiceListeners:
 
         devices_manager.add_device_attribute_listener(failing_handler)
         # must not propagate
-        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+        device.update_attribute(device.attributes["temperature_setpoint"], 22)
 
     @pytest.mark.asyncio
     async def test_async_attribute_listener_exception_is_logged(
@@ -250,7 +233,7 @@ class TestDevicesServiceListeners:
             raise RuntimeError(msg)
 
         devices_manager.add_device_attribute_listener(failing_async_handler)
-        device._update_attribute(device.attributes["temperature_setpoint"], 22)
+        device.update_attribute(device.attributes["temperature_setpoint"], 22)
         await asyncio.sleep(0.05)
         # background task completed with exception — must not propagate to caller
 
@@ -265,14 +248,14 @@ class TestDevicesServiceListeners:
             received.append(previous)
 
         devices_manager.add_device_attribute_listener(handler)
-        device._update_attribute(attr, 21)
+        device.update_attribute(attr, 21)
 
         assert received == [None]
 
     def test_second_update_previous_equals_prior_value(self, devices_manager, device):
         """Second update: previous.current_value equals the value before mutation."""
         attr = device.attributes["temperature_setpoint"]
-        device._update_attribute(attr, 21)
+        device.update_attribute(attr, 21)
 
         received_previous: list[Attribute | None] = []
 
@@ -282,7 +265,7 @@ class TestDevicesServiceListeners:
             received_previous.append(previous)
 
         devices_manager.add_device_attribute_listener(handler)
-        device._update_attribute(attr, 22)
+        device.update_attribute(attr, 22)
 
         assert len(received_previous) == 1
         prev = received_previous[0]
@@ -294,7 +277,7 @@ class TestDevicesServiceListeners:
     ):
         """Mutating the new attribute doesn't retroactively change previous."""
         attr = device.attributes["temperature_setpoint"]
-        device._update_attribute(attr, 21)
+        device.update_attribute(attr, 21)
 
         captured_previous = []
         captured_attr = []
@@ -304,11 +287,11 @@ class TestDevicesServiceListeners:
             captured_attr.append(attribute)
 
         devices_manager.add_device_attribute_listener(handler)
-        device._update_attribute(attr, 22)
+        device.update_attribute(attr, 22)
 
         assert captured_previous[0].current_value == 21
         # mutate the live attribute further
-        device._update_attribute(attr, 99)
+        device.update_attribute(attr, 99)
         # the snapshot must not have changed
         assert captured_previous[0].current_value == 21
 
@@ -329,9 +312,9 @@ class TestDevicesServiceListeners:
 
         devices_manager.add_device_attribute_listener(handler)
 
-        device._update_attribute(attr, 10)
-        device._update_attribute(attr, 20)
-        device._update_attribute(attr, 30)
+        device.update_attribute(attr, 10)
+        device.update_attribute(attr, 20)
+        device.update_attribute(attr, 30)
 
         assert calls == [(None, 10), (10, 20), (20, 30)]
 
@@ -759,7 +742,7 @@ def _mock_device_registry(
 def _dm_with_mock_registry(mock_reg: MagicMock) -> DevicesService:
     """Build a DevicesService and swap in a mock device registry."""
     dm = DevicesService(devices={}, drivers={}, transports={})
-    dm._device_registry = mock_reg
+    dm.device_registry = mock_reg
     return dm
 
 
@@ -799,7 +782,7 @@ class TestDevicesServiceDeviceDelegation:
         mock_reg.add.return_value = device
 
         dm = _dm_with_mock_registry(mock_reg)
-        dm._running = True
+        dm.running = True
 
         create = DeviceCreate(
             name="D",
@@ -811,7 +794,7 @@ class TestDevicesServiceDeviceDelegation:
 
         assert device.syncing is True
         await device.stop_sync()
-        dm._running = False
+        dm.running = False
 
     @pytest.mark.asyncio
     async def test_add_virtual_device_while_running_not_syncing(self):
@@ -820,7 +803,7 @@ class TestDevicesServiceDeviceDelegation:
         mock_reg.add.return_value = vd
 
         dm = _dm_with_mock_registry(mock_reg)
-        dm._running = True
+        dm.running = True
 
         create = VirtualDeviceCreate(
             name="V",
@@ -835,7 +818,7 @@ class TestDevicesServiceDeviceDelegation:
         await dm.add_device(create)
 
         assert vd.syncing is False
-        dm._running = False
+        dm.running = False
 
     @pytest.mark.asyncio
     async def test_update_device_delegates_to_registry(
@@ -908,7 +891,7 @@ class TestDevicesServiceDeviceDelegation:
         await dm.delete_device("d1")
 
         assert device.syncing is False
-        dm._running = False
+        dm.running = False
 
     @pytest.mark.asyncio
     async def test_read_device_delegates_to_registry(self):
@@ -1134,7 +1117,7 @@ class TestDevicesServiceRestartSync:
         update = DeviceUpdate(transport_id=second_mock_transport_client.id)
         await dm.update_device(device.id, update)
 
-        updated = dm._device_registry.get(device.id)
+        updated = dm.device_registry.get(device.id)
         assert updated.syncing is True
         await dm.stop()
 
@@ -1153,7 +1136,7 @@ class TestDevicesServiceRestartSync:
         update = DeviceUpdate(config={"some_id": "new_value"})
         await dm.update_device(device.id, update)
 
-        updated = dm._device_registry.get(device.id)
+        updated = dm.device_registry.get(device.id)
         assert updated.syncing is True
         await dm.stop()
 

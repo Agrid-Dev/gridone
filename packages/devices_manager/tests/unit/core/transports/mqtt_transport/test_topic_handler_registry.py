@@ -104,12 +104,14 @@ def test_cache_hit() -> None:
     registry.register("home/+/temperature", "h1")
     registry.register("home/kitchen/temperature", "h2")
     # First call. Cold cache.
-    assert len(registry._cache) == 0
+    assert registry.cache_size == 0
     matches = registry.match_topic(Topic("home/kitchen/temperature"))
     assert matches == {"h1", "h2"}
     # Second call. Should hit cache.
-    assert len(registry._cache) == 1
-    with patch.object(registry, "_match_topic", wraps=registry._match_topic) as spy:
+    assert registry.cache_size == 1
+    with patch.object(
+        registry, "match_topic_uncached", wraps=registry.match_topic_uncached
+    ) as spy:
         matches = registry.match_topic(Topic("home/kitchen/temperature"))
         spy.assert_not_called()
     assert matches == {"h1", "h2"}
@@ -122,10 +124,10 @@ def test_invalidate_cache_on_unregister() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert registry.cache_size == 2
     registry.unregister("h2")
-    assert "home/kitchen/temperature" not in registry._cache
-    assert "home/bathroom/temperature" in registry._cache
+    assert not registry.is_topic_cached("home/kitchen/temperature")
+    assert registry.is_topic_cached("home/bathroom/temperature")
 
 
 def test_invalidate_cache_on_register() -> None:
@@ -135,7 +137,7 @@ def test_invalidate_cache_on_register() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert registry.cache_size == 2
     registry.register("home/kitchen/temperature", "h4")
     matched_topics = registry.match_topic(Topic("home/kitchen/temperature"))
     assert "h1" in matched_topics
@@ -151,6 +153,6 @@ def test_invalidate_cache_on_unregister_wildcard() -> None:
     registry.register("home/bathroom/temperature", "h3")
     registry.match_topic(Topic("home/kitchen/temperature"))
     registry.match_topic(Topic("home/bathroom/temperature"))
-    assert len(registry._cache) == 2
+    assert registry.cache_size == 2
     registry.unregister("h1")
-    assert len(registry._cache) == 0
+    assert registry.cache_size == 0

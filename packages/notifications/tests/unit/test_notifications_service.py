@@ -47,9 +47,7 @@ def storage() -> AsyncMock:
 
 @pytest.fixture
 def service(storage: AsyncMock) -> NotificationsService:
-    svc = NotificationsService("postgresql://test")
-    svc._storage = storage
-    return svc
+    return NotificationsService("postgresql://test", storage=storage)
 
 
 class TestStop:
@@ -72,10 +70,13 @@ class TestStart:
         with patch(
             "notifications.notifications_service.build_notifications_storage",
             return_value=mock_storage,
-        ):
+        ) as mock_build:
             svc = NotificationsService("postgresql://test")
             await svc.start()
-        assert svc._storage is mock_storage
+        mock_build.assert_awaited_once_with("postgresql://test")
+        # Verify the built storage is wired in by exercising a delegating call.
+        await svc.stop()
+        mock_storage.close.assert_awaited_once()
 
     async def test_none_url_builds_memory_storage(self) -> None:
         svc = NotificationsService(None)

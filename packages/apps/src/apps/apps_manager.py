@@ -120,6 +120,11 @@ class AppsManager:
 
     # ── Health monitoring ────────────────────────────────────────────────
 
+    @property
+    def is_health_check_running(self) -> bool:
+        """True while a background health-check task is alive."""
+        return self._health_task is not None and not self._health_task.done()
+
     async def start_health_check(self, interval_seconds: int = 60) -> None:
         self._health_task = asyncio.create_task(
             self._health_check_loop(interval_seconds)
@@ -134,10 +139,10 @@ class AppsManager:
 
     async def _health_check_loop(self, interval: int) -> None:
         while True:
-            await self._check_all_apps_health()
+            await self.check_all_apps_health()
             await asyncio.sleep(interval)
 
-    async def _check_all_apps_health(self) -> None:
+    async def check_all_apps_health(self) -> None:
         apps = await self._app_storage.list_all()
         for app in apps:
             try:

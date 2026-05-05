@@ -42,7 +42,7 @@ def _write_from_jsonb(raw: dict[str, Any]) -> AttributeWrite:
 
 class PostgresCommandsStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
-        self._pool = pool
+        self.pool = pool
 
     # -- unit commands --
 
@@ -64,7 +64,7 @@ class PostgresCommandsStorage:
         )
 
     async def save_command(self, command: UnitCommandCreate) -> UnitCommand:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             """
             INSERT INTO unit_commands
                 (batch_id, template_id, device_id, attribute, value, data_type,
@@ -92,7 +92,7 @@ class PostgresCommandsStorage:
         self, commands: list[UnitCommandCreate]
     ) -> list[UnitCommand]:
         result = []
-        async with self._pool.acquire() as conn, conn.transaction():
+        async with self.pool.acquire() as conn, conn.transaction():
             for cmd in commands:
                 row = await conn.fetchrow(
                     """
@@ -127,7 +127,7 @@ class PostgresCommandsStorage:
         status_details: str | None = None,
         completed_at: datetime | None = None,
     ) -> UnitCommand:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             """
             UPDATE unit_commands
             SET status = $1, status_details = $2, completed_at = $3
@@ -203,13 +203,13 @@ class PostgresCommandsStorage:
             query += f" OFFSET ${idx}"
             params.append(offset)
 
-        rows = await self._pool.fetch(query, *params)
+        rows = await self.pool.fetch(query, *params)
         return [self._row_to_command(r) for r in rows]
 
     async def get_commands_by_ids(self, ids: list[int]) -> list[UnitCommand]:
         if not ids:
             return []
-        rows = await self._pool.fetch(
+        rows = await self.pool.fetch(
             "SELECT * FROM unit_commands WHERE id = ANY($1)", ids
         )
         return [self._row_to_command(r) for r in rows]
@@ -217,7 +217,7 @@ class PostgresCommandsStorage:
     async def count_commands(self, filters: CommandsQueryFilters) -> int:
         where, params = self._build_where(filters)
         query = f"SELECT COUNT(*) FROM unit_commands{where}"  # noqa: S608
-        return await self._pool.fetchval(query, *params)
+        return await self.pool.fetchval(query, *params)
 
     # -- command templates --
 
@@ -232,7 +232,7 @@ class PostgresCommandsStorage:
         )
 
     async def save_template(self, template: CommandTemplate) -> CommandTemplate:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             """
             INSERT INTO command_templates
                 (id, name, target, write, created_at, created_by)
@@ -249,7 +249,7 @@ class PostgresCommandsStorage:
         return self._row_to_template(row)
 
     async def get_template(self, template_id: str) -> CommandTemplate | None:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             "SELECT * FROM command_templates WHERE id = $1",
             template_id,
         )
@@ -272,11 +272,11 @@ class PostgresCommandsStorage:
         if offset is not None:
             query += f" OFFSET ${idx}"
             params.append(offset)
-        rows = await self._pool.fetch(query, *params)
+        rows = await self.pool.fetch(query, *params)
         return [self._row_to_template(r) for r in rows]
 
     async def count_templates(self) -> int:
-        return await self._pool.fetchval(
+        return await self.pool.fetchval(
             "SELECT COUNT(*) FROM command_templates WHERE name IS NOT NULL"
         )
 
@@ -288,10 +288,10 @@ class PostgresCommandsStorage:
         rows and the ``ON DELETE SET NULL`` cascade detaches the history
         at that point.
         """
-        await self._pool.execute(
+        await self.pool.execute(
             "UPDATE command_templates SET name = NULL WHERE id = $1",
             template_id,
         )
 
     async def close(self) -> None:
-        await self._pool.close()
+        await self.pool.close()

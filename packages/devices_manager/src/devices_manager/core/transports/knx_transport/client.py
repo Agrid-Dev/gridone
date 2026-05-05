@@ -39,7 +39,7 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
             raise RuntimeError(msg)
         return self._xknx_instance
 
-    def _on_telegram_received(self, telegram: Telegram) -> None:
+    def on_telegram_received(self, telegram: Telegram) -> None:
         if not isinstance(telegram.payload, (GroupValueResponse, GroupValueWrite)):
             return
         address_id = str(telegram.destination_address)
@@ -56,7 +56,7 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
                 return
             self._xknx_instance = XKNX(
                 connection_config=self.config.to_xknx_connection_config(),
-                telegram_received_cb=self._on_telegram_received,
+                telegram_received_cb=self.on_telegram_received,
             )
             try:
                 await self._xknx_instance.start()

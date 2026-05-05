@@ -41,7 +41,10 @@ class TestTimeSeriesServiceLifecycle:
         service = TimeSeriesService(storage_url=None)
         await service.start()
         try:
-            assert isinstance(service._storage, MemoryStorage)
+            # Memory storage answers list_series without a DB; this exercises
+            # the freshly-built backend without poking at private state.
+            assert await service.list_series() == []
+            assert service.is_started
         finally:
             await service.stop()
 
@@ -49,7 +52,7 @@ class TestTimeSeriesServiceLifecycle:
         service = TimeSeriesService(storage_url=None)
         await service.start()
         await service.stop()
-        assert service._storage is None
+        assert not service.is_started
 
     async def test_methods_require_start(self):
         service = TimeSeriesService(storage_url=None)

@@ -36,6 +36,8 @@ class AutomationsService(Service):
         storage_url: str | None,
         trigger_providers: Sequence[TriggerProvider],
         action_providers: Sequence[ActionProvider],
+        *,
+        storage: AutomationsStorageBackend | None = None,
     ) -> None:
         self._storage_url = storage_url
         self._providers: dict[str, TriggerProvider] = {
@@ -47,6 +49,13 @@ class AutomationsService(Service):
         self._cache = {}
         self._handles = {}
         self._started = False
+        if storage is not None:
+            self._storage = storage
+
+    @property
+    def registered_count(self) -> int:
+        """Number of automations whose triggers are currently registered."""
+        return len(self._handles)
 
     async def start(self) -> None:
         """Build storage, then register all persisted automations."""
@@ -102,7 +111,7 @@ class AutomationsService(Service):
         self._cache[automation_id] = updated
 
         if updated.enabled and (not was_enabled or trigger_changed):
-            await self._start_trigger(updated)
+            await self.start_trigger(updated)
 
         return updated
 
@@ -121,7 +130,7 @@ class AutomationsService(Service):
         updated = automation.model_copy(update={"enabled": True})
         await self._storage.update(updated)
         self._cache[automation_id] = updated
-        await self._start_trigger(updated)
+        await self.start_trigger(updated)
         return updated
 
     async def disable(self, automation_id: str) -> Automation:
@@ -162,15 +171,15 @@ class AutomationsService(Service):
     async def _register_automation(self, automation: Automation) -> None:
         self._cache[automation.id] = automation
         if automation.enabled:
-            await self._start_trigger(automation)
+            await self.start_trigger(automation)
 
-    async def _start_trigger(self, automation: Automation) -> None:
+    async def start_trigger(self, automation: Automation) -> None:
         if automation.id in self._handles:
             msg = f"Trigger for automation {automation.id!r} is already registered"
             raise RuntimeError(msg)
         provider_id = automation.trigger.provider_id
         provider = self._providers[provider_id]
-        on_fire = self._make_on_fire(automation.id)
+        on_fire = self.make_on_fire(automation.id)
         handle_id = await provider.register(automation.trigger.params, on_fire)
         self._handles[automation.id] = (provider_id, handle_id)
 
@@ -206,7 +215,7 @@ class AutomationsService(Service):
             )
         )
 
-    def _make_on_fire(self, automation_id: str) -> OnFireCallback:
+    def make_on_fire(self, automation_id: str) -> OnFireCallback:
         async def on_fire(context: TriggerContext) -> None:
             await self._execute_automation_actions(automation_id, context)
 

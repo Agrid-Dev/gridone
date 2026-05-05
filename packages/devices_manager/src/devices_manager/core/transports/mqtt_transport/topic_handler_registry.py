@@ -21,6 +21,15 @@ class TopicHandlerRegistry:
     def empty(self) -> bool:
         return len(self._registry) == 0
 
+    @property
+    def cache_size(self) -> int:
+        """Number of cached published-topic → handler-set entries."""
+        return len(self._cache)
+
+    def is_topic_cached(self, topic: str) -> bool:
+        """True if a previous ``match_topic`` populated the cache for ``topic``."""
+        return topic in self._cache
+
     def register(self, topic: str, handler_id: str) -> None:
         self._registry[topic].add(handler_id)
         self._invalidate_cache(topic)
@@ -68,12 +77,11 @@ class TopicHandlerRegistry:
                 del self._registry[topic]
         self._invalidate_cache(topic)
 
-    def _match_topic(self, topic: Topic) -> set[str]:
-        """Return all handler ids whose registered topic filters matcthe given topic.
+    def match_topic_uncached(self, topic: Topic) -> set[str]:
+        """Match without consulting the cache; the slow path of ``match_topic``.
 
-        Uses `aiomqtt.Topic.matches` to perform MQTT topic filter matching.
-        The provided `topic` may be a `str` or an `aiomqtt.Topic` instance.
-        Uses internal cache to avoid looping through registry everytime.
+        Useful for tests that need to bypass the cache (e.g. as a spy target).
+        Production code should call :meth:`match_topic`.
         """
         matched: set[str] = set()
         for registered_topic, handlers in self._registry.items():
@@ -90,10 +98,10 @@ class TopicHandlerRegistry:
         Uses `aiomqtt.Topic.matches` to perform MQTT topic filter matching.
         The provided `topic` may be a `str` or an `aiomqtt.Topic` instance.
         Uses internal cache to avoid looping through registry everytime.
-        Wraps private _match_topic with cache.
+        Wraps :meth:`match_topic_uncached` with cache.
         """
         if topic.value in self._cache:
             return self._cache[topic.value]
-        matched: set[str] = self._match_topic(topic)
+        matched: set[str] = self.match_topic_uncached(topic)
         self._cache[topic.value] = matched
         return matched

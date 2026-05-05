@@ -69,6 +69,11 @@ class TimeSeriesService(Service):
             self._storage = None
 
     @property
+    def is_started(self) -> bool:
+        """True once :meth:`start` has built a backend, until :meth:`stop`."""
+        return self._storage is not None
+
+    @property
     def _backend(self) -> TimeSeriesStorage:
         if self._storage is None:
             msg = "TimeSeriesService.start() must be called before use"

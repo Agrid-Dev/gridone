@@ -8,9 +8,14 @@ from users.storage.storage_backend import UsersStorageBackend
 
 
 class UsersService(Service):
-    def __init__(self, storage_url: str | None) -> None:
+    def __init__(
+        self,
+        storage_url: str | None = None,
+        *,
+        storage: UsersStorageBackend | None = None,
+    ) -> None:
         self._storage_url = storage_url
-        self._storage: UsersStorageBackend | None = None
+        self._storage: UsersStorageBackend | None = storage
 
     async def start(self) -> None:
         self._storage = await build_users_storage(self._storage_url)

@@ -32,11 +32,11 @@ _VALUE_COLUMNS: dict[DataType, str] = {
 
 class PostgresStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
-        self._pool = pool
+        self.pool = pool
 
     async def try_enable_hypertable(self) -> None:
         """Best-effort TimescaleDB hypertable conversion."""
-        async with self._pool.acquire() as conn:
+        async with self.pool.acquire() as conn:
             try:
                 await conn.execute(_CREATE_HYPERTABLE)
             except asyncpg.UndefinedFunctionError:
@@ -58,7 +58,7 @@ class PostgresStorage:
 
     async def create_series(self, series: TimeSeries) -> TimeSeries:
         try:
-            row = await self._pool.fetchrow(
+            row = await self.pool.fetchrow(
                 """
                 INSERT INTO ts_series
                     (id, data_type, owner_id, metric, created_at, updated_at)
@@ -82,14 +82,14 @@ class PostgresStorage:
         return self._row_to_series(row)
 
     async def get_series(self, series_id: str) -> TimeSeries | None:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             "SELECT * FROM ts_series WHERE id = $1",
             series_id,
         )
         return self._row_to_series(row) if row else None
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None:
-        row = await self._pool.fetchrow(
+        row = await self.pool.fetchrow(
             "SELECT * FROM ts_series WHERE owner_id = $1 AND metric = $2",
             key.owner_id,
             key.metric,
@@ -118,7 +118,7 @@ class PostgresStorage:
         if clauses:
             query += " WHERE " + " AND ".join(clauses)
 
-        rows = await self._pool.fetch(query, *params)
+        rows = await self.pool.fetch(query, *params)
         return [self._row_to_series(r) for r in rows]
 
     async def fetch_points(
@@ -152,7 +152,7 @@ class PostgresStorage:
             "ORDER BY timestamp"
         )
 
-        rows = await self._pool.fetch(query, *params)
+        rows = await self.pool.fetch(query, *params)
         return [
             DataPoint(
                 timestamp=r["timestamp"], value=r["value"], command_id=r["command_id"]
@@ -178,7 +178,7 @@ class PostgresStorage:
             "WHERE series_id = $1 AND timestamp < $2 "
             "ORDER BY timestamp DESC LIMIT 1"
         )
-        row = await self._pool.fetchrow(query, series.id, before)
+        row = await self.pool.fetchrow(query, series.id, before)
         if row is None:
             return None
         return DataPoint(
@@ -200,7 +200,7 @@ class PostgresStorage:
 
         value_col = _VALUE_COLUMNS[series.data_type]
 
-        async with self._pool.acquire() as conn, conn.transaction():
+        async with self.pool.acquire() as conn, conn.transaction():
             await conn.executemany(
                 "INSERT INTO ts_data_points"  # noqa: S608
                 f" (series_id, timestamp, {value_col}, command_id)"
@@ -217,4 +217,4 @@ class PostgresStorage:
             )
 
     async def close(self) -> None:
-        await self._pool.close()
+        await self.pool.close()

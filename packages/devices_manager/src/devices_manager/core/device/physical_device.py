@@ -148,9 +148,18 @@ class PhysicalDevice(CoreDevice):
                 self.id,
                 decoded,
             )
-            self._update_attribute(attribute, decoded)
+            self.update_attribute(attribute, decoded)
 
         return on_message
+
+    @property
+    def poll_task(self) -> asyncio.Task[None] | None:
+        """Currently scheduled poll task, or ``None`` when polling is idle.
+
+        Public read-only handle for tests/observability — production code
+        should drive sync via ``start_sync`` / ``stop_sync``.
+        """
+        return self._poll_task
 
     async def start_sync(self) -> None:
         """Start listeners and polling for this device."""
@@ -195,7 +204,7 @@ class PhysicalDevice(CoreDevice):
         raw_value = await self.transport.read(address)
         codec = attribute_driver.codec
         decoded_value = codec.decode(raw_value)
-        self._update_attribute(attribute, decoded_value)
+        self.update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
     async def update_attributes(self) -> None:
@@ -299,7 +308,7 @@ class PhysicalDevice(CoreDevice):
         )
         if confirm:
             await self._confirm_attribute_value(attribute_name, validated_value)
-        self._update_attribute(attribute, validated_value)
+        self.update_attribute(attribute, validated_value)
         return attribute
 
     def __eq__(self, other: object) -> bool:

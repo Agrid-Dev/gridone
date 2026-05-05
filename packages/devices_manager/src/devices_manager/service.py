@@ -90,7 +90,7 @@ class DevicesService(Service):
         # (e.g. postgres) by re-pointing the registries at the new storage
         # and replaying the existing stored entries.
         self._storage = MemoryDevicesStorage()
-        self._running = False
+        self.running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
@@ -103,7 +103,7 @@ class DevicesService(Service):
             drivers,
             storage=self._storage.drivers,
         )
-        self._device_registry = DeviceRegistry(
+        self.device_registry = DeviceRegistry(
             devices,
             resolve_driver=self._driver_registry.get,
             resolve_transport=self._transport_registry.get,
@@ -120,19 +120,19 @@ class DevicesService(Service):
             self._storage = new_storage
             self._transport_registry.set_storage(new_storage.transports)
             self._driver_registry.set_storage(new_storage.drivers)
-            self._device_registry.set_storage(new_storage.devices)
+            self.device_registry.set_storage(new_storage.devices)
             await self._populate_from_storage()
 
         self._register_attribute_persistence_listener()
 
-        self._running = True
-        for device in self._device_registry.all.values():
+        self.running = True
+        for device in self.device_registry.all.values():
             await device.start_sync()
 
     async def stop(self) -> None:
         """Stop syncing, close transports, and release storage."""
-        self._running = False
-        for device in self._device_registry.all.values():
+        self.running = False
+        for device in self.device_registry.all.values():
             await device.stop_sync()
         await asyncio.gather(
             *(t.close() for t in self._transport_registry.all.values())
@@ -163,7 +163,7 @@ class DevicesService(Service):
                 self._transport_registry.all,
                 on_update=self._on_attribute_update,
             )
-            await self._device_registry.register(device)
+            await self.device_registry.register(device)
         except KeyError:
             logger.exception(
                 "Cannot create device %s: missing driver or transport", d.id
@@ -193,7 +193,7 @@ class DevicesService(Service):
 
     @property
     def device_ids(self) -> set[str]:
-        return self._device_registry.ids
+        return self.device_registry.ids
 
     def list_devices(  # noqa: PLR0913
         self,
@@ -205,7 +205,7 @@ class DevicesService(Service):
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
     ) -> list[Device]:
-        return self._device_registry.list_all(
+        return self.device_registry.list_all(
             ids=ids,
             types=types,
             writable_attribute=writable_attribute,
@@ -215,35 +215,35 @@ class DevicesService(Service):
         )
 
     def get_device(self, device_id: str) -> Device:
-        return self._device_registry.get_dto(device_id)
+        return self.device_registry.get_dto(device_id)
 
     async def add_device(self, device_create: DeviceCreate) -> Device:
-        device = await self._device_registry.add(device_create)
-        if self._running:
+        device = await self.device_registry.add(device_create)
+        if self.running:
             await device.start_sync()
         return device_to_public(device)
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdate
     ) -> Device:
-        old_device = self._device_registry.get(device_id)
+        old_device = self.device_registry.get(device_id)
         await old_device.stop_sync()
-        device = await self._device_registry.update(device_id, device_update)
-        if self._running:
+        device = await self.device_registry.update(device_id, device_update)
+        if self.running:
             await device.start_sync()
         return device_to_public(device)
 
     async def delete_device(self, device_id: str) -> None:
-        device = self._device_registry.get(device_id)
+        device = self.device_registry.get(device_id)
         await device.stop_sync()
-        await self._device_registry.remove(device_id)
+        await self.device_registry.remove(device_id)
 
     async def set_device_tag(self, device_id: str, key: str, value: str) -> Device:
-        device = await self._device_registry.set_tag(device_id, key, value)
+        device = await self.device_registry.set_tag(device_id, key, value)
         return device_to_public(device)
 
     async def delete_device_tag(self, device_id: str, key: str) -> Device:
-        device = await self._device_registry.delete_tag(device_id, key)
+        device = await self.device_registry.delete_tag(device_id, key)
         return device_to_public(device)
 
     async def read_device(self, device_id: str) -> Device:
@@ -254,7 +254,7 @@ class DevicesService(Service):
         refreshes attributes in the background — this method exists so
         callers can request data on demand.
         """
-        device = self._device_registry.get(device_id)
+        device = self.device_registry.get(device_id)
         await device.update_once()
         return device_to_public(device)
 
@@ -266,7 +266,7 @@ class DevicesService(Service):
         *,
         confirm: bool = True,
     ) -> Attribute:
-        return await self._device_registry.write_attribute(
+        return await self.device_registry.write_attribute(
             device_id, attribute_name, value, confirm=confirm
         )
 
@@ -285,8 +285,8 @@ class DevicesService(Service):
 
     def _resolve_fault_scope(self, device_id: str | None) -> list[CoreDevice]:
         if device_id is not None:
-            return [self._device_registry.get(device_id)]
-        return list(self._device_registry.all.values())
+            return [self.device_registry.get(device_id)]
+        return list(self.device_registry.all.values())
 
     @staticmethod
     def _collect_active_faults(
@@ -360,7 +360,7 @@ class DevicesService(Service):
 
     async def _register_and_persist_device(self, device: CoreDevice) -> None:
         """Register device and persist to storage. Used by discovery."""
-        await self._device_registry.register(device)
+        await self.device_registry.register(device)
         for listener in self._discovery_listeners.values():
             try:
                 self._schedule_if_coroutine(listener(device))
@@ -377,7 +377,7 @@ class DevicesService(Service):
                 ],
                 add_device=self._register_and_persist_device,
                 device_exists=lambda device: any(
-                    d == device for d in self._device_registry.all.values()
+                    d == device for d in self.device_registry.all.values()
                 ),
             )
             self._discovery_manager = PhysicalDevicesDiscoveryManager(
@@ -404,7 +404,7 @@ class DevicesService(Service):
         device = next(
             (
                 d
-                for d in self._device_registry.all.values()
+                for d in self.device_registry.all.values()
                 if d.transport_id == transport_id
             ),
             None,
@@ -424,10 +424,10 @@ class DevicesService(Service):
     ) -> Transport:
         transport = await self._transport_registry.update(transport_id, update)
         if update.config is not None:
-            for device in self._device_registry.all.values():
+            for device in self.device_registry.all.values():
                 if device.transport_id == transport_id:
                     await device.stop_sync()
-                    if self._running:
+                    if self.running:
                         await device.start_sync()
         return transport_to_public(transport)
 
@@ -454,7 +454,7 @@ class DevicesService(Service):
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
-            (d for d in self._device_registry.all.values() if d.driver_id == driver_id),
+            (d for d in self.device_registry.all.values() if d.driver_id == driver_id),
             None,
         )
         if device is not None:

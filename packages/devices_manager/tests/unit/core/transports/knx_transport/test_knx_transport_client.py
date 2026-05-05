@@ -99,7 +99,6 @@ class TestConnect:
                 await client.connect()
 
         assert client.connection_state == TransportConnectionState.connection_error()
-        assert client._xknx_instance is None
 
 
 class TestRead:
@@ -182,7 +181,7 @@ class TestListeners:
         await knx_client.connect()
         await knx_client.register_listener("1/0/0", received.append)
 
-        knx_client._on_telegram_received(
+        knx_client.on_telegram_received(
             Telegram(GroupAddress("1/0/0"), payload=GroupValueWrite(DPTBinary(0)))
         )
         assert received == [False]
@@ -196,7 +195,7 @@ class TestListeners:
         await knx_client.connect()
         await knx_client.register_listener("1/0/0", received.append)
 
-        knx_client._on_telegram_received(
+        knx_client.on_telegram_received(
             Telegram(GroupAddress("1/0/0"), payload=GroupValueResponse(DPTBinary(1)))
         )
         assert received == [True]
@@ -210,7 +209,7 @@ class TestListeners:
         await knx_client.connect()
         await knx_client.register_listener("1/0/0", received.append)
 
-        knx_client._on_telegram_received(
+        knx_client.on_telegram_received(
             Telegram(GroupAddress("2/0/0"), payload=GroupValueWrite(DPTBinary(1)))
         )
         assert received == []
@@ -224,7 +223,7 @@ class TestListeners:
         await knx_client.connect()
         await knx_client.register_listener("1/0/0", received.append)
 
-        knx_client._on_telegram_received(
+        knx_client.on_telegram_received(
             Telegram(GroupAddress("1/0/0"), payload=GroupValueRead())
         )
         assert received == []
@@ -239,7 +238,7 @@ class TestListeners:
         lid = await knx_client.register_listener("1/0/0", received.append)
         await knx_client.unregister_listener(lid, "1/0/0")
 
-        knx_client._on_telegram_received(
+        knx_client.on_telegram_received(
             Telegram(GroupAddress("1/0/0"), payload=GroupValueWrite(DPTBinary(1)))
         )
         assert received == []

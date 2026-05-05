@@ -33,7 +33,12 @@ module-name = "api"
 module-root = "src"
 
 [tool.ruff.lint]
-ignore=[]
+# Ruff resolves the nearest pyproject.toml per file, so this nested block
+# overrides the root [tool.ruff.lint] for everything under packages/api/.
+# That silently disables the root's `select = ["ALL"]`. Until we harmonize
+# (see follow-up), explicitly extend-select rules we want enforced here.
+extend-select = ["SLF001"]
+ignore = []
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../devices_manager/src", "../timeseries/src", "../notifications/src"]

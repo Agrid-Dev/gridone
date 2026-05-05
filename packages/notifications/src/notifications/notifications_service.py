@@ -19,8 +19,15 @@ logger = logging.getLogger(__name__)
 class NotificationsService(Service):
     _storage: "NotificationsStorageBackend"
 
-    def __init__(self, storage_url: str | None) -> None:
+    def __init__(
+        self,
+        storage_url: str | None = None,
+        *,
+        storage: "NotificationsStorageBackend | None" = None,
+    ) -> None:
         self._storage_url = storage_url
+        if storage is not None:
+            self._storage = storage
 
     async def start(self) -> None:
         self._storage = await build_notifications_storage(self._storage_url)

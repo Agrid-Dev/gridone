@@ -1,4 +1,3 @@
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -10,9 +9,6 @@ from devices_manager.core.transports.modbus_tcp_transport import (
 from devices_manager.core.transports.modbus_tcp_transport.modbus_address import (
     ModbusAddress,
     ModbusAddressType,
-)
-from devices_manager.core.transports.transport_connection_state import (
-    TransportConnectionState,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
@@ -45,17 +41,17 @@ class DummyModbusClient:
 
 
 @pytest.fixture
-def transport() -> ModbusTCPTransportClient:
+def dummy_client() -> DummyModbusClient:
+    return DummyModbusClient()
+
+
+@pytest.fixture
+def transport(dummy_client: DummyModbusClient) -> ModbusTCPTransportClient:
     metadata = TransportMetadata(id="test", name="test")
     config = ModbusTCPTransportConfig(host="localhost", port=502)
-    t = ModbusTCPTransportClient(metadata, config)
-    # Bypass real connection logic.
-    t._client = DummyModbusClient()  # type: ignore[attr-defined]
-    t.connection_state = TransportConnectionState.connected()
-    # Ensure connection lock exists for @connected decorator.
-    if not hasattr(t, "_connection_lock"):
-        t._connection_lock = asyncio.Lock()
-    return t
+    # Inject a fake client; the constructor flips connection_state to
+    # ``connected`` so the @connected decorator skips the real handshake.
+    return ModbusTCPTransportClient(metadata, config, client=dummy_client)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.asyncio
@@ -73,7 +69,10 @@ async def test_read_holding_register_single(
 
 
 @pytest.mark.asyncio
-async def test_read_holding_register_multi(transport: ModbusTCPTransportClient) -> None:
+async def test_read_holding_register_multi(
+    transport: ModbusTCPTransportClient,
+    dummy_client: DummyModbusClient,
+) -> None:
     address = ModbusAddress(
         type=ModbusAddressType.HOLDING_REGISTER,
         instance=10,
@@ -82,7 +81,7 @@ async def test_read_holding_register_multi(transport: ModbusTCPTransportClient) 
     )
     value = await transport.read(address)
     assert value == [0, 1, 2]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert dummy_client.last_call == (
         "read_holding_registers",
         10,
         3,
@@ -91,7 +90,10 @@ async def test_read_holding_register_multi(transport: ModbusTCPTransportClient) 
 
 
 @pytest.mark.asyncio
-async def test_read_input_register_multi(transport: ModbusTCPTransportClient) -> None:
+async def test_read_input_register_multi(
+    transport: ModbusTCPTransportClient,
+    dummy_client: DummyModbusClient,
+) -> None:
     address = ModbusAddress(
         type=ModbusAddressType.INPUT_REGISTER,
         instance=5,
@@ -100,7 +102,7 @@ async def test_read_input_register_multi(transport: ModbusTCPTransportClient) ->
     )
     value = await transport.read(address)
     assert value == [0, 1]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert dummy_client.last_call == (
         "read_input_registers",
         5,
         2,
@@ -111,6 +113,7 @@ async def test_read_input_register_multi(transport: ModbusTCPTransportClient) ->
 @pytest.mark.asyncio
 async def test_write_holding_register_single(
     transport: ModbusTCPTransportClient,
+    dummy_client: DummyModbusClient,
 ) -> None:
     address = ModbusAddress(
         type=ModbusAddressType.HOLDING_REGISTER,
@@ -119,7 +122,7 @@ async def test_write_holding_register_single(
         count=1,
     )
     await transport.write(address, 42)
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert dummy_client.last_call == (
         "write_register",
         7,
         42,
@@ -130,6 +133,7 @@ async def test_write_holding_register_single(
 @pytest.mark.asyncio
 async def test_write_holding_register_multi(
     transport: ModbusTCPTransportClient,
+    dummy_client: DummyModbusClient,
 ) -> None:
     address = ModbusAddress(
         type=ModbusAddressType.HOLDING_REGISTER,
@@ -138,7 +142,7 @@ async def test_write_holding_register_multi(
         count=2,
     )
     await transport.write(address, [1, 2])  # ty: ignore[invalid-argument-type]
-    assert transport._client.last_call == (  # type: ignore[attr-defined]
+    assert dummy_client.last_call == (
         "write_registers",
         7,
         [1, 2],
