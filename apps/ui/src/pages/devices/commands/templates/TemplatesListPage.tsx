@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -25,12 +24,9 @@ import {
 } from "@/components/ui/empty";
 import { FileSearchCorner } from "lucide-react";
 import { ErrorFallback } from "@/components/fallbacks/Error";
+import type { Asset } from "@/api/assets";
 import { listTemplates, type CommandTemplate } from "@/api/commands";
-import {
-  getAssetTreeWithDevices,
-  type AssetTreeNode,
-  type Asset,
-} from "@/api/assets";
+import { useAssetTree } from "@/hooks/useAssetTree";
 import { usePermissions } from "@/contexts/AuthContext";
 import { toSearchString } from "@/api/pagination";
 import { TargetPresenter } from "../presenters/TargetPresenter";
@@ -46,12 +42,7 @@ export default function TemplatesListPage() {
     queryFn: () => listTemplates(searchParams),
   });
 
-  const { data: assetTree = [] } = useQuery<AssetTreeNode[]>({
-    queryKey: ["assets", "tree-with-devices"],
-    queryFn: getAssetTreeWithDevices,
-  });
-
-  const assetsById = useMemo(() => flattenAssets(assetTree), [assetTree]);
+  const { assetsById } = useAssetTree();
 
   const header = (
     <ResourceHeader
@@ -225,23 +216,4 @@ function TemplateRow({
       </TableCell>
     </TableRow>
   );
-}
-
-function flattenAssets(tree: AssetTreeNode[]): Record<string, Asset> {
-  const out: Record<string, Asset> = {};
-  const walk = (nodes: AssetTreeNode[]) => {
-    for (const n of nodes) {
-      out[n.id] = {
-        id: n.id,
-        parentId: n.parentId,
-        type: n.type,
-        name: n.name,
-        path: n.path,
-        position: n.position,
-      };
-      walk(n.children);
-    }
-  };
-  walk(tree);
-  return out;
 }

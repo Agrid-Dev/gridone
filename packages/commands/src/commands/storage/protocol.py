@@ -51,6 +51,11 @@ class CommandsStorage(Protocol):
 
     async def save_template(self, template: CommandTemplate) -> CommandTemplate: ...
 
+    async def update_template(self, template: CommandTemplate) -> CommandTemplate:
+        """Persist a full update of a template's mutable fields. Raises
+        :class:`NotFoundError` when no row matches ``template.id``."""
+        ...
+
     async def get_template(self, template_id: str) -> CommandTemplate | None: ...
 
     async def list_templates(

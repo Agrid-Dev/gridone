@@ -49,7 +49,11 @@ vi.mock("@/api/automations", () => ({
 }));
 
 vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
-vi.mock("@/api/assets", () => ({ getAssetTreeWithDevices: vi.fn() }));
+vi.mock("@/api/assets", () => ({
+  getAssetTreeWithDevices: vi.fn(),
+  flattenAssetTree: () => [],
+  flattenAssetTreeById: () => ({}),
+}));
 
 vi.mock("@/pages/devices/commands/presenters/TargetPresenter", () => ({
   TargetPresenter: ({ target }: { target: { ids?: string[] } }) => (

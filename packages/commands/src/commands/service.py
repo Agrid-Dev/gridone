@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -22,7 +23,7 @@ from models.service import Service
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import AttributeWrite, Target
+    from commands.models import AttributeWrite, CommandTemplatePatch, Target
     from commands.protocols import (
         CommandResultHandler,
         DeviceWriter,
@@ -90,15 +91,36 @@ class CommandsService(Service):
         )
         return await self._storage.save_template(created)
 
-    async def get_template(self, template_id: str) -> CommandTemplate:
-        """Return a saved (``name IS NOT NULL``) template.
+    async def update_template(
+        self, template_id: str, patch: CommandTemplatePatch
+    ) -> CommandTemplate:
+        """Apply a partial update to a template's mutable fields.
 
-        Ephemeral templates are internal audit rows created for ad-hoc
-        batch dispatches — they are not addressable through the public API
-        and raise :class:`NotFoundError` here.
+        ``patch.model_fields_set`` drives the diff: omitted fields stay
+        as-is, fields explicitly set to ``None`` apply (e.g. ``name=None``
+        demotes a saved template to ephemeral; ``name="X"`` on an
+        ephemeral promotes it). Raises :class:`NotFoundError` when no
+        template matches ``template_id``.
+        """
+        existing = await self.get_template(template_id)
+        diff = {k: getattr(patch, k) for k in patch.model_fields_set}
+        if not diff:
+            return existing
+        updated = dataclasses.replace(existing, **diff)
+        return await self._storage.update_template(updated)
+
+    async def get_template(self, template_id: str) -> CommandTemplate:
+        """Return a template by id, named or ephemeral.
+
+        Ephemeral templates (``name IS NULL``) are not surfaced by
+        :meth:`list_templates`, but they remain addressable by id —
+        callers that already hold the id (an automation pointing at the
+        template it created inline, the audit trail of a batch dispatch)
+        need to be able to read and dispatch them. Raises
+        :class:`NotFoundError` only when the row doesn't exist at all.
         """
         template = await self._storage.get_template(template_id)
-        if template is None or template.name is None:
+        if template is None:
             msg = f"Template {template_id!r} not found"
             raise NotFoundError(msg)
         return template
@@ -128,7 +150,13 @@ class CommandsService(Service):
         history at that point. Calling ``delete_template`` twice — or on a
         never-named template — raises :class:`NotFoundError`.
         """
-        await self.get_template(template_id)  # raises if missing or already ephemeral
+        # ``get_template`` now returns ephemerals, so we add an explicit
+        # already-ephemeral guard here — calling delete on a never-named (or
+        # previously deleted) template stays a NotFound for idempotency.
+        template = await self.get_template(template_id)
+        if template.name is None:
+            msg = f"Template {template_id!r} not found"
+            raise NotFoundError(msg)
         await self._storage.delete_template(template_id)
 
     # ------------------------------------------------------------------
@@ -200,11 +228,10 @@ class CommandsService(Service):
     async def dispatch_from_template(
         self, *, template_id: str, user_id: str, confirm: bool = True
     ) -> BatchCommandDispatch:
-        """Resolve a saved template and fan-out the write across matched devices.
-
-        Raises :class:`NotFoundError` if the template doesn't exist or is
-        ephemeral (``name IS NULL``) — only user-saved templates are
-        dispatchable through this entry point.
+        """Resolve a template by id and fan-out the write across matched
+        devices. Works for both named templates (the user-driven flow) and
+        ephemeral ones (e.g. the inline command an automation references).
+        Raises :class:`NotFoundError` only when the row is missing.
         """
         template = await self.get_template(template_id)
         return await self._dispatch_template(

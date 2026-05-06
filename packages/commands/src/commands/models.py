@@ -6,6 +6,8 @@ from datetime import datetime  # noqa: TC003
 from enum import StrEnum
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+
 from models.types import AttributeValueType, DataType  # noqa: TC001
 
 
@@ -62,6 +64,21 @@ class CommandTemplate(CommandTemplateCreate):
     id: str
     created_at: datetime
     created_by: str
+
+
+class CommandTemplatePatch(BaseModel):
+    """Partial update for a :class:`CommandTemplate`.
+
+    Pydantic's ``model_fields_set`` lets the service tell ``name=None``
+    (demote to ephemeral) apart from name omitted (keep as-is) — using
+    ``dict.get`` would erase that distinction.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    target: Target | None = None
+    write: AttributeWrite | None = None
+    name: str | None = None
 
 
 @dataclass

@@ -132,3 +132,46 @@ export function deleteAsset(assetId: string): Promise<void> {
 export function listAssetDevices(assetId: string): Promise<string[]> {
   return request<string[]>(`/assets/${encodeURIComponent(assetId)}/devices`);
 }
+
+/** Walks the asset tree and returns a flat, name-sorted ``Asset`` list —
+ *  the shape resource pickers (asset selectors, target filters) consume. */
+export function flattenAssetTree(tree: AssetTreeNode[]): Asset[] {
+  const out: Asset[] = [];
+  const walk = (nodes: AssetTreeNode[]) => {
+    for (const node of nodes) {
+      out.push(toAsset(node));
+      walk(node.children);
+    }
+  };
+  walk(tree);
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+}
+
+/** Same walk as ``flattenAssetTree`` but keyed by id — the shape presenters
+ *  (e.g. ``TargetPresenter``) use to translate opaque ``assetId`` references
+ *  into readable names. */
+export function flattenAssetTreeById(
+  tree: AssetTreeNode[],
+): Record<string, Asset> {
+  const out: Record<string, Asset> = {};
+  const walk = (nodes: AssetTreeNode[]) => {
+    for (const node of nodes) {
+      out[node.id] = toAsset(node);
+      walk(node.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
+function toAsset(node: AssetTreeNode): Asset {
+  return {
+    id: node.id,
+    parentId: node.parentId,
+    type: node.type,
+    name: node.name,
+    path: node.path,
+    position: node.position,
+  };
+}

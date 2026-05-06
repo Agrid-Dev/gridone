@@ -5,7 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from commands import AttributeWrite, CommandTemplate, CommandTemplateCreate
+from commands import (
+    AttributeWrite,
+    CommandTemplate,
+    CommandTemplateCreate,
+    CommandTemplatePatch,
+)
 from devices_manager.types import AttributeValueType
 from models.types import DataType
 from pydantic import BaseModel
@@ -55,6 +60,34 @@ class CommandTemplateCreatePayload(BaseModel):
             write=self.write.to_domain(),
             name=self.name,
         )
+
+
+class CommandTemplateUpdatePayload(BaseModel):
+    """Request body for ``PATCH /commands/templates/{id}``.
+
+    All fields optional. Pydantic's ``model_fields_set`` lets the service
+    distinguish "field omitted" from "field explicitly set to null" — the
+    latter is meaningful for ``name`` (demote a saved template back to
+    ephemeral).
+    """
+
+    target: DevicesFilterBody | None = None
+    write: AttributeWritePayload | None = None
+    name: str | None = None
+
+    def to_domain(self) -> CommandTemplatePatch:
+        # Constructing the patch from a kwargs dict carries
+        # ``model_fields_set`` semantics through — only the fields the
+        # client actually sent land in the diff. ``name`` is special: an
+        # explicit ``null`` (demote to ephemeral) is distinct from omitted.
+        diff: dict[str, Any] = {}
+        if "target" in self.model_fields_set and self.target is not None:
+            diff["target"] = self.target.model_dump(exclude_none=True)
+        if "write" in self.model_fields_set and self.write is not None:
+            diff["write"] = self.write.to_domain()
+        if "name" in self.model_fields_set:
+            diff["name"] = self.name
+        return CommandTemplatePatch(**diff)
 
 
 class CommandTemplateResponse(BaseModel):

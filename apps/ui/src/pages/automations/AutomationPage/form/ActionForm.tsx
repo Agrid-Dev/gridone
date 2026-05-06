@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import type { Action } from "@/api/automations";
 import { TitlePresenter } from "../presenters/BasePresenter";
 import {
   ACTION_PROVIDER_DESCRIPTORS,
@@ -18,32 +19,58 @@ import {
 import type { ActionFormResult } from "../presenters/types";
 
 interface ActionFormProps {
-  /** Existing action template id when editing an automation. The form opens
-   *  in ``command_template`` mode pre-filled with this value. */
-  initialValue?: string;
+  /** Existing action when editing an automation, raw off ``automation.action``.
+   *  The form opens in the matching descriptor's body and lets the body
+   *  pre-populate from it. ``undefined`` opens a fresh form. */
+  initialValue?: Action;
+  /** Final submit — fires when the user accepts the form (Save click in
+   *  edit mode, or the parent's Submit in the create wizard). */
   onSubmit: (result: ActionFormResult) => void;
+  /** Continuous result-state callback. Lets a parent gate its own button
+   *  on form readiness without re-rendering the body. */
+  onChange?: (result: ActionFormResult | null) => void;
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
 }
 
+/** ``Action`` is the wire shape (``params: Record<string, unknown>``);
+ *  ``ActionFormResult`` is the same shape but tightly typed per provider.
+ *  Re-validate at the boundary so only well-formed actions seed the form's
+ *  ``result`` slot. */
+function actionToResult(action: Action | undefined): ActionFormResult | null {
+  if (!action) return null;
+  if (action.providerId !== "command_template") return null;
+  const id = action.params.templateId;
+  if (typeof id !== "string") return null;
+  return {
+    providerId: "command_template",
+    params: { templateId: id },
+  };
+}
+
 const ActionForm: FC<ActionFormProps> = ({
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
   const [type, setType] = useState<ActionType>("command_template");
-  const initialResult: ActionFormResult | null = initialValue
-    ? { kind: "templateId", templateId: initialValue }
-    : null;
-  const [result, setResult] = useState<ActionFormResult | null>(initialResult);
+  const [result, setResult] = useState<ActionFormResult | null>(() =>
+    actionToResult(initialValue),
+  );
+
+  const updateResult = (next: ActionFormResult | null) => {
+    setResult(next);
+    onChange?.(next);
+  };
 
   const handleTypeChange = (next: string) => {
     setType(next as ActionType);
-    setResult(null);
+    updateResult(null);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -53,40 +80,42 @@ const ActionForm: FC<ActionFormProps> = ({
 
   const descriptor = getActionDescriptor(type);
   const Body = descriptor.CustomFormRenderer;
-
-  const isUnchanged =
-    result?.kind === "templateId" && result.templateId === initialValue;
+  const actionTypes = Object.keys(ACTION_PROVIDER_DESCRIPTORS);
+  const showTypePicker = actionTypes.length > 1;
 
   return (
-    <form id={formId} onSubmit={handleSubmit} className="space-y-4">
-      <FieldShell id="action-type-picker" label={t("automations:actions.type")}>
-        <Select onValueChange={handleTypeChange} value={type}>
-          <SelectTrigger className="w-full sm:w-80">
-            <SelectValue placeholder={t("automations:actions.type")} />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.keys(ACTION_PROVIDER_DESCRIPTORS).map((typeKey) => {
-              const Icon = getActionDescriptor(typeKey).icon;
-              return (
-                <SelectItem key={typeKey} value={typeKey}>
-                  <TitlePresenter
-                    icon={Icon}
-                    title={t(`automations:actions.types.${typeKey}`, {
-                      defaultValue: typeKey,
-                    })}
-                  />
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </FieldShell>
+    <form id={formId} onSubmit={handleSubmit} className="space-y-6">
+      {showTypePicker && (
+        <FieldShell
+          id="action-type-picker"
+          label={t("automations:actions.type")}
+        >
+          <Select onValueChange={handleTypeChange} value={type}>
+            <SelectTrigger className="w-full sm:w-80">
+              <SelectValue placeholder={t("automations:actions.type")} />
+            </SelectTrigger>
+            <SelectContent>
+              {actionTypes.map((typeKey) => {
+                const Icon = getActionDescriptor(typeKey).icon;
+                return (
+                  <SelectItem key={typeKey} value={typeKey}>
+                    <TitlePresenter
+                      icon={Icon}
+                      title={t(`automations:actions.types.${typeKey}`, {
+                        defaultValue: typeKey,
+                      })}
+                    />
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )}
       <Body
         key={type}
-        initialValue={
-          type === "command_template" ? (initialResult ?? undefined) : undefined
-        }
-        onChange={setResult}
+        initialValue={initialValue}
+        onChange={updateResult}
         formId={formId}
       />
       {!hideActions && (
@@ -94,14 +123,14 @@ const ActionForm: FC<ActionFormProps> = ({
           <Button
             type="button"
             onClick={() => {
-              setResult(initialResult);
+              updateResult(actionToResult(initialValue));
               onCancel();
             }}
             variant="secondary"
           >
             {t("common:common.cancel")}
           </Button>
-          <Button type="submit" disabled={!result || isUnchanged}>
+          <Button type="submit" disabled={!result}>
             {t("common:common.save")}
           </Button>
         </div>

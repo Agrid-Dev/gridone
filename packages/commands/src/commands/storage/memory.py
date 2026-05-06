@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from commands.models import CommandTemplate, UnitCommand
+from models.errors import NotFoundError
 from models.types import SortOrder
 
 if TYPE_CHECKING:
@@ -92,6 +93,13 @@ class MemoryStorage:
     # -- command templates --
 
     async def save_template(self, template: CommandTemplate) -> CommandTemplate:
+        self._templates[template.id] = template
+        return template
+
+    async def update_template(self, template: CommandTemplate) -> CommandTemplate:
+        if template.id not in self._templates:
+            msg = f"Template {template.id!r} not found"
+            raise NotFoundError(msg)
         self._templates[template.id] = template
         return template
 

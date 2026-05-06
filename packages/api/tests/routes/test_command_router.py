@@ -229,6 +229,68 @@ class TestGetTemplate:
         assert response.status_code == 404
 
 
+class TestUpdateTemplate:
+    @pytest.mark.asyncio
+    async def test_partial_patch_passes_only_set_fields_to_service(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        mock_commands_service.update_template.return_value = _template(name="Renamed")
+        async with async_client as ac:
+            response = await ac.patch(
+                "/commands/templates/abc1234567890def",
+                json={"name": "Renamed"},
+            )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Renamed"
+
+        args = mock_commands_service.update_template.call_args.args
+        assert args[0] == "abc1234567890def"
+        patch = args[1]
+        # Only ``name`` was sent — the domain patch reflects that.
+        assert patch.model_fields_set == {"name"}
+        assert patch.name == "Renamed"
+
+    @pytest.mark.asyncio
+    async def test_explicit_null_name_demotes_to_ephemeral(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        # ``null`` is meaningful on PATCH — distinct from omitted — and must
+        # land in the patch's ``model_fields_set`` so the service can apply
+        # the demotion rather than skip the field.
+        mock_commands_service.update_template.return_value = _template(name=None)
+        async with async_client as ac:
+            response = await ac.patch(
+                "/commands/templates/abc1234567890def",
+                json={"name": None},
+            )
+        assert response.status_code == 200
+        assert response.json()["name"] is None
+
+        patch = mock_commands_service.update_template.call_args.args[1]
+        assert "name" in patch.model_fields_set
+        assert patch.name is None
+
+    @pytest.mark.asyncio
+    async def test_unknown_template_returns_404(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        mock_commands_service.update_template.side_effect = NotFoundError(
+            "Template 'nope' not found"
+        )
+        async with async_client as ac:
+            response = await ac.patch(
+                "/commands/templates/nope",
+                json={"name": "Renamed"},
+            )
+        assert response.status_code == 404
+
+
 class TestDeleteTemplate:
     @pytest.mark.asyncio
     async def test_returns_204_on_success(

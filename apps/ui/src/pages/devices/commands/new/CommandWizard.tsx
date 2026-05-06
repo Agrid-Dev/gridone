@@ -9,31 +9,42 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Controller } from "react-hook-form";
 import type { Asset, AssetTreeNode } from "@/api/assets";
-import type { CommandTemplate } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
 import { StepSection } from "./StepSection";
 import { CommandSummary, TargetSummary } from "./summaries";
 import { TargetStep } from "./TargetStep";
-import { type DispatchResult, useCommandWizard } from "./useCommandWizard";
+import type { useCommandWizard } from "./useCommandWizard";
+
+export type CommandWizardSubmitSlot = {
+  label: string;
+  /** Called with the materialized templateId after a successful commit
+   *  (POST or PATCH). The slot decides what to do next — navigate, dispatch,
+   *  attach to an automation. */
+  onSubmit: (templateId: string) => void | Promise<void>;
+};
 
 type CommandWizardProps = {
+  wizard: ReturnType<typeof useCommandWizard>;
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
-  /** When set, the target step is skipped and the wizard opens at the command
-   *  step. The filter is treated as the authoritative target on dispatch /
-   *  save. See useCommandWizard for semantics. */
-  predefinedTarget?: DevicesFilter;
   assetsById?: Record<string, Asset>;
+  predefinedTarget?: DevicesFilter;
+  /** "Save with the user-entered name". Renders the name input + Save button
+   *  in the review step. */
+  saveSubmit?: CommandWizardSubmitSlot;
+  /** "Commit ephemeral, then act on the templateId". The standalone wizard
+   *  uses this for Dispatch; future inline-action use ("Use this command")
+   *  also goes through this slot. */
+  dispatchSubmit?: CommandWizardSubmitSlot;
   onCancel: () => void;
-  onDispatched: (result: DispatchResult) => void;
-  onSaved: (template: CommandTemplate) => void;
 };
 
 export function CommandWizard(props: CommandWizardProps) {
   const { t } = useTranslation(["devices", "common"]);
+  const { wizard, saveSubmit, dispatchSubmit } = props;
   const {
     control,
     setValue,
@@ -45,38 +56,31 @@ export function CommandWizard(props: CommandWizardProps) {
     commandValid,
     isPredefined,
     isFirstStep,
-    isDispatching,
-    isSaving,
-    dispatchError,
-    saveError,
+    canSave,
+    canDispatch,
+    isCommitting,
+    commitError,
     handleNext,
     handleBack,
-    handleCancel,
-    handleDispatch,
-    handleSave,
-  } = useCommandWizard({
-    devices: props.devices,
-    predefinedTarget: props.predefinedTarget,
-    onDispatched: props.onDispatched,
-    onSaved: props.onSaved,
-  });
+    clearDraft,
+  } = wizard;
 
-  // Error toasts (dispatch + save share the same surface). Fires once per
-  // distinct error instance rather than on every render.
-  const error = dispatchError ?? saveError;
+  // Error toasts — fires once per distinct error instance.
   useEffect(() => {
-    if (!error) return;
+    if (!commitError) return;
     const detail =
-      error instanceof ApiError ? error.detail || error.message : error.message;
+      commitError instanceof ApiError
+        ? commitError.detail || commitError.message
+        : commitError.message;
     toast.error(String(detail));
-  }, [error]);
+  }, [commitError]);
 
   const stateOf = (idx: number) =>
     idx < step ? "done" : idx === step ? "active" : "pending";
 
   const onBack = isFirstStep
     ? () => {
-        handleCancel();
+        clearDraft();
         props.onCancel();
       }
     : handleBack;
@@ -84,9 +88,17 @@ export function CommandWizard(props: CommandWizardProps) {
     ? t("common:common.cancel")
     : t("commands.new.back");
 
-  const templateName = (values.templateName ?? "").trim();
-  const canSave =
-    templateName.length > 0 && !isSaving && selectedDevices.length > 0;
+  const handleSave = async () => {
+    if (!saveSubmit) return;
+    const id = await wizard.save();
+    if (id) await saveSubmit.onSubmit(id);
+  };
+
+  const handleDispatch = async () => {
+    if (!dispatchSubmit) return;
+    const id = await wizard.dispatch();
+    if (id) await dispatchSubmit.onSubmit(id);
+  };
 
   return (
     <Card>
@@ -153,53 +165,59 @@ export function CommandWizard(props: CommandWizardProps) {
           <div className="space-y-5">
             <ReviewStep values={values} selectedDevices={selectedDevices} />
 
-            <div className="space-y-3 rounded-md border bg-muted/20 p-4">
-              <p className="text-sm text-muted-foreground">
-                {t("commands.new.save.hint")}
-              </p>
-              <Controller
-                control={control}
-                name="templateName"
-                render={({ field }) => (
-                  <Field>
-                    <FieldLabel htmlFor="templateName">
-                      {t("commands.new.save.nameLabel")}
-                    </FieldLabel>
-                    <Input
-                      id="templateName"
-                      placeholder={t("commands.new.save.namePlaceholder")}
-                      value={field.value ?? ""}
-                      onChange={field.onChange}
-                    />
-                  </Field>
-                )}
-              />
-            </div>
+            {saveSubmit && (
+              <div className="space-y-3 rounded-md border bg-muted/20 p-4">
+                <p className="text-sm text-muted-foreground">
+                  {t("commands.new.save.hint")}
+                </p>
+                <Controller
+                  control={control}
+                  name="templateName"
+                  render={({ field }) => (
+                    <Field>
+                      <FieldLabel htmlFor="templateName">
+                        {t("commands.new.save.nameLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="templateName"
+                        placeholder={t("commands.new.save.namePlaceholder")}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                      />
+                    </Field>
+                  )}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-2 pt-2">
               <Button type="button" variant="outline" onClick={onBack}>
                 {backLabel}
               </Button>
               <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSave}
-                  disabled={!canSave}
-                >
-                  {isSaving
-                    ? t("commands.new.save.saving")
-                    : t("commands.new.save.action")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleDispatch}
-                  disabled={isDispatching || selectedDevices.length === 0}
-                >
-                  {isDispatching
-                    ? t("commands.new.dispatching")
-                    : t("commands.new.dispatch")}
-                </Button>
+                {saveSubmit && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSave}
+                    disabled={!canSave}
+                  >
+                    {isCommitting
+                      ? t("commands.new.save.saving")
+                      : saveSubmit.label}
+                  </Button>
+                )}
+                {dispatchSubmit && (
+                  <Button
+                    type="button"
+                    onClick={handleDispatch}
+                    disabled={!canDispatch}
+                  >
+                    {isCommitting
+                      ? t("commands.new.dispatching")
+                      : dispatchSubmit.label}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,12 +9,8 @@ import {
   getTemplate,
   type CommandTemplate,
 } from "@/api/commands";
-import {
-  getAssetTreeWithDevices,
-  type Asset,
-  type AssetTreeNode,
-} from "@/api/assets";
 import { listDevices, type Device } from "@/api/devices";
+import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
  *  itself, the live-resolved device list, the asset-name lookup used by the
@@ -32,15 +27,7 @@ export function useTemplate(templateId: string) {
     enabled: !!templateId,
   });
 
-  const assetTree = useQuery<AssetTreeNode[]>({
-    queryKey: ["assets", "tree-with-devices"],
-    queryFn: getAssetTreeWithDevices,
-  });
-
-  const assetsById = useMemo(
-    () => flattenAssets(assetTree.data ?? []),
-    [assetTree.data],
-  );
+  const { assetsById } = useAssetTree();
 
   // Resolve devices live so the page reflects the current asset membership.
   const target = template.data?.target;
@@ -87,23 +74,4 @@ export function useTemplate(templateId: string) {
 function describeError(err: Error): string {
   if (err instanceof ApiError) return err.detail || err.message;
   return err.message;
-}
-
-function flattenAssets(tree: AssetTreeNode[]): Record<string, Asset> {
-  const out: Record<string, Asset> = {};
-  const walk = (nodes: AssetTreeNode[]) => {
-    for (const n of nodes) {
-      out[n.id] = {
-        id: n.id,
-        parentId: n.parentId,
-        type: n.type,
-        name: n.name,
-        path: n.path,
-        position: n.position,
-      };
-      walk(n.children);
-    }
-  };
-  walk(tree);
-  return out;
 }

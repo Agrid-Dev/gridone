@@ -12,6 +12,7 @@ from commands.models import (
     AttributeWrite,
     CommandStatus,
     CommandTemplateCreate,
+    CommandTemplatePatch,
     WriteResult,
 )
 from commands.service import CommandsService
@@ -338,22 +339,19 @@ class TestDispatchBatch:
         assert template_id is not None
         target_resolver.resolve.assert_awaited_once_with(target)
 
-        # The ephemeral template is persisted on the storage layer — we
-        # reach into it directly because the public ``get_template`` only
-        # surfaces user-saved templates, not ephemerals.
-        template = await service._storage.get_template(template_id)  # noqa: SLF001
-        assert template is not None
+        # The ephemeral template is addressable through the public
+        # ``get_template`` API — automations referencing an inline-created
+        # template need to read it back by id.
+        template = await service.get_template(template_id)
         assert template.name is None
         assert template.target == target
         assert template.write == MODE_AUTO
         assert template.created_by == "u1"
 
-        # Ephemerals don't leak into the named-templates list or into the
-        # public ``get_template`` surface.
+        # …but ephemerals stay out of the named-templates list so the
+        # /commands/templates page doesn't fill up with audit rows.
         page = await service.list_templates()
         assert page.total == 0
-        with pytest.raises(NotFoundError):
-            await service.get_template(template_id)
 
     async def test_ids_only_batch_also_creates_a_template(
         self,
@@ -602,18 +600,15 @@ class TestTemplateCrud:
 
         await service.delete_template(template.id)
 
-        # The template is gone from the user's view…
-        with pytest.raises(NotFoundError):
-            await service.get_template(template.id)
+        # The template drops out of ``list_templates`` but the row itself
+        # survives with ``name = NULL`` so historical unit commands keep
+        # their ``template_id`` pointer for audit (and so an automation
+        # referencing the id can still read + dispatch it). A later cleanup
+        # job reaps the row and the SQL cascade detaches history at that
+        # point.
         page = await service.list_templates()
         assert page.total == 0
-
-        # …but the row survives with ``name = NULL`` so historical unit
-        # commands keep their ``template_id`` pointer for audit. A later
-        # cleanup job reaps the row and the SQL cascade detaches history
-        # at that point.
-        demoted = await service._storage.get_template(template.id)  # noqa: SLF001
-        assert demoted is not None
+        demoted = await service.get_template(template.id)
         assert demoted.name is None
         history = await service.get_commands(batch_id=dispatch.batch_id)
         assert all(c.template_id == template.id for c in history.items)
@@ -675,16 +670,129 @@ class TestTemplateCrud:
                 template_id="does-not-exist", user_id="u1"
             )
 
-    async def test_dispatch_from_template_refuses_ephemeral_templates(
+    async def test_dispatch_from_template_dispatches_ephemeral_templates(
         self,
         service: CommandsService,
     ):
-        # Ephemerals live on the storage layer for audit but are not
-        # dispatchable by id through the public API — a user holding an
-        # ephemeral id cannot bypass the "saved templates only" contract.
+        # Ephemeral templates are addressable by id — automations reference
+        # the inline-created template they own and need to dispatch through
+        # it when their trigger fires.
         ephemeral = await service.save_template(
             CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
             user_id="u1",
         )
+        dispatch = await service.dispatch_from_template(
+            template_id=ephemeral.id, user_id="u1"
+        )
+        await service._await_pending()  # noqa: SLF001
+        assert all(c.template_id == ephemeral.id for c in dispatch.commands)
+
+    async def test_get_template_returns_ephemeral_by_id(
+        self,
+        service: CommandsService,
+    ):
+        # Mirrors the automation flow: an inline-created template is saved
+        # without a name and then read back by id by the automation page.
+        ephemeral = await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+        fetched = await service.get_template(ephemeral.id)
+        assert fetched.id == ephemeral.id
+        assert fetched.name is None
+
+
+class TestUpdateTemplate:
+    async def test_partial_patch_only_touches_set_fields(
+        self,
+        service: CommandsService,
+    ):
+        original = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+
+        new_write = AttributeWrite(
+            attribute="setpoint", value=21.5, data_type=DataType.FLOAT
+        )
+        updated = await service.update_template(
+            original.id, CommandTemplatePatch(write=new_write)
+        )
+
+        # Only ``write`` changed — ``target`` and ``name`` are preserved.
+        assert updated.write == new_write
+        assert updated.target == original.target
+        assert updated.name == original.name
+        # Same row — id and audit metadata survive.
+        assert updated.id == original.id
+        assert updated.created_at == original.created_at
+        assert updated.created_by == original.created_by
+
+    async def test_promotes_ephemeral_to_named(
+        self,
+        service: CommandsService,
+    ):
+        # Inline-created templates start with name=None and stay out of the
+        # named list. A PATCH with a non-null name promotes them.
+        ephemeral = await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+        page = await service.list_templates()
+        assert page.total == 0
+
+        promoted = await service.update_template(
+            ephemeral.id, CommandTemplatePatch(name="Now saved")
+        )
+        assert promoted.name == "Now saved"
+
+        page = await service.list_templates()
+        assert page.total == 1
+        assert page.items[0].id == ephemeral.id
+
+    async def test_demotes_named_to_ephemeral(
+        self,
+        service: CommandsService,
+    ):
+        named = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        demoted = await service.update_template(
+            named.id, CommandTemplatePatch(name=None)
+        )
+        assert demoted.name is None
+
+        # Drops out of the named list but stays addressable by id.
+        page = await service.list_templates()
+        assert page.total == 0
+        fetched = await service.get_template(named.id)
+        assert fetched.name is None
+
+    async def test_unknown_id_raises_not_found(
+        self,
+        service: CommandsService,
+    ):
         with pytest.raises(NotFoundError):
-            await service.dispatch_from_template(template_id=ephemeral.id, user_id="u1")
+            await service.update_template(
+                "does-not-exist", CommandTemplatePatch(name="X")
+            )
+
+    async def test_empty_patch_is_a_no_op(
+        self,
+        service: CommandsService,
+    ):
+        # An empty body is a valid (if pointless) PATCH — no fields to apply,
+        # storage is not touched, the existing row is returned as-is.
+        original = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        same = await service.update_template(original.id, CommandTemplatePatch())
+        assert same == original
