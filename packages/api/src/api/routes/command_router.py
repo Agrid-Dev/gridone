@@ -37,6 +37,7 @@ from api.schemas.command import (
 from api.schemas.command_template import (
     CommandTemplateCreatePayload,
     CommandTemplateResponse,
+    CommandTemplateUpdatePayload,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 
@@ -213,6 +214,19 @@ async def get_template(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
 ) -> CommandTemplateResponse:
     template = await commands_svc.get_template(template_id)
+    return CommandTemplateResponse.from_domain(template)
+
+
+@router.patch(
+    "/commands/templates/{template_id}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def update_template(
+    template_id: str,
+    body: CommandTemplateUpdatePayload,
+    commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+) -> CommandTemplateResponse:
+    template = await commands_svc.update_template(template_id, body.to_domain())
     return CommandTemplateResponse.from_domain(template)
 
 

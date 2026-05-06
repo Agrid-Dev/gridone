@@ -336,6 +336,49 @@ class TestTemplates:
         # Sanity: same row
         assert page[0].id == unit.id
 
+    async def test_update_template_round_trips_diff_through_jsonb(
+        self, storage: PostgresCommandsStorage
+    ):
+        # Service-level diff semantics are covered by the unit tests; the
+        # integration check here is that the SQL UPDATE round-trips the
+        # jsonb-encoded ``target`` and ``write`` correctly and preserves
+        # the audit columns.
+        original = await storage.save_template(
+            _template(
+                template_id="tpl0000update01",
+                name=None,
+                target={"ids": ["d1"]},
+                write=MODE_AUTO,
+            )
+        )
+        merged = CommandTemplate(
+            id=original.id,
+            name="Promoted",
+            target={"types": ["thermostat"]},
+            write=AttributeWrite(
+                attribute="setpoint", value=21.5, data_type=DataType.FLOAT
+            ),
+            created_at=original.created_at,
+            created_by=original.created_by,
+        )
+        updated = await storage.update_template(merged)
+
+        assert updated.name == "Promoted"
+        assert updated.target == {"types": ["thermostat"]}
+        assert updated.write == AttributeWrite(
+            attribute="setpoint", value=21.5, data_type=DataType.FLOAT
+        )
+        # Audit metadata survives the UPDATE.
+        assert updated.created_at == original.created_at
+        assert updated.created_by == original.created_by
+
+    async def test_update_template_unknown_id_raises(
+        self, storage: PostgresCommandsStorage
+    ):
+        ghost = _template(template_id="tpl00000missing1", name="ghost")
+        with pytest.raises(NotFoundError):
+            await storage.update_template(ghost)
+
     async def test_on_delete_set_null_cascade_detaches_history(
         self, storage: PostgresCommandsStorage
     ):

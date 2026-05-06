@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -22,7 +23,7 @@ from models.service import Service
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import AttributeWrite, Target
+    from commands.models import AttributeWrite, CommandTemplatePatch, Target
     from commands.protocols import (
         CommandResultHandler,
         DeviceWriter,
@@ -89,6 +90,24 @@ class CommandsService(Service):
             created_by=user_id,
         )
         return await self._storage.save_template(created)
+
+    async def update_template(
+        self, template_id: str, patch: CommandTemplatePatch
+    ) -> CommandTemplate:
+        """Apply a partial update to a template's mutable fields.
+
+        ``patch.model_fields_set`` drives the diff: omitted fields stay
+        as-is, fields explicitly set to ``None`` apply (e.g. ``name=None``
+        demotes a saved template to ephemeral; ``name="X"`` on an
+        ephemeral promotes it). Raises :class:`NotFoundError` when no
+        template matches ``template_id``.
+        """
+        existing = await self.get_template(template_id)
+        diff = {k: getattr(patch, k) for k in patch.model_fields_set}
+        if not diff:
+            return existing
+        updated = dataclasses.replace(existing, **diff)
+        return await self._storage.update_template(updated)
 
     async def get_template(self, template_id: str) -> CommandTemplate:
         """Return a template by id, named or ephemeral.

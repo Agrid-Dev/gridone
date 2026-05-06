@@ -532,6 +532,22 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         id="create-template-no-auth",
     ),
     pytest.param(
+        "PATCH",
+        "/devices/commands/templates/any-id",
+        "viewer",
+        403,
+        {"name": "Renamed"},
+        id="update-template-viewer",
+    ),
+    pytest.param(
+        "PATCH",
+        "/devices/commands/templates/any-id",
+        None,
+        401,
+        {"name": "Renamed"},
+        id="update-template-no-auth",
+    ),
+    pytest.param(
         "DELETE",
         "/devices/commands/templates/any-id",
         "viewer",

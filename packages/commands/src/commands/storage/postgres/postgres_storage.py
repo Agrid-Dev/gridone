@@ -248,6 +248,24 @@ class PostgresCommandsStorage:
         )
         return self._row_to_template(row)
 
+    async def update_template(self, template: CommandTemplate) -> CommandTemplate:
+        row = await self._pool.fetchrow(
+            """
+            UPDATE command_templates
+            SET name = $2, target = $3, write = $4
+            WHERE id = $1
+            RETURNING *
+            """,
+            template.id,
+            template.name,
+            dict(template.target),
+            _write_to_jsonb(template.write),
+        )
+        if row is None:
+            msg = f"Template {template.id!r} not found"
+            raise NotFoundError(msg)
+        return self._row_to_template(row)
+
     async def get_template(self, template_id: str) -> CommandTemplate | None:
         row = await self._pool.fetchrow(
             "SELECT * FROM command_templates WHERE id = $1",

@@ -12,6 +12,7 @@ from commands.models import (
     AttributeWrite,
     CommandStatus,
     CommandTemplateCreate,
+    CommandTemplatePatch,
     WriteResult,
 )
 from commands.service import CommandsService
@@ -699,3 +700,99 @@ class TestTemplateCrud:
         fetched = await service.get_template(ephemeral.id)
         assert fetched.id == ephemeral.id
         assert fetched.name is None
+
+
+class TestUpdateTemplate:
+    async def test_partial_patch_only_touches_set_fields(
+        self,
+        service: CommandsService,
+    ):
+        original = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+
+        new_write = AttributeWrite(
+            attribute="setpoint", value=21.5, data_type=DataType.FLOAT
+        )
+        updated = await service.update_template(
+            original.id, CommandTemplatePatch(write=new_write)
+        )
+
+        # Only ``write`` changed — ``target`` and ``name`` are preserved.
+        assert updated.write == new_write
+        assert updated.target == original.target
+        assert updated.name == original.name
+        # Same row — id and audit metadata survive.
+        assert updated.id == original.id
+        assert updated.created_at == original.created_at
+        assert updated.created_by == original.created_by
+
+    async def test_promotes_ephemeral_to_named(
+        self,
+        service: CommandsService,
+    ):
+        # Inline-created templates start with name=None and stay out of the
+        # named list. A PATCH with a non-null name promotes them.
+        ephemeral = await service.save_template(
+            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            user_id="u1",
+        )
+        page = await service.list_templates()
+        assert page.total == 0
+
+        promoted = await service.update_template(
+            ephemeral.id, CommandTemplatePatch(name="Now saved")
+        )
+        assert promoted.name == "Now saved"
+
+        page = await service.list_templates()
+        assert page.total == 1
+        assert page.items[0].id == ephemeral.id
+
+    async def test_demotes_named_to_ephemeral(
+        self,
+        service: CommandsService,
+    ):
+        named = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        demoted = await service.update_template(
+            named.id, CommandTemplatePatch(name=None)
+        )
+        assert demoted.name is None
+
+        # Drops out of the named list but stays addressable by id.
+        page = await service.list_templates()
+        assert page.total == 0
+        fetched = await service.get_template(named.id)
+        assert fetched.name is None
+
+    async def test_unknown_id_raises_not_found(
+        self,
+        service: CommandsService,
+    ):
+        with pytest.raises(NotFoundError):
+            await service.update_template(
+                "does-not-exist", CommandTemplatePatch(name="X")
+            )
+
+    async def test_empty_patch_is_a_no_op(
+        self,
+        service: CommandsService,
+    ):
+        # An empty body is a valid (if pointless) PATCH — no fields to apply,
+        # storage is not touched, the existing row is returned as-is.
+        original = await service.save_template(
+            CommandTemplateCreate(
+                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        same = await service.update_template(original.id, CommandTemplatePatch())
+        assert same == original

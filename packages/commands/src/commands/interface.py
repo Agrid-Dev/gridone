@@ -12,6 +12,7 @@ if TYPE_CHECKING:
         BatchCommandDispatch,
         CommandTemplate,
         CommandTemplateCreate,
+        CommandTemplatePatch,
         Target,
         UnitCommand,
     )
@@ -67,6 +68,10 @@ class CommandsServiceInterface(Protocol):
 
     async def save_template(
         self, template: CommandTemplateCreate, user_id: str
+    ) -> CommandTemplate: ...
+
+    async def update_template(
+        self, template_id: str, patch: CommandTemplatePatch
     ) -> CommandTemplate: ...
 
     async def get_template(self, template_id: str) -> CommandTemplate: ...
