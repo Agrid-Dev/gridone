@@ -48,6 +48,8 @@ class Automation(AutomationCreate):
     created_by: str = ""
 
     def apply_update(self, params: AutomationUpdate) -> Automation:
+        if not params.model_fields_set:
+            return self
         return self.model_copy(
             update={
                 **{k: getattr(params, k) for k in params.model_fields_set},

@@ -121,7 +121,7 @@ class TestAutomationUseCases:
         assert updated.updated_at > before
         assert updated.created_at == before
 
-    def test_apply_update_always_bumps_updated_at_even_with_no_fields(self):
+    def test_apply_update_is_noop_when_no_fields_set(self):
         before = datetime(2024, 1, 1, tzinfo=UTC)
         a = Automation(
             name="test",
@@ -130,8 +130,8 @@ class TestAutomationUseCases:
             created_at=before,
             updated_at=before,
         )
-        updated = a.apply_update(AutomationUpdate())
-        assert updated.updated_at > before
+        result = a.apply_update(AutomationUpdate())
+        assert result is a
 
 
 class TestAutomationCreateDescription:

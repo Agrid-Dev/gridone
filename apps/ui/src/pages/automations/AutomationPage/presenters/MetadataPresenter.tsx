@@ -1,18 +1,15 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import type { Automation } from "@/api/automations";
+import { useUser } from "@/hooks/useUser";
 import BasePresenter from "./BasePresenter";
 import { AutomationStatusBadge } from "../../components/AutomationStatusBadge";
-import { getUser } from "@/api/users";
 
-interface MetadataPresenterProps {
-  name: string;
-  description: string;
-  enabled: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-}
+type MetadataPresenterProps = Pick<
+  Automation,
+  "name" | "description" | "enabled"
+> &
+  Partial<Pick<Automation, "createdAt" | "updatedAt" | "createdBy">>;
 
 const MetadataPresenter: FC<MetadataPresenterProps> = ({
   name,
@@ -23,12 +20,7 @@ const MetadataPresenter: FC<MetadataPresenterProps> = ({
   createdBy,
 }) => {
   const { t } = useTranslation("automations");
-
-  const { data: creator } = useQuery({
-    queryKey: ["users", createdBy],
-    queryFn: () => getUser(createdBy!),
-    enabled: !!createdBy,
-  });
+  const creator = useUser(createdBy);
 
   const wasEdited = createdAt && updatedAt && updatedAt !== createdAt;
 

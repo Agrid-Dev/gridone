@@ -100,7 +100,7 @@ class TestServiceProtocol:
 class TestCRUD:
     async def test_create_returns_automation(self):
         svc = _make_service()
-        result = await svc.create(_create_params())
+        result = await svc.create(_create_params(), created_by="u1")
         assert isinstance(result, Automation)
         assert result.name == "auto-1"
         assert len(result.id) == 16
@@ -113,7 +113,7 @@ class TestCRUD:
 
     async def test_update_bumps_updated_at(self):
         svc = _make_service()
-        created = await svc.create(_create_params())
+        created = await svc.create(_create_params(), created_by="u1")
         original_updated_at = created.updated_at
         updated = await svc.update(created.id, AutomationUpdate(name="renamed"))
         assert updated.updated_at >= original_updated_at
@@ -121,21 +121,21 @@ class TestCRUD:
 
     async def test_enable_bumps_updated_at(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         original_updated_at = created.updated_at
         enabled = await svc.enable(created.id)
         assert enabled.updated_at >= original_updated_at
 
     async def test_disable_bumps_updated_at(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         original_updated_at = created.updated_at
         disabled = await svc.disable(created.id)
         assert disabled.updated_at >= original_updated_at
 
     async def test_get_returns_cached(self):
         svc = _make_service()
-        created = await svc.create(_create_params())
+        created = await svc.create(_create_params(), created_by="u1")
         fetched = await svc.get(created.id)
         assert fetched.id == created.id
 
@@ -146,14 +146,14 @@ class TestCRUD:
 
     async def test_list_all(self):
         svc = _make_service()
-        a1 = await svc.create(_create_params(name="a1"))
-        a2 = await svc.create(_create_params(name="a2", enabled=False))
+        a1 = await svc.create(_create_params(name="a1"), created_by="u1")
+        a2 = await svc.create(_create_params(name="a2", enabled=False), created_by="u1")
         ids = {a.id for a in await svc.list()}
         assert {a1.id, a2.id} == ids
 
     async def test_update_applies_partial(self):
         svc = _make_service()
-        created = await svc.create(_create_params())
+        created = await svc.create(_create_params(), created_by="u1")
         updated = await svc.update(created.id, AutomationUpdate(name="renamed"))
         assert updated.name == "renamed"
         assert updated.trigger == _SCHEDULE
@@ -165,7 +165,7 @@ class TestCRUD:
 
     async def test_delete_removes_from_cache(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc.delete(created.id)
         with pytest.raises(NotFoundError):
             await svc.get(created.id)
@@ -290,48 +290,48 @@ class TestCache:
 
     async def test_populated_after_create_enabled(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         assert any(a.id == created.id for a in await svc.list(enabled=True))
 
     async def test_not_populated_in_enabled_after_create_disabled(self):
         svc = _make_service()
-        await svc.create(_create_params(enabled=False))
+        await svc.create(_create_params(enabled=False), created_by="u1")
         assert await svc.list(enabled=True) == []
 
     async def test_list_enabled_reads_cache_not_storage(self):
         storage = _make_storage()
         svc = _make_service(storage=storage)
-        await svc.create(_create_params(enabled=True))
+        await svc.create(_create_params(enabled=True), created_by="u1")
         storage.list.reset_mock()
         await svc.list(enabled=True)
         storage.list.assert_not_called()
 
     async def test_list_disabled(self):
         svc = _make_service()
-        await svc.create(_create_params(enabled=False))
+        await svc.create(_create_params(enabled=False), created_by="u1")
         assert len(await svc.list(enabled=False)) == 1
 
     async def test_cache_updated_after_update(self):
         svc = _make_service()
-        created = await svc.create(_create_params())
+        created = await svc.create(_create_params(), created_by="u1")
         await svc.update(created.id, AutomationUpdate(name="new-name"))
         assert (await svc.get(created.id)).name == "new-name"
 
     async def test_cache_cleared_after_delete(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc.delete(created.id)
         assert created.id not in {a.id for a in await svc.list()}
 
     async def test_cache_updated_after_enable(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc.enable(created.id)
         assert (await svc.get(created.id)).enabled is True
 
     async def test_cache_updated_after_disable(self):
         svc = _make_service()
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.disable(created.id)
         assert (await svc.get(created.id)).enabled is False
 
@@ -340,19 +340,19 @@ class TestTriggers:
     async def test_registered_on_create_enabled(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        await svc.create(_create_params(enabled=True))
+        await svc.create(_create_params(enabled=True), created_by="u1")
         provider.register.assert_called_once()
 
     async def test_not_registered_on_create_disabled(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        await svc.create(_create_params(enabled=False))
+        await svc.create(_create_params(enabled=False), created_by="u1")
         provider.register.assert_not_called()
 
     async def test_registered_on_enable(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         provider.register.reset_mock()
         await svc.enable(created.id)
         provider.register.assert_called_once()
@@ -360,7 +360,7 @@ class TestTriggers:
     async def test_unregistered_on_disable(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.disable(created.id)
         provider.unregister.assert_called_once_with("handle-01")
 
@@ -369,7 +369,7 @@ class TestTriggers:
         storage = _make_storage()
         provider = _make_provider("schedule")
         svc = _make_service(storage=storage, providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         call_order: list[str] = []
         provider.unregister.side_effect = lambda _: call_order.append("stop")
         storage.update.side_effect = lambda *_: call_order.append("db_write")
@@ -379,7 +379,7 @@ class TestTriggers:
     async def test_unregistered_on_delete(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.delete(created.id)
         provider.unregister.assert_called_once_with("handle-01")
 
@@ -387,7 +387,7 @@ class TestTriggers:
         schedule_provider = _make_provider("schedule")
         change_provider = _make_provider("change_event")
         svc = _make_service(providers=[schedule_provider, change_provider])
-        await svc.create(_create_params(trigger=_SCHEDULE))
+        await svc.create(_create_params(trigger=_SCHEDULE), created_by="u1")
         await svc.update((await svc.list())[0].id, AutomationUpdate(trigger=_CHANGE))
         schedule_provider.unregister.assert_called_once()
         change_provider.register.assert_called_once()
@@ -395,7 +395,7 @@ class TestTriggers:
     async def test_only_unregistered_on_update_to_disabled(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.update(created.id, AutomationUpdate(enabled=False))
         provider.unregister.assert_called_once()
         assert provider.register.call_count == 1  # only the initial create
@@ -403,7 +403,7 @@ class TestTriggers:
     async def test_no_change_on_non_trigger_update(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.update(created.id, AutomationUpdate(name="new-name"))
         provider.unregister.assert_not_called()
         assert provider.register.call_count == 1
@@ -411,7 +411,7 @@ class TestTriggers:
     async def test_enable_already_enabled_is_noop(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         provider.register.reset_mock()
         result = await svc.enable(created.id)
         provider.register.assert_not_called()
@@ -420,7 +420,7 @@ class TestTriggers:
     async def test_disable_already_disabled_is_noop(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         result = await svc.disable(created.id)
         provider.unregister.assert_not_called()
         assert result.enabled is False
@@ -428,14 +428,16 @@ class TestTriggers:
     async def test_start_trigger_raises_if_already_registered(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        created = await svc.create(_create_params(enabled=True))
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         with pytest.raises(RuntimeError, match="already registered"):
             await svc._start_trigger(created)  # noqa: SLF001
 
     async def test_register_passes_trigger_params(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
-        await svc.create(_create_params(trigger=_SCHEDULE, enabled=True))
+        await svc.create(
+            _create_params(trigger=_SCHEDULE, enabled=True), created_by="u1"
+        )
         call_params = provider.register.call_args[0][0]
         assert call_params == {"cron": "0 11 * * *"}
 
@@ -452,7 +454,7 @@ class TestExecutions:
     async def test_delete_delegates_to_storage(self):
         storage = _make_storage()
         svc = _make_service(storage=storage)
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc.delete(created.id)
         storage.delete.assert_called_once_with(created.id)
 
@@ -479,7 +481,9 @@ class TestOnFire:
     async def test_dispatches_to_action_provider(self, action, expected_params):
         provider = _make_action_provider(action.provider_id)
         svc = _make_service(action_providers=[provider])
-        created = await svc.create(_create_params(action=action, enabled=False))
+        created = await svc.create(
+            _create_params(action=action, enabled=False), created_by="u1"
+        )
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         provider.execute.assert_awaited_once_with(expected_params)
 
@@ -488,7 +492,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.return_value = "output-abc123"
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
@@ -501,7 +505,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
@@ -512,7 +516,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # must not raise  # noqa: SLF001
 
     async def test_raises_not_found_when_automation_missing(self):
@@ -523,7 +527,7 @@ class TestOnFire:
     async def test_logs_failed_execution_on_unknown_action_type(self):
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
-        created = await svc.create(_create_params(enabled=False))
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
@@ -548,8 +552,8 @@ class TestStop:
         storage = _make_storage()
         provider = _make_provider("schedule")
         svc = _make_service(storage=storage, providers=[provider])
-        await svc.create(_create_params(enabled=True))
-        await svc.create(_create_params(enabled=True))
+        await svc.create(_create_params(enabled=True), created_by="u1")
+        await svc.create(_create_params(enabled=True), created_by="u1")
         await svc.stop()
         assert provider.unregister.call_count == 2
         storage.close.assert_called_once()

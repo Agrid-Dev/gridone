@@ -60,9 +60,7 @@ class AutomationsService(Service):
 
     # CRUD
 
-    async def create(
-        self, params: AutomationCreate, *, created_by: str = ""
-    ) -> Automation:
+    async def create(self, params: AutomationCreate, *, created_by: str) -> Automation:
         now = datetime.now(UTC)
         automation = Automation(
             id=gen_id(),

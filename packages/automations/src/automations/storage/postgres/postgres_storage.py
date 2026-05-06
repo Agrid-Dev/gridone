@@ -61,8 +61,8 @@ class PostgresStorage:
             """
             INSERT INTO automations
                 (id, name, description, trigger, action, enabled,
-                 updated_at, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 created_at, updated_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             """,
             automation.id,
             automation.name,
@@ -70,6 +70,7 @@ class PostgresStorage:
             _trigger_adapter.dump_json(automation.trigger).decode(),
             _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
+            automation.created_at,
             automation.updated_at,
             automation.created_by,
         )
