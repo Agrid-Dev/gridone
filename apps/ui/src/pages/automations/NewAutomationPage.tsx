@@ -23,6 +23,7 @@ const NewAutomationPage: FC = () => {
     metadata,
     trigger,
     action,
+    setAction,
     submitMetadata,
     submitTrigger,
     submitAction,
@@ -35,6 +36,10 @@ const NewAutomationPage: FC = () => {
   const nextLabel = onAction
     ? t("common:common.submit")
     : t("common:common.next");
+  // On the action step the parent button drives submit but the form's
+  // gate is ``result``-based (no required fields to react-hook-form-validate
+  // against), so we surface readiness here.
+  const submitDisabled = isSubmitting || (onAction && !action);
 
   return (
     <section className="space-y-8">
@@ -92,6 +97,7 @@ const NewAutomationPage: FC = () => {
                   formId={WIZARD_FORM_ID}
                   hideActions
                   initialValue={action ?? undefined}
+                  onChange={setAction}
                   onSubmit={submitAction}
                   onCancel={goPrevious}
                 />
@@ -110,7 +116,7 @@ const NewAutomationPage: FC = () => {
         >
           {t("common:common.previous")}
         </Button>
-        <Button type="submit" form={WIZARD_FORM_ID} disabled={isSubmitting}>
+        <Button type="submit" form={WIZARD_FORM_ID} disabled={submitDisabled}>
           {nextLabel}
         </Button>
       </div>

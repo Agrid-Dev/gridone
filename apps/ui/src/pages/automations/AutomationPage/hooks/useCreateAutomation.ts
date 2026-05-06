@@ -92,6 +92,11 @@ export function useCreateAutomation() {
     metadata,
     trigger,
     action,
+    /** Track the in-progress action result. Lets the wizard preserve the
+     *  user's selection across Previous/Next navigation and gate the
+     *  Submit button on form readiness — separate from ``submitAction``,
+     *  which fires the actual ``createAutomation`` mutation. */
+    setAction,
     submitMetadata,
     submitTrigger,
     submitAction,

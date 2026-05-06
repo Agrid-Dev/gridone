@@ -23,30 +23,54 @@ interface ActionFormProps {
    *  The form opens in the matching descriptor's body and lets the body
    *  pre-populate from it. ``undefined`` opens a fresh form. */
   initialValue?: Action;
+  /** Final submit — fires when the user accepts the form (Save click in
+   *  edit mode, or the parent's Submit in the create wizard). */
   onSubmit: (result: ActionFormResult) => void;
+  /** Continuous result-state callback. Lets a parent gate its own button
+   *  on form readiness without re-rendering the body. */
+  onChange?: (result: ActionFormResult | null) => void;
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
 }
 
+/** ``Action`` is the wire shape (``params: Record<string, unknown>``);
+ *  ``ActionFormResult`` is the same shape but tightly typed per provider.
+ *  Re-validate at the boundary so only well-formed actions seed the form's
+ *  ``result`` slot. */
+function actionToResult(action: Action | undefined): ActionFormResult | null {
+  if (!action) return null;
+  if (action.providerId !== "command_template") return null;
+  const id = action.params.templateId;
+  if (typeof id !== "string") return null;
+  return {
+    providerId: "command_template",
+    params: { templateId: id },
+  };
+}
+
 const ActionForm: FC<ActionFormProps> = ({
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
-  // Default to ``command_template`` for both the create flow and unrecognized
-  // providers. Once the inline-command body is wired (Step 4), the descriptor
-  // registry collapses to a single command entry and this useState becomes
-  // moot.
   const [type, setType] = useState<ActionType>("command_template");
-  const [result, setResult] = useState<ActionFormResult | null>(null);
+  const [result, setResult] = useState<ActionFormResult | null>(() =>
+    actionToResult(initialValue),
+  );
+
+  const updateResult = (next: ActionFormResult | null) => {
+    setResult(next);
+    onChange?.(next);
+  };
 
   const handleTypeChange = (next: string) => {
     setType(next as ActionType);
-    setResult(null);
+    updateResult(null);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -91,7 +115,7 @@ const ActionForm: FC<ActionFormProps> = ({
       <Body
         key={type}
         initialValue={initialValue}
-        onChange={setResult}
+        onChange={updateResult}
         formId={formId}
       />
       {!hideActions && (
@@ -99,7 +123,7 @@ const ActionForm: FC<ActionFormProps> = ({
           <Button
             type="button"
             onClick={() => {
-              setResult(null);
+              updateResult(actionToResult(initialValue));
               onCancel();
             }}
             variant="secondary"
