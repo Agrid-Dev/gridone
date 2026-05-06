@@ -13,7 +13,10 @@
   "metadata": {
     "title": "Automation",
     "edit": "Edit automation",
-    "noDescription": "No description"
+    "noDescription": "No description",
+    "createdAt": "Created",
+    "updatedAt": "Last edited",
+    "createdBy": "Created by"
   },
   "fields": {
     "name": "Name",

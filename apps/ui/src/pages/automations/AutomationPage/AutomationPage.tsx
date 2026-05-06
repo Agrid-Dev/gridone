@@ -88,6 +88,9 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
             name={automation.name}
             description={automation.description}
             enabled={automation.enabled}
+            createdAt={automation.createdAt}
+            updatedAt={automation.updatedAt}
+            createdBy={automation.createdBy}
           />
         )}
       </EditableCard>

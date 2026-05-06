@@ -26,6 +26,12 @@ export function listUsers(): Promise<User[]> {
   return request<User[]>("/users/", undefined, { camelCase: true });
 }
 
+export function getUser(userId: string): Promise<User> {
+  return request<User>(`/users/${encodeURIComponent(userId)}`, undefined, {
+    camelCase: true,
+  });
+}
+
 export function createUser(payload: UserCreatePayload): Promise<User> {
   return request<User>(
     "/users/",

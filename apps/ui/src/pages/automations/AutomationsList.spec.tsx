@@ -70,6 +70,9 @@ function makeAutomation(
       params: { templateId: `tpl-${id}` },
     },
     trigger: { providerId: triggerType, params: {} },
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    createdBy: "",
   };
 }
 
