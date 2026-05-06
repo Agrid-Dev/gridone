@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
-import type { Trigger } from "@/api/automations";
-import type { CommandTemplateCreatePayload } from "@/api/commands";
+import type { Action, Trigger } from "@/api/automations";
 
 export type CustomTriggerFormProps = {
   type: string;
@@ -23,17 +22,21 @@ export type TriggerDescriptor = {
   CustomFormRenderer?: ComponentType<CustomTriggerFormProps>;
 };
 
-/** What an action-type form contributes upward. The host (ActionForm) collects
- *  one of these from the active descriptor and hands it to the parent's submit
- *  flow. ``templateId`` reuses an existing template; ``inlineCommand`` carries
- *  the payload for a template the parent will create on the fly. A future
- *  ``notification`` kind slots in here without further refactor. */
-export type ActionFormResult =
-  | { kind: "templateId"; templateId: string }
-  | { kind: "inlineCommand"; payload: CommandTemplateCreatePayload };
+/** What an action-type form contributes upward. Structurally an :type:`Action`
+ *  but tightly typed per provider so the parent can submit it as-is without
+ *  ``params`` casts. A future ``notification`` provider lands as another arm
+ *  of the union. */
+export type ActionFormResult = {
+  providerId: "command_template";
+  params: { templateId: string };
+};
 
 export type CustomActionFormProps = {
-  initialValue?: ActionFormResult;
+  /** The automation's existing action when editing, raw off the API.
+   *  Bodies pre-populate from it when ``providerId`` matches what they
+   *  render (e.g. the template picker reads ``params.templateId`` for
+   *  ``command_template``) and ignore it otherwise. */
+  initialValue?: Action;
   onChange: (result: ActionFormResult | null) => void;
   formId?: string;
 };

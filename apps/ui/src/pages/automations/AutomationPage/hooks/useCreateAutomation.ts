@@ -32,27 +32,24 @@ export function useCreateAutomation() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("metadata");
   const [metadata, setMetadata] = useState<MetadataFormValues | null>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
-  const [actionTemplateId, setActionTemplateId] = useState<string | null>(null);
+  const [action, setAction] = useState<ActionFormResult | null>(null);
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({
       values,
       triggerValue,
-      templateId,
+      actionValue,
     }: {
       values: MetadataFormValues;
       triggerValue: Trigger;
-      templateId: string;
+      actionValue: ActionFormResult;
     }) =>
       createAutomation({
         name: values.name,
         description: values.description,
         enabled: values.enabled,
         trigger: triggerValue,
-        action: {
-          providerId: "command_template",
-          params: { templateId },
-        },
+        action: actionValue,
       }),
     onSuccess: (automation: Automation) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
@@ -74,16 +71,8 @@ export function useCreateAutomation() {
 
   const submitAction = (result: ActionFormResult) => {
     if (!metadata || !trigger) return;
-    if (result.kind !== "templateId") {
-      // ``inlineCommand`` lands in commit 3.
-      throw new Error("inline command submit not implemented yet");
-    }
-    setActionTemplateId(result.templateId);
-    mutate({
-      values: metadata,
-      triggerValue: trigger,
-      templateId: result.templateId,
-    });
+    setAction(result);
+    mutate({ values: metadata, triggerValue: trigger, actionValue: result });
   };
 
   const goPrevious = () => {
@@ -102,7 +91,7 @@ export function useCreateAutomation() {
     currentStep,
     metadata,
     trigger,
-    actionTemplateId,
+    action,
     submitMetadata,
     submitTrigger,
     submitAction,

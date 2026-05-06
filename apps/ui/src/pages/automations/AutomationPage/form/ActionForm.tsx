@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import type { Action } from "@/api/automations";
 import { TitlePresenter } from "../presenters/BasePresenter";
 import {
   ACTION_PROVIDER_DESCRIPTORS,
@@ -18,9 +19,10 @@ import {
 import type { ActionFormResult } from "../presenters/types";
 
 interface ActionFormProps {
-  /** Existing action template id when editing an automation. The form opens
-   *  in ``command_template`` mode pre-filled with this value. */
-  initialValue?: string;
+  /** Existing action when editing an automation, raw off ``automation.action``.
+   *  The form opens in the matching descriptor's body and lets the body
+   *  pre-populate from it. ``undefined`` opens a fresh form. */
+  initialValue?: Action;
   onSubmit: (result: ActionFormResult) => void;
   onCancel: () => void;
   formId?: string;
@@ -35,11 +37,12 @@ const ActionForm: FC<ActionFormProps> = ({
   hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
+  // Default to ``command_template`` for both the create flow and unrecognized
+  // providers. Once the inline-command body is wired (Step 4), the descriptor
+  // registry collapses to a single command entry and this useState becomes
+  // moot.
   const [type, setType] = useState<ActionType>("command_template");
-  const initialResult: ActionFormResult | null = initialValue
-    ? { kind: "templateId", templateId: initialValue }
-    : null;
-  const [result, setResult] = useState<ActionFormResult | null>(initialResult);
+  const [result, setResult] = useState<ActionFormResult | null>(null);
 
   const handleTypeChange = (next: string) => {
     setType(next as ActionType);
@@ -53,9 +56,6 @@ const ActionForm: FC<ActionFormProps> = ({
 
   const descriptor = getActionDescriptor(type);
   const Body = descriptor.CustomFormRenderer;
-
-  const isUnchanged =
-    result?.kind === "templateId" && result.templateId === initialValue;
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-6">
@@ -83,9 +83,7 @@ const ActionForm: FC<ActionFormProps> = ({
       </FieldShell>
       <Body
         key={type}
-        initialValue={
-          type === "command_template" ? (initialResult ?? undefined) : undefined
-        }
+        initialValue={initialValue}
         onChange={setResult}
         formId={formId}
       />
@@ -94,14 +92,14 @@ const ActionForm: FC<ActionFormProps> = ({
           <Button
             type="button"
             onClick={() => {
-              setResult(initialResult);
+              setResult(null);
               onCancel();
             }}
             variant="secondary"
           >
             {t("common:common.cancel")}
           </Button>
-          <Button type="submit" disabled={!result || isUnchanged}>
+          <Button type="submit" disabled={!result}>
             {t("common:common.save")}
           </Button>
         </div>

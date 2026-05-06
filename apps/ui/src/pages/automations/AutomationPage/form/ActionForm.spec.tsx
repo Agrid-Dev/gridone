@@ -73,7 +73,10 @@ describe("ActionForm", () => {
   it("renders the action type select with both options and shows the template picker by default", () => {
     render(
       <ActionForm
-        initialValue="tpl-1"
+        initialValue={{
+          providerId: "command_template",
+          params: { templateId: "tpl-1" },
+        }}
         onSubmit={() => {}}
         onCancel={() => {}}
       />,
@@ -97,7 +100,10 @@ describe("ActionForm", () => {
   it("switches to the inline body and disables save when the inline placeholder yields no result", () => {
     render(
       <ActionForm
-        initialValue="tpl-1"
+        initialValue={{
+          providerId: "command_template",
+          params: { templateId: "tpl-1" },
+        }}
         onSubmit={() => {}}
         onCancel={() => {}}
       />,

@@ -22,7 +22,7 @@ const NewAutomationPage: FC = () => {
     currentStep,
     metadata,
     trigger,
-    actionTemplateId,
+    action,
     submitMetadata,
     submitTrigger,
     submitAction,
@@ -91,7 +91,7 @@ const NewAutomationPage: FC = () => {
                 <ActionForm
                   formId={WIZARD_FORM_ID}
                   hideActions
-                  initialValue={actionTemplateId ?? undefined}
+                  initialValue={action ?? undefined}
                   onSubmit={submitAction}
                   onCancel={goPrevious}
                 />
