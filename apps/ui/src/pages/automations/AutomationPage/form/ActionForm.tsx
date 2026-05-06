@@ -56,31 +56,38 @@ const ActionForm: FC<ActionFormProps> = ({
 
   const descriptor = getActionDescriptor(type);
   const Body = descriptor.CustomFormRenderer;
+  const actionTypes = Object.keys(ACTION_PROVIDER_DESCRIPTORS);
+  const showTypePicker = actionTypes.length > 1;
 
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-6">
-      <FieldShell id="action-type-picker" label={t("automations:actions.type")}>
-        <Select onValueChange={handleTypeChange} value={type}>
-          <SelectTrigger className="w-full sm:w-80">
-            <SelectValue placeholder={t("automations:actions.type")} />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.keys(ACTION_PROVIDER_DESCRIPTORS).map((typeKey) => {
-              const Icon = getActionDescriptor(typeKey).icon;
-              return (
-                <SelectItem key={typeKey} value={typeKey}>
-                  <TitlePresenter
-                    icon={Icon}
-                    title={t(`automations:actions.types.${typeKey}`, {
-                      defaultValue: typeKey,
-                    })}
-                  />
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-      </FieldShell>
+      {showTypePicker && (
+        <FieldShell
+          id="action-type-picker"
+          label={t("automations:actions.type")}
+        >
+          <Select onValueChange={handleTypeChange} value={type}>
+            <SelectTrigger className="w-full sm:w-80">
+              <SelectValue placeholder={t("automations:actions.type")} />
+            </SelectTrigger>
+            <SelectContent>
+              {actionTypes.map((typeKey) => {
+                const Icon = getActionDescriptor(typeKey).icon;
+                return (
+                  <SelectItem key={typeKey} value={typeKey}>
+                    <TitlePresenter
+                      icon={Icon}
+                      title={t(`automations:actions.types.${typeKey}`, {
+                        defaultValue: typeKey,
+                      })}
+                    />
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </FieldShell>
+      )}
       <Body
         key={type}
         initialValue={initialValue}

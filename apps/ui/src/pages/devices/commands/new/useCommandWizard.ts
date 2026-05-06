@@ -30,6 +30,15 @@ export type UseCommandWizardArgs = {
    *  whole) means create-fresh — the first save/dispatch POSTs; subsequent
    *  ones PATCH the resolved row. */
   template?: { id?: string; name?: string | null };
+  /** Seed the form's initial values (target, write, name) when editing an
+   *  existing template inline. The wizard skips draft loading when defaults
+   *  are provided, so the inline editor doesn't pick up a leftover from the
+   *  standalone wizard. */
+  defaultValues?: Partial<WizardFormValues>;
+  /** Disable the local-storage draft entirely. Set by inline use sites
+   *  (action form's "+ Create new") that don't share the standalone
+   *  wizard's draft buffer. */
+  disableDraft?: boolean;
 };
 
 const DRAFT_KEY = "commands.wizard.draft";
@@ -39,11 +48,14 @@ export function useCommandWizard({
   devices,
   predefinedTarget,
   template,
+  defaultValues,
+  disableDraft,
 }: UseCommandWizardArgs) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
   const initialStep = isPredefined ? 1 : 0;
+  const draftsDisabled = disableDraft || !!defaultValues;
 
   const { control, watch, setValue, getValues, trigger, reset } =
     useForm<WizardFormValues>({
@@ -52,6 +64,7 @@ export function useCommandWizard({
         targetMode: "devices",
         deviceIds: [],
         targetFilter: {},
+        ...defaultValues,
       },
     });
 
@@ -77,15 +90,16 @@ export function useCommandWizard({
 
   // -- Local-storage draft --------------------------------------------------
   // Drafts only make sense for the open-context wizard — a predefined target
-  // is driven by the URL, not by the user's previous selection.
+  // is driven by the URL, and the inline editor seeds from the existing
+  // template, neither of which want the standalone wizard's draft.
   useEffect(() => {
-    if (isPredefined) return;
+    if (isPredefined || draftsDisabled) return;
     const draft = loadDraft();
     if (draft) reset(draft);
   }, []);
 
   useEffect(() => {
-    if (isPredefined) return;
+    if (isPredefined || draftsDisabled) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const sub = watch((draftValues) => {
       if (timer) clearTimeout(timer);
@@ -97,7 +111,7 @@ export function useCommandWizard({
       if (timer) clearTimeout(timer);
       sub.unsubscribe();
     };
-  }, [watch, isPredefined]);
+  }, [watch, isPredefined, draftsDisabled]);
 
   // -- Derived state --------------------------------------------------------
   const values = watch();

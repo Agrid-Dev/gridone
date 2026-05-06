@@ -1,6 +1,5 @@
-import { Terminal, Wrench } from "lucide-react";
-import { TemplatePickerForm } from "../form/actionTypes/TemplatePickerForm";
-import { InlineCommandForm } from "../form/actionTypes/InlineCommandForm";
+import { Terminal } from "lucide-react";
+import { CommandActionForm } from "../form/actionTypes/CommandActionForm";
 import type { ActionDescriptor } from "./types";
 
 /** Action types the user can pick in the automation action form. The select
@@ -11,11 +10,7 @@ import type { ActionDescriptor } from "./types";
 export const ACTION_PROVIDER_DESCRIPTORS: Record<string, ActionDescriptor> = {
   command_template: {
     icon: Terminal,
-    CustomFormRenderer: TemplatePickerForm,
-  },
-  command_inline: {
-    icon: Wrench,
-    CustomFormRenderer: InlineCommandForm,
+    CustomFormRenderer: CommandActionForm,
   },
 };
 
