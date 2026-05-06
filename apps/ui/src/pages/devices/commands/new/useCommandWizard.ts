@@ -1,14 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  createTemplate,
-  dispatchBatchCommand,
-  dispatchSingleCommand,
-  type AttributeValue,
-  type CommandTemplate,
-} from "@/api/commands";
+import type { AttributeValue, AttributeWrite } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
 import {
   intersectWritableAttributes,
@@ -17,10 +10,12 @@ import {
   type WizardFormValues,
   type WritableAttribute,
 } from "./types";
+import { useCommandTemplate } from "./useCommandTemplate";
 
-export type DispatchResult =
-  | { kind: "single" }
-  | { kind: "batch"; batchId: string };
+type CommandPayload = {
+  target: DevicesFilter;
+  write: AttributeWrite;
+};
 
 export type UseCommandWizardArgs = {
   devices: Device[];
@@ -31,10 +26,10 @@ export type UseCommandWizardArgs = {
    *  entry point passes ``{assetId}``. When omitted, the user picks a target
    *  through the wizard's first step. */
   predefinedTarget?: DevicesFilter;
-  /** Callback after a successful dispatch. The caller owns navigation. */
-  onDispatched: (result: DispatchResult) => void;
-  /** Callback after a successful save-as-template. */
-  onSaved: (template: CommandTemplate) => void;
+  /** Existing template being edited. ``id: undefined`` (or undefined as a
+   *  whole) means create-fresh — the first save/dispatch POSTs; subsequent
+   *  ones PATCH the resolved row. */
+  template?: { id?: string; name?: string | null };
 };
 
 const DRAFT_KEY = "commands.wizard.draft";
@@ -43,10 +38,8 @@ const DRAFT_DEBOUNCE_MS = 250;
 export function useCommandWizard({
   devices,
   predefinedTarget,
-  onDispatched,
-  onSaved,
+  template,
 }: UseCommandWizardArgs) {
-  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
@@ -152,32 +145,7 @@ export function useCommandWizard({
     selectedDevices.length,
   );
 
-  // -- Mutations ------------------------------------------------------------
-  const effectiveTarget = useMemo(
-    () => buildTarget(values, selectedDevices, predefinedTarget),
-    [values, selectedDevices, predefinedTarget],
-  );
-
-  const dispatchMutation = useMutation<DispatchResult, Error, WizardFormValues>(
-    {
-      mutationFn: (v) => dispatch(v, selectedDevices, effectiveTarget),
-      onSuccess: (result) => {
-        clearDraft();
-        queryClient.invalidateQueries({ queryKey: ["commands"] });
-        onDispatched(result);
-      },
-    },
-  );
-
-  const saveMutation = useMutation<CommandTemplate, Error, WizardFormValues>({
-    mutationFn: (v) => saveTemplate(v, effectiveTarget),
-    onSuccess: (template) => {
-      clearDraft();
-      queryClient.invalidateQueries({ queryKey: ["command-templates"] });
-      onSaved(template);
-    },
-  });
-
+  // -- Step navigation ------------------------------------------------------
   const handleNext = async () => {
     const ok = await trigger();
     if (!ok) return;
@@ -188,17 +156,66 @@ export function useCommandWizard({
 
   const handleBack = () => setStep(step - 1);
 
-  const handleCancel = () => {
-    clearDraft();
+  // -- Commit lifecycle -----------------------------------------------------
+  const effectiveTarget = useMemo(
+    () => buildTarget(values, selectedDevices, predefinedTarget),
+    [values, selectedDevices, predefinedTarget],
+  );
+
+  const templateMutation = useCommandTemplate({ initialId: template?.id });
+
+  const templateName = (values.templateName ?? "").trim();
+  const formCommittable = commandValid && selectedDevices.length > 0;
+  const canSave =
+    formCommittable &&
+    templateName.length > 0 &&
+    !templateMutation.isCommitting;
+  const canDispatch = formCommittable && !templateMutation.isCommitting;
+
+  const getCommandPayload = (): CommandPayload | null => {
+    const v = getValues();
+    if (!v.attribute || v.value === undefined || !v.attributeDataType) {
+      return null;
+    }
+    if (selectedDevices.length === 0) return null;
+    return {
+      target: effectiveTarget,
+      write: {
+        attribute: v.attribute,
+        value: v.value as AttributeValue,
+        dataType: v.attributeDataType,
+      },
+    };
   };
 
-  const handleDispatch = () => dispatchMutation.mutate(getValues());
-  const handleSave = () => saveMutation.mutate(getValues());
+  /** Validate, snapshot the form, POST-or-PATCH the template, clear the
+   *  draft, return the resolved templateId. ``null`` when validation
+   *  fails or commit errors out — the error is exposed via
+   *  ``commitError`` so the caller can render a toast off it. */
+  const commit = async (name: string | null): Promise<string | null> => {
+    const ok = await trigger();
+    if (!ok) return null;
+    const payload = getCommandPayload();
+    if (!payload) return null;
+    try {
+      const result = await templateMutation.commit({ ...payload, name });
+      clearDraft();
+      return result.id;
+    } catch {
+      // Mutation error is already in flight via ``templateMutation.error`` —
+      // the caller picks it up off ``commitError``. Returning null lets a
+      // simple ``if (id) onSubmit(id)`` work without a try/catch at the
+      // call site.
+      return null;
+    }
+  };
 
   return {
+    // form state
     control,
     setValue,
     values,
+    // derived
     step,
     selectedDevices,
     compatibleAttributes,
@@ -206,15 +223,31 @@ export function useCommandWizard({
     commandValid,
     isPredefined,
     isFirstStep: step === initialStep,
-    isDispatching: dispatchMutation.isPending,
-    isSaving: saveMutation.isPending,
-    dispatchError: dispatchMutation.error,
-    saveError: saveMutation.error,
+    canSave,
+    canDispatch,
+    // commit lifecycle
+    isCommitting: templateMutation.isCommitting,
+    commitError: templateMutation.error,
+    resolvedTemplateId: templateMutation.resolvedId,
+    // methods
     handleNext,
     handleBack,
-    handleCancel,
-    handleDispatch,
-    handleSave,
+    /** Save with the user-entered template name. */
+    save: () => commit(templateName),
+    /** Dispatch path. If the user typed a name in the review step, the
+     *  template is saved under that name (and then dispatched) — no point
+     *  orphaning a perfectly good name. Otherwise the commit is ephemeral
+     *  (``name: null``). The inline-action use case ("Use this command")
+     *  will pass through this same slot in Step 4 with no name input
+     *  rendered, so it always commits ephemeral. */
+    dispatch: () => {
+      const liveName = (getValues().templateName ?? "").trim();
+      return commit(liveName.length > 0 ? liveName : null);
+    },
+    /** Discard the local-storage draft. The wizard calls this on cancel
+     *  and on successful commit; explicit so callers can reset on
+     *  navigation if they need to. */
+    clearDraft,
   };
 }
 
@@ -262,59 +295,6 @@ function buildTarget(
     };
   }
   return { ids: selectedDevices.map((d) => d.id) };
-}
-
-async function dispatch(
-  v: WizardFormValues,
-  selectedDevices: Device[],
-  target: DevicesFilter,
-): Promise<DispatchResult> {
-  if (!v.attribute || v.value === undefined) {
-    throw new Error("Form incomplete");
-  }
-  if (selectedDevices.length === 0) {
-    throw new Error("No devices selected");
-  }
-  const attribute = v.attribute;
-  const value = v.value as AttributeValue;
-
-  // Single-device fast path: one explicit id in the target and no other
-  // filter. Everything else goes through the batch endpoint so the server
-  // resolves at dispatch time (important for asset-based targets).
-  if (
-    target.ids &&
-    target.ids.length === 1 &&
-    !target.types &&
-    !target.assetId
-  ) {
-    await dispatchSingleCommand(target.ids[0], { attribute, value });
-    return { kind: "single" };
-  }
-
-  const res = await dispatchBatchCommand({ attribute, value, target });
-  return { kind: "batch", batchId: res.batchId };
-}
-
-async function saveTemplate(
-  v: WizardFormValues,
-  target: DevicesFilter,
-): Promise<CommandTemplate> {
-  if (!v.attribute || v.value === undefined || !v.attributeDataType) {
-    throw new Error("Form incomplete");
-  }
-  const name = (v.templateName ?? "").trim();
-  if (!name) {
-    throw new Error("Template name required");
-  }
-  return createTemplate({
-    target,
-    write: {
-      attribute: v.attribute,
-      value: v.value as AttributeValue,
-      dataType: v.attributeDataType,
-    },
-    name,
-  });
 }
 
 // -- Draft persistence ------------------------------------------------------

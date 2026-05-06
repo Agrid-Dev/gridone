@@ -66,7 +66,18 @@ export type CommandTemplate = {
 export type CommandTemplateCreatePayload = {
   target: DevicesFilter;
   write: AttributeWrite;
-  name: string;
+  /** ``null`` (or omitted) marks the template as ephemeral. Saved templates
+   *  pass a non-empty string. */
+  name: string | null;
+};
+
+/** Partial-update body for ``PATCH /devices/commands/templates/{id}``. Any
+ *  subset of the mutable fields is accepted; ``name: null`` demotes a saved
+ *  template to ephemeral. */
+export type CommandTemplateUpdatePayload = {
+  target?: DevicesFilter;
+  write?: AttributeWrite;
+  name?: string | null;
 };
 
 export function getCommands(
@@ -176,6 +187,21 @@ export function createTemplate(
     "/devices/commands/templates/",
     {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snakecaseKeys(payload)),
+    },
+    { camelCase: true },
+  );
+}
+
+export function updateTemplate(
+  templateId: string,
+  payload: CommandTemplateUpdatePayload,
+): Promise<CommandTemplate> {
+  return request<CommandTemplate>(
+    `/devices/commands/templates/${encodeURIComponent(templateId)}`,
+    {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(snakecaseKeys(payload)),
     },

@@ -13,6 +13,8 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { CommandWizard } from "./CommandWizard";
+import { useCommandMutations } from "./useCommandMutations";
+import { useCommandWizard } from "./useCommandWizard";
 
 const STEP_KEYS = [
   "commands.new.subtitle.target",
@@ -42,6 +44,8 @@ export default function NewCommandPage() {
 
   const { devices, loading: devicesLoading } = useDevicesList();
   const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
+  const wizard = useCommandWizard({ devices, predefinedTarget });
+  const mutations = useCommandMutations();
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],
@@ -82,26 +86,37 @@ export default function NewCommandPage() {
       />
       <StepSubtitle predefined={!!predefinedTarget} />
       <CommandWizard
+        wizard={wizard}
         devices={devices}
         assetTree={assetTree}
         assetsList={assetsList}
         predefinedTarget={predefinedTarget}
         onCancel={() => navigate(-1)}
-        onDispatched={(result) => {
-          if (result.kind === "batch") {
-            toast.success(t("commands.new.feedback.batchDispatched"));
-            navigate(`/devices/commands?batch_id=${result.batchId}`);
-          } else {
-            toast.success(t("commands.new.feedback.dispatched"));
-            const listUrl = deviceId
-              ? `/devices/${encodeURIComponent(deviceId)}/history/commands`
-              : "/devices/commands";
-            navigate(listUrl);
-          }
+        saveSubmit={{
+          label: t("commands.new.save.action"),
+          onSubmit: (templateId) => {
+            toast.success(t("commands.new.save.savedFeedback"));
+            navigate(`/devices/commands/templates/${templateId}`);
+          },
         }}
-        onSaved={(template) => {
-          toast.success(t("commands.new.save.savedFeedback"));
-          navigate(`/devices/commands/templates/${template.id}`);
+        dispatchSubmit={{
+          label: t("commands.new.dispatch"),
+          onSubmit: async (templateId) => {
+            // The wizard's commit already created an ephemeral template;
+            // dispatch fires through the resolved id. Device-scoped entries
+            // navigate to that device's history; everything else lands on
+            // the batch view filtered by the new ``batch_id``.
+            const result = await mutations.dispatchTemplate(templateId);
+            if (deviceId) {
+              toast.success(t("commands.new.feedback.dispatched"));
+              navigate(
+                `/devices/${encodeURIComponent(deviceId)}/history/commands`,
+              );
+            } else {
+              toast.success(t("commands.new.feedback.batchDispatched"));
+              navigate(`/devices/commands?batch_id=${result.batchId}`);
+            }
+          },
         }}
       />
       {assetId && lockedAsset && (
