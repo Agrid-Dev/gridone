@@ -110,7 +110,7 @@ class CoreDevice(ABC):
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
         previous = attribute.model_copy() if previous_value is not None else None
-        attribute._update_value(new_value)  # noqa: SLF001  # ty:ignore[invalid-argument-type]
+        attribute.update_value(new_value)  # ty:ignore[invalid-argument-type]
         if self.on_update and attribute.current_value != previous_value:
             self.on_update(self, attribute.name, previous, attribute)
 
