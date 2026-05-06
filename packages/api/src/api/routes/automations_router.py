@@ -11,7 +11,11 @@ from automations import (
 )
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import get_automations_service, require_permission
+from api.dependencies import (
+    get_automations_service,
+    get_current_user_id,
+    require_permission,
+)
 from api.permissions import Permission
 
 router = APIRouter()
@@ -58,8 +62,9 @@ async def list_automations(
 async def create_automation(
     body: AutomationCreate,
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+    current_user_id: str = Depends(get_current_user_id),
 ) -> Automation:
-    return await svc.create(body)
+    return await svc.create(body, created_by=current_user_id)
 
 
 @router.get(

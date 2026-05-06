@@ -60,7 +60,10 @@ class AutomationsService(Service):
 
     # CRUD
 
-    async def create(self, params: AutomationCreate) -> Automation:
+    async def create(
+        self, params: AutomationCreate, *, created_by: str = ""
+    ) -> Automation:
+        now = datetime.now(UTC)
         automation = Automation(
             id=gen_id(),
             name=params.name,
@@ -68,6 +71,9 @@ class AutomationsService(Service):
             trigger=params.trigger,
             action=params.action,
             enabled=params.enabled,
+            created_at=now,
+            updated_at=now,
+            created_by=created_by,
         )
         await self._storage.create(automation)
         await self._register_automation(automation)
@@ -118,21 +124,13 @@ class AutomationsService(Service):
         automation = await self.get(automation_id)
         if automation.enabled:
             return automation
-        updated = automation.model_copy(update={"enabled": True})
-        await self._storage.update(updated)
-        self._cache[automation_id] = updated
-        await self._start_trigger(updated)
-        return updated
+        return await self.update(automation_id, AutomationUpdate(enabled=True))
 
     async def disable(self, automation_id: str) -> Automation:
         automation = await self.get(automation_id)
         if not automation.enabled:
             return automation
-        await self._stop_trigger(automation_id)
-        updated = automation.model_copy(update={"enabled": False})
-        await self._storage.update(updated)
-        self._cache[automation_id] = updated
-        return updated
+        return await self.update(automation_id, AutomationUpdate(enabled=False))
 
     # Execution log
 

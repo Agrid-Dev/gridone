@@ -39,6 +39,9 @@ class PostgresStorage:
             trigger=trigger,
             action=action,
             enabled=row["enabled"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            created_by=row["created_by"],
         )
 
     @staticmethod
@@ -57,8 +60,9 @@ class PostgresStorage:
         await self._pool.execute(
             """
             INSERT INTO automations
-                (id, name, description, trigger, action, enabled)
-            VALUES ($1, $2, $3, $4, $5, $6)
+                (id, name, description, trigger, action, enabled,
+                 updated_at, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             automation.id,
             automation.name,
@@ -66,6 +70,8 @@ class PostgresStorage:
             _trigger_adapter.dump_json(automation.trigger).decode(),
             _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
+            automation.updated_at,
+            automation.created_by,
         )
 
     async def get(self, automation_id: str) -> Automation:
@@ -92,7 +98,7 @@ class PostgresStorage:
             """
             UPDATE automations
             SET name = $2, description = $3,
-                trigger = $4, action = $5, enabled = $6
+                trigger = $4, action = $5, enabled = $6, updated_at = $7
             WHERE id = $1
             """,
             automation.id,
@@ -101,6 +107,7 @@ class PostgresStorage:
             _trigger_adapter.dump_json(automation.trigger).decode(),
             _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
+            automation.updated_at,
         )
         if result == "UPDATE 0":
             msg = f"Automation {automation.id!r} not found"
