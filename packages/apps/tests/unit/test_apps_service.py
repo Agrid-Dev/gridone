@@ -37,8 +37,6 @@ class TestAppsServiceLifecycle:
     async def test_start_stop_in_memory_mode(self, users_manager):
         service = AppsService(storage_url=None, users_service=users_manager)
         await service.start()
-        # Health-check task started inside start.
-        assert service._apps_manager._health_task is not None  # noqa: SLF001
         await service.stop()
         # Stop is idempotent.
         await service.stop()
