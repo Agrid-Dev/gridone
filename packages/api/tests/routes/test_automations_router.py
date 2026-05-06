@@ -33,6 +33,9 @@ _AUTO = Automation(
     trigger=_TRIGGER,
     action=_ACTION,
     enabled=True,
+    created_at=datetime(2024, 1, 1, tzinfo=UTC),
+    updated_at=datetime(2024, 1, 1, tzinfo=UTC),
+    created_by="user-01",
 )
 _EXECUTION = AutomationExecution(
     id="exec-01",
@@ -109,6 +112,29 @@ class TestCreateAutomation:
             )
         assert resp.status_code == 201
         assert resp.json()["id"] == "auto-01"
+
+    async def test_passes_created_by_from_current_user(
+        self, client, svc, admin_token_payload
+    ):
+        svc.create.return_value = _AUTO
+        async with client as c:
+            await c.post(
+                "/",
+                json={
+                    "name": "Morning Reset",
+                    "trigger": {
+                        "provider_id": "schedule",
+                        "params": {"cron": "0 * * * *"},
+                    },
+                    "action": {
+                        "provider_id": "command_template",
+                        "params": {"template_id": "tmpl-01"},
+                    },
+                },
+            )
+        svc.create.assert_awaited_once()
+        _, kwargs = svc.create.call_args
+        assert kwargs["created_by"] == admin_token_payload.sub
 
     async def test_notification_action_accepted(self, client, svc):
         notif_auto = _AUTO.model_copy(

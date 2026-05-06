@@ -102,6 +102,37 @@ class TestAutomationUseCases:
         a = AutomationCreate(name="notif", trigger=_SCHEDULE, action=_NOTIF_ACTION)
         assert a.action.provider_id == "notification"
 
+    def test_automation_metadata_defaults(self):
+        a = Automation(name="test", trigger=_SCHEDULE, action=_CMD_ACTION)
+        assert a.created_by == ""
+        assert a.created_at <= a.updated_at
+
+    def test_apply_update_bumps_updated_at(self):
+        before = datetime(2024, 1, 1, tzinfo=UTC)
+        a = Automation(
+            name="test",
+            trigger=_SCHEDULE,
+            action=_CMD_ACTION,
+            created_at=before,
+            updated_at=before,
+        )
+        updated = a.apply_update(AutomationUpdate(name="renamed"))
+        assert updated.name == "renamed"
+        assert updated.updated_at > before
+        assert updated.created_at == before
+
+    def test_apply_update_always_bumps_updated_at_even_with_no_fields(self):
+        before = datetime(2024, 1, 1, tzinfo=UTC)
+        a = Automation(
+            name="test",
+            trigger=_SCHEDULE,
+            action=_CMD_ACTION,
+            created_at=before,
+            updated_at=before,
+        )
+        updated = a.apply_update(AutomationUpdate())
+        assert updated.updated_at > before
+
 
 class TestAutomationCreateDescription:
     def test_description_defaults_to_empty_string(self):

@@ -105,6 +105,34 @@ class TestCRUD:
         assert result.name == "auto-1"
         assert len(result.id) == 16
 
+    async def test_create_sets_metadata(self):
+        svc = _make_service()
+        result = await svc.create(_create_params(), created_by="user-01")
+        assert result.created_by == "user-01"
+        assert result.created_at == result.updated_at
+
+    async def test_update_bumps_updated_at(self):
+        svc = _make_service()
+        created = await svc.create(_create_params())
+        original_updated_at = created.updated_at
+        updated = await svc.update(created.id, AutomationUpdate(name="renamed"))
+        assert updated.updated_at >= original_updated_at
+        assert updated.created_at == created.created_at
+
+    async def test_enable_bumps_updated_at(self):
+        svc = _make_service()
+        created = await svc.create(_create_params(enabled=False))
+        original_updated_at = created.updated_at
+        enabled = await svc.enable(created.id)
+        assert enabled.updated_at >= original_updated_at
+
+    async def test_disable_bumps_updated_at(self):
+        svc = _make_service()
+        created = await svc.create(_create_params(enabled=True))
+        original_updated_at = created.updated_at
+        disabled = await svc.disable(created.id)
+        assert disabled.updated_at >= original_updated_at
+
     async def test_get_returns_cached(self):
         svc = _make_service()
         created = await svc.create(_create_params())
