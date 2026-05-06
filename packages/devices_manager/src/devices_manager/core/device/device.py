@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
@@ -35,6 +37,9 @@ class CoreDevice(ABC):
     tags: dict[str, str] = field(default_factory=dict)
     on_update: AttributeListener | None = field(default=None, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
+    _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
+        field(init=False, default_factory=list, repr=False)
+    )
 
     @property
     def syncing(self) -> bool:
@@ -71,6 +76,27 @@ class CoreDevice(ABC):
     @abstractmethod
     async def stop_sync(self) -> None:
         """Stop synchronizing this device."""
+
+    @contextlib.asynccontextmanager
+    async def wait_for_attribute(
+        self,
+        name: str,
+        predicate: Callable[[AttributeValueType], bool],
+    ) -> AsyncIterator[asyncio.Event]:
+        """Async context manager that yields an Event set when predicate matches.
+
+        Both push listeners and active reads go through _update_attribute, so
+        any update path naturally triggers confirmation without special-casing.
+        The waiter is always removed from the registry on exit (success,
+        timeout, or cancellation).
+        """
+        event = asyncio.Event()
+        waiter = (name, predicate, event)
+        self._waiters.append(waiter)
+        try:
+            yield event
+        finally:
+            self._waiters.remove(waiter)
 
     async def init_listeners(self) -> None:  # noqa: B027
         """Attach transport listeners. No-op for non-physical devices."""
@@ -111,6 +137,10 @@ class CoreDevice(ABC):
         previous_value = attribute.current_value
         previous = attribute.model_copy() if previous_value is not None else None
         attribute.update_value(new_value)  # ty:ignore[invalid-argument-type]
+        if new_value is not None:
+            for wname, pred, event in self._waiters:
+                if wname == attribute.name and pred(new_value):
+                    event.set()
         if self.on_update and attribute.current_value != previous_value:
             self.on_update(self, attribute.name, previous, attribute)
 
@@ -127,5 +157,6 @@ class CoreDevice(ABC):
         value: AttributeValueType,
         *,
         confirm: bool = True,
+        confirm_timeout: float = 5.0,
     ) -> Attribute:
         """Write a value to an attribute."""

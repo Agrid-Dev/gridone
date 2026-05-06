@@ -30,9 +30,14 @@ class VirtualDevice(CoreDevice):
         return self.get_attribute_value(attribute_name)
 
     async def write_attribute_value(
-        self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+        confirm_timeout: float = 5.0,
     ) -> Attribute:
-        _ = confirm
+        _ = confirm, confirm_timeout
         attribute = self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
