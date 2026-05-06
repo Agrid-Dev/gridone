@@ -78,7 +78,6 @@
       "sourceLabel": "Command source",
       "useTemplate": "Use a saved template",
       "composeNew": "Define a new command",
-      "edit": "Edit",
       "useCommand": "Use this command"
     }
   },

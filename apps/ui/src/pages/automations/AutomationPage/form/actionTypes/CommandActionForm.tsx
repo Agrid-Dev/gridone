@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { Terminal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -18,6 +18,7 @@ import { useDevicesList } from "@/hooks/useDevicesList";
 import { CommandWizard } from "@/pages/devices/commands/new/CommandWizard";
 import { useCommandWizard } from "@/pages/devices/commands/new/useCommandWizard";
 import type { WizardFormValues } from "@/pages/devices/commands/new/types";
+import { TitlePresenter } from "../../presenters/BasePresenter";
 import type { CustomActionFormProps } from "../../presenters/types";
 
 type Mode = "pick" | "compose";
@@ -116,15 +117,16 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
     string | undefined
   >(initialId);
   const [mode, setMode] = useState<Mode | null>(null);
-  // The template the wizard is currently editing (PATCH semantics) — set
-  // when entering compose via Edit on a named template, or auto-set when
-  // the action references an ephemeral. Explicit mode switch via the
-  // Select clears this so compose starts from a clean slate.
+  // The template the wizard is editing inline (PATCH semantics) — only
+  // set when the action references an *ephemeral* template, since that's
+  // the one place the wizard has to seed from existing values. Explicit
+  // mode switch via the Source select clears this so ``Define a new
+  // command`` always starts from a clean slate.
   const [composeFromTemplate, setComposeFromTemplate] = useState<
     CommandTemplate | undefined
   >(undefined);
 
-  const { data: selectedTemplate, isLoading } = useQuery({
+  const { data: selectedTemplate } = useQuery({
     queryKey: ["command-templates", selectedTemplateId],
     queryFn: () => getTemplate(selectedTemplateId!),
     enabled: !!selectedTemplateId,
@@ -132,7 +134,7 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
 
   // Mode inference is one-shot — runs after the initial template (if any)
   // resolves, then never again. After that, mode changes only via explicit
-  // user action (mode Select, Edit button) so we don't trap the user.
+  // user action (the Source select) so we don't trap the user.
   useEffect(() => {
     if (mode !== null) return;
     if (!initialId) {
@@ -156,9 +158,9 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
     onChange(null);
   };
 
-  const switchToCompose = (from?: CommandTemplate) => {
+  const switchToCompose = () => {
     setMode("compose");
-    setComposeFromTemplate(from);
+    setComposeFromTemplate(undefined);
     onChange(null);
   };
 
@@ -184,37 +186,32 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="pick">
-              {t("actions.commandActionForm.useTemplate")}
+              <TitlePresenter
+                icon={Terminal}
+                title={t("actions.commandActionForm.useTemplate")}
+              />
             </SelectItem>
             <SelectItem value="compose">
-              {t("actions.commandActionForm.composeNew")}
+              <TitlePresenter
+                icon={Terminal}
+                title={t("actions.commandActionForm.composeNew")}
+              />
             </SelectItem>
           </SelectContent>
         </Select>
       </FieldShell>
 
       {mode === "pick" ? (
-        <div className="space-y-3">
-          <CommandTemplatePicker
-            value={selectedTemplateId}
-            onSelect={(template) => {
-              setSelectedTemplateId(template.id);
-              onChange({
-                providerId: "command_template",
-                params: { templateId: template.id },
-              });
-            }}
-          />
-          {selectedTemplate && selectedTemplate.name !== null && !isLoading && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => switchToCompose(selectedTemplate)}
-            >
-              {t("actions.commandActionForm.edit")}
-            </Button>
-          )}
-        </div>
+        <CommandTemplatePicker
+          value={selectedTemplateId}
+          onSelect={(template) => {
+            setSelectedTemplateId(template.id);
+            onChange({
+              providerId: "command_template",
+              params: { templateId: template.id },
+            });
+          }}
+        />
       ) : (
         <InlineWizard
           template={composeFromTemplate}

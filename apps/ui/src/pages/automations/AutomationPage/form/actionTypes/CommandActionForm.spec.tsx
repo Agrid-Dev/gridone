@@ -18,7 +18,6 @@ vi.mock("react-i18next", () =>
     "actions.commandActionForm.sourceLabel": "Command source",
     "actions.commandActionForm.useTemplate": "Use a saved template",
     "actions.commandActionForm.composeNew": "Define a new command",
-    "actions.commandActionForm.edit": "Edit",
     "actions.commandActionForm.useCommand": "Use this command",
   }),
 );

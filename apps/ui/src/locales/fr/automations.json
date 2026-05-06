@@ -77,7 +77,6 @@
       "sourceLabel": "Source de la commande",
       "useTemplate": "Utiliser un modèle existant",
       "composeNew": "Définir une nouvelle commande",
-      "edit": "Modifier",
       "useCommand": "Utiliser cette commande"
     }
   },
