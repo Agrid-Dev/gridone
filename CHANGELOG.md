@@ -1,3 +1,9 @@
+## v0.68.1 (2026-05-06)
+
+### Refactor
+
+- **devices_manager,apps**: remove easy/medium SLF001 noqa suppressions (AGR-574)
+
 ## v0.68.0 (2026-05-06)
 
 ### Feat
