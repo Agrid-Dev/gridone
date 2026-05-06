@@ -1,3 +1,22 @@
+## v0.68.0 (2026-05-06)
+
+### Feat
+
+- **ui**: unified inline command body in the action form (AGR-529)
+- **ui**: collapse the action form result to the polymorphic Action shape (AGR-529)
+- **ui**: wizard owns the command template lifecycle (AGR-529)
+- **commands**: add PATCH endpoint for command templates (AGR-529)
+
+### Fix
+
+- **ui**: icon both action source options, drop the inline-edit affordance (AGR-529)
+- **ui**: wire ActionForm result through to the create-automation Submit (AGR-529)
+- **commands**: make ephemeral templates addressable by id (AGR-529)
+
+### Refactor
+
+- **ui**: centralize asset-tree fetching in useAssetTree (AGR-529)
+
 ## v0.67.1 (2026-05-05)
 
 ### Fix
