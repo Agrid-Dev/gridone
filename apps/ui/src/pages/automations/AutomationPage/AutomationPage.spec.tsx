@@ -48,6 +48,10 @@ vi.mock("@/api/automations", () => ({
     mockUpdateAutomation(id, payload),
 }));
 
+vi.mock("@/api/users", () => ({
+  getUser: vi.fn().mockResolvedValue({ id: "user-01", username: "alice" }),
+}));
+
 vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
 vi.mock("@/api/assets", () => ({
   getAssetTreeWithDevices: vi.fn(),
@@ -95,6 +99,9 @@ vi.mock("react-i18next", () =>
     "metadata.title": "Automation",
     "metadata.edit": "Edit automation",
     "metadata.noDescription": "No description",
+    "metadata.createdAt": "Created",
+    "metadata.updatedAt": "Last edited",
+    "metadata.createdBy": "Created by",
     "common.edit": "Edit",
     "actions.enable": "Enable",
     "actions.disable": "Disable",
@@ -139,6 +146,9 @@ const automation: Automation = {
     params: { templateId: "tpl-9f12" },
   },
   trigger: { providerId: "schedule", params: { cron: "0 6 * * *" } },
+  createdAt: "2026-01-01T10:00:00Z",
+  updatedAt: "2026-01-01T10:00:00Z",
+  createdBy: "user-01",
 };
 
 const execution: AutomationExecution = {
@@ -175,6 +185,9 @@ function setQueryResults(executions: AutomationExecution[] = []) {
     }
     if (opts.queryKey[0] === "assets") {
       return { data: [], isLoading: false };
+    }
+    if (opts.queryKey[0] === "users") {
+      return { data: { id: "user-01", username: "alice" }, isLoading: false };
     }
     return { data: automation, isLoading: false };
   });
@@ -240,6 +253,59 @@ describe("AutomationPage", () => {
       "href",
       "/devices/commands?batch_id=batch-abc",
     );
+  });
+
+  it("shows created date, creator username, and hides updated_at when equal to created_at", () => {
+    setQueryResults();
+    renderDetail();
+
+    expect(screen.getByText(/Created:/)).toBeInTheDocument();
+    expect(screen.getByText(/alice/)).toBeInTheDocument();
+    expect(screen.queryByText(/Last edited/)).not.toBeInTheDocument();
+  });
+
+  it("shows updated_at when it differs from created_at", () => {
+    mockUseQuery.mockImplementation(
+      (opts: { queryKey: readonly unknown[] }) => {
+        if (opts.queryKey[0] === "users") {
+          return {
+            data: { id: "user-01", username: "alice" },
+            isLoading: false,
+          };
+        }
+        if (opts.queryKey[0] === "assets")
+          return { data: [], isLoading: false };
+        if (opts.queryKey[0] === "command-templates") {
+          return {
+            data: {
+              id: "tpl-9f12",
+              name: "Boost",
+              target: { ids: ["d1"] },
+              write: {
+                attribute: "temperature_setpoint",
+                value: 22,
+                dataType: "float",
+              },
+              createdAt: "2026-01-01T00:00:00Z",
+              createdBy: "user1",
+            },
+            isLoading: false,
+          };
+        }
+        if (opts.queryKey[2] === "executions")
+          return { data: [], isLoading: false };
+        return {
+          data: {
+            ...automation,
+            updatedAt: "2026-03-01T12:00:00Z",
+          },
+          isLoading: false,
+        };
+      },
+    );
+    renderDetail();
+
+    expect(screen.getByText(/Last edited/)).toBeInTheDocument();
   });
 
   it("renders error inline with the status badge in the same cell", () => {

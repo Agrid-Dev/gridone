@@ -25,6 +25,9 @@ export type Automation = {
   trigger: Trigger;
   action: Action;
   enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
 };
 
 export type AutomationCreate = {

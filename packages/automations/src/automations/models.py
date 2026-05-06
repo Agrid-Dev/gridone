@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -43,10 +43,18 @@ class AutomationUpdate(BaseModel):
 
 class Automation(AutomationCreate):
     id: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_by: str = ""
 
     def apply_update(self, params: AutomationUpdate) -> Automation:
+        if not params.model_fields_set:
+            return self
         return self.model_copy(
-            update={k: getattr(params, k) for k in params.model_fields_set}
+            update={
+                **{k: getattr(params, k) for k in params.model_fields_set},
+                "updated_at": datetime.now(UTC),
+            }
         )
 
 
