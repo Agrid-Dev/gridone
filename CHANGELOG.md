@@ -1,3 +1,9 @@
+## v0.69.0 (2026-05-07)
+
+### Feat
+
+- **dm**: add waiter registry on CoreDevice and race push-confirmatio… (#276)
+
 ## v0.68.1 (2026-05-06)
 
 ### Refactor
