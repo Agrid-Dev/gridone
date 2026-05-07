@@ -279,8 +279,9 @@ class TestDeviceWrite:
 
         with pytest.raises(ConfirmationError):
             await device.write_attribute_value(
-                "output", 25.0, confirm=True, confirm_timeout=0.1
+                "output", 25.0, confirm=True, confirm_timeout=0.5
             )
+        mock_push_transport_client.read.assert_called()
 
 
 class TestDevicesListeners:

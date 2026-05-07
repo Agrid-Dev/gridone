@@ -14,7 +14,7 @@ from devices_manager.types import DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError
 
 from .attribute import Attribute, FaultAttribute
-from .device import CoreDevice
+from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -179,6 +179,23 @@ class PhysicalDevice(CoreDevice):
         except asyncio.CancelledError:
             return
 
+    async def _poll_attribute(self, attribute_name: str) -> None:
+        """Poll attribute_name with exponential backoff until cancelled."""
+        delay = 0.25
+        while True:
+            await asyncio.sleep(delay)
+            try:
+                await self.read_attribute_value(attribute_name)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] poll read failed for %s — %s: %s",
+                    self.id,
+                    attribute_name,
+                    type(e).__name__,
+                    e,
+                )
+            delay = min(delay * 4, 4.0)
+
     async def read_attribute_value(
         self,
         attribute_name: str,
@@ -245,21 +262,7 @@ class PhysicalDevice(CoreDevice):
             if self.get_attribute_value(attribute_name) == expected_value:
                 return
 
-            async def poll() -> None:
-                delay = 0.25
-                while True:
-                    await asyncio.sleep(delay)
-                    try:
-                        await self.read_attribute_value(attribute_name)
-                    except Exception:  # noqa: BLE001
-                        logger.debug(
-                            "[Device %s] poll read failed for %s",
-                            self.id,
-                            attribute_name,
-                        )
-                    delay *= 4
-
-            poll_task = asyncio.create_task(poll())
+            poll_task = asyncio.create_task(self._poll_attribute(attribute_name))
             try:
                 await asyncio.wait_for(confirmed.wait(), confirm_timeout)
             except TimeoutError as e:
@@ -280,7 +283,7 @@ class PhysicalDevice(CoreDevice):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        confirm_timeout: float = 5.0,
+        confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
     ) -> Attribute:
         attribute = self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):

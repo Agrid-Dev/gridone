@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from devices_manager.types import AttributeValueType, DeviceKind
 
-from .device import CoreDevice
+from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
 
 if TYPE_CHECKING:
     from .attribute import Attribute
@@ -35,7 +35,7 @@ class VirtualDevice(CoreDevice):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        confirm_timeout: float = 5.0,
+        confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
     ) -> Attribute:
         _ = confirm, confirm_timeout
         attribute = self.get_attribute(attribute_name)

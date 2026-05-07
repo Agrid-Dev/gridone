@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CONFIRM_TIMEOUT: float = 5.0
+
 # (device, attribute_name, previous, new). `previous` is `None` for the first
 # event ever observed for this attribute (i.e. its `current_value` was `None`
 # before the mutation); otherwise it's an immutable snapshot of the attribute's
@@ -157,6 +159,6 @@ class CoreDevice(ABC):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        confirm_timeout: float = 5.0,
+        confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
     ) -> Attribute:
         """Write a value to an attribute."""
