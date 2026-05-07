@@ -14,7 +14,7 @@ from devices_manager.types import DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError
 
 from .attribute import Attribute, FaultAttribute
-from .device import CoreDevice
+from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -179,6 +179,23 @@ class PhysicalDevice(CoreDevice):
         except asyncio.CancelledError:
             return
 
+    async def _poll_attribute(self, attribute_name: str) -> None:
+        """Poll attribute_name with exponential backoff until cancelled."""
+        delay = 0.25
+        while True:
+            await asyncio.sleep(delay)
+            try:
+                await self.read_attribute_value(attribute_name)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] poll read failed for %s — %s: %s",
+                    self.id,
+                    attribute_name,
+                    type(e).__name__,
+                    e,
+                )
+            delay = min(delay * 4, 4.0)
+
     async def read_attribute_value(
         self,
         attribute_name: str,
@@ -230,47 +247,43 @@ class PhysicalDevice(CoreDevice):
         self,
         attribute_name: str,
         expected_value: AttributeValueType,
-        max_retries: int = 3,
+        confirm_timeout: float,
     ) -> None:
-        """Confirm a write landed by checking cached value and active reads.
+        """Confirm a write landed by racing push confirmation against active reads.
 
-        Checks the cached attribute value first on each iteration — if a push
-        transport published an update that matches, confirmation succeeds without
-        an active read. Falls back to polling via read_attribute_value for pull
-        transports. Raises ConfirmationError if neither path succeeds within
-        max_retries attempts.
+        Registers a waiter on the attribute so any path through _update_attribute
+        (push listener or active read) can resolve confirmation immediately.
+        A poll task runs in the background as a fallback for pull-only transports,
+        with exponential backoff starting at 0.25s.
         """
-        matches = lambda: self.get_attribute_value(attribute_name) == expected_value  # noqa: E731
-        if matches():
-            return
-        confirm_delay = 0.25
-        for _ in range(max_retries):
-            await asyncio.sleep(confirm_delay)
-            if matches():
+        async with self.wait_for_attribute(
+            attribute_name, lambda v: v == expected_value
+        ) as confirmed:
+            if self.get_attribute_value(attribute_name) == expected_value:
                 return
+
+            poll_task = asyncio.create_task(self._poll_attribute(attribute_name))
             try:
-                await self.read_attribute_value(attribute_name)
-                confirm_delay *= 4
-            except Exception as e:  # noqa: BLE001
-                logger.warning(
-                    "[Device %s] failed to read attribute %s — %s: %s",
-                    self.id,
-                    attribute_name,
-                    type(e).__name__,
-                    e,
+                await asyncio.wait_for(confirmed.wait(), confirm_timeout)
+            except TimeoutError as e:
+                actual = self.get_attribute_value(attribute_name)
+                msg = (
+                    f"Failed to confirm {attribute_name}, "
+                    f"expected {expected_value} got {actual}"
                 )
-            # Push may have arrived during the read — check cache once more.
-            if matches():
-                return
-        actual_value = self.get_attribute_value(attribute_name)
-        msg = (
-            f"Failed to confirm attribute {attribute_name} value, "
-            f"expected {expected_value} got {actual_value}"
-        )
-        raise ConfirmationError(msg)
+                raise ConfirmationError(msg) from e
+            finally:
+                poll_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await poll_task
 
     async def write_attribute_value(
-        self, attribute_name: str, value: AttributeValueType, *, confirm: bool = True
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+        confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
     ) -> Attribute:
         attribute = self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):
@@ -298,7 +311,9 @@ class PhysicalDevice(CoreDevice):
             self.id,
         )
         if confirm:
-            await self._confirm_attribute_value(attribute_name, validated_value)
+            await self._confirm_attribute_value(
+                attribute_name, validated_value, confirm_timeout
+            )
         self._update_attribute(attribute, validated_value)
         return attribute
 

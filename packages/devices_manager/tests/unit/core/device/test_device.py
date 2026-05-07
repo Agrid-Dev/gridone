@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+import contextlib
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -185,6 +186,22 @@ class TestDeviceWrite:
             await device.write_attribute_value("humidity", 12)
 
     @pytest.mark.asyncio
+    async def test_write_confirm_early_return_when_value_already_in_cache(
+        self, mock_transport_client, driver
+    ):
+        """Cache already holds the expected value — confirm returns without polling."""
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
+            driver=driver,
+            transport=mock_transport_client,
+            initial_values={"temperature_setpoint": 20},
+        )
+        mock_transport_client.write = AsyncMock()
+        mock_transport_client.read = AsyncMock(return_value=20)
+        await device.write_attribute_value("temperature_setpoint", 20, confirm=True)
+        mock_transport_client.read.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_write_confirm_succeeds_via_push_update(
         self, mock_push_transport_client
     ):
@@ -260,8 +277,11 @@ class TestDeviceWrite:
             side_effect=TimeoutError("command-only GA")
         )
 
-        with patch("asyncio.sleep"), pytest.raises(ConfirmationError):
-            await device.write_attribute_value("output", 25.0, confirm=True)
+        with pytest.raises(ConfirmationError):
+            await device.write_attribute_value(
+                "output", 25.0, confirm=True, confirm_timeout=0.5
+            )
+        mock_push_transport_client.read.assert_called()
 
 
 class TestDevicesListeners:
@@ -513,3 +533,99 @@ class TestPhysicalDeviceAttributeFactory:
         assert isinstance(alarm, FaultAttribute)
         assert alarm.current_value is None
         assert alarm.is_faulty is False
+
+
+class TestCoreDeviceWaiters:
+    @pytest.mark.asyncio
+    async def test_waiter_fires_when_predicate_matches(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=25.0)
+        async with device.wait_for_attribute(
+            "temperature", lambda v: v == 25.0
+        ) as event:
+            await device.read_attribute_value("temperature")
+            assert event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_waiter_not_fired_when_predicate_misses(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=20.0)
+        async with device.wait_for_attribute(
+            "temperature", lambda v: v == 25.0
+        ) as event:
+            await device.read_attribute_value("temperature")
+            assert not event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_waiter_not_fired_for_different_attribute(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=25.0)
+        async with device.wait_for_attribute(
+            "temperature", lambda v: v == 25.0
+        ) as event:
+            await device.read_attribute_value("temperature_setpoint")
+            assert not event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_multiple_waiters_only_matching_fires(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=25.0)
+        async with (
+            device.wait_for_attribute("temperature", lambda v: v == 25.0) as ev25,
+            device.wait_for_attribute("temperature", lambda v: v == 30.0) as ev30,
+        ):
+            await device.read_attribute_value("temperature")
+            assert ev25.is_set()
+            assert not ev30.is_set()
+
+    @pytest.mark.asyncio
+    async def test_waiter_cleaned_up_after_normal_exit(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        async with device.wait_for_attribute(
+            "temperature", lambda v: v == 25.0
+        ) as event:
+            pass
+        mock_transport_client.read = AsyncMock(return_value=25.0)
+        await device.read_attribute_value("temperature")
+        assert not event.is_set()
+
+    @pytest.mark.asyncio
+    async def test_waiter_cleaned_up_after_cancellation(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        captured: list[asyncio.Event] = []
+
+        async def cancellable() -> None:
+            async with device.wait_for_attribute(
+                "temperature", lambda v: v == 25.0
+            ) as event:
+                captured.append(event)
+                await asyncio.sleep(10)
+
+        task = asyncio.create_task(cancellable())
+        await asyncio.sleep(0)
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        mock_transport_client.read = AsyncMock(return_value=25.0)
+        await device.read_attribute_value("temperature")
+        assert not captured[0].is_set()
+
+    @pytest.mark.asyncio
+    async def test_push_update_fires_waiter(
+        self, device_w_push_transport: PhysicalDevice, mock_push_transport_client
+    ):
+        """Push listener path through _update_attribute fires the waiter."""
+        await device_w_push_transport.init_listeners()
+        async with device_w_push_transport.wait_for_attribute(
+            "temperature", lambda v: v == 22.0
+        ) as event:
+            await mock_push_transport_client.simulate_event(
+                "/xx/temperature", {"payload": {"temperature": 22}}
+            )
+            assert event.is_set()
