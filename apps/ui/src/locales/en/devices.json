@@ -14,10 +14,15 @@
     "fields": {
       "driver": "Driver",
       "driverPlaceholder": "Select a driver",
-      "transport": "Transport",
-      "transportPlaceholder": "Select a transport",
+      "transport": "Network",
+      "transportPlaceholder": "Select a network",
       "transportDisabled": "Select a driver first",
-      "transportLoadError": "Unable to load transports",
+      "transportLoadError": "Unable to load networks",
+      "createNetworkAction": "+ Create new network",
+      "editNetworkAction": "Edit network",
+      "discoverDevicesLikeMe": "Discover devices like me",
+      "discoverDevicesLikeMeHelp": "Listen on this network and auto-import devices that match this driver.",
+      "discoverDevicesLikeMeError": "Unable to update discovery state",
       "name": "Device name",
       "type": "Type"
     },

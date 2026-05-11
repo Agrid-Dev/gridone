@@ -5,7 +5,6 @@ import {
   Bell,
   Building2,
   Blocks,
-  Cable,
   ChevronsUpDown,
   Cpu,
   LogOut,
@@ -106,7 +105,6 @@ export function Sidebar() {
             [
               { route: "devices", icon: Cpu },
               { route: "drivers", icon: Puzzle },
-              { route: "transports", icon: Cable },
             ] as const
           ).map(({ route, icon: Icon }) => (
             <NavLink key={route} to={`/${route}`} className={navLinkClass}>

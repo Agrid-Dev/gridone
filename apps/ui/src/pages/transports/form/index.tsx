@@ -1,10 +1,14 @@
-import { Transport, TransportSchemas } from "@/api/transports";
+import {
+  Transport,
+  TransportProtocol,
+  TransportSchemas,
+} from "@/api/transports";
 import React, { FC } from "react";
 import {
   useTransportForm,
   useTransportConfigSchemas,
+  type TransportFormCallbacks,
 } from "./useTransportForm";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui";
@@ -14,14 +18,21 @@ import { toLabel } from "@/lib/textFormat";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 
-interface TransportFormProps {
+export type TransportFormProps = TransportFormCallbacks & {
   configSchemas: TransportSchemas;
   transport?: Transport;
-}
+  lockedProtocol?: TransportProtocol;
+  formId?: string;
+};
 
 const TransportForm: FC<TransportFormProps> = ({
   transport,
   configSchemas,
+  lockedProtocol,
+  onCreated,
+  onUpdated,
+  onCancel,
+  formId = "transport-form",
 }) => {
   const { t } = useTranslation(["transports", "common"]);
   const {
@@ -32,68 +43,72 @@ const TransportForm: FC<TransportFormProps> = ({
     isSubmitting,
     handleCancel,
     isCreate,
-  } = useTransportForm(configSchemas, transport);
+  } = useTransportForm(configSchemas, transport, {
+    lockedProtocol,
+    onCreated,
+    onUpdated,
+    onCancel,
+  });
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleSubmit();
   };
   const requiredSet = new Set(jsonSchema?.required ?? []);
+  const protocolLocked = !isCreate || lockedProtocol !== undefined;
 
   return (
-    <Card>
-      <CardContent className="py-8">
-        <form
-          onSubmit={onSubmit}
-          id="transport-form"
-          className="grid gap-4 md:grid-cols-2"
-        >
-          <InputController
-            name="name"
-            control={baseFormMethods.control}
-            label={t("fields.name")}
-            required
-          />
-          <SelectController
-            name="protocol"
-            control={baseFormMethods.control}
-            label={t("fields.protocol")}
-            options={transportProtocols.map((protocol) => ({
-              value: protocol,
-              label: protocol,
-            }))}
-            required
-            disabled={!isCreate}
-            title={t("fields.protocolDisabled")}
-          />
-          {jsonSchema &&
-            Object.entries(jsonSchema.properties || {}).map(
-              ([propertyName, property]) => (
-                <InputController
-                  key={propertyName}
-                  name={propertyName}
-                  control={configFormMethods.control}
-                  label={toLabel(propertyName)}
-                  type={property.type}
-                  required={requiredSet.has(propertyName)}
-                  description={property.description}
-                  inputProps={{
-                    placeholder: property.default
-                      ? String(property.default)
-                      : undefined,
-                  }}
-                />
-              ),
-            )}
-        </form>
-      </CardContent>
-      <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+    <div className="space-y-4">
+      <form
+        onSubmit={onSubmit}
+        id={formId}
+        className="grid gap-4 md:grid-cols-2"
+      >
+        <InputController
+          name="name"
+          control={baseFormMethods.control}
+          label={t("fields.name")}
+          required
+        />
+        <SelectController
+          name="protocol"
+          control={baseFormMethods.control}
+          label={t("fields.protocol")}
+          options={transportProtocols.map((protocol) => ({
+            value: protocol,
+            label: protocol,
+          }))}
+          required
+          disabled={protocolLocked}
+          title={protocolLocked ? t("fields.protocolDisabled") : undefined}
+        />
+        {jsonSchema &&
+          Object.entries(jsonSchema.properties || {}).map(
+            ([propertyName, property]) => (
+              <InputController
+                key={propertyName}
+                name={propertyName}
+                control={configFormMethods.control}
+                label={toLabel(propertyName)}
+                type={property.type}
+                required={requiredSet.has(propertyName)}
+                description={property.description}
+                inputProps={{
+                  placeholder: property.default
+                    ? String(property.default)
+                    : undefined,
+                }}
+              />
+            ),
+          )}
+      </form>
+      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
         <Button variant="outline" type="button" onClick={handleCancel}>
           {t("common:common.cancel")}
         </Button>
         <Button
           type="submit"
-          form="transport-form"
+          form={formId}
           disabled={
             !(
               baseFormMethods.formState.isValid ||
@@ -107,25 +122,37 @@ const TransportForm: FC<TransportFormProps> = ({
               ? t("createAction")
               : t("updateAction")}
         </Button>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 
-const TransportFormWrapper: FC<{ transport?: Transport }> = ({ transport }) => {
+const TransportFormWrapper: FC<
+  TransportFormCallbacks & {
+    transport?: Transport;
+    lockedProtocol?: TransportProtocol;
+    formId?: string;
+  }
+> = (props) => {
   const { isLoading, configSchemas } = useTransportConfigSchemas();
   const { t } = useTranslation(["transports", "common"]);
   if (isLoading) {
-    return <p>Loading</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        {t("common:common.loading")}
+      </p>
+    );
   }
   if (!configSchemas) {
-    return <h1>Oh no error</h1>;
+    return (
+      <p className="text-sm text-destructive">{t("unableToLoadSchemas")}</p>
+    );
   }
   return (
     <ErrorBoundary
       fallback={<ErrorFallback title={t("common:errors.default")} />}
     >
-      <TransportForm transport={transport} configSchemas={configSchemas} />
+      <TransportForm {...props} configSchemas={configSchemas} />
     </ErrorBoundary>
   );
 };
