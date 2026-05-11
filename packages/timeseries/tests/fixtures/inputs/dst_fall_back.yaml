@@ -1,0 +1,43 @@
+name: dst_fall_back
+description: 'Float series on 2026-10-25 (Europe/Paris fall-back). Transition at 01:00
+  UTC: 02:xx local appears twice (+02:00 CEST then +01:00 CET). Paris day: 2026-10-24T22:00Z
+  to 2026-10-25T23:00Z (25 h).'
+input:
+  data_type: float
+  points:
+  - timestamp: '2026-10-24T22:00:00+00:00'
+    value: 17.77
+  - timestamp: '2026-10-24T22:30:00+00:00'
+    value: 19.79
+  - timestamp: '2026-10-24T23:00:00+00:00'
+    value: 18.78
+  - timestamp: '2026-10-24T23:30:00+00:00'
+    value: 16.12
+  - timestamp: '2026-10-25T00:00:00+00:00'
+    value: 18.94
+  - timestamp: '2026-10-25T00:20:00+00:00'
+    value: 17.37
+  - timestamp: '2026-10-25T00:45:00+00:00'
+    value: 19.42
+  - timestamp: '2026-10-25T00:58:00+00:00'
+    value: 20.3
+  - timestamp: '2026-10-25T01:05:00+00:00'
+    value: 17.7
+  - timestamp: '2026-10-25T01:25:00+00:00'
+    value: 17.58
+  - timestamp: '2026-10-25T01:50:00+00:00'
+    value: 15.03
+  - timestamp: '2026-10-25T01:59:00+00:00'
+    value: 16.29
+  - timestamp: '2026-10-25T02:00:00+00:00'
+    value: 16.67
+  - timestamp: '2026-10-25T06:00:00+00:00'
+    value: 19.22
+  - timestamp: '2026-10-25T12:00:00+00:00'
+    value: 19.78
+  - timestamp: '2026-10-25T18:00:00+00:00'
+    value: 18.46
+  - timestamp: '2026-10-25T21:00:00+00:00'
+    value: 19.8
+  - timestamp: '2026-10-25T22:00:00+00:00'
+    value: 18.22

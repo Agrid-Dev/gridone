@@ -1,0 +1,9 @@
+name: single_point
+description: Float series with exactly one data point at 2025-06-15T12:00:00Z. tw_avg/tw_mode
+  carry value forward; count=1 for containing bucket, 0 elsewhere; first/last/min/max/mode
+  return the value via LOCF.
+input:
+  data_type: float
+  points:
+  - timestamp: '2025-06-15T12:00:00+00:00'
+    value: 17.316
