@@ -1,3 +1,13 @@
+## v0.70.0 (2026-05-11)
+
+### Feat
+
+- **ui**: inline Networks in device flow (AGR-591)
+
+### Fix
+
+- **ui**: toast network save errors so the modal isn't a silent failure (AGR-591)
+
 ## v0.69.0 (2026-05-07)
 
 ### Feat
