@@ -1,44 +1,59 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import {
   createTransport,
   updateTransport,
   getTransportSchemas,
   Transport,
+  TransportProtocol,
   transportProtocols,
   type TransportCreatePayload,
   type TransportUpdatePayload,
   type TransportSchemas,
 } from "@/api/transports";
-import { useNavigate } from "react-router";
+import { isApiError } from "@/api/apiError";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 
-export const useTransportFormQueries = () => {
+export type TransportFormCallbacks = {
+  onCreated?: (transport: Transport) => void;
+  onUpdated?: (transport: Transport) => void;
+  onCancel?: () => void;
+};
+
+export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const { t } = useTranslation(["transports", "common"]);
+
+  const reportError = (error: unknown) => {
+    const detail = isApiError(error)
+      ? error.details || error.message
+      : error instanceof Error
+        ? error.message
+        : null;
+    const base = t("saveFailed");
+    toast.error(detail ? `${base}: ${detail}` : base);
+  };
 
   const createMutation = useMutation({
     mutationFn: (payload: TransportCreatePayload) => createTransport(payload),
     onSuccess: (result: Transport) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
-      navigate(`../${result.id}`, { relative: "path" });
+      callbacks.onCreated?.(result);
     },
-    onError: () => {
-      navigate("..", { relative: "path" });
-    },
+    onError: reportError,
   });
   const updateMutation = useMutation({
     mutationFn: (payload: TransportUpdatePayload & { transportId: string }) =>
       updateTransport(payload.transportId, payload),
-    onSuccess: () => {
+    onSuccess: (result: Transport) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
-      navigate("..", { relative: "path" });
+      callbacks.onUpdated?.(result);
     },
-    onError: () => {
-      navigate("../..", { relative: "path" });
-    },
+    onError: reportError,
   });
   return {
     createMutation,
@@ -60,9 +75,11 @@ export const useTransportConfigSchemas = () => {
 
 export const useTransportForm = (
   configSchemas: TransportSchemas,
-  currentTransport?: Transport,
+  currentTransport: Transport | undefined,
+  options: TransportFormCallbacks & { lockedProtocol?: TransportProtocol } = {},
 ) => {
-  const { createMutation, updateMutation } = useTransportFormQueries();
+  const { lockedProtocol, ...callbacks } = options;
+  const { createMutation, updateMutation } = useTransportFormQueries(callbacks);
   const isCreate = !currentTransport;
   const baseSchema = z.object({
     name: z.string().min(1),
@@ -70,7 +87,8 @@ export const useTransportForm = (
   });
   const baseFormMethods = useForm<z.infer<typeof baseSchema>>({
     resolver: zodResolver(baseSchema),
-    defaultValues: currentTransport || {},
+    defaultValues:
+      currentTransport ?? (lockedProtocol ? { protocol: lockedProtocol } : {}),
   });
   const protocol = baseFormMethods.watch("protocol");
   const configJsonSchema =
@@ -103,11 +121,17 @@ export const useTransportForm = (
         ? (values: TransportUpdatePayload) =>
             updateMutation.mutateAsync({ ...values, transportId })
         : createMutation.mutateAsync;
-    await mutate(values);
+    try {
+      await mutate(values);
+    } catch {
+      // onError handler in useTransportFormQueries already surfaces a toast.
+      // Swallow here so the rejection doesn't bubble as an unhandled promise;
+      // the modal stays open so the user can adjust and retry.
+      return;
+    }
     return values;
   };
-  const navigate = useNavigate();
-  const handleCancel = () => navigate("..", { relative: "path" });
+  const handleCancel = () => callbacks.onCancel?.();
   return {
     isCreate,
     handleSubmit,
@@ -116,5 +140,6 @@ export const useTransportForm = (
     baseFormMethods,
     configFormMethods,
     jsonSchema: configSchemas[protocol],
+    lockedProtocol,
   };
 };

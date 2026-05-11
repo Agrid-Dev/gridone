@@ -14,10 +14,15 @@
     "fields": {
       "driver": "Driver",
       "driverPlaceholder": "Sélectionnez un pilote",
-      "transport": "Transport",
-      "transportPlaceholder": "Sélectionnez un transport",
+      "transport": "Réseau",
+      "transportPlaceholder": "Sélectionnez un réseau",
       "transportDisabled": "Sélectionnez d'abord un pilote",
-      "transportLoadError": "Impossible de charger les transports",
+      "transportLoadError": "Impossible de charger les réseaux",
+      "createNetworkAction": "+ Créer un nouveau réseau",
+      "editNetworkAction": "Modifier le réseau",
+      "discoverDevicesLikeMe": "Découvrir des appareils similaires",
+      "discoverDevicesLikeMeHelp": "Écouter ce réseau et importer automatiquement les appareils correspondant à ce driver.",
+      "discoverDevicesLikeMeError": "Impossible de mettre à jour l'état de la découverte",
       "name": "Nom de l'appareil",
       "type": "Type"
     },

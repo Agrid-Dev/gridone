@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
@@ -8,10 +8,12 @@ import {
   type Device,
   type DeviceCreatePayload,
 } from "@/api/devices";
+import type { Transport, TransportProtocol } from "@/api/transports";
 import { useDrivers } from "@/pages/drivers/useDrivers";
 import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
 import { useTranslation } from "react-i18next";
+import { useDeviceDiscovery } from "@/hooks/useDeviceDiscovery";
 import snakecaseKeys from "snakecase-keys";
 
 type BaseFormData = {
@@ -21,6 +23,11 @@ type BaseFormData = {
 };
 
 type ConfigFormData = Record<string, string>;
+
+export type NetworkModalState =
+  | { mode: "create"; protocol: TransportProtocol }
+  | { mode: "edit"; transport: Transport }
+  | null;
 
 export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
@@ -51,13 +58,18 @@ export const useDeviceForm = (device?: Device) => {
   const drivers = driversQuery.data ?? [];
   const transports = transportsQuery.data ?? [];
 
-  // Watch for driver selection changes
+  // Watch for driver / transport selection changes
   const driverId = baseFormMethods.watch("driverId");
+  const transportId = baseFormMethods.watch("transportId");
 
-  // Find selected driver
+  // Find selected driver / transport
   const selectedDriver = useMemo(
     () => drivers.find((driver) => driver.id === driverId),
     [driverId, drivers],
+  );
+  const selectedTransport = useMemo(
+    () => transports.find((transport) => transport.id === transportId),
+    [transportId, transports],
   );
 
   // Reset config form and transport when driver changes
@@ -132,11 +144,55 @@ export const useDeviceForm = (device?: Device) => {
     [selectedDriver, requiredConfigFields],
   );
 
+  // Discovery switch state — deferred in create mode, immediate in edit mode.
+  const discovery = useDeviceDiscovery({
+    transportId: transportId || undefined,
+    driverId: driverId || undefined,
+    protocol: selectedTransport?.protocol,
+    deferred: isCreate,
+  });
+
+  // Network modal state
+  const [networkModalState, setNetworkModalState] =
+    useState<NetworkModalState>(null);
+
+  const openCreateNetworkModal = () => {
+    if (!selectedDriver) return;
+    setNetworkModalState({
+      mode: "create",
+      protocol: selectedDriver.transport,
+    });
+  };
+
+  const openEditNetworkModal = () => {
+    if (!selectedTransport) return;
+    setNetworkModalState({ mode: "edit", transport: selectedTransport });
+  };
+
+  const closeNetworkModal = () => setNetworkModalState(null);
+
+  const onNetworkSubmitted = (transport: Transport) => {
+    baseFormMethods.setValue("transportId", transport.id, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (payload: DeviceCreatePayload) => createDevice(payload),
-    onSuccess: (device: Device) => {
+    onSuccess: async (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices"] });
+      try {
+        await discovery.flush({
+          transportId: device.transportId,
+          driverId: device.driverId,
+        });
+      } catch {
+        // Toast is surfaced inside useDeviceDiscovery's mutation onError.
+        // Device creation already succeeded — navigate so the user isn't
+        // stranded; they can retry the discovery toggle from the edit page.
+      }
       navigate(`../${device.id}`, { relative: "path" });
     },
   });
@@ -203,6 +259,7 @@ export const useDeviceForm = (device?: Device) => {
     transportOptions,
     configFields,
     selectedDriver,
+    selectedTransport,
 
     // Query states
     driversLoading: driversQuery.isLoading,
@@ -218,5 +275,15 @@ export const useDeviceForm = (device?: Device) => {
 
     // Computed states
     submitDisabled: isSubmitDisabled(),
+
+    // Network modal
+    networkModalState,
+    openCreateNetworkModal,
+    openEditNetworkModal,
+    closeNetworkModal,
+    onNetworkSubmitted,
+
+    // Discovery switch
+    discovery,
   };
 };

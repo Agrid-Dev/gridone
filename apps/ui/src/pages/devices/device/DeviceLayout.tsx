@@ -67,12 +67,9 @@ export default function DeviceLayout() {
               <span className="text-border">|</span>
               <span className="inline-flex items-baseline gap-1.5">
                 {t("common:common.transport")}
-                <Link
-                  to={`/transports/${device.transportId}`}
-                  className="font-mono text-xs text-primary transition-colors hover:text-primary/70"
-                >
+                <span className="font-mono text-xs text-foreground">
                   {device.transportId}
-                </Link>
+                </span>
               </span>
               {hasConfig && (
                 <>

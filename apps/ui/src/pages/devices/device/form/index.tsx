@@ -1,4 +1,5 @@
 import React from "react";
+import { Plus, Pencil } from "lucide-react";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui";
@@ -6,6 +7,8 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
 import { Device } from "@/api/devices";
+import { NetworkModal } from "@/components/NetworkModal";
+import { DeviceDiscoverySwitch } from "@/components/DeviceDiscoverySwitch";
 
 type DeviceFormProps = {
   device?: Device;
@@ -19,6 +22,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     transportOptions,
     configFields,
     selectedDriver,
+    selectedTransport,
     driversLoading,
     transportsLoading,
     transportsError,
@@ -26,6 +30,12 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     handleSubmit,
     handleCancel,
     submitDisabled,
+    networkModalState,
+    openCreateNetworkModal,
+    openEditNetworkModal,
+    closeNetworkModal,
+    onNetworkSubmitted,
+    discovery,
   } = useDeviceForm(device);
 
   const { t } = useTranslation(["devices", "common"]);
@@ -63,29 +73,57 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
             disabled={driversLoading}
           />
 
-          <SelectController
-            name="transportId"
-            control={baseFormMethods.control}
-            label={t("devices.fields.transport")}
-            options={transportOptions}
-            placeholder={t("devices.fields.transportPlaceholder", {
-              defaultValue: "Select a transport",
-            })}
-            required
-            rules={{ required: true }}
-            disabled={!selectedDriver || transportsLoading}
-            title={
-              selectedDriver
-                ? undefined
-                : t("devices.fields.transportDisabled", {
-                    defaultValue: "Select a driver first",
-                  })
-            }
-          />
+          <div className="md:col-span-2 grid gap-2 md:grid-cols-[1fr_auto_auto] md:items-end">
+            <SelectController
+              name="transportId"
+              control={baseFormMethods.control}
+              label={t("devices.fields.transport")}
+              options={transportOptions}
+              placeholder={t("devices.fields.transportPlaceholder", {
+                defaultValue: "Select a network",
+              })}
+              required
+              rules={{ required: true }}
+              disabled={!selectedDriver || transportsLoading}
+              title={
+                selectedDriver
+                  ? undefined
+                  : t("devices.fields.transportDisabled", {
+                      defaultValue: "Select a driver first",
+                    })
+              }
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openCreateNetworkModal}
+              disabled={!selectedDriver}
+            >
+              <Plus className="h-4 w-4" />
+              {t("devices.fields.createNetworkAction")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openEditNetworkModal}
+              disabled={!selectedTransport}
+              title={t("devices.fields.editNetworkAction")}
+              aria-label={t("devices.fields.editNetworkAction")}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          </div>
           {transportsError && (
             <p className="text-sm text-destructive md:col-span-2">
               {t("devices.fields.transportLoadError")}
             </p>
+          )}
+          {discovery.supported && (
+            <DeviceDiscoverySwitch
+              checked={discovery.enabled}
+              onCheckedChange={discovery.setEnabled}
+              loading={discovery.loading}
+            />
           )}
           {configFields.map((field) => (
             <InputController
@@ -116,6 +154,23 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
               : t("devices.actions.create")}
         </Button>
       </CardFooter>
+
+      <NetworkModal
+        open={networkModalState !== null}
+        onClose={closeNetworkModal}
+        mode={networkModalState?.mode ?? "create"}
+        protocol={
+          networkModalState?.mode === "create"
+            ? networkModalState.protocol
+            : undefined
+        }
+        transport={
+          networkModalState?.mode === "edit"
+            ? networkModalState.transport
+            : undefined
+        }
+        onSubmitted={onNetworkSubmitted}
+      />
     </Card>
   );
 };
