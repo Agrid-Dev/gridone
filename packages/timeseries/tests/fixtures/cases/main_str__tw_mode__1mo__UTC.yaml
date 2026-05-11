@@ -1,0 +1,58 @@
+name: main_str__tw_mode__1mo__UTC
+input_ref: main_str
+description: tw_mode at 1mo, UTC
+request:
+  agg: tw_mode
+  interval: 1mo
+  start: '2025-01-01T00:00:00+00:00'
+  end: '2026-01-01T00:00:00+00:00'
+  timezone: UTC
+expected:
+- interval_start: '2025-01-01T00:00:00+00:00'
+  value: 'no'
+  count: 8
+  aggregation_data_type: str
+- interval_start: '2025-02-01T00:00:00+00:00'
+  value: 'off'
+  count: 8
+  aggregation_data_type: str
+- interval_start: '2025-03-01T00:00:00+00:00'
+  value: 'on'
+  count: 4
+  aggregation_data_type: str
+- interval_start: '2025-04-01T00:00:00+00:00'
+  value: 'yes'
+  count: 8
+  aggregation_data_type: str
+- interval_start: '2025-05-01T00:00:00+00:00'
+  value: 'on'
+  count: 2
+  aggregation_data_type: str
+- interval_start: '2025-06-01T00:00:00+00:00'
+  value: 'on'
+  count: 3
+  aggregation_data_type: str
+- interval_start: '2025-07-01T00:00:00+00:00'
+  value: 'on'
+  count: 6
+  aggregation_data_type: str
+- interval_start: '2025-08-01T00:00:00+00:00'
+  value: 'yes'
+  count: 8
+  aggregation_data_type: str
+- interval_start: '2025-09-01T00:00:00+00:00'
+  value: 'no'
+  count: 4
+  aggregation_data_type: str
+- interval_start: '2025-10-01T00:00:00+00:00'
+  value: 'on'
+  count: 3
+  aggregation_data_type: str
+- interval_start: '2025-11-01T00:00:00+00:00'
+  value: 'on'
+  count: 3
+  aggregation_data_type: str
+- interval_start: '2025-12-01T00:00:00+00:00'
+  value: 'yes'
+  count: 3
+  aggregation_data_type: str

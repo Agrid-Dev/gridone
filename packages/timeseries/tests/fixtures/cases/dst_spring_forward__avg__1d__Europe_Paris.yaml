@@ -1,0 +1,14 @@
+name: dst_spring_forward__avg__1d__Europe_Paris
+input_ref: dst_spring_forward
+description: avg at 1d, Europe/Paris
+request:
+  agg: avg
+  interval: 1d
+  start: '2026-03-28T23:00:00+00:00'
+  end: '2026-03-29T22:00:00+00:00'
+  timezone: Europe/Paris
+expected:
+- interval_start: '2026-03-28T23:00:00+00:00'
+  value: 19.720769
+  count: 13
+  aggregation_data_type: float

@@ -1,0 +1,34 @@
+name: main_bool__tw_mode__1mo__UTC
+input_ref: main_bool
+description: tw_mode at 1mo, UTC
+request:
+  agg: tw_mode
+  interval: 1mo
+  start: '2025-01-01T00:00:00+00:00'
+  end: '2025-07-01T00:00:00+00:00'
+  timezone: UTC
+expected:
+- interval_start: '2025-01-01T00:00:00+00:00'
+  value: false
+  count: 21
+  aggregation_data_type: bool
+- interval_start: '2025-02-01T00:00:00+00:00'
+  value: true
+  count: 21
+  aggregation_data_type: bool
+- interval_start: '2025-03-01T00:00:00+00:00'
+  value: true
+  count: 27
+  aggregation_data_type: bool
+- interval_start: '2025-04-01T00:00:00+00:00'
+  value: false
+  count: 24
+  aggregation_data_type: bool
+- interval_start: '2025-05-01T00:00:00+00:00'
+  value: false
+  count: 28
+  aggregation_data_type: bool
+- interval_start: '2025-06-01T00:00:00+00:00'
+  value: false
+  count: 29
+  aggregation_data_type: bool

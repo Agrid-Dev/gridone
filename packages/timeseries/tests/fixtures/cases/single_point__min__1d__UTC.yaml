@@ -1,0 +1,22 @@
+name: single_point__min__1d__UTC
+input_ref: single_point
+description: min at 1d, UTC
+request:
+  agg: min
+  interval: 1d
+  start: '2025-06-14T00:00:00+00:00'
+  end: '2025-06-17T00:00:00+00:00'
+  timezone: UTC
+expected:
+- interval_start: '2025-06-14T00:00:00+00:00'
+  value: null
+  count: 0
+  aggregation_data_type: float
+- interval_start: '2025-06-15T00:00:00+00:00'
+  value: 17.316
+  count: 1
+  aggregation_data_type: float
+- interval_start: '2025-06-16T00:00:00+00:00'
+  value: 17.316
+  count: 0
+  aggregation_data_type: float
