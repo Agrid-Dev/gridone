@@ -1,4 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import {
   createTransport,
   updateTransport,
@@ -10,6 +12,7 @@ import {
   type TransportUpdatePayload,
   type TransportSchemas,
 } from "@/api/transports";
+import { isApiError } from "@/api/apiError";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +26,17 @@ export type TransportFormCallbacks = {
 
 export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
   const queryClient = useQueryClient();
+  const { t } = useTranslation(["transports", "common"]);
+
+  const reportError = (error: unknown) => {
+    const detail = isApiError(error)
+      ? error.details || error.message
+      : error instanceof Error
+        ? error.message
+        : null;
+    const base = t("saveFailed");
+    toast.error(detail ? `${base}: ${detail}` : base);
+  };
 
   const createMutation = useMutation({
     mutationFn: (payload: TransportCreatePayload) => createTransport(payload),
@@ -30,6 +44,7 @@ export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
       callbacks.onCreated?.(result);
     },
+    onError: reportError,
   });
   const updateMutation = useMutation({
     mutationFn: (payload: TransportUpdatePayload & { transportId: string }) =>
@@ -38,6 +53,7 @@ export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
       callbacks.onUpdated?.(result);
     },
+    onError: reportError,
   });
   return {
     createMutation,
@@ -105,7 +121,14 @@ export const useTransportForm = (
         ? (values: TransportUpdatePayload) =>
             updateMutation.mutateAsync({ ...values, transportId })
         : createMutation.mutateAsync;
-    await mutate(values);
+    try {
+      await mutate(values);
+    } catch {
+      // onError handler in useTransportFormQueries already surfaces a toast.
+      // Swallow here so the rejection doesn't bubble as an unhandled promise;
+      // the modal stays open so the user can adjust and retry.
+      return;
+    }
     return values;
   };
   const handleCancel = () => callbacks.onCancel?.();
