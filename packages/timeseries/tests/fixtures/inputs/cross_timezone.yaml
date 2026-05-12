@@ -1,0 +1,211 @@
+name: cross_timezone
+description: Float series over Jan 1-7 2025 UTC with dense clusters around each UTC
+  midnight (22:30-01:30 UTC). Daily aggregation in Europe/Paris (UTC+1) must align
+  bucket boundaries to 23:00 UTC, not 00:00 UTC.
+input:
+  data_type: float
+  points:
+  - timestamp: '2025-01-01T01:30:47+00:00'
+    value: 21.77
+  - timestamp: '2025-01-01T08:37:44+00:00'
+    value: 19.97
+  - timestamp: '2025-01-01T15:38:24+00:00'
+    value: 20.93
+  - timestamp: '2025-01-01T21:24:37+00:00'
+    value: 19.66
+  - timestamp: '2025-01-01T22:08:30+00:00'
+    value: 17.08
+  - timestamp: '2025-01-01T22:24:34+00:00'
+    value: 16.05
+  - timestamp: '2025-01-01T22:37:10+00:00'
+    value: 19.17
+  - timestamp: '2025-01-01T22:50:37+00:00'
+    value: 22.73
+  - timestamp: '2025-01-01T22:54:28+00:00'
+    value: 19.04
+  - timestamp: '2025-01-01T22:58:12+00:00'
+    value: 22.9
+  - timestamp: '2025-01-01T23:53:43+00:00'
+    value: 19.52
+  - timestamp: '2025-01-02T00:21:25+00:00'
+    value: 19.44
+  - timestamp: '2025-01-02T00:49:55+00:00'
+    value: 22.59
+  - timestamp: '2025-01-02T00:57:36+00:00'
+    value: 21.21
+  - timestamp: '2025-01-02T01:01:28+00:00'
+    value: 20.76
+  - timestamp: '2025-01-02T01:25:37+00:00'
+    value: 18.4
+  - timestamp: '2025-01-02T02:39:26+00:00'
+    value: 20.83
+  - timestamp: '2025-01-02T04:27:10+00:00'
+    value: 21.56
+  - timestamp: '2025-01-02T05:46:37+00:00'
+    value: 19.83
+  - timestamp: '2025-01-02T07:02:06+00:00'
+    value: 17.42
+  - timestamp: '2025-01-02T14:35:43+00:00'
+    value: 19.19
+  - timestamp: '2025-01-02T16:45:48+00:00'
+    value: 18.55
+  - timestamp: '2025-01-02T20:55:12+00:00'
+    value: 21.88
+  - timestamp: '2025-01-02T20:56:11+00:00'
+    value: 21.06
+  - timestamp: '2025-01-02T22:55:24+00:00'
+    value: 23.74
+  - timestamp: '2025-01-02T23:19:01+00:00'
+    value: 22.26
+  - timestamp: '2025-01-02T23:58:35+00:00'
+    value: 18.61
+  - timestamp: '2025-01-03T00:06:38+00:00'
+    value: 18.24
+  - timestamp: '2025-01-03T01:01:20+00:00'
+    value: 22.29
+  - timestamp: '2025-01-03T01:13:00+00:00'
+    value: 18.92
+  - timestamp: '2025-01-03T01:13:18+00:00'
+    value: 23.46
+  - timestamp: '2025-01-03T06:06:00+00:00'
+    value: 17.6
+  - timestamp: '2025-01-03T06:34:54+00:00'
+    value: 23.98
+  - timestamp: '2025-01-03T18:27:00+00:00'
+    value: 17.44
+  - timestamp: '2025-01-03T19:37:00+00:00'
+    value: 22.14
+  - timestamp: '2025-01-03T22:02:33+00:00'
+    value: 16.22
+  - timestamp: '2025-01-03T22:33:22+00:00'
+    value: 21.82
+  - timestamp: '2025-01-03T22:53:07+00:00'
+    value: 23.54
+  - timestamp: '2025-01-03T23:47:01+00:00'
+    value: 17.68
+  - timestamp: '2025-01-03T23:49:41+00:00'
+    value: 22.38
+  - timestamp: '2025-01-04T00:15:11+00:00'
+    value: 22.65
+  - timestamp: '2025-01-04T00:15:53+00:00'
+    value: 16.55
+  - timestamp: '2025-01-04T00:22:59+00:00'
+    value: 22.78
+  - timestamp: '2025-01-04T06:03:09+00:00'
+    value: 22.36
+  - timestamp: '2025-01-04T06:34:30+00:00'
+    value: 21.38
+  - timestamp: '2025-01-04T07:36:44+00:00'
+    value: 17.11
+  - timestamp: '2025-01-04T14:02:07+00:00'
+    value: 18.42
+  - timestamp: '2025-01-04T15:10:14+00:00'
+    value: 18.02
+  - timestamp: '2025-01-04T17:47:21+00:00'
+    value: 17.23
+  - timestamp: '2025-01-04T20:14:21+00:00'
+    value: 19.39
+  - timestamp: '2025-01-04T23:03:50+00:00'
+    value: 19.02
+  - timestamp: '2025-01-04T23:16:18+00:00'
+    value: 19.59
+  - timestamp: '2025-01-04T23:36:17+00:00'
+    value: 20.78
+  - timestamp: '2025-01-05T00:13:57+00:00'
+    value: 20.66
+  - timestamp: '2025-01-05T00:37:23+00:00'
+    value: 20.27
+  - timestamp: '2025-01-05T00:52:17+00:00'
+    value: 23.39
+  - timestamp: '2025-01-05T01:02:47+00:00'
+    value: 22.96
+  - timestamp: '2025-01-05T01:06:10+00:00'
+    value: 19.35
+  - timestamp: '2025-01-05T03:12:17+00:00'
+    value: 16.29
+  - timestamp: '2025-01-05T04:44:19+00:00'
+    value: 23.75
+  - timestamp: '2025-01-05T07:38:15+00:00'
+    value: 21.61
+  - timestamp: '2025-01-05T08:50:00+00:00'
+    value: 22.5
+  - timestamp: '2025-01-05T09:03:41+00:00'
+    value: 20.75
+  - timestamp: '2025-01-05T13:21:03+00:00'
+    value: 23.32
+  - timestamp: '2025-01-05T14:40:58+00:00'
+    value: 16.87
+  - timestamp: '2025-01-05T14:42:15+00:00'
+    value: 17.99
+  - timestamp: '2025-01-05T15:48:11+00:00'
+    value: 21.32
+  - timestamp: '2025-01-05T17:21:00+00:00'
+    value: 17.33
+  - timestamp: '2025-01-05T17:29:08+00:00'
+    value: 20.9
+  - timestamp: '2025-01-05T19:32:53+00:00'
+    value: 20.51
+  - timestamp: '2025-01-05T20:00:43+00:00'
+    value: 21.16
+  - timestamp: '2025-01-05T23:07:54+00:00'
+    value: 21.17
+  - timestamp: '2025-01-05T23:16:17+00:00'
+    value: 23.73
+  - timestamp: '2025-01-05T23:43:17+00:00'
+    value: 18.65
+  - timestamp: '2025-01-05T23:43:25+00:00'
+    value: 22.37
+  - timestamp: '2025-01-05T23:52:13+00:00'
+    value: 16.85
+  - timestamp: '2025-01-06T00:44:39+00:00'
+    value: 16.79
+  - timestamp: '2025-01-06T05:31:54+00:00'
+    value: 17.78
+  - timestamp: '2025-01-06T05:47:05+00:00'
+    value: 21.97
+  - timestamp: '2025-01-06T07:18:40+00:00'
+    value: 20.46
+  - timestamp: '2025-01-06T09:32:19+00:00'
+    value: 21.5
+  - timestamp: '2025-01-06T10:44:06+00:00'
+    value: 17.77
+  - timestamp: '2025-01-06T11:13:56+00:00'
+    value: 18.99
+  - timestamp: '2025-01-06T22:47:16+00:00'
+    value: 19.7
+  - timestamp: '2025-01-06T22:53:55+00:00'
+    value: 21.44
+  - timestamp: '2025-01-06T23:09:50+00:00'
+    value: 21.52
+  - timestamp: '2025-01-06T23:15:39+00:00'
+    value: 17.21
+  - timestamp: '2025-01-06T23:45:21+00:00'
+    value: 23.98
+  - timestamp: '2025-01-07T00:24:59+00:00'
+    value: 19.86
+  - timestamp: '2025-01-07T00:28:41+00:00'
+    value: 18.36
+  - timestamp: '2025-01-07T01:51:59+00:00'
+    value: 23.36
+  - timestamp: '2025-01-07T13:27:00+00:00'
+    value: 16.69
+  - timestamp: '2025-01-07T17:05:02+00:00'
+    value: 22.65
+  - timestamp: '2025-01-07T18:14:01+00:00'
+    value: 21.84
+  - timestamp: '2025-01-07T20:15:53+00:00'
+    value: 18.79
+  - timestamp: '2025-01-07T21:03:43+00:00'
+    value: 18.74
+  - timestamp: '2025-01-07T22:51:00+00:00'
+    value: 22.27
+  - timestamp: '2025-01-07T23:37:20+00:00'
+    value: 20.17
+  - timestamp: '2025-01-07T23:38:43+00:00'
+    value: 18.79
+  - timestamp: '2025-01-07T23:51:51+00:00'
+    value: 16.78
+  - timestamp: '2025-01-08T00:08:36+00:00'
+    value: 21.78
+  - timestamp: '2025-01-08T00:42:13+00:00'
+    value: 19.62
