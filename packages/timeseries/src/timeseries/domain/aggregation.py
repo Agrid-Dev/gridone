@@ -2,10 +2,10 @@ from datetime import datetime
 from enum import StrEnum
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, computed_field, field_validator, model_validator
 
 from models.errors import InvalidError
-from models.types import DataType
+from models.types import DATA_TYPE_MAP, DataType
 from timeseries.domain.time_range import parse_duration
 
 
@@ -76,7 +76,8 @@ def resolve_aggregation_data_type(
 
 class AggregatedPoint(BaseModel):
     interval_start: datetime
-    value: int | float | bool | str | None
+    # bool before int/float to prevent pydantic from coercing True/False to 1/1.0
+    value: bool | int | float | str | None
     count: int
 
 
@@ -123,6 +124,22 @@ class AggregationResult(BaseModel):
     interval: Interval
     agg: AggregationOperator
     data_type: DataType
-    aggregation_data_type: DataType
     timezone: str
     points: list[AggregatedPoint]
+
+    @computed_field
+    @property
+    def aggregation_data_type(self) -> DataType:
+        return resolve_aggregation_data_type(self.agg, self.data_type)
+
+    @model_validator(mode="after")
+    def _validate_point_value_types(self) -> "AggregationResult":
+        expected_type = DATA_TYPE_MAP[self.aggregation_data_type]
+        for point in self.points:
+            if point.value is not None and not isinstance(point.value, expected_type):
+                msg = (
+                    f"Point value {point.value!r} does not match "
+                    f"aggregation_data_type {self.aggregation_data_type!r}"
+                )
+                raise ValueError(msg)
+        return self

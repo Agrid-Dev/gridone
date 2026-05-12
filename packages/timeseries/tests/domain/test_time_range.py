@@ -14,17 +14,23 @@ class TestParseDuration:
         [
             ("10m", timedelta(minutes=10)),
             ("30m", timedelta(minutes=30)),
+            ("15min", timedelta(minutes=15)),
             ("1h", timedelta(hours=1)),
             ("3h", timedelta(hours=3)),
             ("12h", timedelta(hours=12)),
             ("1d", timedelta(days=1)),
             ("7d", timedelta(days=7)),
+            ("1mo", timedelta(days=30)),
+            ("3mo", timedelta(days=90)),
         ],
     )
     def test_known_durations(self, value: str, expected: timedelta):
         assert parse_duration(value) == expected
 
-    @pytest.mark.parametrize("value", ["", "x", "3x", "abc", "h", "0h", "-1d"])
+    @pytest.mark.parametrize(
+        "value",
+        ["", "x", "3x", "abc", "h", "0h", "-1d", "abch", "abcmin", "0mo", "-1min"],
+    )
     def test_invalid_input_raises(self, value: str):
         with pytest.raises(InvalidError):
             parse_duration(value)

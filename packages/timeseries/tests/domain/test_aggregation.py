@@ -145,11 +145,12 @@ class TestAggregationQuery:
         )
         assert q.timezone == "Europe/Paris"
 
-    def test_last_valid(self):
-        q = _query(last="7d")
-        assert q.last == "7d"
+    @pytest.mark.parametrize("good_last", ["7d", "15min", "1mo", "3h"])
+    def test_last_valid(self, good_last):
+        q = _query(last=good_last)
+        assert q.last == good_last
 
-    @pytest.mark.parametrize("bad_last", ["7y", "1mo", "abc", "0d", "-1h"])
+    @pytest.mark.parametrize("bad_last", ["7y", "abc", "0d", "-1h"])
     def test_last_invalid_raises(self, bad_last):
         with pytest.raises(ValidationError):
             _query(last=bad_last)
@@ -223,20 +224,47 @@ class TestAggregationResult:
             interval=Interval.H_1,
             agg=AggregationOperator.AVG,
             data_type=DataType.FLOAT,
-            aggregation_data_type=DataType.FLOAT,
             timezone="UTC",
             points=[point],
         )
         assert result.points == [point]
+        assert result.aggregation_data_type == DataType.FLOAT
 
     def test_avg_bool_yields_float_aggregation_type(self):
         result = AggregationResult(
             interval=Interval.MO_1,
             agg=AggregationOperator.AVG,
             data_type=DataType.BOOL,
-            aggregation_data_type=DataType.FLOAT,
             timezone="UTC",
             points=[],
         )
         assert result.data_type == DataType.BOOL
         assert result.aggregation_data_type == DataType.FLOAT
+
+    def test_point_value_type_mismatch_raises(self):
+        point = AggregatedPoint(
+            interval_start=datetime(2026, 1, 1, tzinfo=UTC),
+            value="not_a_float",
+            count=1,
+        )
+        with pytest.raises(ValidationError, match="aggregation_data_type"):
+            AggregationResult(
+                interval=Interval.H_1,
+                agg=AggregationOperator.AVG,
+                data_type=DataType.FLOAT,
+                timezone="UTC",
+                points=[point],
+            )
+
+    def test_none_value_allowed_for_any_type(self):
+        point = AggregatedPoint(
+            interval_start=datetime(2026, 1, 1, tzinfo=UTC), value=None, count=0
+        )
+        result = AggregationResult(
+            interval=Interval.H_1,
+            agg=AggregationOperator.AVG,
+            data_type=DataType.FLOAT,
+            timezone="UTC",
+            points=[point],
+        )
+        assert result.points[0].value is None
