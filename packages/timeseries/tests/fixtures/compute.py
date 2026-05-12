@@ -143,9 +143,9 @@ def _floor_bin(dt: datetime, bin_str: str) -> datetime:
         case "1h":
             return dt.replace(minute=0, second=0, microsecond=0)
         case "1d":
-            return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
         case "1mo":
-            return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
         case _:
             raise ValueError(f"Unknown bin: {bin_str!r}")
 
@@ -169,7 +169,7 @@ def _next_bin(dt: datetime, bin_str: str) -> datetime:
             raise ValueError(f"Unknown bin: {bin_str!r}")
 
 
-def _bin_boundaries(
+def bin_boundaries(
     start_utc: datetime, end_utc: datetime, bin_str: str, tz_name: str
 ) -> list[tuple[datetime, datetime]]:
     tz = _tz(tz_name)
@@ -205,7 +205,7 @@ def _to_num(v: Any, data_type: str) -> float:
     return float(v)
 
 
-def _mode(values: list[Any]) -> Any:
+def mode(values: list[Any]) -> Any:
     """Most frequent value; ties broken by smallest."""
     freq: dict[Any, int] = defaultdict(int)
     for v in values:
@@ -288,11 +288,11 @@ _SIMPLE_OPS: dict[str, Callable[[list[Any]], Any]] = {
     "max": max,
     "sum": sum,
     "avg": lambda v: round(sum(v) / len(v), _ROUND),
-    "mode": _mode,
+    "mode": mode,
 }
 
 
-def _apply(
+def apply(
     operator: str,
     bin_pts: list[Point],
     bin_start: datetime,
@@ -317,7 +317,7 @@ def _apply(
     raise ValueError(f"Unknown operator: {operator!r}")
 
 
-def _compute_expected(
+def compute_expected(
     points: list[Point],
     data_type: str,
     start_utc: datetime,
@@ -326,13 +326,13 @@ def _compute_expected(
     tz_name: str,
     operator: str,
 ) -> list[dict[str, Any]]:
-    bins = _bin_boundaries(start_utc, end_utc, bin_str, tz_name)
+    bins = bin_boundaries(start_utc, end_utc, bin_str, tz_name)
     locf: Any = _locf_before(points, bins[0][0]) if bins else None
     result: list[dict[str, Any]] = []
 
     for bin_start, bin_end in bins:
         bin_pts = _points_in(points, bin_start, bin_end)
-        value, agg_dt = _apply(operator, bin_pts, bin_start, bin_end, locf, data_type)
+        value, agg_dt = apply(operator, bin_pts, bin_start, bin_end, locf, data_type)
         result.append(
             {
                 "interval_start": bin_start.isoformat(),
@@ -389,7 +389,7 @@ def main() -> None:
         start_utc = datetime.fromisoformat(spec["start"]).astimezone(UTC)
         end_utc = datetime.fromisoformat(spec["end"]).astimezone(UTC)
 
-        expected = _compute_expected(
+        expected = compute_expected(
             points,
             data_type,
             start_utc,

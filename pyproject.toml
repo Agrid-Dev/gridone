@@ -88,6 +88,7 @@ known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "mo
 "apps/*" = ["INP001"]
 "**/fixtures/generate.py" = ["T201", "INP001", "ANN201", "PLR2004", "S311", "RUF001", "RUF002", "RUF003"]
 "**/fixtures/compute.py" = ["T201", "INP001", "PLR2004", "ANN401", "TRY003", "EM102", "C901", "PLR0911", "PLR0913"]
+"**/tests/test_compute.py" = ["INP001", "E402", "E501", "ANN001", "ANN201", "PLR2004", "S101", "SLF001", "ERA001"]
 
 [tool.coverage.run]
 source = [
@@ -107,6 +108,9 @@ omit = [
     "*/tests/*",
     "*__pycache__*",
 ]
+
+[tool.ty.environment]
+extra-paths = ["packages/timeseries/tests/fixtures"]
 
 [tool.pytest.ini_options]
 markers = [
