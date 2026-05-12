@@ -8,10 +8,13 @@ from models.service import Service
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
+    AggregationQuery,
+    AggregationResult,
     DataPoint,
     DataType,
     SeriesKey,
     TimeSeries,
+    resolve_aggregation_data_type,
     resolve_last,
     validate_value_type,
 )
@@ -155,6 +158,18 @@ class TimeSeriesService(Service):
             validate_value_type(p.value, expected)
         logger.debug("Upserting %d points for %s", len(points), key)
         await storage.upsert_points(key, points)
+
+    async def get_aggregate(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+    ) -> AggregationResult:
+        series = await self._backend.get_series_by_key(key)
+        if series is None:
+            msg = f"No series found for {key}"
+            raise NotFoundError(msg)
+        resolve_aggregation_data_type(query.agg, series.data_type)
+        return await self._backend.aggregate(key, query)
 
     async def fetch_points(
         self,
