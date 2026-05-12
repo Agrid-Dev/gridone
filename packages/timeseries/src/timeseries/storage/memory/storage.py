@@ -120,8 +120,22 @@ class MemoryStorage:
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
-        msg = "aggregate is not implemented for the memory backend"
-        raise NotImplementedError(msg)
+        from timeseries.storage.memory import aggregate as _agg  # noqa: PLC0415
+
+        series = await self.get_series_by_key(key)
+        if series is None:
+            msg = f"No series found for key {key}"
+            raise NotFoundError(msg)
+
+        anchor = None
+        points: list[DataPoint] = []
+        if query.start is not None:
+            anchor = await self.fetch_point_before(key, before=query.start)
+            # No end filter: the last UTC bucket can extend past query.end for
+            # cross-timezone queries; aggregate.py filters per-bucket.
+            points = await self.fetch_points(key, start=query.start)
+
+        return _agg.compute(points, anchor, series, query)
 
     async def close(self) -> None:
         pass
