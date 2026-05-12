@@ -1,3 +1,9 @@
+## v0.71.0 (2026-05-12)
+
+### Feat
+
+- **ts/domain**: add aggregation enums, compat matrix and pydantic models (#279)
+
 ## v0.70.0 (2026-05-11)
 
 ### Feat
