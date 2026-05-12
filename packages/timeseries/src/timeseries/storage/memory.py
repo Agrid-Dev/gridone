@@ -10,6 +10,8 @@ from timeseries.domain import DataPoint
 
 if TYPE_CHECKING:
     from timeseries.domain import (
+        AggregationQuery,
+        AggregationResult,
         SeriesKey,
         TimeSeries,
     )
@@ -112,6 +114,14 @@ class MemoryStorage:
             )
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
+
+    async def aggregate(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+    ) -> AggregationResult:
+        msg = "aggregate is not implemented for the memory backend"
+        raise NotImplementedError(msg)
 
     async def close(self) -> None:
         pass

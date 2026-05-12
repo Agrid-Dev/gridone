@@ -16,6 +16,8 @@ from timeseries.domain import (
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from timeseries.domain import AggregationQuery, AggregationResult
+
 logger = logging.getLogger(__name__)
 
 _CREATE_HYPERTABLE = (
@@ -215,6 +217,14 @@ class PostgresStorage:
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",
                 series.id,
             )
+
+    async def aggregate(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+    ) -> AggregationResult:
+        msg = "aggregate is not implemented for the postgres backend"
+        raise NotImplementedError(msg)
 
     async def close(self) -> None:
         await self._pool.close()
