@@ -120,6 +120,9 @@ class MemoryStorage:
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
+        # Function-level import: memory/__init__.py eagerly re-exports MemoryStorage,
+        # so module-top import here would pull polars whenever MemoryStorage is loaded,
+        # breaking the polars-isolation contract.
         from timeseries.storage.memory import aggregate as _agg  # noqa: PLC0415
 
         series = await self.get_series_by_key(key)
