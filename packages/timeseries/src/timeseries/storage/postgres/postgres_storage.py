@@ -12,6 +12,7 @@ from timeseries.domain import (
     SeriesKey,
     TimeSeries,
 )
+from timeseries.storage.postgres import aggregate as _agg
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -223,8 +224,23 @@ class PostgresStorage:
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
-        msg = "aggregate is not implemented for the postgres backend"
-        raise NotImplementedError(msg)
+        if query.start is None or query.end is None:
+            msg = "start and end are required for aggregation"
+            raise InvalidError(msg)
+
+        series = await self.get_series_by_key(key)
+        if series is None:
+            msg = f"No series found for key {key}"
+            raise NotFoundError(msg)
+
+        anchor = await self.fetch_point_before(key, before=query.start)
+        return await _agg.compute(
+            self._pool,
+            series,
+            query,
+            anchor,
+            _VALUE_COLUMNS[series.data_type],
+        )
 
     async def close(self) -> None:
         await self._pool.close()

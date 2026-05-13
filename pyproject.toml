@@ -90,6 +90,7 @@ known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "mo
 "**/fixtures/compute.py" = ["T201", "INP001", "PLR2004", "ANN401", "TRY003", "EM102", "C901", "PLR0911", "PLR0913"]
 "**/tests/test_compute.py" = ["INP001", "E402", "E501", "ANN001", "ANN201", "PLR2004", "S101", "SLF001", "ERA001"]
 "**/storage/memory/aggregate.py" = ["ANN401", "PLR2004", "C901", "PLR0911", "PLR0912", "PLR0913"]
+"**/storage/postgres/aggregate.py" = ["S608"]
 
 [tool.coverage.run]
 source = [
