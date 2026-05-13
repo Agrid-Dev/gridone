@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from models.errors import StorageConnectionError, UnsupportedStorageError
-from timeseries.storage.memory import MemoryStorage
 
 if TYPE_CHECKING:
     from timeseries.storage.protocol import TimeSeriesStorage
@@ -13,6 +12,8 @@ _POSTGRES_PREFIX = "postgresql"
 
 async def build_storage(url: str | None = None) -> TimeSeriesStorage:
     if url is None:
+        from timeseries.storage.memory import MemoryStorage  # noqa: PLC0415
+
         return MemoryStorage()
 
     if url.startswith(_POSTGRES_PREFIX):

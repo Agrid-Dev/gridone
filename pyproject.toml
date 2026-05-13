@@ -82,13 +82,14 @@ fixable = ["ALL"]
 known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "models", "notifications", "timeseries", "users"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/test_*.py" = ["T201", "TID252", "FBT001", "S101", "S106", "ANN201","ANN401", "PLR2004", "EM101","INP001", "ANN001"]
+"**/test_*.py" = ["T201", "TID252", "FBT001", "S101", "S106", "ANN201", "ANN401", "PLR2004", "EM101", "INP001", "ANN001", "S603", "PLW1510", "PLC0415"]
 "**/conftest.py" = ["INP001"]
 "apps/cli/*.py" = ["T201", "FBT003", "ERA001"]
 "apps/*" = ["INP001"]
 "**/fixtures/generate.py" = ["T201", "INP001", "ANN201", "PLR2004", "S311", "RUF001", "RUF002", "RUF003"]
 "**/fixtures/compute.py" = ["T201", "INP001", "PLR2004", "ANN401", "TRY003", "EM102", "C901", "PLR0911", "PLR0913"]
 "**/tests/test_compute.py" = ["INP001", "E402", "E501", "ANN001", "ANN201", "PLR2004", "S101", "SLF001", "ERA001"]
+"**/storage/memory/aggregate.py" = ["ANN401", "PLR2004", "C901", "PLR0911", "PLR0912", "PLR0913"]
 
 [tool.coverage.run]
 source = [

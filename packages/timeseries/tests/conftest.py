@@ -1,13 +1,12 @@
 import importlib.util
 from pathlib import Path
 
-import pytest
-
 _FIXTURES = Path(__file__).parent / "fixtures"
 
 
-@pytest.fixture(scope="session", autouse=True)
-def generate_fixture_cases() -> None:
+def pytest_configure(config: object) -> None:  # noqa: ARG001
+    # Must run before collection: load_scenarios() in test_aggregation.py reads
+    # the cases/ directory at parametrize time, before any session fixture fires.
     cases_dir = _FIXTURES / "cases"
     if not cases_dir.exists() or not any(cases_dir.iterdir()):
         spec = importlib.util.spec_from_file_location(

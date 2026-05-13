@@ -299,3 +299,26 @@ class TestFetchPoints:
             end=base + timedelta(days=3),
         )
         assert [p.value for p in fetched] == [1.0, 2.0, 3.0]
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestWarning")
+def test_polars_not_imported_by_package() -> None:
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; sys.modules.pop('polars', None); "
+                "import timeseries; from timeseries import TimeSeriesService; "
+                "s = TimeSeriesService('postgresql://placeholder'); "
+                "assert 'polars' not in sys.modules, "
+                "f'polars was imported: {sys.modules.get(\"polars\")}'"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
