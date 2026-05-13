@@ -172,6 +172,9 @@ class TimeSeriesService(Service):
         if series is None:
             msg = f"No series found for {key}"
             raise NotFoundError(msg)
+        if query.start is None or query.end is None:
+            msg = "start and end are required for aggregation"
+            raise InvalidError(msg)
         resolve_aggregation_data_type(query.agg, series.data_type)
         return await self._backend.aggregate(key, query)
 

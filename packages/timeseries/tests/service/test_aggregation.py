@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -85,9 +85,6 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
             assert actual_pt.value == exp["value"]
 
 
-@pytest.mark.xfail(
-    strict=False, reason="storage backends do not yet implement aggregate"
-)
 @pytest.mark.parametrize("case_name", load_scenarios())
 async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
     scenario = _SCENARIOS[case_name]
@@ -145,9 +142,6 @@ class TestGetAggregateValidation:
                 AggregationQuery(agg=AggregationOperator.COUNT, interval=Interval.D_1),
             )
 
-    @pytest.mark.xfail(
-        strict=False, reason="storage backends do not yet implement aggregate"
-    )
     async def test_last_resolved_to_start(self, ts_service: TimeSeriesService) -> None:
         key = SeriesKey(owner_id="test", metric="ts_last")
         await ts_service.create_series(
@@ -156,7 +150,37 @@ class TestGetAggregateValidation:
         result = await ts_service.get_aggregate(
             key,
             AggregationQuery(
-                agg=AggregationOperator.COUNT, interval=Interval.D_1, last="7d"
+                agg=AggregationOperator.COUNT,
+                interval=Interval.D_1,
+                last="7d",
+                end=datetime(2026, 5, 13, tzinfo=UTC),
             ),
         )
         assert result is not None
+
+    async def test_missing_start_or_end_raises(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        key = SeriesKey(owner_id="test", metric="no_range_series")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        now = datetime(2024, 1, 1, tzinfo=UTC)
+        with pytest.raises(InvalidError):
+            await ts_service.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=now,
+                ),
+            )
+        with pytest.raises(InvalidError):
+            await ts_service.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    end=now,
+                ),
+            )

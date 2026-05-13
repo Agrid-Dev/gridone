@@ -263,6 +263,10 @@ def compute(
 
     Uses tz-aware bucket boundaries (DST-correct for calendar intervals), LOCF for
     empty buckets (except count/sum), polars shift-based duration for tw_avg/tw_mode.
+
+    Partial-window semantics: if query.start is not bin-aligned, the first bucket is
+    labeled at its calendar boundary but only contains data from query.start onward;
+    LOCF fills the gap via the anchor point. This matches TimescaleDB behavior.
     """
     tz_name = query.timezone or "UTC"
 
