@@ -6,6 +6,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from timeseries.domain import (
+        AggregationQuery,
+        AggregationResult,
         DataPoint,
         SeriesKey,
         TimeSeries,
@@ -46,5 +48,11 @@ class TimeSeriesStorage(Protocol):
         key: SeriesKey,
         points: list[DataPoint],
     ) -> None: ...
+
+    async def aggregate(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+    ) -> AggregationResult: ...
 
     async def close(self) -> None: ...

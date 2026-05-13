@@ -145,6 +145,14 @@ class TestAggregationQuery:
         )
         assert q.timezone == "Europe/Paris"
 
+    def test_last_explicit_none(self):
+        q = _query(last=None)
+        assert q.last is None
+
+    def test_timezone_explicit_none(self):
+        q = _query(timezone=None)
+        assert q.timezone is None
+
     @pytest.mark.parametrize("good_last", ["7d", "15min", "1mo", "3h"])
     def test_last_valid(self, good_last):
         q = _query(last=good_last)

@@ -57,6 +57,62 @@ class TestTimeSeriesServiceLifecycle:
         with pytest.raises(RuntimeError, match="must be called before use"):
             await service.list_series()
 
+    @pytest.mark.parametrize(
+        ("exc", "match"),
+        [
+            pytest.param(
+                StorageConnectionError("cannot connect"),
+                "cannot connect",
+                id="storage_connection_error_propagates",
+            ),
+            pytest.param(
+                RuntimeError("boom"),
+                "Failed to initialize",
+                id="generic_exception_wrapped",
+            ),
+        ],
+    )
+    async def test_postgres_start_exception_handling(
+        self, monkeypatch, exc: Exception, match: str
+    ) -> None:
+        def fail_migrations(_url: str) -> None:
+            raise exc
+
+        monkeypatch.setattr(
+            "timeseries.storage.postgres.run_migrations", fail_migrations
+        )
+
+        service = TimeSeriesService(storage_url="postgresql://localhost/gridone")
+        with pytest.raises(StorageConnectionError, match=match):
+            await service.start()
+
+    async def test_postgres_start_closes_storage_on_error(self, monkeypatch) -> None:
+        closed: list[bool] = []
+
+        class FakeStorage(MemoryStorage):
+            async def try_enable_hypertable(self) -> None:
+                msg = "hypertable failed"
+                raise RuntimeError(msg)
+
+            async def close(self) -> None:
+                closed.append(True)
+
+        async def fake_build_storage(_url: str | None = None) -> FakeStorage:
+            return FakeStorage()
+
+        monkeypatch.setattr(
+            "timeseries.storage.postgres.run_migrations", lambda _url: None
+        )
+        monkeypatch.setattr(
+            "timeseries.service.service.build_storage", fake_build_storage
+        )
+
+        service = TimeSeriesService(storage_url="postgresql://localhost/gridone")
+        with pytest.raises(StorageConnectionError, match="Failed to initialize"):
+            await service.start()
+
+        assert closed == [True]
+
     async def test_postgres_start_runs_migrations_and_hypertable(self, monkeypatch):
         calls: list[object] = []
         url = "postgresql://localhost/gridone"
