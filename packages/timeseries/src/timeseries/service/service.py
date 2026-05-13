@@ -36,9 +36,15 @@ _POSTGRES_PREFIX = "postgresql"
 class TimeSeriesService(Service):
     _storage: TimeSeriesStorage | None
 
-    def __init__(self, storage_url: str | None = None) -> None:
+    def __init__(
+        self,
+        storage_url: str | None = None,
+        *,
+        default_timezone: str = "UTC",
+    ) -> None:
         self._storage_url = storage_url
         self._storage = None
+        self._default_timezone = default_timezone
 
     async def start(self) -> None:
         if self._is_postgres:
@@ -70,6 +76,10 @@ class TimeSeriesService(Service):
         if self._storage is not None:
             await self._storage.close()
             self._storage = None
+
+    @property
+    def default_timezone(self) -> str:
+        return self._default_timezone
 
     @property
     def _backend(self) -> TimeSeriesStorage:

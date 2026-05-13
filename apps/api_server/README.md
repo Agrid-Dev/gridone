@@ -2,6 +2,16 @@
 
 A http server running the `gridone-api` package.
 
+## Configuration
+
+### Timezone
+
+| Variable | Format | Default | Example |
+|---|---|---|---|
+| `GRIDONE_TIMEZONE` | IANA timezone name | `UTC` | `Europe/Paris` |
+
+Set in `.env` or as an environment variable. Validated at startup — an unknown timezone name causes an immediate startup failure with a clear error message. One instance corresponds to one building, so timezone is an instance-level setting and does not change at runtime.
+
 ## Development
 
 Configure storage with a single URL-like setting in `.env`:
