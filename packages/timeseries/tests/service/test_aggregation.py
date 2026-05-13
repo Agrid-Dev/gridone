@@ -24,13 +24,7 @@ from timeseries.domain import (
 )
 from timeseries.service import TimeSeriesService
 
-pytestmark = [
-    pytest.mark.asyncio,
-    pytest.mark.xfail(
-        strict=False,
-        reason="storage backends do not yet implement aggregate",
-    ),
-]
+pytestmark = pytest.mark.asyncio
 
 _CASES_DIR = Path(__file__).parent.parent / "fixtures" / "cases"
 _INPUTS_DIR = Path(__file__).parent.parent / "fixtures" / "inputs"
@@ -92,6 +86,9 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
             assert actual_pt.value == exp["value"]
 
 
+@pytest.mark.xfail(
+    strict=False, reason="storage backends do not yet implement aggregate"
+)
 @pytest.mark.parametrize("case_name", load_scenarios())
 async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
     scenario = _SCENARIOS[case_name]
@@ -148,3 +145,19 @@ class TestGetAggregateValidation:
                 key,
                 AggregationQuery(agg=AggregationOperator.COUNT, interval=Interval.D_1),
             )
+
+    @pytest.mark.xfail(
+        strict=False, reason="storage backends do not yet implement aggregate"
+    )
+    async def test_last_resolved_to_start(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="test", metric="ts_last")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.COUNT, interval=Interval.D_1, last="7d"
+            ),
+        )
+        assert result is not None

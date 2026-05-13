@@ -164,6 +164,10 @@ class TimeSeriesService(Service):
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
+        if query.last is not None and query.start is None:
+            query = query.model_copy(
+                update={"start": resolve_last(query.last), "last": None}
+            )
         series = await self._backend.get_series_by_key(key)
         if series is None:
             msg = f"No series found for {key}"
