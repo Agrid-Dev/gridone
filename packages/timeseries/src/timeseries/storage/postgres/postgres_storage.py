@@ -163,6 +163,25 @@ class PostgresStorage:
             for r in rows
         ]
 
+    async def _fetch_raw_point_before(
+        self,
+        series_id: str,
+        value_col: str,
+        before: datetime,
+    ) -> DataPoint | None:
+        query = (
+            f"SELECT timestamp, {value_col} AS value, command_id "  # noqa: S608
+            "FROM ts_data_points "
+            "WHERE series_id = $1 AND timestamp < $2 "
+            "ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = await self._pool.fetchrow(query, series_id, before)
+        if row is None:
+            return None
+        return DataPoint(
+            timestamp=row["timestamp"], value=row["value"], command_id=row["command_id"]
+        )
+
     async def fetch_point_before(
         self,
         key: SeriesKey,
@@ -172,20 +191,8 @@ class PostgresStorage:
         series = await self.get_series_by_key(key)
         if series is None:
             return None
-
-        value_col = _VALUE_COLUMNS[series.data_type]
-
-        query = (
-            f"SELECT timestamp, {value_col} AS value, command_id "  # noqa: S608
-            "FROM ts_data_points "
-            "WHERE series_id = $1 AND timestamp < $2 "
-            "ORDER BY timestamp DESC LIMIT 1"
-        )
-        row = await self._pool.fetchrow(query, series.id, before)
-        if row is None:
-            return None
-        return DataPoint(
-            timestamp=row["timestamp"], value=row["value"], command_id=row["command_id"]
+        return await self._fetch_raw_point_before(
+            series.id, _VALUE_COLUMNS[series.data_type], before
         )
 
     async def upsert_points(
@@ -224,23 +231,15 @@ class PostgresStorage:
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
-        if query.start is None or query.end is None:
-            msg = "start and end are required for aggregation"
-            raise InvalidError(msg)
-
         series = await self.get_series_by_key(key)
         if series is None:
             msg = f"No series found for key {key}"
             raise NotFoundError(msg)
 
-        anchor = await self.fetch_point_before(key, before=query.start)
-        return await _agg.compute(
-            self._pool,
-            series,
-            query,
-            anchor,
-            _VALUE_COLUMNS[series.data_type],
-        )
+        assert query.start is not None  # noqa: S101
+        value_col = _VALUE_COLUMNS[series.data_type]
+        anchor = await self._fetch_raw_point_before(series.id, value_col, query.start)
+        return await _agg.compute(self._pool, series, query, anchor, value_col)
 
     async def close(self) -> None:
         await self._pool.close()

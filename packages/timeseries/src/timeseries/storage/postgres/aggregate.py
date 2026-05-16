@@ -28,7 +28,7 @@ _GAPFILL_BUCKET_EXPR = (
 _GAPFILL_GROUP_BY = (
     "    GROUP BY time_bucket_gapfill(\n"
     "        $1::text::interval, bucket,\n"
-    "        start  => $2::timestamptz,\n"
+    "        start => $2::timestamptz,\n"
     "        finish => $3::timestamptz,\n"
     "        timezone => $4\n"
     "    )\n"
@@ -73,6 +73,14 @@ def _anchor_params(ctx: _QueryCtx) -> _Params:
 
 
 def _end_boundary(ctx: _QueryCtx) -> str:
+    """Return a SQL expression for the exclusive upper bound of the last bucket.
+
+    For sub-day intervals the boundary is straightforward: start of the bucket
+    containing ($end - 1µs) plus one interval. For day/month intervals we add 2
+    hours before the outer bucket call to land safely inside the target bucket
+    regardless of DST transitions (a DST spring-forward can push
+    bucket_start + 1 day across midnight into the wrong bucket).
+    """
     if ctx.interval_str in {"1 day", "1 month"}:
         return (
             "time_bucket($1::text::interval,"
@@ -88,6 +96,12 @@ def _end_boundary(ctx: _QueryCtx) -> str:
 
 
 def _bucket_end(ctx: _QueryCtx) -> str:
+    """Return a SQL expression for the end timestamp of a given bucket.
+
+    Same DST +2 hours trick as _end_boundary: for day/month buckets, adding the
+    raw interval can land on an ambiguous wall-clock time during a DST transition,
+    so we nudge by 2 hours before re-bucketing to resolve to the correct boundary.
+    """
     if ctx.interval_str in {"1 day", "1 month"}:
         return (
             "time_bucket($1::text::interval,"
