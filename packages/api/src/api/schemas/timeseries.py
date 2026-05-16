@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 from models.types import AttributeValueType, DataType
+from timeseries.domain import AggregationOperator, Interval
 
 
 class TimeSeriesResponse(BaseModel):
@@ -17,3 +18,18 @@ class DataPointResponse(BaseModel):
     timestamp: datetime
     value: AttributeValueType
     command_id: int | None = None
+
+
+class AggregatedPointResponse(BaseModel):
+    interval_start: datetime
+    value: bool | int | float | str | None
+    count: int
+
+
+class AggregationResultResponse(BaseModel):
+    interval: Interval
+    agg: AggregationOperator
+    data_type: DataType
+    aggregation_data_type: DataType
+    timezone: str
+    points: list[AggregatedPointResponse]

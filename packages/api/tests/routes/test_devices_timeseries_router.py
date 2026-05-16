@@ -10,7 +10,13 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
 from timeseries import TimeSeriesService
-from timeseries.domain import DataPoint, DataType, SeriesKey
+from timeseries.domain import (
+    AggregationOperator,
+    DataPoint,
+    DataType,
+    Interval,
+    SeriesKey,
+)
 
 from api.dependencies import (
     get_current_token_payload,
@@ -555,3 +561,152 @@ class TestOldPathsGone:
                 "/timeseries/export/png", params={"series_ids": "any"}
             )
         assert response.status_code == 404
+
+
+# TestGetDeviceTimeseriesAggregate
+
+AGG_PARAMS = {"interval": "1h", "agg": "avg"}
+AGG_START = datetime(2026, 1, 1, tzinfo=UTC)
+AGG_END = datetime(2026, 1, 2, tzinfo=UTC)
+
+
+class TestGetDeviceTimeseriesAggregate:
+    async def test_device_not_found_returns_404(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                "/nonexistent-device/timeseries/temperature/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 404
+
+    async def test_attr_not_found_returns_404(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/nonexistent/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 404
+
+    async def test_missing_interval_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    "agg": "avg",
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 422
+
+    async def test_missing_agg_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    "interval": "1h",
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 422
+
+    async def test_invalid_last_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={**AGG_PARAMS, "last": "notaduration"},
+            )
+        assert response.status_code == 422
+
+    async def test_no_time_range_returns_422(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params=AGG_PARAMS,
+            )
+        assert response.status_code == 422
+
+    async def test_incompatible_operator_returns_422(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.STRING, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 422
+
+    async def test_returns_aggregated_result(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        await ts_service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=datetime(2026, 1, 1, 10, tzinfo=UTC), value=10.0),
+                DataPoint(timestamp=datetime(2026, 1, 1, 11, tzinfo=UTC), value=20.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["interval"] == Interval.H_1
+        assert body["agg"] == AggregationOperator.AVG
+        assert body["data_type"] == DataType.FLOAT
+        assert body["aggregation_data_type"] == DataType.FLOAT
+        assert body["timezone"] == "UTC"
+        filled = [p for p in body["points"] if p["count"] > 0]
+        assert len(filled) == 2
+        assert filled[0]["value"] == 10.0
+        assert filled[1]["value"] == 20.0
+
+    async def test_empty_result_when_no_points_in_range(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["points"]) == 24
+        assert all(p["count"] == 0 for p in body["points"])
