@@ -45,6 +45,21 @@ class TestExportPng:
         with pytest.raises(NotFoundError):
             await service.export_png(["nonexistent"])
 
+    async def test_paris_timezone_produces_png(self):
+        t1 = datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC)
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            s = await svc.create_series(
+                data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+            )
+            await svc.upsert_points(s.key, [DataPoint(timestamp=t1, value=20.5)])
+            result = await svc.export_png([s.id])
+            assert isinstance(result, bytes)
+            assert result[:4] == PNG_MAGIC
+        finally:
+            await svc.stop()
+
     async def test_last_param_resolves(self, service: TimeSeriesService):
         series = await service.create_series(
             data_type=DataType.FLOAT,

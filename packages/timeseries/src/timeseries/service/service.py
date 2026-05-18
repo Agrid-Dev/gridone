@@ -14,6 +14,7 @@ from timeseries.domain import (
     DataType,
     SeriesKey,
     TimeSeries,
+    normalize_to_utc,
     resolve_aggregation_data_type,
     resolve_last,
     validate_value_type,
@@ -166,6 +167,13 @@ class TimeSeriesService(Service):
         expected = DATA_TYPE_MAP[series.data_type]
         for p in points:
             validate_value_type(p.value, expected)
+        naive = [p.timestamp for p in points if p.timestamp.tzinfo is None]
+        if naive:
+            msg = (
+                f"DataPoint timestamps must be timezone-aware; "
+                f"got {len(naive)} naive timestamp(s)"
+            )
+            raise InvalidError(msg)
         logger.debug("Upserting %d points for %s", len(points), key)
         await storage.upsert_points(key, points)
 
@@ -199,6 +207,20 @@ class TimeSeriesService(Service):
     ) -> list[DataPoint]:
         if last is not None and start is None:
             start = resolve_last(last)
+        start = normalize_to_utc(start, self._default_timezone)
+        end = normalize_to_utc(end, self._default_timezone)
+        return await self._fetch_points_utc(
+            key, start=start, end=end, carry_forward=carry_forward
+        )
+
+    async def _fetch_points_utc(
+        self,
+        key: SeriesKey,
+        *,
+        start: datetime | None,
+        end: datetime | None,
+        carry_forward: bool,
+    ) -> list[DataPoint]:
         storage = self._backend
         points = await storage.fetch_points(key, start=start, end=end)
         if carry_forward and start is not None:
@@ -219,16 +241,18 @@ class TimeSeriesService(Service):
     ) -> str:
         if last is not None and start is None:
             start = resolve_last(last)
+        start = normalize_to_utc(start, self._default_timezone)
+        end = normalize_to_utc(end, self._default_timezone)
 
         all_series = []
         for series_id in series_ids:
             series = await self.get_series(series_id)
-            series.data_points = await self.fetch_points(
+            series.data_points = await self._fetch_points_utc(
                 series.key, start=start, end=end, carry_forward=carry_forward
             )
             all_series.append(series)
 
-        return to_csv(all_series)
+        return to_csv(all_series, timezone=self._default_timezone)
 
     async def export_png(  # noqa: PLR0913
         self,
@@ -242,13 +266,15 @@ class TimeSeriesService(Service):
     ) -> bytes:
         if last is not None and start is None:
             start = resolve_last(last)
+        start = normalize_to_utc(start, self._default_timezone)
+        end = normalize_to_utc(end, self._default_timezone)
 
         all_series = []
         for series_id in series_ids:
             series = await self.get_series(series_id)
-            series.data_points = await self.fetch_points(
+            series.data_points = await self._fetch_points_utc(
                 series.key, start=start, end=end, carry_forward=carry_forward
             )
             all_series.append(series)
 
-        return to_png(all_series, title=title, end=end)
+        return to_png(all_series, title=title, end=end, timezone=self._default_timezone)

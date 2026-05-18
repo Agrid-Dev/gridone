@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from models.errors import InvalidError
 
@@ -55,6 +56,20 @@ def parse_duration(value: str) -> timedelta:
 
     amount = _parse_amount(value, value[:-1])
     return timedelta(**{unit: amount})
+
+
+def normalize_to_utc(value: datetime | None, tz: str) -> datetime | None:
+    """Normalize a datetime to UTC.
+
+    None → None; offset-aware → astimezone(UTC);
+    naive → attach ZoneInfo(tz) first, then astimezone(UTC).
+    Example: naive 01:00 in Europe/Paris CET → 00:00 UTC.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=ZoneInfo(tz))
+    return value.astimezone(UTC)
 
 
 def resolve_last(last: str, *, now: datetime | None = None) -> datetime:

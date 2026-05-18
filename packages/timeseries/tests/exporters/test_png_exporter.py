@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pytest
 
@@ -101,3 +102,11 @@ class TestToFigure:
         s = make_series(DataType.FLOAT, "temp", [])
         fig = to_figure([s])
         assert fig.axes[0].get_legend() is None
+
+    @pytest.mark.parametrize("tz", ["UTC", "Europe/Paris", "America/New_York"])
+    def test_timezone_wired_to_formatter(self, tz: str):
+        s = make_series(DataType.FLOAT, "temp", [DataPoint(timestamp=T1, value=20.0)])
+        fig = to_figure([s], timezone=tz)
+        locator = fig.axes[0].xaxis.get_major_locator()
+        assert isinstance(locator, mdates.AutoDateLocator)
+        assert str(locator.tz) == tz

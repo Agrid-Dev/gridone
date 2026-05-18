@@ -178,6 +178,16 @@ class TestUpsertPoints:
         assert len(points) == 1
         assert points[0].value == 10.0
 
+    async def test_naive_timestamp_raises(self, service: TimeSeriesService):
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        naive = datetime(2026, 1, 1, 10, 0, 0, tzinfo=UTC).replace(tzinfo=None)
+        with pytest.raises(InvalidError, match="timezone-aware"):
+            await service.upsert_points(KEY, [DataPoint(timestamp=naive, value=1.0)])
+
     async def test_rejects_bool_as_int(self, service: TimeSeriesService):
         key = SeriesKey(owner_id="d1", metric="count")
         await service.create_series(
@@ -331,3 +341,50 @@ class TestFetchPoints:
     async def test_empty_result(self, service: TimeSeriesService):
         points = await service.fetch_points(KEY)
         assert points == []
+
+    @pytest.mark.parametrize(
+        ("naive_local", "tz", "t_inside_utc", "t_outside_utc"),
+        [
+            # Paris CET (UTC+1): naive 01:00 → 00:00 UTC
+            (
+                datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 1, 16, 0, 1, 0, tzinfo=UTC),
+                datetime(2026, 1, 15, 23, 59, 0, tzinfo=UTC),
+            ),
+            # Paris CEST (UTC+2): naive 01:00 → 23:00 UTC prev day
+            (
+                datetime(2026, 7, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 7, 15, 23, 1, 0, tzinfo=UTC),
+                datetime(2026, 7, 15, 22, 59, 0, tzinfo=UTC),
+            ),
+        ],
+    )
+    async def test_naive_start_normalized_by_service_tz(
+        self,
+        naive_local: datetime,
+        tz: str,
+        t_inside_utc: datetime,
+        t_outside_utc: datetime,
+    ):
+        svc = TimeSeriesService(storage_url=None, default_timezone=tz)
+        await svc.start()
+        try:
+            await svc.create_series(
+                data_type=DataType.FLOAT,
+                owner_id=KEY.owner_id,
+                metric=KEY.metric,
+            )
+            await svc.upsert_points(
+                KEY,
+                [
+                    DataPoint(timestamp=t_outside_utc, value=1.0),
+                    DataPoint(timestamp=t_inside_utc, value=2.0),
+                ],
+            )
+            points = await svc.fetch_points(KEY, start=naive_local)
+            assert len(points) == 1
+            assert points[0].value == 2.0
+        finally:
+            await svc.stop()
