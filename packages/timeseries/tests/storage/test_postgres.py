@@ -10,8 +10,11 @@ import pytest_asyncio
 from commands.storage.postgres import run_migrations as run_commands_migrations
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
+    AggregationOperator,
+    AggregationQuery,
     DataPoint,
     DataType,
+    Interval,
     SeriesKey,
     TimeSeries,
 )
@@ -357,3 +360,17 @@ class TestFetchPoints:
             end=base + timedelta(days=3),
         )
         assert [p.value for p in fetched] == [1.0, 2.0, 3.0]
+
+
+class TestAggregate:
+    async def test_raises_when_timezone_not_resolved(self, storage):
+        series = _make_series()
+        await storage.create_series(series)
+        query = AggregationQuery(
+            agg=AggregationOperator.COUNT,
+            interval=Interval.D_1,
+            start=datetime(2026, 1, 1, tzinfo=UTC),
+            end=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        with pytest.raises(RuntimeError, match="timezone must be resolved"):
+            await storage.aggregate(KEY, query)

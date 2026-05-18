@@ -1,6 +1,6 @@
 import os
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -188,3 +188,135 @@ class TestGetAggregateValidation:
                     end=now,
                 ),
             )
+
+
+class TestGetAggregateTzAware:
+    async def test_timezone_filled_from_service_default(self):
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="tz-test", metric="tz_fill")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 2, tzinfo=UTC),
+                ),
+            )
+            assert result.timezone == "Europe/Paris"
+        finally:
+            await svc.stop()
+
+    async def test_buckets_aligned_to_service_timezone(self):
+        # Paris CET midnight is 23:00 UTC the previous day. A point at 23:30 UTC
+        # belongs to the next Paris calendar day, not the UTC day. The bucket's
+        # interval_start must reflect the Paris day boundary, not the UTC one.
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="tz-test", metric="bucket_align")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            # 23:30 UTC = 00:30 CET → belongs to Paris calendar day 2026-01-16
+            point_utc = datetime(2026, 1, 15, 23, 30, 0, tzinfo=UTC)
+            await svc.upsert_points(key, [DataPoint(timestamp=point_utc, value=1)])
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=datetime(2026, 1, 15, 23, 0, 0, tzinfo=UTC),
+                    end=datetime(2026, 1, 16, 23, 0, 0, tzinfo=UTC),
+                ),
+            )
+            assert result.timezone == "Europe/Paris"
+            assert len(result.points) == 1
+            # Bucket start is Paris midnight 2026-01-16 → 2026-01-15T23:00:00+00:00 UTC
+            expected_bucket = datetime(2026, 1, 15, 23, 0, 0, tzinfo=UTC)
+            assert result.points[0].interval_start == expected_bucket
+            assert result.points[0].count == 1
+        finally:
+            await svc.stop()
+
+    async def test_explicit_query_timezone_preserved(self):
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="tz-test", metric="tz_explicit")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 2, tzinfo=UTC),
+                    timezone="UTC",
+                ),
+            )
+            assert result.timezone == "UTC"
+        finally:
+            await svc.stop()
+
+    @pytest.mark.parametrize(
+        ("naive_start", "tz", "t_inside_utc", "t_outside_utc"),
+        [
+            # Paris CET (UTC+1): naive 01:00 → 00:00 UTC
+            (
+                datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 1, 16, 0, 30, 0, tzinfo=UTC),
+                datetime(2026, 1, 15, 23, 30, 0, tzinfo=UTC),
+            ),
+            # Paris CEST (UTC+2): naive 01:00 → 23:00 UTC prev day
+            (
+                datetime(2026, 7, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 7, 15, 23, 30, 0, tzinfo=UTC),
+                datetime(2026, 7, 15, 22, 30, 0, tzinfo=UTC),
+            ),
+        ],
+    )
+    async def test_naive_start_normalized_by_service_tz(
+        self,
+        naive_start: datetime,
+        tz: str,
+        t_inside_utc: datetime,
+        t_outside_utc: datetime,
+    ):
+        svc = TimeSeriesService(storage_url=None, default_timezone=tz)
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="tz-test", metric="naive_agg_start")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            await svc.upsert_points(
+                key,
+                [
+                    DataPoint(timestamp=t_outside_utc, value=1),
+                    DataPoint(timestamp=t_inside_utc, value=2),
+                ],
+            )
+            end = t_inside_utc + timedelta(hours=2)
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=naive_start,
+                    end=end,
+                ),
+            )
+            total = sum(p.count for p in result.points)
+            assert total == 1
+        finally:
+            await svc.stop()
