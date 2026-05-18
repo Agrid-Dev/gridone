@@ -186,6 +186,13 @@ class TimeSeriesService(Service):
             query = query.model_copy(
                 update={"start": resolve_last(query.last), "last": None}
             )
+        query = query.model_copy(
+            update={
+                "start": normalize_to_utc(query.start, self._default_timezone),
+                "end": normalize_to_utc(query.end, self._default_timezone),
+                "timezone": query.timezone or self._default_timezone,
+            }
+        )
         series = await self._backend.get_series_by_key(key)
         if series is None:
             msg = f"No series found for {key}"

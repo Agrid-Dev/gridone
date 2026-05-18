@@ -203,6 +203,16 @@ class TestAggregationQuery:
         assert q.end is not None
         assert q.start is None
 
+    def test_mixed_naive_and_aware_does_not_raise(self):
+        # Service normalizes both before use; validator must not crash on comparison
+        naive_start = datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None)
+        q = _query(
+            start=naive_start,
+            end=datetime(2026, 1, 16, 12, 0, 0, tzinfo=UTC),
+        )
+        assert q.start is not None
+        assert q.end is not None
+
 
 class TestAggregatedPoint:
     @pytest.mark.parametrize("value", [42, 3.14, True, "hello", None])

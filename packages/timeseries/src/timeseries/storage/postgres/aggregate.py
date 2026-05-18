@@ -411,12 +411,16 @@ async def compute(
 ) -> AggregationResult:
     assert query.start is not None  # noqa: S101
     assert query.end is not None  # noqa: S101
+    tz = query.timezone
+    if tz is None:
+        msg = "timezone must be resolved by the service before calling storage"
+        raise RuntimeError(msg)
     op = query.agg
     data_type = series.data_type
     ctx = _QueryCtx(
         value_col=value_col,
         anchor_value=_coerce_anchor(op, anchor),
-        tz=query.timezone or "UTC",
+        tz=tz,
         interval_str=_SQL_INTERVALS[query.interval],
         series_id=series.id,
         start=query.start,

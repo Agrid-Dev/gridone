@@ -268,7 +268,10 @@ def compute(
     labeled at its calendar boundary but only contains data from query.start onward;
     LOCF fills the gap via the anchor point. This matches TimescaleDB behavior.
     """
-    tz_name = query.timezone or "UTC"
+    tz_name = query.timezone
+    if tz_name is None:
+        msg = "timezone must be resolved by the service before calling storage"
+        raise RuntimeError(msg)
 
     bins = (
         _bin_boundaries(query.start, query.end, query.interval.value, tz_name)
