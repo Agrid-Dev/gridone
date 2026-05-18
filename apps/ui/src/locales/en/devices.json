@@ -7,7 +7,8 @@
       "description": "Add the details for a new device."
     },
     "edit": {
-      "title": "Edit device"
+      "title": "Edit device",
+      "virtualNotEditable": "Editing virtual devices is not yet supported."
     },
     "fields": {
       "driver": "Driver",

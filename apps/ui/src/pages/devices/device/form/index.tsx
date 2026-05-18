@@ -6,12 +6,12 @@ import { Button } from "@/components/ui";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
-import { Device } from "@/api/devices";
+import { PhysicalDevice } from "@/api/devices";
 import { NetworkModal } from "@/components/NetworkModal";
 import { DeviceDiscoverySwitch } from "@/components/DeviceDiscoverySwitch";
 
 type DeviceFormProps = {
-  device?: Device;
+  device?: PhysicalDevice;
 };
 
 const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {

@@ -5,11 +5,17 @@ import {
   getHighestActiveSeverity,
   isFaultAttribute,
 } from "./faults";
-import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
+import {
+  DeviceKind,
+  type Device,
+  type DeviceAttribute,
+  type FaultAttribute,
+} from "@/api/devices";
 
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
     id: "d1",
+    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

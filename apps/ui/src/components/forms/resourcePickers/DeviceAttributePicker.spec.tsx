@@ -1,7 +1,7 @@
 import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import type { Device } from "@/api/devices";
+import { DeviceKind, type Device } from "@/api/devices";
 import { createI18nMock } from "@/test/i18nMock";
 
 function flattenToText(node: React.ReactNode): string {
@@ -90,6 +90,7 @@ import { DeviceAttributePicker } from "./DeviceAttributePicker";
 const devices: Device[] = [
   {
     id: "d1",
+    kind: DeviceKind.Physical,
     name: "Thermostat A",
     type: null,
     tags: {},
@@ -120,6 +121,7 @@ const devices: Device[] = [
   },
   {
     id: "d2",
+    kind: DeviceKind.Physical,
     name: "Boiler",
     type: null,
     tags: {},

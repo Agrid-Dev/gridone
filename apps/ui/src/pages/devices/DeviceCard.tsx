@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
-import { Device } from "@/api/devices";
+import { Device, isPhysicalDevice } from "@/api/devices";
 import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
@@ -12,7 +12,9 @@ import { getStandardDeviceEntry } from "./standard-devices/registry";
 /** Default card content for devices without a registered standard type. */
 function DefaultCardContent({ device }: { device: Device }) {
   const { t } = useTranslation(["devices", "common"]);
-  const configEntries = Object.entries(device.config ?? {});
+  const configEntries = isPhysicalDevice(device)
+    ? Object.entries(device.config)
+    : [];
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">

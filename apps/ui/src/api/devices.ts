@@ -26,19 +26,44 @@ export enum DeviceType {
   Thermostat = "thermostat",
   Awhp = "awhp",
   WeatherSensor = "weather_sensor",
+  ElectricityMeter = "electricity_meter",
 }
 
-export type Device = {
+export enum DeviceKind {
+  Physical = "physical",
+  Virtual = "virtual",
+}
+
+type DeviceCommon = {
   id: string;
   name: string;
   type: DeviceType | null;
   tags: Record<string, string>;
-  driverId: string;
-  transportId: string;
-  config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
   isFaulty: boolean;
 };
+
+export type PhysicalDevice = DeviceCommon & {
+  kind: DeviceKind.Physical;
+  driverId: string;
+  transportId: string;
+  config: Record<string, unknown>;
+};
+
+export type VirtualDevice = DeviceCommon & {
+  kind: DeviceKind.Virtual;
+};
+
+/** Discriminated by `kind`; mirrors the backend `DeviceKind` split. */
+export type Device = PhysicalDevice | VirtualDevice;
+
+export function isPhysicalDevice(device: Device): device is PhysicalDevice {
+  return device.kind === DeviceKind.Physical;
+}
+
+export function isVirtualDevice(device: Device): device is VirtualDevice {
+  return device.kind === DeviceKind.Virtual;
+}
 
 // ---------------------------------------------------------------------------
 // Standard device type helpers
@@ -86,6 +111,14 @@ export type WeatherSensorAttributes = {
   humidity: AttrValue<number>;
 };
 
+/** Typed view of electricity meter standard attributes. */
+export type ElectricityMeterAttributes = {
+  energy: AttrValue<number>;
+  activePower: AttrValue<number>;
+  reactivePower: AttrValue<number>;
+  index: AttrValue<number>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
@@ -97,11 +130,17 @@ export type WeatherSensorDevice = Device & {
   type: DeviceType.WeatherSensor;
 };
 
+/** A Device whose `type` is `"electricity_meter"`. */
+export type ElectricityMeterDevice = Device & {
+  type: DeviceType.ElectricityMeter;
+};
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
   | AwhpDevice
-  | WeatherSensorDevice;
+  | WeatherSensorDevice
+  | ElectricityMeterDevice;
 
 // Type guards ---
 
@@ -117,8 +156,19 @@ export function isWeatherSensor(device: Device): device is WeatherSensorDevice {
   return device.type === DeviceType.WeatherSensor;
 }
 
+export function isElectricityMeter(
+  device: Device,
+): device is ElectricityMeterDevice {
+  return device.type === DeviceType.ElectricityMeter;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
-  return isThermostat(device) || isAwhp(device) || isWeatherSensor(device);
+  return (
+    isThermostat(device) ||
+    isAwhp(device) ||
+    isWeatherSensor(device) ||
+    isElectricityMeter(device)
+  );
 }
 
 /**
@@ -195,6 +245,22 @@ export function readWeatherSensorAttributes(
     windSpeed: v("windSpeed") as AttrValue<number>,
     windDirection: v("windDirection") as AttrValue<number>,
     humidity: v("humidity") as AttrValue<number>,
+  };
+}
+
+/**
+ * Read the standard electricity meter attributes from a device's attribute map.
+ * Attribute keys are already camelCase (converted by the API client).
+ */
+export function readElectricityMeterAttributes(
+  device: ElectricityMeterDevice,
+): ElectricityMeterAttributes {
+  const v = (name: string) => device.attributes[name]?.currentValue ?? null;
+  return {
+    energy: v("energy") as AttrValue<number>,
+    activePower: v("activePower") as AttrValue<number>,
+    reactivePower: v("reactivePower") as AttrValue<number>,
+    index: v("index") as AttrValue<number>,
   };
 }
 
