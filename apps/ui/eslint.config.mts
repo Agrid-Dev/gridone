@@ -19,6 +19,15 @@ export default defineConfig([
       "no-console": "warn",
     },
   },
+  {
+    // React-Three-Fiber declares custom JSX intrinsic elements with props that
+    // eslint-plugin-react flags as unknown. Disable the rule inside the 3D
+    // home page where R3F is used.
+    files: ["src/pages/home/**/*.{ts,tsx}"],
+    rules: {
+      "react/no-unknown-property": "off",
+    },
+  },
   eslintConfigPrettier,
   globalIgnores(["dist", "tailwind.config.js", "vite.config.js"]),
 ]);
