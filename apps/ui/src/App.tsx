@@ -4,6 +4,7 @@ import Assets from "./pages/assets";
 import Automations from "./pages/automations";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
+import HomePage from "./pages/home/HomePage";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
 import LoginPage from "./pages/login/LoginPage";
@@ -21,7 +22,7 @@ function ProtectedLayout() {
       <main className="ml-64 min-h-screen">
         <div className="mx-auto flex max-w-6xl flex-col px-4 pb-10 lg:px-6 pt-10">
           <Routes>
-            <Route index element={<Navigate to="/devices" replace />} />
+            <Route index element={<HomePage />} />
             <Route path="/assets/*" element={<Assets />} />
             <Route path="/devices/*" element={<Devices />} />
             <Route path="/drivers/*" element={<Drivers />} />

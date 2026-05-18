@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router";
+import { Link, NavLink, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -72,7 +72,10 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-sidebar-foreground/[0.06] bg-sidebar text-sidebar-foreground">
       <div className="flex h-full flex-col">
         {/* Header */}
-        <div className="border-b border-sidebar-foreground/[0.06] px-5 py-5">
+        <Link
+          to="/"
+          className="block border-b border-sidebar-foreground/[0.06] px-5 py-5 transition-colors hover:bg-sidebar-foreground/[0.04]"
+        >
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
               <span className="font-display text-lg font-bold text-primary">
@@ -88,7 +91,7 @@ export function Sidebar() {
               </p>
             </div>
           </div>
-        </div>
+        </Link>
 
         <nav className="flex-1 space-y-0.5 p-3">
           <NavLink to="/assets" className={navLinkClass}>
