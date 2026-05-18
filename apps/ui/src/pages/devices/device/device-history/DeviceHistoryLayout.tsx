@@ -237,7 +237,10 @@ function HistoryToolbar() {
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
-            navigate(value, { replace: true, relative: "path" });
+            navigate(
+              { pathname: value, search: location.search },
+              { replace: true, relative: "path" },
+            );
           }}
         >
           <TabsList>
