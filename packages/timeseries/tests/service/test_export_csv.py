@@ -195,6 +195,105 @@ class TestExportCsvLast:
         assert rows[1][1] == "2.0"
 
 
+class TestExportCsvTimezone:
+    @pytest.mark.parametrize(
+        ("tz", "ts_utc", "expected_suffix"),
+        [
+            ("UTC", datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC), "+00:00"),
+            ("Europe/Paris", datetime(2026, 1, 15, 10, 0, 0, tzinfo=UTC), "+01:00"),
+            ("Europe/Paris", datetime(2026, 7, 15, 10, 0, 0, tzinfo=UTC), "+02:00"),
+        ],
+    )
+    async def test_timestamp_offset_in_csv(
+        self, tz: str, ts_utc: datetime, expected_suffix: str
+    ):
+        svc = TimeSeriesService(storage_url=None, default_timezone=tz)
+        await svc.start()
+        try:
+            series = await svc.create_series(
+                data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+            )
+            point = DataPoint(timestamp=ts_utc, value=1.0)
+            await svc.upsert_points(series.key, [point])
+            result = await svc.export_csv([series.id])
+            _, rows = parse_csv(result)
+            assert rows[0][0].endswith(expected_suffix)
+        finally:
+            await svc.stop()
+
+    @pytest.mark.parametrize(
+        ("ts_utc", "expected_suffix"),
+        [
+            # Spring-forward 2026-03-29: before = CET +01:00, after = CEST +02:00
+            (datetime(2026, 3, 29, 0, 30, 0, tzinfo=UTC), "+01:00"),
+            (datetime(2026, 3, 29, 2, 30, 0, tzinfo=UTC), "+02:00"),
+            # Fall-back 2026-10-25: before = CEST +02:00, after = CET +01:00
+            (datetime(2026, 10, 25, 0, 30, 0, tzinfo=UTC), "+02:00"),
+            (datetime(2026, 10, 25, 2, 30, 0, tzinfo=UTC), "+01:00"),
+        ],
+    )
+    async def test_dst_transition_offset(self, ts_utc: datetime, expected_suffix: str):
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            series = await svc.create_series(
+                data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+            )
+            point = DataPoint(timestamp=ts_utc, value=1.0)
+            await svc.upsert_points(series.key, [point])
+            result = await svc.export_csv([series.id])
+            _, rows = parse_csv(result)
+            assert rows[0][0].endswith(expected_suffix)
+        finally:
+            await svc.stop()
+
+    @pytest.mark.parametrize(
+        ("naive_local", "tz", "t_inside_utc", "t_outside_utc"),
+        [
+            # Paris CET (UTC+1): naive 01:00 → 00:00 UTC
+            (
+                datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 1, 16, 0, 1, 0, tzinfo=UTC),
+                datetime(2026, 1, 15, 23, 59, 0, tzinfo=UTC),
+            ),
+            # Paris CEST (UTC+2): naive 01:00 → 23:00 UTC prev day
+            (
+                datetime(2026, 7, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                "Europe/Paris",
+                datetime(2026, 7, 15, 23, 1, 0, tzinfo=UTC),
+                datetime(2026, 7, 15, 22, 59, 0, tzinfo=UTC),
+            ),
+        ],
+    )
+    async def test_naive_start_filters_correctly(
+        self,
+        naive_local: datetime,
+        tz: str,
+        t_inside_utc: datetime,
+        t_outside_utc: datetime,
+    ):
+        svc = TimeSeriesService(storage_url=None, default_timezone=tz)
+        await svc.start()
+        try:
+            series = await svc.create_series(
+                data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+            )
+            await svc.upsert_points(
+                series.key,
+                [
+                    DataPoint(timestamp=t_outside_utc, value=1.0),
+                    DataPoint(timestamp=t_inside_utc, value=2.0),
+                ],
+            )
+            result = await svc.export_csv([series.id], start=naive_local)
+            _, rows = parse_csv(result)
+            assert len(rows) == 1
+            assert rows[0][1] == "2.0"
+        finally:
+            await svc.stop()
+
+
 class TestExportCsvErrors:
     async def test_unknown_series_id_raises(self, service: TimeSeriesService):
         with pytest.raises(NotFoundError):
