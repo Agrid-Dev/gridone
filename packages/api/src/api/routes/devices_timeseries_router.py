@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
@@ -134,6 +134,12 @@ async def get_device_timeseries_points(
     ]
 
 
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None or dt.tzinfo is not None:
+        return dt
+    return dt.replace(tzinfo=UTC)
+
+
 def get_aggregation_query(
     interval: Interval = Query(...),
     agg: AggregationOperator = Query(...),
@@ -146,8 +152,8 @@ def get_aggregation_query(
         return AggregationQuery(
             interval=interval,
             agg=agg,
-            start=start,
-            end=end,
+            start=_as_utc(start),
+            end=_as_utc(end),
             last=last,
             timezone=timezone,
         )

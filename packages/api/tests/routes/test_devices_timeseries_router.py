@@ -710,3 +710,20 @@ class TestGetDeviceTimeseriesAggregate:
         body = response.json()
         assert len(body["points"]) == 24
         assert all(p["count"] == 0 for p in body["points"])
+
+    async def test_naive_datetimes_interpreted_as_utc(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00",
+                    "end": "2026-01-02T00:00:00",
+                },
+            )
+        assert response.status_code == 200
