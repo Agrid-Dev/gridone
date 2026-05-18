@@ -1,3 +1,9 @@
+## v0.73.0 (2026-05-18)
+
+### Feat
+
+- **api**: add GET /{device_id}/timeseries/{attr}/aggregate endpoint (#284)
+
 ## v0.72.0 (2026-05-18)
 
 ### Feat
