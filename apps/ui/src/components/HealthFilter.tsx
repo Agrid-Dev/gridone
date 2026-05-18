@@ -34,7 +34,7 @@ export function HealthFilter() {
   };
 
   return (
-    <Tabs value={value} onValueChange={handleChange}>
+    <Tabs value={value} onValueChange={handleChange} variant="pill">
       <TabsList aria-label={t("devices.health.label")}>
         {HEALTH_VALUES.map((h) => (
           <TabsTrigger key={h} value={h}>

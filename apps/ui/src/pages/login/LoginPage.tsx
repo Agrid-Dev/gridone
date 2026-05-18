@@ -62,7 +62,7 @@ export default function LoginPage() {
   });
 
   return (
-    <div className="login-bg bg-grid flex min-h-screen items-center justify-center">
+    <div className="login-bg flex min-h-screen items-center justify-center">
       {/* Ambient glow */}
       <div className="pointer-events-none fixed inset-0">
         <div className="absolute left-1/4 top-1/3 h-96 w-96 rounded-full bg-primary/[0.03] blur-3xl" />
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
       <div className="relative w-full max-w-sm animate-fade-up">
         {/* Card */}
-        <div className="rounded-xl border border-border/60 bg-card/80 p-8 shadow-2xl shadow-black/20 backdrop-blur-sm">
+        <div className="rounded-2xl border border-border bg-card p-8 shadow-lg backdrop-blur-sm">
           {/* Brand */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15">

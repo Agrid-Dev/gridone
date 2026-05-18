@@ -26,7 +26,7 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <DeviceTypeChip type={driver.type} />
-          <Badge variant="secondary">{driver.transport}</Badge>
+          <Badge variant="info">{driver.transport}</Badge>
           <Badge variant="outline">
             {driver.attributes.length}&nbsp;
             {t("attribute", { count: driver.attributes.length })}

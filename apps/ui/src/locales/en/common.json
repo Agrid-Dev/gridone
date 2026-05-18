@@ -171,5 +171,10 @@
     "faults": "Faults",
     "users": "Users",
     "notifications": "Notifications"
+  },
+  "topbar": {
+    "searchPlaceholder": "Search devices, assets, automations…",
+    "searchLabel": "Global search",
+    "notifications": "Notifications"
   }
 }
