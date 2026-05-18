@@ -1,3 +1,11 @@
+## v0.76.0 (2026-05-18)
+
+### Feat
+
+- **ui**: electricity meter standard device
+- **ui**: support virtual devices
+- **standard-devices**: electricity_meter backend declaration
+
 ## v0.75.0 (2026-05-18)
 
 ### Feat
