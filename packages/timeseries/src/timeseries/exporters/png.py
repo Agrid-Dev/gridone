@@ -3,8 +3,10 @@ from __future__ import annotations
 import colorsys
 import io
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 import matplotlib as mpl
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 from timeseries.domain import DataType
@@ -106,6 +108,7 @@ def to_figure(
     *,
     title: str | None = None,
     end: datetime | None = None,
+    timezone: str = "UTC",
 ) -> Figure:
     num_series = [s for s in series if s.data_points and s.data_type not in _CAT_TYPES]
     cat_series = [s for s in series if s.data_points and s.data_type in _CAT_TYPES]
@@ -141,6 +144,10 @@ def to_figure(
         for i, s in enumerate(cat_series, start=n_num):
             _plot_categorical(axs[i], s, data_end)
 
+    tz = ZoneInfo(timezone)
+    locator = mdates.AutoDateLocator(tz=tz)
+    axs[0].xaxis.set_major_locator(locator)
+    axs[0].xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator, tz=tz))
     for ax in axs:
         ax.grid(axis="x", linestyle="--", alpha=0.7, zorder=3)
         if ax.get_legend_handles_labels()[0]:
@@ -163,8 +170,9 @@ def to_png(
     *,
     title: str | None = None,
     end: datetime | None = None,
+    timezone: str = "UTC",
 ) -> bytes:
-    fig = to_figure(series, title=title, end=end)
+    fig = to_figure(series, title=title, end=end, timezone=timezone)
     try:
         buf = io.BytesIO()
         fig.savefig(buf, format="png")
