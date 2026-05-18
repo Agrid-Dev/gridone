@@ -1,3 +1,9 @@
+## v0.72.0 (2026-05-18)
+
+### Feat
+
+- **ts/storage**: implement postgres aggregate (#283)
+
 ## v0.71.0 (2026-05-12)
 
 ### Feat
