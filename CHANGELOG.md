@@ -1,3 +1,10 @@
+## v0.76.1 (2026-05-18)
+
+### Fix
+
+- **ui**: preserve query params when switching device history tabs
+- **ui**: align sidebar brand divider with topbar border
+
 ## v0.76.0 (2026-05-18)
 
 ### Feat
