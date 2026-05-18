@@ -23,11 +23,7 @@ function NotificationsLayout({
       fallback={<ErrorFallback title={t("notifications.unableToLoad")} />}
     >
       <section className="space-y-6">
-        <ResourceHeader
-          title={t("notifications.title")}
-          resourceName={t("notifications.subtitle")}
-          actions={actions}
-        />
+        <ResourceHeader title={t("notifications.title")} actions={actions} />
         {children}
       </section>
     </ErrorBoundary>

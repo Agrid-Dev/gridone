@@ -1,7 +1,6 @@
 {
   "notifications": {
     "title": "Notifications",
-    "subtitle": "Inbox",
     "unableToLoad": "Unable to load notifications",
     "markAsRead": "Mark as read",
     "markSelectedAsRead": "Mark as read ({{count}})",

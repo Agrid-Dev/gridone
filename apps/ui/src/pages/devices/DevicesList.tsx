@@ -23,8 +23,7 @@ export default function DevicesList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("devices.subtitle")}
-        resourceName={t("devices.title")}
+        title={t("devices.title")}
         actions={
           <>
             <Button asChild variant="outline" size="sm">

@@ -1,7 +1,7 @@
 {
   "faults": {
     "title": "Défauts actifs",
-    "subtitle": "Triage de la flotte",
+    "caption": "Problèmes actifs sur l'ensemble de votre flotte — investiguez, acquittez et résolvez.",
     "searchPlaceholder": "Rechercher par équipement ou défaut…",
     "emptyTitle": "Aucun défaut actif sur votre flotte.",
     "emptyDescription": "Tous les équipements signalent des attributs sains.",

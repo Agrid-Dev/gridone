@@ -102,8 +102,7 @@ export default function AssetsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("subtitle")}
-        resourceName={t("title")}
+        title={t("title")}
         actions={
           <>
             {can("assets:write") && (
@@ -125,7 +124,7 @@ export default function AssetsList() {
           ))}
         </div>
       ) : tree.length > 0 ? (
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-2xl border border-border bg-card p-4">
           <AssetTree
             tree={tree}
             onMove={handleMove}

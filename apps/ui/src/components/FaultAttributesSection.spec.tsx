@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { FaultAttributesSection } from "./FaultAttributesSection";
 import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
@@ -61,6 +61,10 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   };
 }
 
+function expand() {
+  fireEvent.click(screen.getByRole("button", { name: /Faults/ }));
+}
+
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-04-22T10:00:00Z"));
 });
@@ -71,26 +75,32 @@ afterEach(() => {
 });
 
 describe("FaultAttributesSection", () => {
-  it("renders the section title", () => {
+  it("renders the toggle title and is collapsed by default", () => {
     render(<FaultAttributesSection device={makeDevice({})} />);
-    expect(screen.getByText("Faults")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: /Faults/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("No fault monitoring configured for this device."),
+    ).not.toBeInTheDocument();
   });
 
-  it("renders empty state when device has no fault-kind attributes", () => {
+  it("renders empty state when expanded with no fault-kind attributes", () => {
     render(
       <FaultAttributesSection device={makeDevice({ temperature: plain })} />,
     );
+    expand();
     expect(
       screen.getByText("No fault monitoring configured for this device."),
     ).toBeInTheDocument();
   });
 
-  it("lists both active and healthy fault-kind attributes", () => {
+  it("lists both active and healthy fault-kind attributes when expanded", () => {
     const device = makeDevice({
       a: fault({ name: "a_alarm", severity: "alert", isFaulty: true }),
       b: fault({ name: "b_leak", severity: "warning", isFaulty: false }),
     });
     render(<FaultAttributesSection device={device} />);
+    expand();
     expect(screen.getByText("A Alarm")).toBeInTheDocument();
     expect(screen.getByText("B Leak")).toBeInTheDocument();
   });
@@ -127,6 +137,7 @@ describe("FaultAttributesSection", () => {
       }),
     });
     render(<FaultAttributesSection device={device} />);
+    expand();
 
     const labels = screen.getAllByText(
       /(Alert Newer|Alert Older|Info Active|Healthy)$/,
@@ -140,12 +151,13 @@ describe("FaultAttributesSection", () => {
     ]);
   });
 
-  it("does not render plain (non-fault) attributes", () => {
+  it("does not render plain (non-fault) attributes when expanded", () => {
     const device = makeDevice({
       temp: plain,
       alarm: fault({ name: "alarm", severity: "alert", isFaulty: true }),
     });
     render(<FaultAttributesSection device={device} />);
+    expand();
     expect(screen.getByText("Alarm")).toBeInTheDocument();
     expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
   });

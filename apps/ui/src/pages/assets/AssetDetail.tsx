@@ -106,7 +106,7 @@ export default function AssetDetail() {
       />
 
       {/* Info card */}
-      <div className="rounded-lg border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">{t("fields.type")}</span>
@@ -150,7 +150,7 @@ export default function AssetDetail() {
           )}
         </div>
         {children.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
                 {children.map((child) => (
@@ -199,7 +199,7 @@ export default function AssetDetail() {
           )}
         </div>
         {deviceIds.length > 0 ? (
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
                 {deviceIds.map((deviceId) => (

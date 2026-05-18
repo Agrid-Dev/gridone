@@ -70,24 +70,28 @@ afterEach(() => {
 });
 
 describe("ActiveFaultsSection", () => {
-  it("renders the section title", () => {
-    render(<ActiveFaultsSection device={makeDevice({})} />);
-    expect(screen.getByText("Active faults")).toBeInTheDocument();
+  it("renders nothing when device has no fault-kind attributes", () => {
+    const { container } = render(
+      <ActiveFaultsSection device={makeDevice({ temperature: plain })} />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders empty state when device has no fault-kind attributes", () => {
-    render(<ActiveFaultsSection device={makeDevice({ temperature: plain })} />);
-    expect(screen.getByText("No active faults.")).toBeInTheDocument();
-    expect(screen.queryByText(/alert|warning|info/)).not.toBeInTheDocument();
-  });
-
-  it("renders empty state when fault attributes exist but none are active", () => {
+  it("renders nothing when fault attributes exist but none are active", () => {
     const device = makeDevice({
       a: fault({ name: "a", severity: "alert", isFaulty: false }),
       b: fault({ name: "b", severity: "warning", isFaulty: false }),
     });
+    const { container } = render(<ActiveFaultsSection device={device} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("renders the alert banner title when at least one fault is active", () => {
+    const device = makeDevice({
+      a: fault({ name: "a", severity: "alert", isFaulty: true }),
+    });
     render(<ActiveFaultsSection device={device} />);
-    expect(screen.getByText("No active faults.")).toBeInTheDocument();
+    expect(screen.getByText("Active faults")).toBeInTheDocument();
   });
 
   it("renders active faults sorted by severity desc (alert → warning → info)", () => {

@@ -171,8 +171,7 @@ export default function UsersPage() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("subtitle")}
-        resourceName={t("title")}
+        title={t("title")}
         actions={
           <Button onClick={openCreate}>
             <Plus />

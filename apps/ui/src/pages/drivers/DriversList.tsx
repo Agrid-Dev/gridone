@@ -26,7 +26,7 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <DeviceTypeChip type={driver.type} />
-          <Badge variant="secondary">{driver.transport}</Badge>
+          <Badge variant="info">{driver.transport}</Badge>
           <Badge variant="outline">
             {driver.attributes.length}&nbsp;
             {t("attribute", { count: driver.attributes.length })}
@@ -46,8 +46,8 @@ const DriversListContainer: FC<{
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("title")}
-        title={t("list", { count: driversCount })}
+        title={t("title")}
+        caption={t("caption")}
         actions={
           can("drivers:write") ? (
             <Button asChild>
