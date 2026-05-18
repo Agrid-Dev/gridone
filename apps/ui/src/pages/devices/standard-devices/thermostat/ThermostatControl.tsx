@@ -58,16 +58,6 @@ export function ThermostatControl({
           </span>
         </div>
       }
-      headerLabel={
-        attrs.temperature != null ? (
-          <span className="text-sm text-muted-foreground">
-            {t("controls.thermostat.current")}{" "}
-            <strong className="font-semibold tabular-nums text-foreground">
-              {Number(attrs.temperature).toFixed(1)}°
-            </strong>
-          </span>
-        ) : null
-      }
       footer={
         <button
           type="button"
@@ -103,6 +93,10 @@ export function ThermostatControl({
           min={min}
           max={max}
           saving={setpointSaving}
+          step={STEP}
+          onSetpointChange={(value) =>
+            changeAndSave("temperatureSetpoint", value)
+          }
         />
 
         <div className="flex items-center justify-center gap-10">

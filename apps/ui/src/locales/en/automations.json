@@ -1,6 +1,6 @@
 {
   "title": "Automations",
-  "subtitle": "Trigger-driven actions",
+  "caption": "Trigger actions on devices when schedules fire or attribute values change.",
   "singular": "Automation",
   "comingSoon": "Coming soon",
   "flow": {

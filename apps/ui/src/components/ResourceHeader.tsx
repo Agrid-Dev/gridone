@@ -4,7 +4,8 @@ import { Link } from "react-router";
 
 type ResourceHeaderProps = {
   title: React.ReactNode;
-  resourceName: React.ReactNode;
+  resourceName?: React.ReactNode;
+  caption?: React.ReactNode;
   resourceNameLinksBack?: boolean;
   /** Explicit path for the back link. When set, overrides the default ".." relative navigation. */
   backTo?: string;
@@ -14,28 +15,35 @@ type ResourceHeaderProps = {
 export const ResourceHeader: FC<ResourceHeaderProps> = ({
   title,
   resourceName,
+  caption,
   resourceNameLinksBack = false,
   backTo,
   actions = null,
 }) => (
   <div className="flex justify-between items-end pb-6 border-b border-border">
     <div>
-      {resourceNameLinksBack ? (
-        <Link
-          to={backTo ?? ".."}
-          className="group inline-flex items-center gap-1"
-        >
-          <span className="text-muted-foreground transition-transform group-hover:-translate-x-0.5">
-            &larr;
-          </span>
+      {resourceName &&
+        (resourceNameLinksBack ? (
+          <Link
+            to={backTo ?? ".."}
+            className="group inline-flex items-center gap-1"
+          >
+            <span className="text-muted-foreground transition-transform group-hover:-translate-x-0.5">
+              &larr;
+            </span>
+            <TypographyEyebrow>{resourceName}</TypographyEyebrow>
+          </Link>
+        ) : (
           <TypographyEyebrow>{resourceName}</TypographyEyebrow>
-        </Link>
-      ) : (
-        <TypographyEyebrow>{resourceName}</TypographyEyebrow>
-      )}
-      <div className="mt-1">
+        ))}
+      <div className={resourceName ? "mt-1" : undefined}>
         <TypographyH2>{title}</TypographyH2>
       </div>
+      {caption && (
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          {caption}
+        </p>
+      )}
     </div>
     <div className="flex justify-end gap-2">{actions}</div>
   </div>

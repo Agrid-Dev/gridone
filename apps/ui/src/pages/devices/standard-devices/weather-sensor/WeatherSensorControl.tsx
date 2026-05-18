@@ -60,7 +60,7 @@ export function WeatherSensorControl({ device }: StandardControlProps) {
           <div className="flex items-center gap-2">
             <Thermometer className="h-5 w-5 text-muted-foreground" />
             <span className="text-4xl font-light tabular-nums">
-              {fmt(a.temperature)}°C
+              {fmt(a.temperature)}°
             </span>
           </div>
         </div>

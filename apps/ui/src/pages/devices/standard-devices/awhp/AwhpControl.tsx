@@ -88,9 +88,9 @@ export function AwhpControl({ device }: StandardControlProps) {
             </div>
           </div>
 
-          {/* Pipe: evap → compressor */}
+          {/* Pipe: evap → compressor (cold suction gas) */}
           <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 text-sky-500" />
             {a.compressorSuctionTemperature != null && (
               <span className="text-[9px] tabular-nums text-muted-foreground">
                 {fmt(a.compressorSuctionTemperature)}
@@ -124,9 +124,9 @@ export function AwhpControl({ device }: StandardControlProps) {
             </div>
           </div>
 
-          {/* Pipe: compressor → condenser */}
+          {/* Pipe: compressor → condenser (hot discharge gas) */}
           <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 text-red-500" />
             {a.compressorDischargeTemperature != null && (
               <span className="text-[9px] tabular-nums text-muted-foreground">
                 {fmt(a.compressorDischargeTemperature)}
@@ -160,16 +160,16 @@ export function AwhpControl({ device }: StandardControlProps) {
           </div>
         </div>
 
-        {/* Row 2: Return path (expansion valve) */}
+        {/* Row 2: Return path (expansion valve is cold/hot pivot) */}
         <div className="flex w-full items-stretch">
-          {/* Left vertical pipe */}
+          {/* Left vertical pipe — cold liquid up to evaporator */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-border" />
+            <div className="h-6 w-px border-l border-dashed border-sky-300" />
           </div>
           <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
-          {/* Right vertical pipe */}
+          {/* Right vertical pipe — hot liquid down from condenser */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-border" />
+            <div className="h-6 w-px border-l border-dashed border-red-300" />
           </div>
         </div>
 
@@ -180,14 +180,16 @@ export function AwhpControl({ device }: StandardControlProps) {
           </span>
         </div>
 
-        {/* Bottom connecting line */}
+        {/* Bottom connecting lines */}
         <div className="flex w-full items-stretch">
+          {/* Bottom-left — cold liquid leaving the valve */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-border" />
+            <div className="h-4 w-px border-l border-dashed border-sky-300" />
           </div>
           <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
+          {/* Bottom-right — hot liquid entering the valve */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-border" />
+            <div className="h-4 w-px border-l border-dashed border-red-300" />
           </div>
         </div>
       </div>

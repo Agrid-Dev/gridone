@@ -173,8 +173,6 @@
     "notifications": "Notifications"
   },
   "topbar": {
-    "searchPlaceholder": "Rechercher des équipements, zones, automatisations…",
-    "searchLabel": "Recherche globale",
     "notifications": "Notifications"
   }
 }

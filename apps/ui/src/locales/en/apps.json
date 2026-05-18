@@ -1,6 +1,5 @@
 {
   "title": "Apps",
-  "subtitle": "Registered applications",
   "singular": "App",
   "fields": {
     "name": "Name",

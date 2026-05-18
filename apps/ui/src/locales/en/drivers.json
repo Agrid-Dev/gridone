@@ -1,6 +1,6 @@
 {
   "title": "Drivers",
-  "list": "List of available drivers ({{count}})",
+  "caption": "Drivers describe how Gridone speaks to a class of devices — protocol, attributes, and value adapters.",
   "attribute_one": "attribute",
   "attribute_other": "attributes",
   "notFoundDetails": "No driver found for id \"{{driverId}}\"",

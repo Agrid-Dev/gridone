@@ -46,8 +46,8 @@ const DriversListContainer: FC<{
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("title")}
-        title={t("list", { count: driversCount })}
+        title={t("title")}
+        caption={t("caption")}
         actions={
           can("drivers:write") ? (
             <Button asChild>

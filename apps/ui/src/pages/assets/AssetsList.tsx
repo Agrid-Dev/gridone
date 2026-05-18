@@ -102,8 +102,7 @@ export default function AssetsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("subtitle")}
-        resourceName={t("title")}
+        title={t("title")}
         actions={
           <>
             {can("assets:write") && (

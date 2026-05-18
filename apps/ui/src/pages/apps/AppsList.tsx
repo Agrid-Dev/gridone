@@ -69,8 +69,7 @@ export default function AppsList() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={t("subtitle")}
-        resourceName={t("title")}
+        title={t("title")}
         actions={
           can("users:write") ? (
             <Button variant="outline" asChild>
