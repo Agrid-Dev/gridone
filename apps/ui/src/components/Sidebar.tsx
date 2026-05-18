@@ -38,7 +38,7 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-30 h-screen w-64 border-r border-border bg-sidebar">
       <div className="flex h-full flex-col">
         {/* Brand mark */}
-        <div className="border-b border-border px-4 py-4">
+        <div className="flex h-16 items-center border-b border-border px-4">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
               <span className="font-display text-base font-bold text-primary">
