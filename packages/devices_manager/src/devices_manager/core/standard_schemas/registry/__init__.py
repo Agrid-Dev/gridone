@@ -4,6 +4,7 @@ from devices_manager.core.standard_schemas.standard_schema import (
 )
 
 from .awhp import awhp_schema
+from .electricity_meter import electricity_meter_schema
 from .thermostat import thermostat_schema
 from .weather_sensor import weather_sensor_schema
 
@@ -15,7 +16,5 @@ def _build_registry(
 
 
 default_registry: StandardAttributeSchemaRegistry = _build_registry(
-    thermostat_schema,
-    awhp_schema,
-    weather_sensor_schema,
+    thermostat_schema, awhp_schema, weather_sensor_schema, electricity_meter_schema
 )
