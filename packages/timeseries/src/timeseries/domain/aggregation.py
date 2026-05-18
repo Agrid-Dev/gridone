@@ -114,7 +114,14 @@ class AggregationQuery(BaseModel):
 
     @model_validator(mode="after")
     def _validate_time_range(self) -> "AggregationQuery":
-        if self.start is not None and self.end is not None and self.start >= self.end:
+        s, e = self.start, self.end
+        # Skip comparison when mixing naive and aware — service normalizes both
+        if (
+            s is not None
+            and e is not None
+            and (s.tzinfo is None) == (e.tzinfo is None)
+            and s >= e
+        ):
             msg = "start must be before end"
             raise ValueError(msg)
         return self
