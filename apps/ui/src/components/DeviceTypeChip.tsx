@@ -1,4 +1,4 @@
-import { Thermometer, Fan, CloudSun, CircleHelp } from "lucide-react";
+import { Thermometer, Fan, CloudSun, Zap, CircleHelp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/api/devices";
@@ -7,6 +7,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
   [DeviceType.Thermostat]: Thermometer,
   [DeviceType.Awhp]: Fan,
   [DeviceType.WeatherSensor]: CloudSun,
+  [DeviceType.ElectricityMeter]: Zap,
 };
 
 export function deviceTypeIcon(

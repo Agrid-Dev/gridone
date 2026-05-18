@@ -95,7 +95,8 @@
     "deviceTypes": {
       "thermostat": "Thermostat",
       "awhp": "AWHP",
-      "weather_sensor": "Weather Sensor"
+      "weather_sensor": "Weather Sensor",
+      "electricity_meter": "Electricity Meter"
     },
     "deviceKinds": {
       "physical": "Physical",
