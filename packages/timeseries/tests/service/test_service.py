@@ -30,6 +30,16 @@ async def service() -> AsyncIterator[TimeSeriesService]:
     await service.stop()
 
 
+class TestInit:
+    async def test_default_timezone_is_utc(self):
+        service = TimeSeriesService(storage_url=None)
+        assert service.default_timezone == "UTC"
+
+    async def test_custom_timezone_stored(self):
+        service = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        assert service.default_timezone == "Europe/Paris"
+
+
 class TestCreateSeries:
     async def test_create(self, service: TimeSeriesService):
         series = await service.create_series(

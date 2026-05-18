@@ -75,7 +75,9 @@ async def lifespan(app: FastAPI):
     app.state.websocket_manager = websocket_manager
 
     dm = DevicesService(settings.storage_url)
-    ts_service = TimeSeriesService(settings.storage_url)
+    ts_service = TimeSeriesService(
+        settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE
+    )
     await ts_service.start()
     app.state.device_manager = dm
     app.state.ts_service = ts_service

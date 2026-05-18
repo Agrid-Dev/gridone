@@ -1,5 +1,7 @@
 import secrets
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -10,8 +12,19 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     COOKIE_SECURE: bool = False  # Set True in production (HTTPS)
+    GRIDONE_TIMEZONE: str = "UTC"
 
     model_config = {"env_file": ".env"}
+
+    @field_validator("GRIDONE_TIMEZONE")
+    @classmethod
+    def validate_timezone(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except ZoneInfoNotFoundError as e:
+            msg = f"Invalid GRIDONE_TIMEZONE '{v}': not a valid IANA timezone name"
+            raise ValueError(msg) from e
+        return v
 
     @property
     def storage_url(self) -> str:
