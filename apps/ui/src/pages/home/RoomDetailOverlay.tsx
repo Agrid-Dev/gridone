@@ -112,22 +112,22 @@ export function RoomDetailOverlay({
 
   return (
     <div
-      className="absolute right-6 top-6 z-20 w-[400px] rounded-2xl border border-white/10 bg-black/80 p-5 text-white shadow-2xl backdrop-blur-xl"
+      className="absolute right-6 top-6 z-20 w-[400px] rounded-2xl border border-border bg-card/95 p-5 text-card-foreground shadow-2xl backdrop-blur-xl"
       ref={cardRef}
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-white/45">
+          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             {room.kind} · {room.assetId}
           </div>
-          <h2 className="font-display text-xl font-semibold leading-tight text-white">
+          <h2 className="font-display text-xl font-semibold leading-tight">
             {room.name}
           </h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-white/60 transition hover:bg-white/10 hover:text-white"
+          className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
           aria-label="Close room detail"
         >
           <X className="h-5 w-5" />
@@ -135,9 +135,9 @@ export function RoomDetailOverlay({
       </div>
 
       {isAlerting ? (
-        <div className="mt-3 rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-sm">
-          <div className="font-medium text-rose-200">Active alert</div>
-          <div className="text-xs text-rose-300/80">
+        <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/15 px-3 py-2 text-sm">
+          <div className="font-medium text-destructive">Active alert</div>
+          <div className="text-xs text-destructive/80">
             Setpoint exceeded. Investigate ventilation.
           </div>
         </div>
@@ -150,18 +150,18 @@ export function RoomDetailOverlay({
           return (
             <div
               key={device.id}
-              className="rounded-xl border border-white/10 bg-white/5 p-3"
+              className="rounded-xl border border-border bg-muted/40 p-3"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-white/55">
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground">
                     {device.kind}
                   </div>
-                  <div className="font-medium text-white">{device.name}</div>
+                  <div className="font-medium">{device.name}</div>
                 </div>
                 <div
                   className={`font-mono text-lg ${
-                    status === "alert" ? "text-rose-300" : "text-emerald-300"
+                    status === "alert" ? "text-destructive" : "text-primary"
                   }`}
                 >
                   {formatLatest(device, v)}
@@ -177,7 +177,7 @@ export function RoomDetailOverlay({
         })}
       </div>
 
-      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/40">
+      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         Click outside or press Esc to return
       </div>
     </div>

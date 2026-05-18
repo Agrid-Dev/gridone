@@ -37,16 +37,14 @@ export function HoverTooltip({
 
   return (
     <div
-      className="pointer-events-none fixed z-30 min-w-[200px] max-w-[280px] rounded-lg border border-white/10 bg-black/80 px-3 py-2 text-xs text-white shadow-2xl backdrop-blur-md"
+      className="pointer-events-none fixed z-30 min-w-[200px] max-w-[280px] rounded-lg border border-border bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-2xl backdrop-blur-md"
       style={{
         left: mousePos.x + 16,
         top: mousePos.y + 16,
       }}
     >
-      <div className="font-display text-sm font-semibold text-white">
-        {target.name}
-      </div>
-      <div className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-white/50">
+      <div className="font-display text-sm font-semibold">{target.name}</div>
+      <div className="mb-1.5 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
         {target.kind}
       </div>
       <div className="space-y-1">
@@ -58,17 +56,17 @@ export function HoverTooltip({
             <div
               key={d.id}
               className={`flex items-center justify-between gap-3 rounded px-1.5 py-0.5 ${
-                isFocus ? "bg-white/10" : ""
+                isFocus ? "bg-accent" : ""
               }`}
             >
-              <span className="text-white/70">{d.name}</span>
+              <span className="text-muted-foreground">{d.name}</span>
               <span
                 className={`font-mono text-[11px] ${
                   s === "alert"
-                    ? "text-rose-400"
+                    ? "text-destructive"
                     : isFocus
-                      ? "text-emerald-300"
-                      : "text-white"
+                      ? "text-primary"
+                      : ""
                 }`}
               >
                 {v !== undefined ? formatValue(d, v) : "—"}
@@ -78,7 +76,7 @@ export function HoverTooltip({
         })}
       </div>
       {status === "alert" ? (
-        <div className="mt-2 rounded bg-rose-500/20 px-2 py-1 text-[10px] font-medium text-rose-200">
+        <div className="mt-2 rounded bg-destructive/20 px-2 py-1 text-[10px] font-medium text-destructive">
           Alert active
         </div>
       ) : null}

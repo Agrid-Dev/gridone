@@ -24,14 +24,14 @@ export function HomeControls({
 }: Props) {
   const progress = Math.min(1, time / LOOP_SECONDS);
   return (
-    <div className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-2xl border border-white/10 bg-black/70 px-4 py-3 text-white shadow-2xl backdrop-blur-xl">
+    <div className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-2xl border border-border bg-card/95 px-4 py-3 text-card-foreground shadow-2xl backdrop-blur-xl">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           {paused ? (
             <button
               type="button"
               onClick={onStart}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/40 transition hover:bg-emerald-400"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-success text-success-foreground shadow-lg shadow-success/40 transition hover:opacity-90"
               aria-label="Start scenario"
             >
               <Play className="h-5 w-5 fill-current" />
@@ -40,7 +40,7 @@ export function HomeControls({
             <button
               type="button"
               onClick={onStop}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/40 transition hover:bg-amber-400"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-warning text-warning-foreground shadow-lg shadow-warning/40 transition hover:opacity-90"
               aria-label="Pause scenario"
             >
               <Pause className="h-5 w-5 fill-current" />
@@ -49,7 +49,7 @@ export function HomeControls({
           <button
             type="button"
             onClick={onRestart}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition hover:bg-accent hover:text-foreground"
             aria-label="Restart scenario"
           >
             <RotateCcw className="h-5 w-5" />
@@ -57,24 +57,22 @@ export function HomeControls({
         </div>
 
         <div className="flex min-w-[220px] flex-col">
-          <div className="font-mono text-xs text-white/60">
+          <div className="font-mono text-xs text-muted-foreground">
             Scenario · {formatTime(time)} / {formatTime(LOOP_SECONDS)}
           </div>
-          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-400 transition-[width]"
+              className="h-full bg-gradient-to-r from-primary via-success to-warning transition-[width]"
               style={{ width: `${progress * 100}%` }}
             />
           </div>
         </div>
 
-        <div className="border-l border-white/10 pl-4">
-          <div className="text-[10px] uppercase tracking-[0.2em] text-white/45">
+        <div className="border-l border-border pl-4">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Status
           </div>
-          <div className="font-medium text-white">
-            {paused ? "Paused" : "Running"}
-          </div>
+          <div className="font-medium">{paused ? "Paused" : "Running"}</div>
         </div>
       </div>
     </div>

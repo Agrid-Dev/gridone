@@ -88,31 +88,32 @@ export default function HomePage() {
 
       {/* Header — building name + address + mock-data label */}
       <div className="pointer-events-none absolute left-6 top-6 z-10 max-w-md">
-        <div className="rounded-2xl border border-white/10 bg-black/60 px-5 py-4 text-white shadow-2xl backdrop-blur-xl">
-          <div className="text-[10px] uppercase tracking-[0.28em] text-white/45">
+        <div className="rounded-2xl border border-border bg-card/95 px-5 py-4 text-card-foreground shadow-2xl backdrop-blur-xl">
+          <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">
             Live overview
           </div>
           <h1 className="mt-1 font-display text-2xl font-semibold leading-tight">
             {washingtonOpera.name}
           </h1>
-          <div className="mt-1 text-xs text-white/55">
+          <div className="mt-1 text-xs text-muted-foreground">
             {washingtonOpera.address}
           </div>
-          <div className="mt-3 flex gap-4 text-xs text-white/60">
+          <div className="mt-3 flex gap-4 text-xs text-muted-foreground">
             <span>
-              <span className="font-mono text-white">{stats.floors}</span>{" "}
+              <span className="font-mono text-foreground">{stats.floors}</span>{" "}
               floors
             </span>
             <span>
-              <span className="font-mono text-white">{stats.rooms}</span> rooms
+              <span className="font-mono text-foreground">{stats.rooms}</span>{" "}
+              rooms
             </span>
             <span>
-              <span className="font-mono text-white">{stats.devices}</span>{" "}
+              <span className="font-mono text-foreground">{stats.devices}</span>{" "}
               devices
             </span>
           </div>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-amber-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-warning/15 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-warning">
+            <span className="h-1.5 w-1.5 rounded-full bg-warning" />
             Mock telemetry
           </div>
         </div>
@@ -121,7 +122,7 @@ export default function HomePage() {
       {/* Alert banner */}
       {banner ? (
         <div className="pointer-events-none absolute left-1/2 top-6 z-10 -translate-x-1/2">
-          <div className="rounded-full border border-rose-500/40 bg-rose-500/15 px-4 py-2 text-sm font-medium text-rose-100 shadow-2xl backdrop-blur-xl">
+          <div className="rounded-full border border-destructive/40 bg-destructive/15 px-4 py-2 text-sm font-medium text-destructive shadow-2xl backdrop-blur-xl">
             {banner}
           </div>
         </div>
