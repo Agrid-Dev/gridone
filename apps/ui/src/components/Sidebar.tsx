@@ -191,10 +191,10 @@ export function Sidebar() {
             {version && versionLabel && (
               <p
                 aria-label={versionLabel}
-                className="font-mono text-[11px] text-muted-foreground/60"
+                className="font-mono text-xs font-medium text-muted-foreground"
                 title={versionLabel}
               >
-                {version}
+                v{version}
               </p>
             )}
           </div>
