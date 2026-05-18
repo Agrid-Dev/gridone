@@ -20,7 +20,7 @@ from timeseries.domain.models import (
     TimeSeries,
     validate_value_type,
 )
-from timeseries.domain.time_range import parse_duration, resolve_last
+from timeseries.domain.time_range import normalize_to_utc, parse_duration, resolve_last
 
 __all__ = [
     "AGG_COMPAT",
@@ -37,6 +37,7 @@ __all__ = [
     "SeriesKey",
     "SortOrder",
     "TimeSeries",
+    "normalize_to_utc",
     "parse_duration",
     "resolve_aggregation_data_type",
     "resolve_last",
