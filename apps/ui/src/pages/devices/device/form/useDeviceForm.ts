@@ -4,9 +4,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
   createDevice,
+  isPhysicalDevice,
   updateDevice,
   type Device,
   type DeviceCreatePayload,
+  type PhysicalDevice,
 } from "@/api/devices";
 import type { Transport, TransportProtocol } from "@/api/transports";
 import { useDrivers } from "@/pages/drivers/useDrivers";
@@ -29,7 +31,7 @@ export type NetworkModalState =
   | { mode: "edit"; transport: Transport }
   | null;
 
-export const useDeviceForm = (device?: Device) => {
+export const useDeviceForm = (device?: PhysicalDevice) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isCreate = device === undefined;
@@ -184,10 +186,12 @@ export const useDeviceForm = (device?: Device) => {
     onSuccess: async (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices"] });
       try {
-        await discovery.flush({
-          transportId: device.transportId,
-          driverId: device.driverId,
-        });
+        if (isPhysicalDevice(device)) {
+          await discovery.flush({
+            transportId: device.transportId,
+            driverId: device.driverId,
+          });
+        }
       } catch {
         // Toast is surfaced inside useDeviceDiscovery's mutation onError.
         // Device creation already succeeded — navigate so the user isn't

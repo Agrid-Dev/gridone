@@ -97,6 +97,10 @@
       "awhp": "PAC air-eau",
       "weather_sensor": "Station m\u00e9t\u00e9o"
     },
+    "deviceKinds": {
+      "physical": "Physique",
+      "virtual": "Virtuel"
+    },
     "recentlyUpdated": "Mis \u00e0 jour r\u00e9cemment",
     "lastUpdate": "Mis \u00e0 jour il y a",
     "notFound": "Introuvable",

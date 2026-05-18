@@ -28,17 +28,41 @@ export enum DeviceType {
   WeatherSensor = "weather_sensor",
 }
 
-export type Device = {
+export enum DeviceKind {
+  Physical = "physical",
+  Virtual = "virtual",
+}
+
+type DeviceCommon = {
   id: string;
   name: string;
   type: DeviceType | null;
   tags: Record<string, string>;
-  driverId: string;
-  transportId: string;
-  config: Record<string, unknown>;
   attributes: Record<string, DeviceAttribute>;
   isFaulty: boolean;
 };
+
+export type PhysicalDevice = DeviceCommon & {
+  kind: DeviceKind.Physical;
+  driverId: string;
+  transportId: string;
+  config: Record<string, unknown>;
+};
+
+export type VirtualDevice = DeviceCommon & {
+  kind: DeviceKind.Virtual;
+};
+
+/** Discriminated by `kind`; mirrors the backend `DeviceKind` split. */
+export type Device = PhysicalDevice | VirtualDevice;
+
+export function isPhysicalDevice(device: Device): device is PhysicalDevice {
+  return device.kind === DeviceKind.Physical;
+}
+
+export function isVirtualDevice(device: Device): device is VirtualDevice {
+  return device.kind === DeviceKind.Virtual;
+}
 
 // ---------------------------------------------------------------------------
 // Standard device type helpers

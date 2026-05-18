@@ -3,7 +3,12 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceCard } from "./DeviceCard";
-import type { Device, DeviceAttribute, FaultAttribute } from "@/api/devices";
+import {
+  DeviceKind,
+  type Device,
+  type DeviceAttribute,
+  type FaultAttribute,
+} from "@/api/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -37,6 +42,7 @@ function makeDevice(
 ): Device {
   return {
     id: "d1",
+    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

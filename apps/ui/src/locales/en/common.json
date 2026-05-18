@@ -97,6 +97,10 @@
       "awhp": "AWHP",
       "weather_sensor": "Weather Sensor"
     },
+    "deviceKinds": {
+      "physical": "Physical",
+      "virtual": "Virtual"
+    },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",

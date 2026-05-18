@@ -10,6 +10,7 @@ import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ErrorBoundary } from "react-error-boundary";
 import { usePermissions } from "@/contexts/AuthContext";
+import { isPhysicalDevice } from "@/api/devices";
 
 const Loader = () => (
   <div className="space-y-4">
@@ -36,7 +37,13 @@ function DeviceEdit() {
   }
   return (
     <>
-      <DeviceForm device={device} />
+      {isPhysicalDevice(device) ? (
+        <DeviceForm device={device} />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {t("devices.edit.virtualNotEditable")}
+        </p>
+      )}
       {can("devices:write") && (
         <DangerZone
           onDelete={() => handleDelete(deviceId)}
