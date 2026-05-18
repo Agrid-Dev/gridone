@@ -382,6 +382,21 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="export-csv-no-auth",
     ),
+    # Aggregate: missing required params → 422 past auth, 401 without auth
+    pytest.param(
+        "GET",
+        "/devices/any-id/timeseries/temp/aggregate",
+        "viewer",
+        422,
+        id="aggregate-viewer",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/any-id/timeseries/temp/aggregate",
+        None,
+        401,
+        id="aggregate-no-auth",
+    ),
     # Faults read endpoint (nested under /devices/faults, all auth roles allowed)
     pytest.param("GET", "/devices/faults/", "admin", 200, id="faults-admin"),
     pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),

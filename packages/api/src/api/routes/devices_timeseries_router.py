@@ -1,16 +1,26 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
-from models.errors import NotFoundError
-from pydantic import BaseModel
-from timeseries.domain import SeriesKey
+from models.errors import InvalidError, NotFoundError
+from pydantic import BaseModel, ValidationError
+from timeseries.domain import (
+    AggregationOperator,
+    AggregationQuery,
+    Interval,
+    SeriesKey,
+)
 from timeseries.service import TimeSeriesService
 
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
-from api.schemas.timeseries import DataPointResponse, TimeSeriesResponse
+from api.schemas.timeseries import (
+    AggregatedPointResponse,
+    AggregationResultResponse,
+    DataPointResponse,
+    TimeSeriesResponse,
+)
 
 router = APIRouter()
 
@@ -122,3 +132,60 @@ async def get_device_timeseries_points(
         DataPointResponse(timestamp=p.timestamp, value=p.value, command_id=p.command_id)
         for p in points
     ]
+
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    if dt is None or dt.tzinfo is not None:
+        return dt
+    return dt.replace(tzinfo=UTC)
+
+
+def get_aggregation_query(
+    interval: Interval = Query(...),
+    agg: AggregationOperator = Query(...),
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    timezone: str | None = Query(None),
+) -> AggregationQuery:
+    try:
+        return AggregationQuery(
+            interval=interval,
+            agg=agg,
+            start=_as_utc(start),
+            end=_as_utc(end),
+            last=last,
+            timezone=timezone,
+        )
+    except ValidationError as e:
+        raise InvalidError("; ".join(err["msg"] for err in e.errors())) from e
+
+
+@router.get(
+    "/{device_id}/timeseries/{attr}/aggregate",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
+async def get_device_timeseries_aggregate(
+    device_id: str,
+    attr: str,
+    query: AggregationQuery = Depends(get_aggregation_query),
+    dm: DevicesServiceInterface = Depends(get_device_manager),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> AggregationResultResponse:
+    dm.get_device(device_id)
+    result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
+    return AggregationResultResponse(
+        interval=result.interval,
+        agg=result.agg,
+        data_type=result.data_type,
+        aggregation_data_type=result.aggregation_data_type,
+        timezone=result.timezone,
+        points=[
+            AggregatedPointResponse(
+                interval_start=p.interval_start,
+                value=p.value,
+                count=p.count,
+            )
+            for p in result.points
+        ],
+    )
