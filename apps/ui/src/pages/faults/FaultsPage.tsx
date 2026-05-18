@@ -50,10 +50,7 @@ export default function FaultsPage() {
   }, [faults, query]);
 
   const header = (
-    <ResourceHeader
-      title={t("faults.title")}
-      resourceName={t("faults.subtitle")}
-    />
+    <ResourceHeader title={t("faults.title")} caption={t("faults.caption")} />
   );
 
   if (loading) {

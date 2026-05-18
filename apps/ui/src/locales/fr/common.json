@@ -171,5 +171,8 @@
     "faults": "Défauts",
     "users": "Utilisateurs",
     "notifications": "Notifications"
+  },
+  "topbar": {
+    "notifications": "Notifications"
   }
 }

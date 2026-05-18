@@ -95,7 +95,7 @@ export default function AppDetail() {
       />
 
       {/* Info card */}
-      <div className="rounded-lg border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-y-4 text-sm">
           <div>
             <span className="text-muted-foreground">

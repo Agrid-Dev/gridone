@@ -11,31 +11,35 @@ import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { Sidebar } from "./components/Sidebar";
+import { TopBar } from "./components/TopBar";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
 
 function ProtectedLayout() {
   return (
-    <div className="min-h-screen bg-background bg-grid">
+    <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="ml-64 min-h-screen">
-        <div className="mx-auto flex max-w-6xl flex-col px-4 pb-10 lg:px-6 pt-10">
-          <Routes>
-            <Route index element={<HomePage />} />
-            <Route path="/assets/*" element={<Assets />} />
-            <Route path="/devices/*" element={<Devices />} />
-            <Route path="/drivers/*" element={<Drivers />} />
-            <Route path="/apps/*" element={<Apps />} />
-            <Route path="/automations/*" element={<Automations />} />
-            <Route path="/faults" element={<FaultsPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
-          <Toaster />
-        </div>
-      </main>
+      <div className="ml-64 flex min-h-screen flex-col">
+        <TopBar />
+        <main className="flex-1">
+          <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
+            <Routes>
+              <Route index element={<HomePage />} />
+              <Route path="/assets/*" element={<Assets />} />
+              <Route path="/devices/*" element={<Devices />} />
+              <Route path="/drivers/*" element={<Drivers />} />
+              <Route path="/apps/*" element={<Apps />} />
+              <Route path="/automations/*" element={<Automations />} />
+              <Route path="/faults" element={<FaultsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+            <Toaster />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

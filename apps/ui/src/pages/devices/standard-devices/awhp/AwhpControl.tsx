@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Fan, Wind, Droplets, ArrowRight, Thermometer } from "lucide-react";
 import { isAwhp, readAwhpAttributes } from "@/api/devices";
+import { Badge } from "@/components/ui/badge";
+import { ControlPanel } from "../ControlPanel";
 import type { StandardControlProps } from "../types";
 
 function fmt(v: number | null, unit = "°"): string {
@@ -36,23 +38,16 @@ export function AwhpControl({ device }: StandardControlProps) {
   const a = readAwhpAttributes(device);
 
   return (
-    <div className="mx-auto w-full max-w-lg rounded-2xl border bg-card p-5 shadow-md">
-      {/* ── Header: status + mode ── */}
-      <div className="mb-4 flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="font-medium uppercase">
-            {t("controls.awhp.runStatus")}:{" "}
-            <span className="text-foreground">{a.unitRunStatus ?? "—"}</span>
-          </span>
-        </div>
-        {a.mode && (
-          <span className="font-medium uppercase">
-            {t("controls.awhp.mode")}:{" "}
-            <span className="text-foreground">{a.mode}</span>
-          </span>
-        )}
-      </div>
-
+    <ControlPanel
+      size="lg"
+      modeChip={a.mode ? <Badge variant="info">{a.mode}</Badge> : null}
+      headerLabel={
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {t("controls.awhp.runStatus")}:{" "}
+          <span className="text-foreground">{a.unitRunStatus ?? "—"}</span>
+        </span>
+      }
+    >
       {/* ── Outdoor temperature ── */}
       {a.outdoorTemperature != null && (
         <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -69,8 +64,8 @@ export function AwhpControl({ device }: StandardControlProps) {
         {/* Row 1: Evaporator → Compressor → Condenser */}
         <div className="flex w-full items-center gap-0">
           {/* Evaporator */}
-          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/30">
-            <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-primary/20 bg-primary/[0.06] p-3">
+            <div className="flex items-center gap-1 text-primary">
               <Wind className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {t("controls.awhp.evaporator")}
@@ -93,9 +88,9 @@ export function AwhpControl({ device }: StandardControlProps) {
             </div>
           </div>
 
-          {/* Pipe: evap → compressor */}
+          {/* Pipe: evap → compressor (cold suction gas) */}
           <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-blue-400" />
+            <ArrowRight className="h-4 w-4 text-sky-500" />
             {a.compressorSuctionTemperature != null && (
               <span className="text-[9px] tabular-nums text-muted-foreground">
                 {fmt(a.compressorSuctionTemperature)}
@@ -129,9 +124,9 @@ export function AwhpControl({ device }: StandardControlProps) {
             </div>
           </div>
 
-          {/* Pipe: compressor → condenser */}
+          {/* Pipe: compressor → condenser (hot discharge gas) */}
           <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-red-400" />
+            <ArrowRight className="h-4 w-4 text-red-500" />
             {a.compressorDischargeTemperature != null && (
               <span className="text-[9px] tabular-nums text-muted-foreground">
                 {fmt(a.compressorDischargeTemperature)}
@@ -140,8 +135,8 @@ export function AwhpControl({ device }: StandardControlProps) {
           </div>
 
           {/* Condenser */}
-          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-red-200 bg-red-50/50 p-3 dark:border-red-900 dark:bg-red-950/30">
-            <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-orange-200 bg-orange-50/60 p-3">
+            <div className="flex items-center gap-1 text-orange-700">
               <Droplets className="h-4 w-4" />
               <span className="text-[10px] font-bold uppercase tracking-wider">
                 {t("controls.awhp.condenser")}
@@ -165,16 +160,16 @@ export function AwhpControl({ device }: StandardControlProps) {
           </div>
         </div>
 
-        {/* Row 2: Return path (expansion valve) */}
+        {/* Row 2: Return path (expansion valve is cold/hot pivot) */}
         <div className="flex w-full items-stretch">
-          {/* Left vertical pipe */}
+          {/* Left vertical pipe — cold liquid up to evaporator */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-blue-300 dark:border-blue-700" />
+            <div className="h-6 w-px border-l border-dashed border-sky-300" />
           </div>
           <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
-          {/* Right vertical pipe */}
+          {/* Right vertical pipe — hot liquid down from condenser */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-red-300 dark:border-red-700" />
+            <div className="h-6 w-px border-l border-dashed border-red-300" />
           </div>
         </div>
 
@@ -185,23 +180,25 @@ export function AwhpControl({ device }: StandardControlProps) {
           </span>
         </div>
 
-        {/* Bottom connecting line */}
+        {/* Bottom connecting lines */}
         <div className="flex w-full items-stretch">
+          {/* Bottom-left — cold liquid leaving the valve */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-blue-300 dark:border-blue-700" />
+            <div className="h-4 w-px border-l border-dashed border-sky-300" />
           </div>
           <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
+          {/* Bottom-right — hot liquid entering the valve */}
           <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-red-300 dark:border-red-700" />
+            <div className="h-4 w-px border-l border-dashed border-red-300" />
           </div>
         </div>
       </div>
 
       {/* ── Water side: inlet / outlet / setpoint ── */}
-      <div className="mt-4 flex items-center justify-between rounded-xl border border-sky-200 bg-sky-50/50 px-4 py-3 dark:border-sky-900 dark:bg-sky-950/30">
+      <div className="mt-4 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3">
         <div className="flex items-center gap-1.5">
-          <Droplets className="h-3.5 w-3.5 text-sky-500" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+          <Droplets className="h-3.5 w-3.5 text-primary" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
             {t("controls.awhp.waterSide")}
           </span>
         </div>
@@ -239,6 +236,6 @@ export function AwhpControl({ device }: StandardControlProps) {
           )}
         </div>
       </div>
-    </div>
+    </ControlPanel>
   );
 }

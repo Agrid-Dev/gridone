@@ -1,8 +1,12 @@
 {
   "home": {
-    "devices": "Devices",
-    "zones": "Zones",
-    "faults": "Active faults",
-    "users": "Users"
+    "devices_one": "Device",
+    "devices_other": "Devices",
+    "zones_one": "Zone",
+    "zones_other": "Zones",
+    "faults_one": "Active fault",
+    "faults_other": "Active faults",
+    "users_one": "User",
+    "users_other": "Users"
   }
 }

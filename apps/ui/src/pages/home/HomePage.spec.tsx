@@ -1,16 +1,29 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { createI18nMock } from "@/test/i18nMock";
 
-vi.mock("react-i18next", () =>
-  createI18nMock({
-    "home.devices": "Devices",
-    "home.zones": "Zones",
-    "home.faults": "Active faults",
-    "home.users": "Users",
+const translations: Record<string, string> = {
+  "home.devices_one": "Device",
+  "home.devices_other": "Devices",
+  "home.zones_one": "Zone",
+  "home.zones_other": "Zones",
+  "home.faults_one": "Active fault",
+  "home.faults_other": "Active faults",
+  "home.users_one": "User",
+  "home.users_other": "Users",
+};
+
+vi.mock("react-i18next", () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: { count?: number }) => {
+      if (opts && typeof opts.count === "number") {
+        const suffix = opts.count === 1 ? "_one" : "_other";
+        return translations[`${key}${suffix}`] ?? key;
+      }
+      return translations[key] ?? key;
+    },
   }),
-);
+}));
 
 const mockUseDevicesList = vi.fn();
 const mockUseZonesList = vi.fn();
@@ -71,7 +84,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("HomePage", () => {
-  it("renders all four stat cards with their counts for an admin", () => {
+  it("renders the four stat cards with plural labels and counts", () => {
     renderHomePage();
 
     expect(screen.getByText("Devices")).toBeInTheDocument();
@@ -79,18 +92,30 @@ describe("HomePage", () => {
     expect(screen.getByText("Active faults")).toBeInTheDocument();
     expect(screen.getByText("Users")).toBeInTheDocument();
 
-    const values = screen
-      .getAllByTestId("stat-value")
-      .map((el) => el.textContent);
-    expect(values).toEqual(["42", "18", "0", "6"]);
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("18")).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.getByText("6")).toBeInTheDocument();
+  });
+
+  it("uses the singular label when count is 1", () => {
+    mockUseUsers.mockReturnValue({
+      users: [{}],
+      isLoading: false,
+      error: null,
+    });
+    renderHomePage();
+
+    expect(screen.getByText("User")).toBeInTheDocument();
+    expect(screen.queryByText("Users")).not.toBeInTheDocument();
   });
 
   it("links each card to its resource page", () => {
     renderHomePage();
-    const links = screen
+    const hrefs = screen
       .getAllByRole("link")
       .map((el) => el.getAttribute("href"));
-    expect(links).toEqual(
+    expect(hrefs).toEqual(
       expect.arrayContaining(["/devices", "/assets", "/faults", "/users"]),
     );
   });
@@ -100,12 +125,13 @@ describe("HomePage", () => {
     renderHomePage();
 
     expect(screen.queryByText("Users")).not.toBeInTheDocument();
+    expect(screen.queryByText("User")).not.toBeInTheDocument();
     expect(screen.getByText("Devices")).toBeInTheDocument();
     expect(screen.getByText("Zones")).toBeInTheDocument();
     expect(screen.getByText("Active faults")).toBeInTheDocument();
   });
 
-  it("applies destructive styling to the faults value when faults > 0", () => {
+  it("applies the rose tone icon background to the faults card when faults > 0", () => {
     mockUseFaultsList.mockReturnValue({
       faults: [{}, {}, {}],
       loading: false,
@@ -113,28 +139,20 @@ describe("HomePage", () => {
     });
     renderHomePage();
 
-    const values = screen.getAllByTestId("stat-value");
-    const faultValue = values.find((el) => el.textContent === "3");
-    expect(faultValue).toBeDefined();
-    expect(faultValue?.className).toContain("text-destructive");
+    const faultsLabel = screen.getByText("Active faults");
+    const card = faultsLabel.closest("a");
+    expect(card).not.toBeNull();
+    expect(card?.querySelector(".bg-rose-100")).not.toBeNull();
   });
 
-  it("renders dashes when hooks return errors", () => {
+  it("renders a dash when a hook returns an error", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [],
       loading: false,
       error: "boom",
     });
-    mockUseFaultsList.mockReturnValue({
-      faults: [],
-      loading: false,
-      error: "boom",
-    });
     renderHomePage();
 
-    const values = screen
-      .getAllByTestId("stat-value")
-      .map((el) => el.textContent);
-    expect(values).toContain("—");
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });

@@ -180,7 +180,7 @@ export default function SettingsPage() {
         resourceName={t("settings.title")}
       />
 
-      <div className="rounded-lg border border-border bg-card p-6 max-w-lg">
+      <div className="rounded-2xl border border-border bg-card p-6 max-w-lg">
         {user.mustChangePassword && (
           <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             {t("settings.mustChangePassword")}

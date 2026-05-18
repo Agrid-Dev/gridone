@@ -63,8 +63,8 @@ export default function AutomationsList() {
 
   const header = (
     <ResourceHeader
-      resourceName={t("title")}
-      title={t("subtitle")}
+      title={t("title")}
+      caption={t("caption")}
       actions={
         canWrite ? (
           <Button asChild size="sm">

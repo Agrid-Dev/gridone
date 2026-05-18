@@ -1,7 +1,7 @@
 {
   "faults": {
     "title": "Active faults",
-    "subtitle": "Fleet triage",
+    "caption": "Active issues across your fleet — investigate, acknowledge, and resolve.",
     "searchPlaceholder": "Search by device or fault…",
     "emptyTitle": "No active faults across your fleet.",
     "emptyDescription": "All devices are reporting healthy attributes.",

@@ -1,9 +1,7 @@
 {
   "devices": {
     "title": "Appareils",
-    "subtitle": "Flotte connectée",
     "unableToLoad": "Impossible de charger les appareils",
-    "connectedFleet": "Flotte connectée",
     "create": {
       "title": "Ajouter un appareil",
       "description": "Ajoutez les détails pour un nouvel appareil."
@@ -210,7 +208,6 @@
   },
   "controls": {
     "thermostat": {
-      "current": "Actuelle",
       "setpoint": "Consigne",
       "mode": "Mode",
       "fanSpeed": "Vitesse ventilateur",

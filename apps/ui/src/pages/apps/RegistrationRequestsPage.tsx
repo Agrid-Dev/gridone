@@ -43,7 +43,7 @@ function RequestsTable({
   const { t } = useTranslation("apps");
   const can = usePermissions();
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted">

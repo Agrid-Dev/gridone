@@ -1,7 +1,6 @@
 {
   "notifications": {
     "title": "Notifications",
-    "subtitle": "Boîte de réception",
     "unableToLoad": "Impossible de charger les notifications",
     "markAsRead": "Marquer comme lue",
     "markSelectedAsRead": "Marquer comme lues ({{count}})",

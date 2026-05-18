@@ -1,6 +1,6 @@
 {
   "title": "Drivers",
-  "list": "Liste des drivers disponibles ({{count}})",
+  "caption": "Les drivers décrivent comment Gridone communique avec une famille d'équipements — protocole, attributs et adaptateurs de valeurs.",
   "attribute_one": "attribut",
   "attribute_other": "attributs",
   "notFoundDetails": "Aucun driver trouv\u00e9 pour l'id \"{{driverId}}\"",

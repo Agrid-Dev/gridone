@@ -1,8 +1,12 @@
 {
   "home": {
-    "devices": "Appareils",
-    "zones": "Zones",
-    "faults": "Alertes actives",
-    "users": "Utilisateurs"
+    "devices_one": "Appareil",
+    "devices_other": "Appareils",
+    "zones_one": "Zone",
+    "zones_other": "Zones",
+    "faults_one": "Alerte active",
+    "faults_other": "Alertes actives",
+    "users_one": "Utilisateur",
+    "users_other": "Utilisateurs"
   }
 }

@@ -1,3 +1,25 @@
+## v0.74.0 (2026-05-18)
+
+### Feat
+
+- **ui**: address PR #285 review feedback
+- **ui**: lift inputs off page background and surface app version
+- **ui**: hide driver id from device card header
+- **ui**: polish standard-device control widgets with shared shell
+- **ui**: refactor shell + design tokens to clean SaaS dashboard look
+
+## v0.73.0 (2026-05-18)
+
+### Feat
+
+- **api**: add GET /{device_id}/timeseries/{attr}/aggregate endpoint (#284)
+
+## v0.72.0 (2026-05-18)
+
+### Feat
+
+- **ts/storage**: implement postgres aggregate (#283)
+
 ## v0.71.0 (2026-05-12)
 
 ### Feat

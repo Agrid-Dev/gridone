@@ -51,7 +51,7 @@ export default function AssetCreate() {
         backTo="/assets"
       />
 
-      <div className="rounded-lg border border-border bg-card p-6">
+      <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm
           defaultValues={{ name: "", type: "building", parentId }}
           onSubmit={handleSubmit}

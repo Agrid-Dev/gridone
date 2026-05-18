@@ -1,6 +1,6 @@
 {
   "title": "Automatisations",
-  "subtitle": "Actions déclenchées par événements",
+  "caption": "Déclenchez des actions sur les équipements selon une programmation ou un changement d'attribut.",
   "singular": "Automatisation",
   "comingSoon": "Bientôt disponible",
   "flow": {
