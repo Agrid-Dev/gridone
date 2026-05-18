@@ -1,3 +1,9 @@
+## v0.75.0 (2026-05-18)
+
+### Feat
+
+- **timeseries**: wire instance-level timezone to TimeSeriesService (#282)
+
 ## v0.74.0 (2026-05-18)
 
 ### Feat
