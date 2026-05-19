@@ -69,7 +69,7 @@ def resolve_aggregation_data_type(
     """
     result = AGG_COMPAT[agg][data_type]
     if result is None:
-        msg = f"Operator {agg!r} is not supported for data type {data_type!r}"
+        msg = f"Operator '{agg}' is not supported for data type '{data_type}'"
         raise InvalidError(msg)
     return result
 
