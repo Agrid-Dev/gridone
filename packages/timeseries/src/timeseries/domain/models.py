@@ -21,6 +21,13 @@ class DataPoint:
     command_id: int | None = None
 
 
+@dataclass(frozen=True)
+class FetchPointsResult:
+    points: list[DataPoint]
+    truncated: bool
+    next_start: datetime | None
+
+
 @dataclass
 class TimeSeries:
     data_type: DataType

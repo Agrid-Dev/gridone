@@ -130,6 +130,7 @@ class PostgresStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
+        limit: int | None = None,
     ) -> list[DataPoint]:
         series = await self.get_series_by_key(key)
         if series is None:
@@ -148,12 +149,16 @@ class PostgresStorage:
         if end is not None:
             clauses.append(f"timestamp <= ${idx}")
             params.append(end)
+            idx += 1
 
         query = (
             f"SELECT timestamp, {value_col} AS value, command_id "  # noqa: S608
             f"FROM ts_data_points WHERE {' AND '.join(clauses)} "
-            "ORDER BY timestamp"
+            "ORDER BY timestamp ASC"
         )
+        if limit is not None:
+            query += f" LIMIT ${idx}"
+            params.append(limit + 1)
 
         rows = await self._pool.fetch(query, *params)
         return [

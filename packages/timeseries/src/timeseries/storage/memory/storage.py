@@ -64,6 +64,7 @@ class MemoryStorage:
         *,
         start: datetime | None = None,
         end: datetime | None = None,
+        limit: int | None = None,
     ) -> list[DataPoint]:
         series_id = self._key_index.get(key)
         if series_id is None:
@@ -73,6 +74,8 @@ class MemoryStorage:
             points = [p for p in points if p.timestamp >= start]
         if end is not None:
             points = [p for p in points if p.timestamp <= end]
+        if limit is not None:
+            points = points[: limit + 1]
         return list(points)
 
     async def fetch_point_before(
