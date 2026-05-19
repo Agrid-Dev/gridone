@@ -1,3 +1,13 @@
+## v0.78.0 (2026-05-19)
+
+### Feat
+
+- **ui**: devices list search bar
+
+### Refactor
+
+- **ui**: sort devices alphabetically, drop fade-up animation
+
 ## v0.77.0 (2026-05-19)
 
 ### Feat
