@@ -9,6 +9,7 @@ import pytest_asyncio
 
 from devices_manager.core.device import (
     Attribute,
+    CoreDevice,
     DeviceBase,
     FaultAttribute,
     PhysicalDevice,
@@ -1127,3 +1128,55 @@ class TestDeviceRegistryPersistence:
         )
         await registry.remove(device.id)
         storage.delete.assert_called_once_with(device.id)
+
+
+class TestDeviceRegistrySearch:
+    def _make_registry(
+        self, names: list[str], driver, transport, on_attribute_update
+    ) -> DeviceRegistry:
+        devices: dict[str, CoreDevice] = {
+            f"d{i}": PhysicalDevice.from_base(
+                DeviceBase(id=f"d{i}", name=name, config={}),
+                driver=driver,
+                transport=transport,
+            )
+            for i, name in enumerate(names)
+        }
+        return DeviceRegistry(
+            devices,
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(transport),
+            on_attribute_update=on_attribute_update,
+        )
+
+    @pytest.mark.parametrize(
+        ("query", "names", "expected_count"),
+        [
+            # exact match
+            ("chambre 12", ["chambre 12", "chambre 13"], 1),
+            # fuzzy string token matches despite typo
+            ("chmabre 12", ["chambre 12", "chambre 13"], 1),
+            # numeric token is exact: "13" does not match "chambre 12"
+            ("chambre 13", ["chambre 12"], 0),
+            # empty query returns all
+            ("", ["chambre 12", "chambre 13"], 2),
+            # whitespace-only query returns all
+            ("   ", ["chambre 12"], 1),
+            # None search returns all
+            (None, ["chambre 12"], 1),
+        ],
+    )
+    def test_search(  # noqa: PLR0913
+        self,
+        query,
+        names,
+        expected_count,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        registry = self._make_registry(
+            names, driver, mock_transport_client, on_attribute_update
+        )
+        result = registry.list_all(search=query)
+        assert len(result) == expected_count

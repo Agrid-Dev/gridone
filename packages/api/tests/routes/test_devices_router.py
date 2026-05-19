@@ -83,6 +83,7 @@ def _make_dm(
         writable_attribute=None,
         writable_attribute_type=None,  # noqa: ARG001
         is_faulty=None,
+        search=None,  # noqa: ARG001
     ):
         results = list(all_devices.values())
         if ids is not None:
@@ -191,13 +192,17 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=["thermostat"], tags=None, is_faulty=None
+            ids=None, types=["thermostat"], tags=None, is_faulty=None, search=None
         )
 
     def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"tags": "asset_id:asset-1"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["asset-1"]}, is_faulty=None
+            ids=None,
+            types=None,
+            tags={"asset_id": ["asset-1"]},
+            is_faulty=None,
+            search=None,
         )
 
     def test_filter_by_tags_multiple_values_and_keys(
@@ -216,30 +221,31 @@ class TestListDevices:
             types=None,
             tags={"asset_id": ["a1", "a2"], "zone": ["north"]},
             is_faulty=None,
+            search=None,
         )
 
     def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
         client.get("/")
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=None
+            ids=None, types=None, tags=None, is_faulty=None, search=None
         )
 
     def test_is_faulty_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "true"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=True
+            ids=None, types=None, tags=None, is_faulty=True, search=None
         )
 
     def test_is_faulty_false_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "false"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=False
+            ids=None, types=None, tags=None, is_faulty=False, search=None
         )
 
     def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"asset_id": "a1"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["a1"]}, is_faulty=None
+            ids=None, types=None, tags={"asset_id": ["a1"]}, is_faulty=None, search=None
         )
 
     def test_asset_id_merges_into_existing_asset_tag(
@@ -253,7 +259,17 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["a1", "a2"]}, is_faulty=None
+            ids=None,
+            types=None,
+            tags={"asset_id": ["a1", "a2"]},
+            is_faulty=None,
+            search=None,
+        )
+
+    def test_search_forwarded_to_service(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"search": "chambre 12"})
+        dm.list_devices.assert_called_once_with(
+            ids=None, types=None, tags=None, is_faulty=None, search="chambre 12"
         )
 
 
