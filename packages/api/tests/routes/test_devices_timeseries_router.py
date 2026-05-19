@@ -161,7 +161,10 @@ class TestGetDeviceTimeseriesPoints:
         async with async_client as ac:
             response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
         assert response.status_code == 200
-        assert response.json() == []
+        body = response.json()
+        assert body["points"] == []
+        assert body["truncated"] is False
+        assert body["next_start"] is None
 
     async def test_returns_points(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
@@ -174,9 +177,9 @@ class TestGetDeviceTimeseriesPoints:
         async with async_client as ac:
             response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
         assert response.status_code == 200
-        points = response.json()
-        assert len(points) == 1
-        assert points[0]["value"] == 23.5
+        body = response.json()
+        assert len(body["points"]) == 1
+        assert body["points"][0]["value"] == 23.5
 
     async def test_command_id_null_when_not_set(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
@@ -188,7 +191,7 @@ class TestGetDeviceTimeseriesPoints:
         await ts_service.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
         async with async_client as ac:
             response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
-        assert response.json()[0]["command_id"] is None
+        assert response.json()["points"][0]["command_id"] is None
 
     async def test_command_id_in_response(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
@@ -202,7 +205,7 @@ class TestGetDeviceTimeseriesPoints:
         )
         async with async_client as ac:
             response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
-        assert response.json()[0]["command_id"] == 42
+        assert response.json()["points"][0]["command_id"] == 42
 
     async def test_filter_start(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
@@ -226,7 +229,7 @@ class TestGetDeviceTimeseriesPoints:
                 f"/{DEVICE_ID}/timeseries/{ATTR}", params={"start": t2.isoformat()}
             )
         assert response.status_code == 200
-        points = response.json()
+        points = response.json()["points"]
         assert len(points) == 2
         assert points[0]["value"] == 2.0
         assert points[1]["value"] == 3.0
@@ -253,7 +256,7 @@ class TestGetDeviceTimeseriesPoints:
                 f"/{DEVICE_ID}/timeseries/{ATTR}", params={"end": t2.isoformat()}
             )
         assert response.status_code == 200
-        points = response.json()
+        points = response.json()["points"]
         assert len(points) == 2
         assert points[0]["value"] == 1.0
         assert points[1]["value"] == 2.0
@@ -278,7 +281,7 @@ class TestGetDeviceTimeseriesPoints:
                 f"/{DEVICE_ID}/timeseries/{ATTR}", params={"last": "3h"}
             )
         assert response.status_code == 200
-        points = response.json()
+        points = response.json()["points"]
         assert len(points) == 1
         assert points[0]["value"] == 2.0
 
@@ -304,7 +307,7 @@ class TestGetDeviceTimeseriesPoints:
                 params={"start": t2.isoformat(), "carry_forward": "true"},
             )
         assert response.status_code == 200
-        points = response.json()
+        points = response.json()["points"]
         assert len(points) == 2
         assert points[0]["value"] == 1.0
         assert points[1]["value"] == 3.0
@@ -331,9 +334,65 @@ class TestGetDeviceTimeseriesPoints:
                 params={"start": t2.isoformat(), "carry_forward": "false"},
             )
         assert response.status_code == 200
-        points = response.json()
+        points = response.json()["points"]
         assert len(points) == 1
         assert points[0]["value"] == 3.0
+
+
+class TestGetDeviceTimeseriesPointsTruncation:
+    async def _setup(self, ts_service: TimeSeriesService, n: int) -> list[DataPoint]:
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        pts = [
+            DataPoint(timestamp=base + timedelta(minutes=i), value=float(i))
+            for i in range(n)
+        ]
+        await ts_service.upsert_points(KEY, pts)
+        return pts
+
+    async def test_non_truncated_envelope_shape(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await self._setup(ts_service, 3)
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}", params={"limit": 10}
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["truncated"] is False
+        assert body["next_start"] is None
+        assert len(body["points"]) == 3
+
+    async def test_truncated_envelope_shape(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        pts = await self._setup(ts_service, 5)
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}", params={"limit": 3}
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["truncated"] is True
+        assert body["next_start"] is not None
+        assert len(body["points"]) == 3
+        expected_next = pts[3].timestamp.isoformat()
+        assert body["next_start"].startswith(expected_next[:19])
+
+    async def test_limit_exceeds_max_returns_422(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}", params={"limit": 100_001}
+            )
+        assert response.status_code == 422
 
 
 # TestExportCsv
@@ -887,7 +946,7 @@ class TestGetDeviceTimeseriesPointsRendering:
         async with paris_client as ac:
             response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
         assert response.status_code == 200
-        ts_str = response.json()[0]["timestamp"]
+        ts_str = response.json()["points"][0]["timestamp"]
         assert ts_str.endswith("+01:00"), f"expected +01:00 offset, got {ts_str}"
 
     async def test_timezone_param_overrides_service_default(
@@ -905,7 +964,7 @@ class TestGetDeviceTimeseriesPointsRendering:
                 f"/{DEVICE_ID}/timeseries/{ATTR}", params={"timezone": "UTC"}
             )
         assert response.status_code == 200
-        ts_str = response.json()[0]["timestamp"]
+        ts_str = response.json()["points"][0]["timestamp"]
         assert "+00:00" in ts_str or ts_str.endswith("Z"), (
             f"expected UTC offset, got {ts_str}"
         )

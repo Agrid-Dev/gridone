@@ -41,9 +41,9 @@ class TestHistoryPush:
         ]
         await service.upsert_points(key, points, create_if_not_found=True)
 
-        fetched = await service.fetch_points(key)
-        assert len(fetched) == 2
-        assert {p.value for p in fetched} == {20.5, 21.0}
+        result = await service.fetch_points(key)
+        assert len(result.points) == 2
+        assert {p.value for p in result.points} == {20.5, 21.0}
 
     async def test_points_have_no_command_id(self, service: TimeSeriesService):
         """History push must not attach a command_id to stored points."""
@@ -53,8 +53,8 @@ class TestHistoryPush:
             [DataPoint(timestamp=_ts(10), value=19.0)],
             create_if_not_found=True,
         )
-        fetched = await service.fetch_points(key)
-        assert all(p.command_id is None for p in fetched)
+        result = await service.fetch_points(key)
+        assert all(p.command_id is None for p in result.points)
 
     async def test_series_created_on_first_push(self, service: TimeSeriesService):
         """create_if_not_found=True must auto-create the series."""
@@ -91,12 +91,12 @@ class TestHistoryPush:
             create_if_not_found=True,
         )
 
-        temp_points = await service.fetch_points(temp_key)
-        setpoint_points = await service.fetch_points(setpoint_key)
+        temp_result = await service.fetch_points(temp_key)
+        setpoint_result = await service.fetch_points(setpoint_key)
 
-        assert len(temp_points) == 2
-        assert len(setpoint_points) == 1
-        assert setpoint_points[0].value == 22.0
+        assert len(temp_result.points) == 2
+        assert len(setpoint_result.points) == 1
+        assert setpoint_result.points[0].value == 22.0
 
     async def test_repeated_push_upserts_existing_series(
         self, service: TimeSeriesService
@@ -109,8 +109,8 @@ class TestHistoryPush:
         await service.upsert_points(
             key, [DataPoint(timestamp=_ts(11), value=21.0)], create_if_not_found=True
         )
-        fetched = await service.fetch_points(key)
-        assert len(fetched) == 2
+        result = await service.fetch_points(key)
+        assert len(result.points) == 2
 
     async def test_validate_data_type_creates_series_with_correct_type(
         self, service: TimeSeriesService
