@@ -447,3 +447,18 @@ class TestFetchPointsTruncation:
         all_values = [p.value for p in page1.points] + [p.value for p in page2.points]
         expected = [p.value for p in pts]
         assert all_values == expected
+
+    async def test_carry_forward_with_truncation_respects_limit(
+        self, service: TimeSeriesService
+    ):
+        pts = await self._setup(service, 5)
+        old = pts[0].timestamp - timedelta(hours=1)
+        await service.upsert_points(KEY, [DataPoint(timestamp=old, value=99.0)])
+
+        result = await service.fetch_points(
+            KEY, start=pts[0].timestamp, carry_forward=True, limit=3
+        )
+        assert len(result.points) == 3
+        assert result.truncated is True
+        assert result.points[0].value == 99.0
+        assert result.next_start == pts[2].timestamp

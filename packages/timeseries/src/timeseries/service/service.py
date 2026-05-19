@@ -278,7 +278,11 @@ class TimeSeriesService(Service):
             previous = await storage.fetch_point_before(key, before=start)
             if previous is not None:
                 carried = DataPoint(timestamp=start, value=previous.value)
-                points = [carried, *points]
+                if truncated:
+                    next_start = points[-1].timestamp
+                    points = [carried, *points[:-1]]
+                else:
+                    points = [carried, *points]
         return FetchPointsResult(
             points=points, truncated=truncated, next_start=next_start
         )

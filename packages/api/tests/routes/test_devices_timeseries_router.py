@@ -379,8 +379,7 @@ class TestGetDeviceTimeseriesPointsTruncation:
         assert body["truncated"] is True
         assert body["next_start"] is not None
         assert len(body["points"]) == 3
-        expected_next = pts[3].timestamp.isoformat()
-        assert body["next_start"].startswith(expected_next[:19])
+        assert datetime.fromisoformat(body["next_start"]) == pts[3].timestamp
 
     async def test_limit_exceeds_max_returns_422(
         self, async_client: AsyncClient, ts_service: TimeSeriesService

@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { Device } from "@/api/devices";
 import { API_BASE_URL } from "./request";
-import type { DataPoint, TimeSeries } from "./timeseries";
+import type { DataPoint, SeriesPointsResult, TimeSeries } from "./timeseries";
 
 export type DeviceUpdateMessage = {
   type: "device_update";
@@ -121,7 +121,7 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
           timestamp: updateMessage.timestamp ?? new Date().toISOString(),
           value: updateMessage.value as DataPoint["value"],
         };
-        queryClient.setQueriesData<DataPoint[]>(
+        queryClient.setQueriesData<SeriesPointsResult>(
           {
             queryKey: ["timeseries", "points", series.id],
             predicate: (query) => {
@@ -132,7 +132,10 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
               return end === undefined;
             },
           },
-          (current) => (current ? [...current, point] : [point]),
+          (current) =>
+            current
+              ? { ...current, points: [...current.points, point] }
+              : { points: [point], truncated: false, next_start: null },
         );
       }
 

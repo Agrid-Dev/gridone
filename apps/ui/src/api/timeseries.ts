@@ -38,6 +38,12 @@ export function listSeries<D extends DataType = DataType>(
   );
 }
 
+export type SeriesPointsResult<D extends DataType = DataType> = {
+  points: DataPoint<D>[];
+  truncated: boolean;
+  next_start: string | null;
+};
+
 export type GetSeriesPointsOptions = {
   start?: string;
   end?: string;
@@ -96,10 +102,10 @@ export function getSeriesPoints<D extends DataType = DataType>(
   deviceId: string,
   attr: string,
   options?: GetSeriesPointsOptions,
-): Promise<DataPoint<D>[]> {
+): Promise<SeriesPointsResult<D>> {
   const params = optionsToParams(options);
   const qs = params.toString();
-  return request<DataPoint<D>[]>(
+  return request<SeriesPointsResult<D>>(
     `/devices/${encodeURIComponent(deviceId)}/timeseries/${encodeURIComponent(attr)}${qs ? `?${qs}` : ""}`,
     undefined,
     { camelCase: true },
