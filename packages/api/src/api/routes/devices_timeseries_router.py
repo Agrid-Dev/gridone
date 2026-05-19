@@ -1,5 +1,5 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
@@ -11,7 +11,6 @@ from timeseries.domain import (
     AggregationQuery,
     Interval,
     SeriesKey,
-    normalize_to_utc,
 )
 from timeseries.service import TimeSeriesService
 
@@ -107,16 +106,6 @@ async def list_device_timeseries(
     return [TimeSeriesResponse(**s.__dict__) for s in results]
 
 
-def _parse_timezone(timezone: str | None, default: str) -> ZoneInfo:
-    """Validate and resolve a timezone name, falling back to default."""
-    tz_name = timezone or default
-    try:
-        return ZoneInfo(tz_name)
-    except (ZoneInfoNotFoundError, KeyError):
-        msg = f"Unknown IANA timezone: {tz_name!r}"
-        raise InvalidError(msg) from None
-
-
 @router.get(
     "/{device_id}/timeseries/{attr}",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
@@ -138,17 +127,15 @@ async def get_device_timeseries_points(
         raise NotFoundError(
             f"No timeseries found for device '{device_id}', attribute '{attr}'"
         )
-    tz = _parse_timezone(timezone, ts.default_timezone)
-    tz_name = tz.key
-    # Pre-normalize so fetch_points sees tz-aware datetimes; the service
-    # re-normalizes but normalize_to_utc is idempotent on tz-aware inputs.
     points = await ts.fetch_points(
         series.key,
-        start=normalize_to_utc(start, tz_name),
-        end=normalize_to_utc(end, tz_name),
+        start=start,
+        end=end,
         last=last,
         carry_forward=carry_forward,
+        timezone=timezone,
     )
+    tz = ZoneInfo(timezone or ts.default_timezone)
     return [
         DataPointResponse(
             timestamp=p.timestamp.astimezone(tz),
@@ -185,7 +172,8 @@ def get_aggregation_query(
             timezone=timezone,
         )
     except ValidationError as e:
-        raise InvalidError("; ".join(err["msg"] for err in e.errors())) from e
+        msgs = (err["msg"].removeprefix("Value error, ") for err in e.errors())
+        raise InvalidError("; ".join(msgs)) from e
 
 
 @router.get(

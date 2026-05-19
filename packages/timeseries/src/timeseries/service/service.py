@@ -18,6 +18,7 @@ from timeseries.domain import (
     normalize_to_utc,
     resolve_aggregation_data_type,
     resolve_last,
+    validate_tz_name,
     validate_value_type,
 )
 from timeseries.exporters.csv import to_csv
@@ -31,6 +32,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _POSTGRES_PREFIX = "postgresql"
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class TimeSeriesService(Service):
@@ -180,10 +185,8 @@ class TimeSeriesService(Service):
         self,
         key: SeriesKey,
         query: AggregationQuery,
-        *,
-        _now: datetime | None = None,
     ) -> AggregationResult:
-        cutoff = _now if _now is not None else datetime.now(UTC)
+        cutoff = _utcnow()
 
         if query.last is not None:
             query = query.model_copy(
@@ -218,7 +221,7 @@ class TimeSeriesService(Service):
             update={"points": [p for p in result.points if p.interval_start <= cutoff]}
         )
 
-    async def fetch_points(
+    async def fetch_points(  # noqa: PLR0913
         self,
         key: SeriesKey,
         *,
@@ -226,11 +229,15 @@ class TimeSeriesService(Service):
         end: datetime | None = None,
         last: str | None = None,
         carry_forward: bool = False,
+        timezone: str | None = None,
     ) -> list[DataPoint]:
+        if timezone is not None:
+            validate_tz_name(timezone)
+        resolved_tz = timezone or self._default_timezone
         if last is not None and start is None:
             start = resolve_last(last)
-        start = normalize_to_utc(start, self._default_timezone)
-        end = normalize_to_utc(end, self._default_timezone)
+        start = normalize_to_utc(start, resolved_tz)
+        end = normalize_to_utc(end, resolved_tz)
         return await self._fetch_points_utc(
             key, start=start, end=end, carry_forward=carry_forward
         )

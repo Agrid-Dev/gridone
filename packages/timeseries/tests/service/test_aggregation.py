@@ -91,7 +91,11 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
 
 
 @pytest.mark.parametrize("case_name", load_scenarios())
-async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
+async def test_aggregate(
+    ts_service: TimeSeriesService,
+    case_name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _SCENARIOS[case_name]
     inp = _load_input(scenario["input_ref"])
     key = SeriesKey(owner_id="test", metric=case_name)
@@ -121,14 +125,16 @@ async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
         timezone=req.get("timezone"),
     )
 
-    # Simulate now = end + 1 day so future-bucket filtering never interferes
+    # Freeze "now" to end + 1 day so future-bucket filtering never interferes
     # with bucketing-correctness assertions — the scenario data may be in the future.
     end_dt = _parse_dt(req.get("end"))
-    synthetic_now = end_dt + timedelta(days=1) if end_dt is not None else None
-    if synthetic_now is not None and synthetic_now.tzinfo is None:
-        synthetic_now = synthetic_now.replace(tzinfo=UTC)
+    if end_dt is not None:
+        synthetic_now = end_dt + timedelta(days=1)
+        if synthetic_now.tzinfo is None:
+            synthetic_now = synthetic_now.replace(tzinfo=UTC)
+        monkeypatch.setattr("timeseries.service.service._utcnow", lambda: synthetic_now)
 
-    result = await ts_service.get_aggregate(key, query, _now=synthetic_now)
+    result = await ts_service.get_aggregate(key, query)
     assert_aggregation_equal(result, case_name)
 
 
@@ -279,14 +285,14 @@ class TestGetAggregateTzAware:
         [
             # Paris CET (UTC+1): naive 01:00 → 00:00 UTC
             (
-                datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2026, 1, 16, 1, 0, 0),  # noqa: DTZ001
                 "Europe/Paris",
                 datetime(2026, 1, 16, 0, 30, 0, tzinfo=UTC),
                 datetime(2026, 1, 15, 23, 30, 0, tzinfo=UTC),
             ),
             # Paris CEST (UTC+2): naive 01:00 → 23:00 UTC prev day
             (
-                datetime(2026, 7, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2026, 7, 16, 1, 0, 0),  # noqa: DTZ001
                 "Europe/Paris",
                 datetime(2026, 7, 15, 23, 30, 0, tzinfo=UTC),
                 datetime(2026, 7, 15, 22, 30, 0, tzinfo=UTC),
@@ -299,6 +305,7 @@ class TestGetAggregateTzAware:
         tz: str,
         t_inside_utc: datetime,
         t_outside_utc: datetime,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         svc = TimeSeriesService(storage_url=None, default_timezone=tz)
         await svc.start()
@@ -315,6 +322,10 @@ class TestGetAggregateTzAware:
                 ],
             )
             end = t_inside_utc + timedelta(hours=2)
+            frozen_now = end + timedelta(days=1)
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
@@ -323,7 +334,6 @@ class TestGetAggregateTzAware:
                     start=naive_start,
                     end=end,
                 ),
-                _now=end + timedelta(days=1),
             )
             total = sum(p.count for p in result.points)
             assert total == 1
@@ -332,7 +342,7 @@ class TestGetAggregateTzAware:
 
 
 class TestGetAggregateDefects:
-    async def test_no_future_buckets(self) -> None:
+    async def test_no_future_buckets(self, monkeypatch: pytest.MonkeyPatch) -> None:
         svc = TimeSeriesService(storage_url=None)
         await svc.start()
         try:
@@ -343,6 +353,9 @@ class TestGetAggregateDefects:
             pt_ts = datetime(2026, 1, 1, 10, tzinfo=UTC)
             await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=1.0)])
             frozen_now = datetime(2026, 1, 1, 13, tzinfo=UTC)
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
@@ -351,13 +364,15 @@ class TestGetAggregateDefects:
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 2, tzinfo=UTC),
                 ),
-                _now=frozen_now,
             )
+            assert len(result.points) == 14  # [00:00 … 13:00] inclusive
             assert all(p.interval_start <= frozen_now for p in result.points)
         finally:
             await svc.stop()
 
-    async def test_last_alone_sets_end_to_now(self) -> None:
+    async def test_last_alone_sets_end_to_now(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         svc = TimeSeriesService(storage_url=None)
         await svc.start()
         try:
@@ -368,6 +383,9 @@ class TestGetAggregateDefects:
             frozen_now = datetime(2026, 1, 10, 12, tzinfo=UTC)
             pt_ts = datetime(2026, 1, 10, 6, tzinfo=UTC)
             await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=5.0)])
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
@@ -375,14 +393,17 @@ class TestGetAggregateDefects:
                     interval=Interval.H_1,
                     last="12h",
                 ),
-                _now=frozen_now,
             )
+            # last="12h" → start=2026-01-10T00:00Z, end=frozen_now=2026-01-10T12:00Z
+            assert result.points[0].interval_start == datetime(2026, 1, 10, tzinfo=UTC)
             assert any(p.count > 0 for p in result.points)
             assert all(p.interval_start <= frozen_now for p in result.points)
         finally:
             await svc.stop()
 
-    async def test_naive_input_interpreted_in_resolved_tz(self) -> None:
+    async def test_naive_input_interpreted_in_resolved_tz(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Naive start in Europe/Paris → Paris midnight, not UTC midnight."""
         svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
         await svc.start()
@@ -398,8 +419,12 @@ class TestGetAggregateDefects:
             )
             await svc.upsert_points(key, [pt])
             # naive — interpreted in Europe/Paris (CEST = UTC+2)
-            naive_start = datetime(2026, 5, 17, tzinfo=UTC).replace(tzinfo=None)
-            naive_end = datetime(2026, 5, 18, tzinfo=UTC).replace(tzinfo=None)
+            naive_start = datetime(2026, 5, 17)  # noqa: DTZ001
+            naive_end = datetime(2026, 5, 18)  # noqa: DTZ001
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 5, 19, tzinfo=UTC),
+            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
@@ -408,7 +433,6 @@ class TestGetAggregateDefects:
                     start=naive_start,
                     end=naive_end,
                 ),
-                _now=datetime(2026, 5, 19, tzinfo=UTC),
             )
             # First bucket starts at Paris midnight (UTC 22:00 prev day)
             first_bucket_local = result.points[0].interval_start.astimezone(
@@ -432,6 +456,7 @@ class TestGetAggregateDefects:
         self,
         tz_name: str,
         expected_offset_hours: int | None,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         svc = TimeSeriesService(storage_url=None, default_timezone=tz_name)
         await svc.start()
@@ -439,6 +464,10 @@ class TestGetAggregateDefects:
             key = SeriesKey(owner_id=f"tz-offset-{tz_name}", metric="temp")
             await svc.create_series(
                 data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 1, 4, tzinfo=UTC),
             )
             result = await svc.get_aggregate(
                 key,
@@ -448,7 +477,6 @@ class TestGetAggregateDefects:
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 3, tzinfo=UTC),
                 ),
-                _now=datetime(2026, 1, 4, tzinfo=UTC),
             )
             assert result.timezone == tz_name
             tz = ZoneInfo(tz_name)
@@ -465,7 +493,9 @@ class TestGetAggregateDefects:
         finally:
             await svc.stop()
 
-    async def test_interval_start_offset_paris_cest(self) -> None:
+    async def test_interval_start_offset_paris_cest(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Paris CEST (summer, UTC+2): daily buckets start at 22:00 UTC prev day."""
         svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
         await svc.start()
@@ -473,6 +503,10 @@ class TestGetAggregateDefects:
             key = SeriesKey(owner_id="paris-cest", metric="temp")
             await svc.create_series(
                 data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 7, 4, tzinfo=UTC),
             )
             result = await svc.get_aggregate(
                 key,
@@ -482,7 +516,6 @@ class TestGetAggregateDefects:
                     start=datetime(2026, 7, 1, tzinfo=UTC),
                     end=datetime(2026, 7, 3, tzinfo=UTC),
                 ),
-                _now=datetime(2026, 7, 4, tzinfo=UTC),
             )
             paris = ZoneInfo("Europe/Paris")
             for pt in result.points:

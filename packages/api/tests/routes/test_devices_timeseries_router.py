@@ -846,6 +846,30 @@ class TestAggregateTimezoneRendering:
         for pt in body["points"]:
             assert pt["interval_start"].endswith("+05:30")
 
+    async def test_invalid_timezone_aggregate_returns_422(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        """Invalid ?timezone= on aggregate must emit the same clean message as raw-points."""
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-02T00:00:00Z",
+                    "timezone": "Not/ATimezone",
+                },
+            )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "Value error" not in detail
+        assert "Unknown IANA timezone" in detail
+
 
 class TestGetDeviceTimeseriesPointsRendering:
     """Raw-points timestamps must render in the resolved timezone."""
@@ -899,3 +923,6 @@ class TestGetDeviceTimeseriesPointsRendering:
                 f"/{DEVICE_ID}/timeseries/{ATTR}", params={"timezone": "Not/ATimezone"}
             )
         assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "Value error" not in detail
+        assert "Unknown IANA timezone" in detail

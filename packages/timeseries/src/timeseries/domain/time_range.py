@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from models.errors import InvalidError
 
@@ -56,6 +56,15 @@ def parse_duration(value: str) -> timedelta:
 
     amount = _parse_amount(value, value[:-1])
     return timedelta(**{unit: amount})
+
+
+def validate_tz_name(tz: str) -> None:
+    """Raise InvalidError if tz is not a recognized IANA timezone key."""
+    try:
+        ZoneInfo(tz)
+    except (ZoneInfoNotFoundError, KeyError):
+        msg = f"Unknown IANA timezone: {tz!r}"
+        raise InvalidError(msg) from None
 
 
 def normalize_to_utc(value: datetime | None, tz: str) -> datetime | None:
