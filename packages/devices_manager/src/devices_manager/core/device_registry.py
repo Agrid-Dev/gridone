@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterable
+from difflib import SequenceMatcher
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
@@ -36,6 +37,36 @@ if TYPE_CHECKING:
     from .transports import TransportClient
 
 logger = logging.getLogger(__name__)
+
+_FUZZY_THRESHOLD = 0.7
+
+
+def _fuzzy_token_matches(token: str, name_words: list[str]) -> bool:
+    return any(
+        SequenceMatcher(None, token, word).ratio() >= _FUZZY_THRESHOLD
+        for word in name_words
+    )
+
+
+def _fuzzy_match(query: str, name: str) -> bool:
+    """Return True if all tokens of *query* match *name*.
+
+    Numeric tokens require exact substring match; string tokens use fuzzy
+    matching (SequenceMatcher ratio >= 0.7) against individual name words.
+    An empty query always returns True.
+    """
+    if not query.strip():
+        return True
+    name_lower = name.lower()
+    name_words = name_lower.split()
+    for token in query.lower().split():
+        if token.isdigit():
+            if token not in name_lower:
+                return False
+        elif not _fuzzy_token_matches(token, name_words):
+            return False
+    return True
+
 
 DriverResolver = Callable[[str], "Driver"]
 TransportResolver = Callable[[str], "TransportClient"]
@@ -107,6 +138,7 @@ class DeviceRegistry:
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
+        search: str | None = None,
     ) -> list[Device]:
         devices: Iterable[CoreDevice] = self._devices.values()
         if ids is not None:
@@ -127,6 +159,8 @@ class DeviceRegistry:
                 devices = [d for d in devices if d.tags.get(key) in values_set]
         if is_faulty is not None:
             devices = [d for d in devices if d.is_faulty == is_faulty]
+        if search:
+            devices = [d for d in devices if _fuzzy_match(search, d.name)]
         return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:
