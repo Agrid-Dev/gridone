@@ -20,6 +20,7 @@ from api.schemas.timeseries import (
     AggregatedPointResponse,
     AggregationResultResponse,
     DataPointResponse,
+    FetchPointsResultResponse,
     TimeSeriesResponse,
 )
 
@@ -118,32 +119,40 @@ async def get_device_timeseries_points(
     last: str | None = Query(None),
     carry_forward: bool = Query(False),
     timezone: str | None = Query(None),
+    limit: int | None = Query(None),
     dm: DevicesServiceInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> list[DataPointResponse]:
+) -> FetchPointsResultResponse:
     dm.get_device(device_id)
     series = await ts.get_series_by_key(SeriesKey(owner_id=device_id, metric=attr))
     if series is None:
         raise NotFoundError(
             f"No timeseries found for device '{device_id}', attribute '{attr}'"
         )
-    points = await ts.fetch_points(
+    result = await ts.fetch_points(
         series.key,
         start=start,
         end=end,
         last=last,
         carry_forward=carry_forward,
         timezone=timezone,
+        limit=limit,
     )
     tz = ZoneInfo(timezone or ts.default_timezone)
-    return [
-        DataPointResponse(
-            timestamp=p.timestamp.astimezone(tz),
-            value=p.value,
-            command_id=p.command_id,
-        )
-        for p in points
-    ]
+    return FetchPointsResultResponse(
+        points=[
+            DataPointResponse(
+                timestamp=p.timestamp.astimezone(tz),
+                value=p.value,
+                command_id=p.command_id,
+            )
+            for p in result.points
+        ],
+        truncated=result.truncated,
+        next_start=(
+            result.next_start.astimezone(tz) if result.next_start is not None else None
+        ),
+    )
 
 
 def get_aggregation_query(
