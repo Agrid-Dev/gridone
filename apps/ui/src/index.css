@@ -106,6 +106,16 @@
   min-height: 100vh;
 }
 
+/* ── Dot grid background ── */
+.bg-grid {
+  background-image: radial-gradient(
+    circle,
+    hsl(var(--border) / 0.5) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+}
+
 /* ── Ambient glow effect for cards ── */
 .card-glow {
   position: relative;
