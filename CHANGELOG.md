@@ -1,3 +1,13 @@
+## v0.77.0 (2026-05-19)
+
+### Feat
+
+- **devices**: add fuzzy name search to GET /devices
+
+### Fix
+
+- review comments addressed
+
 ## v0.76.1 (2026-05-18)
 
 ### Fix
