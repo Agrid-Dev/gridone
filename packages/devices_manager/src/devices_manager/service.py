@@ -207,6 +207,7 @@ class DevicesService(Service):
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
+        search: str | None = None,
     ) -> list[Device]:
         return self._device_registry.list_all(
             ids=ids,
@@ -215,6 +216,7 @@ class DevicesService(Service):
             writable_attribute_type=writable_attribute_type,
             tags=tags,
             is_faulty=is_faulty,
+            search=search,
         )
 
     def get_device(self, device_id: str) -> Device:

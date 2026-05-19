@@ -978,6 +978,7 @@ class TestDevicesServiceDeviceDelegation:
             writable_attribute_type=DataType.FLOAT,
             tags=None,
             is_faulty=None,
+            search=None,
         )
 
     @pytest.mark.asyncio

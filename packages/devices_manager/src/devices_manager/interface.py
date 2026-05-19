@@ -52,6 +52,7 @@ class DeviceRegistryInterface(Protocol):
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
+        search: str | None = None,
     ) -> list[Device]: ...
 
     async def register(self, device: CoreDevice) -> None: ...
@@ -123,6 +124,7 @@ class DevicesServiceInterface(Protocol):
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
+        search: str | None = None,
     ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...

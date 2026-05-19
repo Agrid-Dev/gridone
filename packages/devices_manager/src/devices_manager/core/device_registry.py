@@ -20,6 +20,7 @@ from .device import (
     PhysicalDevice,
     VirtualDevice,
 )
+from .fuzzy_search import fuzzy_match
 from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
@@ -107,6 +108,7 @@ class DeviceRegistry:
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
+        search: str | None = None,
     ) -> list[Device]:
         devices: Iterable[CoreDevice] = self._devices.values()
         if ids is not None:
@@ -127,6 +129,8 @@ class DeviceRegistry:
                 devices = [d for d in devices if d.tags.get(key) in values_set]
         if is_faulty is not None:
             devices = [d for d in devices if d.is_faulty == is_faulty]
+        if search:
+            devices = [d for d in devices if fuzzy_match(search, d.name)]
         return [device_to_public(d) for d in devices]
 
     async def register(self, device: CoreDevice) -> None:
