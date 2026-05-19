@@ -8,8 +8,9 @@ import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
-import { TypeFilter } from "@/components/FilterBar";
+import { FilterIndicator, TypeFilter } from "@/components/FilterBar";
 import { HealthFilter } from "@/components/HealthFilter";
+import { SearchFilter } from "@/components/SearchFilter";
 import { History, Plus, Terminal } from "lucide-react";
 
 export default function DevicesList() {
@@ -53,8 +54,12 @@ export default function DevicesList() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
+        <FilterIndicator />
         <TypeFilter />
         <HealthFilter />
+        <div className="ml-auto">
+          <SearchFilter />
+        </div>
       </div>
 
       {error && (

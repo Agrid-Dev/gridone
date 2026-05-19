@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  act,
+  fireEvent,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { DeviceKind, type Device, type DevicesFilter } from "@/api/devices";
@@ -14,6 +20,9 @@ vi.mock("react-i18next", () =>
     "devices.health.all": "All",
     "devices.health.healthy": "Healthy",
     "devices.health.faulty": "Faulty",
+    "devices.search.label": "Search devices",
+    "devices.search.placeholder": "Search devices…",
+    "devices.search.clear": "Clear search",
     "deviceDetails.history": "History",
     "commands.newCommand": "New command",
     "common.type": "Type",
@@ -126,6 +135,43 @@ describe("DevicesList — health filter wiring", () => {
   it("clears the filter when returning to 'All'", async () => {
     renderAt(["/devices?health=faulty"]);
     await userEvent.click(screen.getByRole("tab", { name: "All" }));
+    expect(lastFilter()).toBeUndefined();
+  });
+});
+
+describe("DevicesList — search filter wiring", () => {
+  it("passes search to useDevicesList when ?search is set", () => {
+    renderAt(["/devices?search=chambre%2012"]);
+    expect(lastFilter()).toEqual({ search: "chambre 12" });
+  });
+
+  it("debounces typing into the search bar then updates the filter", () => {
+    vi.useFakeTimers();
+    try {
+      renderAt();
+      const input = screen.getByLabelText("Search devices");
+
+      act(() => {
+        fireEvent.change(input, { target: { value: "chambre" } });
+      });
+      expect(lastFilter()).toBeUndefined();
+
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(lastFilter()).toEqual({ search: "chambre" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the search via the inline clear button", () => {
+    renderAt(["/devices?search=chambre"]);
+    expect(lastFilter()).toEqual({ search: "chambre" });
+
+    act(() => {
+      fireEvent.click(screen.getByLabelText("Clear search"));
+    });
     expect(lastFilter()).toBeUndefined();
   });
 });

@@ -43,6 +43,11 @@
       "all": "Tous",
       "healthy": "Sains",
       "faulty": "En défaut"
+    },
+    "search": {
+      "label": "Rechercher des appareils",
+      "placeholder": "Rechercher…",
+      "clear": "Effacer la recherche"
     }
   },
   "deviceDetails": {

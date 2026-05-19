@@ -63,4 +63,18 @@ describe("useFilterParams", () => {
       isFaulty: true,
     });
   });
+
+  it("maps ?search=chambre%2012 to { search: 'chambre 12' }", () => {
+    const { result } = renderHook(() => useFilterParams(), {
+      wrapper: wrapperFor(["/?search=chambre%2012"]),
+    });
+    expect(result.current).toEqual({ search: "chambre 12" });
+  });
+
+  it("ignores a blank search param", () => {
+    const { result } = renderHook(() => useFilterParams(), {
+      wrapper: wrapperFor(["/?search=%20%20"]),
+    });
+    expect(result.current).toBeUndefined();
+  });
 });
