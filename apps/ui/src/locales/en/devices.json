@@ -43,6 +43,11 @@
       "all": "All",
       "healthy": "Healthy",
       "faulty": "Faulty"
+    },
+    "search": {
+      "label": "Search devices",
+      "placeholder": "Search devices…",
+      "clear": "Clear search"
     }
   },
   "deviceDetails": {

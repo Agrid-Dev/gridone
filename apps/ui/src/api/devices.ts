@@ -285,6 +285,8 @@ export type DevicesFilter = {
    *  calling ``DM.list_devices``. Persisted verbatim on saved command
    *  templates so the UI can round-trip intent. */
   assetId?: string;
+  /** Free-text fuzzy match against the device ``name``. */
+  search?: string;
 };
 
 /** Serialise a DevicesFilter into query params for ``GET /devices``.
@@ -317,6 +319,9 @@ export function devicesFilterToQueryParams(
   }
   if (filter.assetId) {
     params.set("asset_id", filter.assetId);
+  }
+  if (filter.search) {
+    params.set("search", filter.search);
   }
   return params;
 }
