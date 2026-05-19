@@ -1,11 +1,13 @@
 import { useTranslation } from "react-i18next";
-import { Loader2, Minus, Plus, Power } from "lucide-react";
+import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
 import { isThermostat, readThermostatAttributes } from "@/api/devices";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { ControlPanel } from "../ControlPanel";
-import { ThermostatDial } from "./ThermostatDial";
+import {
+  Button,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui";
 import type { StandardControlProps } from "../registry";
 
 const STEP = 0.5;
@@ -43,93 +45,114 @@ export function ThermostatControl({
   const setpointSaving = isSaving("temperatureSetpoint");
 
   return (
-    <ControlPanel
-      size="sm"
-      modeChip={
-        <div className="flex items-center gap-2">
-          {attrs.mode && <Badge variant="info">{attrs.mode}</Badge>}
+    <div className="relative mx-auto flex aspect-square w-full max-w-xs items-center justify-center rounded-2xl border bg-card shadow-md">
+      {/* Top bar: mode (left) — power (right) */}
+      <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
+        {attrs.mode ? (
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
+            {attrs.mode}
+          </span>
+        ) : (
+          <span />
+        )}
+
+        <div className="flex items-center gap-1.5">
           <span
-            className={cn(
-              "text-xs font-medium uppercase tracking-wider",
-              isOn ? "text-emerald-600" : "text-muted-foreground",
-            )}
+            className={`text-xs font-medium ${isOn ? "text-green-600" : "text-muted-foreground"}`}
           >
             {isOn ? t("controls.thermostat.on") : t("controls.thermostat.off")}
           </span>
-        </div>
-      }
-      footer={
-        <button
-          type="button"
-          aria-label={
-            isOn
-              ? t("controls.thermostat.turnOff")
-              : t("controls.thermostat.turnOn")
-          }
-          disabled={powerSaving}
-          onClick={() => changeAndSaveNow("onoffState", !isOn)}
-          className={cn(
-            "flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition-colors disabled:opacity-50",
-            isOn
-              ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
-              : "bg-muted text-muted-foreground hover:bg-muted/80",
-          )}
-        >
-          {powerSaving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Power className="h-4 w-4" />
-          )}
-          {isOn
-            ? t("controls.thermostat.turnOff")
-            : t("controls.thermostat.turnOn")}
-        </button>
-      }
-    >
-      <div className="flex flex-col items-center gap-8">
-        <ThermostatDial
-          setpoint={setpoint}
-          currentTemp={attrs.temperature}
-          min={min}
-          max={max}
-          saving={setpointSaving}
-          step={STEP}
-          onSetpointChange={(value) =>
-            changeAndSave("temperatureSetpoint", value)
-          }
-        />
-
-        <div className="flex items-center justify-center gap-10">
-          {min != null && (
-            <button
-              type="button"
-              aria-label={t("controls.thermostat.decreaseSetpoint")}
-              disabled={!canDecrement || setpointSaving}
-              onClick={() =>
-                setpoint != null &&
-                changeAndSave("temperatureSetpoint", setpoint - STEP)
-              }
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-muted/80 disabled:opacity-40"
-            >
-              <Minus className="h-5 w-5" />
-            </button>
-          )}
-          {max != null && (
-            <button
-              type="button"
-              aria-label={t("controls.thermostat.increaseSetpoint")}
-              disabled={!canIncrement || setpointSaving}
-              onClick={() =>
-                setpoint != null &&
-                changeAndSave("temperatureSetpoint", setpoint + STEP)
-              }
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-foreground transition-colors hover:bg-muted/80 disabled:opacity-40"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label={
+                  isOn
+                    ? t("controls.thermostat.turnOff")
+                    : t("controls.thermostat.turnOn")
+                }
+                disabled={powerSaving}
+                onClick={() => changeAndSaveNow("onoffState", !isOn)}
+                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 ${
+                  isOn
+                    ? "border-green-400 bg-green-50 text-green-600"
+                    : "border-border bg-muted text-muted-foreground"
+                } disabled:opacity-50`}
+              >
+                {powerSaving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {isOn
+                ? t("controls.thermostat.turnOff")
+                : t("controls.thermostat.turnOn")}
+            </TooltipContent>
+          </Tooltip>
         </div>
       </div>
-    </ControlPanel>
+
+      {/* Center: current temp + setpoint controls */}
+      <div className="flex flex-col items-start gap-4">
+        {attrs.temperature != null && (
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              {t("controls.thermostat.current")}
+            </span>
+            <span className="text-sm font-medium tabular-nums">
+              {Number(attrs.temperature).toFixed(1)}°
+            </span>
+          </div>
+        )}
+
+        <div>
+          <span className="mb-[-6px] block text-xs uppercase tracking-widest text-muted-foreground">
+            {t("controls.thermostat.setpoint")}
+          </span>
+          <div className="flex items-center gap-1">
+            <div
+              className={`flex items-start transition-opacity duration-1000 ${setpointSaving ? "animate-pulse" : ""}`}
+            >
+              <span className="text-5xl font-extralight tabular-nums leading-none">
+                {setpoint != null ? Number(setpoint).toFixed(1) : "—"}
+              </span>
+              <span className="text-lg text-muted-foreground">°</span>
+            </div>
+            <div className="flex flex-col">
+              {max != null && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("controls.thermostat.increaseSetpoint")}
+                  disabled={!canIncrement || setpointSaving}
+                  onClick={() =>
+                    setpoint != null &&
+                    changeAndSave("temperatureSetpoint", setpoint + STEP)
+                  }
+                >
+                  <ChevronUp className="!h-8 !w-8 text-foreground" />
+                </Button>
+              )}
+              {min != null && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("controls.thermostat.decreaseSetpoint")}
+                  disabled={!canDecrement || setpointSaving}
+                  onClick={() =>
+                    setpoint != null &&
+                    changeAndSave("temperatureSetpoint", setpoint - STEP)
+                  }
+                >
+                  <ChevronDown className="!h-8 !w-8 text-foreground" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

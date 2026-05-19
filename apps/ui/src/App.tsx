@@ -17,7 +17,7 @@ import { useAuth } from "./contexts/AuthContext";
 
 function ProtectedLayout() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background bg-grid">
       <Sidebar />
       <div className="ml-64 flex min-h-screen flex-col">
         <TopBar />
