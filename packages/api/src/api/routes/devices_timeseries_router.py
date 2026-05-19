@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
@@ -10,6 +11,7 @@ from timeseries.domain import (
     AggregationQuery,
     Interval,
     SeriesKey,
+    normalize_to_utc,
 )
 from timeseries.service import TimeSeriesService
 
@@ -105,6 +107,16 @@ async def list_device_timeseries(
     return [TimeSeriesResponse(**s.__dict__) for s in results]
 
 
+def _parse_timezone(timezone: str | None, default: str) -> ZoneInfo:
+    """Validate and resolve a timezone name, falling back to default."""
+    tz_name = timezone or default
+    try:
+        return ZoneInfo(tz_name)
+    except (ZoneInfoNotFoundError, KeyError):
+        msg = f"Unknown IANA timezone: {tz_name!r}"
+        raise InvalidError(msg) from None
+
+
 @router.get(
     "/{device_id}/timeseries/{attr}",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
@@ -116,6 +128,7 @@ async def get_device_timeseries_points(
     end: datetime | None = Query(None),
     last: str | None = Query(None),
     carry_forward: bool = Query(False),
+    timezone: str | None = Query(None),
     dm: DevicesServiceInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> list[DataPointResponse]:
@@ -125,24 +138,38 @@ async def get_device_timeseries_points(
         raise NotFoundError(
             f"No timeseries found for device '{device_id}', attribute '{attr}'"
         )
+    tz = _parse_timezone(timezone, ts.default_timezone)
+    tz_name = tz.key
+    # Pre-normalize so fetch_points sees tz-aware datetimes; the service
+    # re-normalizes but normalize_to_utc is idempotent on tz-aware inputs.
     points = await ts.fetch_points(
-        series.key, start=start, end=end, last=last, carry_forward=carry_forward
+        series.key,
+        start=normalize_to_utc(start, tz_name),
+        end=normalize_to_utc(end, tz_name),
+        last=last,
+        carry_forward=carry_forward,
     )
     return [
-        DataPointResponse(timestamp=p.timestamp, value=p.value, command_id=p.command_id)
+        DataPointResponse(
+            timestamp=p.timestamp.astimezone(tz),
+            value=p.value,
+            command_id=p.command_id,
+        )
         for p in points
     ]
 
 
-def _as_utc(dt: datetime | None) -> datetime | None:
-    if dt is None or dt.tzinfo is not None:
-        return dt
-    return dt.replace(tzinfo=UTC)
-
-
 def get_aggregation_query(
     interval: Interval = Query(...),
-    agg: AggregationOperator = Query(...),
+    agg: AggregationOperator = Query(
+        ...,
+        description=(
+            "Aggregation operator. "
+            "Note: 'avg' on bool series returns the sample mean of discrete observations "
+            "(0.0 or 1.0 per point), which is rarely useful for event-driven series. "
+            "Use 'tw_avg' to get the fraction of time the value was True."
+        ),
+    ),
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
@@ -152,8 +179,8 @@ def get_aggregation_query(
         return AggregationQuery(
             interval=interval,
             agg=agg,
-            start=_as_utc(start),
-            end=_as_utc(end),
+            start=start,
+            end=end,
             last=last,
             timezone=timezone,
         )
@@ -174,6 +201,7 @@ async def get_device_timeseries_aggregate(
 ) -> AggregationResultResponse:
     dm.get_device(device_id)
     result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
+    tz = ZoneInfo(result.timezone)
     return AggregationResultResponse(
         interval=result.interval,
         agg=result.agg,
@@ -182,7 +210,7 @@ async def get_device_timeseries_aggregate(
         timezone=result.timezone,
         points=[
             AggregatedPointResponse(
-                interval_start=p.interval_start,
+                interval_start=p.interval_start.astimezone(tz),
                 value=p.value,
                 count=p.count,
             )
