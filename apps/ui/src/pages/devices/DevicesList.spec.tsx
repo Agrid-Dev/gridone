@@ -175,3 +175,24 @@ describe("DevicesList — search filter wiring", () => {
     expect(lastFilter()).toBeUndefined();
   });
 });
+
+describe("DevicesList — ordering", () => {
+  it("renders devices alphabetically by name regardless of API order", () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "chambre 12", false),
+        makeDevice("d2", "Atrium", false),
+        makeDevice("d3", "bureau", false),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    // Drop the page title heading; only the device cards remain.
+    const names = screen
+      .getAllByRole("heading", { level: 2 })
+      .map((h) => h.textContent)
+      .filter((n) => n !== "Devices");
+    expect(names).toEqual(["Atrium", "bureau", "chambre 12"]);
+  });
+});
