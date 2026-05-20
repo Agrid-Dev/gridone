@@ -1,3 +1,9 @@
+## v0.78.1 (2026-05-20)
+
+### Fix
+
+- **api**: return 409 when single device command fails (#297)
+
 ## v0.78.0 (2026-05-19)
 
 ### Feat
