@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 import pytest_asyncio
 import yaml
+from pydantic import ValidationError
 
 from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
@@ -15,7 +16,6 @@ from timeseries.domain import (
     AggregationResult,
     DataPoint,
     DataType,
-    Interval,
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
@@ -149,7 +149,7 @@ class TestGetAggregateValidation:
         with pytest.raises(InvalidError):
             await ts_service.get_aggregate(
                 key,
-                AggregationQuery(agg=AggregationOperator.AVG, interval=Interval.D_1),
+                AggregationQuery(agg=AggregationOperator.AVG, interval="1d"),
             )
 
     async def test_series_not_found_raises(self, ts_service: TimeSeriesService) -> None:
@@ -157,7 +157,7 @@ class TestGetAggregateValidation:
         with pytest.raises(NotFoundError):
             await ts_service.get_aggregate(
                 key,
-                AggregationQuery(agg=AggregationOperator.COUNT, interval=Interval.D_1),
+                AggregationQuery(agg=AggregationOperator.COUNT, interval="1d"),
             )
 
     async def test_last_resolved_to_start(self, ts_service: TimeSeriesService) -> None:
@@ -169,7 +169,7 @@ class TestGetAggregateValidation:
             key,
             AggregationQuery(
                 agg=AggregationOperator.COUNT,
-                interval=Interval.D_1,
+                interval="1d",
                 last="7d",
                 end=datetime(2026, 5, 13, tzinfo=UTC),
             ),
@@ -189,7 +189,7 @@ class TestGetAggregateValidation:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=now,
                 ),
             )
@@ -198,7 +198,7 @@ class TestGetAggregateValidation:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     end=now,
                 ),
             )
@@ -217,7 +217,7 @@ class TestGetAggregateTzAware:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 2, tzinfo=UTC),
                 ),
@@ -244,7 +244,7 @@ class TestGetAggregateTzAware:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=datetime(2026, 1, 15, 23, 0, 0, tzinfo=UTC),
                     end=datetime(2026, 1, 16, 23, 0, 0, tzinfo=UTC),
                 ),
@@ -270,7 +270,7 @@ class TestGetAggregateTzAware:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 2, tzinfo=UTC),
                     timezone="UTC",
@@ -330,7 +330,7 @@ class TestGetAggregateTzAware:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=naive_start,
                     end=end,
                 ),
@@ -360,7 +360,7 @@ class TestGetAggregateDefects:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.H_1,
+                    interval="1h",
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 2, tzinfo=UTC),
                 ),
@@ -390,7 +390,7 @@ class TestGetAggregateDefects:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.H_1,
+                    interval="1h",
                     last="12h",
                 ),
             )
@@ -429,7 +429,7 @@ class TestGetAggregateDefects:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.AVG,
-                    interval=Interval.H_1,
+                    interval="1h",
                     start=naive_start,
                     end=naive_end,
                 ),
@@ -473,7 +473,7 @@ class TestGetAggregateDefects:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=datetime(2026, 1, 1, tzinfo=UTC),
                     end=datetime(2026, 1, 3, tzinfo=UTC),
                 ),
@@ -512,7 +512,7 @@ class TestGetAggregateDefects:
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
-                    interval=Interval.D_1,
+                    interval="1d",
                     start=datetime(2026, 7, 1, tzinfo=UTC),
                     end=datetime(2026, 7, 3, tzinfo=UTC),
                 ),
@@ -525,3 +525,35 @@ class TestGetAggregateDefects:
                 assert local.utcoffset().total_seconds() == 2 * 3600  # type: ignore[union-attr]
         finally:
             await svc.stop()
+
+
+class TestIntervalValidation:
+    @pytest.mark.parametrize(
+        "interval",
+        ["5min", "10min", "30min", "2h", "6h", "7d", "15min", "1h", "1d", "1mo"],
+    )
+    async def test_valid_arbitrary_intervals_accepted(
+        self, interval: str, ts_service: TimeSeriesService
+    ) -> None:
+        key = SeriesKey(owner_id="interval-valid", metric=f"iv_{interval}")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.COUNT,
+                interval=interval,
+                start=datetime(2026, 1, 1, tzinfo=UTC),
+                end=datetime(2026, 1, 2, tzinfo=UTC),
+            ),
+        )
+        assert result.interval == interval
+
+    @pytest.mark.parametrize(
+        "interval",
+        ["foo", "0min", "-1h", "", "1.5d", "2.5min"],
+    )
+    async def test_invalid_intervals_rejected(self, interval: str) -> None:
+        with pytest.raises(ValidationError):
+            AggregationQuery(agg=AggregationOperator.COUNT, interval=interval)
