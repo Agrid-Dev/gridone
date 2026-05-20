@@ -1,3 +1,9 @@
+## v0.79.3 (2026-05-20)
+
+### Fix
+
+- **ui**: pluralize home page count labels via i18next
+
 ## v0.79.2 (2026-05-20)
 
 ### Fix
