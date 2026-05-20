@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -19,6 +19,10 @@ from timeseries.domain import (
 
 _ROUND = 6
 
+# Postgres uses 2000-01-03 as the origin for day-interval time_bucket calls.
+# Multi-day bins must anchor here so memory and Postgres produce identical buckets.
+_PG_DAY_ORIGIN: date = date(2000, 1, 3)
+
 _DTYPE_POLARS: dict[DataType, pl.datatypes.DataTypeClass] = {
     DataType.FLOAT: pl.Float64,
     DataType.INT: pl.Int64,
@@ -36,8 +40,18 @@ def _floor_bin(dt: datetime, interval: Interval) -> datetime:
     if interval.unit == IntervalUnit.MO:
         return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
     if interval.unit == IntervalUnit.D:
-        # local-wall replace stays DST-correct (UTC elapsed = 86400 on fall-back days)
-        return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
+        if interval.qty == 1:
+            # Per-day: local-wall replace is DST-correct (avoids 25h day regression).
+            return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
+        # Multi-day: anchor at Postgres origin (2000-01-03) using calendar dates so
+        # bucket boundaries match time_bucket(..., timezone) exactly.
+        local_date = dt.date()
+        elapsed_days = (local_date - _PG_DAY_ORIGIN).days
+        slot_days = (elapsed_days // interval.qty) * interval.qty
+        floored = _PG_DAY_ORIGIN + timedelta(days=slot_days)
+        return datetime(
+            floored.year, floored.month, floored.day, tzinfo=dt.tzinfo, fold=0
+        )
     td_s = int(interval.to_timedelta().total_seconds())
     midnight = dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
     elapsed_s = int((dt.astimezone(UTC) - midnight.astimezone(UTC)).total_seconds())

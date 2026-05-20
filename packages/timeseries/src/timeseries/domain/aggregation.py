@@ -14,25 +14,11 @@ from pydantic import (
 
 from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, DataType
-from timeseries.domain.time_range import parse_duration, validate_tz_name
-
-_INTERVAL_SUFFIXES: tuple[tuple[str, str], ...] = (
-    ("min", "min"),
-    ("mo", "mo"),
-    ("h", "h"),
-    ("d", "d"),
+from timeseries.domain.time_range import (
+    parse_duration,
+    parse_duration_parts,
+    validate_tz_name,
 )
-
-
-def _parse_interval_str(raw: str) -> dict[str, Any]:
-    """Parse ``"Nunit"`` → ``{"qty": N, "unit": unit}``; e.g. ``"15min"``."""
-    for suffix, unit in _INTERVAL_SUFFIXES:
-        if raw.endswith(suffix):
-            qty_str = raw[: -len(suffix)]
-            if qty_str.isdigit() and int(qty_str) > 0:
-                return {"qty": int(qty_str), "unit": unit}
-    msg = f"Invalid interval {raw!r}: expected Nunit where unit is min/h/d/mo and N ≥ 1"
-    raise ValueError(msg)
 
 
 class IntervalUnit(StrEnum):
@@ -40,6 +26,29 @@ class IntervalUnit(StrEnum):
     H = "h"
     D = "d"
     MO = "mo"
+
+
+# "m" is the minutes alias accepted by parse_duration_parts (same grammar as `last`).
+_SUFFIX_TO_UNIT: dict[str, IntervalUnit] = {
+    "min": IntervalUnit.MIN,
+    "m": IntervalUnit.MIN,
+    "h": IntervalUnit.H,
+    "d": IntervalUnit.D,
+    "mo": IntervalUnit.MO,
+}
+
+
+def _parse_interval_str(raw: str) -> dict[str, Any]:
+    """Parse ``"Nunit"`` → ``{"qty": N, "unit": unit}``; e.g. ``"15min"``."""
+    msg = "expected Nunit where unit is min/h/d/mo and N ≥ 1"
+    try:
+        qty, suffix = parse_duration_parts(raw)
+    except InvalidError:
+        raise ValueError(msg) from None
+    unit = _SUFFIX_TO_UNIT.get(suffix)
+    if unit is None:
+        raise ValueError(msg)
+    return {"qty": qty, "unit": unit}
 
 
 class Interval(BaseModel):

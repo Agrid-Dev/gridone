@@ -10,6 +10,7 @@ from timeseries.domain import (
     AggregationQuery,
     DataPoint,
     DataType,
+    Interval,
     SeriesKey,
     TimeSeries,
 )
@@ -309,7 +310,7 @@ class TestAggregate:
         await storage.create_series(series)
         query = AggregationQuery(
             agg=AggregationOperator.COUNT,
-            interval="1d",
+            interval=Interval.model_validate("1d"),
             start=datetime(2026, 1, 1, tzinfo=UTC),
             end=datetime(2026, 1, 2, tzinfo=UTC),
         )

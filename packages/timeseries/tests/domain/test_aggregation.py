@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
@@ -11,13 +11,14 @@ from timeseries.domain.aggregation import (
     AggregationOperator,
     AggregationQuery,
     AggregationResult,
+    Interval,
     resolve_aggregation_data_type,
 )
 
 
 def _query(**kwargs: object) -> AggregationQuery:
     return AggregationQuery(
-        interval="1h",
+        interval=Interval.model_validate("1h"),
         agg=AggregationOperator.AVG,
         **kwargs,  # type: ignore[arg-type]
     )
@@ -30,14 +31,31 @@ class TestInterval:
     )
     def test_valid_accepted(self, good):
         q = AggregationQuery.model_validate({"interval": good, "agg": "avg"})
-        assert q.interval == good
+        assert str(q.interval) == good
+
+    def test_m_alias_normalizes_to_min(self):
+        # "m" is a minutes alias from parse_duration_parts — same grammar as `last`
+        q = AggregationQuery.model_validate({"interval": "1m", "agg": "avg"})
+        assert str(q.interval) == "1min"
 
     @pytest.mark.parametrize(
-        "bad", ["15bar", "1week", "", "0min", "-1h", "1.5d", "2.5min", "foo"]
+        "bad", ["15bar", "1week", "", "0min", "-1h", "1.5d", "2.5min", "foo", "2mo"]
     )
     def test_invalid_raises(self, bad):
         with pytest.raises(ValidationError):
             AggregationQuery.model_validate({"interval": bad, "agg": "avg"})
+
+    @pytest.mark.parametrize(
+        ("interval_str", "expected_td"),
+        [
+            ("5min", timedelta(minutes=5)),
+            ("2h", timedelta(hours=2)),
+            ("3d", timedelta(days=3)),
+            ("1mo", timedelta(days=30)),
+        ],
+    )
+    def test_to_timedelta(self, interval_str, expected_td):
+        assert Interval.model_validate(interval_str).to_timedelta() == expected_td
 
 
 class TestAggregationOperator:
@@ -143,7 +161,7 @@ class TestAggregationQuery:
 
     def test_full_valid(self):
         q = AggregationQuery(
-            interval="1d",
+            interval=Interval.model_validate("1d"),
             agg=AggregationOperator.SUM,
             start=datetime(2026, 1, 1, tzinfo=UTC),
             end=datetime(2026, 2, 1, tzinfo=UTC),
@@ -245,7 +263,7 @@ class TestAggregationResult:
             interval_start=datetime(2026, 1, 1, tzinfo=UTC), value=19.5, count=4
         )
         result = AggregationResult(
-            interval="1h",
+            interval=Interval.model_validate("1h"),
             agg=AggregationOperator.AVG,
             data_type=DataType.FLOAT,
             timezone="UTC",
@@ -256,7 +274,7 @@ class TestAggregationResult:
 
     def test_avg_bool_yields_float_aggregation_type(self):
         result = AggregationResult(
-            interval="1mo",
+            interval=Interval.model_validate("1mo"),
             agg=AggregationOperator.AVG,
             data_type=DataType.BOOL,
             timezone="UTC",
@@ -273,7 +291,7 @@ class TestAggregationResult:
         )
         with pytest.raises(ValidationError, match="aggregation_data_type"):
             AggregationResult(
-                interval="1h",
+                interval=Interval.model_validate("1h"),
                 agg=AggregationOperator.AVG,
                 data_type=DataType.FLOAT,
                 timezone="UTC",
@@ -285,7 +303,7 @@ class TestAggregationResult:
             interval_start=datetime(2026, 1, 1, tzinfo=UTC), value=None, count=0
         )
         result = AggregationResult(
-            interval="1h",
+            interval=Interval.model_validate("1h"),
             agg=AggregationOperator.AVG,
             data_type=DataType.FLOAT,
             timezone="UTC",
