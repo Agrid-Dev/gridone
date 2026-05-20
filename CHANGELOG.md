@@ -1,3 +1,9 @@
+## v0.79.2 (2026-05-20)
+
+### Fix
+
+- **ci**: pass BUMP_TOKEN to checkout so bump tags trigger Release
+
 ## v0.79.1 (2026-05-20)
 
 ### Fix
