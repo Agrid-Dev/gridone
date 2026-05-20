@@ -8,15 +8,25 @@ from timeseries.domain import (
     AggregationOperator,
     AggregationResult,
     DataType,
-    Interval,
 )
 
-_SQL_INTERVALS: dict[Interval, str] = {
-    Interval.MIN_15: "15 minutes",
-    Interval.H_1: "1 hour",
-    Interval.D_1: "1 day",
-    Interval.MO_1: "1 month",
-}
+_SUFFIX_TO_SQL: tuple[tuple[str, str], ...] = (
+    ("mo", "month"),
+    ("min", "minutes"),
+    ("m", "minutes"),
+    ("h", "hour"),
+    ("d", "day"),
+)
+
+
+def _to_sql_interval(interval: str) -> str:
+    """Convert a duration string (e.g. ``"15min"``) to a Postgres interval string."""
+    for suffix, unit in _SUFFIX_TO_SQL:
+        if interval.endswith(suffix):
+            return f"{interval[: -len(suffix)]} {unit}"
+    msg = f"Cannot convert interval to SQL: {interval!r}"
+    raise ValueError(msg)
+
 
 _GAPFILL_BUCKET_EXPR = (
     "time_bucket_gapfill($1::text::interval, bucket,"
@@ -81,7 +91,7 @@ def _end_boundary(ctx: _QueryCtx) -> str:
     regardless of DST transitions (a DST spring-forward can push
     bucket_start + 1 day across midnight into the wrong bucket).
     """
-    if ctx.interval_str in {"1 day", "1 month"}:
+    if ctx.interval_str.endswith(("day", "month")):
         return (
             "time_bucket($1::text::interval,"
             " time_bucket($1::text::interval,"
@@ -102,7 +112,7 @@ def _bucket_end(ctx: _QueryCtx) -> str:
     raw interval can land on an ambiguous wall-clock time during a DST transition,
     so we nudge by 2 hours before re-bucketing to resolve to the correct boundary.
     """
-    if ctx.interval_str in {"1 day", "1 month"}:
+    if ctx.interval_str.endswith(("day", "month")):
         return (
             "time_bucket($1::text::interval,"
             " bucket + $1::text::interval + interval '2 hours', $4)"
@@ -421,7 +431,7 @@ async def compute(
         value_col=value_col,
         anchor_value=_coerce_anchor(op, anchor),
         tz=tz,
-        interval_str=_SQL_INTERVALS[query.interval],
+        interval_str=_to_sql_interval(query.interval),
         series_id=series.id,
         start=query.start,
         end=query.end,

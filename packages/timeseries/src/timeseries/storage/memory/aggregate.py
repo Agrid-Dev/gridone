@@ -14,6 +14,7 @@ from timeseries.domain import (
     DataType,
     TimeSeries,
 )
+from timeseries.domain.time_range import parse_duration
 
 _ROUND = 6
 
@@ -31,37 +32,27 @@ def _tz(name: str) -> Any:
 
 def _floor_bin(dt: datetime, interval: str) -> datetime:
     """Floor dt to the start of its containing bin, preserving timezone."""
-    match interval:
-        case "15min":
-            return dt.replace(minute=(dt.minute // 15) * 15, second=0, microsecond=0)
-        case "1h":
-            return dt.replace(minute=0, second=0, microsecond=0)
-        case "1d":
-            return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
-        case "1mo":
-            return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
-        case _:
-            msg = f"Unknown interval: {interval!r}"
-            raise ValueError(msg)
+    if interval.endswith("mo"):
+        return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
+    td = parse_duration(interval)
+    td_s = int(td.total_seconds())
+    midnight = dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
+    elapsed_s = int((dt.astimezone(UTC) - midnight.astimezone(UTC)).total_seconds())
+    slot_s = (elapsed_s // td_s) * td_s
+    return midnight + timedelta(seconds=slot_s)
 
 
 def _next_bin(dt: datetime, interval: str) -> datetime:
     """Advance dt by one bin. Sub-day bins advance in UTC to avoid DST phantom bins."""
-    match interval:
-        case "15min":
-            return (dt.astimezone(UTC) + timedelta(minutes=15)).astimezone(dt.tzinfo)
-        case "1h":
-            return (dt.astimezone(UTC) + timedelta(hours=1)).astimezone(dt.tzinfo)
-        case "1d":
-            d = dt.date() + timedelta(days=1)
-            return datetime(d.year, d.month, d.day, tzinfo=dt.tzinfo, fold=0)
-        case "1mo":
-            year = dt.year + 1 if dt.month == 12 else dt.year
-            month = 1 if dt.month == 12 else dt.month + 1
-            return dt.replace(year=year, month=month)
-        case _:
-            msg = f"Unknown interval: {interval!r}"
-            raise ValueError(msg)
+    if interval.endswith("mo"):
+        year = dt.year + 1 if dt.month == 12 else dt.year
+        month = 1 if dt.month == 12 else dt.month + 1
+        return dt.replace(year=year, month=month)
+    td = parse_duration(interval)
+    if interval.endswith("d"):
+        d = dt.date() + td
+        return datetime(d.year, d.month, d.day, tzinfo=dt.tzinfo, fold=0)
+    return (dt.astimezone(UTC) + td).astimezone(dt.tzinfo)
 
 
 def _bin_boundaries(
@@ -274,7 +265,7 @@ def compute(
         raise RuntimeError(msg)
 
     bins = (
-        _bin_boundaries(query.start, query.end, query.interval.value, tz_name)
+        _bin_boundaries(query.start, query.end, query.interval, tz_name)
         if query.start is not None and query.end is not None
         else []
     )
