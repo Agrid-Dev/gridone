@@ -1,5 +1,5 @@
 export const featureFlags = {
-  buildingHomepage: import.meta.env.VITE_FEATURE_BUILDING_HOMEPAGE === "true",
+  buildingHomepage: true,
 } as const;
 
 export const isFeatureEnabled = <K extends keyof typeof featureFlags>(
