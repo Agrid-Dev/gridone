@@ -1,0 +1,37 @@
+{
+  "status": {
+    "online": "Online"
+  },
+  "hero": {
+    "surface": "Surface",
+    "floors": "Floors",
+    "built": "Built"
+  },
+  "resources": {
+    "title": "Resources",
+    "description": "Jump into the systems and zones that power this site.",
+    "zones": {
+      "description": "Floors, rooms and groupings that organize this building.",
+      "unit": "zones"
+    },
+    "devices": {
+      "description": "Every connected device installed across the site.",
+      "unit": "devices"
+    },
+    "byType": "By type",
+    "devicesUnit": "devices"
+  },
+  "details": {
+    "title": "Details",
+    "description": "Key facts about this site.",
+    "operator": "Operator",
+    "address": "Address",
+    "surface": "Surface",
+    "floors": "Floors",
+    "yearBuilt": "Year built",
+    "coordinates": "Coordinates"
+  },
+  "units": {
+    "surfaceSquareMeters": "{{value}} m²"
+  }
+}
