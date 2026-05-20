@@ -4,6 +4,7 @@ import csv
 import io
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -298,3 +299,34 @@ class TestExportCsvErrors:
     async def test_unknown_series_id_raises(self, service: TimeSeriesService):
         with pytest.raises(NotFoundError):
             await service.export_csv(["nonexistent"])
+
+
+class TestExportCsvTruncation:
+    async def test_truncation_marker_appended_when_series_exceeds_limit(
+        self, service: TimeSeriesService
+    ):
+        series = await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+        )
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        pts = [
+            DataPoint(timestamp=base + timedelta(minutes=i), value=float(i))
+            for i in range(5)
+        ]
+        await service.upsert_points(series.key, pts)
+
+        with patch("timeseries.service.service.MAX_RAW_LIMIT", 3):
+            result = await service.export_csv([series.id])
+
+        assert "# truncated to 3 points" in result
+
+    async def test_no_truncation_marker_when_within_limit(
+        self, service: TimeSeriesService
+    ):
+        series = await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+        )
+        t1 = datetime(2026, 1, 1, tzinfo=UTC)
+        await service.upsert_points(series.key, [DataPoint(timestamp=t1, value=1.0)])
+        result = await service.export_csv([series.id])
+        assert "#" not in result

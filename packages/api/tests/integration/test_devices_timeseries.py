@@ -106,17 +106,17 @@ class TestBulkPushIntegration:
             response = await ac.post(f"/{DEVICE_ID}/timeseries", json=payload)
         assert response.status_code == 204
 
-        temp_points = await ts_service.fetch_points(
+        temp_result = await ts_service.fetch_points(
             SeriesKey(owner_id=DEVICE_ID, metric=TEMPERATURE)
         )
-        assert len(temp_points) == 2
-        assert {p.value for p in temp_points} == {20.5, 21.0}
+        assert len(temp_result.points) == 2
+        assert {p.value for p in temp_result.points} == {20.5, 21.0}
 
-        setpoint_points = await ts_service.fetch_points(
+        setpoint_result = await ts_service.fetch_points(
             SeriesKey(owner_id=DEVICE_ID, metric=SETPOINT)
         )
-        assert len(setpoint_points) == 1
-        assert setpoint_points[0].value == 22.0
+        assert len(setpoint_result.points) == 1
+        assert setpoint_result.points[0].value == 22.0
 
     async def test_no_command_id_on_pushed_points(
         self, client: AsyncClient, ts_service: TimeSeriesService
@@ -135,10 +135,10 @@ class TestBulkPushIntegration:
                     ]
                 },
             )
-        points = await ts_service.fetch_points(
+        result = await ts_service.fetch_points(
             SeriesKey(owner_id=DEVICE_ID, metric=TEMPERATURE)
         )
-        assert all(p.command_id is None for p in points)
+        assert all(p.command_id is None for p in result.points)
 
     async def test_does_not_update_device_state(
         self, client: AsyncClient, virtual_device: VirtualDevice
@@ -177,11 +177,11 @@ class TestSingleAttrPushIntegration:
             )
         assert response.status_code == 204
 
-        points = await ts_service.fetch_points(
+        result = await ts_service.fetch_points(
             SeriesKey(owner_id=DEVICE_ID, metric=TEMPERATURE)
         )
-        assert len(points) == 2
-        assert {p.value for p in points} == {18.5, 19.0}
+        assert len(result.points) == 2
+        assert {p.value for p in result.points} == {18.5, 19.0}
 
     async def test_correct_series_key_used(
         self, client: AsyncClient, ts_service: TimeSeriesService

@@ -16,6 +16,7 @@ from timeseries.domain.aggregation import (
 )
 from timeseries.domain.models import (
     DataPoint,
+    FetchPointsResult,
     SeriesKey,
     TimeSeries,
     validate_value_type,
@@ -38,6 +39,7 @@ __all__ = [
     "AttributeValueType",
     "DataPoint",
     "DataType",
+    "FetchPointsResult",
     "Interval",
     "SeriesKey",
     "SortOrder",

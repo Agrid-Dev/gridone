@@ -4,6 +4,7 @@ import {
   getSeriesPoints,
   type DataPoint,
   type DataType,
+  type SeriesPointsResult,
   type TimeSeries,
 } from "../api/timeseries";
 
@@ -33,7 +34,7 @@ export function useTimeSeries<D extends DataType = DataType>({
 
   const seriesId = seriesQuery.data?.id;
 
-  const pointsQuery = useQuery<DataPoint<D>[]>({
+  const pointsQuery = useQuery<SeriesPointsResult<D>>({
     queryKey: ["timeseries", "points", seriesId, start, end],
     queryFn: () =>
       getSeriesPoints<D>(deviceId, attributeName, {
@@ -46,7 +47,7 @@ export function useTimeSeries<D extends DataType = DataType>({
 
   return {
     series: seriesQuery.data ?? null,
-    points: pointsQuery.data ?? [],
+    points: (pointsQuery.data?.points ?? []) as DataPoint<D>[],
     isLoading: seriesQuery.isLoading || (!!seriesId && pointsQuery.isLoading),
     error: seriesQuery.error ?? pointsQuery.error ?? null,
   };

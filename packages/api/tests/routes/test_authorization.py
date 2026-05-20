@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
+from timeseries.domain import FetchPointsResult
+
 import pytest
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
 from fastapi import Depends, FastAPI
@@ -315,7 +317,11 @@ def _build_devices_app() -> FastAPI:
     dm.list_active_faults.return_value = []
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
-    app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
+    ts_mock = AsyncMock(default_timezone="UTC")
+    ts_mock.fetch_points.return_value = FetchPointsResult(
+        points=[], truncated=False, next_start=None
+    )
+    app.dependency_overrides[get_ts_service] = lambda: ts_mock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)

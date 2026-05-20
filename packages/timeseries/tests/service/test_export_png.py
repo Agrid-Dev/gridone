@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
@@ -80,3 +81,26 @@ class TestExportPng:
         result = await service.export_png([series.id], last="3h")
 
         assert result[:4] == PNG_MAGIC
+
+    async def test_truncation_suffix_in_title_when_series_exceeds_limit(
+        self, service: TimeSeriesService
+    ):
+        series = await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temp"
+        )
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        pts = [
+            DataPoint(timestamp=base + timedelta(minutes=i), value=float(i))
+            for i in range(5)
+        ]
+        await service.upsert_points(series.key, pts)
+
+        mock_to_png = patch("timeseries.service.service.to_png", return_value=b"PNG")
+        with patch("timeseries.service.service.MAX_RAW_LIMIT", 3), mock_to_png as m:
+            await service.export_png([series.id], title="My Chart")
+
+        _, kwargs = m.call_args
+        effective_title = kwargs["title"]
+        assert effective_title is not None
+        assert "truncated to 3 points" in effective_title
+        assert "My Chart" in effective_title

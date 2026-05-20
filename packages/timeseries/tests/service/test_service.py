@@ -10,9 +10,11 @@ from models.errors import InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
     DataType,
+    FetchPointsResult,
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
+from timeseries.service.service import MAX_RAW_LIMIT
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -119,9 +121,9 @@ class TestUpsertPoints:
         now = datetime.now(tz=UTC)
         await service.upsert_points(KEY, [DataPoint(timestamp=now, value=23.5)])
 
-        points = await service.fetch_points(KEY)
-        assert len(points) == 1
-        assert points[0].value == 23.5
+        result = await service.fetch_points(KEY)
+        assert len(result.points) == 1
+        assert result.points[0].value == 23.5
 
     async def test_validates_value_type(self, service: TimeSeriesService):
         await service.create_series(
@@ -149,9 +151,9 @@ class TestUpsertPoints:
         series = await service.get_series_by_key(key)
         assert series is not None
         assert series.data_type == DataType.FLOAT
-        points = await service.fetch_points(key)
-        assert len(points) == 1
-        assert points[0].value == 42.0
+        result = await service.fetch_points(key)
+        assert len(result.points) == 1
+        assert result.points[0].value == 42.0
 
     async def test_create_if_not_found_empty_points_raises(
         self, service: TimeSeriesService
@@ -174,9 +176,9 @@ class TestUpsertPoints:
             [DataPoint(timestamp=now, value=10.0)],
             create_if_not_found=True,
         )
-        points = await service.fetch_points(KEY)
-        assert len(points) == 1
-        assert points[0].value == 10.0
+        result = await service.fetch_points(KEY)
+        assert len(result.points) == 1
+        assert result.points[0].value == 10.0
 
     async def test_naive_timestamp_raises(self, service: TimeSeriesService):
         await service.create_series(
@@ -221,9 +223,9 @@ class TestFetchPoints:
                 DataPoint(timestamp=t3, value=3.0),
             ],
         )
-        points = await service.fetch_points(KEY, start=t2, end=t2)
-        assert len(points) == 1
-        assert points[0].value == 2.0
+        result = await service.fetch_points(KEY, start=t2, end=t2)
+        assert len(result.points) == 1
+        assert result.points[0].value == 2.0
 
     async def test_with_last(self, service: TimeSeriesService):
         await service.create_series(
@@ -240,9 +242,9 @@ class TestFetchPoints:
                 DataPoint(timestamp=now, value=2.0),
             ],
         )
-        points = await service.fetch_points(KEY, last="3h")
-        assert len(points) == 1
-        assert points[0].value == 2.0
+        result = await service.fetch_points(KEY, last="3h")
+        assert len(result.points) == 1
+        assert result.points[0].value == 2.0
 
     async def test_last_ignored_when_start_is_set(self, service: TimeSeriesService):
         await service.create_series(
@@ -260,8 +262,8 @@ class TestFetchPoints:
             ],
         )
         # explicit start should take precedence over last
-        points = await service.fetch_points(KEY, start=t1, last="1h")
-        assert len(points) == 2
+        result = await service.fetch_points(KEY, start=t1, last="1h")
+        assert len(result.points) == 2
 
     async def test_carry_forward(self, service: TimeSeriesService):
         await service.create_series(
@@ -279,12 +281,12 @@ class TestFetchPoints:
                 DataPoint(timestamp=t3, value=3.0),
             ],
         )
-        points = await service.fetch_points(KEY, start=t2, carry_forward=True)
-        assert len(points) == 2
-        assert points[0].timestamp == t2
-        assert points[0].value == 1.0
-        assert points[1].timestamp == t3
-        assert points[1].value == 3.0
+        result = await service.fetch_points(KEY, start=t2, carry_forward=True)
+        assert len(result.points) == 2
+        assert result.points[0].timestamp == t2
+        assert result.points[0].value == 1.0
+        assert result.points[1].timestamp == t3
+        assert result.points[1].value == 3.0
 
     async def test_carry_forward_no_previous_exists(self, service: TimeSeriesService):
         await service.create_series(
@@ -301,10 +303,10 @@ class TestFetchPoints:
                 DataPoint(timestamp=t2, value=2.0),
             ],
         )
-        points = await service.fetch_points(KEY, start=t1, carry_forward=True)
-        assert len(points) == 2
-        assert points[0].value == 1.0
-        assert points[1].value == 2.0
+        result = await service.fetch_points(KEY, start=t1, carry_forward=True)
+        assert len(result.points) == 2
+        assert result.points[0].value == 1.0
+        assert result.points[1].value == 2.0
 
     async def test_carry_forward_noop_without_start(self, service: TimeSeriesService):
         await service.create_series(
@@ -314,9 +316,9 @@ class TestFetchPoints:
         )
         now = datetime.now(tz=UTC)
         await service.upsert_points(KEY, [DataPoint(timestamp=now, value=1.0)])
-        points = await service.fetch_points(KEY, carry_forward=True)
-        assert len(points) == 1
-        assert points[0].value == 1.0
+        result = await service.fetch_points(KEY, carry_forward=True)
+        assert len(result.points) == 1
+        assert result.points[0].value == 1.0
 
     async def test_carry_forward_with_last(self, service: TimeSeriesService):
         await service.create_series(
@@ -333,14 +335,17 @@ class TestFetchPoints:
                 DataPoint(timestamp=now, value=2.0),
             ],
         )
-        points = await service.fetch_points(KEY, last="3h", carry_forward=True)
-        assert len(points) == 2
-        assert points[0].value == 1.0
-        assert points[1].value == 2.0
+        result = await service.fetch_points(KEY, last="3h", carry_forward=True)
+        assert len(result.points) == 2
+        assert result.points[0].value == 1.0
+        assert result.points[1].value == 2.0
 
     async def test_empty_result(self, service: TimeSeriesService):
-        points = await service.fetch_points(KEY)
-        assert points == []
+        result = await service.fetch_points(KEY)
+        assert isinstance(result, FetchPointsResult)
+        assert result.points == []
+        assert result.truncated is False
+        assert result.next_start is None
 
     @pytest.mark.parametrize(
         ("naive_local", "tz", "t_inside_utc", "t_outside_utc"),
@@ -383,8 +388,77 @@ class TestFetchPoints:
                     DataPoint(timestamp=t_inside_utc, value=2.0),
                 ],
             )
-            points = await svc.fetch_points(KEY, start=naive_local)
-            assert len(points) == 1
-            assert points[0].value == 2.0
+            result = await svc.fetch_points(KEY, start=naive_local)
+            assert len(result.points) == 1
+            assert result.points[0].value == 2.0
         finally:
             await svc.stop()
+
+
+class TestFetchPointsTruncation:
+    async def _setup(self, service: TimeSeriesService, n: int) -> list[DataPoint]:
+        await service.create_series(
+            data_type=DataType.FLOAT,
+            owner_id=KEY.owner_id,
+            metric=KEY.metric,
+        )
+        base = datetime(2026, 1, 1, tzinfo=UTC)
+        points = [
+            DataPoint(timestamp=base + timedelta(minutes=i), value=float(i))
+            for i in range(n)
+        ]
+        await service.upsert_points(KEY, points)
+        return points
+
+    async def test_truncated_true_when_more_points_than_limit(
+        self, service: TimeSeriesService
+    ):
+        pts = await self._setup(service, 5)
+        result = await service.fetch_points(KEY, limit=3)
+        assert result.truncated is True
+        assert len(result.points) == 3
+        assert result.next_start == pts[3].timestamp
+
+    async def test_truncated_false_when_fewer_points_than_limit(
+        self, service: TimeSeriesService
+    ):
+        await self._setup(service, 3)
+        result = await service.fetch_points(KEY, limit=10)
+        assert result.truncated is False
+        assert result.next_start is None
+        assert len(result.points) == 3
+
+    @pytest.mark.parametrize("bad_limit", [MAX_RAW_LIMIT + 1, 0, -1, -100])
+    async def test_invalid_limit_raises_invalid_error(
+        self, service: TimeSeriesService, bad_limit: int
+    ):
+        with pytest.raises(InvalidError, match="limit must be between"):
+            await service.fetch_points(KEY, limit=bad_limit)
+
+    async def test_cursor_pagination_no_overlap_no_gap(
+        self, service: TimeSeriesService
+    ):
+        pts = await self._setup(service, 5)
+        page1 = await service.fetch_points(KEY, limit=3)
+        assert page1.truncated is True
+        assert page1.next_start is not None
+
+        page2 = await service.fetch_points(KEY, start=page1.next_start, limit=3)
+        all_values = [p.value for p in page1.points] + [p.value for p in page2.points]
+        expected = [p.value for p in pts]
+        assert all_values == expected
+
+    async def test_carry_forward_with_truncation_respects_limit(
+        self, service: TimeSeriesService
+    ):
+        pts = await self._setup(service, 5)
+        old = pts[0].timestamp - timedelta(hours=1)
+        await service.upsert_points(KEY, [DataPoint(timestamp=old, value=99.0)])
+
+        result = await service.fetch_points(
+            KEY, start=pts[0].timestamp, carry_forward=True, limit=3
+        )
+        assert len(result.points) == 3
+        assert result.truncated is True
+        assert result.points[0].value == 99.0
+        assert result.next_start == pts[2].timestamp

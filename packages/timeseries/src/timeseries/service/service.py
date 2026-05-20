@@ -13,6 +13,7 @@ from timeseries.domain import (
     AggregationResult,
     DataPoint,
     DataType,
+    FetchPointsResult,
     SeriesKey,
     TimeSeries,
     normalize_to_utc,
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _POSTGRES_PREFIX = "postgresql"
+
+DEFAULT_RAW_LIMIT = 10_000
+MAX_RAW_LIMIT = 100_000
 
 
 def _utcnow() -> datetime:
@@ -230,16 +234,25 @@ class TimeSeriesService(Service):
         last: str | None = None,
         carry_forward: bool = False,
         timezone: str | None = None,
-    ) -> list[DataPoint]:
+        limit: int | None = None,
+    ) -> FetchPointsResult:
         if timezone is not None:
             validate_tz_name(timezone)
         resolved_tz = timezone or self._default_timezone
+        if limit is not None and not (1 <= limit <= MAX_RAW_LIMIT):
+            msg = f"limit must be between 1 and {MAX_RAW_LIMIT}"
+            raise InvalidError(msg)
+        effective_limit = limit if limit is not None else DEFAULT_RAW_LIMIT
         if last is not None and start is None:
             start = resolve_last(last)
         start = normalize_to_utc(start, resolved_tz)
         end = normalize_to_utc(end, resolved_tz)
         return await self._fetch_points_utc(
-            key, start=start, end=end, carry_forward=carry_forward
+            key,
+            start=start,
+            end=end,
+            carry_forward=carry_forward,
+            limit=effective_limit,
         )
 
     async def _fetch_points_utc(
@@ -249,15 +262,30 @@ class TimeSeriesService(Service):
         start: datetime | None,
         end: datetime | None,
         carry_forward: bool,
-    ) -> list[DataPoint]:
+        limit: int,
+    ) -> FetchPointsResult:
         storage = self._backend
-        points = await storage.fetch_points(key, start=start, end=end)
+        raw = await storage.fetch_points(key, start=start, end=end, limit=limit)
+        if len(raw) == limit + 1:
+            next_start = raw[limit].timestamp
+            points: list[DataPoint] = list(raw[:limit])
+            truncated = True
+        else:
+            points = list(raw)
+            truncated = False
+            next_start = None
         if carry_forward and start is not None:
             previous = await storage.fetch_point_before(key, before=start)
             if previous is not None:
                 carried = DataPoint(timestamp=start, value=previous.value)
-                points = [carried, *points]
-        return points
+                if truncated:
+                    next_start = points[-1].timestamp
+                    points = [carried, *points[:-1]]
+                else:
+                    points = [carried, *points]
+        return FetchPointsResult(
+            points=points, truncated=truncated, next_start=next_start
+        )
 
     async def export_csv(
         self,
@@ -274,14 +302,26 @@ class TimeSeriesService(Service):
         end = normalize_to_utc(end, self._default_timezone)
 
         all_series = []
+        any_truncated = False
         for series_id in series_ids:
             series = await self.get_series(series_id)
-            series.data_points = await self._fetch_points_utc(
-                series.key, start=start, end=end, carry_forward=carry_forward
+            result = await self._fetch_points_utc(
+                series.key,
+                start=start,
+                end=end,
+                carry_forward=carry_forward,
+                limit=MAX_RAW_LIMIT,
             )
+            series.data_points = result.points
             all_series.append(series)
+            if result.truncated:
+                any_truncated = True
 
-        return to_csv(all_series, timezone=self._default_timezone)
+        csv_content = to_csv(all_series, timezone=self._default_timezone)
+        if any_truncated:
+            total = sum(len(s.data_points) for s in all_series)
+            csv_content += f"\n# truncated to {total} points"
+        return csv_content
 
     async def export_png(  # noqa: PLR0913
         self,
@@ -299,11 +339,27 @@ class TimeSeriesService(Service):
         end = normalize_to_utc(end, self._default_timezone)
 
         all_series = []
+        any_truncated = False
         for series_id in series_ids:
             series = await self.get_series(series_id)
-            series.data_points = await self._fetch_points_utc(
-                series.key, start=start, end=end, carry_forward=carry_forward
+            result = await self._fetch_points_utc(
+                series.key,
+                start=start,
+                end=end,
+                carry_forward=carry_forward,
+                limit=MAX_RAW_LIMIT,
             )
+            series.data_points = result.points
             all_series.append(series)
+            if result.truncated:
+                any_truncated = True
 
-        return to_png(all_series, title=title, end=end, timezone=self._default_timezone)
+        effective_title = title
+        if any_truncated:
+            total = sum(len(s.data_points) for s in all_series)
+            suffix = f"truncated to {total} points"
+            effective_title = f"{title} ({suffix})" if title else suffix
+
+        return to_png(
+            all_series, title=effective_title, end=end, timezone=self._default_timezone
+        )

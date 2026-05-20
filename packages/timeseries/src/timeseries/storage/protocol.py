@@ -34,6 +34,7 @@ class TimeSeriesStorage(Protocol):
         *,
         start: datetime | None = None,
         end: datetime | None = None,
+        limit: int | None = None,
     ) -> list[DataPoint]: ...
 
     async def fetch_point_before(

@@ -20,6 +20,12 @@ class DataPointResponse(BaseModel):
     command_id: int | None = None
 
 
+class FetchPointsResultResponse(BaseModel):
+    points: list[DataPointResponse]
+    truncated: bool
+    next_start: datetime | None = None
+
+
 class AggregatedPointResponse(BaseModel):
     interval_start: datetime
     value: bool | int | float | str | None
