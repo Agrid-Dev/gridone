@@ -42,6 +42,7 @@ from devices_manager.types import (
     TransportProtocols,
 )
 from models.errors import (
+    ConfirmationError,
     ForbiddenError,
     NotFoundError,
 )
@@ -1007,6 +1008,20 @@ class TestDevicesServiceDeviceDelegation:
             "d1", "value", 42.0, confirm=True
         )
         assert result is mock_attr
+
+    @pytest.mark.asyncio
+    async def test_write_device_attribute_raises_confirmation_error_when_device_offline(
+        self,
+    ):
+        """ConfirmationError propagates from write_device_attribute."""
+        mock_reg = _mock_device_registry()
+        mock_reg.write_attribute.side_effect = ConfirmationError(
+            "Failed to confirm temperature_setpoint, expected 20.0 got None"
+        )
+        dm = _dm_with_mock_registry(mock_reg)
+
+        with pytest.raises(ConfirmationError):
+            await dm.write_device_attribute("d1", "temperature_setpoint", 20.0)
 
 
 class TestDevicesServiceStorage:

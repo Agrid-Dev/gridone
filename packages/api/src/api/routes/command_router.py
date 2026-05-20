@@ -10,7 +10,12 @@ from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003
 
-from commands import AttributeWrite, CommandsServiceInterface, UnitCommand
+from commands import (
+    AttributeWrite,
+    CommandStatus,
+    CommandsServiceInterface,
+    UnitCommand,
+)
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from models.pagination import Page, PaginationParams
@@ -157,7 +162,7 @@ async def dispatch_single_command(
 ) -> UnitCommand:
     dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
     data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
-    return await commands_svc.dispatch_unit(
+    command = await commands_svc.dispatch_unit(
         device_id=device_id,
         write=AttributeWrite(
             attribute=body.attribute, value=body.value, data_type=data_type
@@ -165,6 +170,12 @@ async def dispatch_single_command(
         user_id=user_id,
         confirm=body.confirm,
     )
+    if command.status == CommandStatus.ERROR:
+        raise HTTPException(
+            status_code=409,
+            detail=command.status_details or "Command failed to execute",
+        )
+    return command
 
 
 # ---------------------------------------------------------------------------

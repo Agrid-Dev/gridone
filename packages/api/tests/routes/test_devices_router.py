@@ -413,6 +413,7 @@ def _completed_command(
     attribute: str = "temperature_setpoint",
     value: float = 22.0,
     status: CommandStatus = CommandStatus.SUCCESS,
+    status_details: str | None = None,
 ) -> UnitCommand:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return UnitCommand(
@@ -424,7 +425,7 @@ def _completed_command(
         value=value,
         data_type=DataType.FLOAT,
         status=status,
-        status_details=None,
+        status_details=status_details,
         user_id="test-user",
         created_at=now,
         executed_at=now,
@@ -474,21 +475,20 @@ class TestDispatchSingleCommand:
         assert kwargs["confirm"] is False
 
     @pytest.mark.asyncio
-    async def test_writer_failure_returns_200_with_error_status(
+    async def test_writer_failure_returns_409(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        # dispatch_unit absorbs writer exceptions and returns the ERROR command,
-        # so the route should still return 200.
         mock_commands_service.dispatch_unit.return_value = _completed_command(
             status=CommandStatus.ERROR,
+            status_details="Failed to confirm temperature_setpoint, expected 22.0 got None",
         )
         async with async_client as ac:
             response = await ac.post(
                 "/device1/commands",
                 json={"attribute": "temperature_setpoint", "value": 22.0},
             )
-        assert response.status_code == 200
-        assert response.json()["status"] == "error"
+        assert response.status_code == 409
+        assert "temperature_setpoint" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_unknown_device_returns_404(self, async_client: AsyncClient):
