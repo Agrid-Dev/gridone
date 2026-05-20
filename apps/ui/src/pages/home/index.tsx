@@ -86,7 +86,9 @@ const Home: FC = () => {
             title={t("app.assets", { ns: "common" })}
             description={t("resources.zones.description")}
             count={assets?.length ?? 0}
-            countLabel={t("resources.zones.unit")}
+            countLabel={t("resources.zones.unit", {
+              count: assets?.length ?? 0,
+            })}
             loading={assetsLoading}
             formatNumber={formatNumber}
           />
@@ -96,7 +98,9 @@ const Home: FC = () => {
             title={t("app.devices", { ns: "common" })}
             description={t("resources.devices.description")}
             count={devices?.length ?? 0}
-            countLabel={t("resources.devices.unit")}
+            countLabel={t("resources.devices.unit", {
+              count: devices?.length ?? 0,
+            })}
             loading={devicesLoading}
             formatNumber={formatNumber}
           />
@@ -309,7 +313,7 @@ const DeviceTypeCard: FC<{
           <Skeleton className="mt-1 h-3 w-20" />
         ) : (
           <p className="text-xs text-muted-foreground">
-            {formatNumber(count)} {t("resources.devicesUnit")}
+            {formatNumber(count)} {t("resources.devicesUnit", { count })}
           </p>
         )}
       </div>

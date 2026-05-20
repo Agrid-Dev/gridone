@@ -12,14 +12,17 @@
     "description": "Jump into the systems and zones that power this site.",
     "zones": {
       "description": "Floors, rooms and groupings that organize this building.",
-      "unit": "zones"
+      "unit_one": "zone",
+      "unit_other": "zones"
     },
     "devices": {
       "description": "Every connected device installed across the site.",
-      "unit": "devices"
+      "unit_one": "device",
+      "unit_other": "devices"
     },
     "byType": "By type",
-    "devicesUnit": "devices"
+    "devicesUnit_one": "device",
+    "devicesUnit_other": "devices"
   },
   "details": {
     "title": "Details",

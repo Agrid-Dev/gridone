@@ -12,14 +12,17 @@
     "description": "Accédez aux systèmes et zones qui composent ce site.",
     "zones": {
       "description": "Étages, pièces et regroupements qui structurent le bâtiment.",
-      "unit": "zones"
+      "unit_one": "zone",
+      "unit_other": "zones"
     },
     "devices": {
       "description": "Tous les équipements connectés installés sur le site.",
-      "unit": "équipements"
+      "unit_one": "équipement",
+      "unit_other": "équipements"
     },
     "byType": "Par type",
-    "devicesUnit": "équipements"
+    "devicesUnit_one": "équipement",
+    "devicesUnit_other": "équipements"
   },
   "details": {
     "title": "Détails",
