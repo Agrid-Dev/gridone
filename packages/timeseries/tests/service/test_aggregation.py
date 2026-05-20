@@ -2,6 +2,7 @@ import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -90,7 +91,11 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
 
 
 @pytest.mark.parametrize("case_name", load_scenarios())
-async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
+async def test_aggregate(
+    ts_service: TimeSeriesService,
+    case_name: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     scenario = _SCENARIOS[case_name]
     inp = _load_input(scenario["input_ref"])
     key = SeriesKey(owner_id="test", metric=case_name)
@@ -119,6 +124,15 @@ async def test_aggregate(ts_service: TimeSeriesService, case_name: str) -> None:
         end=_parse_dt(req.get("end")),
         timezone=req.get("timezone"),
     )
+
+    # Freeze "now" to end + 1 day so future-bucket filtering never interferes
+    # with bucketing-correctness assertions — the scenario data may be in the future.
+    end_dt = _parse_dt(req.get("end"))
+    if end_dt is not None:
+        synthetic_now = end_dt + timedelta(days=1)
+        if synthetic_now.tzinfo is None:
+            synthetic_now = synthetic_now.replace(tzinfo=UTC)
+        monkeypatch.setattr("timeseries.service.service._utcnow", lambda: synthetic_now)
 
     result = await ts_service.get_aggregate(key, query)
     assert_aggregation_equal(result, case_name)
@@ -271,14 +285,14 @@ class TestGetAggregateTzAware:
         [
             # Paris CET (UTC+1): naive 01:00 → 00:00 UTC
             (
-                datetime(2026, 1, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2026, 1, 16, 1, 0, 0),  # noqa: DTZ001
                 "Europe/Paris",
                 datetime(2026, 1, 16, 0, 30, 0, tzinfo=UTC),
                 datetime(2026, 1, 15, 23, 30, 0, tzinfo=UTC),
             ),
             # Paris CEST (UTC+2): naive 01:00 → 23:00 UTC prev day
             (
-                datetime(2026, 7, 16, 1, 0, 0, tzinfo=UTC).replace(tzinfo=None),
+                datetime(2026, 7, 16, 1, 0, 0),  # noqa: DTZ001
                 "Europe/Paris",
                 datetime(2026, 7, 15, 23, 30, 0, tzinfo=UTC),
                 datetime(2026, 7, 15, 22, 30, 0, tzinfo=UTC),
@@ -291,6 +305,7 @@ class TestGetAggregateTzAware:
         tz: str,
         t_inside_utc: datetime,
         t_outside_utc: datetime,
+        monkeypatch: pytest.MonkeyPatch,
     ):
         svc = TimeSeriesService(storage_url=None, default_timezone=tz)
         await svc.start()
@@ -307,6 +322,10 @@ class TestGetAggregateTzAware:
                 ],
             )
             end = t_inside_utc + timedelta(hours=2)
+            frozen_now = end + timedelta(days=1)
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
@@ -318,5 +337,191 @@ class TestGetAggregateTzAware:
             )
             total = sum(p.count for p in result.points)
             assert total == 1
+        finally:
+            await svc.stop()
+
+
+class TestGetAggregateDefects:
+    async def test_no_future_buckets(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        svc = TimeSeriesService(storage_url=None)
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="future-test", metric="temp")
+            await svc.create_series(
+                data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+            )
+            pt_ts = datetime(2026, 1, 1, 10, tzinfo=UTC)
+            await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=1.0)])
+            frozen_now = datetime(2026, 1, 1, 13, tzinfo=UTC)
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.H_1,
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 2, tzinfo=UTC),
+                ),
+            )
+            assert len(result.points) == 14  # [00:00 … 13:00] inclusive
+            assert all(p.interval_start <= frozen_now for p in result.points)
+        finally:
+            await svc.stop()
+
+    async def test_last_alone_sets_end_to_now(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        svc = TimeSeriesService(storage_url=None)
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="last-test", metric="temp")
+            await svc.create_series(
+                data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+            )
+            frozen_now = datetime(2026, 1, 10, 12, tzinfo=UTC)
+            pt_ts = datetime(2026, 1, 10, 6, tzinfo=UTC)
+            await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=5.0)])
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow", lambda: frozen_now
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.H_1,
+                    last="12h",
+                ),
+            )
+            # last="12h" → start=2026-01-10T00:00Z, end=frozen_now=2026-01-10T12:00Z
+            assert result.points[0].interval_start == datetime(2026, 1, 10, tzinfo=UTC)
+            assert any(p.count > 0 for p in result.points)
+            assert all(p.interval_start <= frozen_now for p in result.points)
+        finally:
+            await svc.stop()
+
+    async def test_naive_input_interpreted_in_resolved_tz(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Naive start in Europe/Paris → Paris midnight, not UTC midnight."""
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="naive-paris", metric="temp")
+            await svc.create_series(
+                data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+            )
+            # Paris midnight on 2026-05-17 = 2026-05-16T22:00:00Z (CEST = UTC+2)
+            paris_midnight_utc = datetime(2026, 5, 16, 22, tzinfo=UTC)
+            pt = DataPoint(
+                timestamp=paris_midnight_utc + timedelta(minutes=30), value=21.0
+            )
+            await svc.upsert_points(key, [pt])
+            # naive — interpreted in Europe/Paris (CEST = UTC+2)
+            naive_start = datetime(2026, 5, 17)  # noqa: DTZ001
+            naive_end = datetime(2026, 5, 18)  # noqa: DTZ001
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 5, 19, tzinfo=UTC),
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.AVG,
+                    interval=Interval.H_1,
+                    start=naive_start,
+                    end=naive_end,
+                ),
+            )
+            # First bucket starts at Paris midnight (UTC 22:00 prev day)
+            first_bucket_local = result.points[0].interval_start.astimezone(
+                ZoneInfo("Europe/Paris")
+            )
+            assert first_bucket_local.hour == 0
+            assert first_bucket_local.minute == 0
+            assert str(first_bucket_local.utcoffset()) == "2:00:00"
+        finally:
+            await svc.stop()
+
+    @pytest.mark.parametrize(
+        ("tz_name", "expected_offset_hours"),
+        [
+            ("UTC", 0),
+            ("Europe/Paris", 1),  # CET (January)
+            ("Asia/Kolkata", None),  # +05:30 — checked by minutes
+        ],
+    )
+    async def test_interval_start_offset_by_timezone(
+        self,
+        tz_name: str,
+        expected_offset_hours: int | None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        svc = TimeSeriesService(storage_url=None, default_timezone=tz_name)
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id=f"tz-offset-{tz_name}", metric="temp")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 1, 4, tzinfo=UTC),
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 3, tzinfo=UTC),
+                ),
+            )
+            assert result.timezone == tz_name
+            tz = ZoneInfo(tz_name)
+            for pt in result.points:
+                local = pt.interval_start.astimezone(tz)
+                assert local.hour == 0
+                assert local.minute == 0
+                offset_secs = local.utcoffset().total_seconds()  # type: ignore[union-attr]
+                if expected_offset_hours is not None:
+                    assert offset_secs == expected_offset_hours * 3600
+                else:
+                    # Kolkata +05:30
+                    assert offset_secs == 5 * 3600 + 30 * 60
+        finally:
+            await svc.stop()
+
+    async def test_interval_start_offset_paris_cest(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Paris CEST (summer, UTC+2): daily buckets start at 22:00 UTC prev day."""
+        svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+        await svc.start()
+        try:
+            key = SeriesKey(owner_id="paris-cest", metric="temp")
+            await svc.create_series(
+                data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+            )
+            monkeypatch.setattr(
+                "timeseries.service.service._utcnow",
+                lambda: datetime(2026, 7, 4, tzinfo=UTC),
+            )
+            result = await svc.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.COUNT,
+                    interval=Interval.D_1,
+                    start=datetime(2026, 7, 1, tzinfo=UTC),
+                    end=datetime(2026, 7, 3, tzinfo=UTC),
+                ),
+            )
+            paris = ZoneInfo("Europe/Paris")
+            for pt in result.points:
+                local = pt.interval_start.astimezone(paris)
+                assert local.hour == 0
+                assert local.minute == 0
+                assert local.utcoffset().total_seconds() == 2 * 3600  # type: ignore[union-attr]
         finally:
             await svc.stop()

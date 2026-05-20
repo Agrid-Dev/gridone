@@ -1,12 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, computed_field, field_validator, model_validator
 
 from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, DataType
-from timeseries.domain.time_range import parse_duration
+from timeseries.domain.time_range import parse_duration, validate_tz_name
 
 
 class Interval(StrEnum):
@@ -69,7 +68,7 @@ def resolve_aggregation_data_type(
     """
     result = AGG_COMPAT[agg][data_type]
     if result is None:
-        msg = f"Operator {agg!r} is not supported for data type {data_type!r}"
+        msg = f"Operator '{agg}' is not supported for data type '{data_type}'"
         raise InvalidError(msg)
     return result
 
@@ -105,11 +104,7 @@ class AggregationQuery(BaseModel):
     def _validate_timezone(cls, v: str | None) -> str | None:
         if v is None:
             return v
-        try:
-            ZoneInfo(v)
-        except (ZoneInfoNotFoundError, KeyError):
-            msg = f"Unknown IANA timezone: {v!r}"
-            raise ValueError(msg) from None
+        validate_tz_name(v)
         return v
 
     @model_validator(mode="after")

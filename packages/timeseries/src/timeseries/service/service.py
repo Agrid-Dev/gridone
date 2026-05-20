@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from models.errors import InvalidError, NotFoundError, StorageConnectionError
@@ -17,6 +18,7 @@ from timeseries.domain import (
     normalize_to_utc,
     resolve_aggregation_data_type,
     resolve_last,
+    validate_tz_name,
     validate_value_type,
 )
 from timeseries.exporters.csv import to_csv
@@ -24,14 +26,16 @@ from timeseries.exporters.png import to_png
 from timeseries.storage import build_storage
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from timeseries.storage import TimeSeriesStorage
     from timeseries.storage.postgres import PostgresStorage
 
 
 logger = logging.getLogger(__name__)
 _POSTGRES_PREFIX = "postgresql"
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class TimeSeriesService(Service):
@@ -182,28 +186,42 @@ class TimeSeriesService(Service):
         key: SeriesKey,
         query: AggregationQuery,
     ) -> AggregationResult:
-        if query.last is not None and query.start is None:
+        cutoff = _utcnow()
+
+        if query.last is not None:
             query = query.model_copy(
-                update={"start": resolve_last(query.last), "last": None}
+                update={
+                    "start": query.start
+                    if query.start is not None
+                    else resolve_last(query.last, now=cutoff),
+                    "end": query.end if query.end is not None else cutoff,
+                    "last": None,
+                }
             )
+
+        resolved_tz = query.timezone or self._default_timezone
         query = query.model_copy(
             update={
-                "start": normalize_to_utc(query.start, self._default_timezone),
-                "end": normalize_to_utc(query.end, self._default_timezone),
-                "timezone": query.timezone or self._default_timezone,
+                "start": normalize_to_utc(query.start, resolved_tz),
+                "end": normalize_to_utc(query.end, resolved_tz),
+                "timezone": resolved_tz,
             }
         )
         series = await self._backend.get_series_by_key(key)
         if series is None:
-            msg = f"No series found for {key}"
+            owner, metric = key.owner_id, key.metric
+            msg = f"No timeseries found for device '{owner}', attribute '{metric}'"
             raise NotFoundError(msg)
         if query.start is None or query.end is None:
             msg = "start and end are required for aggregation"
             raise InvalidError(msg)
         resolve_aggregation_data_type(query.agg, series.data_type)
-        return await self._backend.aggregate(key, query)
+        result = await self._backend.aggregate(key, query)
+        return result.model_copy(
+            update={"points": [p for p in result.points if p.interval_start <= cutoff]}
+        )
 
-    async def fetch_points(
+    async def fetch_points(  # noqa: PLR0913
         self,
         key: SeriesKey,
         *,
@@ -211,11 +229,15 @@ class TimeSeriesService(Service):
         end: datetime | None = None,
         last: str | None = None,
         carry_forward: bool = False,
+        timezone: str | None = None,
     ) -> list[DataPoint]:
+        if timezone is not None:
+            validate_tz_name(timezone)
+        resolved_tz = timezone or self._default_timezone
         if last is not None and start is None:
             start = resolve_last(last)
-        start = normalize_to_utc(start, self._default_timezone)
-        end = normalize_to_utc(end, self._default_timezone)
+        start = normalize_to_utc(start, resolved_tz)
+        end = normalize_to_utc(end, resolved_tz)
         return await self._fetch_points_utc(
             key, start=start, end=end, carry_forward=carry_forward
         )

@@ -315,7 +315,7 @@ def _build_devices_app() -> FastAPI:
     dm.list_active_faults.return_value = []
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
-    app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
+    app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
@@ -440,7 +440,7 @@ def _build_commands_app() -> FastAPI:
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: MagicMock()
-    app.dependency_overrides[get_ts_service] = lambda: AsyncMock()
+    app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
     app.dependency_overrides[get_assets_service] = lambda: MagicMock()
     app.dependency_overrides[get_commands_service] = lambda: AsyncMock()
     app.include_router(auth_router, prefix="/auth")

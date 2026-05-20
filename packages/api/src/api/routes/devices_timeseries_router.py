@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
@@ -116,6 +117,7 @@ async def get_device_timeseries_points(
     end: datetime | None = Query(None),
     last: str | None = Query(None),
     carry_forward: bool = Query(False),
+    timezone: str | None = Query(None),
     dm: DevicesServiceInterface = Depends(get_device_manager),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> list[DataPointResponse]:
@@ -126,23 +128,35 @@ async def get_device_timeseries_points(
             f"No timeseries found for device '{device_id}', attribute '{attr}'"
         )
     points = await ts.fetch_points(
-        series.key, start=start, end=end, last=last, carry_forward=carry_forward
+        series.key,
+        start=start,
+        end=end,
+        last=last,
+        carry_forward=carry_forward,
+        timezone=timezone,
     )
+    tz = ZoneInfo(timezone or ts.default_timezone)
     return [
-        DataPointResponse(timestamp=p.timestamp, value=p.value, command_id=p.command_id)
+        DataPointResponse(
+            timestamp=p.timestamp.astimezone(tz),
+            value=p.value,
+            command_id=p.command_id,
+        )
         for p in points
     ]
 
 
-def _as_utc(dt: datetime | None) -> datetime | None:
-    if dt is None or dt.tzinfo is not None:
-        return dt
-    return dt.replace(tzinfo=UTC)
-
-
 def get_aggregation_query(
     interval: Interval = Query(...),
-    agg: AggregationOperator = Query(...),
+    agg: AggregationOperator = Query(
+        ...,
+        description=(
+            "Aggregation operator. "
+            "Note: 'avg' on bool series returns the sample mean of discrete observations "
+            "(0.0 or 1.0 per point), which is rarely useful for event-driven series. "
+            "Use 'tw_avg' to get the fraction of time the value was True."
+        ),
+    ),
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
@@ -152,13 +166,14 @@ def get_aggregation_query(
         return AggregationQuery(
             interval=interval,
             agg=agg,
-            start=_as_utc(start),
-            end=_as_utc(end),
+            start=start,
+            end=end,
             last=last,
             timezone=timezone,
         )
     except ValidationError as e:
-        raise InvalidError("; ".join(err["msg"] for err in e.errors())) from e
+        msgs = (err["msg"].removeprefix("Value error, ") for err in e.errors())
+        raise InvalidError("; ".join(msgs)) from e
 
 
 @router.get(
@@ -174,6 +189,7 @@ async def get_device_timeseries_aggregate(
 ) -> AggregationResultResponse:
     dm.get_device(device_id)
     result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
+    tz = ZoneInfo(result.timezone)
     return AggregationResultResponse(
         interval=result.interval,
         agg=result.agg,
@@ -182,7 +198,7 @@ async def get_device_timeseries_aggregate(
         timezone=result.timezone,
         points=[
             AggregatedPointResponse(
-                interval_start=p.interval_start,
+                interval_start=p.interval_start.astimezone(tz),
                 value=p.value,
                 count=p.count,
             )

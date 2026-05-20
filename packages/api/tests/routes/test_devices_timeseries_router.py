@@ -711,9 +711,10 @@ class TestGetDeviceTimeseriesAggregate:
         assert len(body["points"]) == 24
         assert all(p["count"] == 0 for p in body["points"])
 
-    async def test_naive_datetimes_interpreted_as_utc(
+    async def test_naive_datetimes_interpreted_as_service_timezone(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
     ):
+        # ts_service default_timezone is "UTC" so naive == UTC in this context
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
         )
@@ -727,3 +728,201 @@ class TestGetDeviceTimeseriesAggregate:
                 },
             )
         assert response.status_code == 200
+
+    async def test_last_alone_returns_200(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        """?last=2h without start/end must succeed (previously returned 422)."""
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={**AGG_PARAMS, "last": "2h"},
+            )
+        assert response.status_code == 200
+
+    async def test_timezone_param_shifts_response_timestamps(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        """?timezone= must be visible in interval_start offsets (non-regression)."""
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-02T00:00:00Z",
+                    "timezone": "Asia/Kolkata",
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["timezone"] == "Asia/Kolkata"
+        for pt in body["points"]:
+            ts_str = pt["interval_start"]
+            assert ts_str.endswith("+05:30"), f"expected +05:30 offset, got {ts_str}"
+
+
+# Timezone rendering tests — need a service with a non-UTC default_timezone
+
+
+@pytest_asyncio.fixture
+async def paris_ts_service() -> AsyncIterator[TimeSeriesService]:
+    svc = TimeSeriesService(storage_url=None, default_timezone="Europe/Paris")
+    await svc.start()
+    yield svc
+    await svc.stop()
+
+
+@pytest.fixture
+def paris_app(paris_ts_service: TimeSeriesService, admin_token_payload) -> FastAPI:
+    app = FastAPI()
+    register_exception_handlers(app)
+    app.include_router(router)
+    app.dependency_overrides[get_ts_service] = lambda: paris_ts_service
+    app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_device_manager] = lambda: _make_dm()
+    return app
+
+
+@pytest.fixture
+def paris_client(paris_app: FastAPI) -> AsyncClient:
+    return AsyncClient(transport=ASGITransport(app=paris_app), base_url="http://test")
+
+
+class TestAggregateTimezoneRendering:
+    async def test_interval_start_rendered_with_paris_offset(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        """interval_start must carry the +01:00 CET offset, not bare Z."""
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-02T00:00:00Z",
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["timezone"] == "Europe/Paris"
+        for pt in body["points"]:
+            ts_str = pt["interval_start"]
+            assert ts_str.endswith("+01:00"), f"expected +01:00, got {ts_str}"
+
+    async def test_timezone_field_matches_offset(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        """timezone field in body must match the UTC offset rendered in interval_start."""
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-02T00:00:00Z",
+                    "timezone": "Asia/Kolkata",
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["timezone"] == "Asia/Kolkata"
+        for pt in body["points"]:
+            assert pt["interval_start"].endswith("+05:30")
+
+    async def test_invalid_timezone_aggregate_returns_422(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        """Invalid ?timezone= on aggregate must emit the same clean message as raw-points."""
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    **AGG_PARAMS,
+                    "start": "2026-01-01T00:00:00Z",
+                    "end": "2026-01-02T00:00:00Z",
+                    "timezone": "Not/ATimezone",
+                },
+            )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "Value error" not in detail
+        assert "Unknown IANA timezone" in detail
+
+
+class TestGetDeviceTimeseriesPointsRendering:
+    """Raw-points timestamps must render in the resolved timezone."""
+
+    async def test_timestamps_rendered_in_service_timezone(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        t = datetime(2026, 1, 16, 0, 0, 0, tzinfo=UTC)  # Paris 01:00 CET
+        await paris_ts_service.upsert_points(KEY, [DataPoint(timestamp=t, value=22.5)])
+        async with paris_client as ac:
+            response = await ac.get(f"/{DEVICE_ID}/timeseries/{ATTR}")
+        assert response.status_code == 200
+        ts_str = response.json()[0]["timestamp"]
+        assert ts_str.endswith("+01:00"), f"expected +01:00 offset, got {ts_str}"
+
+    async def test_timezone_param_overrides_service_default(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        t = datetime(2026, 1, 16, 0, 0, 0, tzinfo=UTC)
+        await paris_ts_service.upsert_points(KEY, [DataPoint(timestamp=t, value=22.5)])
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}", params={"timezone": "UTC"}
+            )
+        assert response.status_code == 200
+        ts_str = response.json()[0]["timestamp"]
+        assert "+00:00" in ts_str or ts_str.endswith("Z"), (
+            f"expected UTC offset, got {ts_str}"
+        )
+
+    async def test_invalid_timezone_returns_422(
+        self,
+        paris_client: AsyncClient,
+        paris_ts_service: TimeSeriesService,
+    ):
+        await paris_ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        async with paris_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}", params={"timezone": "Not/ATimezone"}
+            )
+        assert response.status_code == 422
+        detail = response.json()["detail"]
+        assert "Value error" not in detail
+        assert "Unknown IANA timezone" in detail
