@@ -1,3 +1,9 @@
+## v0.79.4 (2026-05-20)
+
+### Fix
+
+- **ui**: use success variant for upline status badge
+
 ## v0.79.3 (2026-05-20)
 
 ### Fix
