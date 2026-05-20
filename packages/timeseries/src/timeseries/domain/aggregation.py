@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Annotated
+from typing import Any
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
+    ConfigDict,
+    PositiveInt,
     computed_field,
     field_validator,
+    model_serializer,
     model_validator,
 )
 
@@ -14,20 +16,69 @@ from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, DataType
 from timeseries.domain.time_range import parse_duration, validate_tz_name
 
-
-def _validate_interval(v: str) -> str:
-    """Same grammar as ``last`` (``Nmin``, ``Nh``, ``Nd``, ``Nmo``); minimum 1min."""
-    try:
-        td = parse_duration(v)
-    except InvalidError as e:
-        raise ValueError(str(e)) from e
-    if td < timedelta(minutes=1):
-        msg = f"Interval must be at least 1min, got {v!r}"
-        raise ValueError(msg)
-    return v
+_INTERVAL_SUFFIXES: tuple[tuple[str, str], ...] = (
+    ("min", "min"),
+    ("mo", "mo"),
+    ("h", "h"),
+    ("d", "d"),
+)
 
 
-Interval = Annotated[str, AfterValidator(_validate_interval)]
+def _parse_interval_str(raw: str) -> dict[str, Any]:
+    """Parse ``"Nunit"`` → ``{"qty": N, "unit": unit}``; e.g. ``"15min"``."""
+    for suffix, unit in _INTERVAL_SUFFIXES:
+        if raw.endswith(suffix):
+            qty_str = raw[: -len(suffix)]
+            if qty_str.isdigit() and int(qty_str) > 0:
+                return {"qty": int(qty_str), "unit": unit}
+    msg = f"Invalid interval {raw!r}: expected Nunit where unit is min/h/d/mo and N ≥ 1"
+    raise ValueError(msg)
+
+
+class IntervalUnit(StrEnum):
+    MIN = "min"
+    H = "h"
+    D = "d"
+    MO = "mo"
+
+
+class Interval(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    qty: PositiveInt
+    unit: IntervalUnit
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_str(cls, v: object) -> object:
+        if isinstance(v, str):
+            return _parse_interval_str(v)
+        return v
+
+    @model_validator(mode="after")
+    def _validate_mo(self) -> "Interval":
+        if self.unit == IntervalUnit.MO and self.qty != 1:
+            msg = "Only 1mo is supported; multi-month intervals are not allowed"
+            raise ValueError(msg)
+        return self
+
+    @model_serializer
+    def _to_str(self) -> str:
+        return f"{self.qty}{self.unit}"
+
+    def __str__(self) -> str:
+        return f"{self.qty}{self.unit}"
+
+    def to_timedelta(self) -> timedelta:
+        """Return the interval as a timedelta (MO approximated as 30 days)."""
+        match self.unit:
+            case IntervalUnit.MIN:
+                return timedelta(minutes=self.qty)
+            case IntervalUnit.H:
+                return timedelta(hours=self.qty)
+            case IntervalUnit.D:
+                return timedelta(days=self.qty)
+            case IntervalUnit.MO:
+                return timedelta(days=30 * self.qty)
 
 
 class AggregationOperator(StrEnum):

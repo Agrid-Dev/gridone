@@ -184,13 +184,15 @@ def get_aggregation_query(
     timezone: str | None = Query(None),
 ) -> AggregationQuery:
     try:
-        return AggregationQuery(
-            interval=interval,
-            agg=agg,
-            start=start,
-            end=end,
-            last=last,
-            timezone=timezone,
+        return AggregationQuery.model_validate(
+            {
+                "interval": interval,
+                "agg": agg,
+                "start": start,
+                "end": end,
+                "last": last,
+                "timezone": timezone,
+            }
         )
     except ValidationError as e:
         msgs = (err["msg"].removeprefix("Value error, ") for err in e.errors())
@@ -212,7 +214,7 @@ async def get_device_timeseries_aggregate(
     result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
     tz = ZoneInfo(result.timezone)
     return AggregationResultResponse(
-        interval=result.interval,
+        interval=str(result.interval),
         agg=result.agg,
         data_type=result.data_type,
         aggregation_data_type=result.aggregation_data_type,

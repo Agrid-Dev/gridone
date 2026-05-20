@@ -12,9 +12,10 @@ from timeseries.domain import (
     AggregationResult,
     DataPoint,
     DataType,
+    Interval,
+    IntervalUnit,
     TimeSeries,
 )
-from timeseries.domain.time_range import parse_duration
 
 _ROUND = 6
 
@@ -30,33 +31,36 @@ def _tz(name: str) -> Any:
     return UTC if name == "UTC" else ZoneInfo(name)
 
 
-def _floor_bin(dt: datetime, interval: str) -> datetime:
+def _floor_bin(dt: datetime, interval: Interval) -> datetime:
     """Floor dt to the start of its containing bin, preserving timezone."""
-    if interval.endswith("mo"):
+    if interval.unit == IntervalUnit.MO:
         return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
-    td = parse_duration(interval)
-    td_s = int(td.total_seconds())
+    if interval.unit == IntervalUnit.D:
+        # local-wall replace stays DST-correct (UTC elapsed = 86400 on fall-back days)
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
+    td_s = int(interval.to_timedelta().total_seconds())
     midnight = dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
     elapsed_s = int((dt.astimezone(UTC) - midnight.astimezone(UTC)).total_seconds())
     slot_s = (elapsed_s // td_s) * td_s
     return midnight + timedelta(seconds=slot_s)
 
 
-def _next_bin(dt: datetime, interval: str) -> datetime:
+def _next_bin(dt: datetime, interval: Interval) -> datetime:
     """Advance dt by one bin. Sub-day bins advance in UTC to avoid DST phantom bins."""
-    if interval.endswith("mo"):
-        year = dt.year + 1 if dt.month == 12 else dt.year
-        month = 1 if dt.month == 12 else dt.month + 1
+    if interval.unit == IntervalUnit.MO:
+        month = dt.month + interval.qty
+        year = dt.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
         return dt.replace(year=year, month=month)
-    td = parse_duration(interval)
-    if interval.endswith("d"):
+    td = interval.to_timedelta()
+    if interval.unit == IntervalUnit.D:
         d = dt.date() + td
         return datetime(d.year, d.month, d.day, tzinfo=dt.tzinfo, fold=0)
     return (dt.astimezone(UTC) + td).astimezone(dt.tzinfo)
 
 
 def _bin_boundaries(
-    start: datetime, end: datetime, interval: str, tz_name: str
+    start: datetime, end: datetime, interval: Interval, tz_name: str
 ) -> list[tuple[datetime, datetime]]:
     """Return list of (bin_start_utc, bin_end_utc) covering [start, end)."""
     tz = _tz(tz_name)
