@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 from timeseries.domain import (
     AggregationOperator,
     AggregationQuery,
-    Interval,
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
@@ -156,7 +155,20 @@ async def get_device_timeseries_points(
 
 
 def get_aggregation_query(
-    interval: Interval = Query(...),
+    interval: str = Query(
+        ...,
+        description="Duration string. Same grammar as 'last' (Nmin, Nh, Nd, Nmo). Minimum: 1min.",
+        openapi_examples={
+            "15min": {"value": "15min"},
+            "1h": {"value": "1h"},
+            "1d": {"value": "1d"},
+            "1mo": {"value": "1mo"},
+            "5min": {"value": "5min"},
+            "30min": {"value": "30min"},
+            "6h": {"value": "6h"},
+            "7d": {"value": "7d"},
+        },
+    ),
     agg: AggregationOperator = Query(
         ...,
         description=(
