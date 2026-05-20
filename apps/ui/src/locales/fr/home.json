@@ -1,0 +1,37 @@
+{
+  "status": {
+    "online": "En ligne"
+  },
+  "hero": {
+    "surface": "Surface",
+    "floors": "Étages",
+    "built": "Année"
+  },
+  "resources": {
+    "title": "Ressources",
+    "description": "Accédez aux systèmes et zones qui composent ce site.",
+    "zones": {
+      "description": "Étages, pièces et regroupements qui structurent le bâtiment.",
+      "unit": "zones"
+    },
+    "devices": {
+      "description": "Tous les équipements connectés installés sur le site.",
+      "unit": "équipements"
+    },
+    "byType": "Par type",
+    "devicesUnit": "équipements"
+  },
+  "details": {
+    "title": "Détails",
+    "description": "Données clés sur ce site.",
+    "operator": "Exploitant",
+    "address": "Adresse",
+    "surface": "Surface",
+    "floors": "Étages",
+    "yearBuilt": "Année de construction",
+    "coordinates": "Coordonnées"
+  },
+  "units": {
+    "surfaceSquareMeters": "{{value}} m²"
+  }
+}
