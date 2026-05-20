@@ -1,3 +1,10 @@
+## v0.79.0 (2026-05-20)
+
+### Feat
+
+- **ui**: flesh out building homepage with live counts and topbar label
+- **ui**: building homepage placeholder and feature flag utility
+
 ## v0.78.1 (2026-05-20)
 
 ### Fix
