@@ -11,7 +11,7 @@ from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import InvalidError, NotFoundError
+from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import SortOrder
 
@@ -478,9 +478,8 @@ class TestDispatchSingleCommand:
     async def test_writer_failure_returns_409(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        mock_commands_service.dispatch_unit.return_value = _completed_command(
-            status=CommandStatus.ERROR,
-            status_details="Failed to confirm temperature_setpoint, expected 22.0 got None",
+        mock_commands_service.dispatch_unit.side_effect = ConfirmationError(
+            "Failed to confirm temperature_setpoint, expected 22.0 got None"
         )
         async with async_client as ac:
             response = await ac.post(

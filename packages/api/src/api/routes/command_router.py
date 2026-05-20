@@ -12,7 +12,6 @@ from datetime import datetime  # noqa: TC003
 
 from commands import (
     AttributeWrite,
-    CommandStatus,
     CommandsServiceInterface,
     UnitCommand,
 )
@@ -170,11 +169,6 @@ async def dispatch_single_command(
         user_id=user_id,
         confirm=body.confirm,
     )
-    if command.status == CommandStatus.ERROR:
-        raise HTTPException(
-            status_code=409,
-            detail=command.status_details or "Command failed to execute",
-        )
     return command
 
 

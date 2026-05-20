@@ -174,15 +174,10 @@ class CommandsService(Service):
     ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
-        The method is a coroutine (it yields to the event loop while the write
-        and status updates are in flight), but the caller is guaranteed to
-        receive the fully resolved :class:`UnitCommand` before ``await``
-        completes.
-
-        Writer exceptions are absorbed: on failure the command is marked as
-        ``ERROR`` (with ``status_details`` carrying the failure reason) and the
-        updated record is returned. Callers inspect ``command.status`` instead
-        of wrapping every call site in ``try/except``.
+        Returns the completed :class:`UnitCommand` on success. On writer failure
+        the command is recorded with ``ERROR`` status and the original exception
+        is re-raised — callers receive a typed exception rather than an ERROR
+        record.
         """
         command = await self._storage.save_command(
             UnitCommandCreate(
@@ -294,9 +289,9 @@ class CommandsService(Service):
     ) -> None:
         """Run ``_execute_command`` concurrently over every command in a batch.
 
-        Per-command exceptions are absorbed by ``_execute_command`` itself;
-        ``return_exceptions=True`` is a belt-and-braces guard against anything
-        bubbling up from the storage layer.
+        Per-command writer exceptions are re-raised by ``_execute_command``
+        after recording ERROR status; ``return_exceptions=True`` absorbs them
+        so a single device failure does not cancel the whole batch.
         """
         await asyncio.gather(
             *(
@@ -315,28 +310,33 @@ class CommandsService(Service):
     ) -> UnitCommand:
         """Write to the device, update command status, and fire the result handler.
 
-        Writer exceptions are absorbed: the command is marked as ``ERROR`` and
-        the updated record is returned. Status-update failures after a writer
-        error are logged but not re-raised — the caller always receives a
-        :class:`UnitCommand`.
+        On writer failure the command is marked as ``ERROR`` in storage and the
+        original exception is re-raised. Status-update failures on the error path
+        are logged but do not suppress the original exception.
         """
         try:
             result = await self._device_writer(
                 command.device_id, write.attribute, write.value, confirm=confirm
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "Command %s failed for device %s: %s",
                 command.id,
                 command.device_id,
                 exc,
             )
-            return await self._storage.update_command_status(
-                command.id,
-                CommandStatus.ERROR,
-                status_details=str(exc),
-                completed_at=datetime.now(UTC),
-            )
+            try:
+                await self._storage.update_command_status(
+                    command.id,
+                    CommandStatus.ERROR,
+                    status_details=str(exc),
+                    completed_at=datetime.now(UTC),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to record error status for command %s", command.id
+                )
+            raise
 
         updated = await self._storage.update_command_status(
             command.id,

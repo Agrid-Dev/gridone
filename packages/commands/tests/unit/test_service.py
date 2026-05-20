@@ -173,7 +173,7 @@ class TestDispatchUnit:
         device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
         result_handler.assert_awaited_once()
 
-    async def test_error_returns_command_with_error_status(
+    async def test_writer_failure_raises_and_records_error_status(
         self,
         service: CommandsService,
         device_writer: AsyncMock,
@@ -181,13 +181,17 @@ class TestDispatchUnit:
     ):
         device_writer.side_effect = RuntimeError("timeout")
 
-        cmd = await service.dispatch_unit(
-            device_id="d1",
-            write=MODE_AUTO,
-            user_id="u1",
-        )
+        with pytest.raises(RuntimeError, match="timeout"):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="u1",
+            )
 
-        # dispatch_unit absorbs the writer exception and returns the ERROR command.
+        # The ERROR status must have been persisted before the raise.
+        page = await service.get_commands()
+        assert len(page.items) == 1
+        cmd = page.items[0]
         assert cmd.status == CommandStatus.ERROR
         assert cmd.status_details is not None
         assert "timeout" in cmd.status_details
