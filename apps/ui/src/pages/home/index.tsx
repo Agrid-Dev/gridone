@@ -29,6 +29,7 @@ import {
 import { Device, DeviceType, listDevices } from "@/api/devices";
 import { Asset, listAssets } from "@/api/assets";
 import { buildingPlaceholderData } from "./placeholderData";
+import { Badge } from "@/components/ui/badge";
 
 type IconType = ComponentType<{ className?: string }>;
 
@@ -180,10 +181,10 @@ const HeroSection: FC<{ formatNumber: (n: number) => string }> = ({
             className="absolute inset-0 h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent md:bg-gradient-to-r" />
-          <div className="absolute left-5 top-5 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-foreground shadow-sm backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          <Badge className="absolute m-2" variant="success">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1" />
             {t("status.online")}
-          </div>
+          </Badge>
         </div>
         <div className="flex flex-col justify-center gap-4 p-8 md:p-10">
           <div>
