@@ -1,18 +1,33 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Annotated
 
-from pydantic import BaseModel, computed_field, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, DataType
 from timeseries.domain.time_range import parse_duration, validate_tz_name
 
 
-class Interval(StrEnum):
-    MIN_15 = "15min"
-    H_1 = "1h"
-    D_1 = "1d"
-    MO_1 = "1mo"
+def _validate_interval(v: str) -> str:
+    """Same grammar as ``last`` (``Nmin``, ``Nh``, ``Nd``, ``Nmo``); minimum 1min."""
+    try:
+        td = parse_duration(v)
+    except InvalidError as e:
+        raise ValueError(str(e)) from e
+    if td < timedelta(minutes=1):
+        msg = f"Interval must be at least 1min, got {v!r}"
+        raise ValueError(msg)
+    return v
+
+
+Interval = Annotated[str, AfterValidator(_validate_interval)]
 
 
 class AggregationOperator(StrEnum):
