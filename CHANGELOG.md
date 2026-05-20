@@ -1,3 +1,9 @@
+## v0.79.1 (2026-05-20)
+
+### Fix
+
+- **ci**: drive release builds from version tag, not CI completion
+
 ## v0.79.0 (2026-05-20)
 
 ### Feat
