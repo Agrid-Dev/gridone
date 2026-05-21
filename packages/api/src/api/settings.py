@@ -1,11 +1,13 @@
 import secrets
+from collections.abc import Mapping
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic import BaseModel, field_validator
+
+from api.env import load_environ
 
 
-class Settings(BaseSettings):
+class Settings(BaseModel):
     STORAGE_URL: str | None = None
     DATABASE_URL: str | None = None
     SECRET_KEY: str = secrets.token_hex(32)
@@ -14,7 +16,7 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False  # Set True in production (HTTPS)
     GRIDONE_TIMEZONE: str = "UTC"
 
-    model_config = {"env_file": ".env"}
+    model_config = {"extra": "ignore"}
 
     @field_validator("GRIDONE_TIMEZONE")
     @classmethod
@@ -46,5 +48,19 @@ class Settings(BaseSettings):
         return self.REFRESH_TOKEN_EXPIRE_MINUTES
 
 
-def load_settings() -> Settings:
-    return Settings()
+def load_settings(environ: Mapping[str, str | None] | None = None) -> Settings:
+    """Load settings from .env (if present) and os.environ.
+
+    Process env wins on collision. Only keys matching a declared field
+    are forwarded to the model; everything else (including
+    ``GRIDONE_FEATURE_*`` flags) is dropped here and read separately by
+    ``api.features``. Tests can inject a fixed ``environ`` mapping.
+    """
+    env = environ if environ is not None else load_environ()
+    fields = set(Settings.model_fields.keys())
+    kwargs = {
+        key: value for key, value in env.items() if key in fields and value is not None
+    }
+    # pydantic coerces str -> bool / int in lax mode at validation time;
+    # ty can't follow the dynamic kwarg expansion, so we silence it here.
+    return Settings(**kwargs)  # ty: ignore[invalid-argument-type]

@@ -5,7 +5,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
-import { isFeatureEnabled } from "@/utils/featureFlags";
+import { useFeatureEnabled } from "@/utils/featureFlags";
 import { buildingPlaceholderData } from "@/pages/home/placeholderData";
 import {
   DropdownMenu,
@@ -34,7 +34,7 @@ export function TopBar() {
   const unreadCount = useNotificationCount();
 
   const user = state.status === "authenticated" ? state.user : null;
-  const showBuildingName = isFeatureEnabled("buildingHomepage");
+  const showBuildingName = useFeatureEnabled("buildingHomepage");
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">

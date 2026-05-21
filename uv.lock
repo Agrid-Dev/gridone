@@ -789,7 +789,7 @@ dependencies = [
     { name = "gridone-notifications" },
     { name = "gridone-users" },
     { name = "httpx" },
-    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
     { name = "python-jose", extra = ["cryptography"] },
     { name = "python-multipart" },
 ]
@@ -805,7 +805,7 @@ requires-dist = [
     { name = "gridone-notifications", editable = "packages/notifications" },
     { name = "gridone-users", editable = "packages/users" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "pydantic-settings", specifier = ">=2.12.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.3.0" },
     { name = "python-multipart", specifier = ">=0.0.18" },
 ]
