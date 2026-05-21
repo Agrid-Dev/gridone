@@ -9,11 +9,13 @@ from models.service import Service
 from timeseries.domain import (
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
+    AggregatedPoint,
     AggregationQuery,
     AggregationResult,
     DataPoint,
     DataType,
     FetchPointsResult,
+    Interval,
     SeriesKey,
     TimeSeries,
     normalize_to_utc,
@@ -24,6 +26,7 @@ from timeseries.domain import (
 )
 from timeseries.exporters.csv import to_csv
 from timeseries.exporters.png import to_png
+from timeseries.service.auto_interval import resolve_auto_interval
 from timeseries.storage import build_storage
 
 if TYPE_CHECKING:
@@ -220,9 +223,47 @@ class TimeSeriesService(Service):
             msg = "start and end are required for aggregation"
             raise InvalidError(msg)
         resolve_aggregation_data_type(query.agg, series.data_type)
+
+        resolved_interval: Interval | None
+        if query.interval == "auto":
+            period = query.end - query.start
+            resolved_interval = resolve_auto_interval(period)
+        else:
+            resolved_interval = query.interval
+
+        if resolved_interval is None:
+            return await self._get_aggregate_raw(key, query, series.data_type)
+
+        query = query.model_copy(update={"interval": resolved_interval})
         result = await self._backend.aggregate(key, query)
         return result.model_copy(
             update={"points": [p for p in result.points if p.interval_start <= cutoff]}
+        )
+
+    async def _get_aggregate_raw(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+        data_type: DataType,
+    ) -> AggregationResult:
+        fetch = await self._fetch_points_utc(
+            key,
+            start=query.start,
+            end=query.end,
+            carry_forward=False,
+            limit=MAX_RAW_LIMIT,
+        )
+        wrapped = [
+            AggregatedPoint(interval_start=p.timestamp, value=p.value, count=1)
+            for p in fetch.points
+        ]
+        return AggregationResult(
+            interval="raw",
+            agg=query.agg,
+            data_type=data_type,
+            timezone=query.timezone or self._default_timezone,
+            points=wrapped,
+            truncated=fetch.truncated,
         )
 
     async def fetch_points(  # noqa: PLR0913

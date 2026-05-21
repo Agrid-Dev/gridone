@@ -423,6 +423,9 @@ async def compute(
     if tz is None:
         msg = "timezone must be resolved by the service before calling storage"
         raise RuntimeError(msg)
+    if not isinstance(query.interval, Interval):
+        msg = "interval must be resolved by the service before calling storage"
+        raise TypeError(msg)
     op = query.agg
     data_type = series.data_type
     ctx = _QueryCtx(

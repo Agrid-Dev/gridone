@@ -281,6 +281,9 @@ def compute(
     if tz_name is None:
         msg = "timezone must be resolved by the service before calling storage"
         raise RuntimeError(msg)
+    if not isinstance(query.interval, Interval):
+        msg = "interval must be resolved by the service before calling storage"
+        raise TypeError(msg)
 
     bins = (
         _bin_boundaries(query.start, query.end, query.interval, tz_name)
