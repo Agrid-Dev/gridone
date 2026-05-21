@@ -17,7 +17,7 @@ import {
   ArrowRight,
   Zap,
 } from "lucide-react";
-import { isFeatureEnabled } from "@/utils/featureFlags";
+import { useFeatureEnabled } from "@/utils/featureFlags";
 import { Card } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -49,7 +49,7 @@ const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
 
 const Home: FC = () => {
   const { t, i18n } = useTranslation("home");
-  const homeEnabled = isFeatureEnabled("buildingHomepage");
+  const homeEnabled = useFeatureEnabled("buildingHomepage");
   if (!homeEnabled) {
     return <Navigate to="/devices" replace />;
   }

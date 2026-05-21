@@ -1,5 +1,4 @@
 import { NavLink } from "react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   Building2,
@@ -11,8 +10,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { usePermissions } from "@/contexts/AuthContext";
-import { getHealth } from "@/api/health";
+import { useAuth, usePermissions } from "@/contexts/AuthContext";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -24,14 +22,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function Sidebar() {
   const { t } = useTranslation("common");
   const can = usePermissions();
-  const { data: health } = useQuery({
-    queryKey: ["health"],
-    queryFn: getHealth,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+  const { health } = useAuth();
 
-  const version = health?.version?.trim() || null;
+  const version = health.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
 
   return (
