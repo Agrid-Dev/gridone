@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -156,7 +156,7 @@ class AggregatedPoint(BaseModel):
 
 
 class AggregationQuery(BaseModel):
-    interval: Interval
+    interval: Interval | Literal["auto"] = "auto"
     agg: AggregationOperator
     start: datetime | None = None
     end: datetime | None = None
@@ -198,15 +198,18 @@ class AggregationQuery(BaseModel):
 
 
 class AggregationResult(BaseModel):
-    interval: Interval
+    interval: Interval | Literal["raw"]
     agg: AggregationOperator
     data_type: DataType
     timezone: str
     points: list[AggregatedPoint]
+    truncated: bool = False
 
     @computed_field
     @property
     def aggregation_data_type(self) -> DataType:
+        if self.interval == "raw":
+            return self.data_type
         return resolve_aggregation_data_type(self.agg, self.data_type)
 
     @model_validator(mode="after")
