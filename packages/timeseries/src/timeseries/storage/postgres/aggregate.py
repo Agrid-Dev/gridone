@@ -9,14 +9,21 @@ from timeseries.domain import (
     AggregationResult,
     DataType,
     Interval,
+    IntervalUnit,
 )
 
-_SQL_INTERVALS: dict[Interval, str] = {
-    Interval.MIN_15: "15 minutes",
-    Interval.H_1: "1 hour",
-    Interval.D_1: "1 day",
-    Interval.MO_1: "1 month",
+_PG_UNIT: dict[IntervalUnit, str] = {
+    IntervalUnit.MIN: "minutes",
+    IntervalUnit.H: "hour",
+    IntervalUnit.D: "day",
+    IntervalUnit.MO: "month",
 }
+
+
+def _to_sql_interval(interval: Interval) -> str:
+    """Convert an Interval to a Postgres interval string, e.g. ``"15 minutes"``."""
+    return f"{interval.qty} {_PG_UNIT[interval.unit]}"
+
 
 _GAPFILL_BUCKET_EXPR = (
     "time_bucket_gapfill($1::text::interval, bucket,"
@@ -51,6 +58,7 @@ class _QueryCtx:
     anchor_value: _AnchorValue
     tz: str
     interval_str: str
+    interval_unit: IntervalUnit
     series_id: str
     start: datetime
     end: datetime
@@ -81,7 +89,7 @@ def _end_boundary(ctx: _QueryCtx) -> str:
     regardless of DST transitions (a DST spring-forward can push
     bucket_start + 1 day across midnight into the wrong bucket).
     """
-    if ctx.interval_str in {"1 day", "1 month"}:
+    if ctx.interval_unit in {IntervalUnit.D, IntervalUnit.MO}:
         return (
             "time_bucket($1::text::interval,"
             " time_bucket($1::text::interval,"
@@ -102,7 +110,7 @@ def _bucket_end(ctx: _QueryCtx) -> str:
     raw interval can land on an ambiguous wall-clock time during a DST transition,
     so we nudge by 2 hours before re-bucketing to resolve to the correct boundary.
     """
-    if ctx.interval_str in {"1 day", "1 month"}:
+    if ctx.interval_unit in {IntervalUnit.D, IntervalUnit.MO}:
         return (
             "time_bucket($1::text::interval,"
             " bucket + $1::text::interval + interval '2 hours', $4)"
@@ -421,7 +429,8 @@ async def compute(
         value_col=value_col,
         anchor_value=_coerce_anchor(op, anchor),
         tz=tz,
-        interval_str=_SQL_INTERVALS[query.interval],
+        interval_str=_to_sql_interval(query.interval),
+        interval_unit=query.interval.unit,
         series_id=series.id,
         start=query.start,
         end=query.end,

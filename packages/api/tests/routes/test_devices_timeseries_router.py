@@ -14,7 +14,6 @@ from timeseries.domain import (
     AggregationOperator,
     DataPoint,
     DataType,
-    Interval,
     SeriesKey,
 )
 
@@ -739,7 +738,7 @@ class TestGetDeviceTimeseriesAggregate:
             )
         assert response.status_code == 200
         body = response.json()
-        assert body["interval"] == Interval.H_1
+        assert body["interval"] == "1h"
         assert body["agg"] == AggregationOperator.AVG
         assert body["data_type"] == DataType.FLOAT
         assert body["aggregation_data_type"] == DataType.FLOAT

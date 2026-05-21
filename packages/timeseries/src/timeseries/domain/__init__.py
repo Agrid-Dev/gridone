@@ -12,6 +12,7 @@ from timeseries.domain.aggregation import (
     AggregationQuery,
     AggregationResult,
     Interval,
+    IntervalUnit,
     resolve_aggregation_data_type,
 )
 from timeseries.domain.models import (
@@ -41,6 +42,7 @@ __all__ = [
     "DataType",
     "FetchPointsResult",
     "Interval",
+    "IntervalUnit",
     "SeriesKey",
     "SortOrder",
     "TimeSeries",

@@ -1,18 +1,93 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, computed_field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    PositiveInt,
+    computed_field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, DataType
-from timeseries.domain.time_range import parse_duration, validate_tz_name
+from timeseries.domain.time_range import (
+    parse_duration,
+    parse_duration_parts,
+    validate_tz_name,
+)
 
 
-class Interval(StrEnum):
-    MIN_15 = "15min"
-    H_1 = "1h"
-    D_1 = "1d"
-    MO_1 = "1mo"
+class IntervalUnit(StrEnum):
+    MIN = "min"
+    H = "h"
+    D = "d"
+    MO = "mo"
+
+
+# "m" is the minutes alias accepted by parse_duration_parts (same grammar as `last`).
+_SUFFIX_TO_UNIT: dict[str, IntervalUnit] = {
+    "min": IntervalUnit.MIN,
+    "m": IntervalUnit.MIN,
+    "h": IntervalUnit.H,
+    "d": IntervalUnit.D,
+    "mo": IntervalUnit.MO,
+}
+
+
+def _parse_interval_str(raw: str) -> dict[str, Any]:
+    """Parse ``"Nunit"`` → ``{"qty": N, "unit": unit}``; e.g. ``"15min"``."""
+    msg = "expected Nunit where unit is min/h/d/mo and N ≥ 1"
+    try:
+        qty, suffix = parse_duration_parts(raw)
+    except InvalidError:
+        raise ValueError(msg) from None
+    unit = _SUFFIX_TO_UNIT.get(suffix)
+    if unit is None:
+        raise ValueError(msg)
+    return {"qty": qty, "unit": unit}
+
+
+class Interval(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    qty: PositiveInt
+    unit: IntervalUnit
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_str(cls, v: object) -> object:
+        if isinstance(v, str):
+            return _parse_interval_str(v)
+        return v
+
+    @model_validator(mode="after")
+    def _validate_mo(self) -> "Interval":
+        if self.unit == IntervalUnit.MO and self.qty != 1:
+            msg = "Only 1mo is supported; multi-month intervals are not allowed"
+            raise ValueError(msg)
+        return self
+
+    @model_serializer
+    def _to_str(self) -> str:
+        return f"{self.qty}{self.unit}"
+
+    def __str__(self) -> str:
+        return f"{self.qty}{self.unit}"
+
+    def to_timedelta(self) -> timedelta:
+        """Return the interval as a timedelta (MO approximated as 30 days)."""
+        match self.unit:
+            case IntervalUnit.MIN:
+                return timedelta(minutes=self.qty)
+            case IntervalUnit.H:
+                return timedelta(hours=self.qty)
+            case IntervalUnit.D:
+                return timedelta(days=self.qty)
+            case IntervalUnit.MO:
+                return timedelta(days=30 * self.qty)
 
 
 class AggregationOperator(StrEnum):

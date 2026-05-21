@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -12,10 +12,16 @@ from timeseries.domain import (
     AggregationResult,
     DataPoint,
     DataType,
+    Interval,
+    IntervalUnit,
     TimeSeries,
 )
 
 _ROUND = 6
+
+# Postgres uses 2000-01-03 as the origin for day-interval time_bucket calls.
+# Multi-day bins must anchor here so memory and Postgres produce identical buckets.
+_PG_DAY_ORIGIN: date = date(2000, 1, 3)
 
 _DTYPE_POLARS: dict[DataType, pl.datatypes.DataTypeClass] = {
     DataType.FLOAT: pl.Float64,
@@ -29,43 +35,46 @@ def _tz(name: str) -> Any:
     return UTC if name == "UTC" else ZoneInfo(name)
 
 
-def _floor_bin(dt: datetime, interval: str) -> datetime:
+def _floor_bin(dt: datetime, interval: Interval) -> datetime:
     """Floor dt to the start of its containing bin, preserving timezone."""
-    match interval:
-        case "15min":
-            return dt.replace(minute=(dt.minute // 15) * 15, second=0, microsecond=0)
-        case "1h":
-            return dt.replace(minute=0, second=0, microsecond=0)
-        case "1d":
+    if interval.unit == IntervalUnit.MO:
+        return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
+    if interval.unit == IntervalUnit.D:
+        if interval.qty == 1:
+            # Per-day: local-wall replace is DST-correct (avoids 25h day regression).
             return dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
-        case "1mo":
-            return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0, fold=0)
-        case _:
-            msg = f"Unknown interval: {interval!r}"
-            raise ValueError(msg)
+        # Multi-day: anchor at Postgres origin (2000-01-03) using calendar dates so
+        # bucket boundaries match time_bucket(..., timezone) exactly.
+        local_date = dt.date()
+        elapsed_days = (local_date - _PG_DAY_ORIGIN).days
+        slot_days = (elapsed_days // interval.qty) * interval.qty
+        floored = _PG_DAY_ORIGIN + timedelta(days=slot_days)
+        return datetime(
+            floored.year, floored.month, floored.day, tzinfo=dt.tzinfo, fold=0
+        )
+    td_s = int(interval.to_timedelta().total_seconds())
+    midnight = dt.replace(hour=0, minute=0, second=0, microsecond=0, fold=0)
+    elapsed_s = int((dt.astimezone(UTC) - midnight.astimezone(UTC)).total_seconds())
+    slot_s = (elapsed_s // td_s) * td_s
+    return midnight + timedelta(seconds=slot_s)
 
 
-def _next_bin(dt: datetime, interval: str) -> datetime:
+def _next_bin(dt: datetime, interval: Interval) -> datetime:
     """Advance dt by one bin. Sub-day bins advance in UTC to avoid DST phantom bins."""
-    match interval:
-        case "15min":
-            return (dt.astimezone(UTC) + timedelta(minutes=15)).astimezone(dt.tzinfo)
-        case "1h":
-            return (dt.astimezone(UTC) + timedelta(hours=1)).astimezone(dt.tzinfo)
-        case "1d":
-            d = dt.date() + timedelta(days=1)
-            return datetime(d.year, d.month, d.day, tzinfo=dt.tzinfo, fold=0)
-        case "1mo":
-            year = dt.year + 1 if dt.month == 12 else dt.year
-            month = 1 if dt.month == 12 else dt.month + 1
-            return dt.replace(year=year, month=month)
-        case _:
-            msg = f"Unknown interval: {interval!r}"
-            raise ValueError(msg)
+    if interval.unit == IntervalUnit.MO:
+        # qty is always 1 — enforced by Interval._validate_mo
+        if dt.month == 12:
+            return dt.replace(year=dt.year + 1, month=1)
+        return dt.replace(month=dt.month + 1)
+    td = interval.to_timedelta()
+    if interval.unit == IntervalUnit.D:
+        d = dt.date() + td
+        return datetime(d.year, d.month, d.day, tzinfo=dt.tzinfo, fold=0)
+    return (dt.astimezone(UTC) + td).astimezone(dt.tzinfo)
 
 
 def _bin_boundaries(
-    start: datetime, end: datetime, interval: str, tz_name: str
+    start: datetime, end: datetime, interval: Interval, tz_name: str
 ) -> list[tuple[datetime, datetime]]:
     """Return list of (bin_start_utc, bin_end_utc) covering [start, end)."""
     tz = _tz(tz_name)
@@ -274,7 +283,7 @@ def compute(
         raise RuntimeError(msg)
 
     bins = (
-        _bin_boundaries(query.start, query.end, query.interval.value, tz_name)
+        _bin_boundaries(query.start, query.end, query.interval, tz_name)
         if query.start is not None and query.end is not None
         else []
     )

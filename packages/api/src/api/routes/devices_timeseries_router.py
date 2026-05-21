@@ -9,7 +9,6 @@ from pydantic import BaseModel, ValidationError
 from timeseries.domain import (
     AggregationOperator,
     AggregationQuery,
-    Interval,
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
@@ -156,7 +155,20 @@ async def get_device_timeseries_points(
 
 
 def get_aggregation_query(
-    interval: Interval = Query(...),
+    interval: str = Query(
+        ...,
+        description="Duration string. Same grammar as 'last' (Nmin, Nh, Nd, Nmo). Minimum: 1min.",
+        openapi_examples={
+            "15min": {"value": "15min"},
+            "1h": {"value": "1h"},
+            "1d": {"value": "1d"},
+            "1mo": {"value": "1mo"},
+            "5min": {"value": "5min"},
+            "30min": {"value": "30min"},
+            "6h": {"value": "6h"},
+            "7d": {"value": "7d"},
+        },
+    ),
     agg: AggregationOperator = Query(
         ...,
         description=(
@@ -172,13 +184,15 @@ def get_aggregation_query(
     timezone: str | None = Query(None),
 ) -> AggregationQuery:
     try:
-        return AggregationQuery(
-            interval=interval,
-            agg=agg,
-            start=start,
-            end=end,
-            last=last,
-            timezone=timezone,
+        return AggregationQuery.model_validate(
+            {
+                "interval": interval,
+                "agg": agg,
+                "start": start,
+                "end": end,
+                "last": last,
+                "timezone": timezone,
+            }
         )
     except ValidationError as e:
         msgs = (err["msg"].removeprefix("Value error, ") for err in e.errors())
@@ -200,7 +214,7 @@ async def get_device_timeseries_aggregate(
     result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
     tz = ZoneInfo(result.timezone)
     return AggregationResultResponse(
-        interval=result.interval,
+        interval=str(result.interval),
         agg=result.agg,
         data_type=result.data_type,
         aggregation_data_type=result.aggregation_data_type,
