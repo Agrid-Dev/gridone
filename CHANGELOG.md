@@ -1,3 +1,10 @@
+## v0.80.0 (2026-05-21)
+
+### Feat
+
+- **ui**: read feature flags at runtime via /health
+- **api**: runtime feature flags exposed on /health
+
 ## v0.79.4 (2026-05-20)
 
 ### Fix
