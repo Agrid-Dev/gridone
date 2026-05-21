@@ -1,25 +1,37 @@
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from models.errors import InvalidError, NotFoundError
+from models.types import DataType
 from pydantic import BaseModel, ValidationError
 from timeseries.domain import (
+    AGG_COMPAT,
     AggregationOperator,
     AggregationQuery,
     SeriesKey,
 )
+from timeseries.domain.time_range import resolve_last
 from timeseries.service import TimeSeriesService
+from timeseries.service.auto_interval import (
+    AUTO_INTERVAL_LOOKUP,
+    CANONICAL_INTERVALS,
+    resolve_auto_interval,
+    valid_intervals_for_period,
+)
 
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
 from api.schemas.timeseries import (
+    AggregateOptionsResponse,
     AggregatedPointResponse,
     AggregationResultResponse,
+    AutoIntervalLookupEntry,
     DataPointResponse,
     FetchPointsResultResponse,
+    IntervalOption,
     TimeSeriesResponse,
 )
 
@@ -156,17 +168,17 @@ async def get_device_timeseries_points(
 
 def get_aggregation_query(
     interval: str = Query(
-        ...,
-        description="Duration string. Same grammar as 'last' (Nmin, Nh, Nd, Nmo). Minimum: 1min.",
+        "auto",
+        description=(
+            "Duration string (e.g. '15min', '1h', '1d', '1mo') or 'auto'. "
+            "When 'auto' or omitted, the server picks the best interval for the period."
+        ),
         openapi_examples={
+            "auto": {"value": "auto"},
             "15min": {"value": "15min"},
             "1h": {"value": "1h"},
             "1d": {"value": "1d"},
             "1mo": {"value": "1mo"},
-            "5min": {"value": "5min"},
-            "30min": {"value": "30min"},
-            "6h": {"value": "6h"},
-            "7d": {"value": "7d"},
         },
     ),
     agg: AggregationOperator = Query(
@@ -199,6 +211,76 @@ def get_aggregation_query(
         raise InvalidError("; ".join(msgs)) from e
 
 
+def _build_operators_by_data_type() -> dict[str, list[str]]:
+    return {
+        str(dt): [
+            str(op) for op in AggregationOperator if AGG_COMPAT[op][dt] is not None
+        ]
+        for dt in DataType
+    }
+
+
+_OPERATORS_BY_DATA_TYPE = _build_operators_by_data_type()
+
+_AUTO_INTERVAL_LOOKUP_RESPONSE = [
+    AutoIntervalLookupEntry(
+        max_period=max_str,
+        interval=str(interval) if interval is not None else None,
+    )
+    for max_str, _td, interval in AUTO_INTERVAL_LOOKUP
+]
+
+
+@router.get(
+    "/timeseries/aggregate/options",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
+async def get_aggregate_options(
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+) -> AggregateOptionsResponse:
+    period: timedelta | None = None
+    if last is not None or start is not None or end is not None:
+        now = datetime.now(tz=UTC)
+        resolved_start = (
+            start
+            if start is not None
+            else (resolve_last(last, now=now) if last is not None else None)
+        )
+        resolved_end = end if end is not None else now
+        if resolved_start is not None and resolved_end is not None:
+            period = resolved_end - resolved_start
+
+    if period is None:
+        intervals = [
+            IntervalOption(interval="raw", bucket_count=None),
+            *[
+                IntervalOption(interval=str(iv), bucket_count=None)
+                for iv in CANONICAL_INTERVALS
+            ],
+        ]
+        recommended: str | None = None
+    else:
+        valid = valid_intervals_for_period(period)
+        intervals = [
+            IntervalOption(
+                interval="raw" if iv is None else str(iv),
+                bucket_count=None if iv is None else int(period / iv.to_timedelta()),
+            )
+            for iv in valid
+        ]
+        resolved = resolve_auto_interval(period)
+        recommended = "raw" if resolved is None else str(resolved)
+
+    return AggregateOptionsResponse(
+        intervals=intervals,
+        recommended_interval=recommended,
+        operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+        auto_interval_lookup=_AUTO_INTERVAL_LOOKUP_RESPONSE,
+    )
+
+
 @router.get(
     "/{device_id}/timeseries/{attr}/aggregate",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
@@ -219,6 +301,7 @@ async def get_device_timeseries_aggregate(
         data_type=result.data_type,
         aggregation_data_type=result.aggregation_data_type,
         timezone=result.timezone,
+        truncated=result.truncated,
         points=[
             AggregatedPointResponse(
                 interval_start=p.interval_start.astimezone(tz),

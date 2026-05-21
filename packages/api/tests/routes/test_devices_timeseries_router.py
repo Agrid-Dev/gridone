@@ -652,7 +652,12 @@ class TestGetDeviceTimeseriesAggregate:
             )
         assert response.status_code == 404
 
-    async def test_missing_interval_returns_422(self, async_client: AsyncClient):
+    async def test_interval_is_optional_defaults_to_auto(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
         async with async_client as ac:
             response = await ac.get(
                 f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
@@ -662,7 +667,10 @@ class TestGetDeviceTimeseriesAggregate:
                     "end": AGG_END.isoformat(),
                 },
             )
-        assert response.status_code == 422
+        assert response.status_code == 200
+        body = response.json()
+        assert "interval" in body
+        assert "truncated" in body
 
     async def test_missing_agg_returns_422(self, async_client: AsyncClient):
         async with async_client as ac:
@@ -743,6 +751,7 @@ class TestGetDeviceTimeseriesAggregate:
         assert body["data_type"] == DataType.FLOAT
         assert body["aggregation_data_type"] == DataType.FLOAT
         assert body["timezone"] == "UTC"
+        assert body["truncated"] is False
         filled = [p for p in body["points"] if p["count"] > 0]
         assert len(filled) == 2
         assert filled[0]["value"] == 10.0
@@ -983,3 +992,70 @@ class TestGetDeviceTimeseriesPointsRendering:
         detail = response.json()["detail"]
         assert "Value error" not in detail
         assert "Unknown IANA timezone" in detail
+
+
+class TestAggregateOptions:
+    async def test_no_period_returns_full_set_with_null_counts(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate/options")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["recommended_interval"] is None
+        intervals = body["intervals"]
+        assert intervals[0]["interval"] == "raw"
+        assert all(iv["bucket_count"] is None for iv in intervals)
+        assert "operators_by_data_type" in body
+        assert "auto_interval_lookup" in body
+
+    async def test_7d_period_filters_intervals_and_recommends(
+        self, async_client: AsyncClient
+    ):
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 8, tzinfo=UTC)
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate/options",
+                params={"start": start.isoformat(), "end": end.isoformat()},
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["recommended_interval"] == "15min"
+        interval_names = [iv["interval"] for iv in body["intervals"]]
+        assert interval_names == ["raw", "15min", "1h", "1d"]
+        # bucket counts populated for non-raw entries
+        for iv in body["intervals"]:
+            if iv["interval"] != "raw":
+                assert iv["bucket_count"] is not None
+
+    async def test_last_param_computes_period(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate/options", params={"last": "7d"}
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["recommended_interval"] == "15min"
+
+    async def test_operators_by_data_type_contains_all_types(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate/options")
+        body = response.json()
+        ops_by_type = body["operators_by_data_type"]
+        assert set(ops_by_type.keys()) == {"float", "int", "str", "bool"}
+        assert "avg" in ops_by_type["float"]
+        assert "avg" not in ops_by_type["str"]
+
+    async def test_auto_interval_lookup_shape(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate/options")
+        body = response.json()
+        lookup = body["auto_interval_lookup"]
+        assert len(lookup) == 5
+        assert lookup[0]["max_period"] == "24h"
+        assert lookup[0]["interval"] is None
+        assert lookup[-1]["max_period"] is None
+        assert lookup[-1]["interval"] == "1mo"
