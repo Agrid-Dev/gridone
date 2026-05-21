@@ -578,6 +578,36 @@ class TestArbitraryIntervalBuckets:
         expected_starts = [datetime(2026, 1, d, tzinfo=UTC) for d in (2, 4, 6)]
         assert [p.interval_start for p in result.points] == expected_starts
 
+    async def test_5h_bucket_positions_non_utc(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """5h in Europe/Paris anchors at Paris midnight, not UTC midnight.
+
+        Jan 1 2026 is CET (UTC+1). Starting at midnight Paris (= 23:00 UTC Dec 31)
+        gives 5 buckets at 00:00, 05:00, 10:00, 15:00, 20:00 Paris. Both backends
+        must agree, confirming memory's midnight-anchor matches PG time_bucket(..., tz).
+        """
+        paris = ZoneInfo("Europe/Paris")
+        key = SeriesKey(owner_id="bucket-pos", metric="5h_paris")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.COUNT,
+                interval=Interval.model_validate("5h"),
+                start=datetime(2025, 12, 31, 23, 0, 0, tzinfo=UTC),
+                end=datetime(2026, 1, 1, 23, 0, 0, tzinfo=UTC),
+                timezone="Europe/Paris",
+            ),
+        )
+        expected_starts = [
+            datetime(2026, 1, 1, h, tzinfo=paris) for h in (0, 5, 10, 15, 20)
+        ]
+        actual_starts = [p.interval_start.astimezone(paris) for p in result.points]
+        assert actual_starts == expected_starts
+
     async def test_1d_dst_fall_back_bucket_positions(
         self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
     ) -> None:

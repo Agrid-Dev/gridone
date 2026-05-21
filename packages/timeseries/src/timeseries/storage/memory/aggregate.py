@@ -62,10 +62,10 @@ def _floor_bin(dt: datetime, interval: Interval) -> datetime:
 def _next_bin(dt: datetime, interval: Interval) -> datetime:
     """Advance dt by one bin. Sub-day bins advance in UTC to avoid DST phantom bins."""
     if interval.unit == IntervalUnit.MO:
-        month = dt.month + interval.qty
-        year = dt.year + (month - 1) // 12
-        month = (month - 1) % 12 + 1
-        return dt.replace(year=year, month=month)
+        # qty is always 1 — enforced by Interval._validate_mo
+        if dt.month == 12:
+            return dt.replace(year=dt.year + 1, month=1)
+        return dt.replace(month=dt.month + 1)
     td = interval.to_timedelta()
     if interval.unit == IntervalUnit.D:
         d = dt.date() + td
