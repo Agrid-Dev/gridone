@@ -1,22 +1,28 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, cast
 
 from models.errors import InvalidError, NotFoundError, StorageConnectionError
 from models.service import Service
 from timeseries.domain import (
+    AGG_COMPAT,
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
+    AggregatedPoint,
+    AggregationOperator,
     AggregationQuery,
     AggregationResult,
     DataPoint,
     DataType,
     FetchPointsResult,
+    Interval,
     SeriesKey,
     TimeSeries,
     normalize_to_utc,
+    parse_duration,
     resolve_aggregation_data_type,
     resolve_last,
     validate_tz_name,
@@ -24,6 +30,11 @@ from timeseries.domain import (
 )
 from timeseries.exporters.csv import to_csv
 from timeseries.exporters.png import to_png
+from timeseries.service.auto_interval import (
+    CANONICAL_INTERVALS,
+    resolve_auto_interval,
+    valid_intervals_for_period,
+)
 from timeseries.storage import build_storage
 
 if TYPE_CHECKING:
@@ -33,6 +44,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _POSTGRES_PREFIX = "postgresql"
+
+
+@dataclass
+class AggregateOptions:
+    intervals: list[tuple[str, int | None]]  # (interval_str, bucket_count)
+    recommended_interval: str | None
+    operators_by_data_type: dict[str, list[str]]
+
+
+def _build_operators_by_data_type() -> dict[str, list[str]]:
+    return {
+        str(dt): [
+            str(op) for op in AggregationOperator if AGG_COMPAT[op][dt] is not None
+        ]
+        for dt in DataType
+    }
+
+
+_OPERATORS_BY_DATA_TYPE: dict[str, list[str]] = _build_operators_by_data_type()
 
 DEFAULT_RAW_LIMIT = 10_000
 MAX_RAW_LIMIT = 100_000
@@ -191,23 +221,11 @@ class TimeSeriesService(Service):
         query: AggregationQuery,
     ) -> AggregationResult:
         cutoff = _utcnow()
-
-        if query.last is not None:
-            query = query.model_copy(
-                update={
-                    "start": query.start
-                    if query.start is not None
-                    else resolve_last(query.last, now=cutoff),
-                    "end": query.end if query.end is not None else cutoff,
-                    "last": None,
-                }
-            )
-
         resolved_tz = query.timezone or self._default_timezone
         query = query.model_copy(
             update={
                 "start": normalize_to_utc(query.start, resolved_tz),
-                "end": normalize_to_utc(query.end, resolved_tz),
+                "end": normalize_to_utc(query.end or cutoff, resolved_tz),
                 "timezone": resolved_tz,
             }
         )
@@ -216,13 +234,92 @@ class TimeSeriesService(Service):
             owner, metric = key.owner_id, key.metric
             msg = f"No timeseries found for device '{owner}', attribute '{metric}'"
             raise NotFoundError(msg)
-        if query.start is None or query.end is None:
-            msg = "start and end are required for aggregation"
+        if query.start is None:
+            msg = "start (or last) is required for aggregation"
             raise InvalidError(msg)
         resolve_aggregation_data_type(query.agg, series.data_type)
-        result = await self._backend.aggregate(key, query)
-        return result.model_copy(
-            update={"points": [p for p in result.points if p.interval_start <= cutoff]}
+
+        start: datetime = query.start
+        end: datetime = query.end or cutoff  # end always set by model_copy above
+        interval = (
+            resolve_auto_interval(end - start)
+            if query.interval == "auto"
+            else query.interval
+        )
+        match interval:
+            case "raw":
+                return await self._get_aggregate_raw(key, query, series.data_type)
+            case _:
+                query = query.model_copy(
+                    update={"interval": Interval.model_validate(interval)}
+                )
+                result = await self._backend.aggregate(key, query)
+                points = [p for p in result.points if p.interval_start <= cutoff]
+                return result.model_copy(update={"points": points})
+
+    async def get_aggregate_options(
+        self,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        last: str | None = None,
+    ) -> AggregateOptions:
+        if end is not None and start is None and last is None:
+            msg = "end requires start or last"
+            raise InvalidError(msg)
+
+        if last is not None or start is not None:
+            now = _utcnow()
+            resolved_start = start if start is not None else resolve_last(last, now=now)  # type: ignore[arg-type]
+            resolved_end = end if end is not None else now
+            period = resolved_end - resolved_start
+            valid = valid_intervals_for_period(period)
+            recommended = resolve_auto_interval(period)
+            iv_td = {iv: parse_duration(iv) for iv in valid if iv != "raw"}
+            intervals: list[tuple[str, int | None]] = [
+                ("raw", None) if iv == "raw" else (iv, int(period / iv_td[iv]))
+                for iv in valid
+            ]
+            return AggregateOptions(
+                intervals=intervals,
+                recommended_interval=recommended,
+                operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+            )
+
+        intervals_no_period: list[tuple[str, int | None]] = [
+            ("raw", None),
+            *[(iv, None) for iv in CANONICAL_INTERVALS],
+        ]
+        return AggregateOptions(
+            intervals=intervals_no_period,
+            recommended_interval=None,
+            operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+        )
+
+    async def _get_aggregate_raw(
+        self,
+        key: SeriesKey,
+        query: AggregationQuery,
+        data_type: DataType,
+    ) -> AggregationResult:
+        fetch = await self._fetch_points_utc(
+            key,
+            start=query.start,
+            end=query.end,
+            carry_forward=False,
+            limit=MAX_RAW_LIMIT,
+        )
+        wrapped = [
+            AggregatedPoint(interval_start=p.timestamp, value=p.value, count=1)
+            for p in fetch.points
+        ]
+        return AggregationResult(
+            interval="raw",
+            agg=query.agg,
+            data_type=data_type,
+            timezone=query.timezone or self._default_timezone,
+            points=wrapped,
+            truncated=fetch.truncated,
         )
 
     async def fetch_points(  # noqa: PLR0913

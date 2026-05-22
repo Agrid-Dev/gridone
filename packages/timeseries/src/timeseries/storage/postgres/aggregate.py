@@ -11,6 +11,7 @@ from timeseries.domain import (
     Interval,
     IntervalUnit,
 )
+from timeseries.storage._preconditions import assert_query_resolved
 
 _PG_UNIT: dict[IntervalUnit, str] = {
     IntervalUnit.MIN: "minutes",
@@ -419,18 +420,19 @@ async def compute(
 ) -> AggregationResult:
     assert query.start is not None  # noqa: S101
     assert query.end is not None  # noqa: S101
-    tz = query.timezone
-    if tz is None:
-        msg = "timezone must be resolved by the service before calling storage"
-        raise RuntimeError(msg)
+    assert_query_resolved(query)
+    assert isinstance(query.interval, Interval)  # noqa: S101
+    assert query.timezone is not None  # noqa: S101
+    interval: Interval = query.interval
+    tz: str = query.timezone
     op = query.agg
     data_type = series.data_type
     ctx = _QueryCtx(
         value_col=value_col,
         anchor_value=_coerce_anchor(op, anchor),
         tz=tz,
-        interval_str=_to_sql_interval(query.interval),
-        interval_unit=query.interval.unit,
+        interval_str=_to_sql_interval(interval),
+        interval_unit=interval.unit,
         series_id=series.id,
         start=query.start,
         end=query.end,
@@ -459,7 +461,7 @@ async def compute(
     ]
 
     return AggregationResult(
-        interval=query.interval,
+        interval=interval,
         agg=op,
         data_type=data_type,
         timezone=ctx.tz,

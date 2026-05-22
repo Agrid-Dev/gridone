@@ -16,6 +16,7 @@ from timeseries.domain import (
     IntervalUnit,
     TimeSeries,
 )
+from timeseries.storage._preconditions import assert_query_resolved
 
 _ROUND = 6
 
@@ -277,20 +278,21 @@ def compute(
     labeled at its calendar boundary but only contains data from query.start onward;
     LOCF fills the gap via the anchor point. This matches TimescaleDB behavior.
     """
-    tz_name = query.timezone
-    if tz_name is None:
-        msg = "timezone must be resolved by the service before calling storage"
-        raise RuntimeError(msg)
+    assert_query_resolved(query)
+    assert isinstance(query.interval, Interval)  # noqa: S101
+    assert query.timezone is not None  # noqa: S101
+    interval: Interval = query.interval
+    tz_name: str = query.timezone
 
     bins = (
-        _bin_boundaries(query.start, query.end, query.interval, tz_name)
+        _bin_boundaries(query.start, query.end, interval, tz_name)
         if query.start is not None and query.end is not None
         else []
     )
 
     if not bins:
         return AggregationResult(
-            interval=query.interval,
+            interval=interval,
             agg=query.agg,
             data_type=series.data_type,
             timezone=tz_name,
@@ -351,7 +353,7 @@ def compute(
             locf = bucket_df["value"][-1]
 
     return AggregationResult(
-        interval=query.interval,
+        interval=interval,
         agg=query.agg,
         data_type=series.data_type,
         timezone=tz_name,

@@ -16,10 +16,12 @@ from timeseries.service import TimeSeriesService
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
 from api.schemas.timeseries import (
+    AggregateOptionsResponse,
     AggregatedPointResponse,
     AggregationResultResponse,
     DataPointResponse,
     FetchPointsResultResponse,
+    IntervalOption,
     TimeSeriesResponse,
 )
 
@@ -156,17 +158,17 @@ async def get_device_timeseries_points(
 
 def get_aggregation_query(
     interval: str = Query(
-        ...,
-        description="Duration string. Same grammar as 'last' (Nmin, Nh, Nd, Nmo). Minimum: 1min.",
+        "auto",
+        description=(
+            "Duration string (e.g. '15min', '1h', '1d', '1mo') or 'auto'. "
+            "When 'auto' or omitted, the server picks the best interval for the period."
+        ),
         openapi_examples={
+            "auto": {"value": "auto"},
             "15min": {"value": "15min"},
             "1h": {"value": "1h"},
             "1d": {"value": "1d"},
             "1mo": {"value": "1mo"},
-            "5min": {"value": "5min"},
-            "30min": {"value": "30min"},
-            "6h": {"value": "6h"},
-            "7d": {"value": "7d"},
         },
     ),
     agg: AggregationOperator = Query(
@@ -200,6 +202,26 @@ def get_aggregation_query(
 
 
 @router.get(
+    "/timeseries/aggregate/options",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
+async def get_aggregate_options(
+    start: datetime | None = Query(None),
+    end: datetime | None = Query(None),
+    last: str | None = Query(None),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> AggregateOptionsResponse:
+    options = await ts.get_aggregate_options(start=start, end=end, last=last)
+    return AggregateOptionsResponse(
+        intervals=[
+            IntervalOption(interval=iv, bucket_count=bc) for iv, bc in options.intervals
+        ],
+        recommended_interval=options.recommended_interval,
+        operators_by_data_type=options.operators_by_data_type,
+    )
+
+
+@router.get(
     "/{device_id}/timeseries/{attr}/aggregate",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
 )
@@ -219,6 +241,7 @@ async def get_device_timeseries_aggregate(
         data_type=result.data_type,
         aggregation_data_type=result.aggregation_data_type,
         timezone=result.timezone,
+        truncated=result.truncated,
         points=[
             AggregatedPointResponse(
                 interval_start=p.interval_start.astimezone(tz),

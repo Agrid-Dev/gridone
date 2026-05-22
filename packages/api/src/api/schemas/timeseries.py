@@ -38,4 +38,16 @@ class AggregationResultResponse(BaseModel):
     data_type: DataType
     aggregation_data_type: DataType
     timezone: str
+    truncated: bool
     points: list[AggregatedPointResponse]
+
+
+class IntervalOption(BaseModel):
+    interval: str
+    bucket_count: int | None
+
+
+class AggregateOptionsResponse(BaseModel):
+    intervals: list[IntervalOption]
+    recommended_interval: str | None
+    operators_by_data_type: dict[str, list[str]]
