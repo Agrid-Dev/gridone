@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -17,6 +17,7 @@ from models.types import DATA_TYPE_MAP, DataType
 from timeseries.domain.time_range import (
     parse_duration,
     parse_duration_parts,
+    resolve_last,
     validate_tz_name,
 )
 
@@ -163,16 +164,30 @@ class AggregationQuery(BaseModel):
     last: str | None = None
     timezone: str | None = None
 
-    @field_validator("last")
+    @model_validator(mode="before")
     @classmethod
-    def _validate_last(cls, v: str | None) -> str | None:
-        if v is None:
-            return v
-        try:
-            parse_duration(v)
-        except InvalidError as e:
-            raise ValueError(str(e)) from e
-        return v
+    def _resolve_time_range(cls, data: object) -> object:
+        """Resolve last→start and start→end=now before field validation runs.
+
+        Pops ``last`` (consumed here, not stored), resolves it to a ``start``
+        timestamp if no explicit ``start`` is provided, then fills ``end`` with
+        the current UTC time when ``start`` is set but ``end`` is absent.
+        """
+        if not isinstance(data, dict):
+            return data
+        d: dict[str, Any] = data  # type: ignore[assignment]
+        now = datetime.now(UTC)
+        last = d.pop("last", None)
+        if last is not None:
+            try:
+                parse_duration(last)
+            except InvalidError as e:
+                raise ValueError(str(e)) from e
+            if not d.get("start"):
+                d["start"] = resolve_last(last, now=now)
+        if d.get("start") and not d.get("end"):
+            d["end"] = now
+        return d
 
     @field_validator("timezone")
     @classmethod
