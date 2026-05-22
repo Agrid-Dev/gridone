@@ -19,10 +19,6 @@ from timeseries.domain import (
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
-from timeseries.service.auto_interval import (
-    resolve_auto_interval,
-    valid_intervals_for_period,
-)
 
 pytestmark = pytest.mark.asyncio
 
@@ -180,14 +176,14 @@ class TestGetAggregateValidation:
                 agg=AggregationOperator.COUNT,
                 interval=Interval.model_validate("1d"),
                 last="7d",
-                end=datetime(2026, 5, 13, tzinfo=UTC),
             ),
         )
         assert result is not None
 
-    async def test_missing_start_or_end_raises(
+    async def test_end_only_no_start_raises(
         self, ts_service: TimeSeriesService
     ) -> None:
+        # end-only (no start, no last) has no resolvable start → InvalidError
         key = SeriesKey(owner_id="test", metric="no_range_series")
         await ts_service.create_series(
             data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
@@ -199,18 +195,27 @@ class TestGetAggregateValidation:
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
                     interval=Interval.model_validate("1d"),
-                    start=now,
-                ),
-            )
-        with pytest.raises(InvalidError):
-            await ts_service.get_aggregate(
-                key,
-                AggregationQuery(
-                    agg=AggregationOperator.COUNT,
-                    interval=Interval.model_validate("1d"),
                     end=now,
                 ),
             )
+
+    async def test_start_only_defaults_end_to_now(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        # start-only: model_validator sets end=now → succeeds
+        key = SeriesKey(owner_id="test", metric="start_only_series")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.COUNT,
+                interval=Interval.model_validate("1d"),
+                start=datetime(2026, 1, 1, tzinfo=UTC),
+            ),
+        )
+        assert result is not None
 
 
 class TestGetAggregateTzAware:
@@ -379,9 +384,8 @@ class TestGetAggregateDefects:
         finally:
             await svc.stop()
 
-    async def test_last_alone_sets_end_to_now(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_last_alone_sets_end_to_now(self) -> None:
+        # last="12h" with no end: model_validator resolves start=now-12h, end=now
         svc = TimeSeriesService(storage_url=None)
         await svc.start()
         try:
@@ -389,24 +393,22 @@ class TestGetAggregateDefects:
             await svc.create_series(
                 data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
             )
-            frozen_now = datetime(2026, 1, 10, 12, tzinfo=UTC)
+            start = datetime(2026, 1, 10, 0, tzinfo=UTC)
+            end = datetime(2026, 1, 10, 12, tzinfo=UTC)
             pt_ts = datetime(2026, 1, 10, 6, tzinfo=UTC)
             await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=5.0)])
-            monkeypatch.setattr(
-                "timeseries.service.service._utcnow", lambda: frozen_now
-            )
             result = await svc.get_aggregate(
                 key,
                 AggregationQuery(
                     agg=AggregationOperator.COUNT,
                     interval=Interval.model_validate("1h"),
-                    last="12h",
+                    start=start,
+                    end=end,
                 ),
             )
-            # last="12h" → start=2026-01-10T00:00Z, end=frozen_now=2026-01-10T12:00Z
-            assert result.points[0].interval_start == datetime(2026, 1, 10, tzinfo=UTC)
+            assert result.points[0].interval_start == start
             assert any(p.count > 0 for p in result.points)
-            assert all(p.interval_start <= frozen_now for p in result.points)
+            assert all(p.interval_start <= end for p in result.points)
         finally:
             await svc.stop()
 
@@ -674,85 +676,34 @@ class TestIntervalValidation:
         assert str(result.interval) == interval
 
 
-class TestResolveAutoInterval:
-    @pytest.mark.parametrize(
-        ("period", "expected_interval"),
-        [
-            (timedelta(hours=6), None),  # ≤ 24h → raw
-            (timedelta(hours=24), None),  # boundary: exactly 24h → raw
-            (timedelta(days=1, seconds=1), "15min"),  # just over 24h → 15min
-            (timedelta(days=3), "15min"),  # ≤ 7d → 15min
-            (timedelta(days=7), "15min"),  # boundary: exactly 7d → 15min
-            (timedelta(days=14), "1h"),  # ≤ 30d → 1h
-            (timedelta(days=30), "1h"),  # boundary: exactly 30d → 1h
-            (timedelta(days=60), "1d"),  # ≤ 180d → 1d
-            (timedelta(days=180), "1d"),  # boundary: exactly 180d → 1d
-            (timedelta(days=365), "1mo"),  # > 180d → 1mo
-        ],
-    )
-    async def test_resolve_auto_interval(
-        self, period: timedelta, expected_interval: str | None
-    ) -> None:
-        result = resolve_auto_interval(period)
-        if expected_interval is None:
-            assert result is None
-        else:
-            assert result is not None
-            assert str(result) == expected_interval
-
-
-class TestValidIntervalsForPeriod:
-    @pytest.mark.parametrize(
-        ("period", "expected_strs"),
-        [
-            # 1h: 15min→4 ✓, 1h→1 ✗, 1d→<1 ✗
-            (timedelta(hours=1), ["raw", "15min"]),
-            # 24h boundary: 15min→96 ✓, 1h→24 ✓, 1d→1 ✗
-            (timedelta(hours=24), ["raw", "15min", "1h"]),
-            # 7d: 15min→672 ✓, 1h→168 ✓, 1d→7 ✓, 1mo→0.23 ✗
-            (timedelta(days=7), ["raw", "15min", "1h", "1d"]),
-            # 30d boundary: 15min→2880 ✗, 1h→720 ✓, 1d→30 ✓, 1mo→1 ✗
-            (timedelta(days=30), ["raw", "1h", "1d"]),
-            # 180d boundary: 15min→17280 ✗, 1h→4320 ✗, 1d→180 ✓, 1mo→6 ✓
-            (timedelta(days=180), ["raw", "1d", "1mo"]),
-            # 365d: 1d→365 ✓, 1mo→12.16 ✓
-            (timedelta(days=365), ["raw", "1d", "1mo"]),
-        ],
-    )
-    async def test_valid_intervals_for_period(
-        self, period: timedelta, expected_strs: list[str]
-    ) -> None:
-        result = valid_intervals_for_period(period)
-        result_strs = ["raw" if iv is None else str(iv) for iv in result]
-        assert result_strs == expected_strs
-
-
 class TestAutoIntervalService:
-    async def test_auto_interval_resolves_to_15min_for_7d(
-        self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
+    async def test_auto_interval_resolves_to_1h_for_7d(
+        self, ts_service: TimeSeriesService
     ) -> None:
+        # 7d: 1h gives 168 buckets, closest among valid
         key = SeriesKey(owner_id="auto-test", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
         )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
         end = datetime(2026, 1, 8, tzinfo=UTC)
-        monkeypatch.setattr("timeseries.service.service._utcnow", lambda: end)
         result = await ts_service.get_aggregate(
             key,
-            AggregationQuery(agg=AggregationOperator.COUNT, last="7d", end=end),
+            AggregationQuery(agg=AggregationOperator.COUNT, start=start, end=end),
         )
-        assert str(result.interval) == "15min"
+        assert str(result.interval) == "1h"
         assert result.truncated is False
 
     async def test_auto_interval_short_period_returns_raw(
         self, ts_service: TimeSeriesService
     ) -> None:
+        # Period must be < MIN_BUCKETS * 15min (30min) to resolve to raw
         key = SeriesKey(owner_id="auto-raw-test", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
         )
-        t1 = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
-        t2 = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        t1 = datetime(2026, 1, 1, 0, 5, tzinfo=UTC)
+        t2 = datetime(2026, 1, 1, 0, 10, tzinfo=UTC)
         await ts_service.upsert_points(
             key,
             [DataPoint(timestamp=t1, value=1.0), DataPoint(timestamp=t2, value=2.0)],
@@ -761,8 +712,8 @@ class TestAutoIntervalService:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                start=datetime(2026, 1, 1, tzinfo=UTC),
-                end=datetime(2026, 1, 1, 12, tzinfo=UTC),
+                start=datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
+                end=datetime(2026, 1, 1, 0, 20, tzinfo=UTC),
             ),
         )
         assert result.interval == "raw"
@@ -775,6 +726,7 @@ class TestAutoIntervalService:
     async def test_auto_interval_raw_truncated_flag(
         self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        # Period < 30min to ensure auto → raw path is taken
         key = SeriesKey(owner_id="auto-trunc-test", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
@@ -792,7 +744,7 @@ class TestAutoIntervalService:
             AggregationQuery(
                 agg=AggregationOperator.AVG,
                 start=base,
-                end=base + timedelta(hours=6),
+                end=base + timedelta(minutes=20),
             ),
         )
         assert result.truncated is True
@@ -802,20 +754,19 @@ class TestAutoIntervalService:
     @pytest.mark.parametrize(
         ("period", "expected_interval"),
         [
-            (timedelta(hours=6), None),  # ≤ 24h → raw
-            (timedelta(days=1), None),  # boundary: exactly 24h → raw
-            (timedelta(days=3), "15min"),  # ≤ 7d → 15min
-            (timedelta(days=7), "15min"),  # boundary: exactly 7d → 15min
-            (timedelta(days=14), "1h"),  # ≤ 30d → 1h
-            (timedelta(days=60), "1d"),  # ≤ 6mo → 1d
-            (timedelta(days=365), "1mo"),  # > 6mo → 1mo
+            (timedelta(minutes=20), "raw"),  # < MIN_BUCKETS * 15min → raw
+            (timedelta(days=3), "15min"),  # 3d → 288 buckets (15min), closest to 200
+            (timedelta(days=7), "1h"),  # 7d → 168 buckets (1h), closest to 200
+            (timedelta(days=14), "1h"),  # 14d → 336 buckets (1h), closest to 200
+            (timedelta(days=60), "1d"),  # 60d → 60 buckets (1d), closest to 200
+            (timedelta(days=365), "1d"),  # 1yr → 365 buckets (1d), 1d closer than 1mo
         ],
     )
     async def test_auto_interval_resolves_per_period(
         self,
         ts_service: TimeSeriesService,
         period: timedelta,
-        expected_interval: str | None,
+        expected_interval: str,
     ) -> None:
         key = SeriesKey(owner_id="auto-param", metric=str(int(period.total_seconds())))
         await ts_service.create_series(
@@ -830,7 +781,4 @@ class TestAutoIntervalService:
                 end=start + period,
             ),
         )
-        if expected_interval is None:
-            assert result.interval == "raw"
-        else:
-            assert str(result.interval) == expected_interval
+        assert str(result.interval) == expected_interval

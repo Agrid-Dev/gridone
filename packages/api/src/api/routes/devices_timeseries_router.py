@@ -5,10 +5,8 @@ from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from models.errors import InvalidError, NotFoundError
-from models.types import DataType
 from pydantic import BaseModel, ValidationError
 from timeseries.domain import (
-    AGG_COMPAT,
     AggregationOperator,
     AggregationQuery,
     SeriesKey,
@@ -203,18 +201,6 @@ def get_aggregation_query(
         raise InvalidError("; ".join(msgs)) from e
 
 
-def _build_operators_by_data_type() -> dict[str, list[str]]:
-    return {
-        str(dt): [
-            str(op) for op in AggregationOperator if AGG_COMPAT[op][dt] is not None
-        ]
-        for dt in DataType
-    }
-
-
-_OPERATORS_BY_DATA_TYPE = _build_operators_by_data_type()
-
-
 @router.get(
     "/timeseries/aggregate/options",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
@@ -231,7 +217,7 @@ async def get_aggregate_options(
             IntervalOption(interval=iv, bucket_count=bc) for iv, bc in options.intervals
         ],
         recommended_interval=options.recommended_interval,
-        operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+        operators_by_data_type=options.operators_by_data_type,
     )
 
 

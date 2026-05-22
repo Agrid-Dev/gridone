@@ -8,9 +8,11 @@ from typing import TYPE_CHECKING, cast
 from models.errors import InvalidError, NotFoundError, StorageConnectionError
 from models.service import Service
 from timeseries.domain import (
+    AGG_COMPAT,
     DATA_TYPE_MAP,
     VALUE_TYPE_MAP,
     AggregatedPoint,
+    AggregationOperator,
     AggregationQuery,
     AggregationResult,
     DataPoint,
@@ -48,7 +50,19 @@ _POSTGRES_PREFIX = "postgresql"
 class AggregateOptions:
     intervals: list[tuple[str, int | None]]  # (interval_str, bucket_count)
     recommended_interval: str | None
+    operators_by_data_type: dict[str, list[str]]
 
+
+def _build_operators_by_data_type() -> dict[str, list[str]]:
+    return {
+        str(dt): [
+            str(op) for op in AggregationOperator if AGG_COMPAT[op][dt] is not None
+        ]
+        for dt in DataType
+    }
+
+
+_OPERATORS_BY_DATA_TYPE: dict[str, list[str]] = _build_operators_by_data_type()
 
 DEFAULT_RAW_LIMIT = 10_000
 MAX_RAW_LIMIT = 100_000
@@ -250,6 +264,10 @@ class TimeSeriesService(Service):
         end: datetime | None = None,
         last: str | None = None,
     ) -> AggregateOptions:
+        if end is not None and start is None and last is None:
+            msg = "end requires start or last"
+            raise InvalidError(msg)
+
         if last is not None or start is not None:
             now = _utcnow()
             resolved_start = start if start is not None else resolve_last(last, now=now)  # type: ignore[arg-type]
@@ -263,7 +281,9 @@ class TimeSeriesService(Service):
                 for iv in valid
             ]
             return AggregateOptions(
-                intervals=intervals, recommended_interval=recommended
+                intervals=intervals,
+                recommended_interval=recommended,
+                operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
             )
 
         intervals_no_period: list[tuple[str, int | None]] = [
@@ -271,7 +291,9 @@ class TimeSeriesService(Service):
             *[(iv, None) for iv in CANONICAL_INTERVALS],
         ]
         return AggregateOptions(
-            intervals=intervals_no_period, recommended_interval=None
+            intervals=intervals_no_period,
+            recommended_interval=None,
+            operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
         )
 
     async def _get_aggregate_raw(

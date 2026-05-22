@@ -1049,3 +1049,11 @@ class TestAggregateOptions:
         assert set(ops_by_type.keys()) == {"float", "int", "str", "bool"}
         assert "avg" in ops_by_type["float"]
         assert "avg" not in ops_by_type["str"]
+
+    async def test_end_only_returns_422(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate/options",
+                params={"end": datetime(2026, 1, 8, tzinfo=UTC).isoformat()},
+            )
+        assert response.status_code == 422

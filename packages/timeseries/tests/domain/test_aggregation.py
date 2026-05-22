@@ -179,8 +179,11 @@ class TestAggregationQuery:
 
     @pytest.mark.parametrize("good_last", ["7d", "15min", "1mo", "3h"])
     def test_last_valid(self, good_last):
+        # last is consumed by model_validator: resolved into start, cleared from model
         q = _query(last=good_last)
-        assert q.last == good_last
+        assert q.last is None
+        assert q.start is not None
+        assert q.end is not None
 
     @pytest.mark.parametrize("bad_last", ["7y", "abc", "0d", "-1h"])
     def test_last_invalid_raises(self, bad_last):
@@ -218,9 +221,10 @@ class TestAggregationQuery:
         assert q.start < q.end  # type: ignore[operator]
 
     def test_only_start_valid(self):
+        # model_validator sets end=now when start is provided without end
         q = _query(start=datetime(2026, 1, 1, tzinfo=UTC))
         assert q.start is not None
-        assert q.end is None
+        assert q.end is not None
 
     def test_only_end_valid(self):
         q = _query(end=datetime(2026, 1, 1, tzinfo=UTC))
