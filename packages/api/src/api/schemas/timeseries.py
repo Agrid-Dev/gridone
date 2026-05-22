@@ -47,13 +47,7 @@ class IntervalOption(BaseModel):
     bucket_count: int | None
 
 
-class AutoIntervalLookupEntry(BaseModel):
-    max_period: str | None
-    interval: str | None
-
-
 class AggregateOptionsResponse(BaseModel):
     intervals: list[IntervalOption]
     recommended_interval: str | None
     operators_by_data_type: dict[str, list[str]]
-    auto_interval_lookup: list[AutoIntervalLookupEntry]
