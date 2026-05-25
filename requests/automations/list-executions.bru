@@ -1,0 +1,14 @@
+meta {
+  name: list executions
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{BASE_URL}}/automations/:automation_id/executions
+  auth: inherit
+}
+
+params:path {
+  automation_id: abc
+}

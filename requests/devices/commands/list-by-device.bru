@@ -1,0 +1,22 @@
+meta {
+  name: list device commands
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/commands
+  auth: inherit
+}
+
+params:path {
+  device_id: abc123
+}
+
+params:query {
+  ~batch_id: abc123
+  ~attribute: temperature_setpoint
+  ~sort: desc
+  ~page: 1
+  ~page_size: 50
+}

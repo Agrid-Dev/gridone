@@ -1,0 +1,53 @@
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{ACCESS_TOKEN}}
+}
+
+script:pre-request {
+    const ACCESS_TTL_MS = 29 * 60 * 1000;
+    const SAFETY_MARGIN_MS = 30000;
+  
+    const baseUrl = bru.getEnvVar("BASE_URL");
+    const accessToken = bru.getEnvVar("ACCESS_TOKEN");
+    const refreshToken = bru.getEnvVar("REFRESH_TOKEN");
+    const expiresAt = Number(bru.getEnvVar("TOKEN_EXPIRES_AT")) || 0;
+  
+    const saveTokens = (data) => {
+      bru.setEnvVar("ACCESS_TOKEN", data.access_token);
+      bru.setEnvVar("REFRESH_TOKEN", data.refresh_token);
+      bru.setEnvVar("TOKEN_EXPIRES_AT", String(Date.now() + ACCESS_TTL_MS));
+      req.setHeader("Authorization", "Bearer " + data.access_token);
+    };
+  
+    const formEncode = (params) =>
+      Object.entries(params)
+        .map(function(e) { return encodeURIComponent(e[0]) + "=" + encodeURIComponent(e[1]); })
+        .join("&");
+  
+    const login = async () => {
+      const res = await axios.post(
+        baseUrl + "/auth/login",
+        formEncode({ username: bru.getEnvVar("GRIDONE_USERNAME"), password: bru.getEnvVar("GRIDONE_PASSWORD"), grant_type: "password" }),
+        { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+      );
+      saveTokens(res.data);
+    };
+  
+    const refresh = async () => {
+      try {
+        const res = await axios.post(baseUrl + "/auth/refresh", { refresh_token: refreshToken });
+        saveTokens(res.data);
+      } catch (e) { await login(); }
+    };
+  
+    if (accessToken && Date.now() < expiresAt - SAFETY_MARGIN_MS) {
+      req.setHeader("Authorization", "Bearer " + accessToken);
+    } else if (refreshToken) {
+      await refresh();
+    } else {
+      await login();
+    }
+}

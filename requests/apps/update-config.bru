@@ -1,0 +1,21 @@
+meta {
+  name: update app config
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{BASE_URL}}/apps/:app_id/config
+  body: json
+  auth: inherit
+}
+
+params:path {
+  app_id: abc123
+}
+
+body:json {
+  {
+    "key": "value"
+  }
+}

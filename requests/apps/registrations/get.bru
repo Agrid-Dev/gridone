@@ -1,0 +1,14 @@
+meta {
+  name: get registration request
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{BASE_URL}}/apps/registration-requests/:request_id
+  auth: inherit
+}
+
+params:path {
+  request_id: abc123
+}

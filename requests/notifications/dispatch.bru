@@ -1,0 +1,20 @@
+meta {
+  name: dispatch notification
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}/notifications/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "title": "High temperature alert",
+    "body": "Device temperature exceeds threshold",
+    "severity": "warning",
+    "user_ids": ["user_id_here"]
+  }
+}

@@ -1,0 +1,22 @@
+meta {
+  name: set device tag
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{BASE_URL}}/devices/:device_id/tags/:key
+  body: json
+  auth: inherit
+}
+
+params:path {
+  device_id: abc123
+  key: asset_id
+}
+
+body:json {
+  {
+    "value": "asset_abc"
+  }
+}

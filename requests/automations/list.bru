@@ -1,0 +1,14 @@
+meta {
+  name: list automations
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/automations/
+  auth: inherit
+}
+
+params:query {
+  ~enabled: true
+}

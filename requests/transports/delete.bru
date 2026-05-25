@@ -1,0 +1,15 @@
+meta {
+  name: delete transport
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{BASE_URL}}/transports/:transport_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  transport_id: 26c04a34
+}

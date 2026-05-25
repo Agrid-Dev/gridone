@@ -1,0 +1,15 @@
+meta {
+  name: unblock user
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}/users/:user_id/unblock
+  body: none
+  auth: inherit
+}
+
+params:path {
+  user_id: abc123
+}

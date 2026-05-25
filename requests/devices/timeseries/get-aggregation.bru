@@ -1,0 +1,22 @@
+meta {
+  name: get aggregation
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/timeseries/:attr/aggregate
+  auth: inherit
+}
+
+params:path {
+  device_id: bc59a4fa
+  attr: temperature
+}
+
+params:query {
+  last: 10d
+  interval: 1d
+  agg: avg
+  ~timezone: Europe/Paris
+}

@@ -1,0 +1,19 @@
+meta {
+  name: create transport
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/transports/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "My HTTP",
+    "protocol": "http",
+    "config": {}
+  }
+}

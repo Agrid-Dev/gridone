@@ -1,0 +1,15 @@
+meta {
+  name: dismiss notification
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/notifications/:notification_id/dismiss
+  body: none
+  auth: inherit
+}
+
+params:path {
+  notification_id: abc123
+}

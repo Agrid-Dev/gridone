@@ -1,0 +1,15 @@
+meta {
+  name: list assets
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/assets/
+  auth: inherit
+}
+
+params:query {
+  ~parent_id: abc123
+  ~type: building
+}

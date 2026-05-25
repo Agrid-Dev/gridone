@@ -1,0 +1,21 @@
+meta {
+  name: reorder asset children
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{BASE_URL}}/assets/:asset_id/children/order
+  body: json
+  auth: inherit
+}
+
+params:path {
+  asset_id: abc123
+}
+
+body:json {
+  {
+    "ordered_ids": ["child_id_1", "child_id_2", "child_id_3"]
+  }
+}

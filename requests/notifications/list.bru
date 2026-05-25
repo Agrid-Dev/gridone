@@ -1,0 +1,15 @@
+meta {
+  name: list notifications
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/notifications/
+  auth: inherit
+}
+
+params:query {
+  ~dismissed: false
+  ~severity: info
+}

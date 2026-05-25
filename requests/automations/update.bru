@@ -1,0 +1,21 @@
+meta {
+  name: update automation
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/automations/:automation_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  automation_id: dfe56a7fd38c49e8
+}
+
+body:json {
+  {
+    "action_template_id": "af1dc3cfaa8a4cfc"
+  }
+}

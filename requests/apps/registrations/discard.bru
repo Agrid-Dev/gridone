@@ -1,0 +1,15 @@
+meta {
+  name: discard registration request
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{BASE_URL}}/apps/registration-requests/:request_id/discard
+  body: none
+  auth: inherit
+}
+
+params:path {
+  request_id: abc123
+}

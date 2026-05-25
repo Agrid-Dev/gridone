@@ -1,0 +1,15 @@
+meta {
+  name: accept registration request
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}/apps/registration-requests/:request_id/accept
+  body: none
+  auth: inherit
+}
+
+params:path {
+  request_id: abc123
+}

@@ -1,0 +1,15 @@
+meta {
+  name: delete automation
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{BASE_URL}}/automations/:automation_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  automation_id: abc
+}

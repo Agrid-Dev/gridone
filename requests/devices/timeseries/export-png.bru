@@ -1,0 +1,16 @@
+meta {
+  name: export png
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{BASE_URL}}/devices/timeseries/export/png
+  auth: inherit
+}
+
+params:query {
+  series_ids: 5b590e9c:temperature
+  ~last: 7d
+  ~title: Temperature
+}

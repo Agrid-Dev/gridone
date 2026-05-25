@@ -1,0 +1,25 @@
+meta {
+  name: create template
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/devices/commands/templates/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Set setpoint to 20°C",
+    "target": {
+      "tags": { "asset_id": ["abc123"] },
+      "types": ["thermostat"]
+    },
+    "write": {
+      "attribute": "temperature_setpoint",
+      "value": 20.0
+    }
+  }
+}

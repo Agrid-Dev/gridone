@@ -1,0 +1,15 @@
+meta {
+  name: aggregate options
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{BASE_URL}}/devices/timeseries/aggregate/options
+  auth: inherit
+}
+
+params:query {
+  ~last: 10d
+  ~start: 2024-01-01T00:00:00Z
+}

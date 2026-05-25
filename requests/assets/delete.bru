@@ -1,0 +1,15 @@
+meta {
+  name: delete asset
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{BASE_URL}}/assets/:asset_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  asset_id: abc123
+}

@@ -1,0 +1,17 @@
+meta {
+  name: export csv
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{BASE_URL}}/devices/timeseries/export/csv
+  auth: inherit
+}
+
+params:query {
+  series_ids: 5b590e9c:temperature
+  ~last: 7d
+  ~start: 2024-01-01T00:00:00Z
+  ~end: 2024-01-08T00:00:00Z
+}
