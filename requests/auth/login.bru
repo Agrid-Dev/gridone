@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{BASE_URL}}/auth/login
+  url: {{BASE_URL}}/auth/token
   body: formUrlEncoded
   auth: none
 }
@@ -14,11 +14,4 @@ body:form-urlencoded {
   grant_type: password
   username: {{GRIDONE_USERNAME}}
   password: {{GRIDONE_PASSWORD}}
-}
-
-script:after-response {
-  const data = res.getBody();
-  bru.setEnvVar("ACCESS_TOKEN", data.access_token);
-  bru.setEnvVar("REFRESH_TOKEN", data.refresh_token);
-  bru.setEnvVar("TOKEN_EXPIRES_AT", String(Date.now() + 29 * 60 * 1000));
 }
