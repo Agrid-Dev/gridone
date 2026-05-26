@@ -1,12 +1,5 @@
 {
   "version": "1",
   "name": "Gridone API",
-  "type": "collection",
-  "hooks": "hooks.bru",
-  "auth": {
-    "mode": "bearer",
-    "bearer": {
-      "token": "{{ACCESS_TOKEN}}"
-    }
-  }
+  "type": "collection"
 }
