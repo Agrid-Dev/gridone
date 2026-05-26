@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    # `ci:` keeps the PR title a valid Conventional Commit, so it passes the
+    # PR-title + commitlint checks and produces no spurious release bump.
+    commit-message:
+      prefix: ci
+    # Batch all action bumps into a single monthly PR to cut review noise.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
