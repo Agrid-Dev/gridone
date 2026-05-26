@@ -1,3 +1,9 @@
+## v0.80.1 (2026-05-26)
+
+### Fix
+
+- **api**: resolve .env from cwd so apps read their own config
+
 ## v0.80.0 (2026-05-21)
 
 ### Feat
