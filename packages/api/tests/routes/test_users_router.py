@@ -83,7 +83,7 @@ def app(users_manager: AsyncMock) -> FastAPI:
 
 def _login(client: TestClient, username: str) -> str:
     resp = client.post(
-        "/auth/login",
+        "/auth/token",
         data={"grant_type": "password", "username": username, "password": username},
     )
     assert resp.status_code == 200

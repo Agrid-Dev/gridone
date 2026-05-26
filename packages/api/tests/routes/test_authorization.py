@@ -141,7 +141,7 @@ def app() -> FastAPI:
 def _login(client: TestClient, username: str) -> str:
     """Login and return the access token."""
     resp = client.post(
-        "/auth/login",
+        "/auth/token",
         data={"grant_type": "password", "username": username, "password": username},
     )
     assert resp.status_code == 200
