@@ -88,3 +88,7 @@ proxychains4 uv run python main.py
 ## Applications
 
 Gridone can be executed as a [cli](apps/cli/README.md) or a fastapi [http server](apps/api_server/README.md).
+
+## API reference
+
+A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md`](packages/api/README.md#api-reference) for setup instructions.

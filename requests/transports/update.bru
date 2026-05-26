@@ -1,0 +1,24 @@
+meta {
+  name: update transport
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/transports/:transport_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  transport_id: 10f3516b
+}
+
+body:json {
+  {
+    "config": {
+      "port": "abc"
+    },
+    "name": "My coherou"
+  }
+}

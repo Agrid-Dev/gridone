@@ -1,0 +1,21 @@
+meta {
+  name: create discovery
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}/transports/:transport_id/discovery
+  body: json
+  auth: inherit
+}
+
+params:path {
+  transport_id: mqtt_default
+}
+
+body:json {
+  {
+    "driver_id": "thermocktat_mqtt"
+  }
+}

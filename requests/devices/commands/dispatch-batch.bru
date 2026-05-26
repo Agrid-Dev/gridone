@@ -1,0 +1,22 @@
+meta {
+  name: dispatch batch
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/devices/commands
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "target": {
+      "tags": { "asset_id": ["abc123"] },
+      "types": ["thermostat"]
+    },
+    "attribute": "temperature_setpoint",
+    "value": 22.0
+  }
+}

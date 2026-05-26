@@ -1,0 +1,14 @@
+meta {
+  name: get driver
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BASE_URL}}/drivers/:driver_id
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+}

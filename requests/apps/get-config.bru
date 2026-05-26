@@ -1,0 +1,14 @@
+meta {
+  name: get app config
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{BASE_URL}}/apps/:app_id/config
+  auth: inherit
+}
+
+params:path {
+  app_id: abc123
+}

@@ -1,0 +1,21 @@
+meta {
+  name: update template
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/devices/commands/templates/:template_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  template_id: 2f5f4ac4a904492d
+}
+
+body:json {
+  {
+    "name": "20 sur les thermo du 2 yolo"
+  }
+}

@@ -1,0 +1,15 @@
+meta {
+  name: disable app
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}/apps/:app_id/disable
+  body: none
+  auth: inherit
+}
+
+params:path {
+  app_id: abc123
+}

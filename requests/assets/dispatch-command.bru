@@ -1,0 +1,25 @@
+meta {
+  name: dispatch asset command
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{BASE_URL}}/assets/:asset_id/commands
+  body: json
+  auth: inherit
+}
+
+params:path {
+  asset_id: abc123
+}
+
+body:json {
+  {
+    "device_type": "thermostat",
+    "attribute": "temperature_setpoint",
+    "value": 22.0,
+    "recursive": true,
+    "confirm": false
+  }
+}

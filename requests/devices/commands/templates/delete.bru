@@ -1,0 +1,15 @@
+meta {
+  name: delete template
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{BASE_URL}}/devices/commands/templates/:template_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  template_id: 2f5f4ac4a904492d
+}

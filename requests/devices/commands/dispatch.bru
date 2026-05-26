@@ -1,0 +1,22 @@
+meta {
+  name: dispatch command
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}/devices/:device_id/commands
+  body: json
+  auth: inherit
+}
+
+params:path {
+  device_id: 5b590e9c
+}
+
+body:json {
+  {
+    "attribute": "temperature_setpoint",
+    "value": 22.0
+  }
+}

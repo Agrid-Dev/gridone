@@ -1,0 +1,22 @@
+meta {
+  name: get points
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/timeseries/:attr
+  auth: inherit
+}
+
+params:path {
+  device_id: 5b590e9c
+  attr: temperature
+}
+
+params:query {
+  last: 1d
+  ~limit: 10000000
+  ~timezone: Europe/Paris
+  ~carry_forward: false
+}

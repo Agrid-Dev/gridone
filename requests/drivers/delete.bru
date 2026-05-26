@@ -1,0 +1,15 @@
+meta {
+  name: delete driver
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{BASE_URL}}/drivers/:driver_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_mqtt-43
+}

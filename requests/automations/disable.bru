@@ -1,0 +1,15 @@
+meta {
+  name: disable automation
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{BASE_URL}}/automations/:automation_id/disable
+  body: none
+  auth: inherit
+}
+
+params:path {
+  automation_id: abc
+}

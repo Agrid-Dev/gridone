@@ -1,0 +1,18 @@
+meta {
+  name: list time series
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/timeseries
+  auth: inherit
+}
+
+params:path {
+  device_id: 5b590e9c
+}
+
+params:query {
+  ~metric: temperature
+}

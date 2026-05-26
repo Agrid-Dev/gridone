@@ -1,0 +1,19 @@
+meta {
+  name: create registration request
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}/apps/registration-requests
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "username": "myapp",
+    "password": "s3cr3t",
+    "config": ""
+  }
+}

@@ -1,0 +1,24 @@
+meta {
+  name: refresh
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/auth/refresh
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "refresh_token": "{{REFRESH_TOKEN}}"
+  }
+}
+
+script:after-response {
+  const data = res.getBody();
+  bru.setEnvVar("ACCESS_TOKEN", data.access_token);
+  bru.setEnvVar("REFRESH_TOKEN", data.refresh_token);
+  bru.setEnvVar("TOKEN_EXPIRES_AT", String(Date.now() + 29 * 60 * 1000));
+}

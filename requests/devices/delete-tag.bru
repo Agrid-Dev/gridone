@@ -1,0 +1,16 @@
+meta {
+  name: delete device tag
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{BASE_URL}}/devices/:device_id/tags/:key
+  body: none
+  auth: inherit
+}
+
+params:path {
+  device_id: abc123
+  key: asset_id
+}

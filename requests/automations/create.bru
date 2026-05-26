@@ -1,0 +1,22 @@
+meta {
+  name: create automation
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/automations/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "My great automation",
+    "trigger": {
+      "type": "schedule",
+      "cron": "0 * * * *"
+    },
+    "action_template_id": "4694ce179e67444d"
+  }
+}

@@ -1,0 +1,21 @@
+meta {
+  name: update device
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/devices/:device_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  device_id: thermocktat_1
+}
+
+body:json {
+  {
+    "name": "My new name"
+  }
+}

@@ -1,0 +1,14 @@
+meta {
+  name: get asset
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BASE_URL}}/assets/:asset_id
+  auth: inherit
+}
+
+params:path {
+  asset_id: abc123
+}

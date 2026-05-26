@@ -1,0 +1,20 @@
+meta {
+  name: list devices
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/devices/
+  auth: inherit
+}
+
+params:query {
+  ~type: chiller
+  ~ids: abc123
+  ~tags: asset_id:abc123
+  ~is_faulty: false
+  ~asset_id: abc123
+  ~search: chiller
+}
+

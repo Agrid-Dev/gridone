@@ -1,0 +1,16 @@
+meta {
+  name: delete discovery
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{BASE_URL}}/transports/:transport_id/discovery/:driver_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  transport_id: mqtt_default
+  driver_id: thermocktat_mqtt
+}

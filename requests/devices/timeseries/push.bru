@@ -1,0 +1,32 @@
+meta {
+  name: push timeseries
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}/devices/:device_id/timeseries
+  body: json
+  auth: inherit
+}
+
+params:path {
+  device_id: 5b590e9c
+}
+
+body:json {
+  {
+    "data": [
+      {
+        "attribute": "temperature",
+        "timestamp": "2024-01-01T12:00:00Z",
+        "value": 21.5
+      },
+      {
+        "attribute": "temperature_setpoint",
+        "timestamp": "2024-01-01T12:00:00Z",
+        "value": 22.0
+      }
+    ]
+  }
+}

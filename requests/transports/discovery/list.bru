@@ -1,0 +1,14 @@
+meta {
+  name: list discoveries
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/transports/:transport_id/discovery
+  auth: inherit
+}
+
+params:path {
+  transport_id: mqtt_default
+}

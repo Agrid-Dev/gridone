@@ -1,0 +1,15 @@
+meta {
+  name: enable automation
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{BASE_URL}}/automations/:automation_id/enable
+  body: none
+  auth: inherit
+}
+
+params:path {
+  automation_id: abc
+}

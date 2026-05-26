@@ -1,0 +1,14 @@
+meta {
+  name: get transport
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{BASE_URL}}/transports/:transport_id
+  auth: inherit
+}
+
+params:path {
+  transport_id: mqtt_broker
+}

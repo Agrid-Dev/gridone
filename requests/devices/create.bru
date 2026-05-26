@@ -1,0 +1,23 @@
+meta {
+  name: create device
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/devices/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Tokyo weather",
+    "config": {
+      "lattitude": 35.689487,
+      "longitude": 139.691706
+    },
+    "driver_id": "open_meteo",
+    "transport_id": "http_default"
+  }
+}

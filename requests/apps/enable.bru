@@ -1,0 +1,15 @@
+meta {
+  name: enable app
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{BASE_URL}}/apps/:app_id/enable
+  body: none
+  auth: inherit
+}
+
+params:path {
+  app_id: abc123
+}

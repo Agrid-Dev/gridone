@@ -1,0 +1,56 @@
+meta {
+  name: create driver
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/drivers/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": "thermocktat_mqtt-44",
+    "transport": "mqtt",
+    "device_config": [
+      {
+        "name": "device_id"
+      }
+    ],
+    "attributes": [
+      {
+        "name": "temperature",
+        "data_type": "float",
+        "read": {
+          "topic": "thermocktat/${device_id}/snapshot",
+          "request": {
+            "topic": "thermocktat/${device_id}/get/snapshot",
+            "message": { "input": "hello" }
+          }
+        },
+        "json_pointer": "/ambient_temperature"
+      },
+      {
+        "name": "temperature_setpoint",
+        "data_type": "float",
+        "read": {
+          "topic": "thermocktat/${device_id}/snapshot",
+          "request": {
+            "topic": "thermocktat/${device_id}/get/snapshot",
+            "message": { "input": "hello" }
+          }
+        },
+        "write": {
+          "topic": "thermocktat/${device_id}/set/temperature_setpoint",
+          "request": {
+            "topic": "thermocktat/${device_id}/set/temperature_setpoint",
+            "message": { "value": "${value}" }
+          }
+        },
+        "json_pointer": "/temperature_setpoint"
+      }
+    ]
+  }
+}
