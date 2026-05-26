@@ -68,7 +68,7 @@ def _build_token_response(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        expires_in=auth_service._access_token_expire_minutes * 60,  # noqa: SLF001
+        expires_in=auth_service.access_token_ttl_seconds,
     )
 
 
@@ -84,8 +84,8 @@ def _apply_token_cookies(
         response,
         access_token,
         refresh_token,
-        access_max_age=auth_service._access_token_expire_minutes * 60,  # noqa: SLF001
-        refresh_max_age=auth_service._refresh_token_expire_minutes * 60,  # noqa: SLF001
+        access_max_age=auth_service.access_token_ttl_seconds,
+        refresh_max_age=auth_service.refresh_token_ttl_seconds,
         secure=secure,
     )
 
@@ -134,12 +134,17 @@ async def oauth2_token(
     username: Annotated[str | None, Form()] = None,
     password: Annotated[str | None, Form()] = None,
     refresh_token: Annotated[str | None, Form()] = None,
-    um: Annotated[UsersService, Depends(get_users_service)] = None,  # type: ignore[assignment]
-    auth_service: Annotated[AuthService, Depends(get_auth_service)] = None,  # type: ignore[assignment]
+    um: UsersService = Depends(get_users_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     if grant_type == "password":
+        if not username or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="username and password are required",
+            )
         access, new_refresh = await _tokens_for_credentials(
-            username or "", password or "", um, auth_service
+            username, password, um, auth_service
         )
     elif grant_type == "refresh_token":
         token = refresh_token or request.cookies.get("refresh_token")

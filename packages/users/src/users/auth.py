@@ -39,6 +39,14 @@ class AuthService:
         payload = {"sub": user_id, "role": role, "exp": expire, "type": kind}
         return jwt.encode(payload, self._secret_key, algorithm="HS256")
 
+    @property
+    def access_token_ttl_seconds(self) -> int:
+        return self._access_token_expire_minutes * 60
+
+    @property
+    def refresh_token_ttl_seconds(self) -> int:
+        return self._refresh_token_expire_minutes * 60
+
     def create_access_token(self, user_id: str, role: str) -> str:
         return self._create_token(
             user_id,
