@@ -16,7 +16,7 @@ from users.models import Role
 
 from api.permissions import Permission, get_permissions_for_role
 
-_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 
 def get_device_manager(request: Request) -> DevicesServiceInterface:

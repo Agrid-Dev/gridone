@@ -1,7 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
 from users import UsersService
@@ -22,10 +21,7 @@ class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-
-
-class RefreshRequest(BaseModel):
-    refresh_token: str
+    expires_in: int
 
 
 def _set_token_cookies(
@@ -66,55 +62,52 @@ def _clear_token_cookies(response: Response, *, secure: bool) -> None:
     )
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    request: Request,
-    response: Response,
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    um: Annotated[UsersService, Depends(get_users_service)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+def _build_token_response(
+    access_token: str, refresh_token: str, auth_service: AuthService
 ) -> TokenResponse:
-    user = await um.authenticate(form_data.username, form_data.password)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token = auth_service.create_access_token(user.id, user.role)
-    refresh_token = auth_service.create_refresh_token(user.id, user.role)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=auth_service._access_token_expire_minutes * 60,  # noqa: SLF001
+    )
 
+
+def _apply_token_cookies(
+    response: Response,
+    access_token: str,
+    refresh_token: str,
+    auth_service: AuthService,
+    *,
+    secure: bool,
+) -> None:
     _set_token_cookies(
         response,
         access_token,
         refresh_token,
         access_max_age=auth_service._access_token_expire_minutes * 60,  # noqa: SLF001
         refresh_max_age=auth_service._refresh_token_expire_minutes * 60,  # noqa: SLF001
-        secure=request.app.state.cookie_secure,
+        secure=secure,
     )
 
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
-
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh(
-    request: Request,
-    response: Response,
-    body: RefreshRequest | None = None,
-    auth_service: AuthService = Depends(get_auth_service),
-    um: UsersService = Depends(get_users_service),
-) -> TokenResponse:
-    # Cookie takes precedence; fall back to JSON body (for Postman/Swagger)
-    token = request.cookies.get("refresh_token")
-    if not token and body:
-        token = body.refresh_token
-    if not token:
+async def _tokens_for_credentials(
+    username: str, password: str, um: UsersService, auth_service: AuthService
+) -> tuple[str, str]:
+    user = await um.authenticate(username, password)
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing refresh token",
+            detail="Invalid username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    return auth_service.create_access_token(
+        user.id, user.role
+    ), auth_service.create_refresh_token(user.id, user.role)
 
+
+async def _tokens_for_refresh(
+    token: str, um: UsersService, auth_service: AuthService
+) -> tuple[str, str]:
     try:
         payload = auth_service.decode_token(token, expected_type="refresh")
     except InvalidTokenError as e:
@@ -123,26 +116,53 @@ async def refresh(
             detail="Invalid or expired refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from e
-
     if await um.is_blocked(payload.sub):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been blocked. Contact an administrator.",
         )
+    return auth_service.create_access_token(
+        payload.sub, payload.role
+    ), auth_service.create_refresh_token(payload.sub, payload.role)
 
-    access_token = auth_service.create_access_token(payload.sub, payload.role)
-    refresh_token = auth_service.create_refresh_token(payload.sub, payload.role)
 
-    _set_token_cookies(
+@router.post("/token", response_model=TokenResponse)
+async def oauth2_token(
+    request: Request,
+    response: Response,
+    grant_type: Annotated[str, Form()],
+    username: Annotated[str | None, Form()] = None,
+    password: Annotated[str | None, Form()] = None,
+    refresh_token: Annotated[str | None, Form()] = None,
+    um: Annotated[UsersService, Depends(get_users_service)] = None,  # type: ignore[assignment]
+    auth_service: Annotated[AuthService, Depends(get_auth_service)] = None,  # type: ignore[assignment]
+) -> TokenResponse:
+    if grant_type == "password":
+        access, new_refresh = await _tokens_for_credentials(
+            username or "", password or "", um, auth_service
+        )
+    elif grant_type == "refresh_token":
+        token = refresh_token or request.cookies.get("refresh_token")
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing refresh token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        access, new_refresh = await _tokens_for_refresh(token, um, auth_service)
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported grant_type: {grant_type}",
+        )
+    _apply_token_cookies(
         response,
-        access_token,
-        refresh_token,
-        access_max_age=auth_service._access_token_expire_minutes * 60,  # noqa: SLF001
-        refresh_max_age=auth_service._refresh_token_expire_minutes * 60,  # noqa: SLF001
+        access,
+        new_refresh,
+        auth_service,
         secure=request.app.state.cookie_secure,
     )
-
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return _build_token_response(access, new_refresh, auth_service)
 
 
 @router.post("/logout")
