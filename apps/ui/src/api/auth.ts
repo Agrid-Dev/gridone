@@ -26,7 +26,7 @@ export async function login(payload: LoginPayload): Promise<void> {
   body.set("username", payload.username);
   body.set("password", payload.password);
 
-  const response = await fetch(`${API_BASE_URL}/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/auth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
