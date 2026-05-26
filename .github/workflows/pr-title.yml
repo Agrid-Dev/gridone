@@ -1,0 +1,24 @@
+name: PR Title
+
+# Squash merges use the PR title as the commit subject on main, and commitizen
+# (Bump Version workflow) derives the release version from Conventional Commit
+# messages. A non-conventional title therefore lands a non-bumpable commit and
+# silently skips the release + changelog. commitlint.yml only lints the branch
+# commits, not the title — this closes that gap by validating the title itself.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  pr-title:
+    name: Conventional PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR title against Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
