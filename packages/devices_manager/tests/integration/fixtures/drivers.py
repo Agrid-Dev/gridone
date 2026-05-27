@@ -42,3 +42,8 @@ def thermocktat_modbus_driver_single() -> Driver:
 @pytest.fixture
 def thermocktat_knx_driver() -> Driver:
     return _load_driver("thermocktat_knx_driver.yaml")
+
+
+@pytest.fixture
+def thermocktat_bacnet_driver() -> Driver:
+    return _load_driver("thermocktat_bacnet_driver.yaml")
