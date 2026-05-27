@@ -11,7 +11,7 @@ DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
 
 if TYPE_CHECKING:
     import builtins
-    from collections.abc import Iterable
+    from collections.abc import Collection
 
     from models.types import Severity
 
@@ -46,7 +46,7 @@ class DeviceRegistryInterface(Protocol):
     def list_all(  # noqa: PLR0913
         self,
         *,
-        ids: Iterable[str] | None = None,
+        ids: Collection[str] | None = None,
         types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
@@ -118,7 +118,7 @@ class DevicesServiceInterface(Protocol):
     def list_devices(  # noqa: PLR0913
         self,
         *,
-        ids: Iterable[str] | None = None,
+        ids: Collection[str] | None = None,
         types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,

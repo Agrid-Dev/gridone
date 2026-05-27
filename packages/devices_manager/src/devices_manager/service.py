@@ -40,7 +40,7 @@ from .storage.factory import build_storage
 from .storage.memory import MemoryDevicesStorage
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Collection
 
     from models.types import Severity
 
@@ -201,7 +201,7 @@ class DevicesService(Service):
     def list_devices(  # noqa: PLR0913
         self,
         *,
-        ids: Iterable[str] | None = None,
+        ids: Collection[str] | None = None,
         types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
