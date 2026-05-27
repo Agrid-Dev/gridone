@@ -20,7 +20,7 @@ from .device import (
     PhysicalDevice,
     VirtualDevice,
 )
-from .fuzzy_search import fuzzy_match
+from .device_filters import DeviceFilters
 from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
@@ -110,28 +110,20 @@ class DeviceRegistry:
         is_faulty: bool | None = None,
         search: str | None = None,
     ) -> list[Device]:
-        devices: Iterable[CoreDevice] = self._devices.values()
-        if ids is not None:
-            ids_set = set(ids)
-            devices = [d for d in devices if d.id in ids_set]
-        if types is not None:
-            types_set = set(types)
-            devices = [d for d in devices if d.type in types_set]
-        if writable_attribute is not None:
-            devices = [
-                d
-                for d in devices
-                if d.can_write(writable_attribute, data_type=writable_attribute_type)
-            ]
-        if tags is not None:
-            for key, values in tags.items():
-                values_set = set(values)
-                devices = [d for d in devices if d.tags.get(key) in values_set]
-        if is_faulty is not None:
-            devices = [d for d in devices if d.is_faulty == is_faulty]
-        if search:
-            devices = [d for d in devices if fuzzy_match(search, d.name)]
-        return [device_to_public(d) for d in devices]
+        filters = DeviceFilters(
+            ids=frozenset(ids) if ids is not None else None,
+            types=frozenset(types) if types is not None else None,
+            writable_attribute=writable_attribute,
+            writable_attribute_type=writable_attribute_type,
+            tags=(
+                {k: frozenset(v) for k, v in tags.items()} if tags is not None else None
+            ),
+            is_faulty=is_faulty,
+            search=search,
+        )
+        return [
+            device_to_public(d) for d in self._devices.values() if filters.matches(d)
+        ]
 
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
