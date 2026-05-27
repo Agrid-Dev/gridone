@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
@@ -102,7 +102,7 @@ class DeviceRegistry:
     def list_all(  # noqa: PLR0913
         self,
         *,
-        ids: Iterable[str] | None = None,
+        ids: Collection[str] | None = None,
         types: list[str] | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
@@ -111,13 +111,11 @@ class DeviceRegistry:
         search: str | None = None,
     ) -> list[Device]:
         filters = DeviceFilters(
-            ids=frozenset(ids) if ids is not None else None,
-            types=frozenset(types) if types is not None else None,
+            ids=ids,
+            types=types,
             writable_attribute=writable_attribute,
             writable_attribute_type=writable_attribute_type,
-            tags=(
-                {k: frozenset(v) for k, v in tags.items()} if tags is not None else None
-            ),
+            tags=tags,
             is_faulty=is_faulty,
             search=search,
         )

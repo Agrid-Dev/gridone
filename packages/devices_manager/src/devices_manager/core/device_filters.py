@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from .fuzzy_search import fuzzy_match
 
 if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
+
     from devices_manager.types import DataType
 
     from .device import CoreDevice
@@ -13,11 +15,11 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class DeviceFilters:
-    ids: frozenset[str] | None = None
-    types: frozenset[str] | None = None
+    ids: Collection[str] | None = None
+    types: Collection[str] | None = None
     writable_attribute: str | None = None
     writable_attribute_type: DataType | None = None
-    tags: dict[str, frozenset[str]] | None = None
+    tags: Mapping[str, Collection[str]] | None = None
     is_faulty: bool | None = None
     search: str | None = None
 
