@@ -1,3 +1,9 @@
+## v0.80.2 (2026-05-27)
+
+### Refactor
+
+- **dm**: replace multi-pass filter chain with DeviceFilters value object (#312)
+
 ## v0.80.1 (2026-05-26)
 
 ### Fix
