@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Literal
 
+from pydantic import BaseModel, Field
+
 from devices_manager.dto import Device
 from devices_manager.types import AttributeValueType
-from pydantic import BaseModel, Field
 
 
 class WebSocketMessage(BaseModel):

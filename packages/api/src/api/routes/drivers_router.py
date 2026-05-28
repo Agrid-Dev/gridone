@@ -1,11 +1,11 @@
 from typing import Annotated
 
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import DriverSpec, DriverYaml
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import DriverSpec, DriverYaml
 
 router = APIRouter()
 

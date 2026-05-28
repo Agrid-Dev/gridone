@@ -1,12 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.errors import NotFoundError
 from pydantic import BaseModel
-from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
-from users.auth import TokenPayload
-from users.models import Role as RoleEnum
-from users.validation import PasswordField, UsernameField
 
 from api.dependencies import (
     get_current_token_payload,
@@ -15,6 +10,11 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission, get_permissions_for_role
+from models.errors import NotFoundError
+from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
+from users.auth import TokenPayload
+from users.models import Role as RoleEnum
+from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
 

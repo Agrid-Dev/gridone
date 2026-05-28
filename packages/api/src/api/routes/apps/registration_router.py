@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.errors import InvalidError
 from pydantic import BaseModel
-from users.validation import PasswordField, UsernameField
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
+from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
+from models.errors import InvalidError
+from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
 

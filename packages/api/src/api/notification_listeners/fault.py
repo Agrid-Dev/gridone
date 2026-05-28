@@ -1,9 +1,8 @@
+from api.notification_listeners import RecipientsGetter
 from devices_manager import Attribute, CoreDevice, FaultAttribute
 from models.resource_reference import ResourceReference
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
-
-from api.notification_listeners import RecipientsGetter
 
 
 def on_fault_transition(

@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 
 from api.dependencies import get_device_manager
+from devices_manager import DevicesServiceInterface
 
 
 class DiscoveryHandlerCreateDTO(BaseModel):

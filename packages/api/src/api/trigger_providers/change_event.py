@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, ClassVar
 from uuid import uuid4
 
 from automations.models import TriggerContext
-from models.types import AttributeValueType  # noqa: TC001
 from pydantic import BaseModel
+
+from models.types import AttributeValueType  # noqa: TC001
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

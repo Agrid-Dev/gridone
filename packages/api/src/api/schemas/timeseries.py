@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel
+
 from models.types import AttributeValueType, DataType
 from timeseries.domain import AggregationOperator
 

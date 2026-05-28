@@ -1,16 +1,6 @@
 from typing import Annotated
 
-from assets import (
-    Asset,
-    AssetCreate,
-    AssetsService,
-    AssetUpdate,
-    get_asset_create_schema,
-)
-from commands import AttributeWrite, CommandsServiceInterface
-from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query, status
-from models.errors import NotFoundError
 from pydantic import BaseModel
 
 from api.dependencies import (
@@ -25,6 +15,16 @@ from api.routes._command_helpers import (
     resolve_attribute_data_type_for_target,
 )
 from api.schemas.command import AssetCommand, BatchDispatchResponse
+from assets import (
+    Asset,
+    AssetCreate,
+    AssetsService,
+    AssetUpdate,
+    get_asset_create_schema,
+)
+from commands import AttributeWrite, CommandsServiceInterface
+from devices_manager import DevicesServiceInterface
+from models.errors import NotFoundError
 
 router = APIRouter()
 

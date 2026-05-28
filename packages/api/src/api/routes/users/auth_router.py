@@ -3,16 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
-from users import UsersService
-from users.auth import AuthService, InvalidTokenError
-from users.models import Role
-from users.validation import get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
     get_current_user_id,
     get_users_service,
 )
 from api.permissions import get_permissions_for_role
+from users import UsersService
+from users.auth import AuthService, InvalidTokenError
+from users.models import Role
+from users.validation import get_auth_payload_schema
 
 router = APIRouter()
 

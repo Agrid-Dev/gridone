@@ -1,20 +1,20 @@
 from collections.abc import Callable
 
-from apps import AppsService
-from assets import AssetsService
 from automations import AutomationsServiceInterface
-from commands import CommandsServiceInterface
-from devices_manager import DevicesServiceInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
+
+from api.permissions import Permission, get_permissions_for_role
+from apps import AppsService
+from assets import AssetsService
+from commands import CommandsServiceInterface
+from devices_manager import DevicesServiceInterface
 from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
 from timeseries import TimeSeriesService
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
 from users.models import Role
-
-from api.permissions import Permission, get_permissions_for_role
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 

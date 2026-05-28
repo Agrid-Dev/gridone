@@ -3,18 +3,9 @@ import logging.config
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from apps import AppsService
-from assets import AssetsService
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
-from commands import CommandsService, Target, WriteResult
-from devices_manager import Attribute, CoreDevice, DevicesService
 from fastapi import Depends, FastAPI
-from models.types import AttributeValueType, DataType
-from notifications import NotificationsService
-from timeseries import DataPoint, SeriesKey, TimeSeriesService
-from users import UsersService
-from users.auth import AuthService
 
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
@@ -39,6 +30,15 @@ from api.settings import load_settings
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
+from apps import AppsService
+from assets import AssetsService
+from commands import CommandsService, Target, WriteResult
+from devices_manager import Attribute, CoreDevice, DevicesService
+from models.types import AttributeValueType, DataType
+from notifications import NotificationsService
+from timeseries import DataPoint, SeriesKey, TimeSeriesService
+from users import UsersService
+from users.auth import AuthService
 
 
 class _CompositeTargetResolver:

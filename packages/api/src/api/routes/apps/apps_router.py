@@ -1,10 +1,10 @@
 from typing import Annotated, Any
 
-from apps import App, AppsService
 from fastapi import APIRouter, Body, Depends
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
+from apps import App, AppsService
 
 router = APIRouter()
 

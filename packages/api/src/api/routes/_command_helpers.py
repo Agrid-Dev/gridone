@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from models.errors import InvalidError
-
 from api.devices_filter import to_list_devices_kwargs
+from models.errors import InvalidError
 
 if TYPE_CHECKING:
     from devices_manager import DevicesServiceInterface

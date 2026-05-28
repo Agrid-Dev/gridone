@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from pydantic import BaseModel
+
+from api.schemas.command import DevicesFilterBody
 from commands import (
     AttributeWrite,
     CommandTemplate,
@@ -13,9 +16,6 @@ from commands import (
 )
 from devices_manager.types import AttributeValueType
 from models.types import DataType
-from pydantic import BaseModel
-
-from api.schemas.command import DevicesFilterBody
 
 
 class AttributeWritePayload(BaseModel):

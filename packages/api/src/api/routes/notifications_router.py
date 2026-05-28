@@ -1,9 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
-from models.pagination import PaginationParams
-from models.types import Severity
-from notifications import NotificationDispatch, NotificationsServiceInterface
 from pydantic import BaseModel, Field
 
 from api.dependencies import (
@@ -14,6 +11,9 @@ from api.dependencies import (
 )
 from api.permissions import Permission
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from models.pagination import PaginationParams
+from models.types import Severity
+from notifications import NotificationDispatch, NotificationsServiceInterface
 
 router = APIRouter()
 

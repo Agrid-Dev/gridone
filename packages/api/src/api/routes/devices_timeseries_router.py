@@ -1,29 +1,29 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
-from models.errors import InvalidError, NotFoundError
 from pydantic import BaseModel, ValidationError
-from timeseries.domain import (
-    AggregationOperator,
-    AggregationQuery,
-    SeriesKey,
-)
-from timeseries.service import TimeSeriesService
 
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
 from api.schemas.timeseries import (
-    AggregateOptionsResponse,
     AggregatedPointResponse,
+    AggregateOptionsResponse,
     AggregationResultResponse,
     DataPointResponse,
     FetchPointsResultResponse,
     IntervalOption,
     TimeSeriesResponse,
 )
+from devices_manager import DevicesServiceInterface
+from models.errors import InvalidError, NotFoundError
+from timeseries.domain import (
+    AggregationOperator,
+    AggregationQuery,
+    SeriesKey,
+)
+from timeseries.service import TimeSeriesService
 
 router = APIRouter()
 
