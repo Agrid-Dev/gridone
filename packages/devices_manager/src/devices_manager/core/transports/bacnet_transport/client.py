@@ -34,6 +34,25 @@ def get_device_identifier(device_instance: int) -> ObjectIdentifier:
     return ObjectIdentifier(f"device,{device_instance}")
 
 
+def to_native(value: object) -> AttributeValueType:
+    """Convert a bacpypes3 atomic value to a plain Python primitive.
+
+    `get_value()` returns wrappers (Real, Unsigned, Enumerated, ...) that
+    subclass float/int/str, so they pass isinstance checks downstream but break
+    exact-type lookups (e.g. timeseries `type(value)`). Order matters: bool
+    before int, since bool is an int subclass.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    if isinstance(value, str):
+        return str(value)
+    return value  # ty: ignore[invalid-return-type]
+
+
 type DevicesDict = dict[ObjectIdentifier, Address]
 
 
@@ -101,7 +120,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         if not isinstance(response, ReadPropertyACK):
             msg = f"Unexpected response: {response!r}"
             raise TypeError(msg)
-        return response.propertyValue.cast_out(AnyAtomic).get_value()
+        return to_native(response.propertyValue.cast_out(AnyAtomic).get_value())
 
     async def read(self, address: BacnetAddress) -> AttributeValueType:
         """Read a value from the transport."""
