@@ -13,20 +13,25 @@ from .bacnet_types import BacnetObjectType, BacnetWritePriority
 DEFAULT_PROPERTY_NAME = "present-value"  # use dash form
 
 
-def initials(s: str) -> str:
-    """Returns capital case initials of words.
-    eg: binary-value -> BI"""
-    return "".join(w[0].upper() for w in s.split("-") if len(w) > 0)
+# Driver shorthands (e.g. "AV0", "MV1") — explicit because "multi-state-value"
+# is abbreviated "MV", not the "MSV" its initials would give.
+_OBJECT_TYPE_BY_SHORTHAND = {
+    "AI": BacnetObjectType.ANALOG_INPUT,
+    "AV": BacnetObjectType.ANALOG_VALUE,
+    "BI": BacnetObjectType.BINARY_INPUT,
+    "BV": BacnetObjectType.BINARY_VALUE,
+    "MI": BacnetObjectType.MULTISTATE_INPUT,
+    "MV": BacnetObjectType.MULTISTATE_VALUE,
+}
 
 
 def bacnet_object_type_from_raw(raw: str) -> BacnetObjectType:
     as_full = raw.strip().lower().replace("_", "-")
     if as_full in BacnetObjectType:
         return BacnetObjectType(as_full)
-    as_initials = raw.strip().upper()
-    for object_type in BacnetObjectType:
-        if as_initials == initials(object_type):
-            return object_type
+    shorthand = _OBJECT_TYPE_BY_SHORTHAND.get(raw.strip().upper())
+    if shorthand is not None:
+        return shorthand
     msg = f"Invalid bacnet object type: '{raw}'"
     raise ValueError(msg)
 
@@ -65,7 +70,8 @@ class BacnetAddress(BaseModel, TransportAddress):
     def from_str(
         cls, address_str: str, extra_context: dict | None = None
     ) -> "BacnetAddress":
-        if extra_context is None or not extra_context.get("device_instance"):
+        extra_context = extra_context or {}
+        if not extra_context.get("device_instance"):
             msg = "device_instance is required"
             raise ValueError(msg)
         match = re.match(bacnet_object_regex, address_str.strip())
@@ -83,12 +89,12 @@ class BacnetAddress(BaseModel, TransportAddress):
         write_priority = (
             int(write_priority_match.group(1)) if write_priority_match else None
         )
-        device_instance = extra_context.get("device_instance")
+        device_instance = extra_context["device_instance"]
         return cls(
             object_type=object_type,
             object_instance=object_instance,
             write_priority=write_priority,
-            device_instance=int(device_instance),  # type: ignore[arg-type]  # validated above
+            device_instance=int(device_instance),
         )
 
     @classmethod
