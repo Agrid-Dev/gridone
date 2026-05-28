@@ -1,7 +1,7 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, BeforeValidator, Field, NonNegativeInt, PositiveInt
 
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
@@ -41,13 +41,49 @@ bacnet_write_priority_regex = r"P(\d{1,2})"
 
 
 class BacnetAddress(BaseModel, TransportAddress):
-    device_instance: PositiveInt
+    device_instance: PositiveInt = Field(
+        description=(
+            "Numeric ID of the BACnet device that owns this object (its Device "
+            "object's instance number, e.g. 1001). Identifies *which* device on "
+            "the network; supplied by the device config, not the address string."
+        )
+    )
     object_type: Annotated[
-        BacnetObjectType, BeforeValidator(bacnet_object_type_from_raw)
+        BacnetObjectType,
+        BeforeValidator(bacnet_object_type_from_raw),
+        Field(
+            description=(
+                "Kind of datapoint. 'analog-*' carries a number, 'binary-*' an "
+                "on/off, 'multi-state-*' an enumerated state. '*-input' is a "
+                "read-only sensor reading; '*-value' is a writable setpoint. "
+                "Accepts canonical names ('analog-value'), shorthands ('AV') or "
+                "underscores ('analog_value')."
+            )
+        ),
     ]
-    object_instance: NonNegativeInt
-    property_name: str = DEFAULT_PROPERTY_NAME
-    write_priority: BacnetWritePriority | None = None
+    object_instance: NonNegativeInt = Field(
+        description=(
+            "Index of the object within its type on the device, starting at 0 "
+            "(e.g. 'analog-value 0' vs 'analog-value 1'). Together with "
+            "object_type it pinpoints one datapoint."
+        )
+    )
+    property_name: str = Field(
+        default=DEFAULT_PROPERTY_NAME,
+        description=(
+            "Property of the object to read/write. Almost always 'present-value' "
+            "(the live reading or setpoint). Use the dash form."
+        ),
+    )
+    write_priority: BacnetWritePriority | None = Field(
+        default=None,
+        description=(
+            "BACnet write priority, 5-16 (lower number = higher precedence). A "
+            "write only sticks if no higher-priority slot already commands the "
+            "object. None falls back to the transport's default_write_priority. "
+            "Ignored on reads."
+        ),
+    )
 
     @property
     def id(self) -> str:
