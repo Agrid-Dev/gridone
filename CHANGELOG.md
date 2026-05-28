@@ -1,3 +1,10 @@
+## v0.80.3 (2026-05-28)
+
+### Fix
+
+- **devices-manager**: convert bacpypes atomic values to native Python types
+- **devices-manager**: use canonical multi-state BACnet object type names
+
 ## v0.80.2 (2026-05-27)
 
 ### Refactor
