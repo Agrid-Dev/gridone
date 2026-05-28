@@ -78,7 +78,6 @@ async def get_tree_with_devices(
 
 @router.get(
     "/",
-    response_model=list[Asset],
     dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
 )
 async def list_assets(
@@ -91,7 +90,6 @@ async def list_assets(
 
 @router.get(
     "/{asset_id}",
-    response_model=Asset,
     dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
 )
 async def get_asset(
@@ -103,7 +101,6 @@ async def get_asset(
 
 @router.post(
     "/",
-    response_model=Asset,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
 )
@@ -116,7 +113,6 @@ async def create_asset(
 
 @router.put(
     "/{asset_id}",
-    response_model=Asset,
     dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
 )
 async def update_asset(
@@ -158,7 +154,6 @@ async def reorder_children(
 
 @router.get(
     "/{asset_id}/devices",
-    response_model=list[str],
     dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
 )
 async def list_asset_devices(
