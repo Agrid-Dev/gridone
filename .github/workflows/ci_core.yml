@@ -20,6 +20,51 @@ on:
       - uv.lock
   workflow_dispatch:
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      assets: ${{ steps.filter.outputs.assets }}
+      automations: ${{ steps.filter.outputs.automations }}
+      commands: ${{ steps.filter.outputs.commands }}
+      devices_manager: ${{ steps.filter.outputs.devices_manager }}
+      notifications: ${{ steps.filter.outputs.notifications }}
+      timeseries: ${{ steps.filter.outputs.timeseries }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # A change to a shared dependency (models, lockfile, docker image, or this
+      # workflow) can break any package, so each filter includes the &shared set
+      # — that flips every package true and runs the full integration suite.
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            shared: &shared
+              - 'packages/models/**'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'docker/**'
+              - '.github/workflows/ci_core.yml'
+            assets:
+              - *shared
+              - 'packages/assets/**'
+            automations:
+              - *shared
+              - 'packages/automations/**'
+            commands:
+              - *shared
+              - 'packages/commands/**'
+            devices_manager:
+              - *shared
+              - 'packages/devices_manager/**'
+            notifications:
+              - *shared
+              - 'packages/notifications/**'
+            timeseries:
+              - *shared
+              - 'packages/timeseries/**'
+
   quality:
     runs-on: ubuntu-latest
     steps:
@@ -79,7 +124,16 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    needs: unit-tests
+    needs: [unit-tests, changes]
+    # Skip on PRs that touch no integration-bearing package; always run on push to main.
+    if: >-
+      github.event_name != 'pull_request' ||
+      needs.changes.outputs.assets == 'true' ||
+      needs.changes.outputs.automations == 'true' ||
+      needs.changes.outputs.commands == 'true' ||
+      needs.changes.outputs.devices_manager == 'true' ||
+      needs.changes.outputs.notifications == 'true' ||
+      needs.changes.outputs.timeseries == 'true'
 
     services:
       timescaledb:
@@ -134,7 +188,20 @@ jobs:
       - name: Run integration tests with coverage
         env:
           POSTGRES_TEST_URL: postgresql://postgres:test@localhost:5432/postgres
-        run: uv run coverage run -m pytest -m integration
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            uv run coverage run -m pytest -m integration
+          else
+            paths=()
+            [ "${{ needs.changes.outputs.assets }}" = "true" ] && paths+=(packages/assets)
+            [ "${{ needs.changes.outputs.automations }}" = "true" ] && paths+=(packages/automations)
+            [ "${{ needs.changes.outputs.commands }}" = "true" ] && paths+=(packages/commands)
+            [ "${{ needs.changes.outputs.devices_manager }}" = "true" ] && paths+=(packages/devices_manager)
+            [ "${{ needs.changes.outputs.notifications }}" = "true" ] && paths+=(packages/notifications)
+            [ "${{ needs.changes.outputs.timeseries }}" = "true" ] && paths+=(packages/timeseries)
+            echo "Running integration tests for: ${paths[*]}"
+            uv run coverage run -m pytest -m integration "${paths[@]}"
+          fi
 
       - name: Build xml report
         run: uv run coverage xml

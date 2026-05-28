@@ -9,15 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check branch is linked to a Linear issue
+        env:
+          BRANCH: ${{ github.head_ref }}
         run: |
-          branch="${{ github.head_ref }}"
           # Dependabot branches (dependabot/...) aren't tied to a Linear issue.
           # Run the check (so the required status still reports) but pass it.
           if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
             echo "Dependabot PR — Linear issue link not required."
             exit 0
           fi
-          if ! echo "$branch" | grep -qiE 'agr-[0-9]+'; then
+          if ! echo "$BRANCH" | grep -qiE 'agr-[0-9]+'; then
             echo "::error::branch is not linked to a linear issue"
             exit 1
           fi
