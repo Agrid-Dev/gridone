@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 from bacpypes3.apdu import (
     AbortPDU,
@@ -11,8 +12,8 @@ from bacpypes3.apdu import (
 )
 from bacpypes3.basetypes import BinaryPV
 from bacpypes3.constructeddata import AnyAtomic
-from bacpypes3.ipv4.app import NormalApplication
-from bacpypes3.pdu import Address
+from bacpypes3.ipv4.app import ForeignApplication, NormalApplication
+from bacpypes3.pdu import Address, IPv4Address
 from bacpypes3.primitivedata import (
     CharacterString,
     Integer,
@@ -61,7 +62,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     _config_builder = BacnetTransportConfig
     address_builder = BacnetAddress
     config: BacnetTransportConfig
-    _application: NormalApplication
+    _application: NormalApplication | ForeignApplication
     _known_devices: DevicesDict
 
     def __init__(
@@ -73,9 +74,10 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
 
     async def connect(self) -> None:
         self._application = make_local_application(self.config)
+        if self.config.bbmd_address:
+            self._register_foreign_device()
         async with self._connection_lock:
-            discovered_devices = await self._discover_devices()
-            self._known_devices = discovered_devices
+            self._known_devices = await self._discover_devices()
             await super().connect()
 
     async def close(self) -> None:
@@ -85,34 +87,49 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                 self._application.close()
             await super().close()
 
+    def _register_foreign_device(self) -> None:
+        """Register with a BBMD so broadcasts reach us behind NAT (containers)."""
+        bbmd = IPv4Address(f"{self.config.bbmd_address}:{self.config.port}")
+        self._application.register(bbmd, self.config.foreign_ttl)  # ty: ignore[unresolved-attribute]
+
     async def _discover_devices(self) -> DevicesDict:
-        i_ams = await asyncio.wait_for(
-            self._application.who_is(),
-            timeout=self.config.discovery_timeout,
-        )
+        """Discover devices and bind them to their (routed) addresses via I-Am.
+
+        Binding is required to talk to devices behind a router/gateway — a
+        manually built remote address has no bound source. A directed Who-Is to
+        `discovery_address` works across a Docker bridge; otherwise broadcast
+        (which needs host networking or a BBMD registration to reach the LAN).
+        """
+        if self.config.discovery_address:
+            who_is = self._application.who_is(
+                address=Address(f"{self.config.discovery_address}:{self.config.port}")
+            )
+        else:
+            who_is = self._application.who_is()
+        i_ams = await asyncio.wait_for(who_is, timeout=self.config.discovery_timeout)
         discovered_devices: DevicesDict = {}
         for i_am in i_ams:
-            try:
-                device_address: Address = i_am.pduSource
-                device_identifier: ObjectIdentifier = i_am.iAmDeviceIdentifier
-                discovered_devices[device_identifier] = device_address
-            except Exception:  # noqa: S110,BLE001
-                pass
+            with contextlib.suppress(Exception):
+                discovered_devices[i_am.iAmDeviceIdentifier] = i_am.pduSource
         return discovered_devices
 
-    @connected
-    async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
-        device_identifier = get_device_identifier(address.device_instance)
-        device_address = self._known_devices.get(device_identifier)
+    def _device_address(self, address: BacnetAddress) -> Address:
+        device_address = self._known_devices.get(
+            get_device_identifier(address.device_instance)
+        )
         if not device_address:
             msg = f"Bacnet device instance {address.device_instance} not found"
             raise KeyError(msg)
+        return device_address
+
+    @connected
+    async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         request = ReadPropertyRequest(
             objectIdentifier=obj_id,
             propertyIdentifier=address.property_name,
         )
-        request.pduDestination = device_address
+        request.pduDestination = self._device_address(address)
         response = await asyncio.wait_for(
             self._application.request(request),
             timeout=self.config.read_property_timeout,
@@ -131,11 +148,6 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     async def _write_bacnet(
         self, address: BacnetAddress, value: AttributeValueType
     ) -> None:
-        device_identifier = get_device_identifier(address.device_instance)
-        device_address = self._known_devices.get(device_identifier)
-        if not device_address:
-            msg = f"Bacnet device instance {address.device_instance} not found"
-            raise KeyError(msg)
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
         if isinstance(value, bool):
             value = BinaryPV(value)
@@ -155,7 +167,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             propertyValue=value,
             priority=address.write_priority or self.config.default_write_priority,
         )
-        request.pduDestination = device_address
+        request.pduDestination = self._device_address(address)
         response = await asyncio.wait_for(
             self._application.request(request),
             timeout=self.config.write_property_timeout,

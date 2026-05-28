@@ -6,11 +6,37 @@ Bacnet is an object oriented transport protocols.
 
 To interact with devices on a bacnet network, we need to create a *bacnet application* which acts itself as a device.
 
-Only a single application can be used per ip/port.
+Only a single application can be used per ip/port. The application is created on `connect`, so make sure to close a client before creating a new one bound to the same ip/port.
 
-Currently the application is created on client init. So make sure to close a client before creating a new one with same ip/port otherwise the second one will fail to discover devices.
+### Discovery and addressing
 
-Future optimizations can include creating a *bacnet stack* shared by multiple clients, responsible for discovering and registering device addresses.
+Devices are discovered with `Who-Is` and **bound** to their address from the
+`I-Am` reply, then read/written against that bound address. Binding is required:
+a device behind a BACnet router/gateway only has a usable (routed) source
+address once it has answered an `I-Am` — a manually built remote address has no
+bound source and bacpypes3 rejects the reply.
+
+The challenge is that `Who-Is` is a broadcast, which a Docker bridge does not
+forward onto the physical LAN, so a containerized client discovered nothing. Two
+config knobs make discovery work without `network_mode: host`:
+
+- `discovery_address` — send a **directed (unicast) `Who-Is`** to this IP instead
+  of a LAN broadcast. Crosses a Docker bridge fine; good for a directly
+  addressable device or gateway.
+- `bbmd_address` (+ `foreign_ttl`) — register as a **foreign device** with a
+  BBMD. The BBMD then forwards broadcasts to us, so a normal `Who-Is` reaches the
+  LAN (and devices behind a router) from a NAT'd/containerized client.
+
+Other transport-config fields: `ip_with_mask` (local interface + mask, for the
+bind and broadcast address), `port` (default 47808), `discovery_timeout`. The
+device's `device_instance` stays in device config and keys the bound address.
+
+Example driver `device_config`:
+
+```yaml
+device_config:
+  - name: device_instance
+```
 
 ## Priorities
 
