@@ -1,3 +1,9 @@
+## v0.81.0 (2026-05-28)
+
+### Fix
+
+- **devices-manager**: make BACnet discovery work in containers (AGR-637)
+
 ## v0.80.3 (2026-05-28)
 
 ### Fix
