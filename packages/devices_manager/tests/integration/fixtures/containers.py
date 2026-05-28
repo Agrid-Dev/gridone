@@ -11,7 +11,14 @@ import yaml
 from docker.errors import NotFound
 
 import docker
-from fixtures.config import HTTP_PORT, KNX_PORT, MODBUS_PORT, MQTT_PORT, TMK_DEVICE_ID
+from fixtures.config import (
+    BACNET_PORT,
+    HTTP_PORT,
+    KNX_PORT,
+    MODBUS_PORT,
+    MQTT_PORT,
+    TMK_DEVICE_ID,
+)
 
 thermocktat_image = "ghcr.io/agrid-dev/thermocktat:v0.8.1"
 mosquitto_image = "eclipse-mosquitto:2.0"
@@ -27,10 +34,16 @@ thermocktat_initial_state = {
     "fault_code": 0,
 }
 
-type ControllerKey = Literal["http", "mqtt", "modbus", "knx"]
+type ControllerKey = Literal["http", "mqtt", "modbus", "knx", "bacnet"]
 
 _CONTROLLER_CONFIGS: dict[ControllerKey, dict] = {
     "http": {"enabled": True, "addr": ":8080"},
+    "bacnet": {
+        "enabled": True,
+        "addr": f"0.0.0.0:{BACNET_PORT}",
+        "device_instance": 1,
+        "sync_interval": "0.5s",
+    },
     "mqtt": {
         "enabled": True,
         "addr": f"tcp://host.docker.internal:{MQTT_PORT}",
@@ -137,6 +150,20 @@ def _wait_for_http(port: int, *, retries: int = 30, interval: float = 0.5) -> No
         time.sleep(interval)
     msg = f"Thermocktat HTTP on port {port} did not become ready"
     raise RuntimeError(msg)
+
+
+@pytest.fixture(scope="module")
+def thermocktat_container_bacnet() -> Generator[tuple[str, int]]:
+    """Start a thermocktat container with the BACnet/IP controller enabled.
+
+    HTTP is enabled too, only so we can wait for readiness. Yields the
+    (host, port) the GridOne client unicasts to via the published UDP port.
+    """
+    with _run_thermocktat(
+        build_config("bacnet", "http"),
+        ports={f"{BACNET_PORT}/udp": BACNET_PORT, "8080/tcp": HTTP_PORT},
+    ):
+        yield ("127.0.0.1", BACNET_PORT)
 
 
 @pytest.fixture(scope="module")

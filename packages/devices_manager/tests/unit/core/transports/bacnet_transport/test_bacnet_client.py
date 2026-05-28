@@ -1,13 +1,33 @@
 import pytest
 from bacpypes3.primitivedata import Enumerated, Integer, Real, Unsigned
 
-from devices_manager.core.transports.bacnet_transport.client import to_native
+from devices_manager.core.transports.bacnet_transport.client import (
+    BacnetTransportClient,
+    to_native,
+)
+from devices_manager.core.transports.bacnet_transport.transport_config import (
+    BacnetTransportConfig,
+)
+from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 
 class _StrSubclass(str):
     """Stands in for bacpypes CharacterString (a str subclass)."""
 
     __slots__ = ()
+
+
+def _client() -> BacnetTransportClient:
+    return BacnetTransportClient(
+        TransportMetadata(id="t", name="t"),
+        BacnetTransportConfig(ip_with_mask="10.0.0.1/24"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_close_before_connect_is_safe() -> None:
+    """Closing a never-connected client must not raise (idempotent teardown)."""
+    await _client().close()
 
 
 @pytest.mark.parametrize(
