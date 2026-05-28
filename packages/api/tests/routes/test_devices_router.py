@@ -75,7 +75,7 @@ def _make_dm(
 
     mock = MagicMock(spec=DevicesServiceInterface)
 
-    def _list_devices(  # noqa: PLR0913
+    def _list_devices(
         *,
         ids=None,
         types=None,

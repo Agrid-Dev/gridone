@@ -32,8 +32,5 @@ build-backend = "uv_build"
 module-name = "api"
 module-root = "src"
 
-[tool.ruff.lint]
-ignore=[]
-
 [tool.pytest.ini_options]
 pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../devices_manager/src", "../timeseries/src", "../notifications/src"]
