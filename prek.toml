@@ -11,6 +11,22 @@ rev = "v4.4.0"
 id = "conventional-pre-commit"
 stages = ["commit-msg"]
 
+# ── Actionlint: lint GitHub Actions workflows ─────────────────
+# Docker-based so no per-dev install is needed; the hook's own
+# `files: ^\.github/workflows/` filter means it only runs when a
+# workflow file is staged.
+
+[[repos]]
+repo = "https://github.com/rhysd/actionlint"
+rev = "v1.7.7"
+
+[[repos.hooks]]
+id = "actionlint-docker"
+stages = ["pre-commit"]
+# ui-ci.yaml uses YAML anchors (&setup_node), which GitHub expands at parse
+# time but actionlint cannot resolve. Exclude it rather than drop the anchors.
+exclude = '^\.github/workflows/ui-ci\.yaml$'
+
 # ── Local hooks ────────────────────────────────────────────────
 
 [[repos]]
