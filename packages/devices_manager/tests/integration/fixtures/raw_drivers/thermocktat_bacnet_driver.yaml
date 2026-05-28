@@ -1,0 +1,35 @@
+id: thermocktat_bacnet
+transport: bacnet
+
+# Only device_instance per device; the device/gateway IP lives on the transport
+# config (device_address). Object instances match the thermocktat BACnet
+# controller's object map.
+device_config:
+  - name: device_instance
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: AI0
+
+  - name: temperature_setpoint
+    data_type: float
+    read_write: AV0
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read_write: AV1
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read_write: AV2
+
+  - name: onoff_state
+    data_type: bool
+    read_write: BV0
+
+  - name: fault_code
+    data_type: int
+    kind: fault
+    severity: alert
+    read_write: AV3
