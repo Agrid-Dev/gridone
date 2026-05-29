@@ -1,3 +1,9 @@
+## v0.81.3 (2026-05-29)
+
+### Refactor
+
+- **api**: remove stale noqa directives, wire remaining suppressions (#319)
+
 ## v0.81.2 (2026-05-29)
 
 ### Refactor
