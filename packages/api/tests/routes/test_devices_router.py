@@ -79,11 +79,11 @@ def _make_dm(
         *,
         ids=None,
         types=None,
-        tags=None,  # noqa: ARG001
+        tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,  # noqa: ARG001
+        writable_attribute_type=None,
         is_faulty=None,
-        search=None,  # noqa: ARG001
+        search=None,
     ):
         results = list(all_devices.values())
         if ids is not None:
