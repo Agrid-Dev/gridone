@@ -1,3 +1,9 @@
+## v0.81.2 (2026-05-29)
+
+### Refactor
+
+- **api**: cleanup for FAST001 and I001 (#317)
+
 ## v0.81.1 (2026-05-29)
 
 ### Refactor
