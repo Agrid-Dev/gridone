@@ -83,8 +83,8 @@ def _make_dm() -> MagicMock:
         types=None,
         tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,  # noqa: ARG001
-        is_faulty=None,  # noqa: ARG001
+        writable_attribute_type=None,
+        is_faulty=None,
     ):
         results = list(devices.values())
         if ids is not None:

@@ -9,7 +9,7 @@ OUTPUT = Path(__file__).parents[2] / "docs" / "src" / "openapi.json"
 def main() -> None:
     schema = app.openapi()
     OUTPUT.write_text(json.dumps(schema, indent=2))
-    print(f"OpenAPI spec written to {OUTPUT}")  # noqa: T201
+    print(f"OpenAPI spec written to {OUTPUT}")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,7 @@ class CommandsQuery(BaseModel):
     sort: SortOrder = SortOrder.ASC
 
 
-def get_commands_query(  # noqa: PLR0913
+def get_commands_query(
     ids: list[int] | None = Query(None),
     batch_id: str | None = Query(None),
     template_id: str | None = Query(None),

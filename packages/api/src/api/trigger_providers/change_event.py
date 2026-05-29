@@ -9,7 +9,7 @@ from uuid import uuid4
 from automations.models import TriggerContext
 from pydantic import BaseModel
 
-from models.types import AttributeValueType  # noqa: TC001
+from models.types import AttributeValueType
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
