@@ -1,3 +1,9 @@
+## v0.81.1 (2026-05-29)
+
+### Refactor
+
+- **api**: harmonize ruff config — drop packages/api lint override (#316)
+
 ## v0.81.0 (2026-05-28)
 
 ### Fix
