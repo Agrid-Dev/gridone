@@ -94,7 +94,7 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Ensure the venv is on PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-EXPOSE 80
+EXPOSE 8765
 
 # Run database migrations, then start supervisord as PID 1.
 # Supervisord will exit if either child process dies, ensuring the
