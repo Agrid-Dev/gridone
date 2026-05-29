@@ -91,6 +91,13 @@ known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "mo
 "**/tests/test_compute.py" = ["INP001", "E402", "E501", "ANN001", "ANN201", "PLR2004", "S101", "SLF001", "ERA001"]
 "**/storage/memory/aggregate.py" = ["ANN401", "PLR2004", "C901", "PLR0911", "PLR0912", "PLR0913"]
 "**/storage/postgres/aggregate.py" = ["S608"]
+# packages/api — permanent: idiomatic FastAPI patterns
+"packages/api/src/**/routes/**" = ["PLR0913"]
+"packages/api/src/api/exception_handlers.py" = ["ARG001"]
+# packages/api — pending cleanup (pre-existing violations, enforce rule-by-rule)
+"packages/api/src/**" = ["FAST001", "TC001", "TC002", "TC003", "I001", "FAST002", "B008", "ANN201", "ARG001", "B904", "E501", "FBT001", "FBT003", "PLR1711", "PLR0913", "PLR0915", "RET504", "EM102", "TRY003", "A002", "S105", "PLR2004", "RUF100", "ANN401", "BLE001", "S110", "TRY203", "SIM105"]
+"packages/api/tests/**" = ["ANN201", "ANN202", "ARG002", "ARG005", "E501", "EM102", "ERA001", "I001", "PLR0913", "PLW0108", "RUF012", "S105", "TC002", "TRY003"]
+"packages/api/generate_openapi.py" = ["INP001"]
 
 [tool.coverage.run]
 source = [
