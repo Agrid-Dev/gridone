@@ -3,16 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
-from users import UsersService
-from users.auth import AuthService, InvalidTokenError
-from users.models import Role
-from users.validation import get_auth_payload_schema
 from api.dependencies import (
     get_auth_service,
     get_current_user_id,
     get_users_service,
 )
 from api.permissions import get_permissions_for_role
+from users import UsersService
+from users.auth import AuthService, InvalidTokenError
+from users.models import Role
+from users.validation import get_auth_payload_schema
 
 router = APIRouter()
 
@@ -126,7 +126,7 @@ async def _tokens_for_refresh(
     ), auth_service.create_refresh_token(payload.sub, payload.role)
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post("/token")
 async def oauth2_token(
     request: Request,
     response: Response,
@@ -193,7 +193,7 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
-@router.get("/me", response_model=MeResponse)
+@router.get("/me")
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersService, Depends(get_users_service)],

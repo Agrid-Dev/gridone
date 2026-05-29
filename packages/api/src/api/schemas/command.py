@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from fastapi import Query
+from pydantic import BaseModel, ConfigDict
+
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
-from fastapi import Query
 from models.types import DataType, SortOrder
-from pydantic import BaseModel, ConfigDict
 
 
 class CommandsQuery(BaseModel):

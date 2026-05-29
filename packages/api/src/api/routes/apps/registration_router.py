@@ -1,13 +1,13 @@
 from typing import Annotated
 
-from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.errors import InvalidError
 from pydantic import BaseModel
-from users.validation import PasswordField, UsernameField
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
+from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
+from models.errors import InvalidError
+from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
 
@@ -38,7 +38,6 @@ def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
 
 @router.post(
     "/registration-requests",
-    response_model=RegistrationRequestResponse,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_registration_request(
@@ -57,7 +56,6 @@ async def create_registration_request(
 
 @router.get(
     "/registration-requests",
-    response_model=list[RegistrationRequestResponse],
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def list_registration_requests(
@@ -69,7 +67,6 @@ async def list_registration_requests(
 
 @router.get(
     "/registration-requests/{request_id}",
-    response_model=RegistrationRequestResponse,
 )
 async def get_registration_request(
     request_id: str,
@@ -81,7 +78,6 @@ async def get_registration_request(
 
 @router.post(
     "/registration-requests/{request_id}/accept",
-    response_model=RegistrationRequestResponse,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def accept_registration_request(
@@ -99,7 +95,6 @@ async def accept_registration_request(
 
 @router.post(
     "/registration-requests/{request_id}/discard",
-    response_model=RegistrationRequestResponse,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def discard_registration_request(

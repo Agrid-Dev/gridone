@@ -1,12 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from models.errors import NotFoundError
 from pydantic import BaseModel
-from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
-from users.auth import TokenPayload
-from users.models import Role as RoleEnum
-from users.validation import PasswordField, UsernameField
 
 from api.dependencies import (
     get_current_token_payload,
@@ -15,6 +10,11 @@ from api.dependencies import (
     require_permission,
 )
 from api.permissions import Permission, get_permissions_for_role
+from models.errors import NotFoundError
+from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
+from users.auth import TokenPayload
+from users.models import Role as RoleEnum
+from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
 
@@ -70,7 +70,6 @@ async def list_users(
 
 @router.post(
     "/",
-    response_model=User,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
@@ -96,7 +95,6 @@ async def create_user(
 
 @router.get(
     "/{user_id}",
-    response_model=User,
     dependencies=[Depends(require_permission(Permission.USERS_READ))],
 )
 async def get_user(
@@ -111,7 +109,6 @@ async def get_user(
 
 @router.patch(
     "/{user_id}",
-    response_model=User,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def update_user(
@@ -160,7 +157,6 @@ async def delete_user(
 
 @router.post(
     "/{user_id}/block",
-    response_model=User,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def block_user(
@@ -178,7 +174,6 @@ async def block_user(
 
 @router.post(
     "/{user_id}/unblock",
-    response_model=User,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def unblock_user(

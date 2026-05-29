@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from devices_manager.types import AttributeValueType
 from pydantic import BaseModel
+
+from devices_manager.types import AttributeValueType
 
 
 class TimeseriesPushPoint(BaseModel):

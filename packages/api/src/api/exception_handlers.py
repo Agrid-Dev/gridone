@@ -1,6 +1,7 @@
-from apps import AppUnreachableError
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+
+from apps import AppUnreachableError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,

@@ -1,17 +1,16 @@
 from typing import Annotated, Any
 
-from apps import App, AppsService
 from fastapi import APIRouter, Body, Depends
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
+from apps import App, AppsService
 
 router = APIRouter()
 
 
 @router.get(
     "/",
-    response_model=list[App],
 )
 async def list_apps(
     service: Annotated[AppsService, Depends(get_apps_service)],
@@ -21,7 +20,6 @@ async def list_apps(
 
 @router.get(
     "/{app_id}",
-    response_model=App,
 )
 async def get_app(
     app_id: str,
@@ -66,7 +64,6 @@ async def update_config(
 
 @router.post(
     "/{app_id}/enable",
-    response_model=App,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def enable_app(
@@ -78,7 +75,6 @@ async def enable_app(
 
 @router.post(
     "/{app_id}/disable",
-    response_model=App,
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
 )
 async def disable_app(

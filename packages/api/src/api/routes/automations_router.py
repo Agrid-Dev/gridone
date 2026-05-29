@@ -6,8 +6,8 @@ from automations import (
     Automation,
     AutomationCreate,
     AutomationExecution,
-    AutomationUpdate,
     AutomationsServiceInterface,
+    AutomationUpdate,
 )
 from fastapi import APIRouter, Depends, Query, status
 

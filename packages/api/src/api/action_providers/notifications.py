@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from automations.constants import SYSTEM_ACTOR
-from models.types import Severity
 from pydantic import BaseModel, Field
+
+from models.types import Severity
 
 if TYPE_CHECKING:
     from notifications.interface import NotificationsServiceInterface

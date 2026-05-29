@@ -1,9 +1,6 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request, status
-from models.pagination import PaginationParams
-from models.types import Severity
-from notifications import NotificationDispatch, NotificationsServiceInterface
 from pydantic import BaseModel, Field
 
 from api.dependencies import (
@@ -14,6 +11,9 @@ from api.dependencies import (
 )
 from api.permissions import Permission
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from models.pagination import PaginationParams
+from models.types import Severity
+from notifications import NotificationDispatch, NotificationsServiceInterface
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ class DispatchNotificationRequest(BaseModel):
     correlation_id: str | None = None
 
 
-@router.get("/", response_model=PaginatedResponse[NotificationDispatch])
+@router.get("/")
 async def list_notifications(
     request: Request,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -44,7 +44,7 @@ async def list_notifications(
     return to_paginated_response(page, str(request.url))
 
 
-@router.post("/{notification_id}/dismiss", response_model=NotificationDispatch)
+@router.post("/{notification_id}/dismiss")
 async def dismiss_notification(
     notification_id: str,
     user_id: Annotated[str, Depends(get_current_user_id)],
@@ -55,7 +55,6 @@ async def dismiss_notification(
 
 @router.post(
     "/",
-    response_model=list[NotificationDispatch],
     status_code=status.HTTP_201_CREATED,
 )
 async def dispatch_notification(

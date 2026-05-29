@@ -3,19 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import StandardAttributeSchema
-from devices_manager.dto.device_dto import (
-    DeviceCreate,
-    Device,
-    DeviceUpdate,
-)
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from timeseries.domain import (
-    DataPoint,
-    SeriesKey,
-)
-from timeseries.service import TimeSeriesService
 
 from api.dependencies import (
     get_device_manager,
@@ -33,6 +21,18 @@ from api.schemas.device import (
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import StandardAttributeSchema
+from devices_manager.dto.device_dto import (
+    Device,
+    DeviceCreate,
+    DeviceUpdate,
+)
+from timeseries.domain import (
+    DataPoint,
+    SeriesKey,
+)
+from timeseries.service import TimeSeriesService
 
 logger = logging.getLogger(__name__)
 

@@ -10,14 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003
 
-from commands import (
-    AttributeWrite,
-    CommandsServiceInterface,
-    UnitCommand,
-)
-from devices_manager import DevicesServiceInterface
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from models.pagination import Page, PaginationParams
 
 from api.dependencies import (
     get_commands_service,
@@ -44,6 +37,13 @@ from api.schemas.command_template import (
     CommandTemplateUpdatePayload,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from commands import (
+    AttributeWrite,
+    CommandsServiceInterface,
+    UnitCommand,
+)
+from devices_manager import DevicesServiceInterface
+from models.pagination import Page, PaginationParams
 
 router = APIRouter()
 

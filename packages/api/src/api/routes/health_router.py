@@ -14,7 +14,7 @@ class HealthResponse(BaseModel):
     flags: list[str] = Field(default_factory=list)
 
 
-@router.get("", response_model=HealthResponse)
+@router.get("")
 def health() -> HealthResponse:
     return HealthResponse(
         version=os.environ.get("GRIDONE_VERSION"),

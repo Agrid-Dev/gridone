@@ -1,17 +1,17 @@
 from typing import Annotated
 
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import (
-    TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
-    TransportCreate,
-    Transport,
-    TransportUpdate,
-)
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import (
+    TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
+    Transport,
+    TransportCreate,
+    TransportUpdate,
+)
 
 from .discovery_router import router as discovery_router
 
