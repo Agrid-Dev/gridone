@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import ClassVar
 from unittest.mock import AsyncMock
 
 import pytest
@@ -160,7 +161,7 @@ class TestDismissNotification:
 
 
 class TestDispatchNotification:
-    _PAYLOAD = {
+    _PAYLOAD: ClassVar[dict[str, object]] = {
         "title": "Alert",
         "body": "Something happened",
         "severity": "alert",
