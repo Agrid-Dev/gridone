@@ -82,8 +82,7 @@ def _make_dm() -> MagicMock:
         types=None,
         tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,
-        is_faulty=None,
+        **_kwargs: object,
     ) -> list[Device]:
         results = list(devices.values())
         if ids is not None:

@@ -79,11 +79,9 @@ def _make_dm(
         *,
         ids=None,
         types=None,
-        tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,
         is_faulty=None,
-        search=None,
+        **_kwargs: object,
     ) -> list[Device]:
         results = list(all_devices.values())
         if ids is not None:
