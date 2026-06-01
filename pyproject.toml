@@ -91,11 +91,16 @@ known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "mo
 "**/tests/test_compute.py" = ["INP001", "E402", "E501", "ANN001", "ANN201", "PLR2004", "S101", "SLF001", "ERA001"]
 "**/storage/memory/aggregate.py" = ["ANN401", "PLR2004", "C901", "PLR0911", "PLR0912", "PLR0913"]
 "**/storage/postgres/aggregate.py" = ["S608"]
-# packages/api — permanent: idiomatic FastAPI patterns
+# packages/api — permanent: idiomatic FastAPI/pydantic patterns
+# TC001/TC002/TC003: pydantic field types and FastAPI annotations must be runtime imports
+# FAST002/B008: = Depends(...) is valid FastAPI; Annotated migration is high-risk for style only
+# PLR0913: FastAPI DI produces many-arg routes by design
+# ARG001 (exception_handlers): FastAPI handler contract requires (request, exc) signature
 "packages/api/src/**/routes/**" = ["PLR0913"]
 "packages/api/src/api/exception_handlers.py" = ["ARG001"]
 # packages/api — pending cleanup (pre-existing violations, enforce rule-by-rule)
 "packages/api/src/**" = ["TC001", "TC002", "TC003", "FAST002", "B008", "ANN201", "ARG001", "B904", "E501", "FBT001", "FBT003", "PLR1711", "PLR0913", "PLR0915", "RET504", "EM102", "TRY003", "A002", "S105", "PLR2004", "ANN401", "BLE001", "S110", "TRY203", "SIM105"]
+"packages/api/tests/**" = ["TC001", "TC002", "TC003"]
 "packages/api/generate_openapi.py" = ["INP001", "T201"]
 
 [tool.coverage.run]
