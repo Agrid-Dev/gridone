@@ -35,7 +35,7 @@ jobs:
       # A change to a shared dependency (models, lockfile, docker image, or this
       # workflow) can break any package, so each filter includes the &shared set
       # — that flips every package true and runs the full integration suite.
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@v4
         id: filter
         if: github.event_name == 'pull_request'
         with:
