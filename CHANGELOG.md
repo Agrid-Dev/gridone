@@ -1,3 +1,9 @@
+## v0.81.5 (2026-06-01)
+
+### Refactor
+
+- **api**: permanently suppress TC001/TC002/TC003 — pydantic/FastAPI runtime constraint
+
 ## v0.81.4 (2026-06-01)
 
 ## v0.81.3 (2026-05-29)
