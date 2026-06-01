@@ -27,10 +27,12 @@ A **non-reversible** codec only implements decode. It is skipped on write (falls
 | `byte_convert` | yes |
 | `base64` | yes |
 | `byte_frame` | yes |
+| `mapping` | yes |
 | `json_pointer` | no |
 | `json_path` | no |
 | `slice` | no |
 | `knx_dpt` | yes |
+| `options` | yes |
 
 ---
 
@@ -264,6 +266,34 @@ codecs:
 |---|---|---|---|
 | `1.001` | `true` | `true` | `true` |
 | `9.001` | `[0x0F, 0xE8]` | `20.0` | `[0x0F, 0xE8]` |
+
+---
+
+### `options`
+
+Enforces that a value belongs to a predefined set of primitives. Decode passes any value through; encode rejects values not in the list with an error.
+
+| | |
+|---|---|
+| Argument | list of allowed `str` or `int` values |
+| Input | any |
+| Output | same value (unchanged) |
+| Reversible | yes |
+
+```yaml
+codecs:
+  - options: ["heat", "cool", "fan", "auto"]
+```
+
+**Encode examples:**
+
+| Value | Argument | Result |
+|---|---|---|
+| `"heat"` | `["heat", "cool", "fan", "auto"]` | `"heat"` — passes through |
+| `"turbo"` | `["heat", "cool", "fan", "auto"]` | error — not in options |
+| `1` | `[1, 2, 3]` | `1` — passes through |
+
+> **Note:** `options` enforces only on write (encode). Reads always pass through — unexpected device values are surfaced as-is rather than silently rejected.
 
 ---
 
