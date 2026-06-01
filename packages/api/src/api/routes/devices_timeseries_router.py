@@ -127,9 +127,8 @@ async def get_device_timeseries_points(
     dm.get_device(device_id)
     series = await ts.get_series_by_key(SeriesKey(owner_id=device_id, metric=attr))
     if series is None:
-        raise NotFoundError(
-            f"No timeseries found for device '{device_id}', attribute '{attr}'"
-        )
+        msg = f"No timeseries found for device '{device_id}', attribute '{attr}'"
+        raise NotFoundError(msg)
     result = await ts.fetch_points(
         series.key,
         start=start,
