@@ -8,7 +8,7 @@ from httpx import ASGITransport, AsyncClient
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.routes.discovery_router import get_transport_id, router
 from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
-from devices_manager.dto import DriverSpec, build_transport
+from devices_manager.dto import DriverSpec, Transport, build_transport
 from devices_manager.types import TransportProtocols
 from models.errors import NotFoundError
 
@@ -50,7 +50,7 @@ def dm(discovery) -> MagicMock:
     mock.driver_ids = {"test_push_driver"}
     mock.list_drivers.return_value = [_MQTT_DRIVER]
 
-    def _get_transport(tid: str):
+    def _get_transport(tid: str) -> Transport:
         if tid == "my-mqtt":
             return _MQTT_TRANSPORT
         raise NotFoundError(f"Transport {tid} not found")

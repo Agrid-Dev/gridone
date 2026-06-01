@@ -45,7 +45,7 @@ def _make_dm(known_ids: list[str] | None = None) -> MagicMock:
     known = set(known_ids or [DEVICE_ID])
     dm = MagicMock(spec=DevicesServiceInterface)
 
-    def get_device(device_id: str):
+    def get_device(device_id: str) -> MagicMock:
         if device_id not in known:
             raise NotFoundError(f"Device '{device_id}' not found")
         return MagicMock(id=device_id)

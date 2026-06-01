@@ -84,7 +84,7 @@ def _make_dm(
         writable_attribute_type=None,
         is_faulty=None,
         search=None,
-    ):
+    ) -> list[Device]:
         results = list(all_devices.values())
         if ids is not None:
             id_set = set(ids)
