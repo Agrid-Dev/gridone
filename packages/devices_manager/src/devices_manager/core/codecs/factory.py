@@ -15,11 +15,12 @@ from .registry.json_path_adapter import json_path_adapter
 from .registry.json_pointer_adapter import json_pointer_adapter
 from .registry.knx_dpt_adapter import knx_dpt_adapter
 from .registry.mapping_adapter import mapping_adapter
+from .registry.options_adapter import options_adapter
 from .registry.scale_adapter import scale_adapter
 from .registry.slice_adapter import slice_adapter
 
-RawArgTypes = (str, int, float, dict)
-RawArg = str | int | float | dict[Any, Any]
+RawArgTypes = (str, int, float, dict, list)
+RawArg = str | int | float | dict[Any, Any] | list[Any]
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +40,7 @@ codec_entries: dict[str, CodecEntry] = {
     "byte_frame": CodecEntry(builder=byte_frame_adapter, arg_type=str),
     "slice": CodecEntry(builder=slice_adapter, arg_type=str),
     "mapping": CodecEntry(builder=mapping_adapter, arg_type=dict),
+    "options": CodecEntry(builder=options_adapter, arg_type=list),
     "knx_dpt": CodecEntry(builder=knx_dpt_adapter, arg_type=str),
 }
 
