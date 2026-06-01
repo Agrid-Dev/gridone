@@ -57,6 +57,11 @@ from models.errors import InvalidError
             [0x0C, 0x65],
             22.5,
         ),
+        (
+            [CodecSpec(name="options", argument=["heat", "cool", "fan"])],
+            "heat",
+            "heat",
+        ),
     ],
 )
 def test_build_codec(
