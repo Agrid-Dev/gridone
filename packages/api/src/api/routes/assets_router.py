@@ -83,9 +83,9 @@ async def get_tree_with_devices(
 async def list_assets(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     parent_id: str | None = Query(None),
-    type: str | None = Query(None),
+    asset_type: str | None = Query(None, alias="type"),
 ) -> list[Asset]:
-    return await assets_svc.list_all(parent_id=parent_id, asset_type=type)
+    return await assets_svc.list_all(parent_id=parent_id, asset_type=asset_type)
 
 
 @router.get(

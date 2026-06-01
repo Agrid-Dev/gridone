@@ -99,7 +99,7 @@ known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "mo
 "packages/api/src/**/routes/**" = ["PLR0913"]
 "packages/api/src/api/exception_handlers.py" = ["ARG001"]
 # packages/api — pending cleanup (pre-existing violations, enforce rule-by-rule)
-"packages/api/src/**" = ["TC001", "TC002", "TC003", "FAST002", "B008", "ANN201", "ARG001", "E501", "FBT001", "FBT003", "PLR1711", "PLR0913", "PLR0915", "RET504", "A002", "S105", "PLR2004", "ANN401"]
+"packages/api/src/**" = ["TC001", "TC002", "TC003", "FAST002", "B008", "ANN201", "ARG001", "E501", "PLR0913", "S105", "PLR2004", "ANN401"]
 "packages/api/tests/**" = ["TC001", "TC002", "TC003"]
 "packages/api/generate_openapi.py" = ["INP001", "T201"]
 

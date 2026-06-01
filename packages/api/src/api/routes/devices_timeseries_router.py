@@ -42,7 +42,8 @@ def get_export_query_params(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
-    carry_forward: bool = Query(True),
+    *,
+    carry_forward: bool = Query(default=True),
     title: str | None = Query(None),
 ) -> ExportQueryParams:
     return ExportQueryParams(
@@ -118,7 +119,8 @@ async def get_device_timeseries_points(
     start: datetime | None = Query(None),
     end: datetime | None = Query(None),
     last: str | None = Query(None),
-    carry_forward: bool = Query(False),
+    *,
+    carry_forward: bool = Query(default=False),
     timezone: str | None = Query(None),
     limit: int | None = Query(None),
     dm: DevicesServiceInterface = Depends(get_device_manager),
