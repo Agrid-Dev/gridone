@@ -36,7 +36,10 @@ KEY = SeriesKey(owner_id=DEVICE_ID, metric=ATTR)
 
 
 def _make_dm(known_ids: list[str] | None = None) -> MagicMock:
-    """Return a DevicesServiceInterface mock that accepts known device IDs and raises NotFoundError for others."""
+    """Return a DevicesServiceInterface mock that accepts known device IDs.
+
+    Unknown IDs raise NotFoundError.
+    """
     from devices_manager import DevicesServiceInterface
 
     known = set(known_ids or [DEVICE_ID])
@@ -892,7 +895,9 @@ class TestAggregateTimezoneRendering:
         paris_client: AsyncClient,
         paris_ts_service: TimeSeriesService,
     ):
-        """timezone field in body must match the UTC offset rendered in interval_start."""
+        """timezone field in body must match the UTC offset rendered in
+        interval_start.
+        """
         await paris_ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
         )
@@ -917,7 +922,9 @@ class TestAggregateTimezoneRendering:
         paris_client: AsyncClient,
         paris_ts_service: TimeSeriesService,
     ):
-        """Invalid ?timezone= on aggregate must emit the same clean message as raw-points."""
+        """Invalid ?timezone= on aggregate must emit the same clean message
+        as raw-points.
+        """
         await paris_ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
         )

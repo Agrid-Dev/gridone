@@ -371,7 +371,8 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="get-ts-points-no-auth",
     ),
-    # Export requires series_ids; omitting it returns 422 (before auth on viewer, after auth on no-auth)
+    # Export requires series_ids; omitting it returns 422
+    # (before auth on viewer, after auth on no-auth)
     pytest.param(
         "GET",
         "/devices/timeseries/export/csv",
@@ -509,7 +510,8 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         {"attribute": "a", "value": 1, "device_type": "thermostat"},
         id="asset-cmd-no-auth",
     ),
-    # GET /devices/commands requires DEVICES_READ — all roles can read, but no-auth is 401.
+    # GET /devices/commands requires DEVICES_READ — all roles can read,
+    # but no-auth is 401.
     pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),
     pytest.param(
         "GET",
