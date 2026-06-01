@@ -53,7 +53,8 @@ def dm(discovery) -> MagicMock:
     def _get_transport(tid: str) -> Transport:
         if tid == "my-mqtt":
             return _MQTT_TRANSPORT
-        raise NotFoundError(f"Transport {tid} not found")
+        msg = f"Transport {tid} not found"
+        raise NotFoundError(msg)
 
     mock.get_transport.side_effect = _get_transport
     mock.discovery_manager = discovery

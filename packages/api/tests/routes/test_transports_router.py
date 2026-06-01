@@ -26,7 +26,8 @@ _TRANSPORTS_BY_ID: dict[str, Transport] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
 
 def _get_transport(transport_id: str) -> Transport:
     if transport_id not in _TRANSPORTS_BY_ID:
-        raise NotFoundError(f"Transport {transport_id} not found")
+        msg = f"Transport {transport_id} not found"
+        raise NotFoundError(msg)
     return _TRANSPORTS_BY_ID[transport_id]
 
 

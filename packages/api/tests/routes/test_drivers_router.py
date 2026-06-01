@@ -50,7 +50,8 @@ def dm() -> MagicMock:
 
     def _get_driver(driver_id: str) -> DriverSpec:
         if driver_id not in _DRIVERS_BY_ID:
-            raise NotFoundError(f"Driver {driver_id} not found")
+            msg = f"Driver {driver_id} not found"
+            raise NotFoundError(msg)
         return _DRIVERS_BY_ID[driver_id]
 
     mock.get_driver.side_effect = _get_driver

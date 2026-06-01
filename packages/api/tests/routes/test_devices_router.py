@@ -107,7 +107,8 @@ def _make_dm(
 
     def _get_device(device_id: str) -> Device:
         if device_id not in all_devices:
-            raise NotFoundError(f"Device {device_id} not found")
+            msg = f"Device {device_id} not found"
+            raise NotFoundError(msg)
         return all_devices[device_id]
 
     mock.get_device.side_effect = _get_device
