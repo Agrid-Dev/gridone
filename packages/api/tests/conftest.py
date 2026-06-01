@@ -25,7 +25,7 @@ def admin_token_payload() -> TokenPayload:
 
 
 @pytest.fixture
-def yaml_driver():
+def yaml_driver() -> str:
     return """
 id: thermocktat_modbus
 transport: modbus-tcp
