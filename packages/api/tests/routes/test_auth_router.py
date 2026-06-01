@@ -109,7 +109,7 @@ def test_token_password_grant_success(client: TestClient) -> None:
     data = response.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["token_type"] == "bearer"  # noqa: S105 (OAuth token type, not a secret)
     assert data["expires_in"] == 30 * 60
 
 
