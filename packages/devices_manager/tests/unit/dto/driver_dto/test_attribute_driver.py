@@ -213,3 +213,46 @@ def test_spec_codec_is_built_lazily_from_codecs():
     codec = spec.codec
     assert spec.codec is codec  # cached
     assert "codec" not in spec.model_dump()
+
+
+def test_value_options_from_options_codec() -> None:
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "mode",
+            "data_type": "str",
+            "read": mock_address,
+            "codecs": [{"options": ["heat", "cool", "fan", "auto"]}],
+        }
+    )
+    assert spec.value_options == ["heat", "cool", "fan", "auto"]
+
+
+def test_value_options_from_mapping_codec() -> None:
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "mode",
+            "data_type": "str",
+            "read": mock_address,
+            "codecs": [{"mapping": {1: "heat", 2: "cool", 3: "fan", 4: "auto"}}],
+        }
+    )
+    assert spec.value_options == ["heat", "cool", "fan", "auto"]
+
+
+def test_value_options_none_without_options_or_mapping() -> None:
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "temperature",
+            "data_type": "float",
+            "read": mock_address,
+            "codecs": [{"scale": 0.1}],
+        }
+    )
+    assert spec.value_options is None
+
+
+def test_value_options_none_with_no_codecs() -> None:
+    spec = AttributeDriver.model_validate(
+        {"name": "temperature", "data_type": "float", "read": mock_address}
+    )
+    assert spec.value_options is None

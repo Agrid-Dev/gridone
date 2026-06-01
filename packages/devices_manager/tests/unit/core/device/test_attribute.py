@@ -261,3 +261,19 @@ def test_fault_attribute_allows_none_current_value_without_timestamps():
     )
     assert attr.last_updated is None
     assert attr.last_changed is None
+
+
+def test_attribute_value_options_field() -> None:
+    attr = Attribute(
+        name="mode",
+        data_type=DataType.STRING,
+        read_write_modes={"read", "write"},
+        current_value=None,
+        value_options=["heat", "cool", "fan", "auto"],
+    )
+    assert attr.value_options == ["heat", "cool", "fan", "auto"]
+
+
+def test_attribute_value_options_defaults_to_none() -> None:
+    attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+    assert attr.value_options is None

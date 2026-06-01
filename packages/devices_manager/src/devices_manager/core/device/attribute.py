@@ -23,6 +23,7 @@ class Attribute(BaseModel):
     current_value: AttributeValueType | None
     last_updated: datetime | None = None
     last_changed: datetime | None = None
+    value_options: list[str | int] | None = None
 
     def ensure_type(
         self,
@@ -62,6 +63,7 @@ class Attribute(BaseModel):
         data_type: DataType,
         read_write_modes: set[ReadWriteMode],
         value: AttributeValueType | None = None,
+        value_options: list[str | int] | None = None,
     ) -> "Attribute":
         return cls(
             name=name,
@@ -69,6 +71,7 @@ class Attribute(BaseModel):
             read_write_modes=read_write_modes,
             current_value=value,
             last_updated=datetime.now(UTC) if value is not None else None,
+            value_options=value_options,
         )
 
 
