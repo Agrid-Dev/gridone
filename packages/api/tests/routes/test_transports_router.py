@@ -41,7 +41,7 @@ def dm() -> MagicMock:
         )
     )
     mock.update_transport = AsyncMock(
-        side_effect=lambda tid, update: _get_transport(tid)
+        side_effect=lambda tid, _update: _get_transport(tid)
     )
     mock.delete_transport = AsyncMock()
     return mock
