@@ -199,7 +199,7 @@ class TestDispatchNotification:
             await c.post("/", json=self._PAYLOAD)
         assert svc.dispatch.call_args.kwargs["created_by"] == admin_token_payload.sub
 
-    async def test_empty_user_ids_returns_422(self, client, svc):
+    async def test_empty_user_ids_returns_422(self, client):
         """user_ids must be non-empty."""
         async with client as c:
             resp = await c.post(

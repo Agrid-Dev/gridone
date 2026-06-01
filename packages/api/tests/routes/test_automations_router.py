@@ -206,7 +206,7 @@ class TestUpdateAutomation:
 
 
 class TestDeleteAutomation:
-    async def test_returns_204(self, client, svc):
+    async def test_returns_204(self, client):
         async with client as c:
             resp = await c.delete("/auto-01")
         assert resp.status_code == 204
