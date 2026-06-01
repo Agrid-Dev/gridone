@@ -623,7 +623,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ("method", "endpoint", "username", "expected_status", "body"),
     COMMANDS_ACCESS_CONTROL_SCENARIOS,
 )
-def test_commands_access_control(
+def test_commands_access_control(  # noqa: PLR0913 (parametrized test fixture + 5 params)
     commands_app: FastAPI,
     method: str,
     endpoint: str,
