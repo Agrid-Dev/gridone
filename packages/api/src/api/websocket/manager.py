@@ -34,7 +34,7 @@ class WebSocketManager:
             with contextlib.suppress(Exception):
                 await websocket.close()
 
-    async def broadcast(self, message: Any) -> None:
+    async def broadcast(self, message: Any) -> None:  # noqa: ANN401
         """Send a message to all connected clients."""
         if not self.active_connections:
             return
@@ -59,7 +59,7 @@ class WebSocketManager:
             await self.disconnect(connection_id)
 
     @staticmethod
-    def _serialize(message: Any) -> str:
+    def _serialize(message: Any) -> str:  # noqa: ANN401
         if hasattr(message, "model_dump_json"):
             # Pydantic BaseModel supports this; keep consistent ISO formatting.
             return message.model_dump_json()

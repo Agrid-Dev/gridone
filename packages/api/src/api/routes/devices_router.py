@@ -142,7 +142,7 @@ async def update_device(
 async def delete_device(
     device_id: str,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
-):
+) -> None:
     await dm.delete_device(device_id)
 
 
