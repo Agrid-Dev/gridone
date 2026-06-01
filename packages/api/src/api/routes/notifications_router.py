@@ -33,6 +33,7 @@ async def list_notifications(
     svc: Annotated[NotificationsServiceInterface, Depends(get_notifications_service)],
     pagination: Annotated[PaginationParams, Depends(get_pagination_params)],
     severity: Severity | None = Query(None),
+    *,
     dismissed: bool | None = Query(None),
 ) -> PaginatedResponse[NotificationDispatch]:
     page = await svc.list_for_user(

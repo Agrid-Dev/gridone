@@ -68,6 +68,7 @@ def list_devices(
     types: list[str] | None = Query(None, alias="type"),
     ids: list[str] | None = Query(None),
     tags: list[str] | None = Query(None),
+    *,
     is_faulty: bool | None = Query(None),
     asset_id: str | None = Query(None),
     search: str | None = Query(None),
@@ -143,7 +144,6 @@ async def delete_device(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ):
     await dm.delete_device(device_id)
-    return
 
 
 @router.put(
@@ -170,7 +170,6 @@ async def delete_device_tag(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> None:
     await dm.delete_device_tag(device_id, key)
-    return
 
 
 def _to_data_points(points: list[SingleAttrTimeseriesPushPoint]) -> list[DataPoint]:

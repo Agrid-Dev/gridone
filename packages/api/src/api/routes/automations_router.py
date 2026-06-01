@@ -48,6 +48,7 @@ async def list_action_schemas(
 )
 async def list_automations(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+    *,
     enabled: bool | None = Query(None),
 ) -> list[Automation]:
     return list(await svc.list(enabled=enabled))

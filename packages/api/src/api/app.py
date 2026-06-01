@@ -41,6 +41,28 @@ from users import UsersService
 from users.auth import AuthService
 
 
+async def _stop_services(
+    dm: DevicesService,
+    ts_service: TimeSeriesService,
+    commands_service: CommandsService,
+    automations_svc: AutomationsService,
+    notifications_svc: NotificationsService,
+    users_service: UsersService,
+    apps_svc: AppsService,
+    assets_service: AssetsService,
+    websocket_manager: WebSocketManager,
+) -> None:
+    await dm.stop()
+    await ts_service.stop()
+    await commands_service.stop()
+    await automations_svc.stop()
+    await notifications_svc.stop()
+    await users_service.stop()
+    await apps_svc.stop()
+    await assets_service.stop()
+    await websocket_manager.close_all()
+
+
 class _CompositeTargetResolver:
     """TargetResolver backed by DevicesService.
 
@@ -199,15 +221,17 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await dm.stop()
-        await ts_service.stop()
-        await commands_service.stop()
-        await automations_svc.stop()
-        await notifications_svc.stop()
-        await users_service.stop()
-        await apps_svc.stop()
-        await assets_service.stop()
-        await websocket_manager.close_all()
+        await _stop_services(
+            dm,
+            ts_service,
+            commands_service,
+            automations_svc,
+            notifications_svc,
+            users_service,
+            apps_svc,
+            assets_service,
+            websocket_manager,
+        )
 
 
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
