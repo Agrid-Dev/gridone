@@ -234,7 +234,7 @@ def test_unauthenticated_returns_401(app: FastAPI) -> None:
 # --- Apps registration RBAC ---
 
 ACCESS_CONTROL_SCENARIOS = [
-    # (method, endpoint, username | None, expected_status)
+    # columns: method, endpoint, username (or None), expected_status
     pytest.param("GET", "/apps/registration-requests", "admin", 200, id="admin-list"),
     pytest.param(
         "POST",
