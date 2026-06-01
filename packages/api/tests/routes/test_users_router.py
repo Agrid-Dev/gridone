@@ -169,3 +169,20 @@ def test_operator_cannot_block_user(app: FastAPI) -> None:
         token = _login(client, "bob")
         resp = client.post("/users/admin-id/block", headers=_auth(token))
         assert resp.status_code == 403
+
+
+# --- Create user ---
+
+
+def test_create_user_conflict_returns_409(
+    app: FastAPI, users_manager: AsyncMock
+) -> None:
+    users_manager.create_user.side_effect = ValueError("Username already taken")
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.post(
+            "/users/",
+            json={"username": "duplicate", "password": "password123"},
+            headers=_auth(token),
+        )
+    assert resp.status_code == 409

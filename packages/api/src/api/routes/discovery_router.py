@@ -66,7 +66,7 @@ async def create_discovery(
     except TypeError as te:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(te)
-        )
+        ) from te
     return DiscoveryHandlerDTO(
         driver_id=payload.driver_id, transport_id=transport_id, enabled=True
     )
@@ -85,4 +85,4 @@ async def delete_discovery(
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found"
-        )
+        ) from None

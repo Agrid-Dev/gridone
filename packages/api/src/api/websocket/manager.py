@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 from collections.abc import Iterable
 from typing import Any
@@ -17,11 +18,7 @@ class WebSocketManager:
     async def connect(self, websocket: WebSocket) -> str:
         """Accept a connection and register it."""
         connection_id = str(uuid4())
-
-        try:
-            await websocket.accept()
-        except Exception:
-            raise
+        await websocket.accept()
 
         async with self._lock:
             self.active_connections[connection_id] = websocket
@@ -34,10 +31,8 @@ class WebSocketManager:
             websocket = self.active_connections.pop(connection_id, None)
 
         if websocket:
-            try:
+            with contextlib.suppress(Exception):
                 await websocket.close()
-            except Exception:
-                pass
 
     async def broadcast(self, message: Any) -> None:
         """Send a message to all connected clients."""
@@ -51,7 +46,7 @@ class WebSocketManager:
             for connection_id, connection in self.active_connections.items():
                 try:
                     await connection.send_text(payload)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     stale_connections.append(connection_id)
 
             for connection_id in stale_connections:

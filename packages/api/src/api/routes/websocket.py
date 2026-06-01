@@ -1,9 +1,12 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import PongMessage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -37,7 +40,7 @@ async def websocket_endpoint(
                 await websocket.send_text(PongMessage().model_dump_json())
     except WebSocketDisconnect:
         pass
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001
+        logger.debug("WebSocket connection closed with error", exc_info=True)
     finally:
         await manager.disconnect(connection_id)

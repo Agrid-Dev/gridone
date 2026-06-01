@@ -129,7 +129,7 @@ async def update_device(
     try:
         device = await dm.update_device(device_id, payload)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        raise HTTPException(status_code=422, detail=str(e)) from e
     return device
 
 
