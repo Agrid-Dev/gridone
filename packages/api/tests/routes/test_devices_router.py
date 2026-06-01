@@ -2,18 +2,9 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
-from commands.models import CommandStatus
-from devices_manager import DevicesServiceInterface
-from devices_manager.core.device import Attribute
-from devices_manager.dto.device_dto import Device
-from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import ConfirmationError, InvalidError, NotFoundError
-from models.pagination import Page, PaginationParams
-from models.types import SortOrder
 
 from api.dependencies import (
     get_commands_service,
@@ -24,6 +15,15 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
+from commands.models import CommandStatus
+from devices_manager import DevicesServiceInterface
+from devices_manager.core.device import Attribute
+from devices_manager.dto.device_dto import Device
+from devices_manager.types import DataType, DeviceKind
+from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.pagination import Page, PaginationParams
+from models.types import SortOrder
 
 # ---------------------------------------------------------------------------
 # Shared device fixtures

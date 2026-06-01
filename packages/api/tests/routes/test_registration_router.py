@@ -8,17 +8,8 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
-from apps import (
-    App,
-    AppStatus,
-    RegistrationRequest,
-    RegistrationRequestStatus,
-)
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from models.errors import InvalidError, NotFoundError
-from users import User
-from users.auth import TokenPayload
 
 from api.dependencies import (
     get_apps_service,
@@ -26,6 +17,15 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_registration_router
+from apps import (
+    App,
+    AppStatus,
+    RegistrationRequest,
+    RegistrationRequestStatus,
+)
+from models.errors import InvalidError, NotFoundError
+from users import User
+from users.auth import TokenPayload
 
 NOW = datetime.now(UTC)
 

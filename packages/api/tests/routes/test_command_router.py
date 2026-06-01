@@ -8,6 +8,16 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+
+from api.dependencies import (
+    get_commands_service,
+    get_current_token_payload,
+    get_current_user_id,
+)
+from api.exception_handlers import register_exception_handlers
+from api.routes.command_router import router
 from commands import (
     AttributeWrite,
     BatchCommandDispatch,
@@ -17,18 +27,8 @@ from commands import (
     UnitCommand,
 )
 from devices_manager.types import DataType
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
 from models.errors import NotFoundError
 from models.pagination import Page, PaginationParams
-
-from api.dependencies import (
-    get_commands_service,
-    get_current_token_payload,
-    get_current_user_id,
-)
-from api.exception_handlers import register_exception_handlers
-from api.routes.command_router import router
 
 
 @pytest.fixture

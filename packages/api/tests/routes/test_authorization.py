@@ -3,21 +3,10 @@
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from timeseries.domain import FetchPointsResult
-
 import pytest
-from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from automations import AutomationsServiceInterface
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from models.pagination import Page
-from models.types import Severity
-from notifications import (
-    Notification,
-    NotificationDispatch,
-    NotificationsServiceInterface,
-)
-
-from automations import AutomationsServiceInterface
 
 from api.dependencies import (
     get_apps_service,
@@ -37,6 +26,15 @@ from api.routes.devices_router import router as devices_router
 from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
+from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from models.pagination import Page
+from models.types import Severity
+from notifications import (
+    Notification,
+    NotificationDispatch,
+    NotificationsServiceInterface,
+)
+from timeseries.domain import FetchPointsResult
 from users import Role, User
 from users.auth import AuthService
 

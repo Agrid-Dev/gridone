@@ -4,12 +4,13 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from automations.models import TriggerContext
+
 from api.trigger_providers.change_event import (
     ChangeEventTriggerProvider,
     Condition,
     ConditionOperator,
 )
-from automations.models import TriggerContext
 
 _NOW = datetime(2024, 1, 1, tzinfo=UTC)
 

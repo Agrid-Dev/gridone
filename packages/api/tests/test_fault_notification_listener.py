@@ -2,12 +2,12 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+from api.notification_listeners.fault import on_fault_transition
 from devices_manager import Attribute, FaultAttribute
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
-
-from api.notification_listeners.fault import on_fault_transition
 
 _NOW = datetime(2026, 1, 1, tzinfo=UTC)
 

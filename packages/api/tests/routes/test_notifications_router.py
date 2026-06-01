@@ -4,14 +4,6 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
-from models.pagination import Page, PaginationParams
-from models.types import Severity
-from notifications import (
-    Notification,
-    NotificationDispatch,
-    NotificationsServiceInterface,
-)
 
 from api.dependencies import (
     get_current_token_payload,
@@ -20,6 +12,14 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.notifications_router import router
+from models.errors import NotFoundError
+from models.pagination import Page, PaginationParams
+from models.types import Severity
+from notifications import (
+    Notification,
+    NotificationDispatch,
+    NotificationsServiceInterface,
+)
 
 pytestmark = pytest.mark.asyncio
 

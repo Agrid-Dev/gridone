@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from notifications.interface import NotificationsServiceInterface
 
 from api.notification_listeners.device import on_device_discovered
+from notifications.interface import NotificationsServiceInterface
 
 
 def _make_notifications() -> AsyncMock:

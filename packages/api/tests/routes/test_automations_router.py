@@ -12,7 +12,6 @@ from automations import (
 from automations.models import Action, ExecutionStatus, Trigger
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
 
 from api.dependencies import (
     get_automations_service,
@@ -21,6 +20,7 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.automations_router import router
+from models.errors import NotFoundError
 
 pytestmark = pytest.mark.asyncio
 

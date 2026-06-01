@@ -1,18 +1,18 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import Transport, build_transport
-from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
 from pydantic import ValidationError
 
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.transports_router import router
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import Transport, build_transport
+from devices_manager.types import TransportProtocols
+from models.errors import NotFoundError
 
 _HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
 _MQTT = build_transport(

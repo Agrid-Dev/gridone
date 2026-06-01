@@ -2,12 +2,8 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import FaultView
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from models.errors import NotFoundError
-from models.types import DataType, Severity
 
 from api.dependencies import (
     get_current_token_payload,
@@ -16,7 +12,10 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.faults_router import router
-
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import FaultView
+from models.errors import NotFoundError
+from models.types import DataType, Severity
 
 _FAULT_A = FaultView(
     device_id="dev-1",
