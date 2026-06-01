@@ -125,6 +125,7 @@ def assets_service():
     svc.get_descendants = AsyncMock(return_value=[])
     svc.get_tree = AsyncMock(return_value=[])
     svc.get_tree_with_devices = AsyncMock(return_value=[])
+    svc.list_all = AsyncMock(return_value=[])
     return svc
 
 
@@ -350,3 +351,28 @@ class TestGetTreeWithDevices:
         linked_ids = {d["id"] for d in node["devices"]}
         # t-b is linked to _CHILD_ASSET_ID, not _ASSET_ID
         assert "t-b" not in linked_ids
+
+
+class TestListAssets:
+    @pytest.mark.asyncio
+    async def test_returns_assets(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        hq = Asset(id=_ASSET_ID, parent_id=None, type=AssetType.BUILDING, name="HQ")
+        assets_service.list_all.return_value = [hq]
+        async with async_client as ac:
+            response = await ac.get("/")
+        assert response.status_code == 200
+        assert response.json()[0]["id"] == _ASSET_ID
+
+    @pytest.mark.asyncio
+    async def test_type_query_param_forwarded_as_asset_type(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.list_all.return_value = []
+        async with async_client as ac:
+            response = await ac.get("/?type=floor")
+        assert response.status_code == 200
+        assets_service.list_all.assert_awaited_once_with(
+            parent_id=None, asset_type="floor"
+        )

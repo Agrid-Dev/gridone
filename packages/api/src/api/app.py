@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import logging.config
 from contextlib import asynccontextmanager
@@ -34,6 +35,7 @@ from apps import AppsService
 from assets import AssetsService
 from commands import CommandsService, Target, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesService
+from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
 from timeseries import DataPoint, SeriesKey, TimeSeriesService
@@ -41,26 +43,8 @@ from users import UsersService
 from users.auth import AuthService
 
 
-async def _stop_services(
-    dm: DevicesService,
-    ts_service: TimeSeriesService,
-    commands_service: CommandsService,
-    automations_svc: AutomationsService,
-    notifications_svc: NotificationsService,
-    users_service: UsersService,
-    apps_svc: AppsService,
-    assets_service: AssetsService,
-    websocket_manager: WebSocketManager,
-) -> None:
-    await dm.stop()
-    await ts_service.stop()
-    await commands_service.stop()
-    await automations_svc.stop()
-    await notifications_svc.stop()
-    await users_service.stop()
-    await apps_svc.stop()
-    await assets_service.stop()
-    await websocket_manager.close_all()
+async def _stop_services(services: list[Service]) -> None:
+    await asyncio.gather(*[svc.stop() for svc in services])
 
 
 class _CompositeTargetResolver:
@@ -222,16 +206,18 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         await _stop_services(
-            dm,
-            ts_service,
-            commands_service,
-            automations_svc,
-            notifications_svc,
-            users_service,
-            apps_svc,
-            assets_service,
-            websocket_manager,
+            [
+                dm,
+                ts_service,
+                commands_service,
+                automations_svc,
+                notifications_svc,
+                users_service,
+                apps_svc,
+                assets_service,
+            ]
         )
+        await websocket_manager.close_all()
 
 
 def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
