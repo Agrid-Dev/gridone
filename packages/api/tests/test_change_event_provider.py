@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from api.trigger_providers.change_event import (
     ChangeEventTriggerProvider,
     Condition,
     ConditionOperator,
 )
-from automations.models import TriggerContext
+
+if TYPE_CHECKING:
+    from automations.models import TriggerContext
 
 _NOW = datetime(2024, 1, 1, tzinfo=UTC)
 

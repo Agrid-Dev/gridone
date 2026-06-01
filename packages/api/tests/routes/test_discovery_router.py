@@ -1,16 +1,16 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
-from devices_manager.dto import DriverSpec, build_transport
-from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
 
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.routes.discovery_router import get_transport_id, router
+from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
+from devices_manager.dto import DriverSpec, Transport, build_transport
+from devices_manager.types import TransportProtocols
+from models.errors import NotFoundError
 
 _MQTT_DRIVER = DriverSpec.model_validate(
     {
@@ -50,10 +50,11 @@ def dm(discovery) -> MagicMock:
     mock.driver_ids = {"test_push_driver"}
     mock.list_drivers.return_value = [_MQTT_DRIVER]
 
-    def _get_transport(tid: str):
+    def _get_transport(tid: str) -> Transport:
         if tid == "my-mqtt":
             return _MQTT_TRANSPORT
-        raise NotFoundError(f"Transport {tid} not found")
+        msg = f"Transport {tid} not found"
+        raise NotFoundError(msg)
 
     mock.get_transport.side_effect = _get_transport
     mock.discovery_manager = discovery

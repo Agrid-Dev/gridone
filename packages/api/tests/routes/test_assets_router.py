@@ -2,15 +2,6 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from assets import AssetsService
-from assets.models import Asset, AssetType
-from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
-from models.errors import NotFoundError
-from commands.models import CommandStatus
-from devices_manager import DevicesServiceInterface
-from devices_manager.core.device import Attribute
-from devices_manager.dto.device_dto import Device
-from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -23,7 +14,15 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
-
+from assets import AssetsService
+from assets.models import Asset, AssetType
+from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
+from commands.models import CommandStatus
+from devices_manager import DevicesServiceInterface
+from devices_manager.core.device import Attribute
+from devices_manager.dto.device_dto import Device
+from devices_manager.types import DataType, DeviceKind
+from models.errors import NotFoundError
 
 _ASSET_ID = "asset-1"
 _CHILD_ASSET_ID = "asset-2"
@@ -83,9 +82,8 @@ def _make_dm() -> MagicMock:
         types=None,
         tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,
-        is_faulty=None,
-    ):
+        **_kwargs: object,
+    ) -> list[Device]:
         results = list(devices.values())
         if ids is not None:
             id_set = set(ids)

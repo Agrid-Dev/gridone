@@ -1,17 +1,10 @@
 from datetime import UTC, datetime
+from typing import ClassVar
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
-from models.pagination import Page, PaginationParams
-from models.types import Severity
-from notifications import (
-    Notification,
-    NotificationDispatch,
-    NotificationsServiceInterface,
-)
 
 from api.dependencies import (
     get_current_token_payload,
@@ -20,6 +13,14 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.notifications_router import router
+from models.errors import NotFoundError
+from models.pagination import Page, PaginationParams
+from models.types import Severity
+from notifications import (
+    Notification,
+    NotificationDispatch,
+    NotificationsServiceInterface,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -160,7 +161,7 @@ class TestDismissNotification:
 
 
 class TestDispatchNotification:
-    _PAYLOAD = {
+    _PAYLOAD: ClassVar[dict[str, object]] = {
         "title": "Alert",
         "body": "Something happened",
         "severity": "alert",
@@ -198,7 +199,7 @@ class TestDispatchNotification:
             await c.post("/", json=self._PAYLOAD)
         assert svc.dispatch.call_args.kwargs["created_by"] == admin_token_payload.sub
 
-    async def test_empty_user_ids_returns_422(self, client, svc):
+    async def test_empty_user_ids_returns_422(self, client):
         """user_ids must be non-empty."""
         async with client as c:
             resp = await c.post(

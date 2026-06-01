@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from models.pagination import Page
-
 from api.schemas.pagination import (
     build_pagination_links,
     to_paginated_response,
 )
+from models.pagination import Page
 
 
 class TestBuildPaginationLinks:

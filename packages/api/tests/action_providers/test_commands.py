@@ -1,10 +1,10 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from commands.interface import CommandsServiceInterface
-from commands.models import BatchCommandDispatch
 
 from api.action_providers.commands import CommandsActionProvider
+from commands.interface import CommandsServiceInterface
+from commands.models import BatchCommandDispatch
 
 
 def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:

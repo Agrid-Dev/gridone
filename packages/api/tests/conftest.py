@@ -2,9 +2,9 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+
 from devices_manager.interface import DevicesServiceInterface
 from users.auth import TokenPayload
-
 
 _ADMIN_PAYLOAD = TokenPayload(
     sub="test-user",
@@ -25,7 +25,7 @@ def admin_token_payload() -> TokenPayload:
 
 
 @pytest.fixture
-def yaml_driver():
+def yaml_driver() -> str:
     return """
 id: thermocktat_modbus
 transport: modbus-tcp

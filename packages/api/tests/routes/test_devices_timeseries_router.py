@@ -8,14 +8,6 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
-from timeseries import TimeSeriesService
-from timeseries.domain import (
-    AggregationOperator,
-    DataPoint,
-    DataType,
-    SeriesKey,
-)
 
 from api.dependencies import (
     get_current_token_payload,
@@ -24,6 +16,14 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+from models.errors import NotFoundError
+from timeseries import TimeSeriesService
+from timeseries.domain import (
+    AggregationOperator,
+    DataPoint,
+    DataType,
+    SeriesKey,
+)
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -36,15 +36,19 @@ KEY = SeriesKey(owner_id=DEVICE_ID, metric=ATTR)
 
 
 def _make_dm(known_ids: list[str] | None = None) -> MagicMock:
-    """Return a DevicesServiceInterface mock that accepts known device IDs and raises NotFoundError for others."""
+    """Return a DevicesServiceInterface mock that accepts known device IDs.
+
+    Unknown IDs raise NotFoundError.
+    """
     from devices_manager import DevicesServiceInterface
 
     known = set(known_ids or [DEVICE_ID])
     dm = MagicMock(spec=DevicesServiceInterface)
 
-    def get_device(device_id: str):
+    def get_device(device_id: str) -> MagicMock:
         if device_id not in known:
-            raise NotFoundError(f"Device '{device_id}' not found")
+            msg = f"Device '{device_id}' not found"
+            raise NotFoundError(msg)
         return MagicMock(id=device_id)
 
     dm.get_device.side_effect = get_device
@@ -66,7 +70,7 @@ def app(ts_service: TimeSeriesService, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_ts_service] = lambda: ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_device_manager] = lambda: _make_dm()
+    app.dependency_overrides[get_device_manager] = _make_dm
     return app
 
 
@@ -519,7 +523,7 @@ class TestExportPng:
         app.dependency_overrides[get_current_token_payload] = lambda: (
             admin_token_payload
         )
-        app.dependency_overrides[get_device_manager] = lambda: _make_dm()
+        app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
     @pytest.fixture
@@ -586,7 +590,7 @@ class TestOldPathsGone:
         app.dependency_overrides[get_current_token_payload] = lambda: (
             admin_token_payload
         )
-        app.dependency_overrides[get_device_manager] = lambda: _make_dm()
+        app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
     @pytest.fixture
@@ -852,7 +856,7 @@ def paris_app(paris_ts_service: TimeSeriesService, admin_token_payload) -> FastA
     app.include_router(router)
     app.dependency_overrides[get_ts_service] = lambda: paris_ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_device_manager] = lambda: _make_dm()
+    app.dependency_overrides[get_device_manager] = _make_dm
     return app
 
 
@@ -892,7 +896,9 @@ class TestAggregateTimezoneRendering:
         paris_client: AsyncClient,
         paris_ts_service: TimeSeriesService,
     ):
-        """timezone field in body must match the UTC offset rendered in interval_start."""
+        """timezone field in body must match the UTC offset rendered in
+        interval_start.
+        """
         await paris_ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
         )
@@ -917,7 +923,9 @@ class TestAggregateTimezoneRendering:
         paris_client: AsyncClient,
         paris_ts_service: TimeSeriesService,
     ):
-        """Invalid ?timezone= on aggregate must emit the same clean message as raw-points."""
+        """Invalid ?timezone= on aggregate must emit the same clean message
+        as raw-points.
+        """
         await paris_ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
         )

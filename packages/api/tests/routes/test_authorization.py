@@ -3,21 +3,10 @@
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from timeseries.domain import FetchPointsResult
-
 import pytest
-from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from automations import AutomationsServiceInterface
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
-from models.pagination import Page
-from models.types import Severity
-from notifications import (
-    Notification,
-    NotificationDispatch,
-    NotificationsServiceInterface,
-)
-
-from automations import AutomationsServiceInterface
 
 from api.dependencies import (
     get_apps_service,
@@ -37,6 +26,15 @@ from api.routes.devices_router import router as devices_router
 from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
+from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from models.pagination import Page
+from models.types import Severity
+from notifications import (
+    Notification,
+    NotificationDispatch,
+    NotificationsServiceInterface,
+)
+from timeseries.domain import FetchPointsResult
 from users import Role, User
 from users.auth import AuthService
 
@@ -125,7 +123,7 @@ def _build_app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
-    app.dependency_overrides[get_apps_service] = lambda: _build_apps_service_mock()
+    app.dependency_overrides[get_apps_service] = _build_apps_service_mock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(users_router, prefix="/users", dependencies=jwt_dep)
@@ -236,7 +234,7 @@ def test_unauthenticated_returns_401(app: FastAPI) -> None:
 # --- Apps registration RBAC ---
 
 ACCESS_CONTROL_SCENARIOS = [
-    # (method, endpoint, username | None, expected_status)
+    # columns: method, endpoint, username (or None), expected_status
     pytest.param("GET", "/apps/registration-requests", "admin", 200, id="admin-list"),
     pytest.param(
         "POST",
@@ -373,7 +371,8 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="get-ts-points-no-auth",
     ),
-    # Export requires series_ids; omitting it returns 422 (before auth on viewer, after auth on no-auth)
+    # Export requires series_ids; omitting it returns 422
+    # (before auth on viewer, after auth on no-auth)
     pytest.param(
         "GET",
         "/devices/timeseries/export/csv",
@@ -445,10 +444,10 @@ def _build_commands_app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
-    app.dependency_overrides[get_device_manager] = lambda: MagicMock()
+    app.dependency_overrides[get_device_manager] = MagicMock
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
-    app.dependency_overrides[get_assets_service] = lambda: MagicMock()
-    app.dependency_overrides[get_commands_service] = lambda: AsyncMock()
+    app.dependency_overrides[get_assets_service] = MagicMock
+    app.dependency_overrides[get_commands_service] = AsyncMock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
@@ -511,7 +510,8 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         {"attribute": "a", "value": 1, "device_type": "thermostat"},
         id="asset-cmd-no-auth",
     ),
-    # GET /devices/commands requires DEVICES_READ — all roles can read, but no-auth is 401.
+    # GET /devices/commands requires DEVICES_READ — all roles can read,
+    # but no-auth is 401.
     pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),
     pytest.param(
         "GET",
@@ -623,7 +623,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     ("method", "endpoint", "username", "expected_status", "body"),
     COMMANDS_ACCESS_CONTROL_SCENARIOS,
 )
-def test_commands_access_control(
+def test_commands_access_control(  # noqa: PLR0913 (parametrized test fixture + 5 params)
     commands_app: FastAPI,
     method: str,
     endpoint: str,
@@ -658,9 +658,7 @@ def _build_automations_app() -> FastAPI:
     app.state.cookie_secure = False
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
-    app.dependency_overrides[get_automations_service] = lambda: (
-        _build_automations_mock()
-    )
+    app.dependency_overrides[get_automations_service] = _build_automations_mock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(automations_router, prefix="/automations", dependencies=jwt_dep)

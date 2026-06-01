@@ -1,6 +1,10 @@
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from api.dependencies import get_users_service
+from api.exception_handlers import register_exception_handlers
+from api.routes.users.auth_router import router
 from models.errors import BlockedUserError
 from users import Role, User
 from users.auth import AuthService
@@ -10,10 +14,6 @@ from users.validation import (
     USERNAME_MAX_LENGTH,
     USERNAME_MIN_LENGTH,
 )
-
-from api.dependencies import get_users_service
-from api.exception_handlers import register_exception_handlers
-from api.routes.users.auth_router import router
 
 
 class MockUsersService:
@@ -109,7 +109,7 @@ def test_token_password_grant_success(client: TestClient) -> None:
     data = response.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+    assert data["token_type"] == "bearer"  # noqa: S105 (OAuth token type, not a secret)
     assert data["expires_in"] == 30 * 60
 
 

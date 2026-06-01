@@ -2,12 +2,12 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+from api.notification_listeners.fault import on_fault_transition
 from devices_manager import Attribute, FaultAttribute
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
-
-from api.notification_listeners.fault import on_fault_transition
 
 _NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -188,7 +188,9 @@ class TestFaultTransitionListener:
         assert call.kwargs["user_ids"] == ["u1", "u3"]
 
     async def test_two_fault_attributes_dispatch_independently(self):
-        """Two distinct fault attributes on the same device each trigger their own alert."""
+        """Two distinct fault attributes on the same device each trigger
+        their own alert.
+        """
         notifications = _make_notifications()
         listener = on_fault_transition(notifications, _make_recipients(["u1"]))
 

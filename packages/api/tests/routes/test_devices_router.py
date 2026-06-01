@@ -2,18 +2,9 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
-from commands.models import CommandStatus
-from devices_manager import DevicesServiceInterface
-from devices_manager.core.device import Attribute
-from devices_manager.dto.device_dto import Device
-from devices_manager.types import DataType, DeviceKind
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import ConfirmationError, InvalidError, NotFoundError
-from models.pagination import Page, PaginationParams
-from models.types import SortOrder
 
 from api.dependencies import (
     get_commands_service,
@@ -24,6 +15,15 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
+from commands.models import CommandStatus
+from devices_manager import DevicesServiceInterface
+from devices_manager.core.device import Attribute
+from devices_manager.dto.device_dto import Device
+from devices_manager.types import DataType, DeviceKind
+from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.pagination import Page, PaginationParams
+from models.types import SortOrder
 
 # ---------------------------------------------------------------------------
 # Shared device fixtures
@@ -79,12 +79,10 @@ def _make_dm(
         *,
         ids=None,
         types=None,
-        tags=None,
         writable_attribute=None,
-        writable_attribute_type=None,
         is_faulty=None,
-        search=None,
-    ):
+        **_kwargs: object,
+    ) -> list[Device]:
         results = list(all_devices.values())
         if ids is not None:
             id_set = set(ids)
@@ -107,7 +105,8 @@ def _make_dm(
 
     def _get_device(device_id: str) -> Device:
         if device_id not in all_devices:
-            raise NotFoundError(f"Device {device_id} not found")
+            msg = f"Device {device_id} not found"
+            raise NotFoundError(msg)
         return all_devices[device_id]
 
     mock.get_device.side_effect = _get_device

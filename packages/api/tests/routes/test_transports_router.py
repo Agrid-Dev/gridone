@@ -1,18 +1,18 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from devices_manager import DevicesServiceInterface
-from devices_manager.dto import Transport, build_transport
-from devices_manager.types import TransportProtocols
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
-from models.errors import NotFoundError
 from pydantic import ValidationError
 
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.transports_router import router
+from devices_manager import DevicesServiceInterface
+from devices_manager.dto import Transport, build_transport
+from devices_manager.types import TransportProtocols
+from models.errors import NotFoundError
 
 _HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
 _MQTT = build_transport(
@@ -26,7 +26,8 @@ _TRANSPORTS_BY_ID: dict[str, Transport] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
 
 def _get_transport(transport_id: str) -> Transport:
     if transport_id not in _TRANSPORTS_BY_ID:
-        raise NotFoundError(f"Transport {transport_id} not found")
+        msg = f"Transport {transport_id} not found"
+        raise NotFoundError(msg)
     return _TRANSPORTS_BY_ID[transport_id]
 
 
@@ -41,7 +42,7 @@ def dm() -> MagicMock:
         )
     )
     mock.update_transport = AsyncMock(
-        side_effect=lambda tid, update: _get_transport(tid)
+        side_effect=lambda tid, _update: _get_transport(tid)
     )
     mock.delete_transport = AsyncMock()
     return mock

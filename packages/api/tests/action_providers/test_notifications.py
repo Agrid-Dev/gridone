@@ -2,12 +2,11 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from models.types import Severity
-
-from notifications.interface import NotificationsServiceInterface
-from notifications.models import Notification, NotificationDispatch
 
 from api.action_providers.notifications import NotificationsActionProvider
+from models.types import Severity
+from notifications.interface import NotificationsServiceInterface
+from notifications.models import Notification, NotificationDispatch
 
 
 def _dispatch(notif_id: str = "notif-abc") -> NotificationDispatch:

@@ -4,13 +4,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from devices_manager import DevicesService, VirtualDevice
-from devices_manager.core.device import Attribute
-from devices_manager.types import DataType
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from timeseries.domain import SeriesKey
-from timeseries.service import TimeSeriesService
 
 from api.dependencies import (
     get_current_token_payload,
@@ -20,6 +15,11 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+from devices_manager import DevicesService, VirtualDevice
+from devices_manager.core.device import Attribute
+from devices_manager.types import DataType
+from timeseries.domain import SeriesKey
+from timeseries.service import TimeSeriesService
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
