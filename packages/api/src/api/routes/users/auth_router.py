@@ -20,7 +20,7 @@ router = APIRouter()
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105
     expires_in: int
 
 
@@ -178,7 +178,7 @@ async def logout(request: Request, response: Response) -> dict:
 
 @router.get("/schema")
 async def get_auth_schema() -> dict:
-    """JSON schema of AuthPayload for frontend form validation (e.g. z.fromJSONSchema)."""
+    """JSON schema of AuthPayload for frontend validation (e.g. z.fromJSONSchema)."""
     return get_auth_payload_schema()
 
 

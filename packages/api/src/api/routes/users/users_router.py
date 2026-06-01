@@ -24,10 +24,13 @@ class UserBasic(BaseModel):
     name: str
 
 
+_MIN_NAME_PARTS = 2
+
+
 def _make_display_name(name: str) -> str:
     """Return 'First L.' from a full name, or the name as-is if single word / empty."""
     parts = name.split()
-    if len(parts) >= 2:
+    if len(parts) >= _MIN_NAME_PARTS:
         return f"{parts[0]} {parts[-1][0]}."
     return name
 

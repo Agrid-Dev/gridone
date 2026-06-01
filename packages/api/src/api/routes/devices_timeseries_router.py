@@ -176,8 +176,9 @@ def get_aggregation_query(
         ...,
         description=(
             "Aggregation operator. "
-            "Note: 'avg' on bool series returns the sample mean of discrete observations "
-            "(0.0 or 1.0 per point), which is rarely useful for event-driven series. "
+            "Note: 'avg' on bool series returns the sample mean of "
+            "discrete observations (0.0 or 1.0 per point), "
+            "which is rarely useful for event-driven series. "
             "Use 'tw_avg' to get the fraction of time the value was True."
         ),
     ),

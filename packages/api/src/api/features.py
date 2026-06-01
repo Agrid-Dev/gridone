@@ -9,7 +9,7 @@ _TRUTHY_VALUES = frozenset({"1", "t", "true", "y", "yes", "on"})
 _PREFIX_LOWER = FEATURE_FLAG_ENV_PREFIX.lower()
 
 
-def _is_truthy(raw: Any) -> bool:
+def _is_truthy(raw: Any) -> bool:  # noqa: ANN401
     if raw is None:
         return False
     return str(raw).strip().lower() in _TRUTHY_VALUES

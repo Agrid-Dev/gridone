@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import logging.config
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
@@ -67,7 +68,7 @@ class _CompositeTargetResolver:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = load_settings()
     auth_service = AuthService(
         secret_key=settings.secret_key,

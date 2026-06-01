@@ -77,7 +77,7 @@ async def delete_discovery(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
     driver_id: str,
-):
+) -> None:
     try:
         await dm.discovery_manager.unregister(
             driver_id=driver_id, transport_id=transport_id
