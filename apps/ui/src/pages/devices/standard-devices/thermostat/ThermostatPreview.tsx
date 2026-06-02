@@ -1,5 +1,9 @@
 import { Power } from "lucide-react";
-import { isThermostat, readThermostatAttributes } from "@/api/devices";
+import {
+  DeviceType,
+  isThermostat,
+  readThermostatAttributes,
+} from "@/api/devices";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
 import type { StandardPreviewProps } from "../registry";
 
@@ -38,6 +42,7 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
         </span>
         {attrs.mode && (
           <AttributeValueBadge
+            deviceType={DeviceType.Thermostat}
             attributeName="mode"
             value={attrs.mode}
             className="truncate max-w-[5rem] uppercase"

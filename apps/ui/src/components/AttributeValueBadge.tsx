@@ -9,50 +9,69 @@ import {
   Sun,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { DeviceType } from "@/api/devices";
 import { cn } from "@/lib/utils";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
-/** Keyed by raw attribute name (snake_case as in DeviceAttribute.name),
- *  then by option value string. Covers mode and fan_speed for thermostat/awhp. */
-const STANDARD_VALUE_RENDERERS: Record<
-  string,
-  Record<string, ValueRenderer>
-> = {
-  mode: {
-    heat: { Icon: Sun, color: "text-orange-500" },
-    cool: { Icon: Snowflake, color: "text-blue-500" },
-    fan: { Icon: Fan, color: "text-green-500" },
-    auto: { Icon: RefreshCcwDot, color: "text-amber-500" },
-  },
-  fan_speed: {
-    low: { Icon: SignalLow, color: "text-muted-foreground" },
-    medium: { Icon: SignalMedium, color: "text-muted-foreground" },
-    high: { Icon: SignalHigh, color: "text-muted-foreground" },
-    auto: {
-      Icon: ArrowUpNarrowWide,
-      color: "text-muted-foreground",
-      rotate: true,
-    },
+const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = {
+  heat: { Icon: Sun, color: "text-orange-500" },
+  cool: { Icon: Snowflake, color: "text-blue-500" },
+  fan: { Icon: Fan, color: "text-green-500" },
+  auto: { Icon: RefreshCcwDot, color: "text-amber-500" },
+};
+
+const HVAC_FAN_SPEED_RENDERERS: Record<string, ValueRenderer> = {
+  low: { Icon: SignalLow, color: "text-muted-foreground" },
+  medium: { Icon: SignalMedium, color: "text-muted-foreground" },
+  high: { Icon: SignalHigh, color: "text-muted-foreground" },
+  auto: {
+    Icon: ArrowUpNarrowWide,
+    color: "text-muted-foreground",
+    rotate: true,
   },
 };
 
+const STANDARD_VALUE_RENDERERS: Partial<
+  Record<DeviceType, Record<string, Record<string, ValueRenderer>>>
+> = {
+  [DeviceType.Thermostat]: {
+    mode: HVAC_MODE_RENDERERS,
+    fan_speed: HVAC_FAN_SPEED_RENDERERS,
+  },
+  [DeviceType.Awhp]: {
+    mode: HVAC_MODE_RENDERERS,
+    fan_speed: HVAC_FAN_SPEED_RENDERERS,
+  },
+};
+
+/** Returns undefined when deviceType is absent or the triple has no known renderer. */
+export function lookupValueRenderer(
+  deviceType: DeviceType | undefined,
+  attributeName: string,
+  value: string,
+): ValueRenderer | undefined {
+  if (!deviceType) return undefined;
+  return STANDARD_VALUE_RENDERERS[deviceType]?.[attributeName]?.[value];
+}
+
 type AttributeValueBadgeProps = {
+  deviceType?: DeviceType;
   attributeName: string;
   value: string | number | boolean;
   className?: string;
 };
 
-/** Renders a discrete attribute value with an icon and colour when the
- *  (attributeName, value) pair has a known standard renderer; falls back
- *  to a plain text label otherwise. */
+/** Renders a discrete attribute value with an icon and colour when a standard
+ *  renderer exists for the device type; falls back to a plain text label. */
 export function AttributeValueBadge({
+  deviceType,
   attributeName,
   value,
   className,
 }: AttributeValueBadgeProps) {
-  const renderer = STANDARD_VALUE_RENDERERS[attributeName]?.[String(value)];
   const label = String(value);
+  const renderer = lookupValueRenderer(deviceType, attributeName, label);
 
   if (!renderer) {
     return <span className={className}>{label}</span>;

@@ -1,5 +1,5 @@
 import { Fan, ArrowRight } from "lucide-react";
-import { isAwhp, readAwhpAttributes } from "@/api/devices";
+import { DeviceType, isAwhp, readAwhpAttributes } from "@/api/devices";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
 import type { StandardPreviewProps } from "../types";
 
@@ -60,6 +60,7 @@ export function AwhpPreview({ device }: StandardPreviewProps) {
         <span className="uppercase">{attrs.unitRunStatus ?? "—"}</span>
         {attrs.mode && (
           <AttributeValueBadge
+            deviceType={DeviceType.Awhp}
             attributeName="mode"
             value={attrs.mode}
             className="truncate max-w-[5rem] uppercase"

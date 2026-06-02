@@ -1,6 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
-import { isThermostat, readThermostatAttributes } from "@/api/devices";
+import {
+  DeviceType,
+  isThermostat,
+  readThermostatAttributes,
+} from "@/api/devices";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
 import {
@@ -51,6 +55,7 @@ export function ThermostatControl({
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {attrs.mode ? (
           <AttributeValueBadge
+            deviceType={DeviceType.Thermostat}
             attributeName="mode"
             value={attrs.mode}
             className="text-xs uppercase tracking-widest text-muted-foreground"

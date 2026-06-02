@@ -10,8 +10,9 @@ import {
 } from "@/components/ui/table";
 import { formatValue } from "@/lib/formatValue";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
-import type { Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import type { WizardFormValues } from "./types";
+import { resolveSharedDeviceType } from "./resolveDeviceType";
 
 type ReviewStepProps = {
   values: WizardFormValues;
@@ -75,6 +76,11 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                         ) : (
                           <span className="text-muted-foreground">
                             <AttributeValueBadge
+                              deviceType={resolveSharedDeviceType(
+                                selectedDevices,
+                                attr?.name ?? "",
+                                currentFormatted,
+                              )}
                               attributeName={attr?.name ?? ""}
                               value={currentFormatted}
                             />
@@ -83,6 +89,11 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-semibold">
                           <AttributeValueBadge
+                            deviceType={resolveSharedDeviceType(
+                              selectedDevices,
+                              values.attribute ?? "",
+                              newValueFormatted,
+                            )}
                             attributeName={values.attribute ?? ""}
                             value={newValueFormatted}
                           />

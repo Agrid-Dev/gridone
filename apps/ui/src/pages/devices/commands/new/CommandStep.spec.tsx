@@ -3,7 +3,7 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { useForm } from "react-hook-form";
 import { createI18nMock } from "@/test/i18nMock";
 import type { WizardFormValues, WritableAttribute } from "./types";
-import { DeviceKind, type Device } from "@/api/devices";
+import { DeviceKind, DeviceType, type Device } from "@/api/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -19,11 +19,11 @@ import { CommandStep } from "./CommandStep";
 
 afterEach(() => cleanup());
 
-function device(id: string): Device {
+function device(id: string, type: DeviceType | null = null): Device {
   return {
     id,
     name: `Device ${id}`,
-    type: null,
+    type,
     kind: DeviceKind.Physical,
     driverId: "drv",
     transportId: "trp",
@@ -38,10 +38,12 @@ function Wrapper({
   attributes,
   selectedAttribute,
   selectedDataType,
+  selectedDevices,
 }: {
   attributes: WritableAttribute[];
   selectedAttribute?: string;
   selectedDataType?: WizardFormValues["attributeDataType"];
+  selectedDevices?: Device[];
 }) {
   const { control, setValue } = useForm<WizardFormValues>({
     defaultValues: { value: selectedAttribute ? "heat" : undefined },
@@ -51,7 +53,7 @@ function Wrapper({
       control={control}
       setValue={setValue}
       attributes={attributes}
-      selectedDevices={[device("d1")]}
+      selectedDevices={selectedDevices ?? [device("d1")]}
       selectedAttribute={selectedAttribute}
       selectedDataType={selectedDataType}
     />
@@ -74,7 +76,6 @@ describe("CommandStep value input", () => {
         selectedDataType="str"
       />,
     );
-    // Two comboboxes: attribute picker + value picker
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
   });
 
@@ -103,7 +104,6 @@ describe("CommandStep value input", () => {
       />,
     );
     expect(screen.getByRole("textbox")).toBeTruthy();
-    // Only the attribute picker combobox; no value select
     expect(screen.getAllByRole("combobox")).toHaveLength(1);
   });
 
@@ -132,6 +132,50 @@ describe("CommandStep value input", () => {
     );
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
     expect(screen.queryByRole("spinbutton")).toBeNull();
+  });
+
+  it("renders icons in option items when all devices share a type with a known renderer", () => {
+    const attrs: WritableAttribute[] = [
+      {
+        name: "mode",
+        dataType: "str",
+        valueOptions: ["heat", "cool"],
+      },
+    ];
+    render(
+      <Wrapper
+        attributes={attrs}
+        selectedAttribute="mode"
+        selectedDataType="str"
+        selectedDevices={[
+          device("d1", DeviceType.Thermostat),
+          device("d2", DeviceType.Thermostat),
+        ]}
+      />,
+    );
+    // Badge icons have lucide-* classes; the Select chevron does not match these
+    expect(
+      document.querySelector(".lucide-sun, .lucide-snowflake"),
+    ).toBeTruthy();
+  });
+
+  it("renders plain text option items when devices have mixed types with different renderers", () => {
+    const attrs: WritableAttribute[] = [
+      { name: "mode", dataType: "str", valueOptions: ["heat"] },
+    ];
+    render(
+      <Wrapper
+        attributes={attrs}
+        selectedAttribute="mode"
+        selectedDataType="str"
+        selectedDevices={[
+          device("d1", DeviceType.Thermostat),
+          device("d2", DeviceType.WeatherSensor),
+        ]}
+      />,
+    );
+    // WeatherSensor has no mode renderer — no badge icon classes
+    expect(document.querySelector(".lucide-sun, .lucide-snowflake")).toBeNull();
   });
 
   it("renders an alert when no attributes are available", () => {

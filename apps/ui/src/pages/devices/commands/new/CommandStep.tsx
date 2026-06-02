@@ -18,8 +18,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
-import type { Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import type { WizardFormValues, WritableAttribute } from "./types";
+import { resolveSharedDeviceType } from "./resolveDeviceType";
 
 type CommandStepProps = {
   control: Control<WizardFormValues>;
@@ -108,6 +109,7 @@ export function CommandStep({
                   value={field.value}
                   onChange={field.onChange}
                   valueOptions={selectedValueOptions}
+                  selectedDevices={selectedDevices}
                 />
                 <FieldDescription>
                   {t(`commands.new.valueHint.${selectedDataType}`, {
@@ -143,6 +145,7 @@ type ValueInputProps = {
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
   valueOptions?: (string | number | boolean)[];
+  selectedDevices: Device[];
 };
 
 function ValueInput({
@@ -151,6 +154,7 @@ function ValueInput({
   value,
   onChange,
   valueOptions,
+  selectedDevices,
 }: ValueInputProps) {
   if (valueOptions && valueOptions.length > 0) {
     return (
@@ -160,6 +164,7 @@ function ValueInput({
         options={valueOptions}
         value={value}
         onChange={onChange}
+        selectedDevices={selectedDevices}
       />
     );
   }
@@ -196,6 +201,7 @@ type OptionsSelectProps = {
   options: (string | number | boolean)[];
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
+  selectedDevices: Device[];
 };
 
 function OptionsSelect({
@@ -204,6 +210,7 @@ function OptionsSelect({
   options,
   value,
   onChange,
+  selectedDevices,
 }: OptionsSelectProps) {
   const valueStr = value !== undefined ? String(value) : undefined;
   const isInOptions =
@@ -217,11 +224,23 @@ function OptionsSelect({
         <SelectValue placeholder={valueStr} />
       </SelectTrigger>
       <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={String(opt)} value={String(opt)}>
-            <AttributeValueBadge attributeName={attributeName} value={opt} />
-          </SelectItem>
-        ))}
+        {options.map((opt) => {
+          const optStr = String(opt);
+          const deviceType = resolveSharedDeviceType(
+            selectedDevices,
+            attributeName,
+            optStr,
+          );
+          return (
+            <SelectItem key={optStr} value={optStr}>
+              <AttributeValueBadge
+                deviceType={deviceType}
+                attributeName={attributeName}
+                value={opt}
+              />
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
