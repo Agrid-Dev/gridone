@@ -94,3 +94,46 @@ def test_codec_spec_from_raw(raw: dict[str, str]):
 def test_codec_spec_from_raw_invalid_input(raw: dict) -> None:
     with pytest.raises(InvalidError):
         codec_spec_from_raw(raw)
+
+
+@pytest.mark.parametrize(
+    ("specs", "expected_options"),
+    [
+        (
+            [CodecSpec(name="options", argument=["heat", "cool", "fan"])],
+            ["heat", "cool", "fan"],
+        ),
+        (
+            [CodecSpec(name="mapping", argument={1: "heat", 2: "cool"})],
+            ["heat", "cool"],
+        ),
+        (
+            [
+                CodecSpec(name="options", argument=[1, 2, 3]),
+                CodecSpec(name="scale", argument=2),
+            ],
+            [2, 4, 6],
+        ),
+        (
+            [
+                CodecSpec(name="options", argument=[1, 2, 3]),
+                CodecSpec(name="options", argument=[2, 3, 4]),
+            ],
+            [2, 3],
+        ),
+        (
+            [
+                CodecSpec(name="options", argument=[1, 2, 3]),
+                CodecSpec(name="scale", argument=2),
+                CodecSpec(name="options", argument=[4, 6, 8]),
+            ],
+            [4, 6],
+        ),
+        ([CodecSpec(name="scale", argument=2)], None),
+        ([], None),
+    ],
+)
+def test_build_codec_value_options(
+    specs: list[CodecSpec], expected_options: list[Any] | None
+) -> None:
+    assert build_codec(specs).value_options == expected_options

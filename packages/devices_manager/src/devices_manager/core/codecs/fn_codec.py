@@ -19,15 +19,17 @@ def identity(x: Any) -> Any:  # noqa: ANN401
 class Codec(Protocol[InT, OutT]):
     def decode(self, value: InT) -> OutT: ...
     def encode(self, value: OutT) -> InT: ...
-
     def __add__(self, other: Codec[OutT, MidT]) -> Codec[InT, MidT]: ...
+
+    @property
+    def value_options(self) -> list[OutT] | None: ...
 
 
 @dataclass(frozen=True, slots=True)
 class FnCodec(Codec[InT, OutT]):
     decoder: Callable[[InT], OutT]
     encoder: Callable[[OutT], InT] = identity
-    value_options: list[Any] | None = None
+    value_options: list[OutT] | None = None
 
     def decode(self, value: InT) -> OutT:
         return self.decoder(value)
@@ -42,11 +44,21 @@ class FnCodec(Codec[InT, OutT]):
         def chained_encode(v: MidT) -> InT:
             return self.encode(other.encode(v))
 
-        chained_options: list[Any] | None = None
-        if self.value_options is not None:
-            chained_options = [other.decode(v) for v in self.value_options]
-        elif isinstance(other, FnCodec) and other.value_options is not None:
-            chained_options = other.value_options
+        self_opts = (
+            [other.decode(v) for v in self.value_options]
+            if self.value_options is not None
+            else None
+        )
+        other_opts = other.value_options
+
+        if self_opts is None:
+            chained_options: list[MidT] | None = (
+                list(other_opts) if other_opts is not None else None
+            )
+        elif other_opts is None:
+            chained_options = self_opts
+        else:
+            chained_options = [v for v in self_opts if v in other_opts]
 
         return FnCodec(
             decoder=chained_decode,
