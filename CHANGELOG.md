@@ -1,3 +1,9 @@
+## v0.83.0 (2026-06-02)
+
+### Feat
+
+- options field in attribute agr-641 (#328)
+
 ## v0.82.0 (2026-06-02)
 
 ### Feat
