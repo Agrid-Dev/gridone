@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
+import { AttributeValueBadge } from "@/components/AttributeValueBadge";
 import type { Device } from "@/api/devices";
 import type { WizardFormValues, WritableAttribute } from "./types";
 
@@ -94,21 +95,28 @@ export function CommandStep({
         <Controller
           control={control}
           name="value"
-          render={({ field }) => (
-            <Field>
-              <FieldLabel>{t("commands.value")}</FieldLabel>
-              <ValueInput
-                dataType={selectedDataType}
-                value={field.value}
-                onChange={field.onChange}
-              />
-              <FieldDescription>
-                {t(`commands.new.valueHint.${selectedDataType}`, {
-                  defaultValue: "",
-                })}
-              </FieldDescription>
-            </Field>
-          )}
+          render={({ field }) => {
+            const selectedValueOptions = attributes.find(
+              (a) => a.name === selectedAttribute,
+            )?.valueOptions;
+            return (
+              <Field>
+                <FieldLabel>{t("commands.value")}</FieldLabel>
+                <ValueInput
+                  attributeName={selectedAttribute}
+                  dataType={selectedDataType}
+                  value={field.value}
+                  onChange={field.onChange}
+                  valueOptions={selectedValueOptions}
+                />
+                <FieldDescription>
+                  {t(`commands.new.valueHint.${selectedDataType}`, {
+                    defaultValue: "",
+                  })}
+                </FieldDescription>
+              </Field>
+            );
+          }}
         />
       )}
     </div>
@@ -130,12 +138,31 @@ function currentValueFor(
 }
 
 type ValueInputProps = {
+  attributeName: string;
   dataType: NonNullable<WizardFormValues["attributeDataType"]>;
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
+  valueOptions?: (string | number | boolean)[];
 };
 
-function ValueInput({ dataType, value, onChange }: ValueInputProps) {
+function ValueInput({
+  attributeName,
+  dataType,
+  value,
+  onChange,
+  valueOptions,
+}: ValueInputProps) {
+  if (valueOptions) {
+    return (
+      <OptionsSelect
+        attributeName={attributeName}
+        dataType={dataType}
+        options={valueOptions}
+        value={value}
+        onChange={onChange}
+      />
+    );
+  }
   if (dataType === "bool") {
     return <BoolInput value={value} onChange={onChange} />;
   }
@@ -161,6 +188,52 @@ function ValueInput({ dataType, value, onChange }: ValueInputProps) {
       onChange={(e) => onChange(e.currentTarget.value)}
     />
   );
+}
+
+type OptionsSelectProps = {
+  attributeName: string;
+  dataType: NonNullable<WizardFormValues["attributeDataType"]>;
+  options: (string | number | boolean)[];
+  value: WizardFormValues["value"];
+  onChange: (v: WizardFormValues["value"]) => void;
+};
+
+function OptionsSelect({
+  attributeName,
+  dataType,
+  options,
+  value,
+  onChange,
+}: OptionsSelectProps) {
+  return (
+    <Select
+      value={value !== undefined ? String(value) : ""}
+      onValueChange={(v) => onChange(coerceOption(v, dataType))}
+    >
+      <SelectTrigger>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={String(opt)} value={String(opt)}>
+            <AttributeValueBadge attributeName={attributeName} value={opt} />
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** Shadcn Select always calls onValueChange with a string. Coerce it back to
+ *  the attribute's native type so the command payload has the right shape. */
+function coerceOption(
+  v: string,
+  dataType: NonNullable<WizardFormValues["attributeDataType"]>,
+): string | number | boolean {
+  if (dataType === "int") return parseInt(v, 10);
+  if (dataType === "float") return parseFloat(v);
+  if (dataType === "bool") return v === "true";
+  return v;
 }
 
 function BoolInput({

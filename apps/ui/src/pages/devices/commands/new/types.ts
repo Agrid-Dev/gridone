@@ -6,6 +6,9 @@ export type AttributeDataType = "int" | "float" | "bool" | "str";
 export type WritableAttribute = {
   name: string;
   dataType: AttributeDataType;
+  /** Defined when every selected device agrees on the same option set for
+   *  this attribute. Absent means free-form input is required. */
+  valueOptions?: (string | number | boolean)[];
 };
 
 /** How the user described the target. "devices" freezes the selection to an
@@ -77,7 +80,9 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
 
 /** Intersection of writable attributes across a set of devices. An attribute
  *  is included only if every device in the list exposes it as writable with
- *  the same data type. */
+ *  the same data type. `valueOptions` is included only when every device
+ *  agrees on the same non-null option list (driver-defined, so same-type
+ *  devices always agree; mixed selections fall back to free-text). */
 export function intersectWritableAttributes(
   devices: Device[],
 ): WritableAttribute[] {
@@ -103,7 +108,28 @@ export function intersectWritableAttributes(
     .map((attr) => ({
       name: attr.name,
       dataType: attr.dataType as AttributeDataType,
+      valueOptions: intersectValueOptions(devices, attr.name),
     }));
+}
+
+function intersectValueOptions(
+  devices: Device[],
+  attrName: string,
+): (string | number | boolean)[] | undefined {
+  const optionSets = devices.map(
+    (d) =>
+      Object.values(d.attributes).find((a) => a.name === attrName)
+        ?.valueOptions ?? null,
+  );
+  const first = optionSets[0];
+  if (!first) return undefined;
+  const allMatch = optionSets.every(
+    (opts) =>
+      opts !== null &&
+      opts.length === first.length &&
+      opts.every((v, i) => v === first[i]),
+  );
+  return allMatch ? first : undefined;
 }
 
 /** All device IDs linked to the asset or any of its descendants. */

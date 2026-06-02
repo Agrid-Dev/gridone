@@ -14,6 +14,7 @@ export type DeviceAttribute = {
   currentValue: string | number | boolean | null;
   lastUpdated: string | null;
   lastChanged: string | null;
+  valueOptions?: (string | number | boolean)[];
 };
 
 export type FaultAttribute = DeviceAttribute & {
