@@ -152,7 +152,7 @@ function ValueInput({
   onChange,
   valueOptions,
 }: ValueInputProps) {
-  if (valueOptions) {
+  if (valueOptions && valueOptions.length > 0) {
     return (
       <OptionsSelect
         attributeName={attributeName}
@@ -205,13 +205,16 @@ function OptionsSelect({
   value,
   onChange,
 }: OptionsSelectProps) {
+  const valueStr = value !== undefined ? String(value) : undefined;
+  const isInOptions =
+    valueStr !== undefined && options.some((opt) => String(opt) === valueStr);
   return (
     <Select
-      value={value !== undefined ? String(value) : ""}
+      value={isInOptions ? valueStr : ""}
       onValueChange={(v) => onChange(coerceOption(v, dataType))}
     >
       <SelectTrigger>
-        <SelectValue />
+        <SelectValue placeholder={valueStr} />
       </SelectTrigger>
       <SelectContent>
         {options.map((opt) => (

@@ -78,6 +78,21 @@ describe("CommandStep value input", () => {
     expect(screen.getAllByRole("combobox")).toHaveLength(2);
   });
 
+  it("falls back to text input when valueOptions is an empty array", () => {
+    const attrs: WritableAttribute[] = [
+      { name: "mode", dataType: "str", valueOptions: [] },
+    ];
+    render(
+      <Wrapper
+        attributes={attrs}
+        selectedAttribute="mode"
+        selectedDataType="str"
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+  });
+
   it("renders a text input when the attribute has no valueOptions", () => {
     const attrs: WritableAttribute[] = [{ name: "name", dataType: "str" }];
     render(

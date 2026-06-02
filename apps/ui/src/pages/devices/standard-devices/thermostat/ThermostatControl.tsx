@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
 import { isThermostat, readThermostatAttributes } from "@/api/devices";
+import { AttributeValueBadge } from "@/components/AttributeValueBadge";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
 import {
   Button,
@@ -49,9 +50,11 @@ export function ThermostatControl({
       {/* Top bar: mode (left) — power (right) */}
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {attrs.mode ? (
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            {attrs.mode}
-          </span>
+          <AttributeValueBadge
+            attributeName="mode"
+            value={attrs.mode}
+            className="text-xs uppercase tracking-widest text-muted-foreground"
+          />
         ) : (
           <span />
         )}

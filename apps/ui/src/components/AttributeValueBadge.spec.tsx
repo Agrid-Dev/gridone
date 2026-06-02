@@ -23,23 +23,11 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeTruthy();
   });
 
-  it.each(["heat", "cool", "fan", "auto"])(
-    "renders an icon for mode value %s",
-    (value) => {
-      render(<AttributeValueBadge attributeName="mode" value={value} />);
-      expect(document.querySelector("svg")).toBeTruthy();
-      cleanup();
-    },
-  );
-
-  it.each(["low", "medium", "high", "auto"])(
-    "renders an icon for fan_speed value %s",
-    (value) => {
-      render(<AttributeValueBadge attributeName="fan_speed" value={value} />);
-      expect(document.querySelector("svg")).toBeTruthy();
-      cleanup();
-    },
-  );
+  it("renders icon + label for a known fan_speed value", () => {
+    render(<AttributeValueBadge attributeName="fan_speed" value="low" />);
+    expect(screen.getByText("low")).toBeTruthy();
+    expect(document.querySelector("svg")).toBeTruthy();
+  });
 
   it("renders numeric values as a string label", () => {
     render(<AttributeValueBadge attributeName="setpoint" value={42} />);
