@@ -11,4 +11,4 @@ def options_adapter[T](options: list[T]) -> FnCodec[T, T]:
             raise InvalidError(msg)
         return value
 
-    return FnCodec(decoder=identity, encoder=encode)
+    return FnCodec(decoder=identity, encoder=encode, value_options=list(options))

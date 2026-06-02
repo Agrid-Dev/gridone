@@ -35,13 +35,8 @@ class AttributeDriver(BaseModel):
         return build_codec(self.codecs)
 
     @property
-    def value_options(self) -> list[str | int] | None:
-        for spec in self.codecs:
-            if spec.name == "options" and isinstance(spec.argument, list):
-                return spec.argument
-            if spec.name == "mapping" and isinstance(spec.argument, dict):
-                return list(spec.argument.values())
-        return None
+    def value_options(self) -> list[AttributeValueType] | None:
+        return self.codec.value_options
 
     @model_validator(mode="before")
     @classmethod

@@ -43,6 +43,11 @@ def test_decode_passes_anything_through(value, options) -> None:
     assert options_adapter(options).decode(value) == value
 
 
+def test_value_options_exposed_on_codec() -> None:
+    codec = options_adapter(["heat", "cool", "fan", "auto"])
+    assert codec.value_options == ["heat", "cool", "fan", "auto"]
+
+
 def test_registered_in_factory() -> None:
     codec = build_codec(
         [CodecSpec(name="options", argument=["heat", "cool", "fan", "auto"])]

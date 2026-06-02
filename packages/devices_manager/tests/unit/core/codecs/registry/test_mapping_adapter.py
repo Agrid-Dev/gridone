@@ -91,3 +91,8 @@ def test_unknown_decode_key(mode_adapter) -> None:
 def test_unknown_encode_key(mode_adapter) -> None:
     with pytest.raises(ValueError, match="No reverse mapping found"):
         mode_adapter.encode("unknown")
+
+
+def test_value_options_exposed_on_codec() -> None:
+    codec = mapping_adapter({1: "heat", 2: "cool"})
+    assert codec.value_options == ["heat", "cool"]

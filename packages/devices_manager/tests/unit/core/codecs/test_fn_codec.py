@@ -4,6 +4,8 @@ from devices_manager.core.codecs.fn_codec import FnCodec
 from devices_manager.core.codecs.registry.byte_convert_adapter import (
     byte_convert_adapter,
 )
+from devices_manager.core.codecs.registry.mapping_adapter import mapping_adapter
+from devices_manager.core.codecs.registry.options_adapter import options_adapter
 from devices_manager.core.codecs.registry.scale_adapter import scale_adapter
 from devices_manager.core.codecs.registry.slice_adapter import slice_adapter
 
@@ -70,3 +72,26 @@ def test_byte_slice_then_byte_convert_humidity() -> None:
 def test_byte_slice_then_byte_convert_co2() -> None:
     pipeline = slice_adapter("6:8") + byte_convert_adapter("uint16 big_endian")
     assert pipeline.decode(_ELSYS_PAYLOAD) == 2280
+
+
+def test_value_options_transformed_through_downstream_codec() -> None:
+    # options=[1,2,3] followed by scale(2): internal values are [2,4,6]
+    pipeline = options_adapter([1, 2, 3]) + scale_adapter(2)  # ty: ignore[unsupported-operator]
+    assert pipeline.value_options == [2, 4, 6]
+
+
+def test_value_options_from_mapping_transformed_through_downstream_codec() -> None:
+    # mapping {1->10, 2->20} followed by scale(0.1): internal values are [1.0, 2.0]
+    pipeline = mapping_adapter({1: 10, 2: 20}) + scale_adapter(0.1)
+    assert pipeline.value_options == pytest.approx([1.0, 2.0])
+
+
+def test_value_options_unchanged_when_enumerating_codec_is_last() -> None:
+    # scale then options: options are already in final internal space
+    pipeline = scale_adapter(2) + options_adapter([1, 2, 3])  # ty: ignore[unsupported-operator]
+    assert pipeline.value_options == [1, 2, 3]
+
+
+def test_value_options_none_for_non_enumerating_chain() -> None:
+    pipeline = scale_adapter(2) + scale_adapter(3)
+    assert pipeline.value_options is None

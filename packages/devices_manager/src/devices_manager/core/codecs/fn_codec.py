@@ -27,6 +27,7 @@ class Codec(Protocol[InT, OutT]):
 class FnCodec(Codec[InT, OutT]):
     decoder: Callable[[InT], OutT]
     encoder: Callable[[OutT], InT] = identity
+    value_options: list[Any] | None = None
 
     def decode(self, value: InT) -> OutT:
         return self.decoder(value)
@@ -41,4 +42,14 @@ class FnCodec(Codec[InT, OutT]):
         def chained_encode(v: MidT) -> InT:
             return self.encode(other.encode(v))
 
-        return FnCodec(decoder=chained_decode, encoder=chained_encode)
+        chained_options: list[Any] | None = None
+        if self.value_options is not None:
+            chained_options = [other.decode(v) for v in self.value_options]
+        elif isinstance(other, FnCodec) and other.value_options is not None:
+            chained_options = other.value_options
+
+        return FnCodec(
+            decoder=chained_decode,
+            encoder=chained_encode,
+            value_options=chained_options,
+        )
