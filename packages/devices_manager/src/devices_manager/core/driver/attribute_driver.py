@@ -34,6 +34,10 @@ class AttributeDriver(BaseModel):
     def codec(self) -> FnCodec:
         return build_codec(self.codecs)
 
+    @property
+    def value_options(self) -> list[AttributeValueType] | None:
+        return self.codec.value_options
+
     @model_validator(mode="before")
     @classmethod
     def use_read_write_as_fallback(cls, data: Any) -> Any:  # noqa: ANN401

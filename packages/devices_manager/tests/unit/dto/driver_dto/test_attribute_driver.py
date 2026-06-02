@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
 from pydantic import ValidationError
 
@@ -213,3 +215,23 @@ def test_spec_codec_is_built_lazily_from_codecs():
     codec = spec.codec
     assert spec.codec is codec  # cached
     assert "codec" not in spec.model_dump()
+
+
+def test_value_options_delegated_from_codec() -> None:
+    spec = AttributeDriver.model_validate(
+        {"name": "mode", "data_type": "str", "read": mock_address}
+    )
+    mock_codec = MagicMock(value_options=["heat", "cool"])
+    patch_target = "devices_manager.core.driver.attribute_driver.build_codec"
+    with patch(patch_target, return_value=mock_codec):
+        assert spec.value_options == ["heat", "cool"]
+
+
+def test_value_options_none_when_codec_has_none() -> None:
+    spec = AttributeDriver.model_validate(
+        {"name": "temperature", "data_type": "float", "read": mock_address}
+    )
+    mock_codec = MagicMock(value_options=None)
+    patch_target = "devices_manager.core.driver.attribute_driver.build_codec"
+    with patch(patch_target, return_value=mock_codec):
+        assert spec.value_options is None

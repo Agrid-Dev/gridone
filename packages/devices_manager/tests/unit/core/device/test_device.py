@@ -90,6 +90,30 @@ class TestDeviceCreation:
         )
         assert device.type == driver.type
 
+    def test_value_options_propagated_from_driver(self, mock_transport_client):
+        driver = Driver(
+            metadata=DriverMetadata(id="test"),
+            env={},
+            transport=TransportProtocols.HTTP,
+            device_config_required=[],
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "mode": AttributeDriver(
+                    name="mode",
+                    data_type=DataType.STRING,
+                    read="GET /mode",
+                    write="POST /mode",
+                    codecs=[CodecSpec(name="options", argument=["heat", "cool"])],
+                )
+            },
+        )
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="dev", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        assert device.attributes["mode"].value_options == ["heat", "cool"]
+
 
 class TestDeviceRead:
     @pytest.mark.asyncio

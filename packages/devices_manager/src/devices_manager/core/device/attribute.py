@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, computed_field, model_validator
+from pydantic import BaseModel, computed_field, model_serializer, model_validator
 
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
@@ -23,6 +23,14 @@ class Attribute(BaseModel):
     current_value: AttributeValueType | None
     last_updated: datetime | None = None
     last_changed: datetime | None = None
+    value_options: list[AttributeValueType] | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
+        data = handler(self)
+        if data.get("value_options") is None:
+            data.pop("value_options", None)
+        return data
 
     def ensure_type(
         self,
@@ -62,6 +70,7 @@ class Attribute(BaseModel):
         data_type: DataType,
         read_write_modes: set[ReadWriteMode],
         value: AttributeValueType | None = None,
+        value_options: list[AttributeValueType] | None = None,
     ) -> "Attribute":
         return cls(
             name=name,
@@ -69,6 +78,7 @@ class Attribute(BaseModel):
             read_write_modes=read_write_modes,
             current_value=value,
             last_updated=datetime.now(UTC) if value is not None else None,
+            value_options=value_options,
         )
 
 

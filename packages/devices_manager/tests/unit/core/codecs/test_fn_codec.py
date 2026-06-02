@@ -70,3 +70,27 @@ def test_byte_slice_then_byte_convert_humidity() -> None:
 def test_byte_slice_then_byte_convert_co2() -> None:
     pipeline = slice_adapter("6:8") + byte_convert_adapter("uint16 big_endian")
     assert pipeline.decode(_ELSYS_PAYLOAD) == 2280
+
+
+def test_value_options_transformed_through_downstream_decode() -> None:
+    enumerated = FnCodec(decoder=lambda x: x, value_options=[1, 2, 3])
+    downstream = FnCodec(decoder=lambda x: x * 2)
+    assert (enumerated + downstream).value_options == [2, 4, 6]
+
+
+def test_value_options_taken_from_downstream_when_upstream_none() -> None:
+    plain = FnCodec(decoder=lambda x: x + 1)
+    enumerated = FnCodec(decoder=lambda x: x, value_options=[1, 2, 3])
+    assert (plain + enumerated).value_options == [1, 2, 3]
+
+
+def test_value_options_intersected_when_both_enumerate() -> None:
+    a = FnCodec(decoder=lambda x: x, value_options=[1, 2, 3])
+    b = FnCodec(decoder=lambda x: x, value_options=[2, 3, 4])
+    assert (a + b).value_options == [2, 3]
+
+
+def test_value_options_none_when_no_codec_enumerates() -> None:
+    a = FnCodec(decoder=lambda x: x * 2)
+    b = FnCodec(decoder=lambda x: x + 1)
+    assert (a + b).value_options is None

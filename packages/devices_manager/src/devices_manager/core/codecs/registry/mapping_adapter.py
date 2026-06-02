@@ -40,7 +40,7 @@ def _build(raw_mapping: dict[str, Any]) -> FnCodec[Any, Any]:
             msg = f"No reverse mapping found for internal value: {value!r}"
             raise ValueError(msg) from None
 
-    return FnCodec(decoder=decode, encoder=encode)
+    return FnCodec(decoder=decode, encoder=encode, value_options=list(forward.values()))
 
 
 def mapping_adapter(raw: str | dict[Any, Any]) -> FnCodec[Any, Any]:

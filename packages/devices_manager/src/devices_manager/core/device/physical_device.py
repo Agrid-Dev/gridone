@@ -59,6 +59,7 @@ def _build_attribute(
         attribute_driver.data_type,
         modes,
         initial_value,
+        value_options=attribute_driver.value_options,
     )
 
 
