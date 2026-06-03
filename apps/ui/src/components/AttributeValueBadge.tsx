@@ -107,9 +107,11 @@ export function AttributeValueBadge({
 
   const { Icon, color, rotate } = renderer;
   return (
-    <span className={cn("inline-flex items-center gap-1.5", className)}>
+    <span
+      className={cn("inline-flex items-center gap-[0.4em]", color, className)}
+    >
       <Icon
-        className={cn("h-4 w-4 shrink-0", color, rotate && "rotate-90")}
+        className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
         aria-hidden
       />
       <span>{label}</span>
