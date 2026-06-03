@@ -119,3 +119,32 @@ An outdoor weather station providing ambient conditions data.
 | `humidity` | float | yes | Relative humidity (%) |
 
 **UI behavior:** The control panel displays the weather condition with an icon derived from the WMO code, a prominent temperature reading, wind speed with compass direction, and humidity.
+
+---
+
+## Standard values
+
+Attributes can declare a fixed set of allowed values using the `options` or `mapping` codec. When present, the UI renders a **select dropdown** instead of a free-text input for that attribute.
+
+```yaml
+# With mapping — device sends integer codes, driver maps them to labels
+codecs:
+  - mapping:
+      1: "heat"
+      2: "cool"
+      3: "fan"
+      4: "auto"
+
+# With options — labels are sent to the device as-is
+codecs:
+  - options: ["heat", "cool", "fan", "auto"]
+```
+
+### Recommended values
+
+Use these labels to keep drivers consistent across vendors:
+
+| Attribute | Recommended values |
+|---|---|
+| `mode` | `heat`, `cool`, `fan`, `auto` |
+| `fan_speed` | `low`, `medium`, `high`, `auto` |

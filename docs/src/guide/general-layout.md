@@ -20,7 +20,7 @@ device_config:                # (optional) parameters the user must supply per d
   - name: ip                  # e.g. IP address, device ID — interpolated as ${ip} in addresses
 
 update_strategy:              # (optional) controls how often attributes are polled
-  period: 30s
+  polling_interval: 30s
 
 attributes:                   # (required) list of attribute drivers
   - name: temperature         # attribute identifier
