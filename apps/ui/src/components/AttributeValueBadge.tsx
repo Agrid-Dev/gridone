@@ -18,7 +18,7 @@ const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = {
   heat: { Icon: Sun, color: "text-orange-500" },
   cool: { Icon: Snowflake, color: "text-blue-500" },
   fan: { Icon: Fan, color: "text-green-500" },
-  auto: { Icon: RefreshCcwDot, color: "text-amber-500" },
+  auto: { Icon: RefreshCcwDot, color: "text-yellow-500" },
 };
 
 const HVAC_FAN_SPEED_RENDERERS: Record<string, ValueRenderer> = {
