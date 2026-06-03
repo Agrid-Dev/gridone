@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DeviceKind, type Device, type DeviceAttribute } from "@/api/devices";
-import { intersectWritableAttributes } from "./types";
+import { intersectWritableAttributes } from "./resolvers";
 
 function attr(
   name: string,

@@ -79,7 +79,7 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                         ) : (
                           <span className="text-muted-foreground">
                             <AttributeValueBadge
-                              deviceTypes={deviceTypes}
+                              deviceType={deviceTypes}
                               attributeName={attr?.name ?? ""}
                               value={currentFormatted}
                             />
@@ -88,7 +88,7 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-semibold">
                           <AttributeValueBadge
-                            deviceTypes={deviceTypes}
+                            deviceType={deviceTypes}
                             attributeName={values.attribute ?? ""}
                             value={newValueFormatted}
                           />

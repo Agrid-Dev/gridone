@@ -9,7 +9,7 @@ describe("AttributeValueBadge", () => {
   it("renders plain text for an unknown attribute", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat]}
+        deviceType={DeviceType.Thermostat}
         attributeName="temperature"
         value="22.5"
       />,
@@ -21,7 +21,7 @@ describe("AttributeValueBadge", () => {
   it("renders plain text for an unknown value of a known attribute", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat]}
+        deviceType={DeviceType.Thermostat}
         attributeName="mode"
         value="dehumidify"
       />,
@@ -30,16 +30,16 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeNull();
   });
 
-  it("renders plain text when deviceTypes is absent", () => {
+  it("renders plain text when deviceType is absent", () => {
     render(<AttributeValueBadge attributeName="mode" value="heat" />);
     expect(screen.getByText("heat")).toBeTruthy();
     expect(document.querySelector("svg")).toBeNull();
   });
 
-  it("renders plain text when no device type has a renderer for the attribute", () => {
+  it("renders plain text when the device type has no renderer for the attribute", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.WeatherSensor]}
+        deviceType={DeviceType.WeatherSensor}
         attributeName="mode"
         value="heat"
       />,
@@ -48,10 +48,10 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeNull();
   });
 
-  it("renders icon + label for a known thermostat mode value", () => {
+  it("renders icon + label for a known mode value", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat]}
+        deviceType={DeviceType.Thermostat}
         attributeName="mode"
         value="heat"
       />,
@@ -60,22 +60,10 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders icon + label for a known awhp mode value", () => {
+  it("renders icon + label for a known fan_speed value", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Awhp]}
-        attributeName="mode"
-        value="cool"
-      />,
-    );
-    expect(screen.getByText("cool")).toBeTruthy();
-    expect(document.querySelector("svg")).toBeTruthy();
-  });
-
-  it("renders icon + label for a known thermostat fan_speed value", () => {
-    render(
-      <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat]}
+        deviceType={DeviceType.Thermostat}
         attributeName="fan_speed"
         value="low"
       />,
@@ -84,10 +72,10 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders icon when all device types share the same renderer", () => {
+  it("renders an icon when all device types share the same renderer", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat, DeviceType.Awhp]}
+        deviceType={[DeviceType.Thermostat, DeviceType.Awhp]}
         attributeName="mode"
         value="heat"
       />,
@@ -95,10 +83,10 @@ describe("AttributeValueBadge", () => {
     expect(document.querySelector("svg")).toBeTruthy();
   });
 
-  it("renders plain text when device types disagree on renderer", () => {
+  it("renders plain text when device types disagree on the renderer", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat, DeviceType.WeatherSensor]}
+        deviceType={[DeviceType.Thermostat, DeviceType.WeatherSensor]}
         attributeName="mode"
         value="heat"
       />,
@@ -109,7 +97,7 @@ describe("AttributeValueBadge", () => {
   it("renders numeric values as a string label", () => {
     render(
       <AttributeValueBadge
-        deviceTypes={[DeviceType.Thermostat]}
+        deviceType={DeviceType.Thermostat}
         attributeName="setpoint"
         value={42}
       />,

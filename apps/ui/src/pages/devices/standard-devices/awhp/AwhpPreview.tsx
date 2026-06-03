@@ -60,7 +60,7 @@ export function AwhpPreview({ device }: StandardPreviewProps) {
         <span className="uppercase">{attrs.unitRunStatus ?? "—"}</span>
         {attrs.mode && (
           <AttributeValueBadge
-            deviceTypes={[DeviceType.Awhp]}
+            deviceType={DeviceType.Awhp}
             attributeName="mode"
             value={attrs.mode}
             className="truncate max-w-[5rem] uppercase"

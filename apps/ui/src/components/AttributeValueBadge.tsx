@@ -71,24 +71,33 @@ function resolveSharedRenderer(
 }
 
 type AttributeValueBadgeProps = {
-  deviceTypes?: DeviceType[];
+  /** A single device type for the common case, or several when the value is
+   *  shared across a mixed selection — an icon shows only when all of them
+   *  agree on the same renderer. */
+  deviceType?: DeviceType | DeviceType[];
   attributeName: string;
   value: string | number | boolean;
   className?: string;
 };
 
-/** Renders a discrete attribute value with an icon and colour when all
- *  provided device types share the same standard renderer; falls back to
- *  a plain text label otherwise. */
+/** Renders a discrete attribute value with an icon and colour when the device
+ *  type(s) share the same standard renderer; falls back to a plain text label
+ *  otherwise. */
 export function AttributeValueBadge({
-  deviceTypes,
+  deviceType,
   attributeName,
   value,
   className,
 }: AttributeValueBadgeProps) {
   const label = String(value);
+  const deviceTypes =
+    deviceType === undefined
+      ? []
+      : Array.isArray(deviceType)
+        ? deviceType
+        : [deviceType];
   const renderer =
-    deviceTypes && deviceTypes.length > 0
+    deviceTypes.length > 0
       ? resolveSharedRenderer(deviceTypes, attributeName, label)
       : undefined;
 

@@ -42,7 +42,7 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
         </span>
         {attrs.mode && (
           <AttributeValueBadge
-            deviceTypes={[DeviceType.Thermostat]}
+            deviceType={DeviceType.Thermostat}
             attributeName="mode"
             value={attrs.mode}
             className="truncate max-w-[5rem] uppercase"

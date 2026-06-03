@@ -113,16 +113,15 @@ export function CommandStep({
                 label={t("commands.value")}
                 description={hint || undefined}
                 options={selectedValueOptions.map((opt) => ({
-                  value: String(opt),
+                  value: opt,
                   label: (
                     <AttributeValueBadge
-                      deviceTypes={deviceTypes}
+                      deviceType={deviceTypes}
                       attributeName={selectedAttribute}
                       value={opt}
                     />
                   ),
                 }))}
-                transform={(v) => coerceOption(v, selectedDataType)}
               />
             );
           }
@@ -195,18 +194,6 @@ function ValueInput({ dataType, value, onChange }: ValueInputProps) {
       onChange={(e) => onChange(e.currentTarget.value)}
     />
   );
-}
-
-/** Shadcn Select always calls onValueChange with a string. Coerce it back to
- *  the attribute's native type so the command payload has the right shape. */
-function coerceOption(
-  v: string,
-  dataType: NonNullable<WizardFormValues["attributeDataType"]>,
-): string | number | boolean {
-  if (dataType === "int") return parseInt(v, 10);
-  if (dataType === "float") return parseFloat(v);
-  if (dataType === "bool") return v === "true";
-  return v;
 }
 
 function BoolInput({
