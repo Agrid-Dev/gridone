@@ -45,7 +45,7 @@ export function AwhpControl({ device }: StandardControlProps) {
         a.mode ? (
           <Badge variant="info">
             <AttributeValueBadge
-              deviceType={DeviceType.Awhp}
+              deviceTypes={[DeviceType.Awhp]}
               attributeName="mode"
               value={a.mode}
             />

@@ -55,7 +55,7 @@ export function ThermostatControl({
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {attrs.mode ? (
           <AttributeValueBadge
-            deviceType={DeviceType.Thermostat}
+            deviceTypes={[DeviceType.Thermostat]}
             attributeName="mode"
             value={attrs.mode}
             className="text-xs uppercase tracking-widest text-muted-foreground"

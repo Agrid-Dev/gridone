@@ -1,3 +1,6 @@
+import { DeviceType } from "@/api/devices";
+import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
 import {
   ArrowUpNarrowWide,
   Fan,
@@ -8,9 +11,6 @@ import {
   Snowflake,
   Sun,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { DeviceType } from "@/api/devices";
-import { cn } from "@/lib/utils";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
@@ -55,23 +55,42 @@ export function lookupValueRenderer(
   return STANDARD_VALUE_RENDERERS[deviceType]?.[attributeName]?.[value];
 }
 
+/** Resolves a renderer shared across all given device types using object identity. */
+function resolveSharedRenderer(
+  deviceTypes: DeviceType[],
+  attributeName: string,
+  value: string,
+): ValueRenderer | undefined {
+  if (deviceTypes.length === 0) return undefined;
+  const renderers = deviceTypes.map((t) =>
+    lookupValueRenderer(t, attributeName, value),
+  );
+  const first = renderers[0];
+  if (first && renderers.every((r) => r === first)) return first;
+  return undefined;
+}
+
 type AttributeValueBadgeProps = {
-  deviceType?: DeviceType;
+  deviceTypes?: DeviceType[];
   attributeName: string;
   value: string | number | boolean;
   className?: string;
 };
 
-/** Renders a discrete attribute value with an icon and colour when a standard
- *  renderer exists for the device type; falls back to a plain text label. */
+/** Renders a discrete attribute value with an icon and colour when all
+ *  provided device types share the same standard renderer; falls back to
+ *  a plain text label otherwise. */
 export function AttributeValueBadge({
-  deviceType,
+  deviceTypes,
   attributeName,
   value,
   className,
 }: AttributeValueBadgeProps) {
   const label = String(value);
-  const renderer = lookupValueRenderer(deviceType, attributeName, label);
+  const renderer =
+    deviceTypes && deviceTypes.length > 0
+      ? resolveSharedRenderer(deviceTypes, attributeName, label)
+      : undefined;
 
   if (!renderer) {
     return <span className={className}>{label}</span>;
