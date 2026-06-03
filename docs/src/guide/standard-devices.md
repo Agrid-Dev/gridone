@@ -124,7 +124,19 @@ An outdoor weather station providing ambient conditions data.
 
 ## Standard values
 
-Attributes can declare a fixed set of allowed values using the `options` or `mapping` codec. When present, the UI renders a **select dropdown** instead of a free-text input for that attribute.
+Attributes of any data type can declare a fixed set of allowed values using the `options` or `mapping` codec. When present, the UI renders a **select dropdown** instead of a free-text input. 
+Note: When sending a command to multiple devices, the dropdown appears only if all selected devices agree on the same option list — otherwise it falls back to free text.
+
+For certain device type and attribute combinations, the UI also renders each value with a distinct icon and colour (in the command picker, control panel, and preview card).
+
+When no renderer is registered for the device type, or when selected devices span types with different renderers, the value option is displayed as plain text input.
+
+Currently registered renderers:
+
+| Device type | Attribute | Values |
+|---|---|---|
+| `thermostat`, `awhp` | `mode` | `heat`, `cool`, `fan`, `auto` |
+| `thermostat`, `awhp` | `fan_speed` | `low`, `medium`, `high`, `auto` |
 
 ```yaml
 # With mapping — device sends integer codes, driver maps them to labels
