@@ -22,7 +22,7 @@ from api.schemas.device import (
     TimeseriesSingleAttrPushRequest,
 )
 from devices_manager import DevicesServiceInterface
-from devices_manager.dto import StandardAttributeSchema
+from devices_manager.dto import AttributeLogs, StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
     DeviceCreate,
@@ -95,6 +95,19 @@ def get_standard_types(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> list[StandardAttributeSchema]:
     return dm.list_standard_schemas()
+
+
+@router.get(
+    "/{device_id}/{attr_name}/logs",
+    dependencies=[Depends(require_permission(Permission.DEVICES_LOGS_READ))],
+    response_model_exclude_none=True,
+)
+def get_attribute_logs(
+    device_id: str,
+    attr_name: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> AttributeLogs:
+    return dm.get_attribute_logs(device_id, attr_name)
 
 
 @router.get(

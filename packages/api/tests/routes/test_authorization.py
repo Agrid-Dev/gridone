@@ -27,6 +27,7 @@ from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from devices_manager.dto import AttributeLogs
 from models.pagination import Page
 from models.types import Severity
 from notifications import (
@@ -313,6 +314,7 @@ def _build_devices_app() -> FastAPI:
     manager = MockUsersService()
     dm = MagicMock()
     dm.list_active_faults.return_value = []
+    dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     ts_mock = AsyncMock(default_timezone="UTC")
@@ -407,6 +409,19 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
     pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),
     pytest.param("GET", "/devices/faults/", "viewer", 200, id="faults-viewer"),
     pytest.param("GET", "/devices/faults/", None, 401, id="faults-no-auth"),
+    # Attribute logs — admin only
+    pytest.param(
+        "GET", "/devices/any-id/temperature/logs", "admin", 200, id="logs-admin"
+    ),
+    pytest.param(
+        "GET", "/devices/any-id/temperature/logs", "operator", 403, id="logs-operator"
+    ),
+    pytest.param(
+        "GET", "/devices/any-id/temperature/logs", "viewer", 403, id="logs-viewer"
+    ),
+    pytest.param(
+        "GET", "/devices/any-id/temperature/logs", None, 401, id="logs-no-auth"
+    ),
 ]
 
 
