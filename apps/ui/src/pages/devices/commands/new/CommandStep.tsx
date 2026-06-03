@@ -15,12 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SelectController } from "@/components/forms/controllers/SelectController";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { AttributeValueBadge } from "@/components/AttributeValueBadge";
-import { type Device } from "@/api/devices";
+import { type Device, type DeviceType } from "@/api/devices";
 import type { WizardFormValues, WritableAttribute } from "./types";
-import { resolveSharedDeviceType } from "./resolveDeviceType";
 
 type CommandStepProps = {
   control: Control<WizardFormValues>;
@@ -92,35 +92,59 @@ export function CommandStep({
         )}
       />
 
-      {selectedAttribute && selectedDataType && (
-        <Controller
-          control={control}
-          name="value"
-          render={({ field }) => {
-            const selectedValueOptions = attributes.find(
-              (a) => a.name === selectedAttribute,
-            )?.valueOptions;
+      {selectedAttribute &&
+        selectedDataType &&
+        (() => {
+          const selectedValueOptions = attributes.find(
+            (a) => a.name === selectedAttribute,
+          )?.valueOptions;
+          const hint = t(`commands.new.valueHint.${selectedDataType}`, {
+            defaultValue: "",
+          });
+
+          if (selectedValueOptions && selectedValueOptions.length > 0) {
+            const deviceTypes = [
+              ...new Set(selectedDevices.map((d) => d.type).filter(Boolean)),
+            ] as DeviceType[];
             return (
-              <Field>
-                <FieldLabel>{t("commands.value")}</FieldLabel>
-                <ValueInput
-                  attributeName={selectedAttribute}
-                  dataType={selectedDataType}
-                  value={field.value}
-                  onChange={field.onChange}
-                  valueOptions={selectedValueOptions}
-                  selectedDevices={selectedDevices}
-                />
-                <FieldDescription>
-                  {t(`commands.new.valueHint.${selectedDataType}`, {
-                    defaultValue: "",
-                  })}
-                </FieldDescription>
-              </Field>
+              <SelectController
+                control={control}
+                name="value"
+                label={t("commands.value")}
+                description={hint || undefined}
+                options={selectedValueOptions.map((opt) => ({
+                  value: String(opt),
+                  label: (
+                    <AttributeValueBadge
+                      deviceTypes={deviceTypes}
+                      attributeName={selectedAttribute}
+                      value={opt}
+                    />
+                  ),
+                }))}
+                transform={(v) => coerceOption(v, selectedDataType)}
+              />
             );
-          }}
-        />
-      )}
+          }
+
+          return (
+            <Controller
+              control={control}
+              name="value"
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>{t("commands.value")}</FieldLabel>
+                  <ValueInput
+                    dataType={selectedDataType}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                  {hint && <FieldDescription>{hint}</FieldDescription>}
+                </Field>
+              )}
+            />
+          );
+        })()}
     </div>
   );
 }
@@ -140,34 +164,12 @@ function currentValueFor(
 }
 
 type ValueInputProps = {
-  attributeName: string;
   dataType: NonNullable<WizardFormValues["attributeDataType"]>;
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
-  valueOptions?: (string | number | boolean)[];
-  selectedDevices: Device[];
 };
 
-function ValueInput({
-  attributeName,
-  dataType,
-  value,
-  onChange,
-  valueOptions,
-  selectedDevices,
-}: ValueInputProps) {
-  if (valueOptions && valueOptions.length > 0) {
-    return (
-      <OptionsSelect
-        attributeName={attributeName}
-        dataType={dataType}
-        options={valueOptions}
-        value={value}
-        onChange={onChange}
-        selectedDevices={selectedDevices}
-      />
-    );
-  }
+function ValueInput({ dataType, value, onChange }: ValueInputProps) {
   if (dataType === "bool") {
     return <BoolInput value={value} onChange={onChange} />;
   }
@@ -192,57 +194,6 @@ function ValueInput({
       value={typeof value === "string" ? value : ""}
       onChange={(e) => onChange(e.currentTarget.value)}
     />
-  );
-}
-
-type OptionsSelectProps = {
-  attributeName: string;
-  dataType: NonNullable<WizardFormValues["attributeDataType"]>;
-  options: (string | number | boolean)[];
-  value: WizardFormValues["value"];
-  onChange: (v: WizardFormValues["value"]) => void;
-  selectedDevices: Device[];
-};
-
-function OptionsSelect({
-  attributeName,
-  dataType,
-  options,
-  value,
-  onChange,
-  selectedDevices,
-}: OptionsSelectProps) {
-  const valueStr = value !== undefined ? String(value) : undefined;
-  const isInOptions =
-    valueStr !== undefined && options.some((opt) => String(opt) === valueStr);
-  return (
-    <Select
-      value={isInOptions ? valueStr : ""}
-      onValueChange={(v) => onChange(coerceOption(v, dataType))}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder={valueStr} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => {
-          const optStr = String(opt);
-          const deviceType = resolveSharedDeviceType(
-            selectedDevices,
-            attributeName,
-            optStr,
-          );
-          return (
-            <SelectItem key={optStr} value={optStr}>
-              <AttributeValueBadge
-                deviceType={deviceType}
-                attributeName={attributeName}
-                value={opt}
-              />
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
   );
 }
 

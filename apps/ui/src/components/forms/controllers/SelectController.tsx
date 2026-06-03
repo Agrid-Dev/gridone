@@ -1,4 +1,3 @@
-// SelectController.tsx
 import * as React from "react";
 import {
   useController,
@@ -35,6 +34,10 @@ type SelectControllerProps<
   allowEmpty?: boolean;
   emptyValue?: undefined | "";
   title?: string;
+  /** Optional transform applied to the selected string value before storing
+   *  in the form field — use when the field must hold a non-string type
+   *  (e.g. coercing "42" → 42 for an int attribute). */
+  transform?: (value: string) => unknown;
   selectProps?: Omit<
     React.ComponentProps<typeof Select>,
     "value" | "defaultValue" | "onValueChange" | "disabled"
@@ -58,6 +61,7 @@ export function SelectController<
   allowEmpty = false,
   emptyValue = undefined,
   required,
+  transform,
   selectProps,
   triggerProps,
   contentProps,
@@ -68,7 +72,14 @@ export function SelectController<
 
   const id = field.name;
 
-  const value = (field.value ?? "") as string;
+  const valueStr =
+    field.value !== undefined && field.value !== null
+      ? String(field.value)
+      : "";
+  const isInOptions = options.some((opt) => String(opt.value) === valueStr);
+  const value = isInOptions ? valueStr : "";
+  const effectivePlaceholder =
+    !isInOptions && valueStr ? valueStr : placeholder;
 
   return (
     <FieldShell
@@ -84,7 +95,7 @@ export function SelectController<
         value={value}
         onValueChange={(v) => {
           if (allowEmpty && v === "") field.onChange(emptyValue);
-          else field.onChange(v);
+          else field.onChange(transform ? transform(v) : v);
         }}
         disabled={field.disabled}
         required={required}
@@ -96,7 +107,7 @@ export function SelectController<
           disabled={field.disabled}
           title={title}
         >
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={effectivePlaceholder} />
         </SelectTrigger>
 
         <SelectContent {...contentProps}>
