@@ -1,3 +1,4 @@
+from .attribute_logs_dto import AttributeLogs
 from .device_dto import (
     AttributeCreate,
     Device,
@@ -33,6 +34,7 @@ from .transport_dto import dto_to_core as transport_from_public
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
     "AttributeCreate",
+    "AttributeLogs",
     "Device",
     "DeviceCreate",
     "DeviceUpdate",

@@ -22,6 +22,7 @@ from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry
 from .dto import (
+    AttributeLogs,
     Device,
     DeviceCreate,
     DeviceUpdate,
@@ -274,6 +275,9 @@ class DevicesService(Service):
         return await self._device_registry.write_attribute(
             device_id, attribute_name, value, confirm=confirm
         )
+
+    def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
+        return self._device_registry.get_attribute_logs(device_id, attribute_name)
 
     # -- Faults --
 

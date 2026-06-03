@@ -5,6 +5,7 @@ from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
+    AttributeLogs,
     PhysicalDeviceCreate,
     device_to_public,
 )
@@ -339,4 +340,14 @@ class DeviceRegistry:
             raise NotFoundError(msg)
         return await device.write_attribute_value(
             attribute_name, value, confirm=confirm
+        )
+
+    def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
+        device = self._get_or_raise(device_id)
+        if attribute_name not in device.attributes:
+            msg = f"Attribute '{attribute_name}' not found on device {device_id}"
+            raise NotFoundError(msg)
+        logs = device.attributes[attribute_name].get_logs()
+        return AttributeLogs(
+            read=logs["read"], write=logs["write"], listen=logs["listen"]
         )

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
+        AttributeLogs,
         Device,
         DeviceCreate,
         DeviceUpdate,
@@ -77,6 +78,10 @@ class DeviceRegistryInterface(Protocol):
         *,
         confirm: bool = True,
     ) -> Attribute: ...
+
+    def get_attribute_logs(
+        self, device_id: str, attribute_name: str
+    ) -> AttributeLogs: ...
 
 
 class DiscoveryManagerInterface(Protocol):
@@ -151,6 +156,10 @@ class DevicesServiceInterface(Protocol):
         *,
         confirm: bool = True,
     ) -> Attribute: ...
+
+    def get_attribute_logs(
+        self, device_id: str, attribute_name: str
+    ) -> AttributeLogs: ...
 
     # -- faults --
 
