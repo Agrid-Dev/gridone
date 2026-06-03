@@ -1,3 +1,21 @@
+## v0.84.0 (2026-06-03)
+
+### Feat
+
+- **ui**: device-type-aware standard value renderers
+- **ui**: device-type-aware standard value renderers
+- **ui**: add UI for attribute value pickers list
+
+### Fix
+
+- **ui**: scale AttributeValueBadge icon with surrounding text
+- **ui**: extract AttributeValue type, guard empty options, reuse SelectController
+- address review comments
+
+### Refactor
+
+- **ui**: address picker review feedback
+
 ## v0.83.0 (2026-06-02)
 
 ### Feat
