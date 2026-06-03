@@ -5,7 +5,8 @@ import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from functools import wraps
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
@@ -15,6 +16,7 @@ from models.errors import ConfirmationError
 
 from .attribute import Attribute, FaultAttribute
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
+from .event_log import AttributeEventLog, EventType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -28,6 +30,69 @@ if TYPE_CHECKING:
     from .device_base import DeviceBase
 
 logger = logging.getLogger(__name__)
+
+
+def _ok_entry(event_type: EventType) -> AttributeEventLog:
+    return AttributeEventLog(
+        event_type=event_type, timestamp=datetime.now(UTC), status="ok"
+    )
+
+
+def _error_entry(event_type: EventType, exc: Exception) -> AttributeEventLog:
+    return AttributeEventLog(
+        event_type=event_type,
+        timestamp=datetime.now(UTC),
+        status="error",
+        message=str(exc),
+    )
+
+
+def _log_event(
+    event_type: EventType,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator: appends an ok/error AttributeEventLog to the named attribute."""
+
+    def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
+        @wraps(fn)
+        async def wrapper(
+            self: Any,  # noqa: ANN401
+            attribute_name: str,
+            *args: Any,  # noqa: ANN401
+            **kwargs: Any,  # noqa: ANN401
+        ) -> Any:  # noqa: ANN401
+            try:
+                attribute = self.get_attribute(attribute_name)
+            except KeyError:
+                return await fn(self, attribute_name, *args, **kwargs)
+            try:
+                result = await fn(self, attribute_name, *args, **kwargs)
+            except Exception as e:
+                attribute.append_log(_error_entry(event_type, e))
+                raise
+            else:
+                attribute.append_log(_ok_entry(event_type))
+                return result
+
+        return wrapper
+
+    return decorator
+
+
+def _wrap_listen(
+    callback: Callable[[object], None], attribute: Attribute
+) -> Callable[[object], None]:
+    """Wrap a push-listener callback to append a listen event log to the attribute."""
+
+    @wraps(callback)
+    def wrapper(v: object) -> None:
+        try:
+            callback(v)
+            attribute.append_log(_ok_entry(EventType.LISTEN))
+        except Exception as e:
+            attribute.append_log(_error_entry(EventType.LISTEN, e))
+            raise
+
+    return wrapper
 
 
 def _build_attribute(
@@ -151,7 +216,7 @@ class PhysicalDevice(CoreDevice):
             )
             self._update_attribute(attribute, decoded)
 
-        return on_message
+        return _wrap_listen(on_message, attribute)
 
     async def start_sync(self) -> None:
         """Start listeners and polling for this device."""
@@ -197,6 +262,7 @@ class PhysicalDevice(CoreDevice):
                 )
             delay = min(delay * 4, 4.0)
 
+    @_log_event(EventType.READ)
     async def read_attribute_value(
         self,
         attribute_name: str,
@@ -278,6 +344,7 @@ class PhysicalDevice(CoreDevice):
                 with contextlib.suppress(asyncio.CancelledError):
                     await poll_task
 
+    @_log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
         attribute_name: str,
