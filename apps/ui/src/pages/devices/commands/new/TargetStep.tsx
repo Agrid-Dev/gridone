@@ -17,12 +17,8 @@ import { cn } from "@/lib/utils";
 import type { Asset, AssetTreeNode } from "@/api/assets";
 import { DeviceType, type Device } from "@/api/devices";
 import { DevicePickerTable } from "./DevicePickerTable";
-import {
-  resolveAssetSubtreeDeviceIds,
-  resolveFilter,
-  type TargetMode,
-  type WizardFormValues,
-} from "./types";
+import { resolveAssetSubtreeDeviceIds, resolveFilter } from "./resolvers";
+import type { TargetMode, WizardFormValues } from "./types";
 
 const ALL = "__all__";
 

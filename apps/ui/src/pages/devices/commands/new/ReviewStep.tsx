@@ -9,7 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatValue } from "@/lib/formatValue";
-import type { Device } from "@/api/devices";
+import { AttributeValueBadge } from "@/components/AttributeValueBadge";
+import { type Device, type DeviceType } from "@/api/devices";
 import type { WizardFormValues } from "./types";
 
 type ReviewStepProps = {
@@ -19,6 +20,10 @@ type ReviewStepProps = {
 
 export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
   const { t } = useTranslation("devices");
+
+  const deviceTypes = [
+    ...new Set(selectedDevices.map((d) => d.type).filter(Boolean)),
+  ] as DeviceType[];
 
   const newValueFormatted =
     values.value !== undefined
@@ -73,12 +78,20 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                           <span className="text-muted-foreground">—</span>
                         ) : (
                           <span className="text-muted-foreground">
-                            {currentFormatted}
+                            <AttributeValueBadge
+                              deviceType={deviceTypes}
+                              attributeName={attr?.name ?? ""}
+                              value={currentFormatted}
+                            />
                           </span>
                         )}
                         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-semibold">
-                          {newValueFormatted}
+                          <AttributeValueBadge
+                            deviceType={deviceTypes}
+                            attributeName={values.attribute ?? ""}
+                            value={newValueFormatted}
+                          />
                         </span>
                       </span>
                     </TableCell>

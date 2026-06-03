@@ -1,7 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
-import { isThermostat, readThermostatAttributes } from "@/api/devices";
+import {
+  DeviceType,
+  isThermostat,
+  readThermostatAttributes,
+} from "@/api/devices";
+import {
+  AttributeValueBadge,
+  lookupValueRenderer,
+} from "@/components/AttributeValueBadge";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Tooltip,
@@ -44,21 +53,45 @@ export function ThermostatControl({
   const powerSaving = isSaving("onoffState");
   const setpointSaving = isSaving("temperatureSetpoint");
 
+  const modeRenderer = lookupValueRenderer(
+    DeviceType.Thermostat,
+    "mode",
+    attrs.mode as string,
+  );
+  const onColor = modeRenderer?.color ?? "text-primary";
+
   return (
-    <div className="relative mx-auto flex aspect-square w-full max-w-xs items-center justify-center rounded-2xl border bg-card shadow-md">
-      {/* Top bar: mode (left) — power (right) */}
+    <div className="relative mx-auto flex aspect-square w-full max-w-xs items-center justify-center overflow-hidden rounded-2xl border bg-card shadow-md">
+      {/* Mode-tinted glow: blooms when on, drains to nothing when off. */}
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current blur-3xl transition-opacity duration-500",
+          onColor,
+          isOn ? "opacity-20" : "opacity-0",
+        )}
+      />
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {attrs.mode ? (
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            {attrs.mode}
-          </span>
+          <AttributeValueBadge
+            deviceType={DeviceType.Thermostat}
+            attributeName="mode"
+            value={attrs.mode}
+            className={cn(
+              "text-xs uppercase tracking-widest transition-colors",
+              !isOn && "text-muted-foreground",
+            )}
+          />
         ) : (
           <span />
         )}
 
         <div className="flex items-center gap-1.5">
           <span
-            className={`text-xs font-medium ${isOn ? "text-green-600" : "text-muted-foreground"}`}
+            className={cn(
+              "text-xs font-medium transition-colors",
+              isOn ? "text-foreground" : "text-muted-foreground",
+            )}
           >
             {isOn ? t("controls.thermostat.on") : t("controls.thermostat.off")}
           </span>
@@ -72,11 +105,16 @@ export function ThermostatControl({
                 }
                 disabled={powerSaving}
                 onClick={() => changeAndSaveNow("onoffState", !isOn)}
-                className={`flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 ${
+                className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 disabled:opacity-50",
                   isOn
-                    ? "border-green-400 bg-green-50 text-green-600"
-                    : "border-border bg-muted text-muted-foreground"
-                } disabled:opacity-50`}
+                    ? cn(
+                        onColor,
+                        "border-current",
+                        "bg-[color-mix(in_srgb,currentColor_5%,transparent)]",
+                      )
+                    : "border-border bg-muted text-muted-foreground",
+                )}
               >
                 {powerSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -95,7 +133,7 @@ export function ThermostatControl({
       </div>
 
       {/* Center: current temp + setpoint controls */}
-      <div className="flex flex-col items-start gap-4">
+      <div className="relative z-10 flex flex-col items-start gap-4">
         {attrs.temperature != null && (
           <div className="flex items-baseline gap-1.5">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -115,7 +153,12 @@ export function ThermostatControl({
             <div
               className={`flex items-start transition-opacity duration-1000 ${setpointSaving ? "animate-pulse" : ""}`}
             >
-              <span className="text-5xl font-extralight tabular-nums leading-none">
+              <span
+                className={cn(
+                  "text-5xl font-extralight tabular-nums leading-none transition-colors",
+                  !isOn && "text-muted-foreground",
+                )}
+              >
                 {setpoint != null ? Number(setpoint).toFixed(1) : "—"}
               </span>
               <span className="text-lg text-muted-foreground">°</span>

@@ -2,6 +2,7 @@ import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
 
 export type AttributeKind = "standard" | "fault";
+export type AttributeValue = string | number | boolean;
 
 import type { Severity } from "./severity";
 export type { Severity };
@@ -11,9 +12,10 @@ export type DeviceAttribute = {
   name: string;
   dataType: "int" | "float" | "bool" | "str" | string;
   readWriteModes: Array<"read" | "write" | string>;
-  currentValue: string | number | boolean | null;
+  currentValue: AttributeValue | null;
   lastUpdated: string | null;
   lastChanged: string | null;
+  valueOptions?: AttributeValue[];
 };
 
 export type FaultAttribute = DeviceAttribute & {

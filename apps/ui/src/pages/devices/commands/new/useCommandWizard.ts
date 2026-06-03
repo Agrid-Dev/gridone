@@ -7,9 +7,8 @@ import {
   intersectWritableAttributes,
   isEmptyFilter,
   resolveFilter,
-  type WizardFormValues,
-  type WritableAttribute,
-} from "./types";
+} from "./resolvers";
+import type { WizardFormValues, WritableAttribute } from "./types";
 import { useCommandTemplate } from "./useCommandTemplate";
 
 type CommandPayload = {

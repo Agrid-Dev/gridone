@@ -1,11 +1,13 @@
-import type { AssetTreeNode } from "@/api/assets";
-import type { Device, DeviceAttribute, DevicesFilter } from "@/api/devices";
+import type { AttributeValue } from "@/api/devices";
 
 export type AttributeDataType = "int" | "float" | "bool" | "str";
 
 export type WritableAttribute = {
   name: string;
   dataType: AttributeDataType;
+  /** Defined when every selected device agrees on the same option set for
+   *  this attribute. Absent means free-form input is required. */
+  valueOptions?: AttributeValue[];
 };
 
 /** How the user described the target. "devices" freezes the selection to an
@@ -29,107 +31,7 @@ export type WizardFormValues = {
   targetFilter: TargetFilter;
   attribute?: string;
   attributeDataType?: AttributeDataType;
-  value?: string | number | boolean;
+  value?: AttributeValue;
   /** Only populated when the user is saving the wizard as a template. */
   templateName?: string;
 };
-
-/** Is *device* a member of the given filter? Mirrors backend semantics:
- *  ``ids`` and ``types`` are whitelists, ``assetId`` matches the device's
- *  ``asset_id`` tag (camelcased to ``assetId`` by the ``request`` helper's
- *  deep ``camelcase-keys`` transform). */
-export function deviceMatchesFilter(
-  device: Device,
-  filter: DevicesFilter,
-): boolean {
-  if (filter.ids && filter.ids.length > 0 && !filter.ids.includes(device.id)) {
-    return false;
-  }
-  if (filter.types && filter.types.length > 0) {
-    if (!device.type || !filter.types.includes(device.type)) {
-      return false;
-    }
-  }
-  if (filter.assetId && device.tags.assetId !== filter.assetId) {
-    return false;
-  }
-  return true;
-}
-
-/** Resolve a filter against the caller's devices list. An empty filter
- *  resolves to nothing — "everything" is never an intentional target and
- *  we don't want a naked save-template to dispatch to every device. */
-export function resolveFilter(
-  devices: Device[],
-  filter: DevicesFilter,
-): Device[] {
-  if (isEmptyFilter(filter)) return [];
-  return devices.filter((d) => deviceMatchesFilter(d, filter));
-}
-
-export function isEmptyFilter(filter: DevicesFilter): boolean {
-  return (
-    !(filter.ids && filter.ids.length > 0) &&
-    !(filter.types && filter.types.length > 0) &&
-    !filter.assetId
-  );
-}
-
-/** Intersection of writable attributes across a set of devices. An attribute
- *  is included only if every device in the list exposes it as writable with
- *  the same data type. */
-export function intersectWritableAttributes(
-  devices: Device[],
-): WritableAttribute[] {
-  if (devices.length === 0) return [];
-
-  const writablesOfFirst = Object.values(devices[0].attributes).filter(
-    (a: DeviceAttribute) => a.readWriteModes.includes("write"),
-  );
-
-  return writablesOfFirst
-    .filter((attr) =>
-      devices.every((d) => {
-        const match = Object.values(d.attributes).find(
-          (a: DeviceAttribute) => a.name === attr.name,
-        );
-        return (
-          !!match &&
-          match.readWriteModes.includes("write") &&
-          match.dataType === attr.dataType
-        );
-      }),
-    )
-    .map((attr) => ({
-      name: attr.name,
-      dataType: attr.dataType as AttributeDataType,
-    }));
-}
-
-/** All device IDs linked to the asset or any of its descendants. */
-export function resolveAssetSubtreeDeviceIds(
-  tree: AssetTreeNode[],
-  assetId: string,
-): string[] {
-  const node = findAssetNode(tree, assetId);
-  if (!node) return [];
-  return collectSubtreeDeviceIds(node);
-}
-
-function findAssetNode(
-  nodes: AssetTreeNode[],
-  id: string,
-): AssetTreeNode | null {
-  for (const n of nodes) {
-    if (n.id === id) return n;
-    const found = findAssetNode(n.children, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-function collectSubtreeDeviceIds(node: AssetTreeNode): string[] {
-  const here = (node.devices ?? []).map((d) => d.id);
-  const below = node.children.flatMap(collectSubtreeDeviceIds);
-  return [...here, ...below];
-}

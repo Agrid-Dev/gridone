@@ -1,4 +1,3 @@
-// SelectController.tsx
 import * as React from "react";
 import {
   useController,
@@ -16,7 +15,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 
-type SelectOption<V extends string> = {
+type SelectOption<V> = {
   value: V;
   label: React.ReactNode;
   disabled?: boolean;
@@ -25,7 +24,7 @@ type SelectOption<V extends string> = {
 type SelectControllerProps<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
-  TValue extends string = string,
+  TValue = string,
 > = UseControllerProps<TFieldValues, TName> & {
   label?: React.ReactNode;
   description?: React.ReactNode;
@@ -49,7 +48,7 @@ type SelectControllerProps<
 export function SelectController<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
-  TValue extends string = string,
+  TValue = string,
 >({
   label,
   description,
@@ -68,7 +67,12 @@ export function SelectController<
 
   const id = field.name;
 
-  const value = (field.value ?? "") as string;
+  // Radix Select speaks strings; we key items by String(value) and resolve the
+  // selected key back to the option's native value so the field keeps its type.
+  const value =
+    field.value !== undefined && field.value !== null
+      ? String(field.value)
+      : "";
 
   return (
     <FieldShell
@@ -82,9 +86,10 @@ export function SelectController<
       <Select
         {...selectProps}
         value={value}
-        onValueChange={(v) => {
-          if (allowEmpty && v === "") field.onChange(emptyValue);
-          else field.onChange(v);
+        onValueChange={(key) => {
+          if (allowEmpty && key === "") return field.onChange(emptyValue);
+          const selected = options.find((o) => String(o.value) === key);
+          field.onChange(selected ? selected.value : key);
         }}
         disabled={field.disabled}
         required={required}

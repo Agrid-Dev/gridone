@@ -1,5 +1,13 @@
-import { Power } from "lucide-react";
-import { isThermostat, readThermostatAttributes } from "@/api/devices";
+import {
+  DeviceType,
+  isThermostat,
+  readThermostatAttributes,
+} from "@/api/devices";
+import {
+  AttributeValueBadge,
+  lookupValueRenderer,
+} from "@/components/AttributeValueBadge";
+import { cn } from "@/lib/utils";
 import type { StandardPreviewProps } from "../registry";
 
 export function ThermostatPreview({ device }: StandardPreviewProps) {
@@ -7,8 +15,12 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
   const attrs = readThermostatAttributes(device);
   const isOn = attrs.onoffState === true;
 
+  const onColor =
+    lookupValueRenderer(DeviceType.Thermostat, "mode", attrs.mode as string)
+      ?.color ?? "text-primary";
+
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex items-end justify-between gap-3">
       {/* Temperatures */}
       <div className="flex items-baseline gap-2 min-w-0">
         <span className="font-mono text-2xl font-light tabular-nums leading-none">
@@ -19,7 +31,12 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
         </span>
         <span className="text-xs text-muted-foreground">
           →{" "}
-          <span className="font-medium text-foreground">
+          <span
+            className={cn(
+              "font-medium transition-colors",
+              isOn ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
             {attrs.temperatureSetpoint != null
               ? `${Number(attrs.temperatureSetpoint).toFixed(1)}°`
               : "—"}
@@ -28,16 +45,29 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
       </div>
 
       {/* Mode + on/off */}
-      <div className="flex flex-col items-end gap-0.5 text-[10px] text-muted-foreground">
+      <div className="flex items-end gap-1 text-[10px] text-muted-foreground">
+        {attrs.mode && (
+          <AttributeValueBadge
+            deviceType={DeviceType.Thermostat}
+            attributeName="mode"
+            value={attrs.mode}
+            className={cn(
+              "max-w-[5rem] truncate uppercase transition-colors",
+              // Off: mode is set but inert — grey it. On: keeps its hue.
+              !isOn && "text-muted-foreground",
+            )}
+          />
+        )}
+        {/* Neutral divider — structure, not signal, so it never takes the hue. */}
+        <span aria-hidden className="h-3 w-px self-center bg-border" />
         <span
-          className={`flex items-center gap-0.5 ${isOn ? "font-bold text-green-600" : "text-muted-foreground"}`}
+          className={cn(
+            "transition-colors",
+            isOn ? cn("font-bold", onColor) : "text-muted-foreground",
+          )}
         >
-          <Power className="h-2.5 w-2.5" />
           {isOn ? "ON" : "OFF"}
         </span>
-        {attrs.mode && (
-          <span className="truncate max-w-[5rem] uppercase">{attrs.mode}</span>
-        )}
       </div>
     </div>
   );

@@ -15,9 +15,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SelectController } from "@/components/forms/controllers/SelectController";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
-import type { Device } from "@/api/devices";
+import { AttributeValueBadge } from "@/components/AttributeValueBadge";
+import { type Device, type DeviceType } from "@/api/devices";
 import type { WizardFormValues, WritableAttribute } from "./types";
 
 type CommandStepProps = {
@@ -90,27 +92,58 @@ export function CommandStep({
         )}
       />
 
-      {selectedAttribute && selectedDataType && (
-        <Controller
-          control={control}
-          name="value"
-          render={({ field }) => (
-            <Field>
-              <FieldLabel>{t("commands.value")}</FieldLabel>
-              <ValueInput
-                dataType={selectedDataType}
-                value={field.value}
-                onChange={field.onChange}
+      {selectedAttribute &&
+        selectedDataType &&
+        (() => {
+          const selectedValueOptions = attributes.find(
+            (a) => a.name === selectedAttribute,
+          )?.valueOptions;
+          const hint = t(`commands.new.valueHint.${selectedDataType}`, {
+            defaultValue: "",
+          });
+
+          if (selectedValueOptions && selectedValueOptions.length > 0) {
+            const deviceTypes = [
+              ...new Set(selectedDevices.map((d) => d.type).filter(Boolean)),
+            ] as DeviceType[];
+            return (
+              <SelectController
+                control={control}
+                name="value"
+                label={t("commands.value")}
+                description={hint || undefined}
+                options={selectedValueOptions.map((opt) => ({
+                  value: opt,
+                  label: (
+                    <AttributeValueBadge
+                      deviceType={deviceTypes}
+                      attributeName={selectedAttribute}
+                      value={opt}
+                    />
+                  ),
+                }))}
               />
-              <FieldDescription>
-                {t(`commands.new.valueHint.${selectedDataType}`, {
-                  defaultValue: "",
-                })}
-              </FieldDescription>
-            </Field>
-          )}
-        />
-      )}
+            );
+          }
+
+          return (
+            <Controller
+              control={control}
+              name="value"
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>{t("commands.value")}</FieldLabel>
+                  <ValueInput
+                    dataType={selectedDataType}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                  {hint && <FieldDescription>{hint}</FieldDescription>}
+                </Field>
+              )}
+            />
+          );
+        })()}
     </div>
   );
 }
