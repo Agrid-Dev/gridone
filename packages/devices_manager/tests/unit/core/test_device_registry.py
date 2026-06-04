@@ -12,6 +12,7 @@ from devices_manager.core.device import (
     PhysicalDevice,
     VirtualDevice,
 )
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.dto import (
@@ -682,8 +683,17 @@ class TestDeviceRegistryWriteAttribute:
 
     @pytest.mark.asyncio
     async def test_write_attribute_not_writable(self, device_registry, device):
-        with pytest.raises(PermissionError):
+        with pytest.raises(InvalidError):
             await device_registry.write_attribute(device.id, "temperature", 22.0)
+
+    @pytest.mark.asyncio
+    async def test_write_attribute_internal_raises_invalid_error(
+        self, device_registry, device
+    ):
+        with pytest.raises(InvalidError):
+            await device_registry.write_attribute(
+                device.id, CONNECTION_STATUS_ATTR, "ok"
+            )
 
     @pytest.mark.asyncio
     async def test_write_virtual_attribute_ok(

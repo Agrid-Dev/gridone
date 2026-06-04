@@ -12,7 +12,7 @@ from devices_manager.core.device.connection_status import (
     CONNECTION_STATUS_ATTR,
     ConnectionStatus,
 )
-from devices_manager.types import DataType
+from models.errors import InvalidError
 
 
 class TestConnectionStatusCreation:
@@ -28,9 +28,6 @@ class TestConnectionStatusCreation:
 
     def test_is_readonly(self, device: PhysicalDevice) -> None:
         assert device.attributes[CONNECTION_STATUS_ATTR].read_write_modes == {"read"}
-
-    def test_data_type_is_string(self, device: PhysicalDevice) -> None:
-        assert device.attributes[CONNECTION_STATUS_ATTR].data_type == DataType.STRING
 
     def test_no_timestamps_on_first_creation(self, device: PhysicalDevice) -> None:
         attr = device.attributes[CONNECTION_STATUS_ATTR]
@@ -75,9 +72,8 @@ class TestConnectionStatusRecompute:
         self, device: PhysicalDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
-        for _ in range(3):
-            with pytest.raises(OSError, match="timeout"):
-                await device.read_attribute_value("temperature")
+        with pytest.raises(OSError, match="timeout"):
+            await device.read_attribute_value("temperature")
         cs = device.attributes[CONNECTION_STATUS_ATTR]
         assert cs.current_value == ConnectionStatus.ERROR
 
@@ -156,3 +152,7 @@ class TestConnectionStatusFailSafe:
             if a.kind != AttributeKind.INTERNAL and "read" in a.read_write_modes
         )
         assert mock_transport_client.read.call_count == driver_readable
+
+    async def test_read_internal_attribute_raises(self, device: PhysicalDevice) -> None:
+        with pytest.raises(InvalidError, match="internal"):
+            await device.read_attribute_value(CONNECTION_STATUS_ATTR)

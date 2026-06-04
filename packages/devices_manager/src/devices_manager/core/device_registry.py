@@ -339,6 +339,9 @@ class DeviceRegistry:
             device.get_attribute(attribute_name)
         except KeyError as e:
             raise NotFoundError(str(e)) from e
+        if not device.can_write(attribute_name):
+            msg = f"Attribute '{attribute_name}' is not writable"
+            raise InvalidError(msg)
         return await device.write_attribute_value(
             attribute_name, value, confirm=confirm
         )

@@ -11,7 +11,7 @@ from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.types import DataType, DeviceKind, ReadWriteMode
-from models.errors import ConfirmationError
+from models.errors import ConfirmationError, InvalidError
 
 from .attribute import Attribute, AttributeKind, FaultAttribute, InternalAttribute
 from .connection_status import (
@@ -236,8 +236,13 @@ class PhysicalDevice(CoreDevice):
     async def read_attribute_value(
         self,
         attribute_name: str,
+        *,
+        _log_attribute: Attribute | None = None,
     ) -> AttributeValueType:
-        attribute = self.get_attribute(attribute_name)
+        attribute = _log_attribute or self.get_attribute(attribute_name)
+        if attribute.kind == AttributeKind.INTERNAL:
+            msg = f"Cannot read internal attribute '{attribute_name}' via transport"
+            raise InvalidError(msg)
         context = {
             **self.driver.env,
             **self.config,
@@ -345,8 +350,9 @@ class PhysicalDevice(CoreDevice):
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
+        _log_attribute: Attribute | None = None,
     ) -> Attribute:
-        attribute = self.get_attribute(attribute_name)
+        attribute = _log_attribute or self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)

@@ -375,34 +375,24 @@ class TestAttributeEventLog:
 # ---------------------------------------------------------------------------
 
 
+_INTERNAL_ATTR = InternalAttribute(
+    name="connection_status",
+    data_type=DataType.STRING,
+    read_write_modes={"read"},
+    current_value="idle",
+)
+
+
 def test_internal_attribute_kind():
-    attr = InternalAttribute(
-        name="connection_status",
-        data_type=DataType.STRING,
-        read_write_modes={"read"},
-        current_value="idle",
-    )
-    assert attr.kind == AttributeKind.INTERNAL
+    assert _INTERNAL_ATTR.kind == AttributeKind.INTERNAL
 
 
 def test_internal_attribute_is_subclass_of_attribute():
-    attr = InternalAttribute(
-        name="connection_status",
-        data_type=DataType.STRING,
-        read_write_modes={"read"},
-        current_value="idle",
-    )
-    assert isinstance(attr, Attribute)
+    assert isinstance(_INTERNAL_ATTR, Attribute)
 
 
-def test_internal_attribute_kind_in_model_dump():
-    attr = InternalAttribute(
-        name="connection_status",
-        data_type=DataType.STRING,
-        read_write_modes={"read"},
-        current_value="ok",
-    )
-    assert attr.model_dump()["kind"] == AttributeKind.INTERNAL
+def test_internal_attribute_serializes_with_kind():
+    assert _INTERNAL_ATTR.model_dump()["kind"] == AttributeKind.INTERNAL
 
 
 def test_internal_attribute_rejects_write_mode():
