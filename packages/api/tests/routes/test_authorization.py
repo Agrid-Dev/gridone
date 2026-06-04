@@ -27,7 +27,7 @@ from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
-from devices_manager.dto import AttributeLogs
+from devices_manager.core.device.event_log import AttributeLogs
 from models.pagination import Page
 from models.types import Severity
 from notifications import (

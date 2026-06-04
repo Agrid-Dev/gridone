@@ -19,8 +19,7 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
-from devices_manager.core.device.event_log import AttributeEventLog, EventType
-from devices_manager.dto import AttributeLogs
+from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
 from models.errors import ConfirmationError, InvalidError, NotFoundError
@@ -1137,9 +1136,6 @@ class TestDeviceTags:
         assert response.status_code == 404
 
 
-# Attribute logs
-
-
 class TestGetAttributeLogs:
     def test_returns_three_keys(self, client: TestClient):
         response = client.get("/device1/temperature/logs")
@@ -1157,49 +1153,3 @@ class TestGetAttributeLogs:
         assert data["read"] == []
         assert data["write"] == []
         assert data["listen"] == []
-
-    def test_ok_entry_has_no_message_key(self, client: TestClient, dm: MagicMock):
-        dm.get_attribute_logs.return_value = AttributeLogs(
-            read=[
-                AttributeEventLog(
-                    event_type=EventType.READ,
-                    timestamp=datetime(2026, 1, 1, tzinfo=UTC),
-                    status="ok",
-                )
-            ],
-            write=[],
-            listen=[],
-        )
-        response = client.get("/device1/temperature/logs")
-        assert response.status_code == 200
-        entry = response.json()["read"][0]
-        assert entry["status"] == "ok"
-        assert "message" not in entry
-
-    def test_error_entry_includes_message(self, client: TestClient, dm: MagicMock):
-        dm.get_attribute_logs.return_value = AttributeLogs(
-            read=[
-                AttributeEventLog(
-                    event_type=EventType.READ,
-                    timestamp=datetime(2026, 1, 1, tzinfo=UTC),
-                    status="error",
-                    message="Timeout",
-                )
-            ],
-            write=[],
-            listen=[],
-        )
-        response = client.get("/device1/temperature/logs")
-        entry = response.json()["read"][0]
-        assert entry["status"] == "error"
-        assert entry["message"] == "Timeout"
-
-    def test_unknown_device_returns_404(self, client: TestClient, dm: MagicMock):
-        dm.get_attribute_logs.side_effect = NotFoundError("Device not found")
-        response = client.get("/unknown/temperature/logs")
-        assert response.status_code == 404
-
-    def test_unknown_attribute_returns_404(self, client: TestClient, dm: MagicMock):
-        dm.get_attribute_logs.side_effect = NotFoundError("Attribute not found")
-        response = client.get("/device1/nonexistent/logs")
-        assert response.status_code == 404

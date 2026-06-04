@@ -12,6 +12,7 @@ from devices_manager.core.device import (
     PhysicalDevice,
     VirtualDevice,
 )
+from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.dto import (
     AttributeCreate,
@@ -812,8 +813,6 @@ class TestDeviceRegistryPersistence:
 
 class TestDeviceRegistryGetAttributeLogs:
     def test_returns_attribute_logs(self, device_registry, device):
-        from devices_manager.dto import AttributeLogs
-
         result = device_registry.get_attribute_logs(device.id, "temperature")
         assert isinstance(result, AttributeLogs)
         assert result.read == []

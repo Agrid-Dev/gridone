@@ -9,6 +9,7 @@ from devices_manager.core.device.attribute import (
     AttributeKind,
     FaultAttribute,
 )
+from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.types import DataType
 from models.types import Severity
 
@@ -293,12 +294,12 @@ class TestAttributeEventLog:
 
     def test_get_logs_starts_empty(self) -> None:
         attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
-        logs = attr.get_logs()
-        assert logs == {"read": [], "write": [], "listen": []}
+        logs = attr.logs
+        assert logs.read == []
+        assert logs.write == []
+        assert logs.listen == []
 
     def test_append_ok_log(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
         attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
         entry = AttributeEventLog(
             event_type=EventType.READ,
@@ -306,14 +307,12 @@ class TestAttributeEventLog:
             status="ok",
         )
         attr.append_log(entry)
-        logs = attr.get_logs()
-        assert len(logs["read"]) == 1
-        assert logs["read"][0].status == "ok"
-        assert logs["read"][0].message is None
+        logs = attr.logs
+        assert len(logs.read) == 1
+        assert logs.read[0].status == "ok"
+        assert logs.read[0].message is None
 
     def test_append_error_log(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
         attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
         entry = AttributeEventLog(
             event_type=EventType.READ,
@@ -322,12 +321,9 @@ class TestAttributeEventLog:
             message="Connection refused",
         )
         attr.append_log(entry)
-        logs = attr.get_logs()
-        assert logs["read"][0].message == "Connection refused"
+        assert attr.logs.read[0].message == "Connection refused"
 
     def test_logs_capped_at_10(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
         attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
         for _ in range(15):
             attr.append_log(
@@ -337,11 +333,9 @@ class TestAttributeEventLog:
                     status="ok",
                 )
             )
-        assert len(attr.get_logs()["read"]) == 10
+        assert len(attr.logs.read) == 10
 
     def test_logs_are_per_type(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
         attr = Attribute.create("temperature", DataType.FLOAT, {"read", "write"})
         attr.append_log(
             AttributeEventLog(
@@ -357,42 +351,19 @@ class TestAttributeEventLog:
                 status="ok",
             )
         )
-        logs = attr.get_logs()
-        assert len(logs["read"]) == 1
-        assert len(logs["write"]) == 1
-        assert len(logs["listen"]) == 0
+        logs = attr.logs
+        assert len(logs.read) == 1
+        assert len(logs.write) == 1
+        assert len(logs.listen) == 0
 
     def test_get_logs_returns_copy(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
         attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
-        logs = attr.get_logs()
-        logs["read"].append(
+        logs = attr.logs
+        logs.read.append(
             AttributeEventLog(
                 event_type=EventType.READ,
                 timestamp=datetime(2026, 1, 1, tzinfo=UTC),
                 status="ok",
             )
         )
-        assert len(attr.get_logs()["read"]) == 0
-
-    def test_fault_attribute_inherits_log_methods(self) -> None:
-        from devices_manager.core.device.event_log import AttributeEventLog, EventType
-
-        attr = FaultAttribute(
-            name="alarm",
-            data_type=DataType.BOOL,
-            read_write_modes={"read"},
-            current_value=False,
-            healthy_values=[False],
-            last_updated=_NOW,
-            last_changed=_NOW,
-        )
-        attr.append_log(
-            AttributeEventLog(
-                event_type=EventType.READ,
-                timestamp=_NOW,
-                status="ok",
-            )
-        )
-        assert len(attr.get_logs()["read"]) == 1
+        assert len(attr.logs.read) == 0

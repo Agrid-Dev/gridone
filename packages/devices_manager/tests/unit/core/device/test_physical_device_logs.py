@@ -21,10 +21,10 @@ class TestReadLog:
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
-        logs = device.attributes["temperature"].get_logs()
-        assert len(logs["read"]) == 1
-        assert logs["read"][0].status == "ok"
-        assert logs["read"][0].message is None
+        logs = device.attributes["temperature"].logs
+        assert len(logs.read) == 1
+        assert logs.read[0].status == "ok"
+        assert logs.read[0].message is None
 
     async def test_failed_read_appends_error_log(
         self, device: PhysicalDevice, mock_transport_client
@@ -34,11 +34,11 @@ class TestReadLog:
         )
         with pytest.raises(OSError, match="Connection refused"):
             await device.read_attribute_value("temperature")
-        logs = device.attributes["temperature"].get_logs()
-        assert len(logs["read"]) == 1
-        assert logs["read"][0].status == "error"
-        assert logs["read"][0].message is not None
-        assert "Connection refused" in logs["read"][0].message
+        logs = device.attributes["temperature"].logs
+        assert len(logs.read) == 1
+        assert logs.read[0].status == "error"
+        assert logs.read[0].message is not None
+        assert "Connection refused" in logs.read[0].message
 
     async def test_multiple_reads_accumulate_logs(
         self, device: PhysicalDevice, mock_transport_client
@@ -46,12 +46,22 @@ class TestReadLog:
         mock_transport_client.read = AsyncMock(return_value="20.0")
         for _ in range(3):
             await device.read_attribute_value("temperature")
-        assert len(device.attributes["temperature"].get_logs()["read"]) == 3
+        assert len(device.attributes["temperature"].logs.read) == 3
 
     async def test_unknown_attribute_does_not_log(self, device: PhysicalDevice) -> None:
         with pytest.raises(Exception):  # noqa: B017, PT011
             await device.read_attribute_value("nonexistent")
-        assert len(device.attributes["temperature"].get_logs()["read"]) == 0
+        assert len(device.attributes["temperature"].logs.read) == 0
+
+    async def test_read_and_write_logs_are_isolated(
+        self, device: PhysicalDevice, mock_transport_client
+    ) -> None:
+        mock_transport_client.read = AsyncMock(return_value="20.0")
+        await device.read_attribute_value("temperature")
+        logs = device.attributes["temperature"].logs
+        assert len(logs.read) == 1
+        assert len(logs.write) == 0
+        assert len(logs.listen) == 0
 
 
 class TestWriteLog:
@@ -60,9 +70,9 @@ class TestWriteLog:
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="22.0")
         await device.write_attribute_value("temperature_setpoint", 22.0, confirm=False)
-        logs = device.attributes["temperature_setpoint"].get_logs()
-        assert len(logs["write"]) == 1
-        assert logs["write"][0].status == "ok"
+        logs = device.attributes["temperature_setpoint"].logs
+        assert len(logs.write) == 1
+        assert logs.write[0].status == "ok"
 
     async def test_failed_write_appends_error_log(
         self, device: PhysicalDevice, mock_transport_client
@@ -72,11 +82,11 @@ class TestWriteLog:
             await device.write_attribute_value(
                 "temperature_setpoint", 22.0, confirm=False
             )
-        logs = device.attributes["temperature_setpoint"].get_logs()
-        assert len(logs["write"]) == 1
-        assert logs["write"][0].status == "error"
-        assert logs["write"][0].message is not None
-        assert "Timeout" in logs["write"][0].message
+        logs = device.attributes["temperature_setpoint"].logs
+        assert len(logs.write) == 1
+        assert logs.write[0].status == "error"
+        assert logs.write[0].message is not None
+        assert "Timeout" in logs.write[0].message
 
 
 class TestListenLog:
@@ -88,10 +98,10 @@ class TestListenLog:
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 25.0}}
         )
-        logs = push_device.attributes["temperature"].get_logs()
-        assert len(logs["listen"]) == 1
-        assert logs["listen"][0].status == "ok"
-        assert logs["listen"][0].event_type == EventType.LISTEN
+        logs = push_device.attributes["temperature"].logs
+        assert len(logs.listen) == 1
+        assert logs.listen[0].status == "ok"
+        assert logs.listen[0].event_type == EventType.LISTEN
 
     async def test_failed_listen_appends_error_log(
         self, push_device: PhysicalDevice, mock_push_transport_client
@@ -102,16 +112,6 @@ class TestListenLog:
             await mock_push_transport_client.simulate_event(
                 "/xx/temperature", "not-a-dict"
             )
-        logs = push_device.attributes["temperature"].get_logs()
-        assert len(logs["listen"]) == 1
-        assert logs["listen"][0].status == "error"
-
-    async def test_read_and_write_logs_are_isolated(
-        self, device: PhysicalDevice, mock_transport_client
-    ) -> None:
-        mock_transport_client.read = AsyncMock(return_value="20.0")
-        await device.read_attribute_value("temperature")
-        logs = device.attributes["temperature"].get_logs()
-        assert len(logs["read"]) == 1
-        assert len(logs["write"]) == 0
-        assert len(logs["listen"]) == 0
+        logs = push_device.attributes["temperature"].logs
+        assert len(logs.listen) == 1
+        assert logs.listen[0].status == "error"
