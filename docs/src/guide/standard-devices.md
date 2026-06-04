@@ -73,10 +73,9 @@ A climate control device that reads ambient temperature and allows setting a tar
 | `temperature_setpoint_min` | float | yes | Minimum allowed setpoint |
 | `temperature_setpoint_max` | float | yes | Maximum allowed setpoint |
 | `onoff_state` | bool | yes | Power on/off state |
-| *`mode` | string | yes | Operating mode (e.g., heat, cool, auto, fan) |
-| *`fan_speed` | string | no | Fan speed (e.g., high, medium, low, auto)|
+| `mode` | string | yes | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
+| `fan_speed` | string | no | Fan speed (Standard values: `low`, `medium`, `high`, `auto`)|
 
-\* has standard recommended values for this standard device type.
 
 **UI behavior:** The control panel displays the current temperature and setpoint, with increment/decrement controls that respect the min/max bounds. Mode and power state are also shown and controllable.
 
@@ -92,7 +91,7 @@ An air-to-water heat pump with water-side metrics and optional refrigerant circu
 |---|---|---|---|---|
 | `onoff_state` | bool | yes | no | Operating state |
 | `unit_run_status` | string | yes | no | Run status (e.g., running, idle) |
-| *`mode` | string | yes | no | Operating mode (e.g., heat, cool, auto, fan) |
+| `mode` | string | yes | no | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
 | `inlet_temperature` | float | yes | no | Water inlet temperature |
 | `outlet_temperature` | float | yes | no | Water outlet temperature |
 | `setpoint_temperature` | float | yes | no | Target water temperature |
@@ -106,7 +105,6 @@ An air-to-water heat pump with water-side metrics and optional refrigerant circu
 | `evaporator_saturated_refrigerant_temperature` | float | no | yes | Evaporator saturated temperature |
 | `evaporator_refrigerant_pressure` | float | no | yes | Evaporator pressure |
 
-\* has standard recommended values for this standard device type.
 
 Attributes marked **Multiple = yes** support suffixed instances (e.g., `compressor_suction_temperature_1`, `compressor_suction_temperature_A`) for multi-circuit or multi-compressor units.
 
