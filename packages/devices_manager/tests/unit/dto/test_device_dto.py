@@ -9,6 +9,7 @@ from pydantic import TypeAdapter, ValidationError
 from devices_manager.core.device import (
     Attribute,
     FaultAttribute,
+    InternalAttribute,
     VirtualDevice,
 )
 from devices_manager.core.device.attribute import AttributeKind
@@ -293,3 +294,44 @@ class TestDeviceAttributeSerialization:
         assert isinstance(attr, Attribute)
         assert not isinstance(attr, FaultAttribute)
         assert attr.kind == AttributeKind.STANDARD
+
+    def test_internal_attribute_serializes_with_kind(self):
+        internal = InternalAttribute(
+            name="connection_status",
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value="ok",
+        )
+        device = VirtualDevice(
+            id="d4", name="D4", attributes={"connection_status": internal}
+        )
+        dto = core_to_dto(device)
+        payload = json.loads(dto.model_dump_json())
+        attr_payload = payload["attributes"]["connection_status"]
+
+        assert attr_payload["kind"] == "internal"
+        assert attr_payload["current_value"] == "ok"
+        assert "severity" not in attr_payload
+        assert "is_faulty" not in attr_payload
+
+    def test_internal_attribute_parses_from_json(self):
+        payload = {
+            "id": "d5",
+            "kind": "virtual",
+            "name": "D5",
+            "is_faulty": False,
+            "attributes": {
+                "connection_status": {
+                    "kind": "internal",
+                    "name": "connection_status",
+                    "data_type": "str",
+                    "read_write_modes": ["read"],
+                    "current_value": "degraded",
+                }
+            },
+        }
+        device = Device.model_validate(payload)
+        attr = device.attributes["connection_status"]
+        assert isinstance(attr, InternalAttribute)
+        assert attr.kind == AttributeKind.INTERNAL
+        assert attr.current_value == "degraded"

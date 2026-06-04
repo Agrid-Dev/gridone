@@ -70,7 +70,7 @@ class TestDeviceCreation:
             driver=driver,
         )
         assert device.id == "d1"
-        assert len(device.attributes) == len(driver.attributes)
+        assert set(device.attributes) == set(driver.attributes) | {"connection_status"}
 
     def test_initialize_attributes(self, driver, mock_transport_client):
         device = PhysicalDevice.from_base(
@@ -387,7 +387,13 @@ class TestDevicesListeners:
         mock_transport_client.read = AsyncMock(return_value=26.0)
         await device.read_attribute_value("temperature")
 
-        assert calls == [("temperature", 25.5), ("temperature", 26.0)]
+        # connection_status transitions idle→ok on the first successful read,
+        # then stays ok for subsequent reads (no duplicate on_update).
+        assert calls == [
+            ("temperature", 25.5),
+            ("connection_status", "ok"),
+            ("temperature", 26.0),
+        ]
 
     @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_push(
@@ -412,7 +418,13 @@ class TestDevicesListeners:
             "/xx/temperature", {"payload": {"temperature": 26}}
         )
 
-        assert calls == [("temperature", 25), ("temperature", 26)]
+        # connection_status transitions idle→ok on the first successful listen event,
+        # then stays ok for subsequent events (no duplicate on_update).
+        assert calls == [
+            ("temperature", 25),
+            ("connection_status", "ok"),
+            ("temperature", 26),
+        ]
 
 
 class TestCoreDeviceCanWrite:

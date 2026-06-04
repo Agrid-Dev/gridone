@@ -8,6 +8,7 @@ from devices_manager.core.device.attribute import (
     Attribute,
     AttributeKind,
     FaultAttribute,
+    InternalAttribute,
 )
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.types import DataType
@@ -367,3 +368,48 @@ class TestAttributeEventLog:
             )
         )
         assert len(attr.logs.read) == 0
+
+
+# ---------------------------------------------------------------------------
+# InternalAttribute
+# ---------------------------------------------------------------------------
+
+
+def test_internal_attribute_kind():
+    attr = InternalAttribute(
+        name="connection_status",
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value="idle",
+    )
+    assert attr.kind == AttributeKind.INTERNAL
+
+
+def test_internal_attribute_is_subclass_of_attribute():
+    attr = InternalAttribute(
+        name="connection_status",
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value="idle",
+    )
+    assert isinstance(attr, Attribute)
+
+
+def test_internal_attribute_kind_in_model_dump():
+    attr = InternalAttribute(
+        name="connection_status",
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value="ok",
+    )
+    assert attr.model_dump()["kind"] == AttributeKind.INTERNAL
+
+
+def test_internal_attribute_rejects_write_mode():
+    with pytest.raises(ValidationError, match="read-only"):
+        InternalAttribute(
+            name="connection_status",
+            data_type=DataType.STRING,
+            read_write_modes={"read", "write"},
+            current_value="ok",
+        )
