@@ -48,6 +48,12 @@ Standard devices get dedicated graphical representations in the Gridone UI, with
 
 Non-standard attributes are still accessible through the generic attribute view.
 
+### Standard values
+
+Gridone is by default agnostic of which values device attributes take. However, some standard devices take the same set of values — like a thermostat's operating mode (`heat`, `cool`, …). To improve user experience and extensibility, we define recommended (_standard_) values on some attributes for standard devices.
+
+Note: These are recommended values, not hard-enforced (a driver can still use arbitrary values). But standard values get a custom, meaningful rendering in the UI, and make reuse easier: users know what values to expect for an attribute based on the device type.
+
 ## Standard device types
 
 The following standard types are currently registered.
@@ -67,8 +73,9 @@ A climate control device that reads ambient temperature and allows setting a tar
 | `temperature_setpoint_min` | float | yes | Minimum allowed setpoint |
 | `temperature_setpoint_max` | float | yes | Maximum allowed setpoint |
 | `onoff_state` | bool | yes | Power on/off state |
-| `mode` | string | yes | Operating mode (e.g., heating, cooling, auto) |
-| `fan_speed` | string | no | Fan speed setting |
+| `mode` | string | yes | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
+| `fan_speed` | string | no | Fan speed (Standard values: `low`, `medium`, `high`, `auto`)|
+
 
 **UI behavior:** The control panel displays the current temperature and setpoint, with increment/decrement controls that respect the min/max bounds. Mode and power state are also shown and controllable.
 
@@ -84,7 +91,7 @@ An air-to-water heat pump with water-side metrics and optional refrigerant circu
 |---|---|---|---|---|
 | `onoff_state` | bool | yes | no | Operating state |
 | `unit_run_status` | string | yes | no | Run status (e.g., running, idle) |
-| `mode` | string | yes | no | Operating mode |
+| `mode` | string | yes | no | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
 | `inlet_temperature` | float | yes | no | Water inlet temperature |
 | `outlet_temperature` | float | yes | no | Water outlet temperature |
 | `setpoint_temperature` | float | yes | no | Target water temperature |
@@ -97,6 +104,7 @@ An air-to-water heat pump with water-side metrics and optional refrigerant circu
 | `condenser_refrigerant_pressure` | float | no | yes | Condenser pressure |
 | `evaporator_saturated_refrigerant_temperature` | float | no | yes | Evaporator saturated temperature |
 | `evaporator_refrigerant_pressure` | float | no | yes | Evaporator pressure |
+
 
 Attributes marked **Multiple = yes** support suffixed instances (e.g., `compressor_suction_temperature_1`, `compressor_suction_temperature_A`) for multi-circuit or multi-compressor units.
 
@@ -119,3 +127,5 @@ An outdoor weather station providing ambient conditions data.
 | `humidity` | float | yes | Relative humidity (%) |
 
 **UI behavior:** The control panel displays the weather condition with an icon derived from the WMO code, a prominent temperature reading, wind speed with compass direction, and humidity.
+
+---

@@ -22,16 +22,16 @@ A **non-reversible** codec only implements decode. It is skipped on write (falls
 
 | Codec | Reversible |
 |---|---|
+| `json_pointer` | no |
+| `json_path` | no |
 | `scale` | yes |
 | `bool_format` | yes |
 | `byte_convert` | yes |
 | `base64` | yes |
 | `byte_frame` | yes |
-| `mapping` | yes |
-| `json_pointer` | no |
-| `json_path` | no |
 | `slice` | no |
 | `knx_dpt` | yes |
+| `mapping` | yes |
 | `options` | yes |
 
 ---
@@ -266,6 +266,39 @@ codecs:
 |---|---|---|---|
 | `1.001` | `true` | `true` | `true` |
 | `9.001` | `[0x0F, 0xE8]` | `20.0` | `[0x0F, 0xE8]` |
+
+---
+
+### `mapping`
+
+Decodes a device value by looking it up in a user-defined dictionary, and encodes back by reversing the lookup. Use when device values are raw codes (integers or short strings) that map to meaningful internal labels.
+
+The mapping must be **bijective**: every internal value must be unique so the reverse lookup is unambiguous.
+
+| | |
+|---|---|
+| Argument | dict of `device_value → internal_value` (e.g. `{1: "heat", 2: "cool"}`) |
+| Input | any |
+| Output | any |
+| Reversible | yes |
+
+```yaml
+codecs:
+  - mapping:
+      1: "heat"
+      2: "cool"
+      3: "fan"
+      4: "auto"
+```
+
+**Decode / encode examples:**
+
+| Device value | Mapping | Decoded | Encoded back |
+|---|---|---|---|
+| `1` | `{1: "heat", 2: "cool", 3: "fan", 4: "auto"}` | `"heat"` | `1` |
+| `3` | `{1: "heat", 2: "cool", 3: "fan", 4: "auto"}` | `"fan"` | `3` |
+
+An unmapped value raises an error in both directions.
 
 ---
 
