@@ -49,6 +49,8 @@ def _log_event(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator: appends an ok/error AttributeEventLog to the named attribute.
 
+    Pre-fetches the attribute from ``self.attributes`` to avoid a double dict
+    lookup and injects it as ``_log_attribute`` into the wrapped method.
     Falls through without logging when the attribute name is unknown.
     """
 
@@ -64,13 +66,17 @@ def _log_event(
             if attribute is None:
                 return await fn(self, attribute_name, *args, **kwargs)
             try:
-                result = await fn(self, attribute_name, *args, **kwargs)
+                result = await fn(
+                    self, attribute_name, *args, _log_attribute=attribute, **kwargs
+                )
+                attribute.append_log(_ok_entry(event_type))
             except Exception as e:
                 attribute.append_log(_error_entry(event_type, e))
                 raise
             else:
-                attribute.append_log(_ok_entry(event_type))
                 return result
+            finally:
+                self._on_log_append(attribute)
 
         return wrapper
 
@@ -78,7 +84,10 @@ def _log_event(
 
 
 def _wrap_listen(
-    callback: Callable[[object], None], attribute: "Attribute"
+    callback: Callable[[object], None],
+    attribute: "Attribute",
+    *,
+    on_append: Callable[["Attribute"], None] | None = None,
 ) -> Callable[[object], None]:
     """Wrap a push-listener callback to append a listen event log to the attribute."""
 
@@ -90,5 +99,8 @@ def _wrap_listen(
         except Exception as e:
             attribute.append_log(_error_entry(EventType.LISTEN, e))
             raise
+        finally:
+            if on_append is not None:
+                on_append(attribute)
 
     return wrapper

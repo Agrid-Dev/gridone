@@ -335,16 +335,17 @@ class DeviceRegistry:
         confirm: bool = True,
     ) -> Attribute:
         device = self._get_or_raise(device_id)
-        if attribute_name not in device.attributes:
-            msg = f"Attribute '{attribute_name}' not found on device {device_id}"
-            raise NotFoundError(msg)
+        try:
+            device.get_attribute(attribute_name)
+        except KeyError as e:
+            raise NotFoundError(str(e)) from e
         return await device.write_attribute_value(
             attribute_name, value, confirm=confirm
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
-        if attribute_name not in device.attributes:
-            msg = f"Attribute '{attribute_name}' not found on device {device_id}"
-            raise NotFoundError(msg)
-        return device.attributes[attribute_name].logs
+        try:
+            return device.get_attribute(attribute_name).logs
+        except KeyError as e:
+            raise NotFoundError(str(e)) from e

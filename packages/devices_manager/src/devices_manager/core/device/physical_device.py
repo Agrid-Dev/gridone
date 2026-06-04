@@ -10,10 +10,15 @@ from typing import TYPE_CHECKING, ClassVar
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
-from devices_manager.types import DeviceKind, ReadWriteMode
+from devices_manager.types import DataType, DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError
 
-from .attribute import Attribute, FaultAttribute
+from .attribute import Attribute, AttributeKind, FaultAttribute, InternalAttribute
+from .connection_status import (
+    CONNECTION_STATUS_ATTR,
+    ConnectionStatus,
+    compute_connection_status,
+)
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
 from .event_log import EventType, _log_event, _wrap_listen
 
@@ -27,6 +32,7 @@ if TYPE_CHECKING:
 
     from .device import AttributeListener
     from .device_base import DeviceBase
+    from .event_log import AttributeEventLog
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +67,26 @@ def _build_attribute(
         modes,
         initial_value,
         value_options=attribute_driver.value_options,
+    )
+
+
+def _build_cs_attribute(initial_value: str | None) -> InternalAttribute:
+    """Build the connection_status InternalAttribute.
+
+    First creation (no stored value): current_value=idle, no timestamps so no
+    spurious timeseries point is recorded.
+    Restart (stored value): restores the persisted status with fresh timestamps,
+    matching the pattern used for all other attributes in _build_attribute.
+    """
+    now = datetime.now(UTC) if initial_value is not None else None
+    return InternalAttribute(
+        name=CONNECTION_STATUS_ATTR,
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value=initial_value or ConnectionStatus.IDLE,
+        last_updated=now,
+        last_changed=now,
+        value_options=list(ConnectionStatus),
     )
 
 
@@ -108,6 +134,7 @@ class PhysicalDevice(CoreDevice):
         initial_values: dict[str, AttributeValueType] | None = None,
         on_update: AttributeListener | None = None,
     ) -> PhysicalDevice:
+        initial = initial_values or {}
         return cls(
             id=base.id,
             name=base.name,
@@ -116,8 +143,13 @@ class PhysicalDevice(CoreDevice):
             transport=transport,
             on_update=on_update,
             attributes={
-                a.name: _build_attribute(a, (initial_values or {}).get(a.name))
-                for a in driver.attributes.values()
+                **{
+                    a.name: _build_attribute(a, initial.get(a.name))
+                    for a in driver.attributes.values()
+                },
+                CONNECTION_STATUS_ATTR: _build_cs_attribute(
+                    initial.get(CONNECTION_STATUS_ATTR)  # type: ignore[arg-type]
+                ),
             },
         )
 
@@ -130,6 +162,8 @@ class PhysicalDevice(CoreDevice):
             **self.config,
         }
         for attribute in self.attributes.values():
+            if attribute.kind == AttributeKind.INTERNAL:
+                continue
             attribute_driver = self.driver.attributes[attribute.name]
             codec = attribute_driver.codec
             address = self.transport.build_address(
@@ -152,7 +186,7 @@ class PhysicalDevice(CoreDevice):
             )
             self._update_attribute(attribute, decoded)
 
-        return _wrap_listen(on_message, attribute)
+        return _wrap_listen(on_message, attribute, on_append=self._on_log_append)
 
     async def start_sync(self) -> None:
         """Start listeners and polling for this device."""
@@ -218,10 +252,33 @@ class PhysicalDevice(CoreDevice):
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
+    def _on_log_append(self, attribute: Attribute) -> None:  # noqa: ARG002
+        with contextlib.suppress(Exception):
+            self._recompute_connection_status()
+
+    def _collect_event_logs(self) -> list[AttributeEventLog]:
+        return [
+            entry
+            for attr in self.attributes.values()
+            if attr.kind != AttributeKind.INTERNAL
+            for entry in attr.all_log_entries()
+        ]
+
+    def _recompute_connection_status(self) -> None:
+        cs_attr = self.attributes.get(CONNECTION_STATUS_ATTR)
+        if cs_attr is None:
+            return
+        status = compute_connection_status(self._collect_event_logs())
+        if cs_attr.current_value == status:
+            return
+        self._update_attribute(cs_attr, status)
+
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
         for attr_name, attr in self.attributes.items():
             if "read" not in attr.read_write_modes:
+                continue
+            if attr.kind == AttributeKind.INTERNAL:
                 continue
             try:
                 value = await self.read_attribute_value(attr_name)

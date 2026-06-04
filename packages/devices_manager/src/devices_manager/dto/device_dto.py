@@ -9,6 +9,7 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
     FaultAttribute,
+    InternalAttribute,
     PhysicalDevice,
     VirtualDevice,
 )
@@ -72,7 +73,8 @@ def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
 
 _AttributeUnion = Annotated[
     Annotated[Attribute, Tag(AttributeKind.STANDARD)]
-    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)],
+    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)]
+    | Annotated[InternalAttribute, Tag(AttributeKind.INTERNAL)],
     Discriminator(_attribute_kind_tag),
 ]
 

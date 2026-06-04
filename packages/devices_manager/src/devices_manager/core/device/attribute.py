@@ -21,6 +21,7 @@ from .event_log import AttributeEventLog, AttributeLogs, EventType
 class AttributeKind(StrEnum):
     STANDARD = "standard"
     FAULT = "fault"
+    INTERNAL = "internal"
 
 
 class Attribute(BaseModel):
@@ -79,13 +80,12 @@ class Attribute(BaseModel):
     def append_log(self, entry: AttributeEventLog) -> None:
         self._logs[entry.event_type].appendleft(entry)
 
+    def all_log_entries(self) -> list[AttributeEventLog]:
+        return [e for dq in self._logs.values() for e in dq]
+
     @property
     def logs(self) -> AttributeLogs:
-        return AttributeLogs(
-            read=list(self._logs[EventType.READ]),
-            write=list(self._logs[EventType.WRITE]),
-            listen=list(self._logs[EventType.LISTEN]),
-        )
+        return AttributeLogs(**{et.value: list(self._logs[et]) for et in EventType})
 
     @classmethod
     def create(
@@ -128,5 +128,18 @@ class FaultAttribute(Attribute):
                 "FaultAttribute with a current_value must have last_updated "
                 "and last_changed set"
             )
+            raise ValueError(msg)
+        return self
+
+
+class InternalAttribute(Attribute):
+    """Computed, read-only attribute not backed by a driver or transport."""
+
+    kind: Literal[AttributeKind.INTERNAL] = AttributeKind.INTERNAL
+
+    @model_validator(mode="after")
+    def _enforce_readonly(self) -> "InternalAttribute":
+        if "write" in self.read_write_modes:
+            msg = "InternalAttribute must be read-only"
             raise ValueError(msg)
         return self

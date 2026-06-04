@@ -146,6 +146,9 @@ class CoreDevice(ABC):
         if self.on_update and attribute.current_value != previous_value:
             self.on_update(self, attribute.name, previous, attribute)
 
+    def _on_log_append(self, attribute: Attribute) -> None:  # noqa: B027
+        """Called after every event-log append.Overridden by PhysicalDevice."""
+
     @abstractmethod
     async def read_attribute_value(
         self, attribute_name: str
