@@ -1,33 +1,21 @@
 import { useParams } from "react-router";
 import { type FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Terminal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
-import type { Automation } from "@/api/automations";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
-import BasePresenter from "./presenters/BasePresenter";
 import AutomationExecutionHistory from "./AutomationExecutionHistory";
 import EditableCard from "./EditableCard";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import FlowConnector from "./components/FlowConnector";
-import CommandTemplatePresenter from "./presenters/CommandTemplatePresenter";
+import { ActionPresenter } from "./presenters/ActionPresenter";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
 import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
 import MetadataForm from "./form/MetadataForm";
-
-/** Extract the underlying templateId from a ``command_template`` action.
- *  The UI only renders/edits this kind today; other providers (e.g.
- *  ``notification``) pass through untouched and yield ``undefined`` here. */
-function initialActionTemplateId(automation: Automation): string | undefined {
-  if (automation.action.providerId !== "command_template") return undefined;
-  const id = automation.action.params.templateId;
-  return typeof id === "string" ? id : undefined;
-}
 
 const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
   const { t } = useTranslation("automations");
@@ -138,11 +126,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
               onSubmit={(action) => update("action", { action })}
             />
           ) : (
-            <BasePresenter title={t("flow.actionType.command")} icon={Terminal}>
-              <CommandTemplatePresenter
-                templateId={initialActionTemplateId(automation) ?? ""}
-              />
-            </BasePresenter>
+            <ActionPresenter action={automation.action} />
           )}
         </EditableCard>
       </div>

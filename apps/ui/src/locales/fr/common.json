@@ -161,6 +161,12 @@
       "placeholder": "S\u00e9lectionner un attribut",
       "pickDeviceFirst": "S\u00e9lectionnez d'abord un appareil",
       "noMatching": "Aucun attribut correspondant"
+    },
+    "user": {
+      "label": "Destinataires",
+      "placeholder": "S\u00e9lectionner des utilisateurs",
+      "search": "Rechercher des utilisateurs",
+      "noUsers": "Aucun utilisateur trouv\u00e9"
     }
   },
   "app": {

@@ -161,6 +161,12 @@
       "placeholder": "Select an attribute",
       "pickDeviceFirst": "Pick a device first",
       "noMatching": "No matching attributes"
+    },
+    "user": {
+      "label": "Recipients",
+      "placeholder": "Select users",
+      "search": "Search users",
+      "noUsers": "No users found"
     }
   },
   "app": {
