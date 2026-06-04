@@ -19,6 +19,11 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
+from devices_manager.core.device.attribute import AttributeKind, InternalAttribute
+from devices_manager.core.device.connection_status import (
+    CONNECTION_STATUS_ATTR,
+    ConnectionStatus,
+)
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
@@ -38,6 +43,12 @@ _PHYSICAL_DEVICE = Device(
         "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
         "temperature_setpoint": Attribute.create(
             "temperature_setpoint", DataType.FLOAT, {"read", "write"}
+        ),
+        CONNECTION_STATUS_ATTR: InternalAttribute(
+            name=CONNECTION_STATUS_ATTR,
+            data_type=DataType.STRING,
+            read_write_modes={"read"},
+            current_value=ConnectionStatus.IDLE,
         ),
     },
     config={"some_id": "abc"},
@@ -301,6 +312,12 @@ class TestGetDevice:
         response = client.get("/device1")
         assert response.status_code == 200
         assert response.json()["id"] == "device1"
+
+    def test_connection_status_included_in_response(self, client: TestClient):
+        response = client.get("/device1")
+        attrs = response.json()["attributes"]
+        assert CONNECTION_STATUS_ATTR in attrs
+        assert attrs[CONNECTION_STATUS_ATTR]["kind"] == AttributeKind.INTERNAL
 
     def test_not_found(self, client: TestClient):
         response = client.get("/unknown")
