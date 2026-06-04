@@ -1,3 +1,9 @@
+## v0.85.0 (2026-06-04)
+
+### Feat
+
+- **ui**: add notification automation action (AGR-563)
+
 ## v0.84.0 (2026-06-03)
 
 ### Feat
