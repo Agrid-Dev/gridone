@@ -5,10 +5,7 @@
   "comingSoon": "Coming soon",
   "flow": {
     "trigger": "Trigger",
-    "action": "Action",
-    "actionType": {
-      "command": "Command"
-    }
+    "action": "Action"
   },
   "metadata": {
     "title": "Automation",
@@ -75,13 +72,22 @@
     "rowMenu": "Actions",
     "type": "Action type",
     "types": {
-      "command_template": "Run a command"
+      "command_template": "Run a command",
+      "notification": "Send a notification"
     },
     "commandActionForm": {
       "sourceLabel": "Command source",
       "useTemplate": "Use a saved template",
       "composeNew": "Define a new command",
       "useCommand": "Use this command"
+    },
+    "notificationForm": {
+      "title": "Title",
+      "titlePlaceholder": "Notification title",
+      "body": "Message",
+      "bodyPlaceholder": "Notification message (Markdown supported)",
+      "severity": "Severity",
+      "recipients": "Recipients"
     }
   },
   "toasts": {

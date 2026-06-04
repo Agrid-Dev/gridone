@@ -89,7 +89,7 @@ vi.mock("react-i18next", () =>
     singular: "Automation",
     "flow.trigger": "Trigger",
     "flow.action": "Action",
-    "flow.actionType.command": "Command",
+    "actions.types.command_template": "Run a command",
     "fields.actionTemplate": "Command template",
     "fields.status": "Status",
     "fields.name": "Name",
@@ -233,7 +233,7 @@ describe("AutomationPage", () => {
     expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
       "type=schedule",
     );
-    expect(screen.getByText("Command")).toBeInTheDocument();
+    expect(screen.getByText("Run a command")).toBeInTheDocument();
 
     const templateLink = screen.getByRole("link", { name: /Boost/ });
     expect(templateLink).toHaveAttribute(

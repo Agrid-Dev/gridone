@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import type { Action } from "@/api/automations";
+import type { Severity } from "@/api/severity";
 import { TitlePresenter } from "../presenters/BasePresenter";
 import {
   ACTION_PROVIDER_DESCRIPTORS,
@@ -40,13 +41,30 @@ interface ActionFormProps {
  *  ``result`` slot. */
 function actionToResult(action: Action | undefined): ActionFormResult | null {
   if (!action) return null;
-  if (action.providerId !== "command_template") return null;
-  const id = action.params.templateId;
-  if (typeof id !== "string") return null;
-  return {
-    providerId: "command_template",
-    params: { templateId: id },
-  };
+  if (action.providerId === "command_template") {
+    const id = action.params.templateId;
+    if (typeof id !== "string") return null;
+    return {
+      providerId: "command_template",
+      params: { templateId: id },
+    };
+  }
+  if (action.providerId === "notification") {
+    const { title, body, severity, userIds } = action.params;
+    if (typeof title !== "string" || !title.trim()) return null;
+    if (typeof severity !== "string") return null;
+    if (!Array.isArray(userIds) || userIds.length === 0) return null;
+    return {
+      providerId: "notification",
+      params: {
+        title,
+        body: typeof body === "string" ? body : "",
+        severity: severity as Severity,
+        userIds: userIds.filter((id): id is string => typeof id === "string"),
+      },
+    };
+  }
+  return null;
 }
 
 const ActionForm: FC<ActionFormProps> = ({

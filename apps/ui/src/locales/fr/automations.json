@@ -5,10 +5,7 @@
   "comingSoon": "Bientôt disponible",
   "flow": {
     "trigger": "Déclencheur",
-    "action": "Action",
-    "actionType": {
-      "command": "Commande"
-    }
+    "action": "Action"
   },
   "metadata": {
     "title": "Automatisation",
@@ -74,13 +71,22 @@
     "rowMenu": "Actions",
     "type": "Type d'action",
     "types": {
-      "command_template": "Exécuter une commande"
+      "command_template": "Exécuter une commande",
+      "notification": "Envoyer une notification"
     },
     "commandActionForm": {
       "sourceLabel": "Source de la commande",
       "useTemplate": "Utiliser un modèle existant",
       "composeNew": "Définir une nouvelle commande",
       "useCommand": "Utiliser cette commande"
+    },
+    "notificationForm": {
+      "title": "Titre",
+      "titlePlaceholder": "Titre de la notification",
+      "body": "Message",
+      "bodyPlaceholder": "Message de la notification (Markdown pris en charge)",
+      "severity": "Sévérité",
+      "recipients": "Destinataires"
     }
   },
   "toasts": {

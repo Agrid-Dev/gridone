@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import type { Action, Trigger } from "@/api/automations";
+import type { Severity } from "@/api/severity";
 
 export type CustomTriggerFormProps = {
   type: string;
@@ -24,12 +25,21 @@ export type TriggerDescriptor = {
 
 /** What an action-type form contributes upward. Structurally an :type:`Action`
  *  but tightly typed per provider so the parent can submit it as-is without
- *  ``params`` casts. A future ``notification`` provider lands as another arm
- *  of the union. */
-export type ActionFormResult = {
-  providerId: "command_template";
-  params: { templateId: string };
-};
+ *  ``params`` casts. Each provider lands as another arm of the union. */
+export type ActionFormResult =
+  | {
+      providerId: "command_template";
+      params: { templateId: string };
+    }
+  | {
+      providerId: "notification";
+      params: {
+        title: string;
+        body: string;
+        severity: Severity;
+        userIds: string[];
+      };
+    };
 
 export type CustomActionFormProps = {
   /** The automation's existing action when editing, raw off the API.
@@ -44,4 +54,6 @@ export type CustomActionFormProps = {
 export type ActionDescriptor = {
   icon: LucideIcon;
   CustomFormRenderer: ComponentType<CustomActionFormProps>;
+  /** View-mode renderer for a saved action of this provider. */
+  Presenter: ComponentType<{ action: Action }>;
 };
