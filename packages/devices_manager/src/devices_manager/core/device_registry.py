@@ -5,7 +5,6 @@ from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
-    AttributeLogs,
     PhysicalDeviceCreate,
     device_to_public,
 )
@@ -25,6 +24,7 @@ from .device_filters import DeviceFilters
 from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
+    from devices_manager.core.device.event_log import AttributeLogs
     from devices_manager.dto import (
         Device,
         DeviceCreate,
@@ -347,7 +347,4 @@ class DeviceRegistry:
         if attribute_name not in device.attributes:
             msg = f"Attribute '{attribute_name}' not found on device {device_id}"
             raise NotFoundError(msg)
-        logs = device.attributes[attribute_name].get_logs()
-        return AttributeLogs(
-            read=logs["read"], write=logs["write"], listen=logs["listen"]
-        )
+        return device.attributes[attribute_name].logs

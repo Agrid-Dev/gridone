@@ -15,7 +15,7 @@ from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
 from models.types import Severity
 
-from .event_log import AttributeEventLog, EventType
+from .event_log import AttributeEventLog, AttributeLogs, EventType
 
 
 class AttributeKind(StrEnum):
@@ -77,10 +77,15 @@ class Attribute(BaseModel):
             object.__setattr__(self, "last_changed", datetime.now(UTC))
 
     def append_log(self, entry: AttributeEventLog) -> None:
-        self._logs[entry.event_type].append(entry)
+        self._logs[entry.event_type].appendleft(entry)
 
-    def get_logs(self) -> dict[str, list[AttributeEventLog]]:
-        return {t.value: list(entries) for t, entries in self._logs.items()}
+    @property
+    def logs(self) -> AttributeLogs:
+        return AttributeLogs(
+            read=list(self._logs[EventType.READ]),
+            write=list(self._logs[EventType.WRITE]),
+            listen=list(self._logs[EventType.LISTEN]),
+        )
 
     @classmethod
     def create(

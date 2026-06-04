@@ -15,9 +15,9 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
+    from .core.device.event_log import AttributeLogs
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
-        AttributeLogs,
         Device,
         DeviceCreate,
         DeviceUpdate,

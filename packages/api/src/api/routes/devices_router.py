@@ -22,7 +22,8 @@ from api.schemas.device import (
     TimeseriesSingleAttrPushRequest,
 )
 from devices_manager import DevicesServiceInterface
-from devices_manager.dto import AttributeLogs, StandardAttributeSchema
+from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
     DeviceCreate,

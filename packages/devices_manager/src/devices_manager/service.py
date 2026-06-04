@@ -22,7 +22,6 @@ from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry
 from .dto import (
-    AttributeLogs,
     Device,
     DeviceCreate,
     DeviceUpdate,
@@ -45,6 +44,7 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
+    from .core.device.event_log import AttributeLogs
     from .core.driver import Driver
     from .core.transports import TransportClient
     from .interface import AttributeListener, DeviceDiscoveredListener
