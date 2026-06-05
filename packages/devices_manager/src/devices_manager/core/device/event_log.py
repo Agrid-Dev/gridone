@@ -49,8 +49,6 @@ def _log_event(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator: appends an ok/error AttributeEventLog to the named attribute.
 
-    Pre-fetches the attribute from ``self.attributes`` to avoid a double dict
-    lookup and injects it as ``_log_attribute`` into the wrapped method.
     Falls through without logging when the attribute name is unknown.
     """
 
@@ -66,9 +64,7 @@ def _log_event(
             if attribute is None:
                 return await fn(self, attribute_name, *args, **kwargs)
             try:
-                result = await fn(
-                    self, attribute_name, *args, _log_attribute=attribute, **kwargs
-                )
+                result = await fn(self, attribute_name, *args, **kwargs)
             except Exception as e:
                 attribute.append_log(_error_entry(event_type, e))
                 raise

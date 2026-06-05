@@ -430,6 +430,38 @@ class TestCoreDeviceCanWrite:
             device.can_write("temperature_setpoint", data_type=DataType.FLOAT) is True
         )
 
+
+class TestEventLogWiring:
+    @pytest.mark.asyncio
+    async def test_read_appends_log(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        await device.read_attribute_value("temperature")
+        assert len(device.attributes["temperature"].logs.read) == 1
+        assert device.attributes["temperature"].logs.read[0].status == "ok"
+
+    @pytest.mark.asyncio
+    async def test_write_appends_log(
+        self, device: PhysicalDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value="22.0")
+        await device.write_attribute_value("temperature_setpoint", 22.0, confirm=False)
+        assert len(device.attributes["temperature_setpoint"].logs.write) == 1
+        assert device.attributes["temperature_setpoint"].logs.write[0].status == "ok"
+
+    @pytest.mark.asyncio
+    async def test_listen_appends_log(
+        self, device_w_push_transport: PhysicalDevice, mock_push_transport_client
+    ):
+        await device_w_push_transport.init_listeners()
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25.0}}
+        )
+        listen_logs = device_w_push_transport.attributes["temperature"].logs.listen
+        assert len(listen_logs) == 1
+        assert listen_logs[0].status == "ok"
+
     def test_writable_with_mismatched_data_type(self, device: PhysicalDevice):
         assert (
             device.can_write("temperature_setpoint", data_type=DataType.BOOL) is False
