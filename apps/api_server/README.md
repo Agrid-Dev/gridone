@@ -12,6 +12,37 @@ A http server running the `gridone-api` package.
 
 Set in `.env` or as an environment variable. Validated at startup — an unknown timezone name causes an immediate startup failure with a clear error message. One instance corresponds to one building, so timezone is an instance-level setting and does not change at runtime.
 
+### Tracing (OpenTelemetry)
+
+The API can emit distributed traces via [OpenTelemetry](https://opentelemetry.io/). Tracing is **opt-in and disabled by default** — when it is off the OpenTelemetry SDK is never imported, so there is no runtime or behavioural cost.
+
+Enable it by pointing the API at an OTLP collector:
+
+| Variable | Format | Default | Example |
+|---|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP/HTTP base URL | _(unset → disabled)_ | `http://localhost:4318` |
+| `OTEL_SERVICE_NAME` | string | `gridone-api` | `gridone-api` |
+
+Setting `OTEL_EXPORTER_OTLP_ENDPOINT` turns tracing on. Spans are exported over **OTLP HTTP/protobuf** (default port `4318`) to a local [Grafana Alloy](https://grafana.com/docs/alloy/) agent, which forwards them to Grafana Cloud (Tempo). Two instrumentations are installed when enabled:
+
+- **FastAPI** — one server span per HTTP request.
+- **HTTPX** — client spans for outbound calls (e.g. HTTP-based device transports), nested under the request span.
+
+All other behaviour (sampling, headers, extra resource attributes, ...) is controlled through the standard [`OTEL_*` environment variables](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/). `service.version` is populated automatically from `GRIDONE_VERSION`.
+
+```env
+# Enable tracing to a local Alloy agent
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+In Docker, pass the variable through to the container (e.g. `docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318 ...`); supervisord forwards its environment to the uvicorn process.
+
+### Logging
+
+In production (`GRIDONE_ENV=production`) the API logs **single-line JSON** to stderr (`timestamp`, `level`, `logger`, `message`, and `exception` when present), which Grafana Alloy / Loki ingest as structured fields without regex scraping. Development keeps the human-readable Rich console + rotating file handlers.
+
+When tracing is enabled, each log record also carries `trace_id` / `span_id`, so logs can be correlated with traces in Tempo.
+
 ## Development
 
 Configure storage with a single URL-like setting in `.env`:
