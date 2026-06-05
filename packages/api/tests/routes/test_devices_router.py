@@ -20,13 +20,10 @@ from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.attribute import AttributeKind, InternalAttribute
-from devices_manager.core.device.connection_status import (
-    CONNECTION_STATUS_ATTR,
-    ConnectionStatus,
-)
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto.device_dto import Device
-from devices_manager.types import DataType, DeviceKind
+from devices_manager.types import ConnectionStatus, DataType, DeviceKind
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from models.types import SortOrder
