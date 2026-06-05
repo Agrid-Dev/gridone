@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterator
 
 import pytest
@@ -5,9 +6,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
-from telemetry import DEFAULT_SERVICE_NAME, setup_telemetry
+from telemetry import DEFAULT_SERVICE_NAME, _add_trace_context, setup_telemetry
 
 
 def _make_app() -> FastAPI:
@@ -31,9 +33,9 @@ def _uninstrument(app: FastAPI) -> Iterator[None]:
     # suite stays isolated.
     yield
     FastAPIInstrumentor.uninstrument_app(app)
-    instrumentor = HTTPXClientInstrumentor()
-    if instrumentor.is_instrumented_by_opentelemetry:
-        instrumentor.uninstrument()
+    for instrumentor in (HTTPXClientInstrumentor(), LoggingInstrumentor()):
+        if instrumentor.is_instrumented_by_opentelemetry:
+            instrumentor.uninstrument()
 
 
 def test_disabled_by_default_is_a_noop(app: FastAPI, monkeypatch: pytest.MonkeyPatch):
@@ -78,3 +80,17 @@ def test_respects_operator_service_name(app: FastAPI, monkeypatch: pytest.Monkey
     assert provider is not None
 
     assert provider.resource.attributes["service.name"] == "custom-name"
+
+
+def test_add_trace_context_stamps_record(app: FastAPI, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    provider = setup_telemetry(app, span_exporter=InMemorySpanExporter())
+    assert provider is not None
+
+    record = logging.LogRecord("t", logging.INFO, __file__, 1, "hi", None, None)
+    with provider.get_tracer("t").start_as_current_span("demo") as span:
+        _add_trace_context(span, record)
+        expected = format(span.get_span_context().trace_id, "032x")
+
+    assert getattr(record, "otelTraceID", None) == expected
+    assert getattr(record, "otelSpanID", None)

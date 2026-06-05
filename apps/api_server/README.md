@@ -37,6 +37,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 In Docker, pass the variable through to the container (e.g. `docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=http://alloy:4318 ...`); supervisord forwards its environment to the uvicorn process.
 
+### Logging
+
+In production (`GRIDONE_ENV=production`) the API logs **single-line JSON** to stderr (`timestamp`, `level`, `logger`, `message`, and `exception` when present), which Grafana Alloy / Loki ingest as structured fields without regex scraping. Development keeps the human-readable Rich console + rotating file handlers.
+
+When tracing is enabled, each log record also carries `trace_id` / `span_id`, so logs can be correlated with traces in Tempo.
+
 ## Development
 
 Configure storage with a single URL-like setting in `.env`:

@@ -13,10 +13,23 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SpanExporter
+    from opentelemetry.trace import Span
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_SERVICE_NAME = "gridone-api"
+
+
+def _add_trace_context(span: Span, record: logging.LogRecord) -> None:
+    """Copy the active span's IDs onto a log record for log↔trace correlation.
+
+    Used as an OpenTelemetry logging ``log_hook``; the instrumentation only
+    invokes it when a valid span is in scope. ``JsonFormatter`` reads these
+    ``otel*`` attributes, keeping the logging config decoupled from OTel.
+    """
+    ctx = span.get_span_context()
+    record.otelTraceID = format(ctx.trace_id, "032x")
+    record.otelSpanID = format(ctx.span_id, "016x")
 
 
 def setup_telemetry(
@@ -37,6 +50,7 @@ def setup_telemetry(
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.instrumentation.logging import LoggingInstrumentor
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -55,6 +69,12 @@ def setup_telemetry(
 
     FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
     HTTPXClientInstrumentor().instrument(tracer_provider=provider)
+    # Attach trace/span IDs to log records so structured logs correlate with
+    # traces. set_logging_format=False leaves the formatter to the logging
+    # config; the log_hook is what actually stamps the IDs onto records.
+    LoggingInstrumentor().instrument(
+        set_logging_format=False, log_hook=_add_trace_context
+    )
 
     logger.info(
         "OpenTelemetry tracing enabled (exporting to %s)",
