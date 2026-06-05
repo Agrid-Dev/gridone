@@ -1,14 +1,6 @@
 """OpenTelemetry tracing setup for the Gridone API.
 
-Tracing is opt-in: nothing is configured unless ``OTEL_EXPORTER_OTLP_ENDPOINT``
-is set in the environment. When that variable is absent (the default), this
-module imports no OpenTelemetry packages and installs no instrumentation, so a
-disabled deployment carries zero runtime cost.
-
-When enabled, request and outbound-HTTP spans are exported over OTLP to a local
-collector (Grafana Alloy), which forwards them to Grafana Cloud Tempo. Every
-other aspect of the SDK (sampling, headers, resource attributes, ...) is
-controlled through the standard ``OTEL_*`` environment variables.
+Opt-in and off by default; see ``README.md`` for configuration.
 """
 
 from __future__ import annotations
@@ -41,19 +33,13 @@ def setup_telemetry(
         return None
 
     # Imported lazily so the disabled path never loads the OpenTelemetry SDK.
-    from opentelemetry import trace  # noqa: PLC0415
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (  # noqa: PLC0415
-        OTLPSpanExporter,
-    )
-    from opentelemetry.instrumentation.fastapi import (  # noqa: PLC0415
-        FastAPIInstrumentor,
-    )
-    from opentelemetry.instrumentation.httpx import (  # noqa: PLC0415
-        HTTPXClientInstrumentor,
-    )
-    from opentelemetry.sdk.resources import Resource  # noqa: PLC0415
-    from opentelemetry.sdk.trace import TracerProvider  # noqa: PLC0415
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor  # noqa: PLC0415
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
     # `Resource.create` reads OTEL_SERVICE_NAME / OTEL_RESOURCE_ATTRIBUTES from
     # the environment; seed a default service name unless the operator set one.
