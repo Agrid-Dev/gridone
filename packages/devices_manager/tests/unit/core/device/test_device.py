@@ -14,6 +14,7 @@ from devices_manager.core.device import (
     FaultAttribute,
     PhysicalDevice,
 )
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
@@ -70,7 +71,8 @@ class TestDeviceCreation:
             driver=driver,
         )
         assert device.id == "d1"
-        assert set(device.attributes) == set(driver.attributes) | {"connection_status"}
+        expected = set(driver.attributes) | {CONNECTION_STATUS_ATTR}
+        assert set(device.attributes) == expected
 
     def test_initialize_attributes(self, driver, mock_transport_client):
         device = PhysicalDevice.from_base(
@@ -391,7 +393,7 @@ class TestDevicesListeners:
         # then stays ok for subsequent reads (no duplicate on_update).
         assert calls == [
             ("temperature", 25.5),
-            ("connection_status", "ok"),
+            (CONNECTION_STATUS_ATTR, "ok"),
             ("temperature", 26.0),
         ]
 
@@ -422,7 +424,7 @@ class TestDevicesListeners:
         # then stays ok for subsequent events (no duplicate on_update).
         assert calls == [
             ("temperature", 25),
-            ("connection_status", "ok"),
+            (CONNECTION_STATUS_ATTR, "ok"),
             ("temperature", 26),
         ]
 

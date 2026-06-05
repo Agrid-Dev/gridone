@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, ClassVar
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
-from devices_manager.types import DataType, DeviceKind, ReadWriteMode
+from devices_manager.types import DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError, InvalidError
 
-from .attribute import Attribute, AttributeKind, FaultAttribute, InternalAttribute
+from .attribute import Attribute, AttributeKind, FaultAttribute
 from .connection_status import (
     CONNECTION_STATUS_ATTR,
-    ConnectionStatus,
+    build_cs_attribute,
     compute_connection_status,
 )
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
@@ -67,26 +67,6 @@ def _build_attribute(
         modes,
         initial_value,
         value_options=attribute_driver.value_options,
-    )
-
-
-def _build_cs_attribute(initial_value: str | None) -> InternalAttribute:
-    """Build the connection_status InternalAttribute.
-
-    First creation (no stored value): current_value=idle, no timestamps so no
-    spurious timeseries point is recorded.
-    Restart (stored value): restores the persisted status with fresh timestamps,
-    matching the pattern used for all other attributes in _build_attribute.
-    """
-    now = datetime.now(UTC) if initial_value is not None else None
-    return InternalAttribute(
-        name=CONNECTION_STATUS_ATTR,
-        data_type=DataType.STRING,
-        read_write_modes={"read"},
-        current_value=initial_value or ConnectionStatus.IDLE,
-        last_updated=now,
-        last_changed=now,
-        value_options=list(ConnectionStatus),
     )
 
 
@@ -147,7 +127,7 @@ class PhysicalDevice(CoreDevice):
                     a.name: _build_attribute(a, initial.get(a.name))
                     for a in driver.attributes.values()
                 },
-                CONNECTION_STATUS_ATTR: _build_cs_attribute(
+                CONNECTION_STATUS_ATTR: build_cs_attribute(
                     initial.get(CONNECTION_STATUS_ATTR)  # type: ignore[arg-type]
                 ),
             },
@@ -257,7 +237,7 @@ class PhysicalDevice(CoreDevice):
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
-    def _on_log_append(self, attribute: Attribute) -> None:  # noqa: ARG002
+    def _on_log_append(self) -> None:
         with contextlib.suppress(Exception):
             self._recompute_connection_status()
 
@@ -267,15 +247,12 @@ class PhysicalDevice(CoreDevice):
             for attr in self.attributes.values()
             if attr.kind != AttributeKind.INTERNAL
             for entry in attr.all_log_entries()
+            if entry.event_type in (EventType.READ, EventType.LISTEN)
         ]
 
     def _recompute_connection_status(self) -> None:
-        cs_attr = self.attributes.get(CONNECTION_STATUS_ATTR)
-        if cs_attr is None:
-            return
+        cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
         status = compute_connection_status(self._collect_event_logs())
-        if cs_attr.current_value == status:
-            return
         self._update_attribute(cs_attr, status)
 
     async def update_attributes(self) -> None:

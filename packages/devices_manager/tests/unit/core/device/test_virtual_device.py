@@ -5,6 +5,7 @@ import pytest
 from devices_manager.core.device.attribute import Attribute
 from devices_manager.core.device.virtual_device import VirtualDevice
 from devices_manager.types import DataType, DeviceKind
+from models.errors import NotFoundError
 
 
 def _make_virtual_device(
@@ -72,7 +73,7 @@ class TestVirtualDeviceRead:
     @pytest.mark.asyncio
     async def test_read_attribute_not_found(self):
         device = _make_virtual_device()
-        with pytest.raises(KeyError):
+        with pytest.raises(NotFoundError):
             await device.read_attribute_value("nonexistent")
 
 
@@ -126,7 +127,7 @@ class TestVirtualDeviceWrite:
     @pytest.mark.asyncio
     async def test_write_unknown_attribute_raises(self):
         device = _make_virtual_device()
-        with pytest.raises(KeyError):
+        with pytest.raises(NotFoundError):
             await device.write_attribute_value("nonexistent", 1.0)
 
     @pytest.mark.asyncio

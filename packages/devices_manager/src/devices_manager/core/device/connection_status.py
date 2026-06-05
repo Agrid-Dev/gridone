@@ -1,23 +1,32 @@
-from enum import StrEnum
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Final
+
+from devices_manager.types import ConnectionStatus, DataType
+
+from .attribute import InternalAttribute
 
 if TYPE_CHECKING:
     from .event_log import AttributeEventLog
 
-CONNECTION_STATUS_ATTR = "connection_status"
+CONNECTION_STATUS_ATTR: Final = "connection_status"
 
-
-class ConnectionStatus(StrEnum):
-    IDLE = "idle"
-    OK = "ok"
-    DEGRADED = "degraded"
-    ERROR = "error"
-
-
-_STATUS_BY_OUTCOMES: dict[frozenset[str], ConnectionStatus] = {
-    frozenset({"ok"}): ConnectionStatus.OK,
-    frozenset({"error"}): ConnectionStatus.ERROR,
+_STATUS_BY_OUTCOMES: dict[str, ConnectionStatus] = {
+    "ok": ConnectionStatus.OK,
+    "error": ConnectionStatus.ERROR,
 }
+
+
+def build_cs_attribute(initial_value: str | None) -> InternalAttribute:
+    now = datetime.now(UTC) if initial_value is not None else None
+    return InternalAttribute(
+        name=CONNECTION_STATUS_ATTR,
+        data_type=DataType.STRING,
+        read_write_modes={"read"},
+        current_value=initial_value or ConnectionStatus.IDLE,
+        last_updated=now,
+        last_changed=now,
+        value_options=list(ConnectionStatus),
+    )
 
 
 def compute_connection_status(entries: "list[AttributeEventLog]") -> ConnectionStatus:
@@ -29,8 +38,9 @@ def compute_connection_status(entries: "list[AttributeEventLog]") -> ConnectionS
       {"error"}   → error
       {"ok","error"} → degraded
     """
-    if not entries:
+    statuses = frozenset(e.status for e in entries)
+    if not statuses:
         return ConnectionStatus.IDLE
-    return _STATUS_BY_OUTCOMES.get(
-        frozenset(e.status for e in entries), ConnectionStatus.DEGRADED
-    )
+    if len(statuses) > 1:
+        return ConnectionStatus.DEGRADED
+    return _STATUS_BY_OUTCOMES[next(iter(statuses))]

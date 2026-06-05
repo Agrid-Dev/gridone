@@ -8,6 +8,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
+from models.errors import NotFoundError
+
 from .attribute import Attribute, FaultAttribute
 
 if TYPE_CHECKING:
@@ -114,7 +116,7 @@ class CoreDevice(ABC):
             return self.attributes[attribute_name]
         except KeyError as ke:
             msg = f"Attribute '{attribute_name}' not found in device '{self.id}'"
-            raise KeyError(msg) from ke
+            raise NotFoundError(msg) from ke
 
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
@@ -145,9 +147,6 @@ class CoreDevice(ABC):
                     event.set()
         if self.on_update and attribute.current_value != previous_value:
             self.on_update(self, attribute.name, previous, attribute)
-
-    def _on_log_append(self, attribute: Attribute) -> None:  # noqa: B027
-        """Called after every event-log append.Overridden by PhysicalDevice."""
 
     @abstractmethod
     async def read_attribute_value(

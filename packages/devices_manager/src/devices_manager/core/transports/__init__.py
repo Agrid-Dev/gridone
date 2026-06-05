@@ -1,5 +1,7 @@
 import logging
 
+from devices_manager.types import ConnectionStatus
+
 from .base import PullTransportClient, PushTransportClient, TransportClient
 from .base_transport_config import BaseTransportConfig
 from .factory import make_transport_client, make_transport_config
@@ -8,7 +10,7 @@ from .transport_address import (
     RawTransportAddress,
     TransportAddress,
 )
-from .transport_connection_state import ConnectionStatus, TransportConnectionState
+from .transport_connection_state import TransportConnectionState
 from .transport_metadata import TransportMetadata
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

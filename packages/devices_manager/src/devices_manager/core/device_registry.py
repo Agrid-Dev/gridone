@@ -335,20 +335,10 @@ class DeviceRegistry:
         confirm: bool = True,
     ) -> Attribute:
         device = self._get_or_raise(device_id)
-        try:
-            device.get_attribute(attribute_name)
-        except KeyError as e:
-            raise NotFoundError(str(e)) from e
-        if not device.can_write(attribute_name):
-            msg = f"Attribute '{attribute_name}' is not writable"
-            raise InvalidError(msg)
         return await device.write_attribute_value(
             attribute_name, value, confirm=confirm
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
-        try:
-            return device.get_attribute(attribute_name).logs
-        except KeyError as e:
-            raise NotFoundError(str(e)) from e
+        return device.get_attribute(attribute_name).logs

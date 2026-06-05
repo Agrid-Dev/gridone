@@ -8,10 +8,8 @@ import pytest
 
 from devices_manager.core.device import DeviceBase, PhysicalDevice
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.connection_status import (
-    CONNECTION_STATUS_ATTR,
-    ConnectionStatus,
-)
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.types import ConnectionStatus
 from models.errors import InvalidError
 
 
@@ -105,7 +103,7 @@ class TestConnectionStatusRecompute:
     ) -> None:
         transitions: list[str] = []
 
-        def _capture(_d, name, _prev, attr) -> None:  # type: ignore[no-untyped-def]
+        def _capture(_d, name, _prev, attr) -> None:
             if name == CONNECTION_STATUS_ATTR:
                 transitions.append(attr.current_value)
 

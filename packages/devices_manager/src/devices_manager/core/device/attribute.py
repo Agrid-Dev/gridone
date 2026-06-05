@@ -143,3 +143,22 @@ class InternalAttribute(Attribute):
             msg = "InternalAttribute must be read-only"
             raise ValueError(msg)
         return self
+
+    @classmethod
+    def new(
+        cls,
+        name: str,
+        data_type: DataType,
+        value: AttributeValueType | None = None,
+        value_options: list[AttributeValueType] | None = None,
+    ) -> "InternalAttribute":
+        now = datetime.now(UTC) if value is not None else None
+        return cls(
+            name=name,
+            data_type=data_type,
+            read_write_modes={"read"},
+            current_value=value,
+            last_updated=now,
+            last_changed=now,
+            value_options=value_options,
+        )

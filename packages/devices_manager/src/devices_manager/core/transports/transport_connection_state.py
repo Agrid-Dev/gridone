@@ -1,14 +1,6 @@
 from dataclasses import dataclass
-from enum import StrEnum
 
-
-class ConnectionStatus(StrEnum):
-    IDLE = "idle"
-    CONNECTING = "connecting"
-    CONNECTED = "connected"
-    CONNECTION_ERROR = "connection_error"
-    CLOSING = "closing"
-    CLOSED = "closed"
+from devices_manager.types import ConnectionStatus
 
 
 @dataclass(frozen=True)
@@ -18,7 +10,7 @@ class TransportConnectionState:
 
     @property
     def is_connected(self) -> bool:
-        return self.status == ConnectionStatus.CONNECTED
+        return self.status == ConnectionStatus.OK
 
     @classmethod
     def idle(cls) -> "TransportConnectionState":
@@ -26,21 +18,13 @@ class TransportConnectionState:
         return cls(status=ConnectionStatus.IDLE)
 
     @classmethod
-    def connecting(cls) -> "TransportConnectionState":
-        return cls(status=ConnectionStatus.CONNECTING)
-
-    @classmethod
     def connected(cls) -> "TransportConnectionState":
-        return cls(status=ConnectionStatus.CONNECTED)
+        return cls(status=ConnectionStatus.OK)
 
     @classmethod
     def connection_error(cls, info: str | None = None) -> "TransportConnectionState":
-        return cls(status=ConnectionStatus.CONNECTION_ERROR, info=info)
-
-    @classmethod
-    def closing(cls) -> "TransportConnectionState":
-        return cls(status=ConnectionStatus.CLOSING)
+        return cls(status=ConnectionStatus.ERROR, info=info)
 
     @classmethod
     def closed(cls) -> "TransportConnectionState":
-        return cls(status=ConnectionStatus.CLOSED)
+        return cls(status=ConnectionStatus.IDLE)

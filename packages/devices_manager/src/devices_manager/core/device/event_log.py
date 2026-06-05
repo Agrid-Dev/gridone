@@ -76,7 +76,7 @@ def _log_event(
             else:
                 return result
             finally:
-                self._on_log_append(attribute)
+                self._on_log_append()
 
         return wrapper
 
@@ -87,7 +87,7 @@ def _wrap_listen(
     callback: Callable[[object], None],
     attribute: "Attribute",
     *,
-    on_append: Callable[["Attribute"], None] | None = None,
+    on_append: Callable[[], None] | None = None,
 ) -> Callable[[object], None]:
     """Wrap a push-listener callback to append a listen event log to the attribute."""
 
@@ -101,6 +101,6 @@ def _wrap_listen(
             raise
         finally:
             if on_append is not None:
-                on_append(attribute)
+                on_append()
 
     return wrapper

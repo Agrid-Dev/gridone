@@ -2,11 +2,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from devices_manager.core.device.connection_status import (
-    ConnectionStatus,
-    compute_connection_status,
-)
+from devices_manager.core.device.connection_status import compute_connection_status
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
+from devices_manager.types import ConnectionStatus
 
 _NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
