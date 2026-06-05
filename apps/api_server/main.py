@@ -2,6 +2,7 @@ import os
 
 from fastapi.middleware.cors import CORSMiddleware
 from logging_config import DEV_LOGGING_CONFIG, PROD_LOGGING_CONFIG
+from telemetry import setup_telemetry
 
 from api import create_app
 
@@ -21,3 +22,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Configure OpenTelemetry tracing (no-op unless OTEL_EXPORTER_OTLP_ENDPOINT is set)
+setup_telemetry(app)
