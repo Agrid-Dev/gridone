@@ -367,3 +367,25 @@ class TestAttributeEventLog:
             )
         )
         assert len(attr.logs.read) == 0
+
+
+# ---------------------------------------------------------------------------
+# Internal kind
+# ---------------------------------------------------------------------------
+
+
+_INTERNAL_ATTR = Attribute(
+    name="connection_status",
+    kind=AttributeKind.INTERNAL,
+    data_type=DataType.STRING,
+    read_write_modes={"read"},
+    current_value="idle",
+)
+
+
+def test_internal_attribute_kind():
+    assert _INTERNAL_ATTR.kind == AttributeKind.INTERNAL
+
+
+def test_internal_attribute_serializes_with_kind():
+    assert _INTERNAL_ATTR.model_dump()["kind"] == AttributeKind.INTERNAL

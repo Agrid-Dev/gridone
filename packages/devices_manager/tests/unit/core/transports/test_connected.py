@@ -4,9 +4,9 @@ import pytest
 
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.transport_connection_state import (
-    ConnectionStatus,
     TransportConnectionState,
 )
+from devices_manager.types import ConnectionStatus
 
 
 class MockTransportClient:
@@ -78,4 +78,4 @@ async def test_connection_status_on_connection_error():
     assert not client.connection_state.is_connected
     with pytest.raises(ValueError):  # noqa: PT011
         await client.read("a")
-    assert client.connection_state.status == ConnectionStatus.CONNECTION_ERROR
+    assert client.connection_state.status == ConnectionStatus.ERROR

@@ -6,6 +6,13 @@ from models.types import AttributeValueType, DataType
 ReadWriteMode = Literal["read", "write"]
 
 
+class ConnectionStatus(StrEnum):
+    IDLE = "idle"
+    OK = "ok"
+    DEGRADED = "degraded"
+    ERROR = "error"
+
+
 class DeviceKind(StrEnum):
     PHYSICAL = "physical"
     VIRTUAL = "virtual"
@@ -28,6 +35,7 @@ type DeviceConfig = dict[str, str | int | float | bool]
 
 __all__ = [
     "AttributeValueType",
+    "ConnectionStatus",
     "DataType",
     "DeviceConfig",
     "DeviceKind",

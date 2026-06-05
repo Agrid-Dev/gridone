@@ -72,7 +72,8 @@ def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
 
 _AttributeUnion = Annotated[
     Annotated[Attribute, Tag(AttributeKind.STANDARD)]
-    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)],
+    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)]
+    | Annotated[Attribute, Tag(AttributeKind.INTERNAL)],
     Discriminator(_attribute_kind_tag),
 ]
 

@@ -21,10 +21,13 @@ from .event_log import AttributeEventLog, AttributeLogs, EventType
 class AttributeKind(StrEnum):
     STANDARD = "standard"
     FAULT = "fault"
+    INTERNAL = "internal"
 
 
 class Attribute(BaseModel):
-    kind: Literal[AttributeKind.STANDARD] = AttributeKind.STANDARD
+    kind: Literal[AttributeKind.STANDARD, AttributeKind.INTERNAL] = (
+        AttributeKind.STANDARD
+    )
 
     name: str
     data_type: DataType
@@ -79,13 +82,12 @@ class Attribute(BaseModel):
     def append_log(self, entry: AttributeEventLog) -> None:
         self._logs[entry.event_type].appendleft(entry)
 
+    def all_log_entries(self) -> list[AttributeEventLog]:
+        return [e for dq in self._logs.values() for e in dq]
+
     @property
     def logs(self) -> AttributeLogs:
-        return AttributeLogs(
-            read=list(self._logs[EventType.READ]),
-            write=list(self._logs[EventType.WRITE]),
-            listen=list(self._logs[EventType.LISTEN]),
-        )
+        return AttributeLogs(**{et.value: list(self._logs[et]) for et in EventType})
 
     @classmethod
     def create(

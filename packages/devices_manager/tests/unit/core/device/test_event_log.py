@@ -31,7 +31,7 @@ class TestLogEventDecorator:
         host = _make_host(attr)
 
         @_log_event(EventType.READ)
-        async def fn(_self: object, _attribute_name: str) -> str:
+        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> str:
             return "value"
 
         await fn(host, "temperature")
@@ -45,7 +45,7 @@ class TestLogEventDecorator:
         host = _make_host(attr)
 
         @_log_event(EventType.WRITE)
-        async def fn(_self: object, _attribute_name: str) -> None:
+        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> None:
             raise OSError("boom")
 
         with pytest.raises(OSError, match="boom"):
@@ -75,7 +75,7 @@ class TestLogEventDecorator:
         host = _make_host(attr)
 
         @_log_event(EventType.READ)
-        async def fn(_self: object, _attribute_name: str) -> None:
+        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> None:
             pass
 
         await fn(host, "temperature")
@@ -87,7 +87,7 @@ class TestLogEventDecorator:
         host = _make_host(attr)
 
         @_log_event(EventType.READ)
-        async def fn(_self: object, _attribute_name: str) -> None:
+        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> None:
             raise OSError("bad value")  # noqa: TRY003
 
         with pytest.raises(OSError, match="bad value"):

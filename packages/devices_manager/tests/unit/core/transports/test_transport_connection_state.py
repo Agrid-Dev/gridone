@@ -1,17 +1,16 @@
 import pytest
 
 from devices_manager.core.transports.transport_connection_state import (
-    ConnectionStatus,
     TransportConnectionState,
 )
+from devices_manager.types import ConnectionStatus
 
 
 def test_transport_connection_state_is_connected():
-    connected_status = ConnectionStatus.CONNECTED
-    connected_tcs = TransportConnectionState(status=connected_status)
+    connected_tcs = TransportConnectionState(status=ConnectionStatus.OK)
     assert connected_tcs.is_connected
     for status in ConnectionStatus:
-        if status != connected_status:
+        if status != ConnectionStatus.OK:
             tcs = TransportConnectionState(status=status)
             assert not tcs.is_connected
 
@@ -20,11 +19,9 @@ def test_transport_connection_state_is_connected():
     ("builder", "expected_status"),
     [
         (TransportConnectionState.idle, ConnectionStatus.IDLE),
-        (TransportConnectionState.connecting, ConnectionStatus.CONNECTING),
-        (TransportConnectionState.connected, ConnectionStatus.CONNECTED),
-        (TransportConnectionState.connection_error, ConnectionStatus.CONNECTION_ERROR),
-        (TransportConnectionState.closing, ConnectionStatus.CLOSING),
-        (TransportConnectionState.closed, ConnectionStatus.CLOSED),
+        (TransportConnectionState.connected, ConnectionStatus.OK),
+        (TransportConnectionState.connection_error, ConnectionStatus.ERROR),
+        (TransportConnectionState.closed, ConnectionStatus.IDLE),
     ],
 )
 def test_quick_builders(builder, expected_status):
