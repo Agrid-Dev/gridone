@@ -9,7 +9,6 @@ from pydantic import TypeAdapter, ValidationError
 from devices_manager.core.device import (
     Attribute,
     FaultAttribute,
-    InternalAttribute,
     VirtualDevice,
 )
 from devices_manager.core.device.attribute import AttributeKind
@@ -296,8 +295,9 @@ class TestDeviceAttributeSerialization:
         assert attr.kind == AttributeKind.STANDARD
 
     def test_internal_attribute_serializes_with_kind(self):
-        internal = InternalAttribute(
+        internal = Attribute(
             name="connection_status",
+            kind=AttributeKind.INTERNAL,
             data_type=DataType.STRING,
             read_write_modes={"read"},
             current_value="ok",
@@ -332,6 +332,6 @@ class TestDeviceAttributeSerialization:
         }
         device = Device.model_validate(payload)
         attr = device.attributes["connection_status"]
-        assert isinstance(attr, InternalAttribute)
+        assert isinstance(attr, Attribute)
         assert attr.kind == AttributeKind.INTERNAL
         assert attr.current_value == "degraded"

@@ -8,7 +8,6 @@ from devices_manager.core.device.attribute import (
     Attribute,
     AttributeKind,
     FaultAttribute,
-    InternalAttribute,
 )
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.types import DataType
@@ -371,12 +370,13 @@ class TestAttributeEventLog:
 
 
 # ---------------------------------------------------------------------------
-# InternalAttribute
+# Internal kind
 # ---------------------------------------------------------------------------
 
 
-_INTERNAL_ATTR = InternalAttribute(
+_INTERNAL_ATTR = Attribute(
     name="connection_status",
+    kind=AttributeKind.INTERNAL,
     data_type=DataType.STRING,
     read_write_modes={"read"},
     current_value="idle",
@@ -387,19 +387,5 @@ def test_internal_attribute_kind():
     assert _INTERNAL_ATTR.kind == AttributeKind.INTERNAL
 
 
-def test_internal_attribute_is_subclass_of_attribute():
-    assert isinstance(_INTERNAL_ATTR, Attribute)
-
-
 def test_internal_attribute_serializes_with_kind():
     assert _INTERNAL_ATTR.model_dump()["kind"] == AttributeKind.INTERNAL
-
-
-def test_internal_attribute_rejects_write_mode():
-    with pytest.raises(ValidationError, match="read-only"):
-        InternalAttribute(
-            name="connection_status",
-            data_type=DataType.STRING,
-            read_write_modes={"read", "write"},
-            current_value="ok",
-        )

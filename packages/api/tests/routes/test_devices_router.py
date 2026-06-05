@@ -19,7 +19,7 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
-from devices_manager.core.device.attribute import AttributeKind, InternalAttribute
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto.device_dto import Device
@@ -41,8 +41,9 @@ _PHYSICAL_DEVICE = Device(
         "temperature_setpoint": Attribute.create(
             "temperature_setpoint", DataType.FLOAT, {"read", "write"}
         ),
-        CONNECTION_STATUS_ATTR: InternalAttribute(
+        CONNECTION_STATUS_ATTR: Attribute(
             name=CONNECTION_STATUS_ATTR,
+            kind=AttributeKind.INTERNAL,
             data_type=DataType.STRING,
             read_write_modes={"read"},
             current_value=ConnectionStatus.IDLE,

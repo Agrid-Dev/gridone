@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Final
 
 from devices_manager.types import ConnectionStatus, DataType
 
-from .attribute import InternalAttribute
+from .attribute import Attribute, AttributeKind
 
 if TYPE_CHECKING:
     from .event_log import AttributeEventLog
@@ -16,10 +16,11 @@ _STATUS_BY_OUTCOMES: dict[str, ConnectionStatus] = {
 }
 
 
-def build_cs_attribute(initial_value: str | None) -> InternalAttribute:
+def build_cs_attribute(initial_value: str | None) -> Attribute:
     now = datetime.now(UTC) if initial_value is not None else None
-    return InternalAttribute(
+    return Attribute(
         name=CONNECTION_STATUS_ATTR,
+        kind=AttributeKind.INTERNAL,
         data_type=DataType.STRING,
         read_write_modes={"read"},
         current_value=initial_value or ConnectionStatus.IDLE,

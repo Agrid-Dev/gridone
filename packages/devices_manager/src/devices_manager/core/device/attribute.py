@@ -25,7 +25,9 @@ class AttributeKind(StrEnum):
 
 
 class Attribute(BaseModel):
-    kind: Literal[AttributeKind.STANDARD] = AttributeKind.STANDARD
+    kind: Literal[AttributeKind.STANDARD, AttributeKind.INTERNAL] = (
+        AttributeKind.STANDARD
+    )
 
     name: str
     data_type: DataType
@@ -130,35 +132,3 @@ class FaultAttribute(Attribute):
             )
             raise ValueError(msg)
         return self
-
-
-class InternalAttribute(Attribute):
-    """Computed, read-only attribute not backed by a driver or transport."""
-
-    kind: Literal[AttributeKind.INTERNAL] = AttributeKind.INTERNAL
-
-    @model_validator(mode="after")
-    def _enforce_readonly(self) -> "InternalAttribute":
-        if "write" in self.read_write_modes:
-            msg = "InternalAttribute must be read-only"
-            raise ValueError(msg)
-        return self
-
-    @classmethod
-    def new(
-        cls,
-        name: str,
-        data_type: DataType,
-        value: AttributeValueType | None = None,
-        value_options: list[AttributeValueType] | None = None,
-    ) -> "InternalAttribute":
-        now = datetime.now(UTC) if value is not None else None
-        return cls(
-            name=name,
-            data_type=data_type,
-            read_write_modes={"read"},
-            current_value=value,
-            last_updated=now,
-            last_changed=now,
-            value_options=value_options,
-        )
