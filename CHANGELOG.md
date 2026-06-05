@@ -1,3 +1,9 @@
+## v0.86.0 (2026-06-05)
+
+### Feat
+
+- create api endpoint to get device attribute logs (#332)
+
 ## v0.85.0 (2026-06-04)
 
 ### Feat
