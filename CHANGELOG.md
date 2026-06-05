@@ -1,3 +1,15 @@
+## v0.87.0 (2026-06-05)
+
+### Feat
+
+- **api**: structured JSON logging + log/trace correlation (AGR-667)
+- **api**: add opt-in OpenTelemetry tracing (AGR-667)
+
+### Refactor
+
+- **api**: address PR review on telemetry (round 2)
+- **api**: address PR review on telemetry
+
 ## v0.86.0 (2026-06-05)
 
 ### Feat
