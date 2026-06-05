@@ -21,6 +21,7 @@ class Permission(StrEnum):
     AUTOMATIONS_READ = "automations:read"
     AUTOMATIONS_WRITE = "automations:write"
     NOTIFICATIONS_WRITE = "notifications:write"
+    DEVICES_LOGS_READ = "devices:logs:read"
 
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {

@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
+    from .core.device.event_log import AttributeLogs
     from .core.driver import Driver
     from .core.transports import TransportClient
     from .interface import AttributeListener, DeviceDiscoveredListener
@@ -274,6 +275,9 @@ class DevicesService(Service):
         return await self._device_registry.write_attribute(
             device_id, attribute_name, value, confirm=confirm
         )
+
+    def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
+        return self._device_registry.get_attribute_logs(device_id, attribute_name)
 
     # -- Faults --
 

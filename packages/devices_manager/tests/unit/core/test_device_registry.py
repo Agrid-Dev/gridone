@@ -12,6 +12,7 @@ from devices_manager.core.device import (
     PhysicalDevice,
     VirtualDevice,
 )
+from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.dto import (
     AttributeCreate,
@@ -808,3 +809,20 @@ class TestDeviceRegistryPersistence:
         )
         await registry.remove(device.id)
         storage.delete.assert_called_once_with(device.id)
+
+
+class TestDeviceRegistryGetAttributeLogs:
+    def test_returns_attribute_logs(self, device_registry, device):
+        result = device_registry.get_attribute_logs(device.id, "temperature")
+        assert isinstance(result, AttributeLogs)
+        assert result.read == []
+        assert result.write == []
+        assert result.listen == []
+
+    def test_raises_not_found_for_unknown_device(self, device_registry):
+        with pytest.raises(NotFoundError):
+            device_registry.get_attribute_logs("unknown-device", "temperature")
+
+    def test_raises_not_found_for_unknown_attribute(self, device_registry, device):
+        with pytest.raises(NotFoundError):
+            device_registry.get_attribute_logs(device.id, "nonexistent")

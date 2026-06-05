@@ -19,6 +19,7 @@ from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
+from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType, DeviceKind
 from models.errors import ConfirmationError, InvalidError, NotFoundError
@@ -131,6 +132,7 @@ def _make_dm(
     mock.delete_device_tag = AsyncMock(
         return_value=_PHYSICAL_DEVICE.model_copy(update={"tags": {}})
     )
+    mock.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
     return mock
 
 
@@ -1132,3 +1134,22 @@ class TestDeviceTags:
         dm.delete_device_tag.side_effect = NotFoundError("Device unknown not found")
         response = client.delete("/unknown/tags/asset_id")
         assert response.status_code == 404
+
+
+class TestGetAttributeLogs:
+    def test_returns_three_keys(self, client: TestClient):
+        response = client.get("/device1/temperature/logs")
+        assert response.status_code == 200
+        data = response.json()
+        assert set(data.keys()) == {"read", "write", "listen"}
+
+    def test_calls_service_with_correct_args(self, client: TestClient, dm: MagicMock):
+        client.get("/device1/temperature/logs")
+        dm.get_attribute_logs.assert_called_once_with("device1", "temperature")
+
+    def test_empty_logs_returned_as_empty_arrays(self, client: TestClient):
+        response = client.get("/device1/temperature/logs")
+        data = response.json()
+        assert data["read"] == []
+        assert data["write"] == []
+        assert data["listen"] == []

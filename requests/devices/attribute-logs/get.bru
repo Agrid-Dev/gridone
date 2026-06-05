@@ -1,0 +1,16 @@
+meta {
+  name: get attribute logs
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/:attribute/logs
+  body: none
+  auth: inherit
+}
+
+params:path {
+  device_id: 03b5cffb01b5494c
+  attribute: temperature
+}

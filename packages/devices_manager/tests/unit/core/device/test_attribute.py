@@ -9,6 +9,7 @@ from devices_manager.core.device.attribute import (
     AttributeKind,
     FaultAttribute,
 )
+from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.types import DataType
 from models.types import Severity
 
@@ -277,3 +278,92 @@ def test_attribute_value_options_field() -> None:
 def test_attribute_value_options_defaults_to_none() -> None:
     attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
     assert attr.value_options is None
+
+
+# ---------------------------------------------------------------------------
+# Event log
+# ---------------------------------------------------------------------------
+
+
+class TestAttributeEventLog:
+    def test_logs_not_in_model_dump(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        dumped = attr.model_dump()
+        assert "_logs" not in dumped
+        assert "logs" not in dumped
+
+    def test_get_logs_starts_empty(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        logs = attr.logs
+        assert logs.read == []
+        assert logs.write == []
+        assert logs.listen == []
+
+    def test_append_ok_log(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        entry = AttributeEventLog(
+            event_type=EventType.READ,
+            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            status="ok",
+        )
+        attr.append_log(entry)
+        logs = attr.logs
+        assert len(logs.read) == 1
+        assert logs.read[0].status == "ok"
+        assert logs.read[0].message is None
+
+    def test_append_error_log(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        entry = AttributeEventLog(
+            event_type=EventType.READ,
+            timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+            status="error",
+            message="Connection refused",
+        )
+        attr.append_log(entry)
+        assert attr.logs.read[0].message == "Connection refused"
+
+    def test_logs_capped_at_10(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        for _ in range(15):
+            attr.append_log(
+                AttributeEventLog(
+                    event_type=EventType.READ,
+                    timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                    status="ok",
+                )
+            )
+        assert len(attr.logs.read) == 10
+
+    def test_logs_are_per_type(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read", "write"})
+        attr.append_log(
+            AttributeEventLog(
+                event_type=EventType.READ,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                status="ok",
+            )
+        )
+        attr.append_log(
+            AttributeEventLog(
+                event_type=EventType.WRITE,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                status="ok",
+            )
+        )
+        logs = attr.logs
+        assert len(logs.read) == 1
+        assert len(logs.write) == 1
+        assert len(logs.listen) == 0
+
+    def test_get_logs_returns_copy(self) -> None:
+        attr = Attribute.create("temperature", DataType.FLOAT, {"read"})
+        logs = attr.logs
+        logs.read.append(
+            AttributeEventLog(
+                event_type=EventType.READ,
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                status="ok",
+            )
+        )
+        assert len(attr.logs.read) == 0

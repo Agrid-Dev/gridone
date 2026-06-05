@@ -1,12 +1,21 @@
+from collections import deque
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, computed_field, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    PrivateAttr,
+    computed_field,
+    model_serializer,
+    model_validator,
+)
 
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
 from models.types import Severity
+
+from .event_log import AttributeEventLog, AttributeLogs, EventType
 
 
 class AttributeKind(StrEnum):
@@ -24,6 +33,10 @@ class Attribute(BaseModel):
     last_updated: datetime | None = None
     last_changed: datetime | None = None
     value_options: list[AttributeValueType] | None = None
+
+    _logs: dict[EventType, deque[AttributeEventLog]] = PrivateAttr(
+        default_factory=lambda: {t: deque(maxlen=10) for t in EventType}
+    )
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
@@ -62,6 +75,17 @@ class Attribute(BaseModel):
         object.__setattr__(self, "last_updated", datetime.now(UTC))
         if self.current_value != previous_value:
             object.__setattr__(self, "last_changed", datetime.now(UTC))
+
+    def append_log(self, entry: AttributeEventLog) -> None:
+        self._logs[entry.event_type].appendleft(entry)
+
+    @property
+    def logs(self) -> AttributeLogs:
+        return AttributeLogs(
+            read=list(self._logs[EventType.READ]),
+            write=list(self._logs[EventType.WRITE]),
+            listen=list(self._logs[EventType.LISTEN]),
+        )
 
     @classmethod
     def create(

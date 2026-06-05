@@ -15,6 +15,7 @@ from models.errors import ConfirmationError
 
 from .attribute import Attribute, FaultAttribute
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
+from .event_log import EventType, _log_event, _wrap_listen
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -151,7 +152,7 @@ class PhysicalDevice(CoreDevice):
             )
             self._update_attribute(attribute, decoded)
 
-        return on_message
+        return _wrap_listen(on_message, attribute)
 
     async def start_sync(self) -> None:
         """Start listeners and polling for this device."""
@@ -197,6 +198,7 @@ class PhysicalDevice(CoreDevice):
                 )
             delay = min(delay * 4, 4.0)
 
+    @_log_event(EventType.READ)
     async def read_attribute_value(
         self,
         attribute_name: str,
@@ -278,6 +280,7 @@ class PhysicalDevice(CoreDevice):
                 with contextlib.suppress(asyncio.CancelledError):
                     await poll_task
 
+    @_log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
         attribute_name: str,

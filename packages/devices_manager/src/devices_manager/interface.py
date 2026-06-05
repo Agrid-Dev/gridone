@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
+    from .core.device.event_log import AttributeLogs
     from .core.discovery_manager import DiscoveryConfig
     from .dto import (
         Device,
@@ -77,6 +78,10 @@ class DeviceRegistryInterface(Protocol):
         *,
         confirm: bool = True,
     ) -> Attribute: ...
+
+    def get_attribute_logs(
+        self, device_id: str, attribute_name: str
+    ) -> AttributeLogs: ...
 
 
 class DiscoveryManagerInterface(Protocol):
@@ -151,6 +156,10 @@ class DevicesServiceInterface(Protocol):
         *,
         confirm: bool = True,
     ) -> Attribute: ...
+
+    def get_attribute_logs(
+        self, device_id: str, attribute_name: str
+    ) -> AttributeLogs: ...
 
     # -- faults --
 
