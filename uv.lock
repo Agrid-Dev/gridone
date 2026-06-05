@@ -89,11 +89,11 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "gridone-api", editable = "packages/api" },
-    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.30.0" },
-    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.51b0" },
-    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.51b0" },
-    { name = "opentelemetry-instrumentation-logging", specifier = ">=0.51b0" },
-    { name = "opentelemetry-sdk", specifier = ">=1.30.0" },
+    { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.42.1" },
+    { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.63b1" },
+    { name = "opentelemetry-instrumentation-httpx", specifier = ">=0.63b1" },
+    { name = "opentelemetry-instrumentation-logging", specifier = ">=0.63b1" },
+    { name = "opentelemetry-sdk", specifier = ">=1.42.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
 ]
 

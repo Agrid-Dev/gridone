@@ -32,14 +32,16 @@ def _add_trace_context(span: Span, record: logging.LogRecord) -> None:
     record.otelSpanID = format(ctx.span_id, "016x")
 
 
-def setup_telemetry(
+def setup_optin_telemetry(
     app: FastAPI, *, span_exporter: SpanExporter | None = None
 ) -> TracerProvider | None:
     """Install OpenTelemetry tracing on ``app`` when OTLP export is configured.
 
-    Returns the configured ``TracerProvider`` when tracing is enabled, or
-    ``None`` when it is disabled (no ``OTEL_EXPORTER_OTLP_ENDPOINT``). The
-    optional ``span_exporter`` overrides the default OTLP exporter and exists
+    Enabled by ``OTEL_EXPORTER_OTLP_ENDPOINT``; a no-op otherwise. Returns the
+    configured ``TracerProvider`` (``None`` when disabled) rather than relying
+    on the process-global one — which can only be set once — so the caller can
+    flush/shut it down on teardown and tests can inspect it without global
+    state. The optional ``span_exporter`` overrides the default OTLP exporter
     so tests can capture spans in memory.
     """
     if span_exporter is None and not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
