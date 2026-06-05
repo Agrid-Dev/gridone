@@ -37,6 +37,16 @@ export function getLastUpdateTime(
 
 import type { TFunction } from "i18next";
 
+export function relativeLastChanged(
+  lastChanged: string | null,
+  t: TFunction<"common">,
+): string {
+  if (!lastChanged) return t("common.timeAgo.justNow");
+  const timestamp = new Date(lastChanged).getTime();
+  if (Number.isNaN(timestamp)) return t("common.timeAgo.justNow");
+  return formatTimeAgo(timestamp, t);
+}
+
 export function formatTimeAgo(
   timestamp: number,
   t: TFunction<"common">,
