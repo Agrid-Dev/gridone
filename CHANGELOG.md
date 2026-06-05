@@ -1,3 +1,9 @@
+## v0.88.0 (2026-06-05)
+
+### Feat
+
+- connection status internal attribute AGR-645 (#335)
+
 ## v0.87.0 (2026-06-05)
 
 ### Feat
