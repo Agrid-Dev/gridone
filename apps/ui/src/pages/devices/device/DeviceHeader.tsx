@@ -4,7 +4,9 @@ import { ChevronLeft, History, Pencil, Terminal } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import {
+  getConnectionStatus,
   isPhysicalDevice,
   type Device,
   type PhysicalDevice,
@@ -47,6 +49,7 @@ function TitleRow({ device }: { device: Device }) {
         {device.name || device.id}
       </h1>
       <DeviceTypeChip type={device.type} />
+      <ConnectionStatusBadge status={getConnectionStatus(device)} />
       {!isPhysicalDevice(device) && (
         <Badge variant="outline">{t("common.deviceKinds.virtual")}</Badge>
       )}

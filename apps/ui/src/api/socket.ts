@@ -1,3 +1,5 @@
+import camelcase from "camelcase";
+import camelcaseKeys from "camelcase-keys";
 import { QueryClient } from "@tanstack/react-query";
 import { Device } from "@/api/devices";
 import { API_BASE_URL } from "./request";
@@ -5,7 +7,7 @@ import type { DataPoint, SeriesPointsResult, TimeSeries } from "./timeseries";
 
 export type DeviceUpdateMessage = {
   type: "device_update";
-  device_id: string;
+  deviceId: string;
   attribute: string;
   value: string | number | boolean | null;
   timestamp?: string | null;
@@ -50,6 +52,10 @@ export function buildWebSocketUrl(): string {
   }
 }
 
+/**
+ * Applies a partial device_update WS event to a cached Device.
+ * `attribute` must already be camelCase to match the HTTP-fetched cache keys.
+ */
 export function applyDeviceUpdate(
   device: Device,
   attribute: string,
@@ -61,33 +67,52 @@ export function applyDeviceUpdate(
     return device;
   }
 
-  const updatedAttributes = {
-    ...device.attributes,
-    [attribute]: {
-      ...existingAttribute,
-      current_value: value,
-      lastUpdated: timestamp ?? new Date().toISOString(),
+  return {
+    ...device,
+    attributes: {
+      ...device.attributes,
+      [attribute]: {
+        ...existingAttribute,
+        currentValue: value,
+        lastUpdated: timestamp ?? new Date().toISOString(),
+      },
     },
   };
-
-  return { ...device, attributes: updatedAttributes };
 }
 
 export function createDeviceMessageHandler(queryClient: QueryClient) {
-  return (message: WebSocketMessage) => {
-    if (typeof message !== "object" || !message || !("type" in message)) {
+  return (rawMessage: WebSocketMessage) => {
+    if (
+      typeof rawMessage !== "object" ||
+      !rawMessage ||
+      !("type" in rawMessage)
+    ) {
       return;
     }
 
+    // Normalise all keys to camelCase once, mirroring the HTTP layer transform.
+    // This ensures WS payloads are structurally identical to HTTP-fetched cache entries.
+    const message = camelcaseKeys(rawMessage as Record<string, unknown>, {
+      deep: true,
+      preserveConsecutiveUppercase: true,
+    }) as WebSocketMessage;
+
     if (message.type === "device_update") {
       const updateMessage = message as DeviceUpdateMessage;
+      // `attribute` is a VALUE (not a key) so camelcaseKeys leaves it as snake_case.
+      // Use the same `camelcase` package that camelcase-keys uses internally so
+      // digit-bearing names (e.g. "setpoint_1") resolve identically to the cache keys.
+      const attributeKey = camelcase(updateMessage.attribute, {
+        preserveConsecutiveUppercase: true,
+      });
+
       queryClient.setQueryData<Device | undefined>(
-        ["device", updateMessage.device_id],
+        ["device", updateMessage.deviceId],
         (current) =>
           current
             ? applyDeviceUpdate(
                 current,
-                updateMessage.attribute,
+                attributeKey,
                 updateMessage.value,
                 updateMessage.timestamp,
               )
@@ -96,10 +121,10 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
 
       queryClient.setQueryData<Device[] | undefined>(["devices"], (current) =>
         current?.map((device) =>
-          device.id === updateMessage.device_id
+          device.id === updateMessage.deviceId
             ? applyDeviceUpdate(
                 device,
-                updateMessage.attribute,
+                attributeKey,
                 updateMessage.value,
                 updateMessage.timestamp,
               )
@@ -107,11 +132,13 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
         ),
       );
 
-      // Append data point to the matching time series cache
+      // Append data point to the matching time series cache.
+      // Timeseries metrics are stored as raw snake_case values, so compare against
+      // the original attribute name (not the camelCased key).
       const seriesList = queryClient.getQueryData<TimeSeries[]>([
         "timeseries",
         "series",
-        updateMessage.device_id,
+        updateMessage.deviceId,
       ]);
       const series = seriesList?.find(
         (s) => s.metric === updateMessage.attribute,
@@ -170,10 +197,6 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
       const listUpdateMessage = message as DeviceListUpdateMessage;
       queryClient.setQueryData(["devices"], listUpdateMessage.devices);
       return;
-    }
-
-    if (message.type === "error") {
-      // Error message received
     }
   };
 }

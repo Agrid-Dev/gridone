@@ -1,7 +1,7 @@
 import snakecaseKeys from "snakecase-keys";
 import { request } from "./request";
 
-export type AttributeKind = "standard" | "fault";
+export type AttributeKind = "standard" | "fault" | "internal";
 export type AttributeValue = string | number | boolean;
 
 import type { Severity } from "./severity";
@@ -171,6 +171,25 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isWeatherSensor(device) ||
     isElectricityMeter(device)
   );
+}
+
+export enum ConnectionStatus {
+  Idle = "idle",
+  Ok = "ok",
+  Degraded = "degraded",
+  Error = "error",
+}
+
+export function getConnectionStatus(device: Device): ConnectionStatus | null {
+  const val = device.attributes["connectionStatus"]?.currentValue;
+  if (
+    val !== ConnectionStatus.Idle &&
+    val !== ConnectionStatus.Ok &&
+    val !== ConnectionStatus.Degraded &&
+    val !== ConnectionStatus.Error
+  )
+    return null;
+  return val as ConnectionStatus;
 }
 
 /**

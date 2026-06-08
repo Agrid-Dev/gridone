@@ -85,7 +85,13 @@
     "downloadCsv": "Download as CSV",
     "downloadPng": "Download as PNG",
     "downloadPngSuccess": "PNG exported",
-    "downloadPngError": "Failed to export PNG"
+    "downloadPngError": "Failed to export PNG",
+    "connectionStatus": {
+      "idle": "Idle",
+      "ok": "Connected",
+      "degraded": "Degraded",
+      "error": "Disconnected"
+    }
   },
   "commands": {
     "title": "Commands",

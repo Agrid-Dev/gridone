@@ -85,7 +85,13 @@
     "downloadCsv": "Télécharger en CSV",
     "downloadPng": "Télécharger en PNG",
     "downloadPngSuccess": "PNG exporté",
-    "downloadPngError": "Échec de l'export PNG"
+    "downloadPngError": "Échec de l'export PNG",
+    "connectionStatus": {
+      "idle": "Inactif",
+      "ok": "Connecté",
+      "degraded": "Dégradé",
+      "error": "Déconnecté"
+    }
   },
   "commands": {
     "title": "Commandes",
