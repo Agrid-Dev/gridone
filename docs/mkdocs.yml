@@ -63,12 +63,34 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - User Guide:
-    - Devices: guide/devices.md
-    - Standard Devices: guide/standard-devices.md
-    - Driver Schema Reference:
-      - General Layout: guide/general-layout.md
-      - Transport Addresses: guide/transport-addresses.md
-      - Codecs: guide/codecs.md
-    - Transports: guide/transports.md
-  - API Reference: api-reference.md
+  - Getting Started:
+    - getting-started/index.md
+    - For Operators: getting-started/operators.md
+    - For Integrators: getting-started/integrators.md
+    - For Developers: getting-started/developers.md
+  - Guides:
+    - Devices:
+      - Add a device: guides/devices/add-device.md
+      - Discover devices: guides/devices/discover.md
+    - Drivers:
+      - Write a driver: guides/drivers/write-driver.md
+    - Automations:
+      - Create an automation: guides/automations/create.md
+      - Monitor executions: guides/automations/executions.md
+    - Commands:
+      - Send a command: guides/commands/send-command.md
+      - Create a command template: guides/commands/templates.md
+    - Faults:
+      - View active faults: guides/faults/active-faults.md
+    - Notifications:
+      - View and dismiss notifications: guides/notifications/notifications.md
+  - Reference:
+    - Glossary: reference/glossary.md
+    - Driver Schema:
+      - General Layout: reference/driver-schema/general-layout.md
+      - Transport Addresses: reference/driver-schema/transport-addresses.md
+      - Codecs: reference/driver-schema/codecs.md
+    - Devices: reference/devices.md
+    - Standard Devices: reference/standard-devices.md
+    - Transports: reference/transports.md
+    - API Reference: api-reference.md

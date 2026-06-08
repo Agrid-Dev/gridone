@@ -45,7 +45,7 @@ attributes:                   # (required) list of attribute drivers
 | `vendor` | no | Equipment vendor name |
 | `model` | no | Device model name |
 | `version` | no | Driver version number |
-| `type` | no | Standard device type — enables schema validation and built-in UI. See [Standard Devices](standard-devices.md) |
+| `type` | no | Standard device type — enables schema validation and built-in UI. See [Standard Devices](../standard-devices.md) |
 | `env` | no | Driver-scoped constants |
 | `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`) |
 | `update_strategy` | no | Polling frequency configuration |
