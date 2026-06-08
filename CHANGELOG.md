@@ -1,3 +1,9 @@
+## v0.89.0 (2026-06-08)
+
+### Feat
+
+- **ui**: add connection status badge on device (#337)
+
 ## v0.88.0 (2026-06-05)
 
 ### Feat
