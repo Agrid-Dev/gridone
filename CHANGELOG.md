@@ -1,3 +1,9 @@
+## v0.89.1 (2026-06-08)
+
+### Refactor
+
+- restructure pages and create different tabs (#338)
+
 ## v0.89.0 (2026-06-08)
 
 ### Feat
