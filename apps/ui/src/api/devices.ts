@@ -173,13 +173,23 @@ export function isStandardDevice(device: Device): device is StandardDevice {
   );
 }
 
-export type ConnectionStatus = "idle" | "ok" | "degraded" | "error";
+export enum ConnectionStatus {
+  Idle = "idle",
+  Ok = "ok",
+  Degraded = "degraded",
+  Error = "error",
+}
 
 export function getConnectionStatus(device: Device): ConnectionStatus | null {
   const val = device.attributes["connectionStatus"]?.currentValue;
-  if (val !== "idle" && val !== "ok" && val !== "degraded" && val !== "error")
+  if (
+    val !== ConnectionStatus.Idle &&
+    val !== ConnectionStatus.Ok &&
+    val !== ConnectionStatus.Degraded &&
+    val !== ConnectionStatus.Error
+  )
     return null;
-  return val;
+  return val as ConnectionStatus;
 }
 
 /**

@@ -1,3 +1,4 @@
+import camelcase from "camelcase";
 import camelcaseKeys from "camelcase-keys";
 import { QueryClient } from "@tanstack/react-query";
 import { Device } from "@/api/devices";
@@ -51,11 +52,6 @@ export function buildWebSocketUrl(): string {
   }
 }
 
-/** Converts a snake_case string to camelCase — e.g. "connection_status" → "connectionStatus". */
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase());
-}
-
 /**
  * Applies a partial device_update WS event to a cached Device.
  * `attribute` must already be camelCase to match the HTTP-fetched cache keys.
@@ -104,8 +100,11 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
     if (message.type === "device_update") {
       const updateMessage = message as DeviceUpdateMessage;
       // `attribute` is a VALUE (not a key) so camelcaseKeys leaves it as snake_case.
-      // Convert it to match the camelCase keys used in the device attributes cache.
-      const attributeKey = snakeToCamel(updateMessage.attribute);
+      // Use the same `camelcase` package that camelcase-keys uses internally so
+      // digit-bearing names (e.g. "setpoint_1") resolve identically to the cache keys.
+      const attributeKey = camelcase(updateMessage.attribute, {
+        preserveConsecutiveUppercase: true,
+      });
 
       queryClient.setQueryData<Device | undefined>(
         ["device", updateMessage.deviceId],

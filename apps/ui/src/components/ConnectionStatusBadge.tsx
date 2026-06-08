@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { ConnectionStatus } from "@/api/devices";
+import { ConnectionStatus } from "@/api/devices";
 
 const STATUS_CONFIG: Record<
   ConnectionStatus,
@@ -19,25 +19,25 @@ const STATUS_CONFIG: Record<
       | "deviceDetails.connectionStatus.error";
   }
 > = {
-  idle: {
+  [ConnectionStatus.Idle]: {
     variant: "outline",
     Icon: Clock,
     iconClass: "text-muted-foreground",
     labelKey: "deviceDetails.connectionStatus.idle",
   },
-  ok: {
+  [ConnectionStatus.Ok]: {
     variant: "success",
     Icon: Wifi,
     iconClass: "text-green-500",
     labelKey: "deviceDetails.connectionStatus.ok",
   },
-  degraded: {
+  [ConnectionStatus.Degraded]: {
     variant: "warning",
     Icon: Activity,
     iconClass: "text-yellow-500",
     labelKey: "deviceDetails.connectionStatus.degraded",
   },
-  error: {
+  [ConnectionStatus.Error]: {
     variant: "destructive",
     Icon: WifiOff,
     iconClass: "text-destructive",
@@ -45,12 +45,14 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export function ConnectionStatusBadge({ status }: { status: string | null }) {
+export function ConnectionStatusBadge({
+  status,
+}: {
+  status: ConnectionStatus | null;
+}) {
   const { t } = useTranslation("devices");
   if (!status) return null;
-  const config = STATUS_CONFIG[status as ConnectionStatus];
-  if (!config) return null;
-  const { variant, Icon, labelKey } = config;
+  const { variant, Icon, labelKey } = STATUS_CONFIG[status];
   return (
     <Badge variant={variant} className="gap-1">
       <Icon className="h-3 w-3" />
@@ -59,10 +61,12 @@ export function ConnectionStatusBadge({ status }: { status: string | null }) {
   );
 }
 
-export function ConnectionStatusIcon({ status }: { status: string | null }) {
+export function ConnectionStatusIcon({
+  status,
+}: {
+  status: ConnectionStatus | null;
+}) {
   if (!status) return null;
-  const config = STATUS_CONFIG[status as ConnectionStatus];
-  if (!config) return null;
-  const { Icon, iconClass } = config;
+  const { Icon, iconClass } = STATUS_CONFIG[status];
   return <Icon className={cn("h-3.5 w-3.5", iconClass)} />;
 }

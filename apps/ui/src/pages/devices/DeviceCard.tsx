@@ -2,7 +2,12 @@ import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
-import { Device, getConnectionStatus, isPhysicalDevice } from "@/api/devices";
+import {
+  ConnectionStatus,
+  Device,
+  getConnectionStatus,
+  isPhysicalDevice,
+} from "@/api/devices";
 import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
@@ -40,6 +45,10 @@ export function DeviceCard({ device }: { device: Device }) {
   const standardEntry = getStandardDeviceEntry(device.type);
   const Content = standardEntry?.Preview ?? DefaultCardContent;
   const severity = getHighestActiveSeverity(device);
+  const connectionStatus = getConnectionStatus(device);
+  const showConnectionIssue =
+    connectionStatus === ConnectionStatus.Degraded ||
+    connectionStatus === ConnectionStatus.Error;
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">
@@ -47,7 +56,9 @@ export function DeviceCard({ device }: { device: Device }) {
         {/* ── Header (generic) ── */}
         <div>
           <div className="flex items-center justify-between gap-1.5">
-            <ConnectionStatusIcon status={getConnectionStatus(device)} />
+            {showConnectionIssue && (
+              <ConnectionStatusIcon status={connectionStatus} />
+            )}
             <DeviceTypeChip type={device.type} />
           </div>
           <div className="mt-0.5 flex items-center gap-1.5">
