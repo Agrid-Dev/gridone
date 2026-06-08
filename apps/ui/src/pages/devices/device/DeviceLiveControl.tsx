@@ -17,9 +17,7 @@ import { formatAttributeValue } from "@/lib/utils";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getSliderRange } from "@/utils/sliderPresets";
 import { toLabel } from "@/lib/textFormat";
-import { getConnectionStatus } from "@/api/devices";
 import { FaultAttributesSection } from "@/components/FaultAttributesSection";
-import { ConnectionHistoryPanel } from "./ConnectionHistoryPanel";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
@@ -117,14 +115,6 @@ export default function DeviceLiveControl() {
 
       {/* ── Faults (all kind=fault attributes) ── */}
       {device && <FaultAttributesSection device={device} />}
-
-      {/* ── Connection history ── */}
-      {device && deviceId && getConnectionStatus(device) && (
-        <ConnectionHistoryPanel
-          deviceId={deviceId}
-          attribute={device.attributes["connectionStatus"]}
-        />
-      )}
     </div>
   );
 }

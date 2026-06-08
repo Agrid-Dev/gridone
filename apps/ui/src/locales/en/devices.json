@@ -91,10 +91,6 @@
       "ok": "Connected",
       "degraded": "Degraded",
       "error": "Disconnected"
-    },
-    "connectionHistory": {
-      "title": "Connection history",
-      "since": "since {{ago}}"
     }
   },
   "commands": {
