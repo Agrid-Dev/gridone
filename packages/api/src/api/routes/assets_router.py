@@ -20,7 +20,9 @@ from assets import (
     AssetCreate,
     AssetsService,
     AssetUpdate,
+    BuildingProfile,
     get_asset_create_schema,
+    get_building_profile_schema,
 )
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
@@ -39,6 +41,34 @@ class ReorderRequest(BaseModel):
 async def get_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return get_asset_create_schema()
+
+
+@router.get(
+    "/profile", dependencies=[Depends(require_permission(Permission.ASSETS_READ))]
+)
+async def get_building_profile(
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+) -> BuildingProfile:
+    return await assets_svc.get_profile()
+
+
+@router.put(
+    "/profile", dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))]
+)
+async def set_building_profile(
+    body: BuildingProfile,
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+) -> BuildingProfile:
+    return await assets_svc.set_profile(body)
+
+
+@router.get(
+    "/profile/schema",
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
+async def get_profile_schema() -> dict:
+    """JSON schema of BuildingProfile for the frontend form."""
+    return get_building_profile_schema()
 
 
 @router.get("/tree", dependencies=[Depends(require_permission(Permission.ASSETS_READ))])

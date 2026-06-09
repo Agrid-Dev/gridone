@@ -525,6 +525,9 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         {"attribute": "a", "value": 1, "device_type": "thermostat"},
         id="asset-cmd-no-auth",
     ),
+    # PUT /assets/profile requires ASSETS_WRITE.
+    pytest.param("PUT", "/assets/profile", "viewer", 403, {}, id="profile-put-viewer"),
+    pytest.param("PUT", "/assets/profile", None, 401, {}, id="profile-put-no-auth"),
     # GET /devices/commands requires DEVICES_READ — all roles can read,
     # but no-auth is 401.
     pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),

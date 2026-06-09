@@ -1,4 +1,10 @@
-from assets.models import Asset, AssetCreate, AssetType, AssetUpdate
+from assets.models import (
+    Asset,
+    AssetCreate,
+    AssetType,
+    AssetUpdate,
+    BuildingProfile,
+)
 from assets.storage import build_assets_storage
 from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
@@ -51,6 +57,21 @@ class AssetsService(Service):
             name="Organization",
         )
         await self._backend.save(root)
+
+    async def get_profile(self) -> BuildingProfile:
+        """Return the building profile, or an empty default if unset."""
+        return await self._backend.get_profile() or BuildingProfile()
+
+    async def set_profile(self, update: BuildingProfile) -> BuildingProfile:
+        """Upsert the singleton building profile, merging in only set fields.
+
+        Fields omitted from *update* keep their stored value; passing an
+        explicit ``null`` clears a field.
+        """
+        current = await self.get_profile()
+        merged = current.model_copy(update=update.model_dump(exclude_unset=True))
+        await self._backend.save_profile(merged)
+        return merged
 
     async def get_by_id(self, asset_id: str) -> Asset:
         asset = await self._get_or_raise(asset_id)

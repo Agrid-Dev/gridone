@@ -3,7 +3,9 @@ from assets.models import (
     AssetCreate,
     AssetType,
     AssetUpdate,
+    BuildingProfile,
     get_asset_create_schema,
+    get_building_profile_schema,
 )
 from assets.service import AssetsService
 
@@ -13,5 +15,7 @@ __all__ = [
     "AssetType",
     "AssetUpdate",
     "AssetsService",
+    "BuildingProfile",
     "get_asset_create_schema",
+    "get_building_profile_schema",
 ]

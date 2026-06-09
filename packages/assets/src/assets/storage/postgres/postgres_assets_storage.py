@@ -1,6 +1,9 @@
 import asyncpg
 
+from assets.models import BuildingProfile
 from assets.storage.models import AssetInDB
+
+_PROFILE_ID = "singleton"
 
 
 class PostgresAssetsStorage:
@@ -10,6 +13,22 @@ class PostgresAssetsStorage:
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+
+    async def get_profile(self) -> BuildingProfile | None:
+        row = await self._pool.fetchrow(
+            "SELECT data FROM building_profile WHERE id = $1", _PROFILE_ID
+        )
+        return BuildingProfile.model_validate_json(row["data"]) if row else None
+
+    async def save_profile(self, profile: BuildingProfile) -> None:
+        await self._pool.execute(
+            """
+            INSERT INTO building_profile (id, data) VALUES ($1, $2::jsonb)
+            ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
+            """,
+            _PROFILE_ID,
+            profile.model_dump_json(),
+        )
 
     def _row_to_model(self, row: asyncpg.Record) -> AssetInDB:
         return AssetInDB(

@@ -6,7 +6,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from assets.models import AssetType
+from assets.models import AssetType, BuildingProfile
 from assets.storage.models import AssetInDB
 from assets.storage.postgres import run_migrations
 from assets.storage.postgres.postgres_assets_storage import (
@@ -71,6 +71,7 @@ async def storage():
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM device_asset_links")
         await conn.execute("DELETE FROM assets")
+        await conn.execute("DELETE FROM building_profile")
 
     yield store
 
@@ -342,3 +343,32 @@ class TestPositionAndReorder:
         root = _root()
         await storage.save(root)
         await storage.reorder_siblings(root.id, [])
+
+
+class TestBuildingProfile:
+    """get_profile / save_profile JSONB round-trip and singleton upsert."""
+
+    async def test_get_profile_none_when_unset(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        assert await storage.get_profile() is None
+
+    async def test_save_then_get_round_trips(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await storage.save_profile(
+            BuildingProfile(name="HQ", floors=3, latitude=48.85, longitude=2.35)
+        )
+        fetched = await storage.get_profile()
+        assert fetched == BuildingProfile(
+            name="HQ", floors=3, latitude=48.85, longitude=2.35
+        )
+
+    async def test_repeated_save_keeps_single_record(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await storage.save_profile(BuildingProfile(name="First"))
+        await storage.save_profile(BuildingProfile(name="Second"))
+        fetched = await storage.get_profile()
+        assert fetched is not None
+        assert fetched.name == "Second"
