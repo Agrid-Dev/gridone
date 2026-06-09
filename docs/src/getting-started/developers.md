@@ -55,8 +55,12 @@ Then start both services:
 docker compose up
 ```
 
-The full stack (UI + API) is available at **`http://localhost:8765`**. Schema
-migrations run automatically before the server starts.
+Once both containers are healthy:
+
+- **`http://localhost:8765`** — UI in your browser
+- **`http://localhost:8765/api`** — HTTP API (see [API Reference](../api-reference.md))
+
+Schema migrations run automatically before the server starts.
 
 ---
 
@@ -70,7 +74,13 @@ curl -X POST http://localhost:8765/api/auth/token \
 ```
 
 A default `admin` / `admin` account is created automatically on first start when no
-users exist. Response:
+users exist.
+
+!!! warning "Change these credentials before going live"
+    The `admin` / `admin` defaults are factory values. Update the password before
+    exposing Gridone on a public or shared network.
+
+Response:
 
 ```json
 {
@@ -89,15 +99,15 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 3. Make your first request
+## 3. Verify Gridone is up
 
 ```sh
-curl http://localhost:8765/api/devices/ \
-  -H "Authorization: Bearer <access_token>"
+curl http://localhost:8765/api/health
 ```
 
-An empty list `[]` confirms the stack is live, migrations ran, and your token is
-valid.
+```json
+{"status": "ok", "version": "vX.Y.Z", "flags": []}
+```
 
 ---
 
