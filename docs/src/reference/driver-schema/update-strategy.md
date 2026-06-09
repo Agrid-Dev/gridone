@@ -1,6 +1,7 @@
 # Update Strategy
 
-The `update_strategy` block controls how often the system polls a device's attributes. All fields are optional and omitting the block entirely uses the defaults.
+The `update_strategy` block controls how Gridone synchronizes its data with the actual, physical device. 
+All fields are optional and omitting the block entirely uses the following defaults.
 
 ```yaml
 update_strategy:
@@ -31,6 +32,7 @@ Examples: `30s`, `1min`, `2h`, `90` (= 90 seconds).
 ## Disabling polling
 
 Set `polling: disable` to stop the system from polling the device. The device remains reachable for on-demand reads and writes, but no background polling occurs.
+This can be especially useful for _push transport based devices_, like mqtt, knx, or lorawan, where devices spontaneously publish their attribute updates and don't require polling.
 
 ```yaml
 update_strategy:
