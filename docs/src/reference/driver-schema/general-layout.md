@@ -20,7 +20,7 @@ device_config:                # (optional) parameters the user must supply per d
   - name: ip                  # e.g. IP address, device ID — interpolated as ${ip} in addresses
 
 update_strategy:              # (optional) controls how often attributes are polled
-  polling_interval: 30s
+  polling_interval: 30s       # or: polling: disable
 
 attributes:                   # (required) list of attribute drivers
   - name: temperature         # attribute identifier
@@ -48,7 +48,7 @@ attributes:                   # (required) list of attribute drivers
 | `type` | no | Standard device type — enables schema validation and built-in UI. See [Standard Devices](../standard-devices.md) |
 | `env` | no | Driver-scoped constants |
 | `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`) |
-| `update_strategy` | no | Polling frequency configuration |
+| `update_strategy` | no | Polling frequency configuration. See [Update Strategy](update-strategy.md) |
 | `attributes` | yes | List of readable/writable device attributes |
 | `discovery` | no | Auto-discovery configuration (protocol-dependent) |
 
