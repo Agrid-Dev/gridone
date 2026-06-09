@@ -1,0 +1,26 @@
+meta {
+  name: update building profile
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{BASE_URL}}/assets/profile
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "name": "Mercure Opera ziguidi",
+    "address": "5 Rue de la Paix, 75002 Paris",
+    "surface": 4200,
+    "floors": 8,
+    "year_built": 1998,
+    "operator": "Accor",
+    "latitude": 48.8698,
+    "longitude": 2.3315,
+    "cover_url": "https://example.com/cover.jpg",
+    "icon": "building"
+  }
+}
