@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 
-from devices_manager.core.codecs.registry.json_pointer_adapter import (
-    json_pointer_adapter,
+from devices_manager.core.codecs.registry.json_pointer_codec import (
+    json_pointer_codec,
 )
 
 
@@ -22,5 +22,5 @@ from devices_manager.core.codecs.registry.json_pointer_adapter import (
     ],
 )
 def test_json_pointer_parser(data: dict, json_pointer: str, expected: Any) -> None:
-    adapter = json_pointer_adapter(json_pointer)
-    assert adapter.decode(data) == expected
+    codec = json_pointer_codec(json_pointer)
+    assert codec.decode(data) == expected

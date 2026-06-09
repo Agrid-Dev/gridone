@@ -14,5 +14,5 @@ def json_path_parser(data: dict, json_path: str) -> AttributeValueType:
     raise ValueError(msg)
 
 
-def json_path_adapter(path: str) -> FnCodec[dict, AttributeValueType]:
+def json_path_codec(path: str) -> FnCodec[dict, AttributeValueType]:
     return FnCodec(decoder=lambda d: json_path_parser(d, path))

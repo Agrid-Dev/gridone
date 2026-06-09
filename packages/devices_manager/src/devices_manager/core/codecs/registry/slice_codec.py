@@ -10,7 +10,7 @@ def _parse_slice_string(argument: str) -> slice:
     return slice(*[int(p) if p else None for p in stripped_arg.split(":")])
 
 
-def slice_adapter(argument: str) -> FnCodec:
+def slice_codec(argument: str) -> FnCodec:
     try:
         s = _parse_slice_string(argument)
     except Exception as e:

@@ -1,7 +1,7 @@
 import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec, build_codec
-from devices_manager.core.codecs.registry.options_adapter import options_adapter
+from devices_manager.core.codecs.registry.options_codec import options_codec
 from models.errors import InvalidError
 
 
@@ -15,7 +15,7 @@ from models.errors import InvalidError
     ],
 )
 def test_encode_valid_value_passes_through(value, options) -> None:
-    assert options_adapter(options).encode(value) == value
+    assert options_codec(options).encode(value) == value
 
 
 @pytest.mark.parametrize(
@@ -27,7 +27,7 @@ def test_encode_valid_value_passes_through(value, options) -> None:
 )
 def test_encode_invalid_value_raises(value, options) -> None:
     with pytest.raises(InvalidError, match="not in options"):
-        options_adapter(options).encode(value)
+        options_codec(options).encode(value)
 
 
 @pytest.mark.parametrize(
@@ -40,11 +40,11 @@ def test_encode_invalid_value_raises(value, options) -> None:
     ],
 )
 def test_decode_passes_anything_through(value, options) -> None:
-    assert options_adapter(options).decode(value) == value
+    assert options_codec(options).decode(value) == value
 
 
 def test_value_options_exposed_on_codec() -> None:
-    codec = options_adapter(["heat", "cool", "fan", "auto"])
+    codec = options_codec(["heat", "cool", "fan", "auto"])
     assert codec.value_options == ["heat", "cool", "fan", "auto"]
 
 

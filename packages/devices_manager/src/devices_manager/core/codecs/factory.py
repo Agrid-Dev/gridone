@@ -6,18 +6,18 @@ from pydantic import BaseModel, BeforeValidator
 from models.errors import InvalidError
 
 from .fn_codec import FnCodec
-from .registry.base64_adapter import base64_adapter
-from .registry.bool_format_adapter import bool_format_adapter
-from .registry.byte_convert_adapter import byte_convert_adapter
-from .registry.byte_frame_adapter import byte_frame_adapter
-from .registry.identity_adapter import identity_adapter
-from .registry.json_path_adapter import json_path_adapter
-from .registry.json_pointer_adapter import json_pointer_adapter
-from .registry.knx_dpt_adapter import knx_dpt_adapter
-from .registry.mapping_adapter import mapping_adapter
-from .registry.options_adapter import options_adapter
-from .registry.scale_adapter import scale_adapter
-from .registry.slice_adapter import slice_adapter
+from .registry.base64_codec import base64_codec
+from .registry.bool_format_codec import bool_format_codec
+from .registry.byte_convert_codec import byte_convert_codec
+from .registry.byte_frame_codec import byte_frame_codec
+from .registry.identity_codec import identity_codec
+from .registry.json_path_codec import json_path_codec
+from .registry.json_pointer_codec import json_pointer_codec
+from .registry.knx_dpt_codec import knx_dpt_codec
+from .registry.mapping_codec import mapping_codec
+from .registry.options_codec import options_codec
+from .registry.scale_codec import scale_codec
+from .registry.slice_codec import slice_codec
 
 RawArgTypes = (str, int, float, dict, list)
 RawArg = str | int | float | dict[Any, Any] | list[Any]
@@ -30,18 +30,18 @@ class CodecEntry:
 
 
 codec_entries: dict[str, CodecEntry] = {
-    "identity": CodecEntry(builder=identity_adapter, arg_type=RawArgTypes),
-    "scale": CodecEntry(builder=scale_adapter, arg_type=(int, float)),
-    "json_pointer": CodecEntry(builder=json_pointer_adapter, arg_type=str),
-    "json_path": CodecEntry(builder=json_path_adapter, arg_type=str),
-    "bool_format": CodecEntry(builder=bool_format_adapter, arg_type=str),
-    "byte_convert": CodecEntry(builder=byte_convert_adapter, arg_type=str),
-    "base64": CodecEntry(builder=base64_adapter, arg_type=str),
-    "byte_frame": CodecEntry(builder=byte_frame_adapter, arg_type=str),
-    "slice": CodecEntry(builder=slice_adapter, arg_type=str),
-    "mapping": CodecEntry(builder=mapping_adapter, arg_type=dict),
-    "options": CodecEntry(builder=options_adapter, arg_type=list),
-    "knx_dpt": CodecEntry(builder=knx_dpt_adapter, arg_type=str),
+    "identity": CodecEntry(builder=identity_codec, arg_type=RawArgTypes),
+    "scale": CodecEntry(builder=scale_codec, arg_type=(int, float)),
+    "json_pointer": CodecEntry(builder=json_pointer_codec, arg_type=str),
+    "json_path": CodecEntry(builder=json_path_codec, arg_type=str),
+    "bool_format": CodecEntry(builder=bool_format_codec, arg_type=str),
+    "byte_convert": CodecEntry(builder=byte_convert_codec, arg_type=str),
+    "base64": CodecEntry(builder=base64_codec, arg_type=str),
+    "byte_frame": CodecEntry(builder=byte_frame_codec, arg_type=str),
+    "slice": CodecEntry(builder=slice_codec, arg_type=str),
+    "mapping": CodecEntry(builder=mapping_codec, arg_type=dict),
+    "options": CodecEntry(builder=options_codec, arg_type=list),
+    "knx_dpt": CodecEntry(builder=knx_dpt_codec, arg_type=str),
 }
 
 supported_codecs = list(codec_entries.keys())
@@ -89,7 +89,7 @@ def _build_one_codec(spec: CodecSpec) -> FnCodec:
 
 def build_codec(specs: list[CodecSpec]) -> FnCodec:
     if not specs:
-        return identity_adapter("")
+        return identity_codec("")
     built = [_build_one_codec(spec) for spec in specs]
     pipeline = built[0]
     for c in built[1:]:

@@ -1,6 +1,6 @@
 import pytest
 
-from devices_manager.core.codecs.registry.knx_dpt_adapter import knx_dpt_adapter
+from devices_manager.core.codecs.registry.knx_dpt_codec import knx_dpt_codec
 
 # (dpt_id, wire_value, decoded_value) — used for decode, encode, and round-trip
 CASES = [
@@ -16,21 +16,21 @@ CASES = [
 
 @pytest.mark.parametrize(("dpt_id", "wire", "value"), CASES)
 def test_decode(dpt_id: str, wire: bool | list[int], value: object) -> None:
-    assert knx_dpt_adapter(dpt_id).decode(wire) == value
+    assert knx_dpt_codec(dpt_id).decode(wire) == value
 
 
 @pytest.mark.parametrize(("dpt_id", "wire", "value"), CASES)
 def test_encode(dpt_id: str, wire: bool | list[int], value: object) -> None:
-    assert knx_dpt_adapter(dpt_id).encode(value) == wire
+    assert knx_dpt_codec(dpt_id).encode(value) == wire
 
 
 @pytest.mark.parametrize(("dpt_id", "wire", "_"), CASES)
 def test_round_trip(dpt_id: str, wire: bool | list[int], _: object) -> None:
-    adapter = knx_dpt_adapter(dpt_id)
-    assert adapter.encode(adapter.decode(wire)) == wire
+    codec = knx_dpt_codec(dpt_id)
+    assert codec.encode(codec.decode(wire)) == wire
 
 
 @pytest.mark.parametrize("dpt_id", ["99.999", "invalid"])
 def test_unknown_dpt_raises(dpt_id: str) -> None:
     with pytest.raises(ValueError, match="Unknown KNX DPT"):
-        knx_dpt_adapter(dpt_id)
+        knx_dpt_codec(dpt_id)

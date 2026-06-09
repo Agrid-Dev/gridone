@@ -10,7 +10,7 @@ def _parse_argument(argument: str) -> bytes:
         raise ValueError(msg) from e
 
 
-def byte_frame_adapter(argument: str) -> FnCodec:
+def byte_frame_codec(argument: str) -> FnCodec:
     """Decode: byte right after prefix -> int. Encode: prefix + bytes([int]).
     Argument format: hex prefix bytes e.g. '11 05 00 13 00 55 20'
     """

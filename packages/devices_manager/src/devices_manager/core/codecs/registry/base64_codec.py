@@ -3,7 +3,7 @@ import base64
 from devices_manager.core.codecs.fn_codec import FnCodec
 
 
-def base64_adapter(_encoding: str) -> FnCodec[str, bytes]:
+def base64_codec(_encoding: str) -> FnCodec[str, bytes]:
     """
     Decode a base64 string to raw bytes.
     Encode bytes back to a base64 string.

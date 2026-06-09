@@ -1,11 +1,11 @@
 import pytest
 
 from devices_manager.core.codecs.fn_codec import FnCodec
-from devices_manager.core.codecs.registry.byte_convert_adapter import (
-    byte_convert_adapter,
+from devices_manager.core.codecs.registry.byte_convert_codec import (
+    byte_convert_codec,
 )
-from devices_manager.core.codecs.registry.scale_adapter import scale_adapter
-from devices_manager.core.codecs.registry.slice_adapter import slice_adapter
+from devices_manager.core.codecs.registry.scale_codec import scale_codec
+from devices_manager.core.codecs.registry.slice_codec import slice_codec
 
 times_two = FnCodec[float, float](decoder=lambda x: x * 2, encoder=lambda x: x / 2)
 square = FnCodec[float, float](decoder=lambda x: x**2, encoder=lambda x: x**0.5)
@@ -29,7 +29,7 @@ def test_default_encoder_identity():
     assert combined.encode(decoded) == 2.5  # (5/2)
 
 
-# Adapters pipelines - testing composition of multiple adapters
+# Codec pipelines - testing composition of multiple codecs
 
 _ELSYS_PAYLOAD = bytes(
     [
@@ -55,20 +55,20 @@ _ELSYS_PAYLOAD = bytes(
 
 def test_byte_slice_then_byte_convert_temperature() -> None:
     pipeline = (
-        slice_adapter("1:3")  # ty: ignore[unsupported-operator]
-        + byte_convert_adapter("int16 big_endian")
-        + scale_adapter(0.01)
+        slice_codec("1:3")  # ty: ignore[unsupported-operator]
+        + byte_convert_codec("int16 big_endian")
+        + scale_codec(0.01)
     )
     assert pipeline.decode(_ELSYS_PAYLOAD) == pytest.approx(22.54)
 
 
 def test_byte_slice_then_byte_convert_humidity() -> None:
-    pipeline = slice_adapter("4:5") + byte_convert_adapter("uint8")
+    pipeline = slice_codec("4:5") + byte_convert_codec("uint8")
     assert pipeline.decode(_ELSYS_PAYLOAD) == 50
 
 
 def test_byte_slice_then_byte_convert_co2() -> None:
-    pipeline = slice_adapter("6:8") + byte_convert_adapter("uint16 big_endian")
+    pipeline = slice_codec("6:8") + byte_convert_codec("uint16 big_endian")
     assert pipeline.decode(_ELSYS_PAYLOAD) == 2280
 
 
