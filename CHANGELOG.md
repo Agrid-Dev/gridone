@@ -1,3 +1,9 @@
+## v0.89.2 (2026-06-09)
+
+### Refactor
+
+- rename registry adapters to codecs (#342)
+
 ## v0.89.1 (2026-06-08)
 
 ### Refactor
