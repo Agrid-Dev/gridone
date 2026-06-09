@@ -1,21 +1,21 @@
 import pytest
 
-from devices_manager.core.codecs.registry.slice_adapter import (
-    slice_adapter,
+from devices_manager.core.codecs.registry.slice_codec import (
+    slice_codec,
 )
 from models.errors import InvalidError
 
 
 @pytest.mark.parametrize("argument", ["1:", ":3", "1:2", "1:2:3", ":", " 1 : 3"])
 def test_valid_arguments(argument):
-    adapter = slice_adapter(argument)
-    assert callable(adapter.decode)
+    codec = slice_codec(argument)
+    assert callable(codec.decode)
 
 
 @pytest.mark.parametrize("argument", ["", "a:b:c", "invalid"])
 def test_invalid_arguments(argument):
     with pytest.raises(InvalidError, match="Invalid slice format"):
-        slice_adapter(argument)
+        slice_codec(argument)
 
 
 @pytest.mark.parametrize(
@@ -30,7 +30,7 @@ def test_invalid_arguments(argument):
         ("0:5:2", "abcdefg", "ace"),
     ],
 )
-def test_slice_adapter_decoding(argument, input_value, expected):
-    adapter = slice_adapter(argument)
-    result = adapter.decode(input_value)
+def test_slice_codec_decoding(argument, input_value, expected):
+    codec = slice_codec(argument)
+    result = codec.decode(input_value)
     assert result == expected

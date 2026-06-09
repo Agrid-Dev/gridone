@@ -43,7 +43,7 @@ def _build(raw_mapping: dict[str, Any]) -> FnCodec[Any, Any]:
     return FnCodec(decoder=decode, encoder=encode, value_options=list(forward.values()))
 
 
-def mapping_adapter(raw: str | dict[Any, Any]) -> FnCodec[Any, Any]:
+def mapping_codec(raw: str | dict[Any, Any]) -> FnCodec[Any, Any]:
     if isinstance(raw, dict):
         return _build(raw)
 

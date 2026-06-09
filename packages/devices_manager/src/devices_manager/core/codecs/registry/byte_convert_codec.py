@@ -349,10 +349,10 @@ def _parse_type_spec(type_spec: str) -> tuple[str, str]:
     raise ValueError(msg)
 
 
-def byte_convert_adapter(
+def byte_convert_codec(
     type_spec: str,
 ) -> FnCodec[ByteConvertInput, ByteConvertOutput]:
-    """Reversible adapter for converting between registers/bytes and typed values.
+    """Reversible codec for converting between registers/bytes and typed values.
 
     type_spec examples:
     - 'uint8', 'int8'  (1 byte; accepts raw bytes from slice)

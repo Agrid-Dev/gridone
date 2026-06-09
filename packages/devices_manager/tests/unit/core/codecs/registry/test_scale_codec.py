@@ -1,14 +1,14 @@
 import pytest
 
-from devices_manager.core.codecs.registry.scale_adapter import scale_adapter
+from devices_manager.core.codecs.registry.scale_codec import scale_codec
 
 
 @pytest.mark.parametrize(
     ("input_value", "scale", "expected"), [(10, 0.1, 1), (10, 10, 100), (5, 2, 10)]
 )
 def test_scale_parser_parse(input_value: float, scale: float, expected: float) -> None:
-    adapter = scale_adapter(scale)
-    assert adapter.decode(input_value) == expected
+    codec = scale_codec(scale)
+    assert codec.decode(input_value) == expected
 
 
 @pytest.mark.parametrize(
@@ -17,5 +17,5 @@ def test_scale_parser_parse(input_value: float, scale: float, expected: float) -
 def test_scale_parser_reverse(
     input_value: float, scale: float, expected: float
 ) -> None:
-    adapter = scale_adapter(scale)
-    assert adapter.encode(input_value) == expected
+    codec = scale_codec(scale)
+    assert codec.encode(input_value) == expected

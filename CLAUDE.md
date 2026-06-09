@@ -5,7 +5,7 @@
 This project is a building management system (BMS) implemented in python. The goal of this software is to provide users control over their building's equipments (chillers, thermostats, boilers...), record data and metrics from them and automate workflows.
 
 It is at the core of its design to be extensible. Extensible in several directions:
-- *devices support* (in `devices-manager`): new devices can be easily added using yaml-based drivers, a registry of transport clients for many protocols (http, mqtt, bacnet, modbus...), and value adapters that can convert raw device values to internal data types. The source code must never mention a specific device or vendor - all vendor specific data lives in a driver file as input data;
+- *devices support* (in `devices-manager`): new devices can be easily added using yaml-based drivers, a registry of transport clients for many protocols (http, mqtt, bacnet, modbus...), and codecs that can convert raw device values to internal data types. The source code must never mention a specific device or vendor - all vendor specific data lives in a driver file as input data;
 - *api-first*: features of the BMS needs to be basic and very robust, but it offers an easy-to-use and performant http API to serve as a platform for developping building applications for specific use cases (and later, also a Model Context Protocol controller, as well as language-specific client libraries / sdks).
 
 To summarize: the key of this project is extensibility and ease of deployment for users.
@@ -420,9 +420,9 @@ function DeviceList() {
 
 ### Devices manager
 
-#### 27. Value adapters are composable
+#### 27. Codecs are composable
 
-Build small, single-purpose adapters (e.g., `byte_convert`, `slice`, `json_pointer`) that can be chained in driver YAML. Do not create combined adapters (e.g., `byte_slice`) that duplicate logic from existing ones. Each adapter does one transformation; the driver composes them.
+Build small, single-purpose codecs (e.g., `byte_convert`, `slice`, `json_pointer`) that can be chained in driver YAML. Do not create combined codecs (e.g., `byte_slice`) that duplicate logic from existing ones. Each codec does one transformation; the driver composes them.
 
 ### Pre-PR checklist
 

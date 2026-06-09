@@ -1,7 +1,7 @@
 import pytest
 
-from devices_manager.core.codecs.registry.byte_convert_adapter import (
-    byte_convert_adapter,
+from devices_manager.core.codecs.registry.byte_convert_codec import (
+    byte_convert_codec,
 )
 
 
@@ -22,8 +22,8 @@ from devices_manager.core.codecs.registry.byte_convert_adapter import (
     ],
 )
 def test_byte_convert_decode(spec, raw, decoded) -> None:
-    adapter = byte_convert_adapter(spec)
-    result = adapter.decode(raw)
+    codec = byte_convert_codec(spec)
+    result = codec.decode(raw)
     if spec.startswith("float"):
         assert result == pytest.approx(decoded, rel=1e-6)
     elif spec.startswith("hex"):
@@ -50,15 +50,15 @@ def test_byte_convert_decode(spec, raw, decoded) -> None:
     ],
 )
 def test_byte_convert_encode_roundtrip_length(spec, value, expected_len) -> None:
-    adapter = byte_convert_adapter(spec)
-    raw = adapter.encode(value)
+    codec = byte_convert_codec(spec)
+    raw = codec.encode(value)
     if expected_len == 1:
         assert isinstance(raw, int)
     else:
         assert isinstance(raw, list)
         assert len(raw) == expected_len
         # Decode back and compare, where meaningful.
-        decoded = adapter.decode(raw)
+        decoded = codec.decode(raw)
         if spec.startswith("float"):
             assert decoded == pytest.approx(value, rel=1e-6)
         elif spec.startswith("hex"):
@@ -68,14 +68,14 @@ def test_byte_convert_encode_roundtrip_length(spec, value, expected_len) -> None
 
 
 def test_byte_convert_invalid_register_length() -> None:
-    adapter = byte_convert_adapter("uint32")
+    codec = byte_convert_codec("uint32")
     with pytest.raises(ValueError, match="expected 2 registers"):
-        adapter.decode([1])
+        codec.decode([1])
 
 
 def test_byte_convert_unsupported_type() -> None:
     with pytest.raises(ValueError, match="Unsupported byte_convert type"):
-        byte_convert_adapter("unknown_type")
+        byte_convert_codec("unknown_type")
 
 
 @pytest.mark.parametrize(
@@ -87,8 +87,8 @@ def test_byte_convert_unsupported_type() -> None:
     ],
 )
 def test_byte_convert_float32_little_endian_decode(raw, decoded) -> None:
-    adapter = byte_convert_adapter("float32 little_endian")
-    result = adapter.decode(raw)
+    codec = byte_convert_codec("float32 little_endian")
+    result = codec.decode(raw)
     assert result == pytest.approx(decoded, rel=1e-6)
 
 
@@ -100,11 +100,11 @@ def test_byte_convert_float32_little_endian_decode(raw, decoded) -> None:
     ],
 )
 def test_byte_convert_little_endian_roundtrip(spec, value) -> None:
-    adapter = byte_convert_adapter(spec)
-    raw = adapter.encode(value)
+    codec = byte_convert_codec(spec)
+    raw = codec.encode(value)
     assert isinstance(raw, list)
     assert len(raw) == 2
-    decoded = adapter.decode(raw)
+    decoded = codec.decode(raw)
     if isinstance(value, float):
         assert decoded == pytest.approx(value, rel=1e-6)
     else:
@@ -112,9 +112,9 @@ def test_byte_convert_little_endian_roundtrip(spec, value) -> None:
 
 
 def test_byte_convert_endian_variants() -> None:
-    le_default = byte_convert_adapter("float32")
-    be_explicit = byte_convert_adapter("float32 big_endian")
-    le_explicit = byte_convert_adapter("float32 little_endian")
+    le_default = byte_convert_codec("float32")
+    be_explicit = byte_convert_codec("float32 big_endian")
+    le_explicit = byte_convert_codec("float32 little_endian")
 
     regs_be = [0x41A8, 0x0000]  # 21.0 in big-endian
     regs_le = list(reversed(regs_be))
@@ -126,7 +126,7 @@ def test_byte_convert_endian_variants() -> None:
 
 def test_byte_convert_invalid_endianness() -> None:
     with pytest.raises(ValueError, match="Unsupported byte order"):
-        byte_convert_adapter("float32 middle")
+        byte_convert_codec("float32 middle")
 
 
 # --- bytes input support ---
@@ -143,14 +143,14 @@ def test_byte_convert_invalid_endianness() -> None:
     ],
 )
 def test_byte_convert_from_bytes(spec, raw_bytes, decoded) -> None:
-    adapter = byte_convert_adapter(spec)
-    assert adapter.decode(raw_bytes) == decoded
+    codec = byte_convert_codec(spec)
+    assert codec.decode(raw_bytes) == decoded
 
 
 def test_byte_convert_bytes_wrong_length() -> None:
-    adapter = byte_convert_adapter("int16 big_endian")
+    codec = byte_convert_codec("int16 big_endian")
     with pytest.raises(ValueError, match="expected 2 bytes"):
-        adapter.decode(b"\x08")
+        codec.decode(b"\x08")
 
 
 @pytest.mark.parametrize(
@@ -165,17 +165,17 @@ def test_byte_convert_bytes_wrong_length() -> None:
     ],
 )
 def test_byte_convert_uint8_int8_from_bytes(spec, raw, decoded) -> None:
-    adapter = byte_convert_adapter(spec)
-    assert adapter.decode(raw) == decoded
+    codec = byte_convert_codec(spec)
+    assert codec.decode(raw) == decoded
 
 
 def test_byte_convert_uint8_wrong_length() -> None:
-    adapter = byte_convert_adapter("uint8")
+    codec = byte_convert_codec("uint8")
     with pytest.raises(ValueError, match="expected 1 registers"):
-        adapter.decode(b"\x00\x01")
+        codec.decode(b"\x00\x01")
 
 
 def test_byte_convert_int8_wrong_length() -> None:
-    adapter = byte_convert_adapter("int8")
+    codec = byte_convert_codec("int8")
     with pytest.raises(ValueError, match="expected 1 registers"):
-        adapter.decode(b"\x00\x01")
+        codec.decode(b"\x00\x01")

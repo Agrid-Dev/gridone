@@ -6,7 +6,7 @@ from devices_manager.core.codecs.fn_codec import FnCodec
 from devices_manager.types import AttributeValueType
 
 
-def json_pointer_adapter(
+def json_pointer_codec(
     json_pointer_str: str,
 ) -> FnCodec[dict | str | bytes, AttributeValueType]:
     """

@@ -2,7 +2,7 @@ from devices_manager.core.codecs.fn_codec import FnCodec, identity
 from models.errors import InvalidError
 
 
-def options_adapter[T](options: list[T]) -> FnCodec[T, T]:
+def options_codec[T](options: list[T]) -> FnCodec[T, T]:
     allowed = frozenset(options)
 
     def encode(value: T) -> T:

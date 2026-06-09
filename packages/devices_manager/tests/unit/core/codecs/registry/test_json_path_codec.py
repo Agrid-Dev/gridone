@@ -2,8 +2,8 @@ from typing import Any
 
 import pytest
 
-from devices_manager.core.codecs.registry.json_path_adapter import (
-    json_path_adapter,
+from devices_manager.core.codecs.registry.json_path_codec import (
+    json_path_codec,
 )
 
 TEST_DATA = {
@@ -69,11 +69,11 @@ TEST_DATA = {
     ],
 )
 def test_json_path_parser(data: dict, json_path: str, expected: Any) -> None:
-    adapter = json_path_adapter(json_path)
-    assert adapter.decode(data) == expected
+    codec = json_path_codec(json_path)
+    assert codec.decode(data) == expected
 
 
 def test_json_path_parser_raises_not_found() -> None:
-    adapter = json_path_adapter('$.data[?(@.name == "UNKNOWN")].value')
+    codec = json_path_codec('$.data[?(@.name == "UNKNOWN")].value')
     with pytest.raises(ValueError, match="Could not find value"):
-        adapter.decode(TEST_DATA)
+        codec.decode(TEST_DATA)
