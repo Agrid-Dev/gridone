@@ -1,3 +1,9 @@
+## v0.90.0 (2026-06-09)
+
+### Feat
+
+- building profile deployment singleton AGR-706
+
 ## v0.89.2 (2026-06-09)
 
 ### Refactor
