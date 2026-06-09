@@ -53,9 +53,34 @@ class AssetUpdate(BaseModel):
     parent_id: str | None = None
 
 
+class BuildingProfile(BaseModel):
+    """Deployment-wide building profile (singleton).
+
+    Standalone descriptive metadata, decoupled from the asset hierarchy.
+    Every field is optional; unset fields are ``None``. ``icon`` is free text
+    here — the supported set is enforced by the frontend form only.
+    """
+
+    name: str | None = None
+    address: str | None = None
+    surface: float | None = Field(None, ge=0)
+    floors: int | None = Field(None, ge=0)
+    year_built: int | None = None
+    operator: str | None = None
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    cover_url: str | None = None
+    icon: str | None = None
+
+
 def get_asset_create_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return AssetCreate.model_json_schema()
+
+
+def get_building_profile_schema() -> dict:
+    """JSON schema of BuildingProfile for the frontend form."""
+    return BuildingProfile.model_json_schema()
 
 
 __all__ = [
@@ -65,5 +90,7 @@ __all__ = [
     "AssetCreate",
     "AssetType",
     "AssetUpdate",
+    "BuildingProfile",
     "get_asset_create_schema",
+    "get_building_profile_schema",
 ]

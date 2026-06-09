@@ -15,7 +15,7 @@ from api.dependencies import (
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
 from assets import AssetsService
-from assets.models import Asset, AssetType
+from assets.models import Asset, AssetType, BuildingProfile
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
@@ -123,6 +123,8 @@ def assets_service():
         )
     )
     svc.get_descendants = AsyncMock(return_value=[])
+    svc.get_profile = AsyncMock(return_value=BuildingProfile())
+    svc.set_profile = AsyncMock(side_effect=lambda profile: profile)
     svc.get_tree = AsyncMock(return_value=[])
     svc.get_tree_with_devices = AsyncMock(return_value=[])
     svc.list_all = AsyncMock(return_value=[])
@@ -376,3 +378,42 @@ class TestListAssets:
         assets_service.list_all.assert_awaited_once_with(
             parent_id=None, asset_type="floor"
         )
+
+
+class TestBuildingProfile:
+    @pytest.mark.asyncio
+    async def test_get_returns_profile(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.get_profile.return_value = BuildingProfile(name="HQ", floors=3)
+        async with async_client as ac:
+            response = await ac.get("/profile")
+        assert response.status_code == 200
+        assert response.json()["name"] == "HQ"
+        assert response.json()["floors"] == 3
+
+    @pytest.mark.asyncio
+    async def test_put_upserts_and_returns_profile(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.put("/profile", json={"name": "HQ", "latitude": 48.85})
+        assert response.status_code == 200
+        assert response.json()["name"] == "HQ"
+        assets_service.set_profile.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_put_invalid_value_is_rejected_and_changes_nothing(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.put("/profile", json={"latitude": 200})
+        assert response.status_code == 422
+        assets_service.set_profile.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_get_profile_schema(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get("/profile/schema")
+        assert response.status_code == 200
+        assert "latitude" in response.json()["properties"]

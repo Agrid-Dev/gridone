@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 
 from assets import AssetsService
-from assets.models import AssetCreate, AssetType, AssetUpdate
+from assets.models import AssetCreate, AssetType, AssetUpdate, BuildingProfile
 from assets.storage import MemoryAssetsStorage
 from models.errors import NotFoundError, StorageConnectionError, UnsupportedStorageError
 
@@ -148,6 +148,35 @@ class TestMemoryTreeOperations:
 
         siblings = await service.list_all(parent_id=root.id)
         assert [asset.id for asset in siblings] == [second.id, first.id]
+
+
+class TestBuildingProfile:
+    async def test_get_returns_empty_default_when_unset(self, service: AssetsService):
+        profile = await service.get_profile()
+        assert profile == BuildingProfile()
+
+    async def test_set_then_get_persists_values(self, service: AssetsService):
+        await service.set_profile(BuildingProfile(name="HQ", floors=3, latitude=48.85))
+        profile = await service.get_profile()
+        assert profile.name == "HQ"
+        assert profile.floors == 3
+        assert profile.latitude == 48.85
+
+    async def test_partial_update_only_modifies_provided_fields(
+        self, service: AssetsService
+    ):
+        await service.set_profile(BuildingProfile(name="HQ", floors=3))
+        await service.set_profile(BuildingProfile(name="HQ Tower"))
+        profile = await service.get_profile()
+        assert profile.name == "HQ Tower"
+        assert profile.floors == 3  # untouched, not reset to null
+
+    async def test_explicit_null_clears_a_field(self, service: AssetsService):
+        await service.set_profile(BuildingProfile(name="HQ", floors=3))
+        await service.set_profile(BuildingProfile(floors=None))
+        profile = await service.get_profile()
+        assert profile.name == "HQ"  # untouched
+        assert profile.floors is None  # explicitly cleared
 
 
 class TestMemoryBackend:

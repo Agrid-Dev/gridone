@@ -1,11 +1,19 @@
 from dataclasses import dataclass, field
 
+from assets.models import BuildingProfile
 from assets.storage.models import AssetInDB
 
 
 @dataclass
 class MemoryAssetsStorage:
     _assets: dict[str, AssetInDB] = field(default_factory=dict)
+    _profile: BuildingProfile | None = None
+
+    async def get_profile(self) -> BuildingProfile | None:
+        return self._profile
+
+    async def save_profile(self, profile: BuildingProfile) -> None:
+        self._profile = profile
 
     def _path_for(self, asset: AssetInDB) -> list[str]:
         if asset.parent_id is None:
