@@ -1,6 +1,7 @@
 {
-  "status": {
-    "online": "Online"
+  "setup": {
+    "title": "Set up your building",
+    "description": "Add your building's name, photo and key facts to bring this page to life."
   },
   "hero": {
     "surface": "Surface",

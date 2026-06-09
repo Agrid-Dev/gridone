@@ -5,8 +5,11 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotificationCount } from "@/hooks/useNotificationCount";
-import { useFeatureEnabled } from "@/utils/featureFlags";
-import { buildingPlaceholderData } from "@/pages/home/placeholderData";
+import { OrgAvatar } from "@/components/OrgAvatar";
+import {
+  useBuildingProfile,
+  isProfileConfigured,
+} from "@/hooks/useBuildingProfile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,19 +37,21 @@ export function TopBar() {
   const unreadCount = useNotificationCount();
 
   const user = state.status === "authenticated" ? state.user : null;
-  const showBuildingName = useFeatureEnabled("buildingHomepage");
+  const { data: profile } = useBuildingProfile();
+  const configured = isProfileConfigured(profile);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="min-w-0 flex-1">
-        {showBuildingName && (
-          <NavLink
-            to="/"
-            className="inline-block max-w-full truncate font-display text-lg font-semibold text-foreground transition-colors hover:text-primary"
-          >
-            {buildingPlaceholderData.name}
-          </NavLink>
-        )}
+        <NavLink
+          to="/"
+          className="group inline-flex max-w-full items-center gap-2.5 transition-colors"
+        >
+          <OrgAvatar icon={profile?.icon} name={profile?.name} />
+          <span className="truncate font-display text-lg font-semibold text-foreground group-hover:text-primary">
+            {configured ? profile?.name : t("app.title")}
+          </span>
+        </NavLink>
       </div>
 
       <div className="flex items-center gap-2">
@@ -66,7 +71,7 @@ export function TopBar() {
             <DropdownMenuTrigger asChild>
               <button
                 aria-label={user.name || user.username}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-mono text-xs font-semibold text-primary transition-colors hover:bg-primary/15"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-muted font-mono text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 {getInitials(user.name, user.username)}
               </button>

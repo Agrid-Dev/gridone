@@ -1,6 +1,7 @@
 {
-  "status": {
-    "online": "En ligne"
+  "setup": {
+    "title": "Configurez votre bâtiment",
+    "description": "Ajoutez le nom, la photo et les informations clés de votre bâtiment pour enrichir cette page."
   },
   "hero": {
     "surface": "Surface",

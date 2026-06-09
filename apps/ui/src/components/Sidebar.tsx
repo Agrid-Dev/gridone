@@ -28,22 +28,8 @@ export function Sidebar() {
   const versionLabel = version ? t("app.version", { version }) : null;
 
   return (
-    <aside className="fixed left-0 top-0 z-30 h-screen w-64 border-r border-border bg-sidebar">
+    <aside className="fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar">
       <div className="flex h-full flex-col">
-        {/* Brand mark */}
-        <div className="flex h-16 items-center border-b border-border px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <span className="font-display text-base font-bold text-primary">
-                G
-              </span>
-            </div>
-            <p className="font-display text-base font-bold tracking-wide text-foreground">
-              {t("app.title")}
-            </p>
-          </div>
-        </div>
-
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           <NavLink to="/assets" className={navLinkClass}>
             <Building2 className="h-4 w-4" />
@@ -92,18 +78,21 @@ export function Sidebar() {
           </NavLink>
         </nav>
 
-        {/* Footer: version */}
-        {version && versionLabel && (
-          <div className="border-t border-border px-4 py-3">
-            <p
+        {/* Footer: product brand + version */}
+        <div className="flex items-center justify-between border-t border-border px-4 py-3">
+          <span className="font-display text-sm font-semibold tracking-wide text-foreground">
+            {t("app.title")}
+          </span>
+          {version && versionLabel && (
+            <span
               aria-label={versionLabel}
-              className="text-right font-mono text-xs font-medium text-muted-foreground"
+              className="font-mono text-xs font-medium text-muted-foreground"
               title={versionLabel}
             >
               v{version}
-            </p>
-          </div>
-        )}
+            </span>
+          )}
+        </div>
       </div>
     </aside>
   );

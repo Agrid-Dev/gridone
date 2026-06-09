@@ -42,9 +42,31 @@ export const ASSET_TYPES = [
 
 export type AssetType = (typeof ASSET_TYPES)[number];
 
+/** Deployment-wide building profile (singleton). Every field is optional;
+ *  unset fields come back as ``null``. */
+export type BuildingProfile = {
+  name: string | null;
+  address: string | null;
+  surface: number | null;
+  floors: number | null;
+  yearBuilt: number | null;
+  operator: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  coverUrl: string | null;
+  icon: string | null;
+};
+
 /** Fetch Pydantic JSON schema for AssetCreate (used to build Zod validation). */
 export function getAssetSchema(): Promise<Record<string, unknown>> {
   return request<Record<string, unknown>>("/assets/schema");
+}
+
+/** Fetch the singleton building profile. */
+export function getBuildingProfile(): Promise<BuildingProfile> {
+  return request<BuildingProfile>("/assets/profile", undefined, {
+    camelCase: true,
+  });
 }
 
 export function listAssets(params?: {
