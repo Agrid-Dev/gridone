@@ -6,7 +6,7 @@ a live data from a [device](../reference/glossary.md) and writing a value to one
 
 ## Before you begin
 
-You'll need credentials (username and password) provided by your administrator, and the
+You'll need credentials (username and password) provided by your administrator, or integrator, and the
 URL of your Gridone instance.
 
 ---
@@ -24,9 +24,9 @@ After signing in you land on the home page.
 
 The interface has two fixed elements:
 
-**Left sidebar** — the main navigation. From top to bottom: Zones, Devices, Drivers,
-Apps, Automations, Faults, and Settings. The Gridone version number appears at the
-bottom.
+**Left sidebar** — the main navigation. Allows you to access your resources.
+From top to bottom: Zones, Devices, Drivers, Apps, Automations, Faults, and Settings. 
+The Gridone version number appears at the bottom.
 
 **Top bar** — runs across the top of every page. Your initials on the right open your
 profile, where you can update account settings. The bell icon opens Notifications; a
@@ -34,48 +34,66 @@ red dot means you have unread messages.
 
 ---
 
-## 3. Read a live device attribute
+## 3. Monitoring a device
 
-1. Click **Devices** in the sidebar. You will see a grid of [device](../reference/glossary.md)
-   cards sorted alphabetically. Each card shows:
-    - The device name and a type chip.
-    - For [standard devices](../reference/standard-devices.md) (thermostat, AWHP,
-      weather sensor, electricity meter), the card shows a live preview of key attribute
-      values. Other devices show an attribute count instead.
-    - A yellow or red icon in the top-left corner indicates if the device is degraded or
-      disconnected — no icon means the device is healthy.
+1. Click **Devices** in the sidebar. Your devices appear in an alphabetically sorted grid of
+   cards. Each card shows the device name and type. For [standard devices](../reference/glossary.md)
+   — thermostats, heat pumps, weather sensors, and electricity meters — the card also displays a
+   live preview of key metrics. You can search for a device by using filters like the device type or health status, 
+   or search using keyword.
 
-2. Click a device card to open its detail page. The header shows:
-    - The device name, type, and a connection status badge — **Connected**,
-      **Degraded**, **Disconnected**, or **Idle**.
-    - For physical devices: the driver and transport (network) the device is connected
-      through, plus any device-specific config values (e.g. unit ID or IP address).
+2. Click a device card to open its detail page. The **Live Control** view shows the current value
+   of every [attribute](../reference/glossary.md). For [standard devices](../reference/glossary.md), 
+   a dedicated control widget, similar to your physical device, gives you an at-a-glance overview of live
+   value of the device's key attributes. 
 
-3. Below the header is the **Live Control** view. For [standard devices](../reference/standard-devices.md)
-   this shows a purpose-built control panel with live metrics and controls.
+3. The connection status badge next to the device name in the header — **Connected**,
+   **Degraded**, **Disconnected**, or **Idle** — shows whether Gridone is successfully
+   communicating with the device. If the status is anything other than **Connected**, there is a
+   connection or driver issue; contact your integrator.
+
+4. Click **History** in the device header to explore the device's recorded data. Switch between
+   the **Table** and **Chart** views, adjust the time range, and select which attributes to
+   display. You can download the data as a CSV (table view) or a PNG (chart view).
 
 ---
 
 ## 4. Send a command
 
 A [command](../reference/glossary.md) writes a new value to a writable
-[attribute](../reference/glossary.md) on a device.
+[attribute](../reference/glossary.md) on one or more devices. There are two ways to do this:
 
-1. Click **New command** from the device detail header or from the **Devices** list.
-   Select one or more target devices to send the command to. For the full multi-device
-   flow, see the [Send a command](../guides/commands/send-command.md) guide.
+### From the Live Control page
 
-2. In the **Command** step, select a writable attribute from the **Attribute**
-   dropdown. The current value is pre-filled.
+For [standard devices](../reference/glossary.md), the **Live Control** page shows a dedicated control widget 
+that lets you send commands directly by adjusting settings on certain attributes.
+>Note: Currently, the live device control does not allow to adjust settings and send commands for all attributes.
 
-3. Set the new value using the input provided:
+### From the command wizard
+
+The command wizard lets you send a command in a guided flow.
+
+- **For a single device**: open the device's detail page and click **New command** in the
+  header — the device is pre-selected as the target.
+- **For multiple devices**: go to the **Devices** list and click **New command** in the page
+  header — you select the target devices in the first step of the wizard.
+
+The wizard walks you through three steps:
+
+1. **Target** — select the devices to send the command to.
+2. **Command** — pick a writable attribute and set the new value. The current value is
+   pre-filled for reference. The input adapts to the attribute's data type:
     - **ON / OFF toggle** — for on/off attributes.
     - **Number input** — for numeric attributes.
     - **Text input** — for text attributes.
     - **Dropdown** — for attributes with predefined standard values for standard device types.
+3. **Review** — confirm the current → new value for each target device, then click **Dispatch**.
 
-4. Click **Next** to proceed to the **Review** step. Confirm the attribute and value,
-   then click **Dispatch**. You can also save the command template for future use.
+A toast confirms the command was dispatched. You can track the result under **History >
+Commands** on the device page, or save it as a reusable template from the Review step.
 
-5. A toast notification confirms the command was dispatched. You can view the
-   device's command history to verify the execution result.
+---
+
+> Congratulations, you just sent your first device command! You can now monitor and control
+> all the devices in your building from a single application. To go further, discover how to
+> [send grouped commands](../guides/commands/send-command.md) or [create automations](../guides/automations/create.md).
