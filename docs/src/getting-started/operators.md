@@ -1,8 +1,8 @@
 # Getting Started — Operators
 
 This guide walks you through the Gridone app interface, explaining the reading of 
-a live data from a [device](../reference/glossary.md) and writing a value to one of its
-[attributes](../reference/glossary.md).
+a live data from a [device](../reference/glossary.md#device) and writing a value to one of its
+[attributes](../reference/glossary.md#attribute).
 
 ## Before you begin
 
@@ -37,13 +37,13 @@ red dot means you have unread messages.
 ## 3. Monitoring a device
 
 1. Click **Devices** in the sidebar. Your devices appear in an alphabetically sorted grid of
-   cards. Each card shows the device name and type. For [standard devices](../reference/glossary.md)
+   cards. Each card shows the device name and type. For [standard devices](../reference/glossary.md#standard-device)
    — thermostats, heat pumps, weather sensors, and electricity meters — the card also displays a
    live preview of key metrics. You can search for a device by using filters like the device type or health status, 
    or search using keyword.
 
 2. Click a device card to open its detail page. The **Live Control** view shows the current value
-   of every [attribute](../reference/glossary.md). For [standard devices](../reference/glossary.md), 
+   of every [attribute](../reference/glossary.md#attribute). For [standard devices](../reference/glossary.md#standard-device), 
    a dedicated control widget, similar to your physical device, gives you an at-a-glance overview of live
    value of the device's key attributes. 
 
@@ -60,12 +60,12 @@ red dot means you have unread messages.
 
 ## 4. Send a command
 
-A [command](../reference/glossary.md) writes a new value to a writable
-[attribute](../reference/glossary.md) on one or more devices. There are two ways to do this:
+A [command](../reference/glossary.md#command) writes a new value to a writable
+[attribute](../reference/glossary.md#attribute) on one or more devices. There are two ways to do this:
 
 ### From the Live Control page
 
-For [standard devices](../reference/glossary.md), the **Live Control** page shows a dedicated control widget 
+For [standard devices](../reference/glossary.md#standard-device), the **Live Control** page shows a dedicated control widget 
 that lets you send commands directly by adjusting settings on certain attributes.
 >Note: Currently, the live device control does not allow to adjust settings and send commands for all attributes.
 
@@ -89,8 +89,8 @@ The wizard walks you through three steps:
     - **Dropdown** — for attributes with predefined standard values for standard device types.
 3. **Review** — confirm the current → new value for each target device, then click **Dispatch**.
 
-A toast confirms the command was dispatched. You can track the result under **History >
-Commands** on the device page, or save it as a reusable template from the Review step.
+A toast confirms the command was dispatched. You can track the result under **History > Commands** 
+on the device page, or save it as a reusable template from the Review step.
 
 ---
 

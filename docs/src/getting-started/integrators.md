@@ -12,7 +12,7 @@ set that up yet, refer to the [Developer track](developers.md) for setup.
 
 ## 1. Register a driver
 
-A [**driver**](../reference/glossary.md) is a YAML file that describes a device
+A [**driver**](../reference/glossary.md#driver) is a YAML file that describes a device
 model: its attributes, how to read and write them, and which protocol it uses. One
 driver covers all physical units of the same vendor/model — you write it once and
 reuse it across many devices.
@@ -40,7 +40,7 @@ see [Reference > Driver Schema](../reference/driver-schema/general-layout.md).
 
 ## 2. Add a device
 
-A [**device**](../reference/glossary.md) maps one physical unit to its driver and
+A [**device**](../reference/glossary.md#device) maps one physical unit to its driver and
 network connection.
 
 1. Click **Devices** in the sidebar.
