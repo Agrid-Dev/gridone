@@ -1,3 +1,10 @@
+## v0.92.0 (2026-06-10)
+
+### Feat
+
+- **ui**: curated icon picker for building profile AGR-708
+- **ui**: edit building profile form + home polish AGR-708
+
 ## v0.91.0 (2026-06-10)
 
 ### Feat
