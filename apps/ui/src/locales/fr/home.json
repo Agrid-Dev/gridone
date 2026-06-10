@@ -1,4 +1,5 @@
 {
+  "editProfile": "Modifier le profil",
   "setup": {
     "title": "Configurez votre bâtiment",
     "description": "Ajoutez les informations clés de votre bâtiment pour configurer votre page d’accueil."
@@ -13,6 +14,10 @@
   "resources": {
     "title": "Ressources",
     "description": "Accédez aux systèmes et zones qui composent ce site.",
+    "notifications": {
+      "title": "Notifications",
+      "empty": "Aucune nouvelle notification"
+    },
     "zones": {
       "title": "Zones",
       "description": "Étages, pièces et regroupements qui structurent le bâtiment.",

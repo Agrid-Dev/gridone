@@ -69,6 +69,27 @@ export function getBuildingProfile(): Promise<BuildingProfile> {
   });
 }
 
+/** Fetch the Pydantic JSON schema of BuildingProfile (drives the edit form). */
+export function getBuildingProfileSchema(): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/assets/profile/schema");
+}
+
+/** Upsert the singleton building profile. Accepts snake_case form values
+ *  (matching the schema) or a camelCase partial — both are normalized. */
+export function setBuildingProfile(
+  profile: Record<string, unknown>,
+): Promise<BuildingProfile> {
+  return request<BuildingProfile>(
+    "/assets/profile",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(snakecaseKeys(profile, { deep: true })),
+    },
+    { camelCase: true },
+  );
+}
+
 export function listAssets(params?: {
   parentId?: string;
   type?: string;

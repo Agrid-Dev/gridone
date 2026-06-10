@@ -3,6 +3,7 @@ import { initReactI18next } from "react-i18next";
 import enApps from "./locales/en/apps.json";
 import enAssets from "./locales/en/assets.json";
 import enAutomations from "./locales/en/automations.json";
+import enProfile from "./locales/en/profile.json";
 import enCommon from "./locales/en/common.json";
 import enDevices from "./locales/en/devices.json";
 import enDrivers from "./locales/en/drivers.json";
@@ -15,6 +16,7 @@ import enUsers from "./locales/en/users.json";
 import frApps from "./locales/fr/apps.json";
 import frAssets from "./locales/fr/assets.json";
 import frAutomations from "./locales/fr/automations.json";
+import frProfile from "./locales/fr/profile.json";
 import frCommon from "./locales/fr/common.json";
 import frDevices from "./locales/fr/devices.json";
 import frDrivers from "./locales/fr/drivers.json";
@@ -40,6 +42,7 @@ i18n.use(initReactI18next).init({
       home: enHome,
       notifications: enNotifications,
       standardDevices: enStandardDevices,
+      profile: enProfile,
     },
     fr: {
       common: frCommon,
@@ -54,6 +57,7 @@ i18n.use(initReactI18next).init({
       home: frHome,
       notifications: frNotifications,
       standardDevices: frStandardDevices,
+      profile: frProfile,
     },
   },
   defaultNS: "common",

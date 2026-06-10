@@ -1,0 +1,20 @@
+{
+  "title": "Profil du bâtiment",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "saving": "Enregistrement…",
+  "saved": "Profil du bâtiment enregistré",
+  "loadError": "Impossible de charger le formulaire du profil du bâtiment.",
+  "fields": {
+    "name": "Nom",
+    "address": "Adresse",
+    "surface": "Surface (m²)",
+    "floors": "Étages",
+    "year_built": "Année de construction",
+    "operator": "Exploitant",
+    "latitude": "Latitude",
+    "longitude": "Longitude",
+    "cover_url": "URL de l'image de couverture",
+    "icon": "Icône"
+  }
+}

@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Pencil, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,13 +29,16 @@ export const ProfileHero: FC<{
 const SetupEmptyState: FC = () => {
   const { t } = useTranslation("home");
   return (
-    <div className="mx-auto max-w-sm rounded-lg border border-dashed border-border px-6 py-4 text-center text-muted-foreground">
+    <Link
+      to="/profile/edit"
+      className="mx-auto block max-w-sm rounded-lg border border-dashed border-border px-6 py-4 text-center text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+    >
       <div className="flex items-center justify-center gap-2">
         <Pencil className="h-4 w-4 shrink-0" />
         <TypographyH5>{t("setup.title")}</TypographyH5>
       </div>
       <p className="mt-1 text-sm">{t("setup.description")}</p>
-    </div>
+    </Link>
   );
 };
 
@@ -48,17 +52,7 @@ const Hero: FC<{ profile: BuildingProfile }> = ({ profile }) => {
 
   return (
     <div className="grid items-center gap-8 lg:grid-cols-[1.5fr_1fr]">
-      {profile.coverUrl ? (
-        <div className="relative aspect-[4/3] w-full">
-          <img
-            src={profile.coverUrl}
-            alt={profile.name ?? ""}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent" />
-        </div>
-      ) : null}
-      <div className="flex flex-col justify-center items-center gap-6 md:py-6">
+      <div className="flex flex-col items-center justify-center gap-6 md:py-6">
         <OrgAvatar size="lg" {...profile} />
         <TypographyH1>{profile.name || t("hero.defaultName")}</TypographyH1>
         <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -70,13 +64,23 @@ const Hero: FC<{ profile: BuildingProfile }> = ({ profile }) => {
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-x-8 gap-y-3 justify-center">
+        <div className="mt-2 flex flex-wrap justify-center gap-x-8 gap-y-3">
           {stats.map((stat) => (
             <HeroStat key={stat.label} label={stat.label} value={stat.value} />
           ))}
         </div>
 
-        {!isProfileConfigured(profile) && <SetupEmptyState />}
+        {isProfileConfigured(profile) ? (
+          <Link
+            to="/profile/edit"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {t("editProfile")}
+          </Link>
+        ) : (
+          <SetupEmptyState />
+        )}
       </div>
     </div>
   );

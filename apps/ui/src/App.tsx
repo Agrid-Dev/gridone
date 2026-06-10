@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
@@ -7,6 +8,7 @@ import FaultsPage from "./pages/faults/FaultsPage";
 import Home from "./pages/home";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
+import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
@@ -15,8 +17,15 @@ import { TopBar } from "./components/TopBar";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
+import { useBuildingProfile } from "./hooks/useBuildingProfile";
 
 function ProtectedLayout() {
+  const { data: profile } = useBuildingProfile();
+
+  useEffect(() => {
+    document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
+  }, [profile?.name]);
+
   return (
     <div className="min-h-screen bg-background bg-grid">
       <TopBar />
@@ -34,6 +43,7 @@ function ProtectedLayout() {
               <Route path="/faults" element={<FaultsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/profile/edit" element={<BuildingProfileEdit />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
             <Toaster />
