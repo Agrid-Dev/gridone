@@ -1,28 +1,37 @@
 {
-  "status": {
-    "online": "En ligne"
+  "setup": {
+    "title": "Configurez votre bâtiment",
+    "description": "Ajoutez les informations clés de votre bâtiment pour configurer votre page d’accueil."
   },
   "hero": {
+    "defaultName": "Mon bâtiment",
+    "addressEmpty": "Adresse non renseignée",
     "surface": "Surface",
     "floors": "Étages",
-    "built": "Année"
+    "yearBuilt": "Année"
   },
   "resources": {
     "title": "Ressources",
     "description": "Accédez aux systèmes et zones qui composent ce site.",
     "zones": {
+      "title": "Zones",
       "description": "Étages, pièces et regroupements qui structurent le bâtiment.",
+      "empty": "Vous n’avez pas encore de zone.",
+      "add": "Ajouter une zone",
       "unit_one": "zone",
       "unit_other": "zones"
     },
     "devices": {
-      "description": "Tous les équipements connectés installés sur le site.",
-      "unit_one": "équipement",
-      "unit_other": "équipements"
+      "title": "Appareils",
+      "description": "Tous les appareils connectés installés sur le site.",
+      "empty": "Vous n’avez pas encore d’appareil.",
+      "add": "Ajouter un appareil",
+      "unit_one": "appareil",
+      "unit_other": "appareils"
     },
     "byType": "Par type",
-    "devicesUnit_one": "équipement",
-    "devicesUnit_other": "équipements"
+    "devicesUnit_one": "appareil",
+    "devicesUnit_other": "appareils"
   },
   "details": {
     "title": "Détails",

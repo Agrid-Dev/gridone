@@ -1,0 +1,13 @@
+{
+  "thermostat": { "name": "Thermostat", "name_plural": "Thermostats" },
+  "awhp": { "name": "Heat pump", "name_plural": "Heat pumps" },
+  "weather_sensor": {
+    "name": "Weather sensor",
+    "name_plural": "Weather sensors"
+  },
+  "electricity_meter": {
+    "name": "Electricity meter",
+    "name_plural": "Electricity meters"
+  },
+  "other": { "name": "Other", "name_plural": "Others" }
+}

@@ -8,6 +8,7 @@ import type drivers from "../locales/en/drivers.json";
 import type faults from "../locales/en/faults.json";
 import type home from "../locales/en/home.json";
 import type notifications from "../locales/en/notifications.json";
+import type standardDevices from "../locales/en/standardDevices.json";
 import type transports from "../locales/en/transports.json";
 import type users from "../locales/en/users.json";
 
@@ -26,6 +27,7 @@ declare module "i18next" {
       faults: typeof faults;
       home: typeof home;
       notifications: typeof notifications;
+      standardDevices: typeof standardDevices;
     };
   }
 }
