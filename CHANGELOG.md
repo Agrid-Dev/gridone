@@ -1,3 +1,14 @@
+## v0.91.0 (2026-06-10)
+
+### Feat
+
+- building identity home page & top bar AGR-707
+
+### Refactor
+
+- **ui**: improve hero layout and fix yearBuilt i18n key
+- **home**: flat resource panels, present-only deduped device types
+
 ## v0.90.0 (2026-06-09)
 
 ### Feat
