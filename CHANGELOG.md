@@ -1,3 +1,9 @@
+## v0.92.1 (2026-06-10)
+
+### Fix
+
+- **ui**: keep device type chip right-aligned when status icon is absent
+
 ## v0.92.0 (2026-06-10)
 
 ### Feat
