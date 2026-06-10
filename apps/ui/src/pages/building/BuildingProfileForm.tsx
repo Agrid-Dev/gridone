@@ -1,10 +1,13 @@
 import { FC, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
+import { Separator } from "@/components/ui/separator";
 import { InputController } from "@/components/forms/controllers/InputController";
+import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import { IconPicker } from "@/components/forms/IconPicker";
 import { toLabel } from "@/lib/textFormat";
 import { useNavigate } from "react-router";
 
@@ -29,11 +32,11 @@ const FIELD_LABEL_KEYS = {
   floors: "fields.floors",
   year_built: "fields.year_built",
   operator: "fields.operator",
-  latitude: "fields.latitude",
-  longitude: "fields.longitude",
-  cover_url: "fields.cover_url",
   icon: "fields.icon",
 } as const;
+
+/** Schema fields not surfaced in the form (kept on save, just not edited). */
+const HIDDEN_FIELDS = new Set(["latitude", "longitude", "cover_url"]);
 
 /** A field's effective scalar type, unwrapping the `anyOf: [{...}, {null}]`
  *  shape Pydantic emits for optional fields. Numeric types map to a number
@@ -69,33 +72,64 @@ export const BuildingProfileForm: FC<{
   });
 
   const required = new Set(typedSchema.required ?? []);
+  const buildingName = useWatch({ control, name: "name" }) as
+    | string
+    | null
+    | undefined;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
-        {Object.entries(typedSchema.properties ?? {}).map(
-          ([name, property]) => {
+        {Object.entries(typedSchema.properties ?? {})
+          .filter(([name]) => !HIDDEN_FIELDS.has(name))
+          .map(([name, property]) => {
             const labelKey =
               FIELD_LABEL_KEYS[name as keyof typeof FIELD_LABEL_KEYS];
+            const label = labelKey
+              ? t(labelKey)
+              : (property.title ?? toLabel(name));
+
+            if (name === "icon") {
+              return (
+                <Controller
+                  key={name}
+                  name="icon"
+                  control={control}
+                  render={({ field }) => (
+                    <FieldShell id="icon" label={label}>
+                      <IconPicker
+                        value={(field.value as string | null) ?? null}
+                        onChange={field.onChange}
+                        name={buildingName}
+                      />
+                    </FieldShell>
+                  )}
+                />
+              );
+            }
+
             return (
               <InputController
                 key={name}
                 name={name}
                 control={control}
-                label={
-                  labelKey ? t(labelKey) : (property.title ?? toLabel(name))
-                }
+                label={label}
                 type={inputType(property)}
                 required={required.has(name)}
                 description={property.description}
               />
             );
-          },
-        )}
+          })}
       </div>
 
+      <Separator />
+
       <div className="flex justify-end gap-4">
-        <Button onClick={() => navigate("..")} variant="secondary">
+        <Button
+          type="button"
+          onClick={() => navigate("..")}
+          variant="secondary"
+        >
           {t("cancel")}
         </Button>
         <Button type="submit" disabled={isPending}>
