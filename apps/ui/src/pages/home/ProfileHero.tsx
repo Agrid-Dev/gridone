@@ -41,13 +41,13 @@ const SetupEmptyState: FC = () => {
 const Hero: FC<{ profile: BuildingProfile }> = ({ profile }) => {
   const { t } = useTranslation("home");
 
-  const stats = ["surface", "floors", "built"].map((key) => ({
+  const stats = ["surface", "floors", "yearBuilt"].map((key) => ({
     label: t(`hero.${key}`, { defaultValue: key }),
     value: profile[key as keyof BuildingProfile],
   }));
 
   return (
-    <div className="grid items-center gap-8 md:grid-cols-[1.1fr_1fr]">
+    <div className="grid items-center gap-8 lg:grid-cols-[1.5fr_1fr]">
       {profile.coverUrl ? (
         <div className="relative aspect-[4/3] w-full">
           <img

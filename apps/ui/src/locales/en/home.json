@@ -8,7 +8,7 @@
     "addressEmpty": "Address not provided",
     "surface": "Surface",
     "floors": "Floors",
-    "built": "Built"
+    "yearBuilt": "Built"
   },
   "resources": {
     "title": "Resources",
