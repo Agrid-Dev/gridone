@@ -1,16 +1,16 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Building2, MapPin } from "lucide-react";
-import { Card } from "@/components/ui";
+import { Pencil, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   TypographyH1,
-  TypographyH3,
+  TypographyH5,
   TypographySmall,
 } from "@/components/ui/typography";
 import { BuildingProfile } from "@/api/assets";
 import { OrgAvatar } from "@/components/OrgAvatar";
 import { isProfileConfigured } from "@/hooks/useBuildingProfile";
+import { cn } from "@/lib/utils";
 
 /** Profile identity block: skeleton while loading, a "set up" prompt when the
  *  profile is unconfigured, otherwise the building hero. */
@@ -21,104 +21,98 @@ export const ProfileHero: FC<{
   if (loading) {
     return <Skeleton className="h-[320px] w-full rounded-xl" />;
   }
-  if (!isProfileConfigured(profile)) {
-    return <SetupEmptyState />;
-  }
+
   return <Hero profile={profile!} />;
 };
 
 const SetupEmptyState: FC = () => {
   const { t } = useTranslation("home");
   return (
-    <Card className="flex flex-col items-center gap-4 border-dashed px-6 py-16 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-        <Building2 className="h-7 w-7" />
+    <div className="mx-auto max-w-sm rounded-lg border border-dashed border-border px-6 py-4 text-center text-muted-foreground">
+      <div className="flex items-center justify-center gap-2">
+        <Pencil className="h-4 w-4 shrink-0" />
+        <TypographyH5>{t("setup.title")}</TypographyH5>
       </div>
-      <div className="max-w-md space-y-1.5">
-        <TypographyH3>{t("setup.title")}</TypographyH3>
-        <p className="text-sm text-muted-foreground">
-          {t("setup.description")}
-        </p>
-      </div>
-    </Card>
+      <p className="mt-1 text-sm">{t("setup.description")}</p>
+    </div>
   );
 };
 
 const Hero: FC<{ profile: BuildingProfile }> = ({ profile }) => {
-  const { t, i18n } = useTranslation("home");
-  const numberFormatter = new Intl.NumberFormat(i18n.language);
-  const formatNumber = (n: number) => numberFormatter.format(n);
+  const { t } = useTranslation("home");
 
-  const stats: { label: string; value: string }[] = [];
-  if (profile.surface != null) {
-    stats.push({
-      label: t("hero.surface"),
-      value: t("units.surfaceSquareMeters", {
-        value: formatNumber(profile.surface),
-      }),
-    });
-  }
-  if (profile.floors != null) {
-    stats.push({
-      label: t("hero.floors"),
-      value: formatNumber(profile.floors),
-    });
-  }
-  if (profile.yearBuilt != null) {
-    stats.push({ label: t("hero.built"), value: String(profile.yearBuilt) });
-  }
+  const stats = ["surface", "floors", "built"].map((key) => ({
+    label: t(`hero.${key}`, { defaultValue: key }),
+    value: profile[key as keyof BuildingProfile],
+  }));
 
   return (
     <div className="grid items-center gap-8 md:grid-cols-[1.1fr_1fr]">
-      <Card className="overflow-hidden border-border/60 shadow-lg">
+      {profile.coverUrl ? (
         <div className="relative aspect-[4/3] w-full">
-          {profile.coverUrl ? (
-            <>
-              <img
-                src={profile.coverUrl}
-                alt={profile.name ?? ""}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent" />
-            </>
+          <img
+            src={profile.coverUrl}
+            alt={profile.name ?? ""}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/5 to-transparent" />
+        </div>
+      ) : null}
+      <div className="flex flex-col justify-center items-center gap-6 md:py-6">
+        <OrgAvatar size="lg" {...profile} />
+        <TypographyH1>{profile.name || t("hero.defaultName")}</TypographyH1>
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+          {profile.address ? (
+            <span>{profile.address}</span>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/5 to-accent">
-              <OrgAvatar icon={profile.icon} name={profile.name} size="lg" />
-            </div>
+            <span className="italic">{t("hero.addressEmpty")}</span>
           )}
         </div>
-      </Card>
-      <div className="flex flex-col justify-center gap-4 md:py-6">
-        <TypographyH1>{profile.name}</TypographyH1>
-        {profile.address && (
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{profile.address}</span>
-          </div>
-        )}
-        {stats.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-x-6 gap-y-3">
-            {stats.map((stat) => (
-              <HeroStat
-                key={stat.label}
-                label={stat.label}
-                value={stat.value}
-              />
-            ))}
-          </div>
-        )}
+
+        <div className="mt-2 flex flex-wrap gap-x-8 gap-y-3 justify-center">
+          {stats.map((stat) => (
+            <HeroStat key={stat.label} label={stat.label} value={stat.value} />
+          ))}
+        </div>
+
+        {!isProfileConfigured(profile) && <SetupEmptyState />}
       </div>
     </div>
   );
 };
 
-const HeroStat: FC<{ label: string; value: string }> = ({ label, value }) => (
-  <div>
-    <TypographySmall className="block uppercase tracking-[0.18em]">
-      {label}
-    </TypographySmall>
-    <p className="mt-1 font-display text-xl font-semibold text-foreground">
-      {value}
-    </p>
-  </div>
-);
+const HeroStat: FC<{ label: string; value: string | number | null }> = ({
+  label,
+  value,
+}) => {
+  const { i18n } = useTranslation();
+  const numberFormatter = new Intl.NumberFormat(i18n.language);
+  const formatNumber = (n: number) => numberFormatter.format(n);
+  const formatStatValue = (rawValue: string | number | null): string => {
+    switch (typeof rawValue) {
+      case "string":
+        return rawValue;
+
+      case "number":
+        return formatNumber(rawValue);
+      default:
+        return "-";
+    }
+  };
+  return (
+    <div>
+      <TypographySmall className="block uppercase tracking-[0.18em]">
+        {label}
+      </TypographySmall>
+      <p
+        className={cn(
+          "mt-1 font-display text-xl font-semibold",
+          value ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {formatStatValue(value)}
+      </p>
+    </div>
+  );
+};

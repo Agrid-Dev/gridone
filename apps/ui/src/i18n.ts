@@ -9,6 +9,7 @@ import enDrivers from "./locales/en/drivers.json";
 import enFaults from "./locales/en/faults.json";
 import enHome from "./locales/en/home.json";
 import enNotifications from "./locales/en/notifications.json";
+import enStandardDevices from "./locales/en/standardDevices.json";
 import enTransports from "./locales/en/transports.json";
 import enUsers from "./locales/en/users.json";
 import frApps from "./locales/fr/apps.json";
@@ -20,6 +21,7 @@ import frDrivers from "./locales/fr/drivers.json";
 import frFaults from "./locales/fr/faults.json";
 import frHome from "./locales/fr/home.json";
 import frNotifications from "./locales/fr/notifications.json";
+import frStandardDevices from "./locales/fr/standardDevices.json";
 import frTransports from "./locales/fr/transports.json";
 import frUsers from "./locales/fr/users.json";
 
@@ -37,6 +39,7 @@ i18n.use(initReactI18next).init({
       faults: enFaults,
       home: enHome,
       notifications: enNotifications,
+      standardDevices: enStandardDevices,
     },
     fr: {
       common: frCommon,
@@ -50,6 +53,7 @@ i18n.use(initReactI18next).init({
       faults: frFaults,
       home: frHome,
       notifications: frNotifications,
+      standardDevices: frStandardDevices,
     },
   },
   defaultNS: "common",

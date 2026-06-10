@@ -1,9 +1,11 @@
 {
   "setup": {
     "title": "Set up your building",
-    "description": "Add your building's name, photo and key facts to bring this page to life."
+    "description": "Add your building's key facts to bring your home page to life."
   },
   "hero": {
+    "defaultName": "My building",
+    "addressEmpty": "Address not provided",
     "surface": "Surface",
     "floors": "Floors",
     "built": "Built"
@@ -12,12 +14,18 @@
     "title": "Resources",
     "description": "Jump into the systems and zones that power this site.",
     "zones": {
+      "title": "Zones",
       "description": "Floors, rooms and groupings that organize this building.",
+      "empty": "You have no zone yet.",
+      "add": "Add a zone",
       "unit_one": "zone",
       "unit_other": "zones"
     },
     "devices": {
+      "title": "Devices",
       "description": "Every connected device installed across the site.",
+      "empty": "You have no device yet.",
+      "add": "Add a device",
       "unit_one": "device",
       "unit_other": "devices"
     },
