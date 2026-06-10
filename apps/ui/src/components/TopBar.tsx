@@ -4,12 +4,14 @@ import { Bell, LogOut, Settings } from "lucide-react";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNotificationCount } from "@/hooks/useNotificationCount";
+import { useNotifications } from "@/hooks/useNotifications";
 import { OrgAvatar } from "@/components/OrgAvatar";
 import {
   useBuildingProfile,
   isProfileConfigured,
 } from "@/hooks/useBuildingProfile";
+import { mostSevere, SEVERITY_DOT_CLASS } from "@/lib/severity";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +36,11 @@ export function TopBar() {
   const { t } = useTranslation(["common", "users"]);
   const { state, logout } = useAuth();
   const navigate = useNavigate();
-  const unreadCount = useNotificationCount();
+  const { page: notifications } = useNotifications({ dismissed: false });
+  const unreadCount = notifications?.total ?? 0;
+  const topSeverity = mostSevere(
+    (notifications?.items ?? []).map((d) => d.notification.severity),
+  );
 
   const user = state.status === "authenticated" ? state.user : null;
   const { data: profile } = useBuildingProfile();
@@ -62,7 +68,14 @@ export function TopBar() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-destructive ring-2 ring-background" />
+            <span
+              className={cn(
+                "absolute right-2 top-2 h-2 w-2 rounded-full ring-2 ring-background",
+                topSeverity
+                  ? SEVERITY_DOT_CLASS[topSeverity]
+                  : "bg-destructive",
+              )}
+            />
           )}
         </NavLink>
 

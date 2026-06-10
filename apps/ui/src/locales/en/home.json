@@ -1,4 +1,5 @@
 {
+  "editProfile": "Edit profile",
   "setup": {
     "title": "Set up your building",
     "description": "Add your building's key facts to bring your home page to life."
@@ -13,6 +14,10 @@
   "resources": {
     "title": "Resources",
     "description": "Jump into the systems and zones that power this site.",
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No new notification"
+    },
     "zones": {
       "title": "Zones",
       "description": "Floors, rooms and groupings that organize this building.",

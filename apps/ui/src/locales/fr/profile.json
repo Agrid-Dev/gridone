@@ -1,0 +1,24 @@
+{
+  "title": "Profil du bâtiment",
+  "save": "Enregistrer",
+  "cancel": "Annuler",
+  "saving": "Enregistrement…",
+  "saved": "Profil du bâtiment enregistré",
+  "loadError": "Impossible de charger le formulaire du profil du bâtiment.",
+  "icon": {
+    "none": "Aucune icône",
+    "tabIcon": "Icône",
+    "tabCustom": "Personnalisé",
+    "customPlaceholder": "URL d’image ou nom",
+    "helper": "Collez une URL d’image (carrée, basse résolution recommandée). Sans icône ni image, les initiales du nom du bâtiment sont affichées."
+  },
+  "fields": {
+    "name": "Nom",
+    "address": "Adresse",
+    "surface": "Surface (m²)",
+    "floors": "Étages",
+    "year_built": "Année de construction",
+    "operator": "Exploitant",
+    "icon": "Icône"
+  }
+}

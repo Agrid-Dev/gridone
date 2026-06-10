@@ -2,6 +2,7 @@ import "i18next";
 import type apps from "../locales/en/apps.json";
 import type assets from "../locales/en/assets.json";
 import type automations from "../locales/en/automations.json";
+import type profile from "../locales/en/profile.json";
 import type common from "../locales/en/common.json";
 import type devices from "../locales/en/devices.json";
 import type drivers from "../locales/en/drivers.json";
@@ -28,6 +29,7 @@ declare module "i18next" {
       home: typeof home;
       notifications: typeof notifications;
       standardDevices: typeof standardDevices;
+      profile: typeof profile;
     };
   }
 }

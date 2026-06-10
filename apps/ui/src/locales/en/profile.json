@@ -1,0 +1,24 @@
+{
+  "title": "Building profile",
+  "save": "Save",
+  "cancel": "Cancel",
+  "saving": "Saving…",
+  "saved": "Building profile saved",
+  "loadError": "Couldn’t load the building profile form.",
+  "icon": {
+    "none": "No icon",
+    "tabIcon": "Icon",
+    "tabCustom": "Custom",
+    "customPlaceholder": "Image URL or name",
+    "helper": "Paste an image URL (square, low-resolution recommended). With no icon or image, the building name's initials are shown."
+  },
+  "fields": {
+    "name": "Name",
+    "address": "Address",
+    "surface": "Surface (m²)",
+    "floors": "Floors",
+    "year_built": "Year built",
+    "operator": "Operator",
+    "icon": "Icon"
+  }
+}

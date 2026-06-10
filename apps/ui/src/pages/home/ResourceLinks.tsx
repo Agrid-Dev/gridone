@@ -1,14 +1,26 @@
-import { FC, ComponentType } from "react";
+import { FC, ComponentType, ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CloudSun, Cpu, Fan, Thermometer, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  CloudSun,
+  Cpu,
+  Fan,
+  Thermometer,
+  Zap,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TypographyH3 } from "@/components/ui/typography";
 import { Device, DeviceType, listDevices } from "@/api/devices";
 import { Asset, listAssets } from "@/api/assets";
+import { useNotifications } from "@/hooks/useNotifications";
 import { usePermissions } from "@/contexts/AuthContext";
+import { SEVERITY_HOVER_TEXT_CLASS, SEVERITY_TEXT_CLASS } from "@/lib/severity";
+import { cn } from "@/lib/utils";
 
 type IconType = ComponentType<{ className?: string }>;
 
@@ -28,23 +40,21 @@ type ResourceItem = {
   count?: number;
   to: string;
   icon?: IconType;
+  /** Static icon tint (e.g. severity); defaults to inheriting the link color. */
+  iconClassName?: string;
+  /** Group-hover label color; defaults to primary. */
+  hoverClassName?: string;
 };
 
-type EmptyState = {
-  text: string;
-  linkText: string;
-  to: string;
-  canAdd: boolean;
-};
-
-/** Flat, hero-styled resource panels. Each panel lists only the types actually
- *  present (deduped from the live lists), each one a link; an empty panel shows
- *  a "nothing yet — add one" prompt. Kept narrow on lg+ so the building
- *  silhouette stays visible alongside. */
+/** Flat, hero-styled resource panels: notifications, devices and zones. Each
+ *  lists only what's present, every entry a link; an empty panel shows a hint.
+ *  Kept narrow on lg+ so the building silhouette stays visible alongside. */
 export const ResourceLinks: FC = () => {
   const { t } = useTranslation(["home", "standardDevices"]);
   const can = usePermissions();
 
+  const { page: notifications, loading: notificationsLoading } =
+    useNotifications({ dismissed: false });
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
     queryKey: ["devices", undefined],
     queryFn: () => listDevices(),
@@ -53,6 +63,17 @@ export const ResourceLinks: FC = () => {
     queryKey: ["home", "assets-flat"],
     queryFn: () => listAssets(),
   });
+
+  const notificationItems: ResourceItem[] = (notifications?.items ?? []).map(
+    ({ notification }) => ({
+      key: notification.id,
+      label: notification.title,
+      to: "/notifications",
+      icon: Bell,
+      iconClassName: SEVERITY_TEXT_CLASS[notification.severity],
+      hoverClassName: SEVERITY_HOVER_TEXT_CLASS[notification.severity],
+    }),
+  );
 
   const deviceItems = buildDeviceItems(devices ?? [], t);
 
@@ -74,29 +95,59 @@ export const ResourceLinks: FC = () => {
   return (
     <div className="space-y-10 lg:max-w-4xl">
       <ResourcePanel
-        title={t("resources.devices.title")}
-        to="/devices"
-        loading={devicesLoading}
-        items={deviceItems}
-        empty={{
-          text: t("resources.devices.empty"),
-          linkText: t("resources.devices.add"),
-          to: "/devices/new",
-          canAdd: can("devices:write"),
-        }}
-      />
-      <ResourcePanel
-        title={t("resources.zones.title")}
-        to="/assets"
-        loading={assetsLoading}
-        items={zoneItems}
-        empty={{
-          text: t("resources.zones.empty"),
-          linkText: t("resources.zones.add"),
-          to: "/assets/new",
-          canAdd: can("assets:write"),
-        }}
-      />
+        title={t("resources.notifications.title")}
+        to="/notifications"
+      >
+        {notificationsLoading ? (
+          <ContentSkeleton />
+        ) : (
+          <ResourcePanelContent
+            items={notificationItems}
+            empty={
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Check className="h-4 w-4 text-emerald-500" />
+                {t("resources.notifications.empty")}
+              </p>
+            }
+          />
+        )}
+      </ResourcePanel>
+
+      <ResourcePanel title={t("resources.devices.title")} to="/devices">
+        {devicesLoading ? (
+          <ContentSkeleton />
+        ) : (
+          <ResourcePanelContent
+            items={deviceItems}
+            empty={
+              <ResourceEmpty
+                text={t("resources.devices.empty")}
+                linkText={t("resources.devices.add")}
+                to="/devices/new"
+                canAdd={can("devices:write")}
+              />
+            }
+          />
+        )}
+      </ResourcePanel>
+
+      <ResourcePanel title={t("resources.zones.title")} to="/assets">
+        {assetsLoading ? (
+          <ContentSkeleton />
+        ) : (
+          <ResourcePanelContent
+            items={zoneItems}
+            empty={
+              <ResourceEmpty
+                text={t("resources.zones.empty")}
+                linkText={t("resources.zones.add")}
+                to="/assets/new"
+                canAdd={can("assets:write")}
+              />
+            }
+          />
+        )}
+      </ResourcePanel>
     </div>
   );
 };
@@ -142,13 +193,13 @@ function deviceTypeLabel(
   return t(`${key as DeviceType}.${form}`, { ns: "standardDevices" });
 }
 
-const ResourcePanel: FC<{
-  title: string;
-  to: string;
-  loading: boolean;
-  items: ResourceItem[];
-  empty: EmptyState;
-}> = ({ title, to, loading, items, empty }) => (
+/** Panel shell: a heading that links to the resource list, plus arbitrary
+ *  content (the loaded list, an empty hint, or a skeleton). */
+const ResourcePanel: FC<{ title: string; to: string; children: ReactNode }> = ({
+  title,
+  to,
+  children,
+}) => (
   <section className="space-y-3">
     <Link
       to={to}
@@ -157,33 +208,47 @@ const ResourcePanel: FC<{
       <TypographyH3>{title}</TypographyH3>
       <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
     </Link>
-
-    {loading ? (
-      <div className="flex flex-wrap gap-2">
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-8 w-28 rounded-lg" />
-        ))}
-      </div>
-    ) : items.length > 0 ? (
-      <div className="flex flex-wrap gap-x-5 gap-y-2">
-        {items.map((item) => (
-          <ResourceTypeLink key={item.key} item={item} />
-        ))}
-      </div>
-    ) : (
-      <p className="text-sm text-muted-foreground">
-        {empty.text}{" "}
-        {empty.canAdd && (
-          <Link
-            to={empty.to}
-            className="font-medium text-primary hover:underline"
-          >
-            {empty.linkText}
-          </Link>
-        )}
-      </p>
-    )}
+    {children}
   </section>
+);
+
+/** Renders the resource items, or the provided empty node when there are none. */
+const ResourcePanelContent: FC<{ items: ResourceItem[]; empty: ReactNode }> = ({
+  items,
+  empty,
+}) =>
+  items.length > 0 ? (
+    <div className="flex flex-wrap gap-x-5 gap-y-2">
+      {items.map((item) => (
+        <ResourceTypeLink key={item.key} item={item} />
+      ))}
+    </div>
+  ) : (
+    empty
+  );
+
+const ContentSkeleton: FC = () => (
+  <div className="flex flex-wrap gap-2">
+    {[0, 1, 2].map((i) => (
+      <Skeleton key={i} className="h-8 w-28 rounded-lg" />
+    ))}
+  </div>
+);
+
+const ResourceEmpty: FC<{
+  text: string;
+  linkText: string;
+  to: string;
+  canAdd: boolean;
+}> = ({ text, linkText, to, canAdd }) => (
+  <p className="text-sm text-muted-foreground">
+    {text}{" "}
+    {canAdd && (
+      <Link to={to} className="font-medium text-primary hover:underline">
+        {linkText}
+      </Link>
+    )}
+  </p>
 );
 
 const ResourceTypeLink: FC<{ item: ResourceItem }> = ({ item }) => {
@@ -191,14 +256,21 @@ const ResourceTypeLink: FC<{ item: ResourceItem }> = ({ item }) => {
   return (
     <Link
       to={item.to}
-      className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-primary hover:underline"
+      className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:underline"
     >
-      {Icon && <Icon className="h-4 w-4" />}
-      <span className="font-medium text-foreground group-hover:text-primary">
+      {Icon && <Icon className={cn("h-4 w-4", item.iconClassName)} />}
+      <span
+        className={cn(
+          "font-medium text-foreground",
+          item.hoverClassName ?? "group-hover:text-primary",
+        )}
+      >
         {item.label}
       </span>
       {item.count != null && (
-        <span className="font-mono text-xs tabular-nums">{item.count}</span>
+        <span className="font-mono text-xs tabular-nums group-hover:text-primary">
+          {item.count}
+        </span>
       )}
     </Link>
   );
