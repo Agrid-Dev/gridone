@@ -1,3 +1,9 @@
+## v0.93.0 (2026-06-11)
+
+### Feat
+
+- harden production deployment with configurable nginx bind and secure cookies
+
 ## v0.92.1 (2026-06-10)
 
 ### Fix
