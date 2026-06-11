@@ -1,5 +1,17 @@
 # Glossary
 
+## Action
+
+The step Gridone performs when an [automation's](#automation) [trigger](#trigger) fires. Available action types: **Run a command** (dispatches a [command template](#template) to its target devices) and **Send a notification** (delivers an in-app message to selected users).
+
+---
+
+## Automation
+
+A rule that pairs a [trigger](#trigger) with an [action](#action). When the trigger condition is met, Gridone fires the action automatically. Each run is recorded as an [execution](#execution). See [Create an automation](../guides/automations/create.md).
+
+---
+
 ## Attribute
 
 A data point on a device — a single value that Gridone can read, write, or both. Each attribute has a name, a data type (`bool`, `int`, `float`, or `str`), and a current live value.
@@ -33,6 +45,12 @@ A physical unit connected to Gridone. Each device is linked to a [driver](#drive
 
 ---
 
+## Execution
+
+A record of a single run of an [automation](#automation). Each execution captures the timestamp, the outcome (success or failure), any error details, and when the [action](#action) dispatched a batch command — a link to that batch. See [Execution history](../guides/automations/executions.md).
+
+---
+
 ## Driver
 
 A driver is the declaration of _how_ Gridone should communicate with a specific device: its attributes, how to read and write them, and which protocol it uses. One driver covers all physical units of the same vendor and model — write it once and reuse it across many devices. Drivers are packaged as YAML files, a format that ensures both readability and portability. See [Write a driver](../guides/drivers/write-driver.md).
@@ -42,6 +60,12 @@ A driver is the declaration of _how_ Gridone should communicate with a specific 
 ## Standard device
 
 A [device](#device) whose driver declares a `type` matching one of Gridone's built-in schemas (e.g. `thermostat`, `awhp`, `weather_sensor`, `electricity_meter`). Standard devices get a purpose-built control widget in the UI and a consistent, validated data model. See [Standard devices](standard-devices.md).
+
+---
+
+## Trigger
+
+The condition that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition).
 
 ---
 
