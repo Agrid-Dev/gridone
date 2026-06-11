@@ -100,4 +100,10 @@ EXPOSE 8765
 # Render nginx.conf from its template, run database migrations, then start
 # supervisord as PID 1. Supervisord will exit if either child process dies,
 # ensuring the container stops cleanly.
-CMD ["sh", "-c", "export GRIDONE_VERSION=$(cat /tmp/gridone_version) && export NGINX_BIND_ADDRESS=${NGINX_BIND_ADDRESS:-0.0.0.0} && envsubst '${NGINX_BIND_ADDRESS}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+CMD ["sh", "-c", "\
+    export GRIDONE_VERSION=$(cat /tmp/gridone_version) && \
+    export NGINX_BIND_ADDRESS=${NGINX_BIND_ADDRESS:-0.0.0.0} && \
+    envsubst '${NGINX_BIND_ADDRESS}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && \
+    python -m migrations apply && \
+    exec supervisord -c /etc/supervisor/conf.d/supervisord.conf \
+"]
