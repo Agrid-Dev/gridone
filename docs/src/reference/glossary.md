@@ -51,9 +51,27 @@ A record of a single run of an [automation](#automation). Each execution capture
 
 ---
 
+## Fault
+
+A special type of [attribute](#attribute) that some [devices](#device) expose to report their internal health state. A fault attribute has a [severity](#severity) and can take different values — some indicating the device is healthy, others signalling an anomaly. Faults clear automatically when the device returns to a healthy state. See [Active faults](../guides/faults/active-faults.md).
+
+---
+
 ## Driver
 
 A driver is the declaration of _how_ Gridone should communicate with a specific device: its attributes, how to read and write them, and which protocol it uses. One driver covers all physical units of the same vendor and model — write it once and reuse it across many devices. Drivers are packaged as YAML files, a format that ensures both readability and portability. See [Write a driver](../guides/drivers/write-driver.md).
+
+---
+
+## Notification
+
+A message dispatched to one or more users about an event (e.g. when an [automation](#automation) fires). Notifications have a [severity](#severity), a title, and an optional message body. They can be dismissed individually or in bulk. See [Notifications](../guides/notifications/notifications.md).
+
+---
+
+## Severity
+
+A label that classifies the importance of a [fault](#fault) or [notification](#notification). Three levels are available, in increasing order of urgency: **Info**, **Warning**, and **Alert**. Used to filter both the Faults page and the Notifications page.
 
 ---
 
