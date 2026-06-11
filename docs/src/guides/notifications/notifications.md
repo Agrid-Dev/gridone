@@ -8,7 +8,7 @@ A [notification](../../reference/glossary.md#notification) is a message dispatch
 
 ## Notifications page
 
-Click the bell icon in the top bar to see all notifications for your account. A red dot on the icon indicates unread notifications.
+Click the bell icon in the top bar to see all notifications for your account. A dot on the icon indicates unread notifications.
 
 On the Notifications page, use the filters at the top of the page to narrow the list based on:
 

@@ -53,7 +53,7 @@ A record of a single run of an [automation](#automation). Each execution capture
 
 ## Fault
 
-A detected anomaly on a [device](#device) [attribute](#attribute) — for example, a value outside an expected range. Faults are read-only: they clear automatically when the attribute returns to a normal value and cannot be dismissed manually. See [Active faults](../guides/faults/active-faults.md).
+A special type of [attribute](#attribute) that some [devices](#device) expose to report their internal health state. A fault attribute has a [severity](#severity) and can take different values — some indicating the device is healthy, others signalling an anomaly. Faults clear automatically when the device returns to a healthy state. See [Active faults](../guides/faults/active-faults.md).
 
 ---
 

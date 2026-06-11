@@ -2,11 +2,13 @@
 
 ## Background
 
-A [fault](../../reference/glossary.md#fault) is a detected anomaly on a [device](../../reference/glossary.md#device) [attribute](../../reference/glossary.md#attribute) — for example, a value outside an expected range. 
+A [fault](../../reference/glossary.md#fault) is a special type of [attribute](../../reference/glossary.md#attribute) that some [devices](../../reference/glossary.md#device) expose to report their internal health state. A fault attribute has a [severity](../../reference/glossary.md#severity) and can take different values — some indicating the device is healthy, others signalling an anomaly.
 
-When a device turns faulty, a [notification](../../reference/glossary.md#notification) is immediately dispatched to the user. See [Notifications](../notifications/notifications.md).
+When a device turns faulty, a [notification](../../reference/glossary.md#notification) is immediately dispatched to the user. When it returns to a healthy state, another notification is sent. See [Notifications](../notifications/notifications.md).
 
 ---
+
+Gridone surfaces faults in two places.
 
 ## Faults page
 
@@ -33,4 +35,4 @@ On the **Devices** page, use the **All / Healthy / Faulty** toggle to show only 
 
 Faults are also visible on each device's detail page. Open a device and expand the **Faults** section to see a list of all fault attributes currently active on that device.
 
-> When a device returns to it's healthy state, the faults disappears from both faults page and device page.
+> When a device returns to its healthy state, the fault disappears from both the faults page and the device page.
