@@ -26,7 +26,7 @@ If no suitable network exists yet, click **+ Create new network** to create one 
 
 ### Config fields
 
-Config fields appear once a driver is selected. Each field is a parameter the driver uses to address this specific unit — for example, a Modbus or MQTT driver shows a **Device Id** field, while an HTTP driver shows an **Ip** field. The available fields and their expected values depend on the selected driver.
+[Config fields](../../reference/glossary.md#device-config) appear once a driver is selected. Each field is a parameter the driver uses to address this specific unit — for example, a Modbus or MQTT driver shows a **Device Id** field, while an HTTP driver shows an **Ip** field. The available fields and their expected values depend on the selected driver.
 
 If the selected driver has no config fields, **No configuration** is shown instead.
 

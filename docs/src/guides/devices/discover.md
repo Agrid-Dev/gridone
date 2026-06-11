@@ -2,7 +2,7 @@
 
 ## Background
 
-Discovery listens on an MQTT [network](../../reference/glossary.md#network) for announcements from devices matching a specific [driver](../../reference/glossary.md#driver). Any announcing [device](../../reference/glossary.md#device) is automatically registered in Gridone — no manual config entry required per device.
+[Discovery](../../reference/glossary.md#discovery) listens on an MQTT [network](../../reference/glossary.md#network) for announcements from devices matching a specific [driver](../../reference/glossary.md#driver). Any announcing [device](../../reference/glossary.md#device) is automatically registered in Gridone — no manual config entry required per device.
 
 > Discovery only works with MQTT-based drivers and networks.
 

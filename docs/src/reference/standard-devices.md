@@ -1,8 +1,8 @@
 # Standard Devices
 
-Gridone is designed to drive **any** device through its extensible driver system. However, some device categories are so common in buildings (thermostats, heat pumps, weather stations...) that they deserve first-class support.
+Gridone is designed to drive **any** [device](glossary.md#device) through its extensible [driver](glossary.md#driver) system. However, some device categories are so common in buildings (thermostats, heat pumps, weather stations...) that they deserve first-class support.
 
-**Standard devices** are devices whose driver declares a `type` matching one of the registered standard schemas. When a driver has a type, Gridone enforces that its attributes conform to the expected schema — giving you a consistent data model and a purpose-built UI out of the box.
+**[Standard devices](glossary.md#standard-device)** are devices whose driver declares a `type` matching one of the registered standard schemas. When a driver has a type, Gridone enforces that its [attributes](glossary.md#attribute) conform to the expected schema — giving you a consistent data model and a purpose-built UI out of the box.
 
 ## How it works
 
