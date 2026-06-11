@@ -1,6 +1,6 @@
 # Update Strategy
 
-The `update_strategy` block controls how Gridone synchronizes its data with the actual, physical device. 
+The [update strategy](../glossary.md#update-strategy) block controls how Gridone synchronizes its data with the actual, physical [device](../glossary.md#device). 
 All fields are optional and omitting the block entirely uses the following defaults.
 
 ```yaml

@@ -1,6 +1,6 @@
 # Transport Addresses
 
-A transport address declares how to read and/or write an attribute value on a device in its native protocol, as declared in the `transport` field at driver level.
+A [transport address](../glossary.md#transport-address) declares how to read and/or write an [attribute](../glossary.md#attribute) value on a [device](../glossary.md#device) in its native protocol, as declared in the `transport` field at [driver](../glossary.md#driver) level.
 
 ## Access modes
 
@@ -18,8 +18,8 @@ A transport address declares how to read and/or write an attribute value on a de
 
 Address strings and fields support `${key}` interpolation. Keys are resolved in this order:
 
-- Values declared in the driver's `env` block
-- Values provided in the device's `device_config`
+- Values declared in the [driver's](../glossary.md#driver) `env` block
+- Values provided in the device's [device config](../glossary.md#device-config)
 
 ```yaml
 env:

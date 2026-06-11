@@ -3,7 +3,7 @@
 This guide gets Gridone running as a local device-control layer so you can start
 building applications against its API.
 
-!!! **"Want to contribute to Gridone?"**
+**"Want to contribute to Gridone?"**
     Contributors are welcome — head to the
     **[GitHub repository](https://github.com/Agrid-Dev/gridone)** to open issues or
     pull requests.
