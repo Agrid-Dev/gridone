@@ -41,7 +41,7 @@ A [command](#command) that writes the same value to an [attribute](#attribute) a
 
 ## Device
 
-A physical unit connected to Gridone. Each device is linked to a [driver](#driver) (which describes its attributes and protocol) and a transport (which carries the network connection). Gridone syncs devices continuously and records their attribute values.
+A physical unit connected to Gridone. Each device is linked to a [driver](#driver) (which describes its attributes and protocol) and a [network](#network) (which carries the connection). Gridone syncs devices continuously and records their attribute values.
 
 ---
 
@@ -60,6 +60,12 @@ A special type of [attribute](#attribute) that some [devices](#device) expose to
 ## Driver
 
 A driver is the declaration of _how_ Gridone should communicate with a specific device: its attributes, how to read and write them, and which protocol it uses. One driver covers all physical units of the same vendor and model — write it once and reuse it across many devices. Drivers are packaged as YAML files, a format that ensures both readability and portability. See [Write a driver](../guides/drivers/write-driver.md).
+
+---
+
+## Network
+
+A configured connection channel through which Gridone communicates with [devices](#device). Each network has a name and a protocol — MQTT, HTTP, Modbus TCP, BACnet, etc. Multiple devices can share the same network. A device can only be assigned to a network whose protocol matches its [driver](#driver). See [Add a device](../guides/devices/add-device.md).
 
 ---
 
