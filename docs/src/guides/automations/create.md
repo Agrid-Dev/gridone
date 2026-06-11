@@ -2,7 +2,7 @@
 
 ## Background
 
-An [automation](../../reference/glossary.md#automation) is a rule. When its [trigger](../../reference/glossary.md#trigger) condition is met, Gridone fires the configured [action](../../reference/glossary.md#action). Each run is recorded as an [execution](../../reference/glossary.md#execution).
+An [automation](../../reference/glossary.md#automation) is a rule that fires an [action](../../reference/glossary.md#action) when a condition ([trigger](../../reference/glossary.md#trigger)) is met. Each run is recorded as an [execution](../../reference/glossary.md#execution).
 
 ---
 
