@@ -1,8 +1,8 @@
 # Codecs
 
-Codecs **decode** the raw value exchanged with a device into the internal typed value Gridone works with — and **encode** it back for writing.
+[Codecs](../glossary.md#codec) **decode** the raw value exchanged with a [device](../glossary.md#device) into the internal typed value Gridone works with — and **encode** it back for writing.
 
-They are declared as an explicit `codecs` list on an attribute. Each entry is a single-key object whose key is the codec identifier and whose value is the argument:
+They are declared as an explicit `codecs` list on an [attribute](../glossary.md#attribute). Each entry is a single-key object whose key is the codec identifier and whose value is the argument:
 
 ```yaml
 - name: temperature

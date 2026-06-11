@@ -1,6 +1,6 @@
 # General Layout
 
-A driver is a YAML file. Below is the full structure with all supported fields.
+A [driver](../glossary.md#driver) is a YAML file. Below is the full structure with all supported fields.
 
 ```yaml
 id: <string>                  # (required) unique identifier for this driver
@@ -47,9 +47,9 @@ attributes:                   # (required) list of attribute drivers
 | `version` | no | Driver version number |
 | `type` | no | Standard device type — enables schema validation and built-in UI. See [Standard Devices](../standard-devices.md) |
 | `env` | no | Driver-scoped constants |
-| `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`) |
-| `update_strategy` | no | Polling frequency configuration. See [Update Strategy](update-strategy.md) |
-| `attributes` | yes | List of readable/writable device attributes |
-| `discovery` | no | Auto-discovery configuration (protocol-dependent) |
+| `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`). See [Device config](../glossary.md#device-config) |
+| `update_strategy` | no | Polling frequency configuration. See [Update strategy](../glossary.md#update-strategy) |
+| `attributes` | yes | List of readable/writable [attributes](../glossary.md#attribute) |
+| `discovery` | no | Auto-[discovery](../glossary.md#discovery) configuration (protocol-dependent) |
 
 Each attribute under `attributes` must declare a `name`, a `data_type`, and at least one of `read`, `write`, or `read_write`. See [Attribute Drivers](#attribute-drivers) for full details.

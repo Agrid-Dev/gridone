@@ -1,8 +1,8 @@
 # Transports
 
-A transport is a configured protocol connection. It is declared once and shared across all devices that speak the same protocol on the same network endpoint.
+A [network](glossary.md#network) is a configured protocol connection. It is declared once and shared across all [devices](glossary.md#device) that speak the same protocol on the same network endpoint.
 
-The transport owns the connection lifecycle: it opens it, keeps it alive, and closes it. Individual device reads and writes are dispatched through it without managing connectivity per device.
+The network owns the connection lifecycle: it opens it, keeps it alive, and closes it. Individual device reads and writes are dispatched through it without managing connectivity per device.
 
 ---
 

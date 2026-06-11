@@ -25,6 +25,12 @@ Typical examples:
 
 ---
 
+## Codec
+
+A reversible transformation applied to an [attribute](#attribute) value converting between the device's raw wire format and Gridone's internal typed value on read, and back on write. Codecs are declared as an ordered list on an attribute and applied in sequence.
+
+---
+
 ## Command
 
 An instruction that writes a new value to an [attribute](#attribute) on one or more [devices](#device).
@@ -42,6 +48,18 @@ A [command](#command) that writes the same value to an [attribute](#attribute) a
 ## Device
 
 A physical unit connected to Gridone. Each device is linked to a [driver](#driver) (which describes its attributes and protocol) and a [network](#network) (which carries the connection). Gridone syncs devices continuously and records their attribute values.
+
+---
+
+## Device config
+
+The set of per-device parameters that identify a specific unit on its [network](#network) — for example, an IP address or device ID. The required fields are declared by the [driver](#driver) and filled in when adding a device.
+
+---
+
+## Discovery
+
+A mechanism that automatically registers [devices](#device) on an MQTT [network](#network) by listening for announcements matching a specific [driver](#driver). Any announcing device is imported without manual config entry per device.
 
 ---
 
@@ -87,6 +105,12 @@ A [device](#device) whose driver declares a `type` matching one of Gridone's bui
 
 ---
 
+## Transport address
+
+The protocol-specific instruction in a [driver](#driver) that declares how to read or write a specific [attribute](#attribute) on a device. Each attribute declares a `read`, `write`, or `read_write` address in the syntax of its transport protocol.
+
+---
+
 ## Trigger
 
 The condition that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition).
@@ -96,6 +120,12 @@ The condition that causes an [automation](#automation) to fire. Available trigge
 ## Template
 
 A saved command configuration — target, attribute, and value — that can be dispatched multiple times without re-entering the details each time. See [Command templates](../guides/commands/templates.md).
+
+---
+
+## Update strategy
+
+Configuration in a [driver](#driver) that controls how often Gridone polls a device for [attribute](#attribute) values and how long to wait for a response. Polling can be disabled for push-based protocols where the device publishes updates spontaneously.
 
 ---
 
