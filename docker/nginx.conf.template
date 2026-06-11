@@ -1,4 +1,7 @@
-# nginx.conf – single-container reverse proxy for gridone
+# nginx.conf.template – single-container reverse proxy for gridone
+#
+# Rendered at container start by `envsubst` (see docker CMD), which substitutes
+# only ${NGINX_BIND_ADDRESS} and leaves every other `$var` intact for nginx.
 #
 # Responsibilities:
 #   1. Serve the built Vite SPA at / (static files from /app/static)
@@ -35,7 +38,7 @@ http {
     }
 
     server {
-        listen 8765;
+        listen ${NGINX_BIND_ADDRESS}:8765;
         server_name _;
 
         # --- API: proxy HTTP + WebSocket to uvicorn on port 8000 -----------

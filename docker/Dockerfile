@@ -65,8 +65,9 @@ FROM python:3.13-slim AS production
 
 # Runtime-only system dependencies
 # libpq5: PostgreSQL client library needed by asyncpg at runtime
+# gettext-base: provides envsubst, used to render nginx.conf.template at startup
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends nginx supervisor libpq5 \
+    apt-get install -y --no-install-recommends nginx supervisor libpq5 gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -88,7 +89,7 @@ COPY --from=ui-build /build/apps/ui/dist /app/static
 COPY --from=python-build /tmp/gridone_version /tmp/gridone_version
 
 # nginx & supervisord configuration
-COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Ensure the venv is on PATH
@@ -96,7 +97,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 EXPOSE 8765
 
-# Run database migrations, then start supervisord as PID 1.
-# Supervisord will exit if either child process dies, ensuring the
-# container stops cleanly.
-CMD ["sh", "-c", "export GRIDONE_VERSION=$(cat /tmp/gridone_version) && python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
+# Render nginx.conf from its template, run database migrations, then start
+# supervisord as PID 1. Supervisord will exit if either child process dies,
+# ensuring the container stops cleanly.
+CMD ["sh", "-c", "export GRIDONE_VERSION=$(cat /tmp/gridone_version) && export NGINX_BIND_ADDRESS=${NGINX_BIND_ADDRESS:-0.0.0.0} && envsubst '${NGINX_BIND_ADDRESS}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && python -m migrations apply && exec supervisord -c /etc/supervisor/conf.d/supervisord.conf"]
