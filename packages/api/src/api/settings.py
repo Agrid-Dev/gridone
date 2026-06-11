@@ -13,7 +13,7 @@ class Settings(BaseModel):
     SECRET_KEY: str = secrets.token_hex(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    COOKIE_SECURE: bool = False  # Set True in production (HTTPS)
+    COOKIE_SECURE: bool = True  # False only when served over plain HTTP
     GRIDONE_TIMEZONE: str = "UTC"
 
     model_config = {"extra": "ignore"}

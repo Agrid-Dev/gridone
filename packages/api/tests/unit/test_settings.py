@@ -25,6 +25,14 @@ class TestTimezoneValidation:
         assert "not a valid IANA timezone name" in str(exc_info.value)
 
 
+class TestCookieSecure:
+    def test_secure_by_default(self):
+        assert Settings().COOKIE_SECURE is True
+
+    def test_can_opt_out_for_plain_http(self):
+        assert load_settings({"COOKIE_SECURE": "false"}).COOKIE_SECURE is False
+
+
 class TestLoadSettings:
     def test_only_known_fields_are_forwarded(self):
         env = {
