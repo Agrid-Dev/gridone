@@ -63,6 +63,18 @@ Modbus TCP maintains a persistent TCP connection to the Modbus server (PLC or ga
 
 ---
 
+### M-Bus
+
+M-Bus connects to an M-Bus/TCP gateway over RFC 2217. Reads are pull-based: the transport requests a meter's data by primary address and parses the response. It is read-only.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `host` | yes | — | Hostname or IP address of the M-Bus/TCP gateway |
+| `port` | yes | — | TCP port of the gateway |
+| `baud_rate` | no | `2400` | Serial baud rate negotiated with the gateway |
+
+---
+
 ### BACnet
 
 BACnet creates a local BACnet/IP application bound to the specified network interface. The `ip_with_mask` identifies that interface. The transport sends and receives BACnet packets over UDP.
