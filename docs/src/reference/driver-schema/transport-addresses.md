@@ -143,6 +143,21 @@ read_write:
 
 ---
 
+### M-Bus
+
+Addresses are strings of the form `<primary_address>/<record_index>`. The meter's M-Bus primary address (`0`–`250`) and the zero-based index of the record to read from its response. An object format (`primary_address`, `record_index`) is also accepted. M-Bus is read only.
+
+```yaml
+read: "1/0"   # meter at primary address 1, first record
+read: "1/2"   # meter at primary address 1, third record
+
+read:
+  primary_address: 1
+  record_index: 0
+```
+
+---
+
 ### BACnet
 
 Addresses reference a BACnet object by type and instance. The `device_instance` is provided via `device_config` and resolved at runtime.

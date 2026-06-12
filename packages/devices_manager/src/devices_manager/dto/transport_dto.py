@@ -15,6 +15,7 @@ from devices_manager.core.transports.bacnet_transport import (
 from devices_manager.core.transports.factory import make_transport_config
 from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.core.transports.knx_transport import KNXTransportConfig
+from devices_manager.core.transports.mbus_transport import MBusTransportConfig
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
@@ -48,13 +49,23 @@ class ModbusTcpTransport(TransportBase):
     config: ModbusTCPTransportConfig
 
 
+class MbusTransport(TransportBase):
+    protocol: Literal[TransportProtocols.MBUS]
+    config: MBusTransportConfig
+
+
 class BacnetTransport(TransportBase):
     protocol: Literal[TransportProtocols.BACNET]
     config: BacnetTransportConfig
 
 
 Transport = Annotated[
-    HttpTransport | KnxTransport | MqttTransport | ModbusTcpTransport | BacnetTransport,
+    HttpTransport
+    | KnxTransport
+    | MqttTransport
+    | ModbusTcpTransport
+    | MbusTransport
+    | BacnetTransport,
     Field(discriminator="protocol"),
 ]
 
@@ -75,6 +86,7 @@ DTO_BY_PROTOCOL = {
     TransportProtocols.KNX: KnxTransport,
     TransportProtocols.MQTT: MqttTransport,
     TransportProtocols.MODBUS_TCP: ModbusTcpTransport,
+    TransportProtocols.MBUS: MbusTransport,
     TransportProtocols.BACNET: BacnetTransport,
 }
 
@@ -120,6 +132,7 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
     TransportProtocols.KNX: KNXTransportConfig,
     TransportProtocols.MQTT: MqttTransportConfig,
     TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
+    TransportProtocols.MBUS: MBusTransportConfig,
     TransportProtocols.BACNET: BacnetTransportConfig,
 }
 
