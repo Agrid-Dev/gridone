@@ -1,3 +1,9 @@
+## v0.94.0 (2026-06-12)
+
+### Feat
+
+- add m bus transport client Agr 659 (#354)
+
 ## v0.93.0 (2026-06-11)
 
 ### Feat
