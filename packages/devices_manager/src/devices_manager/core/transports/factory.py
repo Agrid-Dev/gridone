@@ -7,6 +7,7 @@ from .base import TransportClient
 from .base_transport_config import BaseTransportConfig
 from .http_transport import HTTPTransportClient, HttpTransportConfig
 from .knx_transport import KNXTransportClient, KNXTransportConfig
+from .mbus_transport import MBusTransportClient, MBusTransportConfig
 from .modbus_tcp_transport import ModbusTCPTransportClient, ModbusTCPTransportConfig
 from .mqtt_transport import MqttTransportClient, MqttTransportConfig
 from .transport_metadata import TransportMetadata
@@ -24,6 +25,7 @@ def make_transport_config(
         TransportProtocols.KNX: KNXTransportConfig,
         TransportProtocols.MQTT: MqttTransportConfig,
         TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
+        TransportProtocols.MBUS: MBusTransportConfig,
         TransportProtocols.BACNET: BacnetTransportConfig,
     }
     builder = builders.get(protocol)
@@ -40,6 +42,7 @@ TRANSPORTS_BY_PROTOCOL: dict[
     TransportProtocols.KNX: (KNXTransportClient, KNXTransportConfig),
     TransportProtocols.MQTT: (MqttTransportClient, MqttTransportConfig),
     TransportProtocols.MODBUS_TCP: (ModbusTCPTransportClient, ModbusTCPTransportConfig),
+    TransportProtocols.MBUS: (MBusTransportClient, MBusTransportConfig),
     TransportProtocols.BACNET: (BacnetTransportClient, BacnetTransportConfig),
 }
 
