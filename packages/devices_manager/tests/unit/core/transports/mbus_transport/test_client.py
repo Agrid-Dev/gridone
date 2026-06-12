@@ -68,6 +68,17 @@ async def test_read_returns_float_of_indexed_record(
 
 
 @pytest.mark.usefixtures("fake_serial")
+async def test_read_raises_when_record_index_out_of_range(
+    client: MBusTransportClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_telegram(monkeypatch, records=[MagicMock()])  # only index 0 exists
+
+    with pytest.raises(IndexError, match="out of range"):
+        await client.read(MBusAddress(primary_address=1, record_index=5))
+
+
+@pytest.mark.usefixtures("fake_serial")
 async def test_read_raises_when_no_frame_received(
     client: MBusTransportClient,
     monkeypatch: pytest.MonkeyPatch,

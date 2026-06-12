@@ -67,8 +67,14 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
     @connected
     async def _read_mbus(self, address: MBusAddress) -> float:
         telegram = await asyncio.to_thread(self._fetch, address.primary_address)
-        record = telegram.records[address.record_index]
-        return float(record.parsed_value)
+        records = telegram.records
+        if address.record_index >= len(records):
+            msg = (
+                f"Record index {address.record_index} out of range: meter at "
+                f"address {address.primary_address} returned {len(records)} records"
+            )
+            raise IndexError(msg)
+        return float(records[address.record_index].parsed_value)
 
     async def read(self, address: MBusAddress) -> AttributeValueType:
         return await self._read_mbus(address)

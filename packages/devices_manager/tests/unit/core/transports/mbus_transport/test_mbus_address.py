@@ -46,9 +46,23 @@ def test_from_str_rejects_bad_format(bad: str) -> None:
         MBusAddress.from_str(bad)
 
 
-def test_from_str_rejects_negative_parts() -> None:
-    with pytest.raises(ValueError, match="non-negative"):
-        MBusAddress.from_str("-1/0")
+@pytest.mark.parametrize(
+    ("address_str", "address_dict"),
+    [
+        ("-1/0", {"primary_address": -1, "record_index": 0}),  # negative primary
+        ("1/-1", {"primary_address": 1, "record_index": -1}),  # negative record
+        ("251/0", {"primary_address": 251, "record_index": 0}),  # primary > 250
+    ],
+)
+def test_str_and_dict_reject_out_of_range_consistently(
+    address_str: str, address_dict: dict
+) -> None:
+    # Range/sign constraints live on the model, so both entry points reject the
+    # same values (ValidationError is a ValueError subclass).
+    with pytest.raises(ValueError):  # noqa: PT011
+        MBusAddress.from_str(address_str)
+    with pytest.raises(ValueError):  # noqa: PT011
+        MBusAddress.from_dict(address_dict)
 
 
 def test_from_raw_rejects_invalid_type() -> None:

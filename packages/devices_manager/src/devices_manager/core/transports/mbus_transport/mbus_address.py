@@ -1,4 +1,6 @@
-from pydantic import BaseModel, NonNegativeInt
+from typing import Annotated
+
+from pydantic import BaseModel, Field, NonNegativeInt
 
 from devices_manager.core.transports.transport_address import (
     RawTransportAddress,
@@ -6,10 +8,12 @@ from devices_manager.core.transports.transport_address import (
 )
 
 ADDRESS_PARTS = 2
+# M-Bus primary addresses span 0-250; 251-255 are reserved by the spec.
+MBUS_MAX_PRIMARY_ADDRESS = 250
 
 
 class MBusAddress(BaseModel, TransportAddress):
-    primary_address: NonNegativeInt
+    primary_address: Annotated[int, Field(ge=0, le=MBUS_MAX_PRIMARY_ADDRESS)]
     record_index: NonNegativeInt
 
     @property
@@ -24,8 +28,9 @@ class MBusAddress(BaseModel, TransportAddress):
     ) -> "MBusAddress":
         """Parse an M-Bus address of the form ``<primary>/<record>``.
 
-        Example: ``"1/0"`` → primary address 1, record index 0. Both parts must
-        be non-negative integers; anything else raises ``ValueError``.
+        Example: ``"1/0"`` → primary address 1, record index 0. Parses the two
+        integer parts; range/sign constraints are enforced by the model (so the
+        string and dict paths reject the same values), raising ``ValueError``.
         """
         parts = address_str.strip().split("/")
         if len(parts) != ADDRESS_PARTS:
@@ -36,9 +41,6 @@ class MBusAddress(BaseModel, TransportAddress):
         except ValueError as e:
             msg = f"Invalid M-Bus address format: {address_str}"
             raise ValueError(msg) from e
-        if primary < 0 or record < 0:
-            msg = f"M-Bus address parts must be non-negative: {address_str}"
-            raise ValueError(msg)
         return cls(primary_address=primary, record_index=record)
 
     @classmethod

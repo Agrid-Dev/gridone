@@ -24,4 +24,4 @@ class MBusTransportConfig(BaseTransportConfig):
     # No default port: M-Bus over IP has no well-known port, and a missing
     # port must fail validation (returns 4xx) rather than silently default.
     port: PositiveInt
-    baud_rate: int = MBUS_DEFAULT_BAUD_RATE
+    baud_rate: PositiveInt = MBUS_DEFAULT_BAUD_RATE
