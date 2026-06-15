@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import time
 
 import meterbus
 import serial
@@ -12,6 +14,9 @@ from .mbus_address import MBusAddress
 from .transport_config import MBusRfc2217Config, MBusSerialConfig, MBusSocketConfig
 
 MBUS_READ_TIMEOUT_SECONDS = 5
+MBUS_TELEGRAM_CACHE_TTL = 1.0
+
+logger = logging.getLogger(__name__)
 
 
 class MBusTransportClient(PullTransportClient[MBusAddress]):
@@ -19,6 +24,7 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
     address_builder = MBusAddress
     config: MBusRfc2217Config | MBusSocketConfig | MBusSerialConfig
     _serial: serial.SerialBase
+    _telegram_cache: dict[int, tuple[float, meterbus.TelegramLong]]
 
     def __init__(
         self,
@@ -26,6 +32,7 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
         config: MBusRfc2217Config | MBusSocketConfig | MBusSerialConfig,
     ) -> None:
         super().__init__(metadata, config)
+        self._telegram_cache = {}
 
     async def connect(self) -> None:
         async with self._connection_lock:
@@ -59,6 +66,7 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
         if self.connection_state.is_connected:
             async with self._connection_lock:
                 self._serial.close()
+                self._telegram_cache.clear()
                 await super().close()
 
     def _fetch(self, primary_address: int) -> meterbus.TelegramLong:
@@ -75,9 +83,28 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
             raise ConnectionError(msg)
         return meterbus.load(data)
 
+    def _fetch_cached(self, primary_address: int) -> meterbus.TelegramLong:
+        """Return a cached telegram, fetching from the meter only on a miss or expiry.
+
+        Cache entries expire after MBUS_TELEGRAM_CACHE_TTL seconds so a fresh
+        REQ_UD2 is always sent on the next poll cycle. Runs in a worker thread.
+        """
+        cached = self._telegram_cache.get(primary_address)
+        if cached is not None and (
+            time.monotonic() - cached[0] < MBUS_TELEGRAM_CACHE_TTL
+        ):
+            logger.debug("M-Bus cache hit for primary address %d", primary_address)
+            return cached[1]
+        logger.debug(
+            "M-Bus cache miss — sending REQ_UD2 to primary address %d", primary_address
+        )
+        telegram = self._fetch(primary_address)
+        self._telegram_cache[primary_address] = (time.monotonic(), telegram)
+        return telegram
+
     @connected
     async def _read_mbus(self, address: MBusAddress) -> float:
-        telegram = await asyncio.to_thread(self._fetch, address.primary_address)
+        telegram = await asyncio.to_thread(self._fetch_cached, address.primary_address)
         records = telegram.records
         if address.record_index >= len(records):
             msg = (
