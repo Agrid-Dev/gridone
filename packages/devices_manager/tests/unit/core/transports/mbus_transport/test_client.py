@@ -1,4 +1,6 @@
 import decimal
+import logging
+import time
 from unittest.mock import MagicMock
 
 import meterbus
@@ -103,3 +105,74 @@ async def test_close_closes_serial(
 async def test_write_raises_not_implemented(client: MBusTransportClient) -> None:
     with pytest.raises(NotImplementedError):
         await client.write(MBusAddress(primary_address=1, record_index=0), 1.0)
+
+
+class TestTelegramCache:
+    @pytest.mark.usefixtures("fake_serial")
+    async def test_fetch_called_once_for_shared_primary_address(
+        self,
+        client: MBusTransportClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        records: list[object] = [
+            MagicMock(parsed_value=decimal.Decimal(i)) for i in range(3)
+        ]
+        _patch_telegram(monkeypatch, records=records)
+        fetch_spy = MagicMock(wraps=client._fetch)  # noqa: SLF001
+        monkeypatch.setattr(client, "_fetch", fetch_spy)
+
+        with caplog.at_level(logging.DEBUG, logger="devices_manager"):
+            for i in range(3):
+                await client.read(MBusAddress(primary_address=1, record_index=i))
+
+        fetch_spy.assert_called_once_with(1)
+        assert "cache miss" in caplog.text
+        assert caplog.text.count("cache hit") == 2
+
+    @pytest.mark.usefixtures("fake_serial")
+    async def test_cache_cleared_on_close(
+        self,
+        client: MBusTransportClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        records: list[object] = [MagicMock(parsed_value=decimal.Decimal(42))]
+        _patch_telegram(monkeypatch, records=records)
+        fetch_spy = MagicMock(wraps=client._fetch)  # noqa: SLF001
+        monkeypatch.setattr(client, "_fetch", fetch_spy)
+
+        with caplog.at_level(logging.DEBUG, logger="devices_manager"):
+            await client.read(MBusAddress(primary_address=1, record_index=0))
+            assert "cache miss" in caplog.text
+
+            assert 1 in client._telegram_cache  # noqa: SLF001
+            assert fetch_spy.call_count == 1
+
+            await client.close()
+            assert client._telegram_cache == {}  # noqa: SLF001
+
+            caplog.clear()
+            await client.read(MBusAddress(primary_address=1, record_index=0))
+            assert "cache miss" in caplog.text
+            assert fetch_spy.call_count == 2
+
+    @pytest.mark.usefixtures("fake_serial")
+    async def test_stale_entry_refetches_after_ttl(
+        self,
+        client: MBusTransportClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        records: list[object] = [MagicMock(parsed_value=decimal.Decimal(1))]
+        _patch_telegram(monkeypatch, records=records)
+        fetch_spy = MagicMock(wraps=client._fetch)  # noqa: SLF001
+        monkeypatch.setattr(client, "_fetch", fetch_spy)
+
+        await client.read(MBusAddress(primary_address=1, record_index=0))
+        assert fetch_spy.call_count == 1
+
+        real_monotonic = time.monotonic
+        monkeypatch.setattr(time, "monotonic", lambda: real_monotonic() + 2.0)
+
+        await client.read(MBusAddress(primary_address=1, record_index=0))
+        assert fetch_spy.call_count == 2
