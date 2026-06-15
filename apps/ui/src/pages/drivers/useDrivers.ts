@@ -1,9 +1,10 @@
-import { getDrivers, Driver, deleteDriver } from "@/api/drivers";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { getDrivers, getDriver, Driver, deleteDriver } from "@/api/drivers";
+import { useQuery, useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createDriver, DriverCreatePayload } from "@/api/drivers";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
+import { ResourceNotFoundError } from "@/lib/errors";
 import { useTranslation } from "react-i18next";
 import type { DevicesFilter } from "@/api/devices";
 
@@ -33,15 +34,43 @@ export const useDrivers = (filters?: DevicesFilter) => {
   });
   const handleCreate = async (payload: DriverCreatePayload) =>
     createMutation.mutateAsync(payload);
+  return { driversListQuery, createMutation, handleCreate };
+};
+
+/**
+ * Fetches the driver named by the `:driverId` route param. Suspends while
+ * loading and throws to the nearest `ResourceBoundary`: `ResourceNotFoundError`
+ * for a missing param, `ApiError(404)` (propagated from the backend) for an
+ * unknown driver. The returned driver is therefore always defined.
+ */
+export const useDriverFromRoute = (): Driver => {
+  const { driverId } = useParams<{ driverId: string }>();
+  if (!driverId) {
+    throw new ResourceNotFoundError("Missing 'driverId' route parameter");
+  }
+  const { data } = useSuspenseQuery<Driver>({
+    queryKey: ["driver", driverId],
+    queryFn: () => getDriver(driverId),
+  });
+  return data;
+};
+
+export const useDeleteDriver = () => {
+  const { t } = useTranslation(["drivers", "common"]);
+  const navigate = useNavigate();
   const deleteMutation = useMutation({
     mutationFn: (driverId: string) => deleteDriver(driverId),
     onSuccess: () => {
       toast.success(t("feedback.deleted"));
       navigate("..");
     },
-    onError: handleApiError,
+    onError: (err: ApiError) => {
+      toast.error(
+        `${t("common:errors.default")}: ${err.details || err.message}`,
+      );
+    },
   });
   const handleDelete = async (driverId: string) =>
     deleteMutation.mutateAsync(driverId);
-  return { driversListQuery, createMutation, handleCreate, handleDelete };
+  return { handleDelete };
 };

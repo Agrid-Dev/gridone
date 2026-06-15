@@ -43,6 +43,12 @@ export function getDrivers(params?: Record<string, string>): Promise<Driver[]> {
   return request<Driver[]>(`/drivers/${query}`, undefined, { camelCase: true });
 }
 
+export function getDriver(driverId: string): Promise<Driver> {
+  return request<Driver>(`/drivers/${driverId}`, undefined, {
+    camelCase: true,
+  });
+}
+
 export type DriverCreatePayload = { yaml: string };
 
 export function createDriver(payload: DriverCreatePayload): Promise<Driver> {

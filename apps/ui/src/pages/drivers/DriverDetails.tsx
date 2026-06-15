@@ -1,8 +1,6 @@
 import React, { FC } from "react";
-import { useDrivers } from "./useDrivers";
+import { useDriverFromRoute, useDeleteDriver } from "./useDrivers";
 import { useParams } from "react-router";
-import { ErrorFallback } from "@/components/fallbacks/Error";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { useTranslation } from "react-i18next";
 import { type Driver, type DriverAttribute } from "@/api/drivers";
 import {
@@ -11,12 +9,11 @@ import {
   TypographySmall,
 } from "@/components/ui/typography";
 import { Card, CardContent } from "@/components/ui";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
-import { ErrorBoundary } from "react-error-boundary";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -140,29 +137,18 @@ const DriverDetails: FC<{
   );
 };
 
+const DriverDetailsContent: FC = () => {
+  const driver = useDriverFromRoute();
+  const { handleDelete } = useDeleteDriver();
+  return <DriverDetails driver={driver} onDelete={handleDelete} />;
+};
+
 const DriverDetailsWrapper: FC = () => {
-  const { driversListQuery: query, handleDelete } = useDrivers();
   const { driverId } = useParams();
-  const { t } = useTranslation("drivers");
-  if (query.isLoading) {
-    return (
-      <section className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64" />
-      </section>
-    );
-  }
-  if (!driverId) {
-    return <ErrorFallback />;
-  }
-  const driver = query.data.find((d) => d.id == driverId);
-  if (!driver) {
-    return <NotFoundFallback message={t("notFoundDetails", { driverId })} />;
-  }
   return (
-    <ErrorBoundary fallback={<ErrorFallback />}>
-      <DriverDetails driver={driver} onDelete={handleDelete} />
-    </ErrorBoundary>
+    <ResourceBoundary resetKeys={[driverId]}>
+      <DriverDetailsContent />
+    </ResourceBoundary>
   );
 };
 
