@@ -21,6 +21,7 @@ let canPermission: (perm: string) => boolean = () => true;
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
+  useSuspenseQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
   useMutation: (opts: {
     mutationFn: (...args: unknown[]) => Promise<unknown>;
     onSuccess?: () => void;
