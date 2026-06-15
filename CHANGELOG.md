@@ -1,3 +1,9 @@
+## v0.96.0 (2026-06-15)
+
+### Feat
+
+- **mbus**: cache telegram per primary address (#360)
+
 ## v0.95.0 (2026-06-15)
 
 ### Feat
