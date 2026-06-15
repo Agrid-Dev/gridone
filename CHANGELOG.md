@@ -1,3 +1,10 @@
+## v0.95.0 (2026-06-15)
+
+### Feat
+
+- **ui**: reduce card radius token
+- **ui**: reduce global border-radius token
+
 ## v0.94.0 (2026-06-12)
 
 ### Feat
