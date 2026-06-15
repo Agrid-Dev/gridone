@@ -107,6 +107,35 @@ class TestCreateTransport:
         response = client.post("/", json=payload)
         assert response.status_code == 422
 
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"mode": "rfc2217", "host": "gw.local", "port": 4000},
+            {"mode": "socket", "host": "10.0.0.1", "port": 4001},
+            {"mode": "serial", "device": "/dev/ttyUSB0"},
+        ],
+    )
+    def test_mbus_all_modes_return_201(self, client: TestClient, config: dict):
+        payload = {"name": "M-Bus meter", "protocol": "mbus", "config": config}
+        response = client.post("/", json=payload)
+        assert response.status_code == 201
+        _assert_valid_transport(response.json())
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            {"mode": "rfc2217", "port": 4000},  # missing host
+            {"mode": "socket", "host": "gw.local"},  # missing port
+            {"mode": "serial"},  # missing device
+        ],
+    )
+    def test_mbus_missing_required_field_returns_422(
+        self, client: TestClient, config: dict
+    ):
+        payload = {"name": "M-Bus meter", "protocol": "mbus", "config": config}
+        response = client.post("/", json=payload)
+        assert response.status_code == 422
+
 
 class TestUpdateTransport:
     @pytest.mark.asyncio
@@ -156,3 +185,13 @@ class TestGetTransportSchemas:
         data = response.json()
         assert len(data) == len(TransportProtocols)
         assert data["mqtt"]["properties"]["port"]["type"] == "integer"
+
+    def test_mbus_schema_lists_all_three_modes(self, client: TestClient):
+        response = client.get("/schemas/")
+        assert response.status_code == 200
+        mbus_schema = response.json()["mbus"]
+        # Discriminated union — modes appear as oneOf/anyOf definitions
+        schema_str = str(mbus_schema)
+        assert "rfc2217" in schema_str
+        assert "socket" in schema_str
+        assert "serial" in schema_str

@@ -5,11 +5,11 @@ import meterbus
 import pytest
 import serial
 
-from devices_manager.core.transports.mbus_transport import (
-    MBusTransportClient,
-    MBusTransportConfig,
-)
+from devices_manager.core.transports.mbus_transport import MBusTransportClient
 from devices_manager.core.transports.mbus_transport.mbus_address import MBusAddress
+from devices_manager.core.transports.mbus_transport.transport_config import (
+    MBusRfc2217Config,
+)
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 pytestmark = pytest.mark.asyncio
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.asyncio
 def client() -> MBusTransportClient:
     return MBusTransportClient(
         TransportMetadata(id="t1", name="M1"),
-        MBusTransportConfig(host="gw.local", port=10001),
+        MBusRfc2217Config(host="gw.local", port=10001),
     )
 
 

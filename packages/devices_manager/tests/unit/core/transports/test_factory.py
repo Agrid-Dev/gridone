@@ -17,9 +17,9 @@ from devices_manager.core.transports.knx_transport import (
     KNXTransportClient,
     KNXTransportConfig,
 )
-from devices_manager.core.transports.mbus_transport import (
-    MBusTransportClient,
-    MBusTransportConfig,
+from devices_manager.core.transports.mbus_transport import MBusTransportClient
+from devices_manager.core.transports.mbus_transport.transport_config import (
+    MBusRfc2217Config,
 )
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportClient,
@@ -74,7 +74,7 @@ def test_mismatched_transport_config_raises(mock_transport_metadata):
             ),
             (
                 TransportProtocols.MBUS,
-                MBusTransportConfig(host="localhost", port=10001),
+                MBusRfc2217Config(host="localhost", port=10001),
                 MBusTransportClient,
             ),
             (
