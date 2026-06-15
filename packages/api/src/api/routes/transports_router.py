@@ -7,7 +7,7 @@ from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
 from devices_manager.dto import (
-    TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
+    TRANSPORT_CONFIG_SCHEMAS,
     Transport,
     TransportCreate,
     TransportUpdate,
@@ -98,7 +98,4 @@ async def delete_transport(
     "/schemas/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))]
 )
 def get_transport_schemas() -> dict[str, dict]:
-    return {
-        protocol: config_class.model_json_schema()
-        for protocol, config_class in TRANSPORT_CONFIG_CLASS_BY_PROTOCOL.items()
-    }
+    return TRANSPORT_CONFIG_SCHEMAS

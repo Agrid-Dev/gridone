@@ -19,19 +19,19 @@ from .transport_dto import (
     CONFIG_CLASS_BY_PROTOCOL as TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
 )
 from .transport_dto import (
+    TRANSPORT_CONFIG_SCHEMAS,
     Transport,
     TransportBase,
     TransportCreate,
     TransportUpdate,
 )
 from .transport_dto import build_dto as build_transport
-from .transport_dto import (
-    core_to_dto as transport_to_public,
-)
+from .transport_dto import core_to_dto as transport_to_public
 from .transport_dto import dto_to_core as transport_from_public
 
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
+    "TRANSPORT_CONFIG_SCHEMAS",
     "AttributeCreate",
     "Device",
     "DeviceCreate",

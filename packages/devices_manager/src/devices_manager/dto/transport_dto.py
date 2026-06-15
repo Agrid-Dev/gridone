@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationInfo, field_validator
 
 from devices_manager.core.transports import (
     BaseTransportConfig,
@@ -15,7 +15,9 @@ from devices_manager.core.transports.bacnet_transport import (
 from devices_manager.core.transports.factory import make_transport_config
 from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.core.transports.knx_transport import KNXTransportConfig
-from devices_manager.core.transports.mbus_transport import MBusTransportConfig
+from devices_manager.core.transports.mbus_transport.transport_config import (
+    MBusTransportConfig,
+)
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
@@ -132,8 +134,12 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
     TransportProtocols.KNX: KNXTransportConfig,
     TransportProtocols.MQTT: MqttTransportConfig,
     TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
-    TransportProtocols.MBUS: MBusTransportConfig,
     TransportProtocols.BACNET: BacnetTransportConfig,
+}
+
+TRANSPORT_CONFIG_SCHEMAS: dict[str, dict] = {
+    **{p: cls.model_json_schema() for p, cls in CONFIG_CLASS_BY_PROTOCOL.items()},
+    TransportProtocols.MBUS: TypeAdapter(MBusTransportConfig).json_schema(),
 }
 
 
@@ -153,6 +159,13 @@ class TransportCreate(BaseModel):
         if protocol is None:
             msg = "protocol must be set before config"
             raise ValueError(msg)
+
+        # MBUS uses a discriminated union — delegate to make_transport_config for
+        # dict input; return instances as-is for Pydantic to validate against the union.
+        if protocol == TransportProtocols.MBUS:
+            if isinstance(v, dict):
+                return make_transport_config(protocol, v)
+            return v
 
         config_cls = CONFIG_CLASS_BY_PROTOCOL.get(protocol)
         if config_cls is None:
