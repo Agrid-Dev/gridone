@@ -9,20 +9,21 @@ from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols
 
 from .mbus_address import MBusAddress
-from .transport_config import MBusTransportConfig
+from .transport_config import MBusRfc2217Config, MBusSerialConfig, MBusSocketConfig
 
 MBUS_READ_TIMEOUT_SECONDS = 5
 
 
 class MBusTransportClient(PullTransportClient[MBusAddress]):
-    _config_builder = MBusTransportConfig
     protocol = TransportProtocols.MBUS
     address_builder = MBusAddress
-    config: MBusTransportConfig
+    config: MBusRfc2217Config | MBusSocketConfig | MBusSerialConfig
     _serial: serial.SerialBase
 
     def __init__(
-        self, metadata: TransportMetadata, config: MBusTransportConfig
+        self,
+        metadata: TransportMetadata,
+        config: MBusRfc2217Config | MBusSocketConfig | MBusSerialConfig,
     ) -> None:
         super().__init__(metadata, config)
 
@@ -32,14 +33,24 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
             await super().connect()
 
     def _open(self) -> serial.SerialBase:
-        """Open the RFC 2217 TCP connection to the M-Bus gateway.
+        """Open the connection to the M-Bus device based on the configured mode.
 
-        ``serial_for_url`` connects to the gateway and performs Telnet/RFC 2217
-        negotiation synchronously, so it runs in a worker thread. If the gateway
-        is unreachable it raises, failing the connection fast.
+        All three paths run synchronously in a worker thread — serial I/O blocks.
         """
-        return serial.serial_for_url(
-            f"rfc2217://{self.config.host}:{self.config.port}",
+        if isinstance(self.config, MBusRfc2217Config):
+            return serial.serial_for_url(
+                f"rfc2217://{self.config.host}:{self.config.port}",
+                baudrate=self.config.baud_rate,
+                timeout=MBUS_READ_TIMEOUT_SECONDS,
+            )
+        if isinstance(self.config, MBusSocketConfig):
+            return serial.serial_for_url(
+                f"socket://{self.config.host}:{self.config.port}",
+                timeout=MBUS_READ_TIMEOUT_SECONDS,
+            )
+        # MBusSerialConfig — direct USB/serial dongle
+        return serial.Serial(
+            self.config.device,
             baudrate=self.config.baud_rate,
             timeout=MBUS_READ_TIMEOUT_SECONDS,
         )
