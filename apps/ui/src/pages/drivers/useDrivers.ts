@@ -1,5 +1,10 @@
 import { getDrivers, getDriver, Driver, deleteDriver } from "@/api/drivers";
-import { useQuery, useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createDriver, DriverCreatePayload } from "@/api/drivers";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -38,20 +43,43 @@ export const useDrivers = (filters?: DevicesFilter) => {
 
 /**
  * Fetches the driver named by the `:driverId` route param. Suspends while
- * loading and throws to the nearest `ResourceBoundary`: `ResourceNotFoundError`
- * Suspends while loading and propagates an unknown driver as `ApiError(404)`
- * from the backend (→ not-found fallback). The returned driver is therefore
- * always defined. A missing `:driverId` is a route-config bug, not a 404, so it
- * raises a plain error (→ generic error fallback).
+ * loading and propagates an unknown driver as `ApiError(404)` from the backend
+ * (→ not-found fallback). The returned driver is therefore always defined. A
+ * missing `:driverId` is a route-config bug, not a 404, so it raises a plain
+ * error (→ generic error fallback).
+ *
+ * The query is seeded from any cached drivers list (the list view fetches them
+ * all), so navigating from the list renders instantly; a direct page load has
+ * no cache and hits the API.
  */
 export const useDriverFromRoute = (): Driver => {
   const { driverId } = useParams<{ driverId: string }>();
+  const queryClient = useQueryClient();
   if (!driverId) {
     throw new Error("useDriverFromRoute requires a 'driverId' route param");
   }
+  // Look up the driver in any cached `["drivers", filters]` list.
+  const cachedFromList = ():
+    | { driver: Driver; updatedAt: number }
+    | undefined => {
+    for (const [key, drivers] of queryClient.getQueriesData<Driver[]>({
+      queryKey: ["drivers"],
+    })) {
+      const driver = drivers?.find((d) => d.id === driverId);
+      if (driver) {
+        return {
+          driver,
+          updatedAt: queryClient.getQueryState(key)?.dataUpdatedAt ?? 0,
+        };
+      }
+    }
+    return undefined;
+  };
   const { data } = useSuspenseQuery<Driver>({
     queryKey: ["driver", driverId],
     queryFn: () => getDriver(driverId),
+    initialData: () => cachedFromList()?.driver,
+    initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
   });
   return data;
 };
