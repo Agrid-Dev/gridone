@@ -4,7 +4,6 @@ import { createDriver, DriverCreatePayload } from "@/api/drivers";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
-import { ResourceNotFoundError } from "@/lib/errors";
 import { useTranslation } from "react-i18next";
 import type { DevicesFilter } from "@/api/devices";
 
@@ -40,13 +39,15 @@ export const useDrivers = (filters?: DevicesFilter) => {
 /**
  * Fetches the driver named by the `:driverId` route param. Suspends while
  * loading and throws to the nearest `ResourceBoundary`: `ResourceNotFoundError`
- * for a missing param, `ApiError(404)` (propagated from the backend) for an
- * unknown driver. The returned driver is therefore always defined.
+ * Suspends while loading and propagates an unknown driver as `ApiError(404)`
+ * from the backend (→ not-found fallback). The returned driver is therefore
+ * always defined. A missing `:driverId` is a route-config bug, not a 404, so it
+ * raises a plain error (→ generic error fallback).
  */
 export const useDriverFromRoute = (): Driver => {
   const { driverId } = useParams<{ driverId: string }>();
   if (!driverId) {
-    throw new ResourceNotFoundError("Missing 'driverId' route parameter");
+    throw new Error("useDriverFromRoute requires a 'driverId' route param");
   }
   const { data } = useSuspenseQuery<Driver>({
     queryKey: ["driver", driverId],
