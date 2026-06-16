@@ -1,3 +1,9 @@
+## v0.98.2 (2026-06-16)
+
+### Fix
+
+- **ui**: device update toasts + drop device_id from PATCH body
+
 ## v0.98.1 (2026-06-16)
 
 ### Refactor
