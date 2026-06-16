@@ -1,6 +1,11 @@
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
 import {
@@ -13,7 +18,9 @@ import { listDevices, type Device } from "@/api/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
- *  itself, the live-resolved device list, the asset-name lookup used by the
+ *  itself (fetched under Suspense — an unknown id propagates as `ApiError(404)`
+ *  to the nearest `ResourceBoundary`, so `template` is always defined), the
+ *  live-resolved device list, the asset-name lookup used by the
  *  TargetPresenter, and the execute/delete mutations with their toast +
  *  navigation side effects. */
 export function useTemplate(templateId: string) {
@@ -21,16 +28,15 @@ export function useTemplate(templateId: string) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const template = useQuery<CommandTemplate>({
+  const { data: template } = useSuspenseQuery<CommandTemplate>({
     queryKey: ["command-templates", templateId],
     queryFn: () => getTemplate(templateId),
-    enabled: !!templateId,
   });
 
   const { assetsById } = useAssetTree();
 
   // Resolve devices live so the page reflects the current asset membership.
-  const target = template.data?.target;
+  const target = template.target;
   const resolvedDevices = useQuery<Device[]>({
     queryKey: ["template-resolved-devices", templateId, target],
     queryFn: () => listDevices(target),
@@ -58,9 +64,7 @@ export function useTemplate(templateId: string) {
   });
 
   return {
-    template: template.data,
-    isLoading: template.isLoading,
-    error: template.error,
+    template,
     assetsById,
     resolvedDevices: resolvedDevices.data ?? [],
     isResolving: resolvedDevices.isLoading,

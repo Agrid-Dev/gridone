@@ -1,3 +1,4 @@
+import { type FC } from "react";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Play, RefreshCw, Trash2 } from "lucide-react";
@@ -6,24 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ErrorFallback } from "@/components/fallbacks/Error";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
-import { ApiError } from "@/api/apiError";
 import type { Device } from "@/api/devices";
 import { usePermissions } from "@/contexts/AuthContext";
 import { CommandTemplatePresenter } from "../presenters/CommandTemplatePresenter";
 import { TemplateExecutions } from "./TemplateExecutions";
 import { useTemplate } from "./useTemplate";
 
-export default function TemplateDetailPage() {
+export const TemplateDetailContent: FC = () => {
   const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
-  const { templateId = "" } = useParams<{ templateId: string }>();
+  const { templateId } = useParams<{ templateId: string }>();
+  if (!templateId) {
+    throw new Error("TemplateDetailPage requires a 'templateId' route param");
+  }
   const {
     template,
-    isLoading,
-    error,
     assetsById,
     resolvedDevices,
     isResolving,
@@ -32,22 +32,6 @@ export default function TemplateDetailPage() {
     remove,
     isRemoving,
   } = useTemplate(templateId);
-
-  if (isLoading) {
-    return (
-      <section className="space-y-6">
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-64 w-full rounded-lg" />
-      </section>
-    );
-  }
-  if (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return <NotFoundFallback title={t("commands.templates.notFound")} />;
-    }
-    return <ErrorFallback title={t("common:errors.default")} />;
-  }
-  if (!template) return null;
 
   return (
     <section className="space-y-6">
@@ -101,7 +85,18 @@ export default function TemplateDetailPage() {
       </section>
     </section>
   );
-}
+};
+
+const TemplateDetailPage: FC = () => {
+  const { templateId } = useParams<{ templateId: string }>();
+  return (
+    <ResourceBoundary resetKeys={[templateId]}>
+      <TemplateDetailContent />
+    </ResourceBoundary>
+  );
+};
+
+export default TemplateDetailPage;
 
 function ResolvedDevicesSection({
   devices,
