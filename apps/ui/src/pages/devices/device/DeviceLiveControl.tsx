@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import {
@@ -22,22 +21,19 @@ import { getStandardDeviceEntry } from "../standard-devices/registry";
 
 export default function DeviceLiveControl() {
   const { t } = useTranslation(["devices", "common"]);
-  const { deviceId } = useParams<{ deviceId: string }>();
   const { device, draft, savingAttr, feedback, handleDraftChange, handleSave } =
-    useDeviceDetails(deviceId);
-  const attributes = useMemo(() => device?.attributes ?? {}, [device]);
+    useDeviceDetails();
+  const attributes = device.attributes;
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const standardEntry = device
-    ? getStandardDeviceEntry(device.type)
-    : undefined;
+  const standardEntry = getStandardDeviceEntry(device.type);
 
   const isStandard = !!standardEntry;
 
   return (
     <div className="space-y-8">
       {/* ── Standard control (if registered) ── */}
-      {standardEntry && device && (
+      {standardEntry && (
         <div className="py-2">
           <standardEntry.Control
             device={device}
@@ -114,7 +110,7 @@ export default function DeviceLiveControl() {
       )}
 
       {/* ── Faults (all kind=fault attributes) ── */}
-      {device && <FaultAttributesSection device={device} />}
+      <FaultAttributesSection device={device} />
     </div>
   );
 }

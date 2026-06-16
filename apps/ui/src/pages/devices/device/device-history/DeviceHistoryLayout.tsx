@@ -1,6 +1,5 @@
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ErrorFallback } from "@/components/fallbacks/Error";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import {
   Button,
   Tabs,
@@ -20,9 +19,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
-import { useDevice } from "@/hooks/useDevice";
+import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
 import {
   BarChart3,
@@ -32,7 +30,7 @@ import {
   Table,
   Terminal,
 } from "lucide-react";
-import { useMemo } from "react";
+import { type FC, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -47,37 +45,16 @@ import {
 } from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
-export default function DeviceHistoryLayout() {
+const DeviceHistoryLayoutContent: FC = () => {
   const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
-  const { deviceId } = useParams<{ deviceId: string }>();
-  const { data: device, isLoading, error } = useDevice(deviceId);
+  const device = useDeviceFromRoute();
+  const deviceId = device.id;
 
   const attributeNames = useMemo(
-    () => Object.keys(device?.attributes ?? {}),
+    () => Object.keys(device.attributes ?? {}),
     [device],
   );
-
-  if (isLoading) {
-    return (
-      <section className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-8 w-28 rounded-md" />
-          <Skeleton className="h-5 w-16 rounded-full" />
-        </div>
-        <div className="overflow-hidden rounded-lg border">
-          <Skeleton className="h-10 w-full" />
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full border-t" />
-          ))}
-        </div>
-      </section>
-    );
-  }
-
-  if (!device || !deviceId) return <NotFoundFallback />;
-  if (error) return <ErrorFallback />;
 
   return (
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
@@ -110,6 +87,15 @@ export default function DeviceHistoryLayout() {
         <HistoryToolbar />
       </section>
     </DeviceHistoryProvider>
+  );
+};
+
+export default function DeviceHistoryLayout() {
+  const { deviceId } = useParams<{ deviceId: string }>();
+  return (
+    <ResourceBoundary resetKeys={[deviceId]}>
+      <DeviceHistoryLayoutContent />
+    </ResourceBoundary>
   );
 }
 

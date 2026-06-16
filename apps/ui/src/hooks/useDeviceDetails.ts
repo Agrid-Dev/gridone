@@ -2,18 +2,15 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { updateDeviceAttribute } from "../api/devices";
-import { useDevice } from "./useDevice";
+import { useDeviceFromRoute } from "./useDevice";
 
 export type Feedback = { type: "success" | "error"; message: string };
 
-export function useDeviceDetails(deviceId: string | undefined) {
+export function useDeviceDetails() {
   const { t } = useTranslation("devices");
   const queryClient = useQueryClient();
-  const {
-    data: device,
-    isLoading: loading,
-    error: queryError,
-  } = useDevice(deviceId);
+  const device = useDeviceFromRoute();
+  const deviceId = device.id;
 
   const [draft, setDraft] = useState<
     Record<string, string | number | boolean | null>
@@ -23,23 +20,15 @@ export function useDeviceDetails(deviceId: string | undefined) {
 
   // Initialize draft when device loads
   useEffect(() => {
-    if (device) {
-      setDraft(
-        Object.fromEntries(
-          Object.entries(device.attributes).map(([name, attribute]) => [
-            name,
-            attribute.currentValue,
-          ]),
-        ),
-      );
-    }
+    setDraft(
+      Object.fromEntries(
+        Object.entries(device.attributes).map(([name, attribute]) => [
+          name,
+          attribute.currentValue,
+        ]),
+      ),
+    );
   }, [device]);
-
-  const error = queryError
-    ? queryError instanceof Error
-      ? queryError.message
-      : t("deviceDetails.unableToLoad")
-    : null;
 
   const handleDraftChange = (
     name: string,
@@ -49,7 +38,7 @@ export function useDeviceDetails(deviceId: string | undefined) {
   };
 
   const handleSave = async (name: string) => {
-    if (!device || savingAttr) return;
+    if (savingAttr) return;
     const attribute = device.attributes[name];
     const value = draft[name];
     if (!attribute) return;
@@ -96,8 +85,6 @@ export function useDeviceDetails(deviceId: string | undefined) {
 
   return {
     device,
-    loading,
-    error,
     draft,
     savingAttr,
     feedback,

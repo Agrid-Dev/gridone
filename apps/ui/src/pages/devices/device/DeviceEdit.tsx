@@ -4,37 +4,17 @@ import { DangerZone } from "@/components/DangerZone";
 import { useTranslation } from "react-i18next";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from "react-router";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
-import { ErrorFallback } from "@/components/fallbacks/Error";
-import { ErrorBoundary } from "react-error-boundary";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { usePermissions } from "@/contexts/AuthContext";
 import { isPhysicalDevice } from "@/api/devices";
 
-const Loader = () => (
-  <div className="space-y-4">
-    <Skeleton className="h-10 w-1/2" />
-    <Skeleton className="h-10 w-full" />
-    <Skeleton className="h-10 w-full" />
-    <Skeleton className="h-10 w-full" />
-    <Skeleton className="h-10 w-full" />
-  </div>
-);
-
 function DeviceEdit() {
   const { t } = useTranslation("devices");
-  const { deviceId } = useParams();
-  const { device, loading } = useDeviceDetails(deviceId);
+  const { device } = useDeviceDetails();
   const { handleDelete, isDeleting } = useDeleteDevice();
   const can = usePermissions();
 
-  if (loading) {
-    return <Loader />;
-  }
-  if (!device || !deviceId) {
-    return <NotFoundFallback />;
-  }
   return (
     <>
       {isPhysicalDevice(device) ? (
@@ -46,11 +26,11 @@ function DeviceEdit() {
       )}
       {can("devices:write") && (
         <DangerZone
-          onDelete={() => handleDelete(deviceId)}
+          onDelete={() => handleDelete(device.id)}
           isDeleting={isDeleting}
           confirmTitle={t("devices.actions.deleteDialogTitle")}
           confirmDetails={t("devices.actions.deleteDialogContent", {
-            name: device.name || deviceId,
+            name: device.name || device.id,
           })}
           deleteLabel={t("devices.actions.delete")}
         />
@@ -61,6 +41,7 @@ function DeviceEdit() {
 
 export default function DeviceEditWrapper() {
   const { t } = useTranslation("devices");
+  const { deviceId } = useParams<{ deviceId: string }>();
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -69,9 +50,9 @@ export default function DeviceEditWrapper() {
         resourceNameLinksBack
         backTo="/devices"
       />
-      <ErrorBoundary fallback={<ErrorFallback />}>
+      <ResourceBoundary resetKeys={[deviceId]}>
         <DeviceEdit />
-      </ErrorBoundary>
+      </ResourceBoundary>
     </section>
   );
 }
