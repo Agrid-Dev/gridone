@@ -1,7 +1,7 @@
 import { useParams } from "react-router";
 import { type FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DangerZone } from "@/components/DangerZone";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
@@ -9,7 +9,6 @@ import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
 import AutomationExecutionHistory from "./AutomationExecutionHistory";
 import EditableCard from "./EditableCard";
-import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import FlowConnector from "./components/FlowConnector";
 import { ActionPresenter } from "./presenters/ActionPresenter";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
@@ -17,8 +16,12 @@ import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
 import MetadataForm from "./form/MetadataForm";
 
-const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
+const AutomationPageContent: FC = () => {
+  const { automationId } = useParams<{ automationId: string }>();
   const { t } = useTranslation("automations");
+  if (!automationId) {
+    throw new Error("AutomationPage requires an 'automationId' route param");
+  }
   const {
     canWrite,
     editingSection,
@@ -26,18 +29,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
     update,
     submittingSection,
   } = useAutomationEdit(automationId);
-  const { automation, isLoading, remove, isDeleting } = useAutomation(
-    automationId ?? "",
-  );
-
-  if (isLoading || !automation) {
-    return (
-      <section className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-48 w-full" />
-      </section>
-    );
-  }
+  const { automation, remove, isDeleting } = useAutomation(automationId);
 
   return (
     <section className="space-y-8">
@@ -131,9 +123,7 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
         </EditableCard>
       </div>
 
-      {automationId && (
-        <AutomationExecutionHistory automationId={automationId} />
-      )}
+      <AutomationExecutionHistory automationId={automationId} />
 
       {canWrite && (
         <DangerZone
@@ -150,10 +140,11 @@ const AutomationPage: FC<{ automationId: string }> = ({ automationId }) => {
 
 const AutomationPageWrapper: FC = () => {
   const { automationId } = useParams<{ automationId: string }>();
-  if (!automationId) {
-    return <NotFoundFallback />;
-  }
-  return <AutomationPage automationId={automationId} />;
+  return (
+    <ResourceBoundary resetKeys={[automationId]}>
+      <AutomationPageContent />
+    </ResourceBoundary>
+  );
 };
 
 export default AutomationPageWrapper;
