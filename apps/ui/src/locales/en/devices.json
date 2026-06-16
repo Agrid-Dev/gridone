@@ -35,7 +35,9 @@
       "edit": "Edit"
     },
     "feedback": {
-      "deleted": "Device deleted"
+      "deleted": "Device deleted",
+      "updated": "Device updated",
+      "updateError": "Failed to update device"
     },
     "saving": "Saving...",
     "health": {

@@ -35,7 +35,9 @@
       "edit": "Modifier"
     },
     "feedback": {
-      "deleted": "Appareil supprimé"
+      "deleted": "Appareil supprimé",
+      "updated": "Appareil mis à jour",
+      "updateError": "Échec de la mise à jour de l'appareil"
     },
     "saving": "Enregistrement...",
     "health": {
