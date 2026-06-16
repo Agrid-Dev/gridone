@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
+import { ApiError } from "@/api/apiError";
 import {
   createDevice,
   isPhysicalDevice,
@@ -201,11 +203,22 @@ export const useDeviceForm = (device?: PhysicalDevice) => {
     },
   });
   const updateMutation = useMutation({
-    mutationFn: (updatePayload: Partial<Device> & { deviceId: string }) =>
-      updateDevice(updatePayload.deviceId, updatePayload),
+    // `deviceId` is the path param — keep it out of the body, which the backend
+    // validates with `extra="forbid"` (an unknown `device_id` field → 422).
+    mutationFn: ({
+      deviceId,
+      ...payload
+    }: Partial<Device> & { deviceId: string }) =>
+      updateDevice(deviceId, payload),
     onSuccess: (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices", device.id] });
+      toast.success(t("devices.feedback.updated"));
       navigate(`..`, { relative: "path" });
+    },
+    onError: (err: Error) => {
+      const detail =
+        err instanceof ApiError ? err.details || err.message : err.message;
+      toast.error(`${t("devices.feedback.updateError")}: ${detail}`);
     },
   });
 
@@ -219,8 +232,8 @@ export const useDeviceForm = (device?: PhysicalDevice) => {
     if (!baseValid || !configValid) return;
 
     if (!isCreate && device) {
-      // update
-      await updateMutation.mutateAsync({
+      // update — success/error surfaced via the mutation's toast callbacks
+      updateMutation.mutate({
         ...baseFormMethods.getValues(),
         config: configFormMethods.getValues(),
         deviceId: device.id,
