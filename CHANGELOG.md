@@ -1,3 +1,9 @@
+## v0.98.1 (2026-06-16)
+
+### Refactor
+
+- **ui**: migrate command templates to suspense query pattern
+
 ## v0.98.0 (2026-06-16)
 
 ### Feat
