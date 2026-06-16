@@ -1,3 +1,9 @@
+## v0.98.3 (2026-06-16)
+
+### Refactor
+
+- **ui**: migrate devices to suspense query pattern
+
 ## v0.98.2 (2026-06-16)
 
 ### Fix
