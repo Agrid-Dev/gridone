@@ -46,8 +46,6 @@ const NewAutomationPage: FC = () => {
       <ResourceHeader
         title={t("automations:actions.create")}
         resourceName={t("automations:title")}
-        resourceNameLinksBack
-        backTo="/automations"
       />
 
       <EditableCard title={t("automations:metadata.title")} variant="ghost">

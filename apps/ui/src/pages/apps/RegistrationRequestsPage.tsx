@@ -155,12 +155,7 @@ export default function RegistrationRequestsPage() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("requests.title")}
-        resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/apps"
-      />
+      <ResourceHeader title={t("requests.title")} resourceName={t("title")} />
 
       {isLoading ? (
         <div className="space-y-2">

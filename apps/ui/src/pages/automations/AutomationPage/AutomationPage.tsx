@@ -33,12 +33,7 @@ const AutomationPageContent: FC = () => {
 
   return (
     <section className="space-y-8">
-      <ResourceHeader
-        title={automation.name}
-        resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/automations"
-      />
+      <ResourceHeader title={automation.name} resourceName={t("title")} />
 
       <EditableCard
         title={t("metadata.title")}

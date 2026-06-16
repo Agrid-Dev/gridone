@@ -48,8 +48,6 @@ export default function TemplatesListPage() {
     <ResourceHeader
       resourceName={t("commands.title")}
       title={t("commands.templates.title")}
-      resourceNameLinksBack
-      backTo="/devices/commands"
       actions={
         can("devices:write") && (
           <Button asChild size="sm">

@@ -9,8 +9,6 @@ export default function DeviceCreate() {
       <ResourceHeader
         resourceName={t("devices.title")}
         title={t("devices.create.title")}
-        resourceNameLinksBack
-        backTo="/devices"
       />
       <DeviceForm />
     </section>

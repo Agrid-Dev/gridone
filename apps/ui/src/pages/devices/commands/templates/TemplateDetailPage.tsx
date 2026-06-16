@@ -38,8 +38,6 @@ export const TemplateDetailContent: FC = () => {
       <ResourceHeader
         resourceName={t("commands.templates.title")}
         title={template.name ?? t("commands.templates.untitled")}
-        resourceNameLinksBack
-        backTo="/devices/commands/templates"
         actions={
           can("devices:write") && (
             <>

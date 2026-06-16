@@ -52,7 +52,6 @@
     "updating": "Updating...",
     "back": "Back",
     "home": "Home",
-    "backToDevices": "← Back to devices",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
@@ -182,6 +181,15 @@
     "faults": "Faults",
     "users": "Users",
     "notifications": "Notifications"
+  },
+  "breadcrumb": {
+    "history": "History",
+    "commands": "Commands",
+    "templates": "Templates",
+    "newCommand": "New command",
+    "edit": "Edit",
+    "new": "New",
+    "settings": "Settings"
   },
   "topbar": {
     "notifications": "Notifications"

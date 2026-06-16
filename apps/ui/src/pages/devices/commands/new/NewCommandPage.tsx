@@ -53,12 +53,6 @@ export default function NewCommandPage() {
     enabled: !!assetId,
   });
 
-  const backHref = deviceId
-    ? `/devices/${deviceId}/history/commands`
-    : assetId
-      ? `/assets/${assetId}`
-      : "/devices/commands";
-
   const backResource = assetId ? t("assets:title") : t("commands.title");
 
   if (!can("devices:write")) {
@@ -81,8 +75,6 @@ export default function NewCommandPage() {
       <ResourceHeader
         title={t("commands.new.title")}
         resourceName={backResource}
-        resourceNameLinksBack
-        backTo={backHref}
       />
       <StepSubtitle predefined={!!predefinedTarget} />
       <CommandWizard

@@ -60,18 +60,8 @@ const DeviceHistoryLayoutContent: FC = () => {
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
       <section className="space-y-6">
         <ResourceHeader
-          resourceName={t("devices.title")}
-          resourceNameLinksBack
-          backTo="/devices"
-          title={
-            <>
-              <Link to={`/devices/${deviceId}`} className="hover:underline">
-                {device.name || device.id}
-              </Link>
-              {" / "}
-              {t("deviceDetails.history")}
-            </>
-          }
+          resourceName={device.name || device.id}
+          title={t("deviceDetails.history")}
           actions={
             can("devices:write") ? (
               <Button asChild size="sm">

@@ -64,12 +64,7 @@ export default function AssetEdit() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("edit")}
-        resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/assets"
-      />
+      <ResourceHeader title={t("edit")} resourceName={t("title")} />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm

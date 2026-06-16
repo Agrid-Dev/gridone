@@ -68,8 +68,6 @@ export default function AppDetail() {
       <ResourceHeader
         title={app.name}
         resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/apps"
         actions={
           can("users:write") ? (
             isDisabled ? (

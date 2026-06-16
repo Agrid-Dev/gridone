@@ -60,12 +60,7 @@ const DriverDetails: FC<{
   const can = usePermissions();
   return (
     <div className="space-y-6">
-      <ResourceHeader
-        resourceName={t("title")}
-        title={driver.id}
-        resourceNameLinksBack
-        backTo="/drivers"
-      />
+      <ResourceHeader resourceName={t("title")} title={driver.id} />
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>

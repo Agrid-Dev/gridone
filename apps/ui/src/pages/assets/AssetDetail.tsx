@@ -81,8 +81,6 @@ export default function AssetDetail() {
       <ResourceHeader
         title={asset.name}
         resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/assets"
         actions={
           <>
             {can("assets:write") && (

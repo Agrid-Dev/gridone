@@ -44,12 +44,7 @@ export default function AssetCreate() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("create")}
-        resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/assets"
-      />
+      <ResourceHeader title={t("create")} resourceName={t("title")} />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm

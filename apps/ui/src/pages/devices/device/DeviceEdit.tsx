@@ -47,8 +47,6 @@ export default function DeviceEditWrapper() {
       <ResourceHeader
         resourceName={t("devices.title")}
         title={t("devices.edit.title")}
-        resourceNameLinksBack
-        backTo="/devices"
       />
       <ResourceBoundary resetKeys={[deviceId]}>
         <DeviceEdit />

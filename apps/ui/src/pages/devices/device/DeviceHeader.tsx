@@ -1,8 +1,9 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, History, Pencil, Terminal } from "lucide-react";
+import { History, Pencil, Terminal } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
+import { ResourceHeader } from "@/components/ResourceHeader";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import {
@@ -15,45 +16,27 @@ import { usePermissions } from "@/contexts/AuthContext";
 
 export function DeviceHeader({ device }: { device: Device }) {
   return (
-    <div className="pb-6 border-b border-border">
-      <BackLink />
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <TitleRow device={device} />
-          {isPhysicalDevice(device) && <PhysicalDeviceMeta device={device} />}
-        </div>
-        <DeviceActions />
-      </div>
-    </div>
+    <ResourceHeader
+      title={device.name || device.id}
+      status={<DeviceStatus device={device} />}
+      caption={
+        isPhysicalDevice(device) ? <PhysicalDeviceMeta device={device} /> : null
+      }
+      actions={<DeviceActions />}
+    />
   );
 }
 
-function BackLink() {
-  const { t } = useTranslation("devices");
-  return (
-    <Link
-      to="/devices"
-      className="group mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-    >
-      <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-      {t("devices.title")}
-    </Link>
-  );
-}
-
-function TitleRow({ device }: { device: Device }) {
+function DeviceStatus({ device }: { device: Device }) {
   const { t } = useTranslation("common");
   return (
-    <div className="flex items-center gap-3">
-      <h1 className="truncate font-display text-2xl font-semibold text-foreground">
-        {device.name || device.id}
-      </h1>
+    <>
       <DeviceTypeChip type={device.type} />
       <ConnectionStatusBadge status={getConnectionStatus(device)} />
       {!isPhysicalDevice(device) && (
         <Badge variant="outline">{t("common.deviceKinds.virtual")}</Badge>
       )}
-    </div>
+    </>
   );
 }
 
