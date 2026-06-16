@@ -1,3 +1,17 @@
+## v0.97.0 (2026-06-16)
+
+### Feat
+
+- **ui**: resource-fetch seam + Drivers reference route (AGR-752)
+
+### Refactor
+
+- **ui**: address PR review on resource-fetch seam (AGR-752)
+
+### Perf
+
+- **ui**: seed useDriverFromRoute from cached drivers list (AGR-752)
+
 ## v0.96.0 (2026-06-15)
 
 ### Feat
