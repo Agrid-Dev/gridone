@@ -66,11 +66,9 @@ const TemplatePickerWrapper: FC<Omit<SelectPickerProps, "templates">> = (
   if (isLoading) {
     return <Skeleton className="h-8 w-3/4" />;
   }
-  const templates = data?.items;
-
-  if (!templates) {
-    return <div>No templates available</div>;
-  }
+  // Seed with an empty array so the picker always renders (empty options)
+  // rather than a fragile fallback when the list is missing.
+  const templates = data?.items ?? [];
 
   return <TemplatePicker templates={templates} {...props} />;
 };
