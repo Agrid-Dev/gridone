@@ -1,3 +1,9 @@
+## v0.98.0 (2026-06-16)
+
+### Feat
+
+- **ui**: migrate Automations route to ResourceBoundary (AGR-753)
+
 ## v0.97.0 (2026-06-16)
 
 ### Feat
