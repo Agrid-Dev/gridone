@@ -1,3 +1,13 @@
+## v0.99.0 (2026-06-17)
+
+### Feat
+
+- **ui**: full-width header, building-rooted breadcrumb, sidebar cleanup
+
+### Refactor
+
+- **ui**: route-driven breadcrumbs + drop low-value sidebar test
+
 ## v0.98.3 (2026-06-16)
 
 ### Refactor
