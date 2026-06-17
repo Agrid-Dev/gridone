@@ -1,3 +1,13 @@
+## v0.101.0 (2026-06-17)
+
+### Feat
+
+- **ui**: replace "Danger zone" with a discreet header delete action (AGR-739)
+
+### Refactor
+
+- **ui**: make header delete a plain icon button via ConfirmButton
+
 ## v0.100.0 (2026-06-17)
 
 ### Feat
