@@ -1,3 +1,9 @@
+## v0.101.1 (2026-06-17)
+
+### Refactor
+
+- **ui**: drop the ResourceHeader eyebrow, show title only
+
 ## v0.101.0 (2026-06-17)
 
 ### Feat
