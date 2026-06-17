@@ -1,3 +1,15 @@
+## v0.100.0 (2026-06-17)
+
+### Feat
+
+- **ui**: rename settings to "My account", add warning icon, drop eyebrow (AGR-740)
+- **ui**: gate settings submits on dirty state, add cancel/reset (AGR-740)
+- **ui**: split profile/security on settings page (AGR-740)
+
+### Refactor
+
+- **ui**: split settings into independent profile and security forms (AGR-740)
+
 ## v0.99.0 (2026-06-17)
 
 ### Feat
