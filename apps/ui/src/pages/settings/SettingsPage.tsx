@@ -116,6 +116,7 @@ function ProfileSection({
   });
 
   const isSubmitting = form.formState.isSubmitting;
+  const isDirty = form.formState.isDirty;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -163,8 +164,16 @@ function ProfileSection({
             </Alert>
           )}
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => form.reset(defaultValues)}
+              disabled={isSubmitting || !isDirty}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !isDirty}>
               {isSubmitting ? t("common.saving") : t("common.save")}
             </Button>
           </div>
@@ -253,6 +262,7 @@ function SecuritySection({
   });
 
   const isSubmitting = form.formState.isSubmitting;
+  const isDirty = form.formState.isDirty;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -304,8 +314,16 @@ function SecuritySection({
             </Alert>
           )}
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => form.reset({ password: "", confirmPassword: "" })}
+              disabled={isSubmitting || !isDirty}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !isDirty}>
               {isSubmitting ? t("common.saving") : t("settings.updatePassword")}
             </Button>
           </div>

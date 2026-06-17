@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { CurrentUser } from "@/api/auth";
@@ -41,6 +47,7 @@ vi.mock("react-i18next", () =>
       "Please confirm your new password.",
     "common.save": "Save",
     "common.saving": "Saving…",
+    "common.cancel": "Cancel",
     "common.error": "Error",
   }),
 );
@@ -178,5 +185,52 @@ describe("SettingsPage", () => {
     await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
     const [, payload] = mockUpdateUser.mock.calls[0];
     expect(payload).toEqual({ password: "newsecret" });
+  });
+
+  it("keeps the profile actions disabled until a field changes", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const save = screen.getByRole("button", { name: "Save" });
+    const profileForm = save.closest("form")!;
+    const cancel = within(profileForm).getByRole("button", { name: "Cancel" });
+
+    expect(save).toBeDisabled();
+    expect(cancel).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Name"), "x");
+
+    expect(save).toBeEnabled();
+    expect(cancel).toBeEnabled();
+  });
+
+  it("resets the profile form when cancel is clicked", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const nameInput = screen.getByLabelText("Name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Changed");
+
+    const save = screen.getByRole("button", { name: "Save" });
+    const profileForm = save.closest("form")!;
+    await user.click(
+      within(profileForm).getByRole("button", { name: "Cancel" }),
+    );
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Alice");
+    expect(save).toBeDisabled();
+  });
+
+  it("keeps the security submit disabled until a password is entered", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const submit = screen.getByRole("button", { name: "Update password" });
+    expect(submit).toBeDisabled();
+
+    await user.type(screen.getByLabelText("New password"), "x");
+
+    expect(submit).toBeEnabled();
   });
 });
