@@ -26,3 +26,14 @@ def test_transport_connection_state_is_connected():
 )
 def test_quick_builders(builder, expected_status):
     assert builder().status == expected_status
+
+
+def test_from_dict_round_trips_status_and_info():
+    state = TransportConnectionState.from_dict({"status": "error", "info": "boom"})
+    assert state.status == ConnectionStatus.ERROR
+    assert state.info == "boom"
+
+
+@pytest.mark.parametrize("data", [None, {}])
+def test_from_dict_defaults_to_idle_when_empty(data):
+    assert TransportConnectionState.from_dict(data).status == ConnectionStatus.IDLE
