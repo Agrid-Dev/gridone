@@ -17,8 +17,10 @@ vi.mock("react-i18next", () =>
     "settings.mustChangePasswordTitle": "Password change required",
     "settings.mustChangePassword":
       "You're still using the default password. Set a new one.",
+    "settings.updatePassword": "Update password",
+    "settings.passwordUpdated": "Password updated",
     "settings.newPassword": "New password",
-    "settings.newPasswordPlaceholder": "Leave blank to keep current",
+    "settings.newPasswordPlaceholder": "Enter a new password",
     "settings.confirmPassword": "Confirm new password",
     "settings.confirmPasswordPlaceholder": "Confirm your new password",
     "settings.passwordMismatch": "Passwords do not match",
@@ -138,19 +140,19 @@ describe("SettingsPage", () => {
     expect(alert).toHaveTextContent("You're still using the default password");
   });
 
-  it("blocks submit when the password confirmation does not match", async () => {
+  it("blocks the security submit when the confirmation does not match", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.type(screen.getByLabelText("New password"), "newsecret");
     await user.type(screen.getByLabelText("Confirm new password"), "different");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(await screen.findByText("Passwords do not match")).toBeVisible();
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
-  it("sends no password when only profile fields are edited", async () => {
+  it("saves profile fields without touching the password", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -165,16 +167,16 @@ describe("SettingsPage", () => {
     expect(payload).not.toHaveProperty("password");
   });
 
-  it("submits the new password when both fields match", async () => {
+  it("submits only the password from the security form", async () => {
     const user = userEvent.setup();
     renderPage();
 
     await user.type(screen.getByLabelText("New password"), "newsecret");
     await user.type(screen.getByLabelText("Confirm new password"), "newsecret");
-    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Update password" }));
 
     await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
     const [, payload] = mockUpdateUser.mock.calls[0];
-    expect(payload).toMatchObject({ password: "newsecret" });
+    expect(payload).toEqual({ password: "newsecret" });
   });
 });
