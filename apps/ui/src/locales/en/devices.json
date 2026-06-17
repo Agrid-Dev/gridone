@@ -58,6 +58,7 @@
       "label": "Device sections",
       "overview": "Overview",
       "history": "History",
+      "commands": "Commands",
       "config": "Config"
     },
     "attributes": "Attributes",

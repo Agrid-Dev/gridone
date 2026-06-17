@@ -124,9 +124,7 @@ export default function NewCommandPage() {
             const result = await mutations.dispatchTemplate(templateId);
             if (deviceId) {
               toast.success(t("commands.new.feedback.dispatched"));
-              navigate(
-                `/devices/${encodeURIComponent(deviceId)}/history/commands`,
-              );
+              navigate(`/devices/${encodeURIComponent(deviceId)}/commands`);
             } else {
               toast.success(t("commands.new.feedback.batchDispatched"));
               navigate(`/devices/commands?batch_id=${result.batchId}`);

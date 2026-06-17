@@ -17,11 +17,11 @@ const Device: FC = () => (
     <Route path=":deviceId" element={<DeviceLayout />}>
       <Route index element={<DeviceLiveControl />} />
       <Route path="history" element={<DeviceHistoryLayout />}>
-        <Route index element={<Navigate to="table" replace />} />
+        <Route index element={<Navigate to="chart" replace />} />
         <Route path="table" element={<DeviceHistoryTable />} />
         <Route path="chart" element={<DeviceHistoryChart />} />
-        <Route path="commands" element={<DeviceCommandsPage />} />
       </Route>
+      <Route path="commands" element={<DeviceCommandsPage />} />
       <Route path="edit" element={<DeviceEdit />} />
     </Route>
     <Route

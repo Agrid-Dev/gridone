@@ -58,6 +58,7 @@
       "label": "Sections de l'appareil",
       "overview": "Aperçu",
       "history": "Historique",
+      "commands": "Commandes",
       "config": "Configuration"
     },
     "attributes": "Attributs",

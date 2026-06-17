@@ -1,10 +1,7 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Terminal } from "lucide-react";
-import { Button } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import {
@@ -13,8 +10,6 @@ import {
   type Device,
   type PhysicalDevice,
 } from "@/api/devices";
-import { useDeleteDevice } from "@/hooks/useDeleteDevice";
-import { usePermissions } from "@/contexts/AuthContext";
 
 export function DeviceHeader({ device }: { device: Device }) {
   return (
@@ -24,7 +19,6 @@ export function DeviceHeader({ device }: { device: Device }) {
       caption={
         isPhysicalDevice(device) ? <PhysicalDeviceMeta device={device} /> : null
       }
-      actions={<DeviceActions device={device} />}
     />
   );
 }
@@ -78,34 +72,6 @@ function PhysicalDeviceMeta({ device }: { device: PhysicalDevice }) {
           </span>
         </>
       )}
-    </div>
-  );
-}
-
-function DeviceActions({ device }: { device: Device }) {
-  const { t } = useTranslation("devices");
-  const can = usePermissions();
-  const { handleDelete, isDeleting } = useDeleteDevice();
-
-  if (!can("devices:write")) return null;
-
-  return (
-    <div className="flex shrink-0 items-center gap-2">
-      <Button asChild size="sm">
-        <Link to={`/devices/${device.id}/commands/new`}>
-          <Terminal className="h-3.5 w-3.5" />
-          {t("commands.newCommand")}
-        </Link>
-      </Button>
-      <ResourceDeleteButton
-        onDelete={() => handleDelete(device.id)}
-        isDeleting={isDeleting}
-        confirmTitle={t("devices.actions.deleteDialogTitle")}
-        confirmDetails={t("devices.actions.deleteDialogContent", {
-          name: device.name || device.id,
-        })}
-        deleteLabel={t("devices.actions.delete")}
-      />
     </div>
   );
 }

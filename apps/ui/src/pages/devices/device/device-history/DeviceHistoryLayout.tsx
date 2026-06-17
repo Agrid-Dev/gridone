@@ -1,8 +1,5 @@
 import {
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -19,18 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
+import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
-import {
-  BarChart3,
-  Download,
-  Loader2,
-  Settings2,
-  Table,
-  Terminal,
-} from "lucide-react";
+import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import {
   DeviceHistoryProvider,
   useDeviceHistoryContext,
@@ -53,16 +44,15 @@ export default function DeviceHistoryLayout() {
   return (
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
       <div className="space-y-6">
-        <HistoryToolbar />
+        <HistoryToolbar deviceId={deviceId} />
       </div>
     </DeviceHistoryProvider>
   );
 }
 
-function HistoryToolbar() {
+function HistoryToolbar({ deviceId }: { deviceId: string }) {
   const { t } = useTranslation(["devices", "common"]);
   const location = useLocation();
-  const navigate = useNavigate();
   const {
     availableAttributes,
     columnVisibility,
@@ -73,11 +63,7 @@ function HistoryToolbar() {
     handleDownload,
   } = useDeviceHistoryContext();
 
-  const activeTab = location.pathname.endsWith("/commands")
-    ? "commands"
-    : location.pathname.endsWith("/chart")
-      ? "chart"
-      : "table";
+  const isChart = location.pathname.endsWith("/chart");
 
   const visibleCount = availableAttributes.filter(
     (attr) => columnVisibility[attr] !== false,
@@ -94,14 +80,15 @@ function HistoryToolbar() {
 
   if (isLoading) return null;
 
-  const showTelemetryTools =
-    activeTab !== "commands" && availableAttributes.length > 0;
+  const hasTelemetry = availableAttributes.length > 0;
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        {showTelemetryTools ? (
-          <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ViewToggle deviceId={deviceId} search={location.search} />
+
+        {hasTelemetry && (
+          <div className="flex flex-wrap items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -156,9 +143,7 @@ function HistoryToolbar() {
                   size="sm"
                   className="h-9 w-9"
                   disabled={isDownloading || visibleAttributes.length === 0}
-                  onClick={() =>
-                    handleDownload(activeTab === "chart" ? "png" : "csv")
-                  }
+                  onClick={() => handleDownload(isChart ? "png" : "csv")}
                 >
                   {isDownloading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -169,44 +154,55 @@ function HistoryToolbar() {
               </TooltipTrigger>
               <TooltipContent>
                 {t(
-                  activeTab === "chart"
+                  isChart
                     ? "deviceDetails.downloadPng"
                     : "deviceDetails.downloadCsv",
                 )}
               </TooltipContent>
             </Tooltip>
           </div>
-        ) : (
-          <span />
         )}
-
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => {
-            navigate(
-              { pathname: value, search: location.search },
-              { replace: true, relative: "path" },
-            );
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="table">
-              <Table className="mr-1.5 h-4 w-4" />
-              {t("deviceDetails.table")}
-            </TabsTrigger>
-            <TabsTrigger value="chart">
-              <BarChart3 className="mr-1.5 h-4 w-4" />
-              {t("deviceDetails.chart")}
-            </TabsTrigger>
-            <TabsTrigger value="commands">
-              <Terminal className="mr-1.5 h-4 w-4" />
-              {t("commands.title")}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
 
       <Outlet />
     </>
+  );
+}
+
+/** Chart/Table view-mode toggle — a route-driven segmented control. Both
+ *  render the same telemetry, so this is a view switch, not navigation. */
+function ViewToggle({
+  deviceId,
+  search,
+}: {
+  deviceId: string;
+  search: string;
+}) {
+  const { t } = useTranslation("devices");
+  const itemClass = ({ isActive }: { isActive: boolean }) =>
+    cn(
+      "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+      isActive
+        ? "bg-background text-foreground shadow-sm"
+        : "text-muted-foreground hover:text-foreground",
+    );
+
+  return (
+    <div className="inline-flex items-center rounded-md bg-muted p-1">
+      <NavLink
+        to={{ pathname: `/devices/${deviceId}/history/chart`, search }}
+        className={itemClass}
+      >
+        <BarChart3 className="h-4 w-4" />
+        {t("deviceDetails.chart")}
+      </NavLink>
+      <NavLink
+        to={{ pathname: `/devices/${deviceId}/history/table`, search }}
+        className={itemClass}
+      >
+        <Table className="h-4 w-4" />
+        {t("deviceDetails.table")}
+      </NavLink>
+    </div>
   );
 }

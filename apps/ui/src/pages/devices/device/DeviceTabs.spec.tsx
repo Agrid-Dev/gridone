@@ -10,6 +10,7 @@ vi.mock("react-i18next", () =>
     "deviceDetails.tabs.label": "Device sections",
     "deviceDetails.tabs.overview": "Overview",
     "deviceDetails.tabs.history": "History",
+    "deviceDetails.tabs.commands": "Commands",
     "deviceDetails.tabs.config": "Config",
   }),
 );
@@ -39,7 +40,7 @@ function renderAt(path: string, device: Device) {
 afterEach(cleanup);
 
 describe("DeviceTabs", () => {
-  it("shows Overview, History and Config for a physical device, with correct routes", () => {
+  it("shows Overview, History, Commands and Config for a physical device, with correct routes", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Physical));
 
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
@@ -50,17 +51,22 @@ describe("DeviceTabs", () => {
       "href",
       "/devices/d1/history",
     );
+    expect(screen.getByRole("link", { name: "Commands" })).toHaveAttribute(
+      "href",
+      "/devices/d1/commands",
+    );
     expect(screen.getByRole("link", { name: "Config" })).toHaveAttribute(
       "href",
       "/devices/d1/edit",
     );
   });
 
-  it("hides Config for a virtual device", () => {
+  it("hides Config for a virtual device but keeps Commands", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Virtual));
 
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Commands" })).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Config" }),
     ).not.toBeInTheDocument();

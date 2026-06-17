@@ -1,13 +1,14 @@
 import { type ReactNode } from "react";
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Gauge, History, Settings2 } from "lucide-react";
+import { Gauge, History, Settings2, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isPhysicalDevice, type Device } from "@/api/devices";
 
 /** Route-linked tab bar for the device frame. Each tab is a NavLink to an
  *  existing device route, so the active tab follows the URL (incl. deep
- *  links and history sub-routes). Config is physical-only. */
+ *  links and history view modes). Config is physical-only and sits apart on
+ *  the right — it's a settings destination, not a content section. */
 export function DeviceTabs({ device }: { device: Device }) {
   const { t } = useTranslation("devices");
   const base = `/devices/${device.id}`;
@@ -23,8 +24,18 @@ export function DeviceTabs({ device }: { device: Device }) {
       <DeviceTab to={`${base}/history`} icon={<History className="h-4 w-4" />}>
         {t("deviceDetails.tabs.history")}
       </DeviceTab>
+      <DeviceTab
+        to={`${base}/commands`}
+        icon={<Terminal className="h-4 w-4" />}
+      >
+        {t("deviceDetails.tabs.commands")}
+      </DeviceTab>
       {isPhysicalDevice(device) && (
-        <DeviceTab to={`${base}/edit`} icon={<Settings2 className="h-4 w-4" />}>
+        <DeviceTab
+          to={`${base}/edit`}
+          icon={<Settings2 className="h-4 w-4" />}
+          className="ml-auto"
+        >
           {t("deviceDetails.tabs.config")}
         </DeviceTab>
       )}
@@ -36,11 +47,13 @@ function DeviceTab({
   to,
   end,
   icon,
+  className,
   children,
 }: {
   to: string;
   end?: boolean;
   icon: ReactNode;
+  className?: string;
   children: ReactNode;
 }) {
   return (
@@ -53,6 +66,7 @@ function DeviceTab({
           isActive
             ? "border-primary text-foreground"
             : "border-transparent text-muted-foreground hover:text-foreground",
+          className,
         )
       }
     >
