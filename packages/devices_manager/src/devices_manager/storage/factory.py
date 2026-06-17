@@ -5,11 +5,13 @@ from typing import TYPE_CHECKING
 from models.errors import StorageConnectionError, UnsupportedStorageError
 
 from .memory import MemoryDevicesStorage
+from .yaml import CoreFileStorage
 
 if TYPE_CHECKING:
     from .storage_backend import DevicesManagerStorage
 
 _POSTGRES_PREFIX = "postgresql"
+_YAML_PREFIX = "yaml:"
 
 
 async def build_storage(url: str | None = None) -> DevicesManagerStorage:
@@ -17,15 +19,25 @@ async def build_storage(url: str | None = None) -> DevicesManagerStorage:
 
     ``url=None`` selects the in-memory backend. A ``postgresql://`` URL
     builds the postgres backend, applying yoyo migrations and opening an
-    asyncpg pool.
+    asyncpg pool. A ``yaml:path/to/db`` URL builds the yaml file backend
+    rooted at ``path/to/db``.
 
     Raises:
         UnsupportedStorageError: the URL scheme is not recognised.
-        StorageConnectionError: the postgres backend cannot be reached or
-            initialized (migration failure, connection refused, ...).
+        StorageConnectionError: the postgres or yaml backend cannot be
+            reached or initialized (migration failure, connection refused,
+            unwritable path, ...).
     """
     if url is None:
         return MemoryDevicesStorage()
+
+    if url.startswith(_YAML_PREFIX):
+        root_dir = url[len(_YAML_PREFIX) :]
+        try:
+            return CoreFileStorage(root_dir)
+        except OSError as exc:
+            msg = "Failed to initialize devices_manager yaml backend"
+            raise StorageConnectionError(msg) from exc
 
     if url.startswith(_POSTGRES_PREFIX):
         import json  # noqa: PLC0415
