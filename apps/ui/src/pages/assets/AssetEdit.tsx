@@ -72,7 +72,6 @@ export default function AssetEdit() {
     <section className="space-y-6">
       <ResourceHeader
         title={t("edit")}
-        resourceName={t("title")}
         actions={
           can("assets:write") ? (
             <ResourceDeleteButton

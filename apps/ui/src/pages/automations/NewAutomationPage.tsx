@@ -46,10 +46,7 @@ const NewAutomationPage: FC = () => {
 
   return (
     <section className="space-y-8">
-      <ResourceHeader
-        title={t("automations:actions.create")}
-        resourceName={t("automations:title")}
-      />
+      <ResourceHeader title={t("automations:actions.create")} />
 
       <EditableCard title={t("automations:metadata.title")} variant="ghost">
         {currentStep === "metadata" ? (

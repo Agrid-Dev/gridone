@@ -83,7 +83,6 @@ export default function AssetDetail() {
     <section className="space-y-6">
       <ResourceHeader
         title={asset.name}
-        resourceName={t("title")}
         actions={
           <>
             {can("assets:write") && (

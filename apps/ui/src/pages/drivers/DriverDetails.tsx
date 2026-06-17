@@ -63,7 +63,6 @@ const DriverDetails: FC<{
   return (
     <div className="space-y-6">
       <ResourceHeader
-        resourceName={t("title")}
         title={driver.id}
         actions={
           can("drivers:write") ? (

@@ -24,7 +24,6 @@ function DeviceEdit() {
   return (
     <>
       <ResourceHeader
-        resourceName={t("devices.title")}
         title={t("devices.edit.title")}
         actions={
           can("devices:write") ? (

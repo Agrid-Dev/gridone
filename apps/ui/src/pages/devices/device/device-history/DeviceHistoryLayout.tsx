@@ -66,7 +66,6 @@ const DeviceHistoryLayoutContent: FC = () => {
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
       <section className="space-y-6">
         <ResourceHeader
-          resourceName={device.name || device.id}
           title={t("deviceDetails.history")}
           actions={
             can("devices:write") ? (

@@ -70,7 +70,6 @@ export default function AppDetail() {
     <section className="space-y-6">
       <ResourceHeader
         title={app.name}
-        resourceName={t("title")}
         actions={
           can("users:write") ? (
             isDisabled ? (

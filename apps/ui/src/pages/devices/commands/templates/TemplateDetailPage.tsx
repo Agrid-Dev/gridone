@@ -47,7 +47,6 @@ export const TemplateDetailContent: FC = () => {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        resourceName={t("commands.templates.title")}
         title={template.name ?? t("commands.templates.untitled")}
         actions={
           can("devices:write") && (
