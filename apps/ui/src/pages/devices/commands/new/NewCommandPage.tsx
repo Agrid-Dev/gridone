@@ -55,8 +55,6 @@ export default function NewCommandPage() {
     enabled: !!assetId,
   });
 
-  const backResource = assetId ? t("assets:title") : t("commands.title");
-
   useBreadcrumb(
     deviceId
       ? [
@@ -100,10 +98,7 @@ export default function NewCommandPage() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("commands.new.title")}
-        resourceName={backResource}
-      />
+      <ResourceHeader title={t("commands.new.title")} />
       <StepSubtitle predefined={!!predefinedTarget} />
       <CommandWizard
         wizard={wizard}

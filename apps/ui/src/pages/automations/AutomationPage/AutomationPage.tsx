@@ -40,7 +40,6 @@ const AutomationPageContent: FC = () => {
     <section className="space-y-8">
       <ResourceHeader
         title={automation.name}
-        resourceName={t("title")}
         actions={
           canWrite ? (
             <ResourceDeleteButton

@@ -43,7 +43,6 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
       {header ?? (
         <ResourceHeader
           title={t("commands.title")}
-          resourceName={t("devices.title")}
           actions={
             <>
               <Button asChild size="sm" variant="outline">

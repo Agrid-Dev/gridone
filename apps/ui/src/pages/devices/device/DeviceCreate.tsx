@@ -8,10 +8,7 @@ export default function DeviceCreate() {
   useBreadcrumb([{ to: "/devices/new", labelKey: "breadcrumb.new" }]);
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        resourceName={t("devices.title")}
-        title={t("devices.create.title")}
-      />
+      <ResourceHeader title={t("devices.create.title")} />
       <DeviceForm />
     </section>
   );

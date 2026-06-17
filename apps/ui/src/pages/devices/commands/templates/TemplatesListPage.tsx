@@ -50,7 +50,6 @@ export default function TemplatesListPage() {
 
   const header = (
     <ResourceHeader
-      resourceName={t("commands.title")}
       title={t("commands.templates.title")}
       actions={
         can("devices:write") && (

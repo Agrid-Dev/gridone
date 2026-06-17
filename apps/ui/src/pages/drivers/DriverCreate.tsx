@@ -11,7 +11,7 @@ const DriverCreate: FC = () => {
   useBreadcrumb([{ to: "/drivers/new", labelKey: "breadcrumb.new" }]);
   return (
     <div>
-      <ResourceHeader resourceName={t("title")} title={t("actions.create")} />
+      <ResourceHeader title={t("actions.create")} />
       <DriverForm onSubmit={handleCreate} />
     </div>
   );
