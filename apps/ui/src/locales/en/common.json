@@ -23,12 +23,24 @@
     "logout": "Log out"
   },
   "settings": {
-    "title": "Settings",
-    "subtitle": "My profile",
+    "subtitle": "My account",
     "saved": "Profile saved",
-    "mustChangePassword": "Please change your default password before continuing.",
+    "sections": {
+      "profile": {
+        "title": "Profile",
+        "description": "Your account details and how you appear across the app."
+      },
+      "security": {
+        "title": "Security",
+        "description": "Change the password you use to sign in."
+      }
+    },
+    "mustChangePasswordTitle": "Password change required",
+    "mustChangePassword": "You're still signed in with the default password assigned to your account. Set a new password below to secure your account before continuing.",
+    "updatePassword": "Update password",
+    "passwordUpdated": "Password updated",
     "newPassword": "New password",
-    "newPasswordPlaceholder": "Leave blank to keep current",
+    "newPasswordPlaceholder": "Enter a new password",
     "confirmPassword": "Confirm new password",
     "confirmPasswordPlaceholder": "Confirm your new password",
     "passwordMismatch": "Passwords do not match",
@@ -189,7 +201,7 @@
     "newCommand": "New command",
     "edit": "Edit",
     "new": "New",
-    "settings": "Settings"
+    "settings": "My account"
   },
   "topbar": {
     "notifications": "Notifications"

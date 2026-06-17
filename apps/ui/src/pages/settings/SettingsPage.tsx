@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -7,20 +8,332 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUser } from "@/api/users";
+import type { CurrentUser } from "@/api/auth";
 import { ApiError } from "@/api/apiError";
 import { getAuthSchema } from "@/api/authValidation";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { InputController } from "@/components/forms/controllers/InputController";
+
+/** A user-safe message for a failed save — never leaks raw server internals. */
+function toErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) return err.detail || err.details;
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
 
 type ProfileFormValues = {
   username: string;
   name: string;
   email: string;
   title: string;
+};
+
+type ProfileSectionProps = {
+  user: CurrentUser;
+  refreshMe: () => Promise<CurrentUser>;
+  usernameMin: number;
+  usernameMax: number;
+};
+
+function ProfileSection({
+  user,
+  refreshMe,
+  usernameMin,
+  usernameMax,
+}: ProfileSectionProps) {
+  const { t } = useTranslation();
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        username: z
+          .string()
+          .trim()
+          .min(
+            usernameMin,
+            t("settings.validation.usernameMinLength", { count: usernameMin }),
+          )
+          .max(
+            usernameMax,
+            t("settings.validation.usernameMaxLength", { count: usernameMax }),
+          ),
+        name: z.string().trim(),
+        email: z
+          .string()
+          .trim()
+          .email(t("settings.validation.emailInvalid"))
+          .or(z.literal("")),
+        title: z.string().trim(),
+      }),
+    [t, usernameMin, usernameMax],
+  );
+
+  const defaultValues = useMemo<ProfileFormValues>(
+    () => ({
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      title: user.title,
+    }),
+    [user],
+  );
+
+  const form = useForm<ProfileFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues,
+  });
+
+  useEffect(() => {
+    form.reset(defaultValues);
+  }, [form, defaultValues]);
+
+  const handleSubmit = form.handleSubmit(async (values) => {
+    form.clearErrors("root");
+    try {
+      await updateUser(user.id, {
+        username: values.username || undefined,
+        name: values.name,
+        email: values.email,
+        title: values.title,
+      });
+
+      await refreshMe();
+      toast.success(t("settings.saved"));
+      form.reset(values);
+    } catch (err) {
+      const message = toErrorMessage(err, t("common.error"));
+      form.setError("root", { message });
+      toast.error(message);
+    }
+  });
+
+  const isSubmitting = form.formState.isSubmitting;
+  const isDirty = form.formState.isDirty;
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.sections.profile.title")}</CardTitle>
+          <CardDescription>
+            {t("settings.sections.profile.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <InputController
+              name="username"
+              control={form.control}
+              label={t("settings.fields.username")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="name"
+              control={form.control}
+              label={t("settings.fields.name")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="email"
+              control={form.control}
+              type="email"
+              label={t("settings.fields.email")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="title"
+              control={form.control}
+              label={t("settings.fields.title")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+          </div>
+
+          {form.formState.errors.root?.message && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {form.formState.errors.root.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => form.reset(defaultValues)}
+              disabled={isSubmitting || !isDirty}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !isDirty}>
+              {isSubmitting ? t("common.saving") : t("common.save")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </form>
+  );
+}
+
+type SecurityFormValues = {
   password: string;
   confirmPassword: string;
 };
+
+type SecuritySectionProps = {
+  user: CurrentUser;
+  refreshMe: () => Promise<CurrentUser>;
+  passwordMin: number;
+  passwordMax: number;
+};
+
+function SecuritySection({
+  user,
+  refreshMe,
+  passwordMin,
+  passwordMax,
+}: SecuritySectionProps) {
+  const { t } = useTranslation();
+
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          password: z
+            .string()
+            .min(
+              passwordMin,
+              t("settings.validation.passwordMinLength", {
+                count: passwordMin,
+              }),
+            )
+            .max(
+              passwordMax,
+              t("settings.validation.passwordMaxLength", {
+                count: passwordMax,
+              }),
+            ),
+          confirmPassword: z.string(),
+        })
+        .superRefine((values, ctx) => {
+          if (values.confirmPassword.length === 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["confirmPassword"],
+              message: t("settings.validation.confirmPasswordRequired"),
+            });
+          } else if (values.confirmPassword !== values.password) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["confirmPassword"],
+              message: t("settings.passwordMismatch"),
+            });
+          }
+        }),
+    [t, passwordMin, passwordMax],
+  );
+
+  const form = useForm<SecurityFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { password: "", confirmPassword: "" },
+  });
+
+  const handleSubmit = form.handleSubmit(async (values) => {
+    form.clearErrors("root");
+    try {
+      await updateUser(user.id, { password: values.password });
+
+      await refreshMe();
+      toast.success(t("settings.passwordUpdated"));
+      form.reset({ password: "", confirmPassword: "" });
+    } catch (err) {
+      const message = toErrorMessage(err, t("common.error"));
+      form.setError("root", { message });
+      toast.error(message);
+    }
+  });
+
+  const isSubmitting = form.formState.isSubmitting;
+  const isDirty = form.formState.isDirty;
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("settings.sections.security.title")}</CardTitle>
+          <CardDescription>
+            {t("settings.sections.security.description")}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {user.mustChangePassword && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>{t("settings.mustChangePasswordTitle")}</AlertTitle>
+              <AlertDescription>
+                {t("settings.mustChangePassword")}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <InputController
+              name="password"
+              control={form.control}
+              type="password"
+              label={t("settings.newPassword")}
+              inputProps={{
+                disabled: isSubmitting,
+                placeholder: t("settings.newPasswordPlaceholder"),
+              }}
+            />
+            <InputController
+              name="confirmPassword"
+              control={form.control}
+              type="password"
+              label={t("settings.confirmPassword")}
+              inputProps={{
+                disabled: isSubmitting,
+                placeholder: t("settings.confirmPasswordPlaceholder"),
+              }}
+            />
+          </div>
+
+          {form.formState.errors.root?.message && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {form.formState.errors.root.message}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => form.reset({ password: "", confirmPassword: "" })}
+              disabled={isSubmitting || !isDirty}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={isSubmitting || !isDirty}>
+              {isSubmitting ? t("common.saving") : t("settings.updatePassword")}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </form>
+  );
+}
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -39,253 +352,25 @@ export default function SettingsPage() {
   const passwordMin = authSchema?.properties?.password?.minLength ?? 5;
   const passwordMax = authSchema?.properties?.password?.maxLength ?? 128;
 
-  const schema = useMemo(
-    () =>
-      z
-        .object({
-          username: z
-            .string()
-            .trim()
-            .min(
-              usernameMin,
-              t("settings.validation.usernameMinLength", {
-                count: usernameMin,
-              }),
-            )
-            .max(
-              usernameMax,
-              t("settings.validation.usernameMaxLength", {
-                count: usernameMax,
-              }),
-            ),
-          name: z.string().trim(),
-          email: z
-            .string()
-            .trim()
-            .email(t("settings.validation.emailInvalid"))
-            .or(z.literal("")),
-          title: z.string().trim(),
-          password: z.string().max(
-            passwordMax,
-            t("settings.validation.passwordMaxLength", {
-              count: passwordMax,
-            }),
-          ),
-          confirmPassword: z.string(),
-        })
-        .superRefine((values, ctx) => {
-          if (
-            values.password.length === 0 &&
-            values.confirmPassword.length > 0
-          ) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ["confirmPassword"],
-              message: t("settings.passwordMismatch"),
-            });
-            return;
-          }
-
-          if (values.password.length > 0) {
-            if (values.password.length < passwordMin) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["password"],
-                message: t("settings.validation.passwordMinLength", {
-                  count: passwordMin,
-                }),
-              });
-            }
-
-            if (values.confirmPassword.length === 0) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["confirmPassword"],
-                message: t("settings.validation.confirmPasswordRequired"),
-              });
-            } else if (values.confirmPassword !== values.password) {
-              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["confirmPassword"],
-                message: t("settings.passwordMismatch"),
-              });
-            }
-          }
-        }),
-    [t, usernameMin, usernameMax, passwordMin, passwordMax],
-  );
-
-  const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      username: "",
-      name: "",
-      email: "",
-      title: "",
-      password: "",
-      confirmPassword: "",
-    },
-  });
-
-  useEffect(() => {
-    if (user) {
-      form.reset({
-        username: user.username,
-        name: user.name,
-        email: user.email,
-        title: user.title,
-        password: "",
-        confirmPassword: "",
-      });
-    }
-  }, [form, user]);
-
   if (!user) return null;
-
-  const handleSubmit = form.handleSubmit(async (values) => {
-    form.clearErrors("root");
-    try {
-      await updateUser(user.id, {
-        username: values.username || undefined,
-        name: values.name,
-        email: values.email,
-        title: values.title,
-        ...(values.password ? { password: values.password } : {}),
-      });
-
-      await refreshMe();
-      toast.success(t("settings.saved"));
-
-      form.reset({
-        ...values,
-        password: "",
-        confirmPassword: "",
-      });
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.detail || err.details
-          : err instanceof Error
-            ? err.message
-            : t("common.error");
-      form.setError("root", { message });
-      toast.error(message);
-    }
-  });
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("settings.subtitle")}
-        resourceName={t("settings.title")}
+      <ResourceHeader title={t("settings.subtitle")} />
+
+      <ProfileSection
+        user={user}
+        refreshMe={refreshMe}
+        usernameMin={usernameMin}
+        usernameMax={usernameMax}
       />
 
-      <div className="rounded-2xl border border-border bg-card p-6 max-w-lg">
-        {user.mustChangePassword && (
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            {t("settings.mustChangePassword")}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.username")}
-            </label>
-            <Input
-              {...form.register("username")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.username && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.username.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.name")}
-            </label>
-            <Input
-              {...form.register("name")}
-              disabled={form.formState.isSubmitting}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.email")}
-            </label>
-            <Input
-              type="email"
-              {...form.register("email")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.email && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.title")}
-            </label>
-            <Input
-              {...form.register("title")}
-              disabled={form.formState.isSubmitting}
-            />
-          </div>
-
-          <hr className="border-border" />
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.newPassword")}
-            </label>
-            <Input
-              type="password"
-              {...form.register("password")}
-              disabled={form.formState.isSubmitting}
-              placeholder={t("settings.newPasswordPlaceholder")}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.confirmPassword")}
-            </label>
-            <Input
-              type="password"
-              {...form.register("confirmPassword")}
-              disabled={form.formState.isSubmitting}
-              placeholder={t("settings.confirmPasswordPlaceholder")}
-            />
-            {form.formState.errors.confirmPassword && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
-
-          {form.formState.errors.root?.message && (
-            <p className="text-sm text-red-600">
-              {form.formState.errors.root.message}
-            </p>
-          )}
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting
-                ? t("common.saving")
-                : t("common.save")}
-            </Button>
-          </div>
-        </form>
-      </div>
+      <SecuritySection
+        user={user}
+        refreshMe={refreshMe}
+        passwordMin={passwordMin}
+        passwordMax={passwordMax}
+      />
     </section>
   );
 }
