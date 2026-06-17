@@ -5,11 +5,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/hooks/useNotifications";
-import { OrgAvatar } from "@/components/OrgAvatar";
-import {
-  useBuildingProfile,
-  isProfileConfigured,
-} from "@/hooks/useBuildingProfile";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { mostSevere, SEVERITY_DOT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 import {
@@ -43,21 +39,11 @@ export function TopBar() {
   );
 
   const user = state.status === "authenticated" ? state.user : null;
-  const { data: profile } = useBuildingProfile();
-  const configured = isProfileConfigured(profile);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="min-w-0 flex-1">
-        <NavLink
-          to="/"
-          className="group inline-flex max-w-full items-center gap-2.5 transition-colors"
-        >
-          <OrgAvatar icon={profile?.icon} name={profile?.name} />
-          <span className="truncate font-display text-lg font-semibold text-foreground group-hover:text-primary">
-            {configured ? profile?.name : t("app.title")}
-          </span>
-        </NavLink>
+    <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between gap-2 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <Breadcrumbs />
       </div>
 
       <div className="flex items-center gap-2">

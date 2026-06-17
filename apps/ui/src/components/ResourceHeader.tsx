@@ -1,48 +1,41 @@
 import React, { FC } from "react";
 import { TypographyH2, TypographyEyebrow } from "@/components/ui/typography";
-import { Link } from "react-router";
 
 type ResourceHeaderProps = {
   title: React.ReactNode;
   resourceName?: React.ReactNode;
   caption?: React.ReactNode;
-  resourceNameLinksBack?: boolean;
-  /** Explicit path for the back link. When set, overrides the default ".." relative navigation. */
-  backTo?: string;
+  /** Optional status slot rendered next to the title (e.g. connection /
+   *  fault badges). */
+  status?: React.ReactNode;
   actions?: React.ReactNode;
 };
 
+/** The single header shared by every resource detail/list/form page: an
+ *  optional eyebrow, the title with an optional status slot, an optional
+ *  caption, and a right-aligned actions slot (which may host an overflow
+ *  menu). Back navigation is the breadcrumb's job — this header never renders
+ *  a back link. */
 export const ResourceHeader: FC<ResourceHeaderProps> = ({
   title,
   resourceName,
   caption,
-  resourceNameLinksBack = false,
-  backTo,
+  status,
   actions = null,
 }) => (
-  <div className="flex justify-between items-end pb-6 border-b border-border">
-    <div>
-      {resourceName &&
-        (resourceNameLinksBack ? (
-          <Link
-            to={backTo ?? ".."}
-            className="group inline-flex items-center gap-1"
-          >
-            <span className="text-muted-foreground transition-transform group-hover:-translate-x-0.5">
-              &larr;
-            </span>
-            <TypographyEyebrow>{resourceName}</TypographyEyebrow>
-          </Link>
-        ) : (
-          <TypographyEyebrow>{resourceName}</TypographyEyebrow>
-        ))}
+  <div className="flex justify-between items-start gap-4 pb-6 border-b border-border">
+    <div className="min-w-0">
+      {resourceName && <TypographyEyebrow>{resourceName}</TypographyEyebrow>}
       <div className={resourceName ? "mt-1" : undefined}>
-        <TypographyH2>{title}</TypographyH2>
+        <div className="flex items-center gap-3">
+          <TypographyH2>{title}</TypographyH2>
+          {status}
+        </div>
       </div>
       {caption && (
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+        <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
           {caption}
-        </p>
+        </div>
       )}
     </div>
     <div className="flex justify-end gap-2">{actions}</div>

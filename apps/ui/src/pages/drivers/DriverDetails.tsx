@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { DangerZone } from "@/components/DangerZone";
 import { usePermissions } from "@/contexts/AuthContext";
 
@@ -58,14 +59,10 @@ const DriverDetails: FC<{
 }> = ({ driver, onDelete }) => {
   const { t } = useTranslation("drivers");
   const can = usePermissions();
+  useBreadcrumb([{ to: `/drivers/${driver.id}`, label: driver.id }]);
   return (
     <div className="space-y-6">
-      <ResourceHeader
-        resourceName={t("title")}
-        title={driver.id}
-        resourceNameLinksBack
-        backTo="/drivers"
-      />
+      <ResourceHeader resourceName={t("title")} title={driver.id} />
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>

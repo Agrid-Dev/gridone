@@ -1,11 +1,9 @@
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
-  Building2,
-  Blocks,
   Cpu,
+  LayoutGrid,
   Puzzle,
-  Settings,
   TriangleAlert,
   Users,
   Zap,
@@ -31,27 +29,24 @@ export function Sidebar() {
     <aside className="fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar">
       <div className="flex h-full flex-col">
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+          <NavLink to="/devices" className={navLinkClass}>
+            <Cpu className="h-4 w-4" />
+            {t("app.devices")}
+          </NavLink>
+
           <NavLink to="/assets" className={navLinkClass}>
-            <Building2 className="h-4 w-4" />
+            <LayoutGrid className="h-4 w-4" />
             {t("app.assets")}
           </NavLink>
 
-          {(
-            [
-              { route: "devices", icon: Cpu },
-              { route: "drivers", icon: Puzzle },
-            ] as const
-          ).map(({ route, icon: Icon }) => (
-            <NavLink key={route} to={`/${route}`} className={navLinkClass}>
-              <Icon className="h-4 w-4" />
-              {t(`app.${route}`)}
-            </NavLink>
-          ))}
-
-          <NavLink to="/apps" className={navLinkClass}>
-            <Blocks className="h-4 w-4" />
-            {t("app.apps")}
+          <NavLink to="/drivers" className={navLinkClass}>
+            <Puzzle className="h-4 w-4" />
+            {t("app.drivers")}
           </NavLink>
+
+          {/* Transports — pending restoration (AGR-742) */}
+
+          <hr className="!my-3 border-border" />
 
           <NavLink to="/automations" className={navLinkClass}>
             <Zap className="h-4 w-4" />
@@ -63,19 +58,16 @@ export function Sidebar() {
             {t("app.faults")}
           </NavLink>
 
-          <hr className="!my-3 border-border" />
-
           {can("users:read") && (
-            <NavLink to="/users" className={navLinkClass}>
-              <Users className="h-4 w-4" />
-              {t("app.users")}
-            </NavLink>
-          )}
+            <>
+              <hr className="!my-3 border-border" />
 
-          <NavLink to="/settings" className={navLinkClass}>
-            <Settings className="h-4 w-4" />
-            {t("settings.title")}
-          </NavLink>
+              <NavLink to="/users" className={navLinkClass}>
+                <Users className="h-4 w-4" />
+                {t("app.users")}
+              </NavLink>
+            </>
+          )}
         </nav>
 
         {/* Footer: product brand + version */}

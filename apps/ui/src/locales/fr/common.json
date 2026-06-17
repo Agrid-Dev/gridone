@@ -52,7 +52,6 @@
     "updating": "Mise à jour...",
     "back": "Retour",
     "home": "Accueil",
-    "backToDevices": "\u2190 Retour aux appareils",
     "loading": "Chargement...",
     "error": "Erreur",
     "success": "Succ\u00e8s",
@@ -182,6 +181,15 @@
     "faults": "Défauts",
     "users": "Utilisateurs",
     "notifications": "Notifications"
+  },
+  "breadcrumb": {
+    "history": "Historique",
+    "commands": "Commandes",
+    "templates": "Modèles",
+    "newCommand": "Nouvelle commande",
+    "edit": "Modifier",
+    "new": "Nouveau",
+    "settings": "Paramètres"
   },
   "topbar": {
     "notifications": "Notifications"

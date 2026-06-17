@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
 import {
@@ -51,6 +52,11 @@ const DeviceHistoryLayoutContent: FC = () => {
   const device = useDeviceFromRoute();
   const deviceId = device.id;
 
+  useBreadcrumb([
+    { to: `/devices/${deviceId}`, label: device.name || device.id },
+    { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
+  ]);
+
   const attributeNames = useMemo(
     () => Object.keys(device.attributes ?? {}),
     [device],
@@ -60,18 +66,8 @@ const DeviceHistoryLayoutContent: FC = () => {
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
       <section className="space-y-6">
         <ResourceHeader
-          resourceName={t("devices.title")}
-          resourceNameLinksBack
-          backTo="/devices"
-          title={
-            <>
-              <Link to={`/devices/${deviceId}`} className="hover:underline">
-                {device.name || device.id}
-              </Link>
-              {" / "}
-              {t("deviceDetails.history")}
-            </>
-          }
+          resourceName={device.name || device.id}
+          title={t("deviceDetails.history")}
           actions={
             can("devices:write") ? (
               <Button asChild size="sm">

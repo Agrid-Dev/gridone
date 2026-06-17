@@ -6,6 +6,7 @@ import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { useParams } from "react-router";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { isPhysicalDevice } from "@/api/devices";
 
@@ -14,6 +15,11 @@ function DeviceEdit() {
   const { device } = useDeviceDetails();
   const { handleDelete, isDeleting } = useDeleteDevice();
   const can = usePermissions();
+
+  useBreadcrumb([
+    { to: `/devices/${device.id}`, label: device.name || device.id },
+    { to: `/devices/${device.id}/edit`, labelKey: "breadcrumb.edit" },
+  ]);
 
   return (
     <>
@@ -47,8 +53,6 @@ export default function DeviceEditWrapper() {
       <ResourceHeader
         resourceName={t("devices.title")}
         title={t("devices.edit.title")}
-        resourceNameLinksBack
-        backTo="/devices"
       />
       <ResourceBoundary resetKeys={[deviceId]}>
         <DeviceEdit />

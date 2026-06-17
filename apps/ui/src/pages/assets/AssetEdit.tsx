@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DangerZone } from "@/components/DangerZone";
 import { getAsset, updateAsset, deleteAsset } from "@/api/assets";
@@ -45,6 +46,11 @@ export default function AssetEdit() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  useBreadcrumb([
+    { to: `/assets/${assetId}`, label: asset?.name || assetId },
+    { to: `/assets/${assetId}/edit`, labelKey: "breadcrumb.edit" },
+  ]);
+
   if (isLoading || !asset) {
     return (
       <div className="space-y-4">
@@ -64,12 +70,7 @@ export default function AssetEdit() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("edit")}
-        resourceName={t("title")}
-        resourceNameLinksBack
-        backTo="/assets"
-      />
+      <ResourceHeader title={t("edit")} resourceName={t("title")} />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm

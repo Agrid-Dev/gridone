@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
+import { COMMANDS_CRUMB, TEMPLATES_CRUMB } from "@/lib/breadcrumbTrail";
 import type { Device } from "@/api/devices";
 import { usePermissions } from "@/contexts/AuthContext";
 import { CommandTemplatePresenter } from "../presenters/CommandTemplatePresenter";
@@ -33,13 +35,20 @@ export const TemplateDetailContent: FC = () => {
     isRemoving,
   } = useTemplate(templateId);
 
+  useBreadcrumb([
+    COMMANDS_CRUMB,
+    TEMPLATES_CRUMB,
+    {
+      to: `/devices/commands/templates/${template.id}`,
+      label: template.name ?? template.id,
+    },
+  ]);
+
   return (
     <section className="space-y-6">
       <ResourceHeader
         resourceName={t("commands.templates.title")}
         title={template.name ?? t("commands.templates.untitled")}
-        resourceNameLinksBack
-        backTo="/devices/commands/templates"
         actions={
           can("devices:write") && (
             <>
