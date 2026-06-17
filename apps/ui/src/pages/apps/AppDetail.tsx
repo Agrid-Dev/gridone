@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { getApp, enableApp, disableApp } from "@/api/apps";
 import { listUsers } from "@/api/users";
@@ -51,6 +52,8 @@ export default function AppDetail() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  useBreadcrumb([{ to: `/apps/${appId}`, label: app?.name || appId }]);
 
   if (isLoading || !app) {
     return (

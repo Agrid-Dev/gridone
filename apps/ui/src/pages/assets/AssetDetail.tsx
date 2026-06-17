@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAsset, listAssets, listAssetDevices } from "@/api/assets";
 import type { Asset } from "@/api/assets";
@@ -66,6 +67,8 @@ export default function AssetDetail() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  useBreadcrumb([{ to: `/assets/${assetId}`, label: asset?.name || assetId }]);
 
   if (isLoading || !asset) {
     return (

@@ -7,6 +7,8 @@ import { getAsset } from "@/api/assets";
 import type { Asset } from "@/api/assets";
 import type { DevicesFilter } from "@/api/devices";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
+import { COMMANDS_CRUMB } from "@/lib/breadcrumbTrail";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -54,6 +56,32 @@ export default function NewCommandPage() {
   });
 
   const backResource = assetId ? t("assets:title") : t("commands.title");
+
+  useBreadcrumb(
+    deviceId
+      ? [
+          { to: `/devices/${deviceId}`, label: deviceId },
+          {
+            to: `/devices/${deviceId}/commands/new`,
+            labelKey: "breadcrumb.newCommand",
+          },
+        ]
+      : assetId
+        ? [
+            { to: `/assets/${assetId}`, label: lockedAsset?.name || assetId },
+            {
+              to: `/assets/${assetId}/commands/new`,
+              labelKey: "breadcrumb.newCommand",
+            },
+          ]
+        : [
+            COMMANDS_CRUMB,
+            {
+              to: "/devices/commands/new",
+              labelKey: "breadcrumb.newCommand",
+            },
+          ],
+  );
 
   if (!can("devices:write")) {
     return <ErrorFallback title={t("common:errors.default")} />;

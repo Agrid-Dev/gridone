@@ -3,6 +3,7 @@ import { type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { DangerZone } from "@/components/DangerZone";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
@@ -30,6 +31,10 @@ const AutomationPageContent: FC = () => {
     submittingSection,
   } = useAutomationEdit(automationId);
   const { automation, remove, isDeleting } = useAutomation(automationId);
+
+  useBreadcrumb([
+    { to: `/automations/${automationId}`, label: automation.name || automationId }, // prettier-ignore
+  ]);
 
   return (
     <section className="space-y-8">

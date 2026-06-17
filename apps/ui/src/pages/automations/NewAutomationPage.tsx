@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import EditableCard from "./AutomationPage/EditableCard";
 import FlowConnector from "./AutomationPage/components/FlowConnector";
 import MetadataForm from "./AutomationPage/form/MetadataForm";
@@ -30,6 +31,8 @@ const NewAutomationPage: FC = () => {
     goPrevious,
     isSubmitting,
   } = useCreateAutomation();
+
+  useBreadcrumb([{ to: "/automations/new", labelKey: "breadcrumb.new" }]);
 
   const onTrigger = currentStep !== "metadata";
   const onAction = currentStep === "action";

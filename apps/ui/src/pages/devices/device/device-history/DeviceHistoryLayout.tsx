@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
 import {
@@ -50,6 +51,11 @@ const DeviceHistoryLayoutContent: FC = () => {
   const can = usePermissions();
   const device = useDeviceFromRoute();
   const deviceId = device.id;
+
+  useBreadcrumb([
+    { to: `/devices/${deviceId}`, label: device.name || device.id },
+    { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
+  ]);
 
   const attributeNames = useMemo(
     () => Object.keys(device.attributes ?? {}),

@@ -7,19 +7,21 @@ import { createI18nMock } from "@/test/i18nMock";
 vi.mock("react-i18next", () =>
   createI18nMock({
     "app.devices": "Devices",
-    "app.assets": "Zones",
-    "app.drivers": "Drivers",
-    "breadcrumb.commands": "Commands",
-    "breadcrumb.templates": "Templates",
-    "breadcrumb.history": "History",
+    "app.automations": "Automations",
   }),
 );
 
 import { Breadcrumbs } from "./Breadcrumbs";
+import { BreadcrumbProvider, useBreadcrumb } from "./BreadcrumbProvider";
+import type { BreadcrumbCrumb } from "@/lib/breadcrumbTrail";
 import type { BuildingProfile } from "@/api/assets";
-import type { Device } from "@/api/devices";
 
 afterEach(cleanup);
+
+function Register({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
+  useBreadcrumb(crumbs);
+  return null;
+}
 
 function makeProfile(name: string | null): BuildingProfile {
   return {
@@ -40,18 +42,20 @@ function renderAt(
   pathname: string,
   {
     profileName = null,
-    seed,
-  }: { profileName?: string | null; seed?: (qc: QueryClient) => void } = {},
+    crumbs = [],
+  }: { profileName?: string | null; crumbs?: BreadcrumbCrumb[] } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   queryClient.setQueryData(["building-profile"], makeProfile(profileName));
-  seed?.(queryClient);
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[pathname]}>
-        <Breadcrumbs />
+        <BreadcrumbProvider>
+          <Register crumbs={crumbs} />
+          <Breadcrumbs />
+        </BreadcrumbProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -60,49 +64,51 @@ function renderAt(
 describe("Breadcrumbs", () => {
   it("renders the building name as the root, linking to /", () => {
     renderAt("/", { profileName: "Tour Mercure" });
-    const root = screen.getByRole("link", { name: /Tour Mercure/ });
-    expect(root).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: /Tour Mercure/ })).toHaveAttribute(
+      "href",
+      "/",
+    );
   });
 
   it("shows only the root on the home route", () => {
     renderAt("/", { profileName: "Tour Mercure" });
     expect(screen.queryByText("Devices")).not.toBeInTheDocument();
-    // No separators when there is no trail beyond the root.
     expect(screen.queryByText("›")).not.toBeInTheDocument();
   });
 
   it("degrades to a nameless Home root linking to /devices when unconfigured", () => {
     const { container } = renderAt("/devices", { profileName: null });
     expect(screen.queryByText("Tour Mercure")).not.toBeInTheDocument();
-    const rootLink = container.querySelector("a");
-    expect(rootLink).toHaveAttribute("href", "/devices");
+    expect(container.querySelector("a")).toHaveAttribute("href", "/devices");
   });
 
-  it("resolves a device segment to its name from the query cache", () => {
+  it("renders a route-registered entity name and the derived section link", () => {
     renderAt("/devices/dev-1", {
       profileName: "Tour Mercure",
-      seed: (qc) =>
-        qc.setQueryData(["device", "dev-1"], {
-          id: "dev-1",
-          name: "RTU-3",
-        } as unknown as Device),
+      crumbs: [{ to: "/devices/dev-1", label: "RTU-3" }],
     });
-    expect(screen.getByText("RTU-3")).toBeInTheDocument();
-    // The Devices ancestor is a link; the device is the current page.
     expect(screen.getByRole("link", { name: "Devices" })).toHaveAttribute(
       "href",
       "/devices",
     );
-    expect(screen.getByText("RTU-3")).toHaveAttribute("aria-current", "page");
+    const current = screen.getByText("RTU-3");
+    expect(current).toHaveAttribute("aria-current", "page");
   });
 
-  it("falls back to the id while the entity name has not hydrated", () => {
-    renderAt("/devices/dev-9", { profileName: "Tour Mercure" });
-    expect(screen.getByText("dev-9")).toBeInTheDocument();
+  it("shows an automation's name, not its id (regression)", () => {
+    renderAt("/automations/auto-1", {
+      profileName: "Tour Mercure",
+      crumbs: [{ to: "/automations/auto-1", label: "Night setback" }],
+    });
+    expect(screen.getByText("Night setback")).toBeInTheDocument();
+    expect(screen.queryByText("auto-1")).not.toBeInTheDocument();
   });
 
   it("renders › separators between segments", () => {
-    renderAt("/devices/dev-1", { profileName: "Tour Mercure" });
+    renderAt("/devices/dev-1", {
+      profileName: "Tour Mercure",
+      crumbs: [{ to: "/devices/dev-1", label: "RTU-3" }],
+    });
     expect(screen.getAllByText("›").length).toBeGreaterThan(0);
   });
 });
