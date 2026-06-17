@@ -57,8 +57,13 @@ export default function NewCommandPage() {
 
   useBreadcrumb(
     deviceId
-      ? [
-          { to: `/devices/${deviceId}`, label: deviceId },
+      ? // Nested under the device frame, which already owns the device crumb,
+        // so we only add the Commands → New segments.
+        [
+          {
+            to: `/devices/${deviceId}/commands`,
+            labelKey: "breadcrumb.commands",
+          },
           {
             to: `/devices/${deviceId}/commands/new`,
             labelKey: "breadcrumb.newCommand",
@@ -85,6 +90,11 @@ export default function NewCommandPage() {
     return <ErrorFallback title={t("common:errors.default")} />;
   }
 
+  // Where Cancel returns: back to the device's Commands tab when scoped to a
+  // device, otherwise the previous page.
+  const onCancel = () =>
+    deviceId ? navigate(`/devices/${deviceId}/commands`) : navigate(-1);
+
   const blocked = devicesLoading || (!!assetId && assetTreeLoading);
 
   if (blocked) {
@@ -106,7 +116,7 @@ export default function NewCommandPage() {
         assetTree={assetTree}
         assetsList={assetsList}
         predefinedTarget={predefinedTarget}
-        onCancel={() => navigate(-1)}
+        onCancel={onCancel}
         saveSubmit={{
           label: t("commands.new.save.action"),
           onSubmit: (templateId) => {

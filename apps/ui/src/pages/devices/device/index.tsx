@@ -22,16 +22,16 @@ const Device: FC = () => (
         <Route path="chart" element={<DeviceHistoryChart />} />
       </Route>
       <Route path="commands" element={<DeviceCommandsPage />} />
+      <Route
+        path="commands/new"
+        element={
+          <Suspense>
+            <NewCommandPage />
+          </Suspense>
+        }
+      />
       <Route path="edit" element={<DeviceEdit />} />
     </Route>
-    <Route
-      path=":deviceId/commands/new"
-      element={
-        <Suspense>
-          <NewCommandPage />
-        </Suspense>
-      }
-    />
   </Routes>
 );
 
