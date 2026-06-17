@@ -23,13 +23,12 @@
     "logout": "Se d\u00e9connecter"
   },
   "settings": {
-    "title": "Param\u00e8tres",
-    "subtitle": "Mon profil",
+    "subtitle": "Mon compte",
     "saved": "Profil enregistr\u00e9",
     "sections": {
       "profile": {
         "title": "Profil",
-        "description": "Vos informations de compte et la fa\u00e7on dont vous appara\u00eetrez dans le b\u00e2timent."
+        "description": "Vos informations de compte et la fa\u00e7on dont vous appara\u00eetrez dans l\u2019application."
       },
       "security": {
         "title": "S\u00e9curit\u00e9",
@@ -202,7 +201,7 @@
     "newCommand": "Nouvelle commande",
     "edit": "Modifier",
     "new": "Nouveau",
-    "settings": "Paramètres"
+    "settings": "Mon compte"
   },
   "topbar": {
     "notifications": "Notifications"

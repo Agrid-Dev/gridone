@@ -23,13 +23,12 @@
     "logout": "Log out"
   },
   "settings": {
-    "title": "Settings",
-    "subtitle": "My profile",
+    "subtitle": "My account",
     "saved": "Profile saved",
     "sections": {
       "profile": {
         "title": "Profile",
-        "description": "Your account details and how you appear across the building."
+        "description": "Your account details and how you appear across the app."
       },
       "security": {
         "title": "Security",
@@ -202,7 +201,7 @@
     "newCommand": "New command",
     "edit": "Edit",
     "new": "New",
-    "settings": "Settings"
+    "settings": "My account"
   },
   "topbar": {
     "notifications": "Notifications"

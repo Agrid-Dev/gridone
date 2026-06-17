@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -276,6 +277,7 @@ function SecuritySection({
         <CardContent className="space-y-4">
           {user.mustChangePassword && (
             <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
               <AlertTitle>{t("settings.mustChangePasswordTitle")}</AlertTitle>
               <AlertDescription>
                 {t("settings.mustChangePassword")}
@@ -354,10 +356,7 @@ export default function SettingsPage() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader
-        title={t("settings.subtitle")}
-        resourceName={t("settings.title")}
-      />
+      <ResourceHeader title={t("settings.subtitle")} />
 
       <ProfileSection
         user={user}

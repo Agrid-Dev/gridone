@@ -13,8 +13,7 @@ import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "settings.title": "Settings",
-    "settings.subtitle": "My profile",
+    "settings.subtitle": "My account",
     "settings.saved": "Profile saved",
     "settings.sections.profile.title": "Profile",
     "settings.sections.profile.description": "Your account details.",
