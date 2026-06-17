@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { DangerZone } from "@/components/DangerZone";
+import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
@@ -38,7 +38,23 @@ const AutomationPageContent: FC = () => {
 
   return (
     <section className="space-y-8">
-      <ResourceHeader title={automation.name} resourceName={t("title")} />
+      <ResourceHeader
+        title={automation.name}
+        resourceName={t("title")}
+        actions={
+          canWrite ? (
+            <ResourceDeleteMenu
+              onDelete={remove}
+              isDeleting={isDeleting}
+              confirmTitle={t("deleteConfirm.title")}
+              confirmDetails={t("deleteConfirm.details", {
+                name: automation.name,
+              })}
+              deleteLabel={t("actions.delete")}
+            />
+          ) : undefined
+        }
+      />
 
       <EditableCard
         title={t("metadata.title")}
@@ -124,16 +140,6 @@ const AutomationPageContent: FC = () => {
       </div>
 
       <AutomationExecutionHistory automationId={automationId} />
-
-      {canWrite && (
-        <DangerZone
-          onDelete={remove}
-          isDeleting={isDeleting}
-          confirmTitle={t("deleteConfirm.title")}
-          confirmDetails={t("deleteConfirm.details", { name: automation.name })}
-          deleteLabel={t("actions.delete")}
-        />
-      )}
     </section>
   );
 };

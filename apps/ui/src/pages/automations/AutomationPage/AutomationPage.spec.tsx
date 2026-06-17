@@ -118,8 +118,7 @@ vi.mock("react-i18next", () =>
     "deleteConfirm.details": 'Delete "{{name}}"?',
     enabledBadge: "Enabled",
     disabledBadge: "Disabled",
-    "common.dangerZone": "Danger zone",
-    "common.dangerZoneDescription": "Irreversible.",
+    "common.actions": "Actions",
     "common.cancel": "Cancel",
     "common:common.cancel": "Cancel",
     "common.save": "Save",
@@ -336,7 +335,9 @@ describe("AutomationPage", () => {
     expect(
       screen.queryByRole("button", { name: "Disable" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Danger zone")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Actions" }),
+    ).not.toBeInTheDocument();
   });
 
   it("edits the metadata card with required title and optional description", async () => {
@@ -379,9 +380,11 @@ describe("AutomationPage", () => {
     setQueryResults();
     renderDetail();
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-    const buttons = screen.getAllByRole("button", { name: "Delete" });
-    await userEvent.click(buttons[buttons.length - 1]);
+    await userEvent.click(screen.getByRole("button", { name: "Actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" })); // prettier-ignore
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Delete" }),
+    );
 
     expect(mockDeleteAutomation).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith("/automations");

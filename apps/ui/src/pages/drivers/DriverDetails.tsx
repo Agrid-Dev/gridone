@@ -16,7 +16,7 @@ import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { DangerZone } from "@/components/DangerZone";
+import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
 import { usePermissions } from "@/contexts/AuthContext";
 
 const LabelledProperty: FC<{
@@ -62,7 +62,20 @@ const DriverDetails: FC<{
   useBreadcrumb([{ to: `/drivers/${driver.id}`, label: driver.id }]);
   return (
     <div className="space-y-6">
-      <ResourceHeader resourceName={t("title")} title={driver.id} />
+      <ResourceHeader
+        resourceName={t("title")}
+        title={driver.id}
+        actions={
+          can("drivers:write") ? (
+            <ResourceDeleteMenu
+              onDelete={() => onDelete(driver.id)}
+              confirmTitle={t("actions.deleteConfirmTitle")}
+              confirmDetails={t("actions.deleteConfirmDetails")}
+              deleteLabel={t("actions.delete")}
+            />
+          ) : undefined
+        }
+      />
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>
@@ -120,16 +133,6 @@ const DriverDetails: FC<{
           </div>
         </CardContent>
       </Card>
-      {can("drivers:write") && (
-        <DangerZone
-          onDelete={() => {
-            onDelete(driver.id);
-          }}
-          confirmTitle={t("actions.deleteConfirmTitle")}
-          confirmDetails={t("actions.deleteConfirmDetails")}
-          deleteLabel={t("actions.delete")}
-        />
-      )}
     </div>
   );
 };

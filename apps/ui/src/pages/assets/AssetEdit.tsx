@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DangerZone } from "@/components/DangerZone";
+import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
 import { getAsset, updateAsset, deleteAsset } from "@/api/assets";
 import type { Asset, AssetUpdatePayload } from "@/api/assets";
 import { AssetForm } from "./components/AssetForm";
@@ -70,7 +70,20 @@ export default function AssetEdit() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader title={t("edit")} resourceName={t("title")} />
+      <ResourceHeader
+        title={t("edit")}
+        resourceName={t("title")}
+        actions={
+          can("assets:write") ? (
+            <ResourceDeleteMenu
+              onDelete={() => deleteMutation.mutate()}
+              isDeleting={deleteMutation.isPending}
+              confirmTitle={t("deleteConfirmTitle")}
+              confirmDetails={t("deleteConfirmDetails", { name: asset.name })}
+            />
+          ) : undefined
+        }
+      />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm
@@ -85,17 +98,6 @@ export default function AssetEdit() {
           excludeId={assetId}
         />
       </div>
-
-      {can("assets:write") && (
-        <DangerZone
-          onDelete={() => deleteMutation.mutate()}
-          isDeleting={deleteMutation.isPending}
-          confirmTitle={t("deleteConfirmTitle")}
-          confirmDetails={t("deleteConfirmDetails", {
-            name: asset.name,
-          })}
-        />
-      )}
     </section>
   );
 }
