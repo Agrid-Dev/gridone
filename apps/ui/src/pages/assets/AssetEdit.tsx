@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { getAsset, updateAsset, deleteAsset } from "@/api/assets";
 import type { Asset, AssetUpdatePayload } from "@/api/assets";
 import { AssetForm } from "./components/AssetForm";
@@ -75,7 +75,7 @@ export default function AssetEdit() {
         resourceName={t("title")}
         actions={
           can("assets:write") ? (
-            <ResourceDeleteMenu
+            <ResourceDeleteButton
               onDelete={() => deleteMutation.mutate()}
               isDeleting={deleteMutation.isPending}
               confirmTitle={t("deleteConfirmTitle")}

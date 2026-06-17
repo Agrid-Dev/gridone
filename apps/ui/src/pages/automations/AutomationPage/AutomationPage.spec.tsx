@@ -118,7 +118,6 @@ vi.mock("react-i18next", () =>
     "deleteConfirm.details": 'Delete "{{name}}"?',
     enabledBadge: "Enabled",
     disabledBadge: "Disabled",
-    "common.actions": "Actions",
     "common.cancel": "Cancel",
     "common:common.cancel": "Cancel",
     "common.save": "Save",
@@ -336,7 +335,7 @@ describe("AutomationPage", () => {
       screen.queryByRole("button", { name: "Disable" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Actions" }),
+      screen.queryByRole("button", { name: "Delete" }),
     ).not.toBeInTheDocument();
   });
 
@@ -380,11 +379,9 @@ describe("AutomationPage", () => {
     setQueryResults();
     renderDetail();
 
-    await userEvent.click(screen.getByRole("button", { name: "Actions" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" })); // prettier-ignore
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Delete" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+    const buttons = screen.getAllByRole("button", { name: "Delete" });
+    await userEvent.click(buttons[buttons.length - 1]);
 
     expect(mockDeleteAutomation).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith("/automations");

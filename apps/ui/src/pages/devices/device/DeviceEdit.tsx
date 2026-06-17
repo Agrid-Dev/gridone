@@ -1,6 +1,6 @@
 import DeviceForm from "./form";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { useTranslation } from "react-i18next";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
@@ -28,7 +28,7 @@ function DeviceEdit() {
         title={t("devices.edit.title")}
         actions={
           can("devices:write") ? (
-            <ResourceDeleteMenu
+            <ResourceDeleteButton
               onDelete={() => handleDelete(device.id)}
               isDeleting={isDeleting}
               confirmTitle={t("devices.actions.deleteDialogTitle")}

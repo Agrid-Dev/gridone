@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
@@ -43,7 +43,7 @@ const AutomationPageContent: FC = () => {
         resourceName={t("title")}
         actions={
           canWrite ? (
-            <ResourceDeleteMenu
+            <ResourceDeleteButton
               onDelete={remove}
               isDeleting={isDeleting}
               confirmTitle={t("deleteConfirm.title")}

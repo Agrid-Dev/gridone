@@ -16,7 +16,7 @@ import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { ResourceDeleteMenu } from "@/components/ResourceDeleteMenu";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 
 const LabelledProperty: FC<{
@@ -67,7 +67,7 @@ const DriverDetails: FC<{
         title={driver.id}
         actions={
           can("drivers:write") ? (
-            <ResourceDeleteMenu
+            <ResourceDeleteButton
               onDelete={() => onDelete(driver.id)}
               confirmTitle={t("actions.deleteConfirmTitle")}
               confirmDetails={t("actions.deleteConfirmDetails")}

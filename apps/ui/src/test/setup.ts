@@ -33,15 +33,3 @@ class ResizeObserverStub {
 
 window.ResizeObserver ??=
   ResizeObserverStub as unknown as typeof ResizeObserver;
-
-// ---------------------------------------------------------------------------
-// Radix UI (dropdown menu, dialog) relies on Pointer Capture APIs and
-// scrollIntoView, none of which jsdom implements. Stub them so menus and
-// dialogs can open under test.
-// ---------------------------------------------------------------------------
-if (!Element.prototype.hasPointerCapture) {
-  Element.prototype.hasPointerCapture = () => false;
-  Element.prototype.setPointerCapture = () => {};
-  Element.prototype.releasePointerCapture = () => {};
-}
-Element.prototype.scrollIntoView ??= () => {};
