@@ -11,8 +11,6 @@ import type { Device } from "@/api/devices";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
-import { DEFAULT_PRESET } from "@/lib/timeRange";
-
 const DEFAULT_SORT = "desc";
 const DEFAULT_SIZE = "20";
 
@@ -34,13 +32,11 @@ function buildApiParams(searchParams: URLSearchParams): URLSearchParams {
   if (!api.has("sort")) api.set("sort", DEFAULT_SORT);
   if (!api.has("size")) api.set("size", DEFAULT_SIZE);
 
-  // "all" means no time constraint — remove the param for the API
+  // Commands default to all time (few rows, and a recent-window default
+  // usually hides them): an explicit "all" or no time params alike send no
+  // time constraint to the API.
   if (api.get("last") === "all") {
     api.delete("last");
-  }
-  // Default time range when no time params are present
-  else if (!api.has("last") && !api.has("start") && !api.has("end")) {
-    api.set("last", DEFAULT_PRESET);
   }
 
   return api;
