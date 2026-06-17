@@ -26,7 +26,18 @@
     "title": "Param\u00e8tres",
     "subtitle": "Mon profil",
     "saved": "Profil enregistr\u00e9",
-    "mustChangePassword": "Veuillez changer votre mot de passe par d\u00e9faut avant de continuer.",
+    "sections": {
+      "profile": {
+        "title": "Profil",
+        "description": "Vos informations de compte et la fa\u00e7on dont vous appara\u00eetrez dans le b\u00e2timent."
+      },
+      "security": {
+        "title": "S\u00e9curit\u00e9",
+        "description": "Modifiez le mot de passe que vous utilisez pour vous connecter. Laissez les champs vides pour conserver votre mot de passe actuel."
+      }
+    },
+    "mustChangePasswordTitle": "Changement de mot de passe requis",
+    "mustChangePassword": "Vous \u00eates toujours connect\u00e9 avec le mot de passe par d\u00e9faut attribu\u00e9 \u00e0 votre compte. D\u00e9finissez un nouveau mot de passe ci-dessous pour s\u00e9curiser votre compte avant de continuer.",
     "newPassword": "Nouveau mot de passe",
     "newPasswordPlaceholder": "Laisser vide pour conserver l'actuel",
     "confirmPassword": "Confirmer le nouveau mot de passe",

@@ -11,7 +11,15 @@ import { ApiError } from "@/api/apiError";
 import { getAuthSchema } from "@/api/authValidation";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { InputController } from "@/components/forms/controllers/InputController";
 
 type ProfileFormValues = {
   username: string;
@@ -173,6 +181,8 @@ export default function SettingsPage() {
     }
   });
 
+  const isSubmitting = form.formState.isSubmitting;
+
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -180,112 +190,99 @@ export default function SettingsPage() {
         resourceName={t("settings.title")}
       />
 
-      <div className="rounded-2xl border border-border bg-card p-6 max-w-lg">
-        {user.mustChangePassword && (
-          <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            {t("settings.mustChangePassword")}
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("settings.sections.profile.title")}</CardTitle>
+            <CardDescription>
+              {t("settings.sections.profile.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <InputController
+              name="username"
+              control={form.control}
+              label={t("settings.fields.username")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="name"
+              control={form.control}
+              label={t("settings.fields.name")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="email"
+              control={form.control}
+              type="email"
+              label={t("settings.fields.email")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+            <InputController
+              name="title"
+              control={form.control}
+              label={t("settings.fields.title")}
+              inputProps={{ disabled: isSubmitting }}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("settings.sections.security.title")}</CardTitle>
+            <CardDescription>
+              {t("settings.sections.security.description")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {user.mustChangePassword && (
+              <Alert variant="destructive">
+                <AlertTitle>{t("settings.mustChangePasswordTitle")}</AlertTitle>
+                <AlertDescription>
+                  {t("settings.mustChangePassword")}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <InputController
+                name="password"
+                control={form.control}
+                type="password"
+                label={t("settings.newPassword")}
+                inputProps={{
+                  disabled: isSubmitting,
+                  placeholder: t("settings.newPasswordPlaceholder"),
+                }}
+              />
+              <InputController
+                name="confirmPassword"
+                control={form.control}
+                type="password"
+                label={t("settings.confirmPassword")}
+                inputProps={{
+                  disabled: isSubmitting,
+                  placeholder: t("settings.confirmPasswordPlaceholder"),
+                }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {form.formState.errors.root?.message && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {form.formState.errors.root.message}
+            </AlertDescription>
+          </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.username")}
-            </label>
-            <Input
-              {...form.register("username")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.username && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.username.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.name")}
-            </label>
-            <Input
-              {...form.register("name")}
-              disabled={form.formState.isSubmitting}
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.email")}
-            </label>
-            <Input
-              type="email"
-              {...form.register("email")}
-              disabled={form.formState.isSubmitting}
-            />
-            {form.formState.errors.email && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.email.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.fields.title")}
-            </label>
-            <Input
-              {...form.register("title")}
-              disabled={form.formState.isSubmitting}
-            />
-          </div>
-
-          <hr className="border-border" />
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.newPassword")}
-            </label>
-            <Input
-              type="password"
-              {...form.register("password")}
-              disabled={form.formState.isSubmitting}
-              placeholder={t("settings.newPasswordPlaceholder")}
-            />
-            {form.formState.errors.password && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.password.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">
-              {t("settings.confirmPassword")}
-            </label>
-            <Input
-              type="password"
-              {...form.register("confirmPassword")}
-              disabled={form.formState.isSubmitting}
-              placeholder={t("settings.confirmPasswordPlaceholder")}
-            />
-            {form.formState.errors.confirmPassword && (
-              <p className="text-sm text-red-600">
-                {form.formState.errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
-
-          {form.formState.errors.root?.message && (
-            <p className="text-sm text-red-600">
-              {form.formState.errors.root.message}
-            </p>
-          )}
-
-          <div className="flex justify-end">
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting
-                ? t("common.saving")
-                : t("common.save")}
-            </Button>
-          </div>
-        </form>
-      </div>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? t("common.saving") : t("common.save")}
+          </Button>
+        </div>
+      </form>
     </section>
   );
 }

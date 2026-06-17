@@ -26,7 +26,18 @@
     "title": "Settings",
     "subtitle": "My profile",
     "saved": "Profile saved",
-    "mustChangePassword": "Please change your default password before continuing.",
+    "sections": {
+      "profile": {
+        "title": "Profile",
+        "description": "Your account details and how you appear across the building."
+      },
+      "security": {
+        "title": "Security",
+        "description": "Change the password you use to sign in. Leave the fields blank to keep your current password."
+      }
+    },
+    "mustChangePasswordTitle": "Password change required",
+    "mustChangePassword": "You're still signed in with the default password assigned to your account. Set a new password below to secure your account before continuing.",
     "newPassword": "New password",
     "newPasswordPlaceholder": "Leave blank to keep current",
     "confirmPassword": "Confirm new password",
