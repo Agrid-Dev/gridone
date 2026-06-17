@@ -1,5 +1,3 @@
-import { ResourceBoundary } from "@/components/ResourceBoundary";
-import { ResourceHeader } from "@/components/ResourceHeader";
 import {
   Button,
   Tabs,
@@ -19,7 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { usePermissions } from "@/contexts/AuthContext";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { toLabel } from "@/lib/textFormat";
@@ -31,29 +28,20 @@ import {
   Table,
   Terminal,
 } from "lucide-react";
-import { type FC, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Link,
-  Outlet,
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import {
   DeviceHistoryProvider,
   useDeviceHistoryContext,
 } from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
 
-const DeviceHistoryLayoutContent: FC = () => {
-  const { t } = useTranslation(["devices", "common"]);
-  const can = usePermissions();
+export default function DeviceHistoryLayout() {
   const device = useDeviceFromRoute();
   const deviceId = device.id;
 
   useBreadcrumb([
-    { to: `/devices/${deviceId}`, label: device.name || device.id },
     { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
   ]);
 
@@ -64,33 +52,10 @@ const DeviceHistoryLayoutContent: FC = () => {
 
   return (
     <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
-      <section className="space-y-6">
-        <ResourceHeader
-          title={t("deviceDetails.history")}
-          actions={
-            can("devices:write") ? (
-              <Button asChild size="sm">
-                <Link to={`/devices/${deviceId}/commands/new`}>
-                  <Terminal />
-                  {t("commands.newCommand")}
-                </Link>
-              </Button>
-            ) : null
-          }
-        />
-
+      <div className="space-y-6">
         <HistoryToolbar />
-      </section>
+      </div>
     </DeviceHistoryProvider>
-  );
-};
-
-export default function DeviceHistoryLayout() {
-  const { deviceId } = useParams<{ deviceId: string }>();
-  return (
-    <ResourceBoundary resetKeys={[deviceId]}>
-      <DeviceHistoryLayoutContent />
-    </ResourceBoundary>
   );
 }
 

@@ -5,6 +5,7 @@ import { ActiveFaultsSection } from "@/components/ActiveFaultsSection";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { DeviceHeader } from "./DeviceHeader";
+import { DeviceTabs } from "./DeviceTabs";
 
 const DeviceLayoutContent: FC = () => {
   const device = useDeviceFromRoute();
@@ -13,8 +14,9 @@ const DeviceLayoutContent: FC = () => {
   ]);
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-6">
       <DeviceHeader device={device} />
+      <DeviceTabs device={device} />
       <ActiveFaultsSection device={device} />
       <Outlet />
     </section>

@@ -12,7 +12,7 @@ export const useDeleteDevice = () => {
   const deleteMutation = useMutation({
     mutationFn: deleteDevice,
     onSuccess: () => {
-      navigate("..");
+      navigate("/devices");
       toast.success(t("devices.feedback.deleted"));
     },
     onError: (err: ApiError) => {

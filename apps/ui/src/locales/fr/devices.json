@@ -54,6 +54,12 @@
   },
   "deviceDetails": {
     "title": "Appareil",
+    "tabs": {
+      "label": "Sections de l'appareil",
+      "overview": "Aperçu",
+      "history": "Historique",
+      "config": "Configuration"
+    },
     "attributes": "Attributs",
     "advancedAttributes": "Attributs avancés",
     "activeFaults": {
