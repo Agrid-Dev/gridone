@@ -118,8 +118,6 @@ vi.mock("react-i18next", () =>
     "deleteConfirm.details": 'Delete "{{name}}"?',
     enabledBadge: "Enabled",
     disabledBadge: "Disabled",
-    "common.dangerZone": "Danger zone",
-    "common.dangerZoneDescription": "Irreversible.",
     "common.cancel": "Cancel",
     "common:common.cancel": "Cancel",
     "common.save": "Save",
@@ -336,7 +334,9 @@ describe("AutomationPage", () => {
     expect(
       screen.queryByRole("button", { name: "Disable" }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Danger zone")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Delete" }),
+    ).not.toBeInTheDocument();
   });
 
   it("edits the metadata card with required title and optional description", async () => {
