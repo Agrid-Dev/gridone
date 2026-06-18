@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   type TimeRange,
   type TimeRangePreset,
+  DEFAULT_PRESET,
   PRESET_OPTIONS,
   parseRangeParams,
   writeRangeParams,
@@ -20,10 +21,14 @@ import {
 
 type TimeRangeSelectProps = {
   onChangeParamsReset?: string[];
+  /** Preset shown when no time params are in the URL. Defaults to 3h; pass
+   *  "all" for views that should start unfiltered (e.g. commands). */
+  defaultPreset?: TimeRangePreset;
 };
 
 export function TimeRangeSelect({
   onChangeParamsReset = [],
+  defaultPreset = DEFAULT_PRESET,
 }: TimeRangeSelectProps) {
   const { t } = useTranslation("devices");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,14 +37,14 @@ export function TimeRangeSelect({
   const [customEnd, setCustomEnd] = useState("");
 
   const timeRange = useMemo(
-    () => parseRangeParams(searchParams),
-    [searchParams],
+    () => parseRangeParams(searchParams, defaultPreset),
+    [searchParams, defaultPreset],
   );
 
   const applyRange = (range: TimeRange) => {
     setSearchParams(
       (prev) => {
-        const next = writeRangeParams(prev, range);
+        const next = writeRangeParams(prev, range, defaultPreset);
         for (const key of onChangeParamsReset) {
           next.delete(key);
         }
@@ -97,6 +102,17 @@ export function TimeRangeSelect({
               )}
             </button>
           ))}
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
+              activePreset === "all"
+                ? "bg-accent font-medium text-accent-foreground"
+                : "hover:bg-muted"
+            }`}
+            onClick={() => handlePreset("all")}
+          >
+            {t("deviceDetails.rangeAll")}
+          </button>
         </div>
 
         <Separator className="my-2" />

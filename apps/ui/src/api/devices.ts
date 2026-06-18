@@ -67,6 +67,22 @@ export function isVirtualDevice(device: Device): device is VirtualDevice {
   return device.kind === DeviceKind.Virtual;
 }
 
+/** The read/write modes a device supports, as the union of its attributes'
+ *  modes (e.g. a device with one writable attribute supports "write"). */
+export function getDeviceReadWriteModes(device: Device): Set<string> {
+  const modes = new Set<string>();
+  for (const attr of Object.values(device.attributes)) {
+    for (const mode of attr.readWriteModes) modes.add(mode);
+  }
+  return modes;
+}
+
+/** A device is read-only when none of its attributes support writing
+ *  (e.g. a weather sensor) — no commands can be issued to it. */
+export function isReadOnlyDevice(device: Device): boolean {
+  return !getDeviceReadWriteModes(device).has("write");
+}
+
 // ---------------------------------------------------------------------------
 // Standard device type helpers
 // ---------------------------------------------------------------------------

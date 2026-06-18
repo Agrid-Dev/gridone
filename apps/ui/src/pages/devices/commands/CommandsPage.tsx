@@ -44,14 +44,11 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
         <ResourceHeader
           title={t("commands.title")}
           actions={
-            <>
-              <Button asChild size="sm" variant="outline">
-                <Link to="/devices/commands/templates">
-                  {t("commands.templates.title")}
-                </Link>
-              </Button>
-              {newCommandButton}
-            </>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/devices/commands/templates">
+                {t("commands.templates.title")}
+              </Link>
+            </Button>
           }
         />
       )}
@@ -68,6 +65,7 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
         templates={cmd.templates}
         onFilterChange={cmd.setFilter}
         isDeviceFixed={cmd.isDeviceFixed}
+        actions={newCommandButton}
       />
 
       <CommandsTable

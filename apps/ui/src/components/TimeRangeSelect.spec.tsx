@@ -78,10 +78,15 @@ describe("TimeRangeSelect", () => {
     expect(screen.getByText("Apply")).toBeInTheDocument();
   });
 
-  it("does not show 'All time' option in popover", () => {
+  it("shows an 'All time' option in the popover", () => {
     renderWithRouter(<TimeRangeSelect />);
     fireEvent.click(screen.getByText("Last 3h"));
-    expect(screen.queryByText("All time")).not.toBeInTheDocument();
+    expect(screen.getByText("All time")).toBeInTheDocument();
+  });
+
+  it("honors a custom default preset (all time) on the trigger", () => {
+    renderWithRouter(<TimeRangeSelect defaultPreset="all" />);
+    expect(screen.getByText("All time")).toBeInTheDocument();
   });
 
   it("shows active dot on 'Custom range' label when custom is selected", () => {

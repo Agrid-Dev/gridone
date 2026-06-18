@@ -1,5 +1,6 @@
 import React, { FC } from "react";
 import { TypographyH2 } from "@/components/ui/typography";
+import { cn } from "@/lib/utils";
 
 type ResourceHeaderProps = {
   title: React.ReactNode;
@@ -8,6 +9,9 @@ type ResourceHeaderProps = {
    *  fault badges). */
   status?: React.ReactNode;
   actions?: React.ReactNode;
+  /** Drop the bottom divider + padding so the header can sit flush against an
+   *  adjacent element that owns the divider (e.g. a tab bar). */
+  flush?: boolean;
 };
 
 /** The single header shared by every resource detail/list/form page: the
@@ -20,8 +24,14 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   caption,
   status,
   actions = null,
+  flush = false,
 }) => (
-  <div className="flex justify-between items-start gap-4 pb-6 border-b border-border">
+  <div
+    className={cn(
+      "flex justify-between items-start gap-4",
+      !flush && "pb-6 border-b border-border",
+    )}
+  >
     <div className="min-w-0">
       <div className="flex items-center gap-3">
         <TypographyH2>{title}</TypographyH2>

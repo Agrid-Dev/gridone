@@ -16,22 +16,22 @@ const Device: FC = () => (
     <Route path="new" element={<DeviceCreate />} />
     <Route path=":deviceId" element={<DeviceLayout />}>
       <Route index element={<DeviceLiveControl />} />
-    </Route>
-    <Route path=":deviceId/history" element={<DeviceHistoryLayout />}>
-      <Route index element={<Navigate to="table" replace />} />
-      <Route path="table" element={<DeviceHistoryTable />} />
-      <Route path="chart" element={<DeviceHistoryChart />} />
+      <Route path="history" element={<DeviceHistoryLayout />}>
+        <Route index element={<Navigate to="chart" replace />} />
+        <Route path="table" element={<DeviceHistoryTable />} />
+        <Route path="chart" element={<DeviceHistoryChart />} />
+      </Route>
       <Route path="commands" element={<DeviceCommandsPage />} />
+      <Route
+        path="commands/new"
+        element={
+          <Suspense>
+            <NewCommandPage />
+          </Suspense>
+        }
+      />
+      <Route path="edit" element={<DeviceEdit />} />
     </Route>
-    <Route
-      path=":deviceId/commands/new"
-      element={
-        <Suspense>
-          <NewCommandPage />
-        </Suspense>
-      }
-    />
-    <Route path=":deviceId/edit" element={<DeviceEdit />} />
   </Routes>
 );
 

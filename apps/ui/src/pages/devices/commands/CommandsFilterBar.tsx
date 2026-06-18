@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import {
@@ -28,6 +29,8 @@ type CommandsFilterBarProps = {
   templates: CommandTemplate[];
   onFilterChange: (key: string, value: string | undefined) => void;
   isDeviceFixed?: boolean;
+  /** Primary action (e.g. New command), rendered flush-right on the bar. */
+  actions?: ReactNode;
 };
 
 export function CommandsFilterBar({
@@ -42,6 +45,7 @@ export function CommandsFilterBar({
   templates,
   onFilterChange,
   isDeviceFixed = false,
+  actions,
 }: CommandsFilterBarProps) {
   const { t } = useTranslation("devices");
 
@@ -51,7 +55,7 @@ export function CommandsFilterBar({
   // bar.
   if (batchId) {
     return (
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Badge
           variant="outline"
           className="gap-1.5 px-2.5 py-1 font-mono text-xs"
@@ -67,94 +71,99 @@ export function CommandsFilterBar({
             <X className="h-3 w-3" />
           </button>
         </Badge>
+        {actions}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {!isDeviceFixed && (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {!isDeviceFixed && (
+          <Select
+            value={deviceId ?? ALL}
+            onValueChange={(v) =>
+              onFilterChange("device_id", v === ALL ? undefined : v)
+            }
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder={t("commands.allDevices")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t("commands.allDevices")}</SelectItem>
+              {devices.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name || d.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         <Select
-          value={deviceId ?? ALL}
+          value={attribute ?? ALL}
           onValueChange={(v) =>
-            onFilterChange("device_id", v === ALL ? undefined : v)
+            onFilterChange("attribute", v === ALL ? undefined : v)
+          }
+          disabled={!deviceId}
+        >
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder={t("commands.allAttributes")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("commands.allAttributes")}</SelectItem>
+            {attributeOptions.map((attr) => (
+              <SelectItem key={attr} value={attr}>
+                {toLabel(attr)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={userId ?? ALL}
+          onValueChange={(v) =>
+            onFilterChange("user_id", v === ALL ? undefined : v)
           }
         >
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder={t("commands.allDevices")} />
+            <SelectValue placeholder={t("commands.allUsers")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>{t("commands.allDevices")}</SelectItem>
-            {devices.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name || d.id}
+            <SelectItem value={ALL}>{t("commands.allUsers")}</SelectItem>
+            {users?.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.username}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      )}
 
-      <Select
-        value={attribute ?? ALL}
-        onValueChange={(v) =>
-          onFilterChange("attribute", v === ALL ? undefined : v)
-        }
-        disabled={!deviceId}
-      >
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder={t("commands.allAttributes")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("commands.allAttributes")}</SelectItem>
-          {attributeOptions.map((attr) => (
-            <SelectItem key={attr} value={attr}>
-              {toLabel(attr)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        {templates.length > 0 && (
+          <Select
+            value={templateId ?? ALL}
+            onValueChange={(v) =>
+              onFilterChange("template_id", v === ALL ? undefined : v)
+            }
+          >
+            <SelectTrigger className="w-[220px]">
+              <SelectValue placeholder={t("commands.allTemplates")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t("commands.allTemplates")}</SelectItem>
+              {templates.map((tpl) => (
+                <SelectItem key={tpl.id} value={tpl.id}>
+                  {tpl.name ?? tpl.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
-      <Select
-        value={userId ?? ALL}
-        onValueChange={(v) =>
-          onFilterChange("user_id", v === ALL ? undefined : v)
-        }
-      >
-        <SelectTrigger className="w-[200px]">
-          <SelectValue placeholder={t("commands.allUsers")} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t("commands.allUsers")}</SelectItem>
-          {users?.map((u) => (
-            <SelectItem key={u.id} value={u.id}>
-              {u.username}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        <TimeRangeSelect onChangeParamsReset={["page"]} defaultPreset="all" />
+      </div>
 
-      {templates.length > 0 && (
-        <Select
-          value={templateId ?? ALL}
-          onValueChange={(v) =>
-            onFilterChange("template_id", v === ALL ? undefined : v)
-          }
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder={t("commands.allTemplates")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("commands.allTemplates")}</SelectItem>
-            {templates.map((tpl) => (
-              <SelectItem key={tpl.id} value={tpl.id}>
-                {tpl.name ?? tpl.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
-
-      <TimeRangeSelect onChangeParamsReset={["page"]} />
+      {actions}
     </div>
   );
 }

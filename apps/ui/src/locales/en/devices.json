@@ -54,6 +54,13 @@
   },
   "deviceDetails": {
     "title": "Device",
+    "tabs": {
+      "label": "Device sections",
+      "overview": "Live",
+      "history": "History",
+      "commands": "Commands",
+      "config": "Configuration"
+    },
     "attributes": "Attributes",
     "advancedAttributes": "Advanced attributes",
     "activeFaults": {

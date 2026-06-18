@@ -1,44 +1,38 @@
 import DeviceForm from "./form";
-import { ResourceHeader } from "@/components/ResourceHeader";
-import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { useTranslation } from "react-i18next";
-import { useDeviceDetails } from "@/hooks/useDeviceDetails";
+import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
-import { useParams } from "react-router";
-import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { isPhysicalDevice } from "@/api/devices";
 
-function DeviceEdit() {
+export default function DeviceEdit() {
   const { t } = useTranslation("devices");
-  const { device } = useDeviceDetails();
-  const { handleDelete, isDeleting } = useDeleteDevice();
+  const device = useDeviceFromRoute();
   const can = usePermissions();
+  const { handleDelete, isDeleting } = useDeleteDevice();
 
   useBreadcrumb([
-    { to: `/devices/${device.id}`, label: device.name || device.id },
-    { to: `/devices/${device.id}/edit`, labelKey: "breadcrumb.edit" },
+    { to: `/devices/${device.id}/edit`, labelKey: "breadcrumb.config" },
   ]);
 
   return (
-    <>
-      <ResourceHeader
-        title={t("devices.edit.title")}
-        actions={
-          can("devices:write") ? (
-            <ResourceDeleteButton
-              onDelete={() => handleDelete(device.id)}
-              isDeleting={isDeleting}
-              confirmTitle={t("devices.actions.deleteDialogTitle")}
-              confirmDetails={t("devices.actions.deleteDialogContent", {
-                name: device.name || device.id,
-              })}
-              deleteLabel={t("devices.actions.delete")}
-            />
-          ) : undefined
-        }
-      />
+    <div className="space-y-4">
+      {can("devices:write") && (
+        <div className="flex justify-end">
+          <ResourceDeleteButton
+            onDelete={() => handleDelete(device.id)}
+            isDeleting={isDeleting}
+            confirmTitle={t("devices.actions.deleteDialogTitle")}
+            confirmDetails={t("devices.actions.deleteDialogContent", {
+              name: device.name || device.id,
+            })}
+            deleteLabel={t("devices.actions.delete")}
+          />
+        </div>
+      )}
+
       {isPhysicalDevice(device) ? (
         <DeviceForm device={device} />
       ) : (
@@ -46,17 +40,6 @@ function DeviceEdit() {
           {t("devices.edit.virtualNotEditable")}
         </p>
       )}
-    </>
-  );
-}
-
-export default function DeviceEditWrapper() {
-  const { deviceId } = useParams<{ deviceId: string }>();
-  return (
-    <section className="space-y-6">
-      <ResourceBoundary resetKeys={[deviceId]}>
-        <DeviceEdit />
-      </ResourceBoundary>
-    </section>
+    </div>
   );
 }
