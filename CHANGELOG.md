@@ -1,3 +1,17 @@
+## v0.103.0 (2026-06-18)
+
+### Feat
+
+- **ui**: hide Commands tab for read-only devices
+- **ui**: commands toolbar — New command flush-right, default all-time range
+- **ui**: nest the new-command form under the device frame
+- **ui**: route-linked Overview/History/Config tab bar on device page (AGR-744)
+
+### Refactor
+
+- **ui**: merge device header divider into the tab bar, drop metadata row
+- **ui**: reorganize device tabs — Commands tab, Chart/Table toggle, per-tab actions
+
 ## v0.102.0 (2026-06-18)
 
 ### Feat
