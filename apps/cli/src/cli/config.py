@@ -8,7 +8,14 @@ load_dotenv()
 def get_storage_url() -> str | None:
     """Return the storage URL from the environment, or ``None`` for memory.
 
-    Reads ``STORAGE_URL`` (falling back to ``DATABASE_URL``) so the cli
-    works against the same backends as the api server.
+    Priority:
+    1. ``STORAGE_URL`` — explicit backend URL (postgres, yaml, …)
+    2. ``DATABASE_URL`` — legacy alias
+    3. ``DB_PATH`` — path to a yaml file-DB; translated to ``yaml:<path>``
+    4. ``None`` — in-memory (no persistence)
     """
-    return os.environ.get("STORAGE_URL") or os.environ.get("DATABASE_URL")
+    url = os.environ.get("STORAGE_URL") or os.environ.get("DATABASE_URL")
+    if url:
+        return url
+    db_path = os.environ.get("DB_PATH")
+    return f"yaml:{db_path}" if db_path else None
