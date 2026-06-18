@@ -14,7 +14,7 @@ export default function DeviceEdit() {
   const { handleDelete, isDeleting } = useDeleteDevice();
 
   useBreadcrumb([
-    { to: `/devices/${device.id}/edit`, labelKey: "breadcrumb.edit" },
+    { to: `/devices/${device.id}/edit`, labelKey: "breadcrumb.config" },
   ]);
 
   return (

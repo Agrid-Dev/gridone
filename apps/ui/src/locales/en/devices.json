@@ -56,10 +56,10 @@
     "title": "Device",
     "tabs": {
       "label": "Device sections",
-      "overview": "Overview",
+      "overview": "Live",
       "history": "History",
       "commands": "Commands",
-      "config": "Config"
+      "config": "Configuration"
     },
     "attributes": "Attributes",
     "advancedAttributes": "Advanced attributes",

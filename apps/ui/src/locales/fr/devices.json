@@ -56,7 +56,7 @@
     "title": "Appareil",
     "tabs": {
       "label": "Sections de l'appareil",
-      "overview": "Aperçu",
+      "overview": "Supervision",
       "history": "Historique",
       "commands": "Commandes",
       "config": "Configuration"
