@@ -56,19 +56,19 @@ describe("DeviceTabs", () => {
   it("shows Overview, History, Commands and Config for a physical device, with correct routes", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Physical));
 
-    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "href",
       "/devices/d1",
     );
-    expect(screen.getByRole("link", { name: "History" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
       "href",
       "/devices/d1/history",
     );
-    expect(screen.getByRole("link", { name: "Commands" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
       "href",
       "/devices/d1/commands",
     );
-    expect(screen.getByRole("link", { name: "Config" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
       "href",
       "/devices/d1/edit",
     );
@@ -77,35 +77,34 @@ describe("DeviceTabs", () => {
   it("hides Config for a virtual device but keeps Commands", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Virtual));
 
-    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Commands" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Commands" })).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: "Config" }),
+      screen.queryByRole("tab", { name: "Config" }),
     ).not.toBeInTheDocument();
   });
 
-  it("hides Commands for a read-only device (no writable attributes)", () => {
+  it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
     renderAt(
       "/devices/d1",
       makeDevice(DeviceKind.Physical, { readWriteModes: ["read"] }),
     );
 
-    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Commands" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
+      "href",
+      "/devices/d1/commands",
+    );
   });
 
   it("marks Overview active only on the index route", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Physical));
 
-    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "History" })).not.toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "History" })).not.toHaveAttribute(
       "aria-current",
     );
   });
@@ -113,11 +112,11 @@ describe("DeviceTabs", () => {
   it("marks History active on a history sub-route", () => {
     renderAt("/devices/d1/history/chart", makeDevice(DeviceKind.Physical));
 
-    expect(screen.getByRole("link", { name: "History" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Overview" })).not.toHaveAttribute(
       "aria-current",
     );
   });
