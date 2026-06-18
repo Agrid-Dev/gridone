@@ -164,6 +164,8 @@
     },
     "noCommands": "No commands recorded yet.",
     "noCommandsDescription": "Commands will appear here when users control device attributes.",
+    "readOnlyTitle": "Read-only device",
+    "readOnlyDescription": "This device has no writable attributes, so no commands can be sent.",
     "new": {
       "title": "New command",
       "steps": {

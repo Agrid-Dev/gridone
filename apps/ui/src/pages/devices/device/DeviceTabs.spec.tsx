@@ -85,17 +85,16 @@ describe("DeviceTabs", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides Commands for a read-only device (no writable attributes)", () => {
+  it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
     renderAt(
       "/devices/d1",
       makeDevice(DeviceKind.Physical, { readWriteModes: ["read"] }),
     );
 
-    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "Commands" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Commands" })).toHaveAttribute(
+      "href",
+      "/devices/d1/commands",
+    );
   });
 
   it("marks Overview active only on the index route", () => {
