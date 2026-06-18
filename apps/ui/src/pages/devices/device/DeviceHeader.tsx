@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import {
   getConnectionStatus,
   isPhysicalDevice,
@@ -25,6 +26,7 @@ function DeviceStatus({ device }: { device: Device }) {
     <>
       <DeviceTypeChip type={device.type} />
       <ConnectionStatusBadge status={getConnectionStatus(device)} />
+      <DeviceFaultBadge device={device} />
       {!isPhysicalDevice(device) && (
         <Badge variant="outline">{t("common.deviceKinds.virtual")}</Badge>
       )}

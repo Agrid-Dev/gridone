@@ -65,7 +65,9 @@
     "advancedAttributes": "Advanced attributes",
     "activeFaults": {
       "title": "Active faults",
-      "empty": "No active faults."
+      "empty": "No active faults.",
+      "badge_one": "{{count}} active fault",
+      "badge_other": "{{count}} active faults"
     },
     "faults": {
       "title": "Faults",

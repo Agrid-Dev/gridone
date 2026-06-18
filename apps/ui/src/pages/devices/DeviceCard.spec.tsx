@@ -15,6 +15,8 @@ vi.mock("react-i18next", () =>
     "common.severity.alert": "alert",
     "common.severity.warning": "warning",
     "common.severity.info": "info",
+    "deviceDetails.activeFaults.badge_one": "{{count}} active fault",
+    "deviceDetails.activeFaults.badge_other": "{{count}} active faults",
     "common:common.attributes": "attributes",
     "common:common.deviceTypes.unknown": "Unknown",
   }),
