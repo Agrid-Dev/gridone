@@ -20,37 +20,26 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 console = Console()
 
 
-async def _make_service() -> DevicesService:
-    svc = DevicesService(get_storage_url())
-    await svc.start()
-    return svc
-
-
-@app.callback()
-def _init(ctx: typer.Context) -> None:
-    ctx.ensure_object(dict)
-    if "dm" not in ctx.obj:
-        ctx.obj["dm"] = asyncio.run(_make_service())
-
-
 @app.command("list")
-def list_all(ctx: typer.Context) -> None:
-    dm: DevicesService = ctx.obj["dm"]
-    devices = dm.list_devices()
-    print(f"Read {len(devices)} devices")
-    table = Table(title=f"Devices ({len(devices)})")
-    table.add_column("ID", justify="left", style="cyan", no_wrap=True)
-    table.add_column("Driver", justify="left", style="magenta")
-    table.add_column("Transport", justify="left", style="green")
+def list_all() -> None:
+    """List all devices."""
 
-    for device_raw in sorted(devices, key=lambda d: d.id):
-        table.add_row(
-            device_raw.id,
-            device_raw.driver_id,
-            device_raw.transport_id,
-        )
+    async def _run() -> None:
+        svc = DevicesService(get_storage_url())
+        await svc.start()
+        try:
+            devices = svc.list_devices()
+            table = Table(title=f"Devices ({len(devices)})")
+            table.add_column("ID", justify="left", style="cyan", no_wrap=True)
+            table.add_column("Driver", justify="left", style="magenta")
+            table.add_column("Transport", justify="left", style="green")
+            for device in sorted(devices, key=lambda d: d.id):
+                table.add_row(device.id, device.driver_id, device.transport_id)
+            console.print(table)
+        finally:
+            await svc.stop()
 
-    console.print(table)
+    asyncio.run(_run())
 
 
 async def _read_device_async(dm: DevicesService, device_id: str) -> None:
@@ -65,11 +54,20 @@ async def _read_device_async(dm: DevicesService, device_id: str) -> None:
 
 
 @app.command()
-def read(ctx: typer.Context, device_id: str) -> None:
+def read(device_id: str) -> None:
     """
     Read all attributes from a device.
     """
-    asyncio.run(_read_device_async(ctx.obj["dm"], device_id))
+
+    async def _run() -> None:
+        svc = DevicesService(get_storage_url())
+        await svc.start()
+        try:
+            await _read_device_async(svc, device_id)
+        finally:
+            await svc.stop()
+
+    asyncio.run(_run())
 
 
 async def _write_device_async(
@@ -95,21 +93,22 @@ async def _write_device_async(
 
 @app.command()
 def write(
-    ctx: typer.Context,
     device_id: str,
     attribute: str,
     value: float,
 ) -> None:
     """Update a device attribute.
     For boolean values, use 0 or 1. String values are not supported yet."""
-    asyncio.run(
-        _write_device_async(
-            ctx.obj["dm"],
-            device_id,
-            attribute,
-            value,
-        )
-    )
+
+    async def _run() -> None:
+        svc = DevicesService(get_storage_url())
+        await svc.start()
+        try:
+            await _write_device_async(svc, device_id, attribute, value)
+        finally:
+            await svc.stop()
+
+    asyncio.run(_run())
 
 
 async def _watch_device(dm: DevicesService, device_id: str) -> None:
@@ -130,14 +129,22 @@ async def _watch_device(dm: DevicesService, device_id: str) -> None:
                     current = new
                 await asyncio.sleep(0.2)
     except KeyboardInterrupt:
-        await dm.stop()
         console.print("\n👋 Goodbye")
 
 
 @app.command()
-def watch(ctx: typer.Context, device_id: str) -> None:
+def watch(device_id: str) -> None:
     """Continuously monitor device attributes."""
-    asyncio.run(_watch_device(ctx.obj["dm"], device_id))
+
+    async def _run() -> None:
+        svc = DevicesService(get_storage_url())
+        await svc.start()
+        try:
+            await _watch_device(svc, device_id)
+        finally:
+            await svc.stop()
+
+    asyncio.run(_run())
 
 
 async def _discover(dm: DevicesService, driver_id: str, transport_id: str) -> None:
@@ -166,7 +173,6 @@ async def _discover(dm: DevicesService, driver_id: str, transport_id: str) -> No
 
 @app.command(help="Listen for new devices for a driver on a push transport client.")
 def discover(
-    ctx: typer.Context,
     driver_id: Annotated[
         str,
         typer.Option(
@@ -182,4 +188,12 @@ def discover(
         ),
     ],
 ) -> None:
-    asyncio.run(_discover(ctx.obj["dm"], driver_id, transport_id))
+    async def _run() -> None:
+        svc = DevicesService(get_storage_url())
+        await svc.start()
+        try:
+            await _discover(svc, driver_id, transport_id)
+        finally:
+            await svc.stop()
+
+    asyncio.run(_run())
