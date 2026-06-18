@@ -65,7 +65,9 @@
     "advancedAttributes": "Attributs avancés",
     "activeFaults": {
       "title": "Défauts actifs",
-      "empty": "Aucun défaut actif."
+      "empty": "Aucun défaut actif.",
+      "badge_one": "{{count}} défaut actif",
+      "badge_other": "{{count}} défauts actifs"
     },
     "faults": {
       "title": "Défauts",
