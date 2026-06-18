@@ -70,19 +70,20 @@ describe("DeviceTabs", () => {
     );
     expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
       "href",
-      "/devices/d1/edit",
+      "/devices/d1/config",
     );
   });
 
-  it("hides Config for a virtual device but keeps Commands", () => {
+  it("shows Config for a virtual device too (identity + metadata only)", () => {
     renderAt("/devices/d1", makeDevice(DeviceKind.Virtual));
 
     expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Commands" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("tab", { name: "Config" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
+      "href",
+      "/devices/d1/config",
+    );
   });
 
   it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
@@ -113,6 +114,17 @@ describe("DeviceTabs", () => {
     renderAt("/devices/d1/history/chart", makeDevice(DeviceKind.Physical));
 
     expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("tab", { name: "Overview" })).not.toHaveAttribute(
+      "aria-current",
+    );
+  });
+
+  it("marks Config active on the config route", () => {
+    renderAt("/devices/d1/config", makeDevice(DeviceKind.Physical));
+    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
       "aria-current",
       "page",
     );
