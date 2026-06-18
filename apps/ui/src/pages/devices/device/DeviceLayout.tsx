@@ -15,8 +15,12 @@ const DeviceLayoutContent: FC = () => {
 
   return (
     <section className="space-y-6">
-      <DeviceHeader device={device} />
-      <DeviceTabs device={device} />
+      {/* Header + tabs form one frame block: the tab bar owns the single
+          divider, so the device name sits flush above it. */}
+      <div className="space-y-4">
+        <DeviceHeader device={device} />
+        <DeviceTabs device={device} />
+      </div>
       <ActiveFaultsSection device={device} />
       <Outlet />
     </section>
