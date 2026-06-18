@@ -6,10 +6,6 @@
       "title": "Ajouter un appareil",
       "description": "Ajoutez les détails pour un nouvel appareil."
     },
-    "edit": {
-      "title": "Modifier l'appareil",
-      "virtualNotEditable": "La modification des appareils virtuels n'est pas encore prise en charge."
-    },
     "fields": {
       "driver": "Driver",
       "driverPlaceholder": "Sélectionnez un pilote",
@@ -29,6 +25,7 @@
       "create": "Créer l'appareil",
       "add": "Ajouter",
       "delete": "Supprimer",
+      "deleteDevice": "Supprimer l'appareil",
       "update": "Mettre à jour",
       "deleteDialogTitle": "Confirmer la suppression",
       "deleteDialogContent": "Supprimer l'appareil {{name}} ? Cette action est irréversible.",
@@ -60,6 +57,27 @@
       "history": "Historique",
       "commands": "Commandes",
       "config": "Configuration"
+    },
+    "config": {
+      "identity": {
+        "title": "Identité",
+        "edit": "Modifier l'identité"
+      },
+      "driverTransport": {
+        "title": "Pilote et réseau",
+        "edit": "Modifier le pilote et le réseau"
+      },
+      "config": {
+        "title": "Configuration",
+        "edit": "Modifier la configuration"
+      },
+      "metadata": {
+        "title": "Métadonnées",
+        "id": "Identifiant",
+        "kind": "Type d'appareil",
+        "type": "Type",
+        "tags": "Étiquettes"
+      }
     },
     "attributes": "Attributs",
     "advancedAttributes": "Attributs avancés",

@@ -9,7 +9,7 @@ import { TriggerPresenter } from "./presenters/TriggerPresenter";
 import MetadataPresenter from "./presenters/MetadataPresenter";
 import { useAutomation } from "./hooks/useAutomationPage";
 import AutomationExecutionHistory from "./AutomationExecutionHistory";
-import EditableCard from "./EditableCard";
+import EditableCard from "@/components/EditableCard";
 import FlowConnector from "./components/FlowConnector";
 import { ActionPresenter } from "./presenters/ActionPresenter";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
