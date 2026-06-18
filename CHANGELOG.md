@@ -1,3 +1,10 @@
+## v0.105.0 (2026-06-18)
+
+### Feat
+
+- **ui**: reuse DeviceFaultBadge on the device card header row
+- **ui**: device header fault badge (count + severity) (AGR-745)
+
 ## v0.104.0 (2026-06-18)
 
 ### Feat
