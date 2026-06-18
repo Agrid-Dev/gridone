@@ -3,7 +3,7 @@ import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Gauge, History, Settings2, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isPhysicalDevice, type Device } from "@/api/devices";
+import { isPhysicalDevice, isReadOnlyDevice, type Device } from "@/api/devices";
 
 /** Route-linked tab bar for the device frame. Each tab is a NavLink to an
  *  existing device route, so the active tab follows the URL (incl. deep
@@ -24,12 +24,14 @@ export function DeviceTabs({ device }: { device: Device }) {
       <DeviceTab to={`${base}/history`} icon={<History className="h-4 w-4" />}>
         {t("deviceDetails.tabs.history")}
       </DeviceTab>
-      <DeviceTab
-        to={`${base}/commands`}
-        icon={<Terminal className="h-4 w-4" />}
-      >
-        {t("deviceDetails.tabs.commands")}
-      </DeviceTab>
+      {!isReadOnlyDevice(device) && (
+        <DeviceTab
+          to={`${base}/commands`}
+          icon={<Terminal className="h-4 w-4" />}
+        >
+          {t("deviceDetails.tabs.commands")}
+        </DeviceTab>
+      )}
       {isPhysicalDevice(device) && (
         <DeviceTab
           to={`${base}/edit`}

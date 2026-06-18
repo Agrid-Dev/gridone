@@ -15,13 +15,26 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-function makeDevice(kind: DeviceKind): Device {
+function makeDevice(
+  kind: DeviceKind,
+  { readWriteModes = ["read", "write"] }: { readWriteModes?: string[] } = {},
+): Device {
   const common = {
     id: "d1",
     name: "RTU-3",
     type: null,
     tags: {},
-    attributes: {},
+    attributes: {
+      value: {
+        kind: "standard" as const,
+        name: "value",
+        dataType: "float",
+        readWriteModes,
+        currentValue: null,
+        lastUpdated: null,
+        lastChanged: null,
+      },
+    },
     isFaulty: false,
   };
   return kind === DeviceKind.Physical
@@ -69,6 +82,19 @@ describe("DeviceTabs", () => {
     expect(screen.getByRole("link", { name: "Commands" })).toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Config" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides Commands for a read-only device (no writable attributes)", () => {
+    renderAt(
+      "/devices/d1",
+      makeDevice(DeviceKind.Physical, { readWriteModes: ["read"] }),
+    );
+
+    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "History" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Commands" }),
     ).not.toBeInTheDocument();
   });
 

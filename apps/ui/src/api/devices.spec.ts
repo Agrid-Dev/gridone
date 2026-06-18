@@ -1,5 +1,39 @@
 import { describe, it, expect } from "vitest";
-import { devicesFilterToQueryParams } from "./devices";
+import {
+  DeviceKind,
+  devicesFilterToQueryParams,
+  getDeviceReadWriteModes,
+  isReadOnlyDevice,
+  type Device,
+  type DeviceAttribute,
+} from "./devices";
+
+function makeAttr(readWriteModes: string[]): DeviceAttribute {
+  return {
+    kind: "standard",
+    name: "attr",
+    dataType: "float",
+    readWriteModes,
+    currentValue: null,
+    lastUpdated: null,
+    lastChanged: null,
+  };
+}
+
+function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
+  return {
+    id: "d1",
+    kind: DeviceKind.Physical,
+    name: "d1",
+    type: null,
+    tags: {},
+    driverId: "drv",
+    transportId: "tr",
+    config: {},
+    attributes,
+    isFaulty: false,
+  };
+}
 
 /** URLSearchParams → plain array of [key, value] pairs in insertion order,
  *  so tests can assert repeat-key semantics (e.g. multi-value ids). */
@@ -107,5 +141,31 @@ describe("devicesFilterToQueryParams", () => {
       ["is_faulty", "false"],
       ["writable_attribute", "mode"],
     ]);
+  });
+});
+
+describe("getDeviceReadWriteModes / isReadOnlyDevice", () => {
+  it("unions modes across attributes", () => {
+    const device = makeDevice({
+      temperature: makeAttr(["read"]),
+      setpoint: makeAttr(["read", "write"]),
+    });
+    expect([...getDeviceReadWriteModes(device)].sort()).toEqual([
+      "read",
+      "write",
+    ]);
+    expect(isReadOnlyDevice(device)).toBe(false);
+  });
+
+  it("is read-only when no attribute supports writing", () => {
+    const device = makeDevice({
+      temperature: makeAttr(["read"]),
+      humidity: makeAttr(["read"]),
+    });
+    expect(isReadOnlyDevice(device)).toBe(true);
+  });
+
+  it("treats a device with no attributes as read-only", () => {
+    expect(isReadOnlyDevice(makeDevice({}))).toBe(true);
   });
 });
