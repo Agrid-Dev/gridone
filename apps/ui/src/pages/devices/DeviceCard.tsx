@@ -10,9 +10,8 @@ import {
 } from "@/api/devices";
 import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
-import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
+import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { ConnectionStatusIcon } from "@/components/ConnectionStatusBadge";
-import { getHighestActiveSeverity } from "@/lib/faults";
 import { getStandardDeviceEntry } from "./standard-devices/registry";
 
 /** Default card content for devices without a registered standard type. */
@@ -44,7 +43,6 @@ function DefaultCardContent({ device }: { device: Device }) {
 export function DeviceCard({ device }: { device: Device }) {
   const standardEntry = getStandardDeviceEntry(device.type);
   const Content = standardEntry?.Preview ?? DefaultCardContent;
-  const severity = getHighestActiveSeverity(device);
   const connectionStatus = getConnectionStatus(device);
   const showConnectionIssue =
     connectionStatus === ConnectionStatus.Degraded ||
@@ -59,16 +57,14 @@ export function DeviceCard({ device }: { device: Device }) {
             {showConnectionIssue && (
               <ConnectionStatusIcon status={connectionStatus} />
             )}
+            <DeviceFaultBadge device={device} />
             <span className="ml-auto">
               <DeviceTypeChip type={device.type} />
             </span>
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5">
-            {severity && <FaultSeverityIcon severity={severity} />}
-            <h2 className="min-w-0 truncate font-display text-base font-semibold text-card-foreground">
-              {device.name || device.id}
-            </h2>
-          </div>
+          <h2 className="mt-0.5 min-w-0 truncate font-display text-base font-semibold text-card-foreground">
+            {device.name || device.id}
+          </h2>
         </div>
 
         {/* ── Content (type-specific or fallback) ── */}
