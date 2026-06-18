@@ -2,12 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.transports import (
-    ConnectionStatus,
-    TransportConnectionState,
-)
+from devices_manager.core.transports import TransportConnectionState
 from devices_manager.dto.transport_dto import (
-    DEFAULT_CONNECTION_STATE,
     Transport,
     build_dto,
 )
@@ -23,21 +19,14 @@ class PostgresTransportStorage(StorageBackend[Transport]):
 
     @staticmethod
     def _row_to_dto(row: asyncpg.Record) -> Transport:
-        raw_state = row["connection_state"]
-        connection_state = (
-            TransportConnectionState(
-                status=ConnectionStatus(raw_state["status"]),
-                info=raw_state.get("info"),
-            )
-            if raw_state
-            else DEFAULT_CONNECTION_STATE
-        )
         return build_dto(
             transport_id=row["id"],
             name=row["name"],
             protocol=row["protocol"],
             config=row["config"],
-            connection_state=connection_state,
+            connection_state=TransportConnectionState.from_dict(
+                row["connection_state"]
+            ),
         )
 
     async def read(self, item_id: str) -> Transport:

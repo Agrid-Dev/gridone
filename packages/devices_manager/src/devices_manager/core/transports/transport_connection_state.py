@@ -18,6 +18,17 @@ class TransportConnectionState:
         return cls(status=ConnectionStatus.IDLE)
 
     @classmethod
+    def from_dict(cls, data: dict | None) -> "TransportConnectionState":
+        """Rebuild from a serialized dict (e.g. ``model_dump``/jsonb output).
+
+        Falls back to an idle state when ``data`` is missing or empty.
+        Example input: ``{"status": "ok", "info": None}``.
+        """
+        if not data:
+            return cls.idle()
+        return cls(status=ConnectionStatus(data["status"]), info=data.get("info"))
+
+    @classmethod
     def connected(cls) -> "TransportConnectionState":
         return cls(status=ConnectionStatus.OK)
 
