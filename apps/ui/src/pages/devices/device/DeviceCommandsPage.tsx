@@ -1,14 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Terminal } from "lucide-react";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { isReadOnlyDevice } from "@/api/devices";
 import CommandsPage from "@/pages/devices/commands/CommandsPage";
 
@@ -24,17 +17,12 @@ export default function DeviceCommandsPage() {
   // reachable but explain why it's empty rather than disabling the nav item.
   if (isReadOnlyDevice(device)) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Terminal />
-          </EmptyMedia>
-          <EmptyTitle>{t("commands.readOnlyTitle")}</EmptyTitle>
-          <EmptyDescription>
-            {t("commands.readOnlyDescription")}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <ResourceEmpty
+        resourceName={t("commands.title")}
+        showCreate={false}
+        title={t("commands.readOnlyTitle")}
+        description={t("commands.readOnlyDescription")}
+      />
     );
   }
 
