@@ -1,3 +1,13 @@
+## v0.104.0 (2026-06-18)
+
+### Feat
+
+- **ui**: read-only devices show a Commands empty state (keep tab active)
+
+### Refactor
+
+- **ui**: build DeviceTabs on the shared Tabs component; use ResourceEmpty
+
 ## v0.103.0 (2026-06-18)
 
 ### Feat
