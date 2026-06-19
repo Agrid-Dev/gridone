@@ -116,6 +116,24 @@ class DevicesService(Service):
 
     async def start(self) -> None:
         """Build storage, populate registries, and start syncing devices."""
+        await self._start_base()
+        self._register_attribute_persistence_listener()
+        self._running = True
+        for device in self._device_registry.all.values():
+            try:
+                await device.start_sync()
+            except Exception:
+                logger.exception("Failed to start sync for device %s", device.id)
+
+    async def start_readonly(self) -> None:
+        """Build storage and populate registries without polling or persistence.
+
+        For one-shot CLI commands that read device state but don't need
+        background sync or attribute persistence.
+        """
+        await self._start_base()
+
+    async def _start_base(self) -> None:
         if self._storage_url is not None:
             new_storage = await build_storage(self._storage_url)
             self._storage = new_storage
@@ -123,15 +141,6 @@ class DevicesService(Service):
             self._driver_registry.set_storage(new_storage.drivers)
             self._device_registry.set_storage(new_storage.devices)
             await self._populate_from_storage()
-
-        self._register_attribute_persistence_listener()
-
-        self._running = True
-        for device in self._device_registry.all.values():
-            try:
-                await device.start_sync()
-            except Exception:
-                logger.exception("Failed to start sync for device %s", device.id)
 
     async def stop(self) -> None:
         """Stop syncing, close transports, and release storage."""

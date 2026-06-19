@@ -26,7 +26,7 @@ def list_all() -> None:
 
     async def _run() -> None:
         svc = DevicesService(get_storage_url())
-        await svc.start()
+        await svc.start_readonly()
         try:
             devices = svc.list_devices()
             table = Table(title=f"Devices ({len(devices)})")
@@ -43,10 +43,6 @@ def list_all() -> None:
 
 
 async def _read_device_async(dm: DevicesService, device_id: str) -> None:
-    """
-    Async implementation that performs device manager initialization and
-    reads attributes from the device using async drivers/transports.
-    """
     console.print(f"Reading device [bold blue]{device_id}[/bold blue]")
     device = await dm.read_device(device_id)
     for attribute in device.attributes.values():
@@ -61,7 +57,7 @@ def read(device_id: str) -> None:
 
     async def _run() -> None:
         svc = DevicesService(get_storage_url())
-        await svc.start()
+        await svc.start_readonly()
         try:
             await _read_device_async(svc, device_id)
         finally:
@@ -102,7 +98,7 @@ def write(
 
     async def _run() -> None:
         svc = DevicesService(get_storage_url())
-        await svc.start()
+        await svc.start_readonly()
         try:
             await _write_device_async(svc, device_id, attribute, value)
         finally:
