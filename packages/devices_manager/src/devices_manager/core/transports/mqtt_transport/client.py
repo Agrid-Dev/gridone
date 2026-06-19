@@ -46,16 +46,21 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
-        self._client_instance = aiomqtt.Client(self.config.host, port=self.config.port)
         async with self._connection_lock:
-            if not self.connection_state.is_connected:
-                await asyncio.wait_for(
-                    self._client_instance.__aenter__(), timeout=TIMEOUT
-                )
-                self._background_tasks.add(
-                    asyncio.create_task(self._handle_incoming_messages())
-                )
-                await super().connect()
+            if self.connection_state.is_connected:
+                # Already connected — keep the live client. Rebuilding it here
+                # would replace the entered client with an un-entered one while
+                # leaving the state "connected", so later reads/writes would hit
+                # a disconnected client ("client is not currently connected").
+                return
+            self._client_instance = aiomqtt.Client(
+                self.config.host, port=self.config.port
+            )
+            await asyncio.wait_for(self._client_instance.__aenter__(), timeout=TIMEOUT)
+            self._background_tasks.add(
+                asyncio.create_task(self._handle_incoming_messages())
+            )
+            await super().connect()
 
     async def close(self) -> None:
         """Disconnect from the MQTT broker."""

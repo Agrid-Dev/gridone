@@ -62,6 +62,25 @@ async def test_connect_success(
 
 
 @pytest.mark.asyncio
+async def test_connect_is_idempotent_when_already_connected(
+    mqtt_client: MqttTransportClient,
+    mock_aiomqtt_client: AsyncMock,
+):
+    """A redundant connect() must keep the live client.
+
+    Rebuilding the client on a second connect() while leaving the state
+    "connected" replaced the entered client with an un-entered one, so later
+    reads/writes failed with "client is not currently connected".
+    """
+    await mqtt_client.connect()
+    await mqtt_client.connect()
+
+    mock_aiomqtt_client.__aenter__.assert_awaited_once()
+    assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
+    assert mqtt_client._client is mock_aiomqtt_client  # noqa: SLF001
+
+
+@pytest.mark.asyncio
 async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: AsyncMock):
     await mqtt_client.connect()
     await mqtt_client.close()
