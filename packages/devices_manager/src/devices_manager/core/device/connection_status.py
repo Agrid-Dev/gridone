@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Final
 
 from devices_manager.types import ConnectionStatus, DataType
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .event_log import AttributeEventLog
 
 CONNECTION_STATUS_ATTR: Final = "connection_status"
-SILENCE_DEGRADED_MULTIPLIER: Final = 1
+SILENCE_DEGRADED_MULTIPLIER: Final = 2
 SILENCE_ERROR_MULTIPLIER: Final = 3
 
 _STATUS_BY_OUTCOMES: dict[str, ConnectionStatus] = {
@@ -30,29 +30,6 @@ def build_cs_attribute(initial_value: str | None) -> Attribute:
         last_changed=now,
         value_options=list(ConnectionStatus),
     )
-
-
-_SEED_OFFSETS: dict[str, int] = {
-    ConnectionStatus.OK: 0,
-    ConnectionStatus.DEGRADED: SILENCE_DEGRADED_MULTIPLIER,
-    ConnectionStatus.ERROR: SILENCE_ERROR_MULTIPLIER,
-}
-
-
-def seed_watchdog_last_event_time(
-    initial_cs: str | None,
-    expected_interval: float | None,
-) -> datetime | None:
-    """Seed a synthetic last-event time from a persisted connection_status on restart.
-
-    ok -> now (full grace); degraded -> now - 1x; error -> now - 3x; idle -> None.
-    """
-    if initial_cs is None or expected_interval is None:
-        return None
-    offset = _SEED_OFFSETS.get(initial_cs)
-    if offset is None:
-        return None
-    return datetime.now(UTC) - timedelta(seconds=offset * expected_interval)
 
 
 def compute_connection_status(entries: "list[AttributeEventLog]") -> ConnectionStatus:

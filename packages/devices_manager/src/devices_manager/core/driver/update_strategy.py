@@ -35,7 +35,7 @@ class UpdateStrategy(BaseModel):
     ] = Field(
         default=None,
         description="Expected emission interval (seconds) for push devices.",
-        validation_alias=AliasChoices("expected_push_interval"),
+        validation_alias=AliasChoices("expected_push_interval", "expected_push"),
     )
 
     read_timeout: Annotated[
