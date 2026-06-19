@@ -5,19 +5,22 @@ import contextlib
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Final
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
-from devices_manager.types import DeviceKind, ReadWriteMode
+from devices_manager.types import ConnectionStatus, DeviceKind, ReadWriteMode
 from models.errors import ConfirmationError, InvalidError
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
 from .connection_status import (
     CONNECTION_STATUS_ATTR,
+    SILENCE_DEGRADED_MULTIPLIER,
+    SILENCE_ERROR_MULTIPLIER,
     build_cs_attribute,
     compute_connection_status,
+    seed_watchdog_last_event_time,
 )
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
 from .event_log import EventType, _log_event, _wrap_listen
@@ -35,6 +38,11 @@ if TYPE_CHECKING:
     from .event_log import AttributeEventLog
 
 logger = logging.getLogger(__name__)
+
+_SILENCE_THRESHOLDS: Final = [
+    (SILENCE_DEGRADED_MULTIPLIER, ConnectionStatus.DEGRADED),
+    (SILENCE_ERROR_MULTIPLIER, ConnectionStatus.ERROR),
+]
 
 
 def _build_attribute(
@@ -78,6 +86,10 @@ class PhysicalDevice(CoreDevice):
     kind: ClassVar[DeviceKind] = DeviceKind.PHYSICAL
     type: str | None = field(init=False, default=None)
     _poll_task: asyncio.Task[None] | None = field(init=False, default=None, repr=False)
+    _watchdog_task: asyncio.Task[None] | None = field(
+        init=False, default=None, repr=False
+    )
+    _last_event_time: datetime | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -104,6 +116,21 @@ class PhysicalDevice(CoreDevice):
     def poll_interval(self) -> float | None:
         return self.driver.update_strategy.polling_interval
 
+    @property
+    def expected_interval(self) -> float | None:
+        """Effective silence-detection interval in seconds.
+
+        Push devices: driver-declared expected_push_interval (if set).
+        Pull devices: poll_interval (watchdog as safety net for a dead poll loop).
+        Push-only with no declared interval: None (no watchdog).
+        """
+        strategy = self.driver.update_strategy
+        if strategy.expected_push_interval is not None:
+            return float(strategy.expected_push_interval)
+        if strategy.polling_enabled:
+            return float(strategy.polling_interval)
+        return None
+
     @classmethod
     def from_base(
         cls,
@@ -115,7 +142,7 @@ class PhysicalDevice(CoreDevice):
         on_update: AttributeListener | None = None,
     ) -> PhysicalDevice:
         initial = initial_values or {}
-        return cls(
+        device = cls(
             id=base.id,
             name=base.name,
             config=base.config,
@@ -132,6 +159,12 @@ class PhysicalDevice(CoreDevice):
                 ),
             },
         )
+        initial_cs = initial.get(CONNECTION_STATUS_ATTR)
+        device._last_event_time = seed_watchdog_last_event_time(
+            initial_cs,  # type: ignore[arg-type]
+            device.expected_interval,
+        )
+        return device
 
     async def init_listeners(self) -> None:
         """Upon init, attach attribute updaters to the transport."""
@@ -166,22 +199,36 @@ class PhysicalDevice(CoreDevice):
             )
             self._update_attribute(attribute, decoded)
 
-        return _wrap_listen(on_message, attribute, on_append=self._on_log_append)
+        return _wrap_listen(
+            on_message,
+            attribute,
+            on_append=self._on_log_append,
+            on_data=self._on_data_received,
+        )
 
     async def start_sync(self) -> None:
-        """Start listeners and polling for this device."""
+        """Start listeners, polling, and silence watchdog for this device."""
         await self.init_listeners()
         if self.polling_enabled and (self._poll_task is None or self._poll_task.done()):
             self._poll_task = asyncio.create_task(self._poll_loop())
+        if self.expected_interval is not None and (
+            self._watchdog_task is None or self._watchdog_task.done()
+        ):
+            self._watchdog_task = asyncio.create_task(self._watchdog_loop())
         self._syncing = True
 
     async def stop_sync(self) -> None:
-        """Cancel polling and mark as not syncing."""
+        """Cancel polling, watchdog, and mark as not syncing."""
         if self._poll_task is not None and not self._poll_task.done():
             self._poll_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._poll_task
         self._poll_task = None
+        if self._watchdog_task is not None and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._watchdog_task
+        self._watchdog_task = None
         self._syncing = False
 
     async def _poll_loop(self) -> None:
@@ -235,7 +282,11 @@ class PhysicalDevice(CoreDevice):
         codec = attribute_driver.codec
         decoded_value = codec.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
+        self._on_data_received()
         return attribute.current_value  # ty:ignore[invalid-return-type]
+
+    def _on_data_received(self) -> None:
+        self._last_event_time = datetime.now(UTC)
 
     def _on_log_append(self) -> None:
         with contextlib.suppress(Exception):
@@ -254,6 +305,38 @@ class PhysicalDevice(CoreDevice):
         cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
         status = compute_connection_status(self._collect_event_logs())
         self._update_attribute(cs_attr, status)
+
+    def _set_watchdog_status(self, status: ConnectionStatus) -> None:
+        with contextlib.suppress(Exception):
+            cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
+            self._update_attribute(cs_attr, status)
+
+    async def _watchdog_loop(self) -> None:
+        interval = self.expected_interval
+        if interval is None:
+            return
+        if self._last_event_time is None:
+            self._last_event_time = datetime.now(UTC)
+        try:
+            while True:
+                now = datetime.now(UTC)
+                last = self._last_event_time
+                elapsed = (now - last).total_seconds()
+                status_to_set = None
+                # past all thresholds: stay in error, re-check after one interval
+                sleep_secs = interval
+
+                for multiplier, status in _SILENCE_THRESHOLDS:
+                    if elapsed < multiplier * interval:
+                        sleep_secs = multiplier * interval - elapsed
+                        break
+                    status_to_set = status
+
+                if status_to_set is not None:
+                    self._set_watchdog_status(status_to_set)
+                await asyncio.sleep(sleep_secs)
+        except asyncio.CancelledError:
+            return
 
     async def update_attributes(self) -> None:
         """Update all attributes at once."""
