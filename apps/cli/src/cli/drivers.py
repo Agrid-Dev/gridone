@@ -13,7 +13,7 @@ console = Console()
 
 async def _make_service() -> DevicesService:
     svc = DevicesService(get_storage_url())
-    await svc.start()
+    await svc.start_readonly()
     return svc
 
 
