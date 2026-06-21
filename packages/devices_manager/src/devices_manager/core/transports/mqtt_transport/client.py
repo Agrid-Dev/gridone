@@ -93,8 +93,10 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         # unregister from _message handler
         self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
-            # no other handlers on this topic, unsubscribe
-            asyncio.create_task(self._unsubscribe(topic))  # noqa: RUF006
+            # Await the unsubscribe: a detached task could run after a
+            # sequential re-subscribe on the same topic and drop it, hanging
+            # the next read until timeout.
+            await self._unsubscribe(topic)
 
     @connected
     async def _subscribe(self, topic: str) -> None:
