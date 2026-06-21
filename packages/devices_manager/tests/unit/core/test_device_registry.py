@@ -187,6 +187,26 @@ class TestDeviceRegistryRegister:
         with pytest.raises(ValueError):  # noqa: PT011
             await device_registry.register(device)
 
+    @pytest.mark.asyncio
+    async def test_register_persists(self, empty_registry, device):
+        storage = AsyncMock(spec=DeviceStorageBackend)
+        empty_registry.set_storage(storage)
+        await empty_registry.register(device)
+        storage.write.assert_awaited_once()
+
+
+class TestDeviceRegistryRestore:
+    def test_restore_adds_without_persisting(self, empty_registry, device):
+        storage = AsyncMock(spec=DeviceStorageBackend)
+        empty_registry.set_storage(storage)
+        empty_registry.restore(device)
+        assert device.id in empty_registry.ids
+        storage.write.assert_not_called()
+
+    def test_restore_duplicate_raises(self, device_registry, device):
+        with pytest.raises(ValueError):  # noqa: PT011
+            device_registry.restore(device)
+
 
 class TestDeviceRegistryAddPhysical:
     @pytest.mark.asyncio

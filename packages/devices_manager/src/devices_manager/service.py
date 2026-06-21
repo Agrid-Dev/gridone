@@ -176,7 +176,7 @@ class DevicesService(Service):
                 self._transport_registry.all,
                 on_update=self._on_attribute_update,
             )
-            await self._device_registry.register(device)
+            self._device_registry.restore(device)
         except KeyError:
             logger.exception(
                 "Cannot create device %s: missing driver or transport", d.id

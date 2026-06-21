@@ -124,12 +124,19 @@ class DeviceRegistry:
             device_to_public(d) for d in self._devices.values() if filters.matches(d)
         ]
 
-    async def register(self, device: CoreDevice) -> None:
-        """Register device in memory and persist."""
+    def _insert(self, device: CoreDevice) -> None:
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
+
+    def restore(self, device: CoreDevice) -> None:
+        """Load a device from storage into memory, without persisting."""
+        self._insert(device)
+
+    async def register(self, device: CoreDevice) -> None:
+        """Register a new device in memory and persist."""
+        self._insert(device)
         await self._storage.write(device.id, device_to_public(device))
         logger.info("Successfully registered device '%s'", device.id)
 
