@@ -1,3 +1,9 @@
+## v0.106.0 (2026-06-21)
+
+### Feat
+
+- make temp min/max optional from standard device schema (#376)
+
 ## v0.105.0 (2026-06-18)
 
 ### Feat
