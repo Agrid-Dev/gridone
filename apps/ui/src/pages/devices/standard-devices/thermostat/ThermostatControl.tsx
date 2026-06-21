@@ -45,10 +45,11 @@ export function ThermostatControl({
   const isOn = draft.onoffState != null ? Boolean(draft.onoffState) : false;
   const min = attrs.temperatureSetpointMin;
   const max = attrs.temperatureSetpointMax;
+  // min/max optional: clamp only in the direction that has a bound.
   const canIncrement =
-    setpoint != null && max != null && setpoint + STEP <= max;
+    setpoint != null && (max == null || setpoint + STEP <= max);
   const canDecrement =
-    setpoint != null && min != null && setpoint - STEP >= min;
+    setpoint != null && (min == null || setpoint - STEP >= min);
 
   const powerSaving = isSaving("onoffState");
   const setpointSaving = isSaving("temperatureSetpoint");
@@ -164,34 +165,30 @@ export function ThermostatControl({
               <span className="text-lg text-muted-foreground">°</span>
             </div>
             <div className="flex flex-col">
-              {max != null && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("controls.thermostat.increaseSetpoint")}
-                  disabled={!canIncrement || setpointSaving}
-                  onClick={() =>
-                    setpoint != null &&
-                    changeAndSave("temperatureSetpoint", setpoint + STEP)
-                  }
-                >
-                  <ChevronUp className="!h-8 !w-8 text-foreground" />
-                </Button>
-              )}
-              {min != null && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("controls.thermostat.decreaseSetpoint")}
-                  disabled={!canDecrement || setpointSaving}
-                  onClick={() =>
-                    setpoint != null &&
-                    changeAndSave("temperatureSetpoint", setpoint - STEP)
-                  }
-                >
-                  <ChevronDown className="!h-8 !w-8 text-foreground" />
-                </Button>
-              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("controls.thermostat.increaseSetpoint")}
+                disabled={!canIncrement || setpointSaving}
+                onClick={() =>
+                  setpoint != null &&
+                  changeAndSave("temperatureSetpoint", setpoint + STEP)
+                }
+              >
+                <ChevronUp className="!h-8 !w-8 text-foreground" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("controls.thermostat.decreaseSetpoint")}
+                disabled={!canDecrement || setpointSaving}
+                onClick={() =>
+                  setpoint != null &&
+                  changeAndSave("temperatureSetpoint", setpoint - STEP)
+                }
+              >
+                <ChevronDown className="!h-8 !w-8 text-foreground" />
+              </Button>
             </div>
           </div>
         </div>

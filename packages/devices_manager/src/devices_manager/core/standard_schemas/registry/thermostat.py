@@ -23,10 +23,10 @@ thermostat_fields = [
         name="fan_speed", data_type=DataType.STRING, required=False
     ),
     StandardAttributeSchemaField(
-        name="temperature_setpoint_min", data_type=DataType.FLOAT, required=True
+        name="temperature_setpoint_min", data_type=DataType.FLOAT, required=False
     ),
     StandardAttributeSchemaField(
-        name="temperature_setpoint_max", data_type=DataType.FLOAT, required=True
+        name="temperature_setpoint_max", data_type=DataType.FLOAT, required=False
     ),
 ]
 

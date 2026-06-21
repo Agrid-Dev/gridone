@@ -246,30 +246,30 @@ describe("ThermostatControl", () => {
     ).toBeDisabled();
   });
 
-  it("hides up arrow when max bound is missing", () => {
+  it("keeps up arrow enabled when max bound is missing", () => {
     const device = makeThermostat({
       temperatureSetpointMax: { currentValue: null },
     });
     renderControl(device);
 
     expect(
-      screen.queryByRole("button", {
+      screen.getByRole("button", {
         name: "controls.thermostat.increaseSetpoint",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeEnabled();
   });
 
-  it("hides down arrow when min bound is missing", () => {
+  it("keeps down arrow enabled when min bound is missing", () => {
     const device = makeThermostat({
       temperatureSetpointMin: { currentValue: null },
     });
     renderControl(device);
 
     expect(
-      screen.queryByRole("button", {
+      screen.getByRole("button", {
         name: "controls.thermostat.decreaseSetpoint",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeEnabled();
   });
 
   it("disables up arrow at max bound", () => {
