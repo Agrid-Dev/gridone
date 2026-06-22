@@ -1,3 +1,9 @@
+## v0.107.0 (2026-06-22)
+
+### Feat
+
+- connection status silence detection expected interval (#375)
+
 ## v0.106.0 (2026-06-21)
 
 ### Feat
