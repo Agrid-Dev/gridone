@@ -15,6 +15,7 @@ from .registry.json_path_codec import json_path_codec
 from .registry.json_pointer_codec import json_pointer_codec
 from .registry.knx_dpt_codec import knx_dpt_codec
 from .registry.mapping_codec import mapping_codec
+from .registry.offset_codec import offset_codec
 from .registry.options_codec import options_codec
 from .registry.scale_codec import scale_codec
 from .registry.slice_codec import slice_codec
@@ -32,6 +33,7 @@ class CodecEntry:
 codec_entries: dict[str, CodecEntry] = {
     "identity": CodecEntry(builder=identity_codec, arg_type=RawArgTypes),
     "scale": CodecEntry(builder=scale_codec, arg_type=(int, float)),
+    "offset": CodecEntry(builder=offset_codec, arg_type=(int, float)),
     "json_pointer": CodecEntry(builder=json_pointer_codec, arg_type=str),
     "json_path": CodecEntry(builder=json_path_codec, arg_type=str),
     "bool_format": CodecEntry(builder=bool_format_codec, arg_type=str),
