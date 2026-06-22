@@ -17,47 +17,63 @@ INTERVAL = 1
 TICK = 0.05
 
 
-def _make_watchdog(on_silence: Mock | None = None) -> SilenceWatchdog:
-    return SilenceWatchdog(INTERVAL, on_silence or Mock())
+class FakeTime:
+    def __init__(self) -> None:
+        self._t = datetime.now(UTC)
+
+    def __call__(self) -> datetime:
+        return self._t
+
+    def advance(self, seconds: float) -> None:
+        self._t += timedelta(seconds=seconds)
 
 
-def _silence(watchdog: SilenceWatchdog, multiplier: float) -> None:
-    watchdog._last_data_time = datetime.now(UTC) - timedelta(  # noqa: SLF001
-        seconds=multiplier * INTERVAL
-    )
+def _make_watchdog(
+    on_silence: Mock | None = None,
+) -> tuple[SilenceWatchdog, FakeTime]:
+    fake = FakeTime()
+    return SilenceWatchdog(INTERVAL, on_silence or Mock(), now=fake), fake
 
 
-# Lifecycle
+# Lifecycle — observable through callback behavior
 
 
 @pytest.mark.asyncio
 class TestLifecycle:
-    async def test_start_creates_running_task(self) -> None:
-        w = _make_watchdog()
+    async def test_escalates_after_start(self) -> None:
+        on_silence = Mock()
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         await w.start()
-        assert w._task is not None  # noqa: SLF001
-        assert not w._task.done()  # noqa: SLF001
+        await asyncio.sleep(TICK)
+        on_silence.assert_called_with(ConnectionStatus.DEGRADED)
         await w.stop()
 
-    async def test_stop_cancels_task(self) -> None:
-        w = _make_watchdog()
+    async def test_no_escalation_after_stop(self) -> None:
+        on_silence = Mock()
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         await w.start()
-        task = w._task  # noqa: SLF001
         await w.stop()
-        assert task is not None
-        assert task.done()
-        assert w._task is None  # noqa: SLF001
+        on_silence.reset_mock()
+        await asyncio.sleep(TICK)
+        on_silence.assert_not_called()
 
     async def test_start_is_idempotent(self) -> None:
-        w = _make_watchdog()
+        on_silence = Mock()
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         await w.start()
-        task = w._task  # noqa: SLF001
         await w.start()
-        assert w._task is task  # noqa: SLF001
+        await asyncio.sleep(TICK)
+        on_silence.assert_called_once_with(ConnectionStatus.DEGRADED)
         await w.stop()
 
     async def test_stop_is_idempotent(self) -> None:
-        w = _make_watchdog()
+        w, _ = _make_watchdog()
         await w.start()
         await w.stop()
         await w.stop()
@@ -70,8 +86,9 @@ class TestLifecycle:
 class TestSilenceDetection:
     async def test_degrades_after_silence(self) -> None:
         on_silence = Mock()
-        w = SilenceWatchdog(INTERVAL, on_silence)
-        _silence(w, SILENCE_DEGRADED_MULTIPLIER + 0.5)
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         await w.start()
         await asyncio.sleep(TICK)
         on_silence.assert_called_with(ConnectionStatus.DEGRADED)
@@ -79,8 +96,9 @@ class TestSilenceDetection:
 
     async def test_errors_after_extended_silence(self) -> None:
         on_silence = Mock()
-        w = SilenceWatchdog(INTERVAL, on_silence)
-        _silence(w, SILENCE_ERROR_MULTIPLIER + 0.5)
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_ERROR_MULTIPLIER + 0.5))
         await w.start()
         await asyncio.sleep(TICK)
         on_silence.assert_called_with(ConnectionStatus.ERROR)
@@ -88,7 +106,7 @@ class TestSilenceDetection:
 
     async def test_no_escalation_when_fresh(self) -> None:
         on_silence = Mock()
-        w = SilenceWatchdog(INTERVAL, on_silence)
+        w, _ = _make_watchdog(on_silence)
         await w.start()
         await asyncio.sleep(TICK)
         on_silence.assert_not_called()
@@ -96,20 +114,20 @@ class TestSilenceDetection:
 
     async def test_record_data_resets_clock(self) -> None:
         on_silence = Mock()
-        w = SilenceWatchdog(INTERVAL, on_silence)
-        _silence(w, SILENCE_DEGRADED_MULTIPLIER + 0.5)
+        w, ft = _make_watchdog(on_silence)
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         w.record_data()
         await w.start()
         await asyncio.sleep(TICK)
         on_silence.assert_not_called()
         await w.stop()
 
-    async def test_on_silence_failure_does_not_crash_loop(self) -> None:
+    async def test_on_silence_failure_is_suppressed(self) -> None:
         on_silence = Mock(side_effect=RuntimeError("boom"))
-        w = SilenceWatchdog(INTERVAL, on_silence)
-        _silence(w, SILENCE_DEGRADED_MULTIPLIER + 0.5)
+        w, ft = _make_watchdog(on_silence)
+        w.record_data()
+        ft.advance(INTERVAL * (SILENCE_DEGRADED_MULTIPLIER + 0.5))
         await w.start()
         await asyncio.sleep(TICK)
-        assert w._task is not None  # noqa: SLF001
-        assert not w._task.done()  # noqa: SLF001
+        on_silence.assert_called()
         await w.stop()

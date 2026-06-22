@@ -3,12 +3,10 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-from typing import Final
 
 from devices_manager.types import ConnectionStatus
 
@@ -25,14 +23,17 @@ class SilenceWatchdog:
         self,
         interval: float,
         on_silence: Callable[[ConnectionStatus], None],
+        *,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._interval = interval
         self._on_silence = on_silence
+        self._now = now if now is not None else lambda: datetime.now(UTC)
         self._last_data_time: datetime | None = None
         self._task: asyncio.Task[None] | None = None
 
     def record_data(self) -> None:
-        self._last_data_time = datetime.now(UTC)
+        self._last_data_time = self._now()
 
     async def start(self) -> None:
         if self._task is None or self._task.done():
@@ -47,10 +48,10 @@ class SilenceWatchdog:
 
     async def _loop(self) -> None:
         if self._last_data_time is None:
-            self._last_data_time = datetime.now(UTC)
+            self._last_data_time = self._now()
         try:
             while True:
-                now = datetime.now(UTC)
+                now = self._now()
                 elapsed = (now - self._last_data_time).total_seconds()
                 status_to_set = None
                 sleep_secs = self._interval
