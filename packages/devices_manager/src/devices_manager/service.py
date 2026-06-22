@@ -115,7 +115,22 @@ class DevicesService(Service):
     # -- Lifecycle --
 
     async def start(self) -> None:
-        """Build storage, populate registries, and start syncing devices."""
+        """Load from storage, then start syncing devices."""
+        await self.load()
+        self._register_attribute_persistence_listener()
+        self._running = True
+        for device in self._device_registry.all.values():
+            try:
+                await device.start_sync()
+            except Exception:
+                logger.exception("Failed to start sync for device %s", device.id)
+
+    async def load(self) -> None:
+        """Build storage and populate the registries from it.
+
+        Loads transports, drivers and devices into memory without starting
+        background sync or attribute persistence.
+        """
         if self._storage_url is not None:
             new_storage = await build_storage(self._storage_url)
             self._storage = new_storage
@@ -123,15 +138,6 @@ class DevicesService(Service):
             self._driver_registry.set_storage(new_storage.drivers)
             self._device_registry.set_storage(new_storage.devices)
             await self._populate_from_storage()
-
-        self._register_attribute_persistence_listener()
-
-        self._running = True
-        for device in self._device_registry.all.values():
-            try:
-                await device.start_sync()
-            except Exception:
-                logger.exception("Failed to start sync for device %s", device.id)
 
     async def stop(self) -> None:
         """Stop syncing, close transports, and release storage."""
@@ -263,6 +269,14 @@ class DevicesService(Service):
         device = self._device_registry.get(device_id)
         await device.update_once()
         return device_to_public(device)
+
+    async def start_device_sync(self, device_id: str) -> None:
+        """Start background polling for a single device."""
+        await self._device_registry.get(device_id).start_sync()
+
+    async def stop_device_sync(self, device_id: str) -> None:
+        """Stop background polling for a single device."""
+        await self._device_registry.get(device_id).stop_sync()
 
     async def write_device_attribute(
         self,

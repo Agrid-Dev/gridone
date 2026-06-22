@@ -200,6 +200,22 @@ class TestDevicesServiceSync:
         assert devices_manager._running is False  # noqa: SLF001
 
     @pytest.mark.asyncio
+    async def test_start_device_sync_syncs_only_target(self, devices_manager, device):
+        await devices_manager.start_device_sync(device.id)
+
+        assert device.syncing is True
+        # a single-device sync is not a full service start
+        assert devices_manager._running is False  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_stop_device_sync_stops_target(self, devices_manager, device):
+        await devices_manager.start_device_sync(device.id)
+
+        await devices_manager.stop_device_sync(device.id)
+
+        assert device.syncing is False
+
+    @pytest.mark.asyncio
     async def test_devices_are_polled_during_sync(
         self, devices_manager, mock_transport_client
     ):

@@ -62,6 +62,25 @@ async def test_connect_success(
 
 
 @pytest.mark.asyncio
+async def test_connect_is_idempotent_when_already_connected(
+    mqtt_client: MqttTransportClient,
+    mock_aiomqtt_client: AsyncMock,
+):
+    """A redundant connect() must keep the live client.
+
+    Rebuilding the client on a second connect() while leaving the state
+    "connected" replaced the entered client with an un-entered one, so later
+    reads/writes failed with "client is not currently connected".
+    """
+    await mqtt_client.connect()
+    await mqtt_client.connect()
+
+    mock_aiomqtt_client.__aenter__.assert_awaited_once()
+    assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
+    assert mqtt_client._client is mock_aiomqtt_client  # noqa: SLF001
+
+
+@pytest.mark.asyncio
 async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: AsyncMock):
     await mqtt_client.connect()
     await mqtt_client.close()
@@ -81,6 +100,18 @@ async def test_subscribe(mqtt_client, mock_aiomqtt_client):
 async def test_unsubscribe(mqtt_client, mock_aiomqtt_client):
     await mqtt_client.connect()
     await mqtt_client._unsubscribe("test/topic")  # noqa: SLF001
+    mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
+
+
+@pytest.mark.asyncio
+async def test_unregister_last_listener_unsubscribes_synchronously(
+    mqtt_client, mock_aiomqtt_client
+):
+    # The unsubscribe must be awaited, not fired off as a detached task:
+    # a sequential re-subscribe on the same topic would otherwise race it.
+    await mqtt_client.connect()
+    listener_id = await mqtt_client.register_listener("test/topic", Mock())
+    await mqtt_client.unregister_listener(listener_id, "test/topic")
     mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
 
 

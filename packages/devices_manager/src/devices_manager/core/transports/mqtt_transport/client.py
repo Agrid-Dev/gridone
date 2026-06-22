@@ -46,16 +46,21 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
-        self._client_instance = aiomqtt.Client(self.config.host, port=self.config.port)
         async with self._connection_lock:
-            if not self.connection_state.is_connected:
-                await asyncio.wait_for(
-                    self._client_instance.__aenter__(), timeout=TIMEOUT
-                )
-                self._background_tasks.add(
-                    asyncio.create_task(self._handle_incoming_messages())
-                )
-                await super().connect()
+            if self.connection_state.is_connected:
+                # Already connected — keep the live client. Rebuilding it here
+                # would replace the entered client with an un-entered one while
+                # leaving the state "connected", so later reads/writes would hit
+                # a disconnected client ("client is not currently connected").
+                return
+            self._client_instance = aiomqtt.Client(
+                self.config.host, port=self.config.port
+            )
+            await asyncio.wait_for(self._client_instance.__aenter__(), timeout=TIMEOUT)
+            self._background_tasks.add(
+                asyncio.create_task(self._handle_incoming_messages())
+            )
+            await super().connect()
 
     async def close(self) -> None:
         """Disconnect from the MQTT broker."""
@@ -88,8 +93,10 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         # unregister from _message handler
         self._message_handlers.unregister(callback_id, topic)
         if topic and len(self._message_handlers.get_by_topic(topic)) == 0:
-            # no other handlers on this topic, unsubscribe
-            asyncio.create_task(self._unsubscribe(topic))  # noqa: RUF006
+            # Await the unsubscribe: a detached task could run after a
+            # sequential re-subscribe on the same topic and drop it, hanging
+            # the next read until timeout.
+            await self._unsubscribe(topic)
 
     @connected
     async def _subscribe(self, topic: str) -> None:

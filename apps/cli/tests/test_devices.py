@@ -1,7 +1,7 @@
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest_asyncio
 from cli.devices import app
@@ -41,7 +41,13 @@ async def devices_service(
 
 
 def test_list_devices(devices_service: DevicesService) -> None:
-    result = runner.invoke(app, ["list"], obj={"dm": devices_service})
+    svc = devices_service
+    with (
+        patch("cli.service.DevicesService", return_value=svc),
+        patch.object(svc, "load", AsyncMock()),
+        patch.object(svc, "stop", AsyncMock()),
+    ):
+        result = runner.invoke(app, ["list"])
     assert result.exit_code == 0, result.exception
     assert "test_device" in result.output
 
@@ -68,12 +74,14 @@ async def devices_service_with_local_driver(
 
 
 def test_read_device(devices_service_with_local_driver: DevicesService) -> None:
-    result = runner.invoke(
-        app,
-        ["read", "test_device"],
-        obj={"dm": devices_service_with_local_driver},
-    )
-    assert result.exit_code == 0
+    svc = devices_service_with_local_driver
+    with (
+        patch("cli.service.DevicesService", return_value=svc),
+        patch.object(svc, "load", AsyncMock()),
+        patch.object(svc, "stop", AsyncMock()),
+    ):
+        result = runner.invoke(app, ["read", "test_device"])
+    assert result.exit_code == 0, result.exception
     assert re.search(r"temperature", result.output), (
         "Expected output not found in the result"
     )
