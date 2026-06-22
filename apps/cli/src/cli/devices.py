@@ -3,15 +3,14 @@ Command group for devices.
 """
 
 import asyncio
-from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.service import service
-from devices_manager import DevicesService
+from cli.service import run_async, service
+from devices_manager import CoreDevice, DevicesService
 
 from .formatters import autoformat_value, device_to_table
 
@@ -21,21 +20,18 @@ console = Console()
 
 
 @app.command("list")
-def list_all() -> None:
+@run_async
+async def list_all() -> None:
     """List all devices."""
-
-    async def _run() -> None:
-        async with service() as svc:
-            devices = svc.list_devices()
-            table = Table(title=f"Devices ({len(devices)})")
-            table.add_column("ID", justify="left", style="cyan", no_wrap=True)
-            table.add_column("Driver", justify="left", style="magenta")
-            table.add_column("Transport", justify="left", style="green")
-            for device in sorted(devices, key=lambda d: d.id):
-                table.add_row(device.id, device.driver_id, device.transport_id)
-            console.print(table)
-
-    asyncio.run(_run())
+    async with service() as svc:
+        devices = svc.list_devices()
+        table = Table(title=f"Devices ({len(devices)})")
+        table.add_column("ID", justify="left", style="cyan", no_wrap=True)
+        table.add_column("Driver", justify="left", style="magenta")
+        table.add_column("Transport", justify="left", style="green")
+        for device in sorted(devices, key=lambda d: d.id):
+            table.add_row(device.id, device.driver_id, device.transport_id)
+        console.print(table)
 
 
 async def _read_device_async(dm: DevicesService, device_id: str) -> None:
@@ -46,16 +42,11 @@ async def _read_device_async(dm: DevicesService, device_id: str) -> None:
 
 
 @app.command()
-def read(device_id: str) -> None:
-    """
-    Read all attributes from a device.
-    """
-
-    async def _run() -> None:
-        async with service() as svc:
-            await _read_device_async(svc, device_id)
-
-    asyncio.run(_run())
+@run_async
+async def read(device_id: str) -> None:
+    """Read all attributes from a device."""
+    async with service() as svc:
+        await _read_device_async(svc, device_id)
 
 
 async def _write_device_async(
@@ -80,96 +71,49 @@ async def _write_device_async(
 
 
 @app.command()
-def write(
+@run_async
+async def write(
     device_id: str,
     attribute: str,
     value: float,
 ) -> None:
     """Update a device attribute.
     For boolean values, use 0 or 1. String values are not supported yet."""
-
-    async def _run() -> None:
-        async with service() as svc:
-            await _write_device_async(svc, device_id, attribute, value)
-
-    asyncio.run(_run())
+    async with service() as svc:
+        await _write_device_async(svc, device_id, attribute, value)
 
 
 async def _watch_device(dm: DevicesService, device_id: str) -> None:
-    device = dm.get_device(device_id)
     console.print(
-        f"Watching device [bold blue]{device_id}[/bold blue] using driver "
-        f"[bold blue]{device.driver_id}[/bold blue] (press Ctrl+C to quit)"
+        f"Watching device [bold blue]{device_id}[/bold blue] (press Ctrl+C to quit)"
     )
 
+    updated = asyncio.Event()
+
+    def _on_update(device: CoreDevice, *_: object) -> None:
+        if device.id == device_id:
+            updated.set()
+
+    listener_id = dm.add_device_attribute_listener(_on_update)
+    await dm.start_device_sync(device_id)
     try:
-        current = None
-        with Live(auto_refresh=False) as live:
+        table = device_to_table(dm.get_device(device_id))
+        with Live(table, auto_refresh=False) as live:
             while True:  # Loop until KeyboardInterrupt
-                new = device_to_table(dm.get_device(device_id))
-                if new != current:
-                    live.update(new)
-                    live.refresh()
-                    current = new
-                await asyncio.sleep(0.2)
+                await updated.wait()
+                updated.clear()
+                live.update(device_to_table(dm.get_device(device_id)))
+                live.refresh()
     except KeyboardInterrupt:
         console.print("\n👋 Goodbye")
+    finally:
+        dm.remove_device_attribute_listener(listener_id)
+        await dm.stop_device_sync(device_id)
 
 
 @app.command()
-def watch(device_id: str) -> None:
+@run_async
+async def watch(device_id: str) -> None:
     """Continuously monitor device attributes."""
-
-    async def _run() -> None:
-        async with service(sync=True) as svc:
-            await _watch_device(svc, device_id)
-
-    asyncio.run(_run())
-
-
-async def _discover(dm: DevicesService, driver_id: str, transport_id: str) -> None:
-    device_ids = dm.device_ids
-
-    console.print("Starting device discovery (press Ctrl+C to quit)")
-
-    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
-    try:
-        with Live(auto_refresh=False):
-            while True:
-                new_device_ids = dm.device_ids - device_ids
-                if new_device_ids:
-                    for new_device_id in new_device_ids:
-                        device = dm.get_device(new_device_id)
-                        console.print(
-                            "New device discovered: "
-                            f"[bold green]{device.id}[/bold green]"
-                            f" with config {device.config}"
-                        )
-                    device_ids.update(new_device_ids)
-                await asyncio.sleep(1)
-    except KeyboardInterrupt:
-        console.print("\n👋 Discovery stopped")
-
-
-@app.command(help="Listen for new devices for a driver on a push transport client.")
-def discover(
-    driver_id: Annotated[
-        str,
-        typer.Option(
-            "-d", "--driver_id", help="Id of the driver. Driver must support discovery."
-        ),
-    ],
-    transport_id: Annotated[
-        str,
-        typer.Option(
-            "-t",
-            "--transport_id",
-            help="Id of the transport to listen on. Must be a push transport.",
-        ),
-    ],
-) -> None:
-    async def _run() -> None:
-        async with service(sync=True) as svc:
-            await _discover(svc, driver_id, transport_id)
-
-    asyncio.run(_run())
+    async with service() as svc:
+        await _watch_device(svc, device_id)

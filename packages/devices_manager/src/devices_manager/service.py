@@ -270,6 +270,14 @@ class DevicesService(Service):
         await device.update_once()
         return device_to_public(device)
 
+    async def start_device_sync(self, device_id: str) -> None:
+        """Start background polling for a single device."""
+        await self._device_registry.get(device_id).start_sync()
+
+    async def stop_device_sync(self, device_id: str) -> None:
+        """Stop background polling for a single device."""
+        await self._device_registry.get(device_id).stop_sync()
+
     async def write_device_attribute(
         self,
         device_id: str,

@@ -1,27 +1,35 @@
 """Shared service lifecycle for CLI commands."""
 
+import asyncio
 import contextlib
-from collections.abc import AsyncIterator
+import functools
+from collections.abc import AsyncIterator, Callable, Coroutine
+from typing import Any
 
 from cli.config import get_storage_url
 from devices_manager import DevicesService
 
 
 @contextlib.asynccontextmanager
-async def service(*, sync: bool = False) -> AsyncIterator[DevicesService]:
-    """Yield a ready ``DevicesService`` and stop it on exit.
+async def service() -> AsyncIterator[DevicesService]:
+    """Yield a loaded ``DevicesService`` and stop it on exit.
 
-    ``sync=False`` (default) only loads data from storage — for one-off
-    commands that read or write a single device. ``sync=True`` runs the full
-    ``start()`` (background polling + persistence) for long-running commands
-    like ``watch`` and ``discover``.
+    Only loads data from storage — no background polling or persistence — so
+    CLI commands never start the full service or write to the DB on their own.
     """
     svc = DevicesService(get_storage_url())
-    if sync:
-        await svc.start()
-    else:
-        await svc.load()
+    await svc.load()
     try:
         yield svc
     finally:
         await svc.stop()
+
+
+def run_async[**P](fn: Callable[P, Coroutine[Any, Any, None]]) -> Callable[P, None]:
+    """Adapt an async command body into the sync callable Typer expects."""
+
+    @functools.wraps(fn)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> None:
+        asyncio.run(fn(*args, **kwargs))
+
+    return wrapper

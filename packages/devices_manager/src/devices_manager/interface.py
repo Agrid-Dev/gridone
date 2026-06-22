@@ -148,6 +148,10 @@ class DevicesServiceInterface(Protocol):
 
     async def read_device(self, device_id: str) -> Device: ...
 
+    async def start_device_sync(self, device_id: str) -> None: ...
+
+    async def stop_device_sync(self, device_id: str) -> None: ...
+
     async def write_device_attribute(
         self,
         device_id: str,
