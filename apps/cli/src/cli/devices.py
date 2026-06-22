@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 
-from cli.config import get_storage_url
+from cli.service import service
 from devices_manager import DevicesService
 
 from .formatters import autoformat_value, device_to_table
@@ -25,9 +25,7 @@ def list_all() -> None:
     """List all devices."""
 
     async def _run() -> None:
-        svc = DevicesService(get_storage_url())
-        await svc.start_readonly()
-        try:
+        async with service() as svc:
             devices = svc.list_devices()
             table = Table(title=f"Devices ({len(devices)})")
             table.add_column("ID", justify="left", style="cyan", no_wrap=True)
@@ -36,8 +34,6 @@ def list_all() -> None:
             for device in sorted(devices, key=lambda d: d.id):
                 table.add_row(device.id, device.driver_id, device.transport_id)
             console.print(table)
-        finally:
-            await svc.stop()
 
     asyncio.run(_run())
 
@@ -56,12 +52,8 @@ def read(device_id: str) -> None:
     """
 
     async def _run() -> None:
-        svc = DevicesService(get_storage_url())
-        await svc.start_readonly()
-        try:
+        async with service() as svc:
             await _read_device_async(svc, device_id)
-        finally:
-            await svc.stop()
 
     asyncio.run(_run())
 
@@ -97,12 +89,8 @@ def write(
     For boolean values, use 0 or 1. String values are not supported yet."""
 
     async def _run() -> None:
-        svc = DevicesService(get_storage_url())
-        await svc.start_readonly()
-        try:
+        async with service() as svc:
             await _write_device_async(svc, device_id, attribute, value)
-        finally:
-            await svc.stop()
 
     asyncio.run(_run())
 
@@ -133,12 +121,8 @@ def watch(device_id: str) -> None:
     """Continuously monitor device attributes."""
 
     async def _run() -> None:
-        svc = DevicesService(get_storage_url())
-        await svc.start()
-        try:
+        async with service(sync=True) as svc:
             await _watch_device(svc, device_id)
-        finally:
-            await svc.stop()
 
     asyncio.run(_run())
 
@@ -185,11 +169,7 @@ def discover(
     ],
 ) -> None:
     async def _run() -> None:
-        svc = DevicesService(get_storage_url())
-        await svc.start()
-        try:
+        async with service(sync=True) as svc:
             await _discover(svc, driver_id, transport_id)
-        finally:
-            await svc.stop()
 
     asyncio.run(_run())

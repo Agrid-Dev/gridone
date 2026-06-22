@@ -115,8 +115,8 @@ class DevicesService(Service):
     # -- Lifecycle --
 
     async def start(self) -> None:
-        """Build storage, populate registries, and start syncing devices."""
-        await self._start_base()
+        """Load from storage, then start syncing devices."""
+        await self.load()
         self._register_attribute_persistence_listener()
         self._running = True
         for device in self._device_registry.all.values():
@@ -125,15 +125,12 @@ class DevicesService(Service):
             except Exception:
                 logger.exception("Failed to start sync for device %s", device.id)
 
-    async def start_readonly(self) -> None:
-        """Build storage and populate registries without polling or persistence.
+    async def load(self) -> None:
+        """Build storage and populate the registries from it.
 
-        For one-shot CLI commands that read device state but don't need
+        Loads transports, drivers and devices into memory without starting
         background sync or attribute persistence.
         """
-        await self._start_base()
-
-    async def _start_base(self) -> None:
         if self._storage_url is not None:
             new_storage = await build_storage(self._storage_url)
             self._storage = new_storage
@@ -176,7 +173,7 @@ class DevicesService(Service):
                 self._transport_registry.all,
                 on_update=self._on_attribute_update,
             )
-            self._device_registry.restore(device)
+            await self._device_registry.register(device)
         except KeyError:
             logger.exception(
                 "Cannot create device %s: missing driver or transport", d.id

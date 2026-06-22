@@ -16,10 +16,7 @@ logging.basicConfig(
     format="%(message)s",
     datefmt="[%X]",
     handlers=[RichHandler()],
-    force=True,
 )
-for _noisy in ("pymodbus", "mqtt", "aiomqtt"):
-    logging.getLogger(_noisy).setLevel(logging.CRITICAL)
 
 
 app = typer.Typer(pretty_exceptions_show_locals=False)

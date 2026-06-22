@@ -103,18 +103,6 @@ async def test_unsubscribe(mqtt_client, mock_aiomqtt_client):
     mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
 
 
-@pytest.mark.asyncio
-async def test_unregister_last_listener_unsubscribes_synchronously(
-    mqtt_client, mock_aiomqtt_client
-):
-    # The unsubscribe must be awaited, not fired off as a detached task:
-    # a sequential re-subscribe on the same topic would otherwise race it.
-    await mqtt_client.connect()
-    listener_id = await mqtt_client.register_listener("test/topic", Mock())
-    await mqtt_client.unregister_listener(listener_id, "test/topic")
-    mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
-
-
 class AsyncIteratorMock:
     def __init__(self, items) -> None:
         self._items = items

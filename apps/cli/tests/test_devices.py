@@ -43,8 +43,8 @@ async def devices_service(
 def test_list_devices(devices_service: DevicesService) -> None:
     svc = devices_service
     with (
-        patch("cli.devices.DevicesService", return_value=svc),
-        patch.object(svc, "start_readonly", AsyncMock()),
+        patch("cli.service.DevicesService", return_value=svc),
+        patch.object(svc, "load", AsyncMock()),
         patch.object(svc, "stop", AsyncMock()),
     ):
         result = runner.invoke(app, ["list"])
@@ -76,8 +76,8 @@ async def devices_service_with_local_driver(
 def test_read_device(devices_service_with_local_driver: DevicesService) -> None:
     svc = devices_service_with_local_driver
     with (
-        patch("cli.devices.DevicesService", return_value=svc),
-        patch.object(svc, "start_readonly", AsyncMock()),
+        patch("cli.service.DevicesService", return_value=svc),
+        patch.object(svc, "load", AsyncMock()),
         patch.object(svc, "stop", AsyncMock()),
     ):
         result = runner.invoke(app, ["read", "test_device"])
