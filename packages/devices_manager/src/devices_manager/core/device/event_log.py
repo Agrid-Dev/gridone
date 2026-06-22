@@ -88,6 +88,7 @@ def _wrap_listen(
     attribute: "Attribute",
     *,
     on_append: Callable[[], None] | None = None,
+    on_data: Callable[[], None] | None = None,
 ) -> Callable[[object], None]:
     """Wrap a push-listener callback to append a listen event log to the attribute."""
 
@@ -96,6 +97,8 @@ def _wrap_listen(
         try:
             callback(v)
             attribute.append_log(_ok_entry(EventType.LISTEN))
+            if on_data is not None:
+                on_data()
         except Exception as e:
             attribute.append_log(_error_entry(EventType.LISTEN, e))
             raise

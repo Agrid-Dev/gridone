@@ -48,3 +48,24 @@ def test_polling_disabled():
     update_strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
     assert not update_strategy.polling_enabled
     assert update_strategy.read_timeout == 60
+
+
+def test_expected_push_interval_defaults_to_none():
+    assert UpdateStrategy().expected_push_interval is None
+
+
+def test_expected_push_interval_from_int():
+    assert UpdateStrategy(expected_push_interval=900).expected_push_interval == 900
+
+
+def test_expected_push_interval_from_string():
+    raw = {"expected_push_interval": "15min"}
+    strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
+    assert strategy.expected_push_interval == 900
+
+
+def test_expected_push_interval_independent_of_polling():
+    raw = {"polling": "disable", "expected_push_interval": "5min"}
+    strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
+    assert not strategy.polling_enabled
+    assert strategy.expected_push_interval == 300

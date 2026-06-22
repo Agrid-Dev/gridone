@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from .event_log import AttributeEventLog
 
 CONNECTION_STATUS_ATTR: Final = "connection_status"
+SILENCE_DEGRADED_MULTIPLIER: Final = 2
+SILENCE_ERROR_MULTIPLIER: Final = 3
 
 _STATUS_BY_OUTCOMES: dict[str, ConnectionStatus] = {
     "ok": ConnectionStatus.OK,
