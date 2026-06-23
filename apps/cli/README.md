@@ -2,6 +2,23 @@
 
 A command line interface for to interact with gridone core, built with [typer](https://typer.tiangolo.com/).
 
+## Install
+
+The CLI runs standalone — for example on a remote host, to test drivers and
+transports on the fly. It depends on the devices manager only, so there's no
+need to install the full workspace. From the repo root:
+
+```sh
+uv sync --package cli
+source .venv/bin/activate
+gridone --help
+```
+
+`uv sync --package cli` resolves only the `cli` workspace member and its
+dependency closure (devices manager + models + transport libs + typer), leaving
+out the other service packages (`api`, `timeseries`, `users`, …) and their
+dependencies such as `fastapi`.
+
 ## Configuration
 
 The CLI reads a single environment variable, `STORAGE_URL`, and passes it
