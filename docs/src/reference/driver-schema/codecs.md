@@ -14,6 +14,32 @@ They are declared as an explicit `codecs` list on an [attribute](../glossary.md#
 
 ---
 
+## Read vs write codecs
+
+The attribute-level `codecs` list applies to **both** directions — decode on read, encode on write.
+
+When a device's read format differs from its write format, codecs can also be declared **per direction**, inside the `read:` / `write:` [address](transport-addresses.md) (object form):
+
+```yaml
+- name: temperature_setpoint
+  data_type: float
+  read:
+    topic: device/${id}/status
+    codecs:
+      - json_pointer: /target
+  write:
+    topic: device/${id}/cmd
+    codecs:
+      - base64: ""
+      - byte_frame: "0e"   # encode runs bottom-to-top: wrap with 0e, then base64
+```
+
+For each direction, the codecs on that direction's address are used if present; otherwise the attribute-level `codecs` apply. If neither is set, the raw value is read and written unchanged.
+
+Most devices need only the attribute-level list. Per-direction codecs are for the cases where decoding a reading and encoding a command genuinely differ, so you override just the direction that differs without repeating the shared codecs.
+
+---
+
 ## Reversible vs non-reversible
 
 A codec is **reversible** if it implements both directions: **decode** (transport → Gridone) on read, and **encode** (Gridone → transport) on write. Both are applied automatically.
@@ -25,6 +51,7 @@ A **non-reversible** codec only implements decode. It is skipped on write (falls
 | `json_pointer` | no |
 | `json_path` | no |
 | `scale` | yes |
+| `offset` | yes |
 | `bool_format` | yes |
 | `byte_convert` | yes |
 | `base64` | yes |
@@ -111,6 +138,31 @@ codecs:
 | `215` | `0.1` | `21.5` | `215` |
 | `1000` | `0.01` | `10.0` | `1000` |
 | `72` | `0.5` | `36.0` | `72` |
+
+---
+
+### `offset`
+
+Decodes by adding a constant to the raw value. Encodes by subtracting it. Commonly chained with `scale` to express a linear conversion such as `(raw + offset) × scale`.
+
+| | |
+|---|---|
+| Argument | numeric constant |
+| Input | `float` |
+| Output | `float` |
+| Reversible | yes |
+
+```yaml
+codecs:
+  - offset: constant_value   # e.g. -40
+```
+
+**Decode / encode examples:**
+
+| Raw value | Argument | Decoded | Encoded back |
+|---|---|---|---|
+| `100` | `5` | `105` | `100` |
+| `60` | `-40` | `20` | `60` |
 
 ---
 
