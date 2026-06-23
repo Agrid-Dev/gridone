@@ -25,6 +25,7 @@ A **non-reversible** codec only implements decode. It is skipped on write (falls
 | `json_pointer` | no |
 | `json_path` | no |
 | `scale` | yes |
+| `offset` | yes |
 | `bool_format` | yes |
 | `byte_convert` | yes |
 | `base64` | yes |
@@ -111,6 +112,31 @@ codecs:
 | `215` | `0.1` | `21.5` | `215` |
 | `1000` | `0.01` | `10.0` | `1000` |
 | `72` | `0.5` | `36.0` | `72` |
+
+---
+
+### `offset`
+
+Decodes by adding a constant to the raw value. Encodes by subtracting it. Commonly chained with `scale` to express a linear conversion such as `(raw + offset) × scale`.
+
+| | |
+|---|---|
+| Argument | numeric constant |
+| Input | `float` |
+| Output | `float` |
+| Reversible | yes |
+
+```yaml
+codecs:
+  - offset: constant_value   # e.g. -40
+```
+
+**Decode / encode examples:**
+
+| Raw value | Argument | Decoded | Encoded back |
+|---|---|---|---|
+| `100` | `5` | `105` | `100` |
+| `60` | `-40` | `20` | `60` |
 
 ---
 
