@@ -152,7 +152,7 @@ class PhysicalDevice(CoreDevice):
             if attribute.kind == AttributeKind.INTERNAL:
                 continue
             attribute_driver = self.driver.attributes[attribute.name]
-            codec = attribute_driver.codec
+            codec = attribute_driver.read_codec
             address = self.transport.build_address(
                 render_struct(attribute_driver.read, context), context
             )
@@ -251,7 +251,7 @@ class PhysicalDevice(CoreDevice):
             render_struct(attribute_driver.read, context), context
         )
         raw_value = await self.transport.read(address)
-        codec = attribute_driver.codec
+        codec = attribute_driver.read_codec
         decoded_value = codec.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
@@ -363,7 +363,7 @@ class PhysicalDevice(CoreDevice):
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
         attribute_driver = self.driver.attributes[attribute.name]
-        codec = attribute_driver.codec
+        codec = attribute_driver.write_codec
         if attribute_driver.write is None:
             msg = (
                 f"Driver '{self.driver.metadata.id}' has no write address"

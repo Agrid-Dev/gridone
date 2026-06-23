@@ -28,37 +28,31 @@ class AttributeDriver(BaseModel):
     data_type: DataType
     read: RawTransportAddress
     write: RawTransportAddress | None = None
+    # Shared default for both directions; read/write_codecs override per direction.
     codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
+    read_codecs: list[CodecSpec] | None = None
+    write_codecs: list[CodecSpec] | None = None
 
     @cached_property
-    def codec(self) -> FnCodec:
-        return build_codec(self.codecs)
+    def read_codec(self) -> FnCodec:
+        specs = self.read_codecs if self.read_codecs is not None else self.codecs
+        return build_codec(specs)
+
+    @cached_property
+    def write_codec(self) -> FnCodec:
+        specs = self.write_codecs if self.write_codecs is not None else self.codecs
+        return build_codec(specs)
 
     @property
     def value_options(self) -> list[AttributeValueType] | None:
-        return self.codec.value_options
+        # Allowed values may be constrained on either direction (e.g. options/
+        # mapping on a write-only command), so fall back to the write chain.
+        return self.read_codec.value_options or self.write_codec.value_options
 
-    @model_validator(mode="before")
-    @classmethod
-    def use_read_write_as_fallback(cls, data: Any) -> Any:  # noqa: ANN401
-        if not isinstance(data, dict):
-            return data
-        rw = data.get("read_write")
-        if rw is not None:
-            # Only fill if not already provided
-            data.setdefault("read", rw)
-            data.setdefault("write", rw)
-        return data
-
-    @model_validator(mode="before")
-    @classmethod
-    def parse_codec_specs(cls, data: Any) -> Any:  # noqa: ANN401
-        if not isinstance(data, dict):
-            return data
-        raw_codecs = data.get("codecs")
+    @staticmethod
+    def _parse_codec_list(raw_codecs: Any) -> list[CodecSpec]:  # noqa: ANN401
         if raw_codecs is None:
-            data["codecs"] = []
-            return data
+            return []
         if not isinstance(raw_codecs, list):
             msg = "Field 'codecs' must be a list"
             raise InvalidError(msg)
@@ -80,7 +74,28 @@ class AttributeDriver(BaseModel):
                     "(e.g. {json_pointer: /path}) or {name, argument}"
                 )
                 raise InvalidError(msg)
-        data["codecs"] = parsed
+        return parsed
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize(cls, data: Any) -> Any:  # noqa: ANN401
+        if not isinstance(data, dict):
+            return data
+        rw = data.get("read_write")
+        if rw is not None:
+            data.setdefault("read", rw)
+            data.setdefault("write", rw)
+        data["codecs"] = cls._parse_codec_list(data.get("codecs"))
+        for direction in ("read", "write"):
+            field = f"{direction}_codecs"
+            if data.get(field) is not None:
+                data[field] = cls._parse_codec_list(data[field])
+            # Codecs nested in the address take precedence and keep the address clean.
+            address = data.get(direction)
+            if isinstance(address, dict) and "codecs" in address:
+                address = dict(address)
+                data[field] = cls._parse_codec_list(address.pop("codecs"))
+                data[direction] = address
         return data
 
 

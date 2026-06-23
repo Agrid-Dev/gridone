@@ -201,8 +201,8 @@ def test_fault_attribute_driver_spec_kind():
 
 
 def test_spec_codec_is_built_lazily_from_codecs():
-    """The `codec` cached_property derives from `codecs` on first access and is
-    excluded from model_dump.
+    """The `read_codec`/`write_codec` cached_properties derive from `codecs` on
+    first access and are excluded from model_dump.
     """
     spec = AttributeDriver.model_validate(
         {
@@ -212,9 +212,10 @@ def test_spec_codec_is_built_lazily_from_codecs():
             "codecs": [{"json_pointer": "/value"}],
         },
     )
-    codec = spec.codec
-    assert spec.codec is codec  # cached
-    assert "codec" not in spec.model_dump()
+    codec = spec.read_codec
+    assert spec.read_codec is codec  # cached
+    assert "read_codec" not in spec.model_dump()
+    assert "write_codec" not in spec.model_dump()
 
 
 def test_value_options_delegated_from_codec() -> None:
@@ -235,3 +236,84 @@ def test_value_options_none_when_codec_has_none() -> None:
     patch_target = "devices_manager.core.driver.attribute_driver.build_codec"
     with patch(patch_target, return_value=mock_codec):
         assert spec.value_options is None
+
+
+def test_no_codecs_is_identity_both_directions() -> None:
+    spec = AttributeDriver.model_validate(
+        {"name": "x", "data_type": "float", "read_write": "addr"}
+    )
+    assert spec.read_codec.decode(7) == 7
+    assert spec.write_codec.encode(7) == 7
+
+
+def test_root_codecs_apply_to_both_directions() -> None:
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "x",
+            "data_type": "float",
+            "read_write": "addr",
+            "codecs": [{"scale": 0.5}],
+        }
+    )
+    assert spec.read_codec.decode(10) == 5
+    assert spec.write_codec.encode(5) == 10  # encode of scale 0.5 -> x / 0.5
+
+
+def test_address_level_codecs_override_per_direction() -> None:
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "x",
+            "data_type": "float",
+            "read": {"topic": "up", "codecs": [{"scale": 0.1}]},
+            "write": {"topic": "down", "codecs": [{"scale": 2}]},
+        }
+    )
+    assert spec.read == {"topic": "up"}
+    assert spec.write == {"topic": "down"}
+    assert spec.read_codec.decode(100) == 10
+    assert spec.write_codec.encode(4) == 2  # encode of scale 2 -> x / 2
+
+
+def test_address_codecs_fall_back_to_root_for_other_direction() -> None:
+    # write codecs specified; read has none -> read falls back to root codecs
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "x",
+            "data_type": "float",
+            "read": "up",
+            "write": {"topic": "down", "codecs": [{"scale": 4}]},
+            "codecs": [{"scale": 0.5}],
+        }
+    )
+    assert spec.read_codec.decode(10) == 5  # root chain
+    assert spec.write_codec.encode(8) == 2  # write chain: encode scale 4 -> x / 4
+
+
+def test_top_level_direction_codecs_accept_shorthand() -> None:
+    # write_codecs given directly (not nested in the address), single-key form
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "x",
+            "data_type": "float",
+            "read": "up",
+            "write": "down",
+            "write_codecs": [{"scale": 2}],
+        }
+    )
+    assert spec.write_codecs is not None
+    assert spec.write_codecs[0].name == "scale"
+    assert spec.write_codec.encode(4) == 2
+
+
+def test_value_options_falls_back_to_write_codec() -> None:
+    # options only on the write chain -> value_options still surfaced
+    spec = AttributeDriver.model_validate(
+        {
+            "name": "mode",
+            "data_type": "str",
+            "read": "up",
+            "write": {"topic": "down", "codecs": [{"options": ["heat", "cool"]}]},
+        }
+    )
+    assert spec.read_codec.value_options is None
+    assert spec.value_options == ["heat", "cool"]

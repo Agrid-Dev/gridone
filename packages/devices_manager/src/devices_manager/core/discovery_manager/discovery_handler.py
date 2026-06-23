@@ -57,7 +57,7 @@ class DiscoveryHandler:
 
         for attribute_name, attribute_driver in self.driver.attributes.items():
             with contextlib.suppress(Exception):
-                value = attribute_driver.codec.decode(payload)
+                value = attribute_driver.read_codec.decode(payload)
                 if value is not None:
                     attributes[attribute_name] = value
         return attributes
