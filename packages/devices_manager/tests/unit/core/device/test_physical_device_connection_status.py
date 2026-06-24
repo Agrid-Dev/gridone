@@ -75,6 +75,16 @@ class TestConnectionStatusRecompute:
         cs = device.attributes[CONNECTION_STATUS_ATTR]
         assert cs.current_value == ConnectionStatus.ERROR
 
+    async def test_read_of_absent_field_still_errors(
+        self, device: PhysicalDevice, mock_transport_client
+    ) -> None:
+        """Push best-effort does not touch the read path: an absent field errors."""
+        mock_transport_client.read = AsyncMock(return_value={"data": {}})
+        with pytest.raises(KeyError):
+            await device.read_attribute_value("temperature_w_adapter")
+        cs = device.attributes[CONNECTION_STATUS_ATTR]
+        assert cs.current_value == ConnectionStatus.ERROR
+
     async def test_transitions_to_degraded_on_mixed_results(
         self, device: PhysicalDevice, mock_transport_client
     ) -> None:

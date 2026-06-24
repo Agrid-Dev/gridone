@@ -44,7 +44,7 @@ def _error_entry(event_type: EventType, exc: Exception) -> AttributeEventLog:
     )
 
 
-def _log_event(
+def log_event(
     event_type: EventType,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator: appends an ok/error AttributeEventLog to the named attribute.
@@ -83,14 +83,18 @@ def _log_event(
     return decorator
 
 
-def _wrap_listen(
+def wrap_listen(
     callback: Callable[[object], None],
     attribute: "Attribute",
     *,
     on_append: Callable[[], None] | None = None,
     on_data: Callable[[], None] | None = None,
 ) -> Callable[[object], None]:
-    """Wrap a push-listener callback to append a listen event log to the attribute."""
+    """Wrap a push-listener callback to log a listen event on the attribute.
+
+    The callback is responsible for skipping best-effort decode misses; any
+    exception it raises is a genuine failure — logged as an error and re-raised.
+    """
 
     @wraps(callback)
     def wrapper(v: object) -> None:

@@ -21,7 +21,7 @@ from devices_manager.core.driver import (
     FaultAttributeDriver,
     UpdateStrategy,
 )
-from devices_manager.types import DataType, TransportProtocols
+from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 from models.errors import ConfirmationError
 from models.types import Severity
 
@@ -372,6 +372,64 @@ class TestDevicesListeners:
 
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["humidity"].current_value == 65.0
+
+    @pytest.mark.asyncio
+    async def test_partial_and_irrelevant_frames_do_not_degrade(
+        self, mock_push_transport_client
+    ):
+        """Best-effort push: frames missing attributes (or carrying none) stay ok."""
+        driver = Driver(
+            metadata=DriverMetadata(id="partial_push"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "temperature": AttributeDriver(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/up"},
+                    write=None,
+                    codecs=[CodecSpec(name="json_pointer", argument="/temperature")],
+                ),
+                "battery": AttributeDriver(
+                    name="battery",
+                    data_type=DataType.FLOAT,
+                    read={"topic": "/dev/up"},
+                    write=None,
+                    codecs=[CodecSpec(name="json_pointer", argument="/battery")],
+                ),
+            },
+        )
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d4", name="Partial-frame device", config={}),
+            driver=driver,
+            transport=mock_push_transport_client,
+        )
+        await device.init_listeners()
+
+        # Partial frame: carries temperature but not battery.
+        await mock_push_transport_client.simulate_event(
+            "/dev/up", {"temperature": 22.5}
+        )
+        # Irrelevant frame: a downlink ACK carrying none of our attributes.
+        await mock_push_transport_client.simulate_event(
+            "/dev/up", {"ans": [{"id": 1, "result": 0}]}
+        )
+
+        assert device.attributes["temperature"].current_value == 22.5
+        assert device.attributes["battery"].current_value is None
+        # A decode miss is a non-error: the frame proves the device is alive.
+        assert all(e.status == "ok" for e in device.attributes["battery"].logs.listen)
+        assert (
+            device.attributes[CONNECTION_STATUS_ATTR].current_value
+            == ConnectionStatus.OK
+        )
+
+        # A later frame carrying the previously-absent attribute updates it.
+        await mock_push_transport_client.simulate_event("/dev/up", {"battery": 87.0})
+        assert device.attributes["battery"].current_value == 87.0
+        assert device.attributes["temperature"].current_value == 22.5
 
     @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_pull(
