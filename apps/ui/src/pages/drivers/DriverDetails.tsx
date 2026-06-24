@@ -18,6 +18,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
+import { DriverDevicesSection } from "./DriverDevicesSection";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -132,6 +133,7 @@ const DriverDetails: FC<{
           </div>
         </CardContent>
       </Card>
+      <DriverDevicesSection driverId={driver.id} />
     </div>
   );
 };

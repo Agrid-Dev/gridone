@@ -202,12 +202,20 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=["thermostat"], tags=None, is_faulty=None, search=None
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=["thermostat"],
+            tags=None,
+            is_faulty=None,
+            search=None,
         )
 
     def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"tags": "asset_id:asset-1"})
         dm.list_devices.assert_called_once_with(
+            driver_id=None,
+            transport_id=None,
             ids=None,
             types=None,
             tags={"asset_id": ["asset-1"]},
@@ -227,6 +235,8 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
+            driver_id=None,
+            transport_id=None,
             ids=None,
             types=None,
             tags={"asset_id": ["a1", "a2"], "zone": ["north"]},
@@ -237,25 +247,49 @@ class TestListDevices:
     def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
         client.get("/")
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=None, search=None
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=None,
+            search=None,
         )
 
     def test_is_faulty_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "true"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=True, search=None
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=True,
+            search=None,
         )
 
     def test_is_faulty_false_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "false"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=False, search=None
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=False,
+            search=None,
         )
 
     def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"asset_id": "a1"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags={"asset_id": ["a1"]}, is_faulty=None, search=None
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=None,
+            tags={"asset_id": ["a1"]},
+            is_faulty=None,
+            search=None,
         )
 
     def test_asset_id_merges_into_existing_asset_tag(
@@ -269,6 +303,8 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
+            driver_id=None,
+            transport_id=None,
             ids=None,
             types=None,
             tags={"asset_id": ["a1", "a2"]},
@@ -279,7 +315,37 @@ class TestListDevices:
     def test_search_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"search": "chambre 12"})
         dm.list_devices.assert_called_once_with(
-            ids=None, types=None, tags=None, is_faulty=None, search="chambre 12"
+            driver_id=None,
+            transport_id=None,
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=None,
+            search="chambre 12",
+        )
+
+    def test_driver_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"driver_id": "drv-1"})
+        dm.list_devices.assert_called_once_with(
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=None,
+            search=None,
+            driver_id="drv-1",
+            transport_id=None,
+        )
+
+    def test_transport_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"transport_id": "tr-1"})
+        dm.list_devices.assert_called_once_with(
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=None,
+            search=None,
+            driver_id=None,
+            transport_id="tr-1",
         )
 
 

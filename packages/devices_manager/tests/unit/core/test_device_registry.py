@@ -175,6 +175,32 @@ class TestDeviceRegistryList:
         assert len(result) == 1
         assert result[0].id == "d1"
 
+    def test_list_all_filter_by_driver_id(
+        self,
+        thermostat_driver,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        device_a = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="A", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        device_b = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="B", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        registry = DeviceRegistry(
+            {device_a.id: device_a, device_b.id: device_b},
+            resolve_driver=_make_driver_resolver(thermostat_driver, driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        result = registry.list_all(driver_id=driver.metadata.id)
+        assert [d.id for d in result] == ["d2"]
+
 
 class TestDeviceRegistryRegister:
     @pytest.mark.asyncio

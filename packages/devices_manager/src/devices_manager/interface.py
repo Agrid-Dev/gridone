@@ -130,6 +130,8 @@ class DevicesServiceInterface(Protocol):
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
         search: str | None = None,
+        driver_id: str | None = None,
+        transport_id: str | None = None,
     ) -> list[Device]: ...
 
     def get_device(self, device_id: str) -> Device: ...

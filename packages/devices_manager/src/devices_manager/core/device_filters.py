@@ -22,6 +22,8 @@ class DeviceFilters:
     tags: Mapping[str, Collection[str]] | None = None
     is_faulty: bool | None = None
     search: str | None = None
+    driver_id: str | None = None
+    transport_id: str | None = None
 
     def matches(self, device: CoreDevice) -> bool:
         return (
@@ -31,6 +33,8 @@ class DeviceFilters:
             and self._matches_tags(device)
             and self._matches_is_faulty(device)
             and self._matches_search(device)
+            and self._matches_driver_id(device)
+            and self._matches_transport_id(device)
         )
 
     def _matches_ids(self, device: CoreDevice) -> bool:
@@ -54,3 +58,11 @@ class DeviceFilters:
 
     def _matches_search(self, device: CoreDevice) -> bool:
         return self.search is None or fuzzy_match(self.search, device.name)
+
+    def _matches_driver_id(self, device: CoreDevice) -> bool:
+        # Virtual devices have driver_id None and never match a driver filter.
+        return self.driver_id is None or device.driver_id == self.driver_id
+
+    def _matches_transport_id(self, device: CoreDevice) -> bool:
+        # Virtual devices have transport_id None and never match a transport filter.
+        return self.transport_id is None or device.transport_id == self.transport_id

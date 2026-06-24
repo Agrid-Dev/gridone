@@ -15,6 +15,11 @@
     "deviceConfig": "Device configuration",
     "none": "None"
   },
+  "devicesSection": {
+    "title": "Devices using this driver",
+    "empty": "No devices use this driver yet.",
+    "error": "Unable to load devices."
+  },
   "actions": {
     "create": "New driver",
     "delete": "Delete",
