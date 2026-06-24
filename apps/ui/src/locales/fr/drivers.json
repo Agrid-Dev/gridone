@@ -15,6 +15,11 @@
     "deviceConfig": "Configuration des appareils",
     "none": "Aucun"
   },
+  "devicesSection": {
+    "title": "Appareils utilisant ce driver",
+    "empty": "Aucun appareil n'utilise ce driver pour le moment.",
+    "error": "Impossible de charger les appareils."
+  },
   "actions": {
     "create": "Nouveau driver",
     "delete": "Supprimer",

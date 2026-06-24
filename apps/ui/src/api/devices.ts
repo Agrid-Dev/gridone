@@ -324,6 +324,10 @@ export type DevicesFilter = {
   assetId?: string;
   /** Free-text fuzzy match against the device ``name``. */
   search?: string;
+  /** Restrict to devices bound to this driver (physical devices only). */
+  driverId?: string;
+  /** Restrict to devices bound to this transport (physical devices only). */
+  transportId?: string;
 };
 
 /** Serialise a DevicesFilter into query params for ``GET /devices``.
@@ -359,6 +363,12 @@ export function devicesFilterToQueryParams(
   }
   if (filter.search) {
     params.set("search", filter.search);
+  }
+  if (filter.driverId) {
+    params.set("driver_id", filter.driverId);
+  }
+  if (filter.transportId) {
+    params.set("transport_id", filter.transportId);
   }
   return params;
 }

@@ -996,6 +996,8 @@ class TestDevicesServiceDeviceDelegation:
             tags=None,
             is_faulty=None,
             search=None,
+            driver_id=None,
+            transport_id=None,
         )
 
     @pytest.mark.asyncio

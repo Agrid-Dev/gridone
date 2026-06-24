@@ -95,6 +95,17 @@ describe("devicesFilterToQueryParams", () => {
     ]);
   });
 
+  it("serialises driverId and transportId as snake_case query params", () => {
+    expect(
+      entries(
+        devicesFilterToQueryParams({ driverId: "drv-1", transportId: "tr-1" }),
+      ),
+    ).toEqual([
+      ["driver_id", "drv-1"],
+      ["transport_id", "tr-1"],
+    ]);
+  });
+
   it("maps writableAttribute and writableAttributeType to snake_case keys", () => {
     expect(
       entries(

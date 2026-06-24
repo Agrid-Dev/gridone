@@ -4,7 +4,13 @@ from datetime import UTC, datetime
 
 import pytest
 
-from devices_manager.core.device import Attribute, FaultAttribute, VirtualDevice
+from devices_manager.core.device import (
+    Attribute,
+    DeviceBase,
+    FaultAttribute,
+    PhysicalDevice,
+    VirtualDevice,
+)
 from devices_manager.core.device_filters import DeviceFilters
 from devices_manager.types import DataType
 
@@ -249,3 +255,50 @@ class TestDeviceFiltersMatches:
             tags={"asset_id": frozenset(["floor1"])},
             search="chambre",
         ).matches(device)
+
+
+class TestDeviceFiltersDriverAndTransport:
+    """driver_id / transport_id resolve to None on virtual devices, so those
+    filters only ever match physical devices."""
+
+    @staticmethod
+    def _physical(driver, transport) -> PhysicalDevice:
+        return PhysicalDevice.from_base(
+            DeviceBase(id="p1", name="Physical", config={}),
+            driver=driver,
+            transport=transport,
+        )
+
+    # -- driver_id (fixture `driver` has id "test_driver") --
+
+    def test_driver_id_match(self, driver, mock_transport_client):
+        device = self._physical(driver, mock_transport_client)
+        assert DeviceFilters(driver_id="test_driver").matches(device)
+
+    def test_driver_id_no_match(self, driver, mock_transport_client):
+        device = self._physical(driver, mock_transport_client)
+        assert not DeviceFilters(driver_id="other_driver").matches(device)
+
+    def test_driver_id_none_matches_all(self, driver, mock_transport_client):
+        device = self._physical(driver, mock_transport_client)
+        assert DeviceFilters(driver_id=None).matches(device)
+
+    def test_driver_id_excludes_virtual_devices(self):
+        assert not DeviceFilters(driver_id="test_driver").matches(
+            _virtual("v1", "Virtual")
+        )
+
+    # -- transport_id (fixture `mock_transport_client` has id "my-transport") --
+
+    def test_transport_id_match(self, driver, mock_transport_client):
+        device = self._physical(driver, mock_transport_client)
+        assert DeviceFilters(transport_id="my-transport").matches(device)
+
+    def test_transport_id_no_match(self, driver, mock_transport_client):
+        device = self._physical(driver, mock_transport_client)
+        assert not DeviceFilters(transport_id="other_transport").matches(device)
+
+    def test_transport_id_excludes_virtual_devices(self):
+        assert not DeviceFilters(transport_id="my-transport").matches(
+            _virtual("v1", "Virtual")
+        )

@@ -110,6 +110,8 @@ class DeviceRegistry:
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
         search: str | None = None,
+        driver_id: str | None = None,
+        transport_id: str | None = None,
     ) -> list[Device]:
         filters = DeviceFilters(
             ids=ids,
@@ -119,6 +121,8 @@ class DeviceRegistry:
             tags=tags,
             is_faulty=is_faulty,
             search=search,
+            driver_id=driver_id,
+            transport_id=transport_id,
         )
         return [
             device_to_public(d) for d in self._devices.values() if filters.matches(d)

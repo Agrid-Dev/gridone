@@ -1,8 +1,7 @@
 import React, { FC } from "react";
 import { useDrivers } from "./useDrivers";
 import { Driver } from "@/api/drivers";
-import { Card, CardContent, CardHeader } from "@/components/ui";
-import { TypographyH3 } from "@/components/ui/typography";
+import { Card } from "@/components/ui";
 import { Link, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
@@ -14,24 +13,30 @@ import { Plus } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useFilterParams } from "@/hooks/useFilterParams";
-import { TypeFilter } from "@/components/FilterBar";
+import { FilterIndicator, TypeFilter } from "@/components/FilterBar";
 
 const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
   const { t } = useTranslation("drivers");
   return (
-    <Link to={driver.id} className="block h-full no-underline">
-      <Card>
-        <CardHeader className="truncate">
-          <TypographyH3>{driver.id}</TypographyH3>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <DeviceTypeChip type={driver.type} />
+    <Link to={driver.id} className="group block h-full no-underline">
+      <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="ml-auto">
+              <DeviceTypeChip type={driver.type} />
+            </span>
+          </div>
+          <h2 className="mt-0.5 min-w-0 truncate font-display text-base font-semibold text-card-foreground">
+            {driver.id}
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="info">{driver.transport}</Badge>
-          <Badge variant="outline">
+          <Badge variant="outline" className="text-[10px]">
             {driver.attributes.length}&nbsp;
             {t("attribute", { count: driver.attributes.length })}
           </Badge>
-        </CardContent>
+        </div>
       </Card>
     </Link>
   );
@@ -59,9 +64,12 @@ const DriversListContainer: FC<{
           ) : undefined
         }
       />
-      <TypeFilter />
+      <div className="flex flex-wrap items-center gap-3">
+        <FilterIndicator />
+        <TypeFilter />
+      </div>
       {driversCount > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {children}
         </div>
       ) : (

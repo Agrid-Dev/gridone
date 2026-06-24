@@ -73,6 +73,8 @@ def list_devices(
     is_faulty: bool | None = Query(None),
     asset_id: str | None = Query(None),
     search: str | None = Query(None),
+    driver_id: str | None = Query(None),
+    transport_id: str | None = Query(None),
 ) -> list[Device]:
     parsed_tags = _parse_tags(tags)
     kwargs = to_list_devices_kwargs(
@@ -83,6 +85,8 @@ def list_devices(
             "is_faulty": is_faulty,
             "asset_id": asset_id,
             "search": search,
+            "driver_id": driver_id,
+            "transport_id": transport_id,
         }
     )
     return dm.list_devices(**kwargs)

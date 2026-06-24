@@ -215,6 +215,8 @@ class DevicesService(Service):
         tags: dict[str, list[str]] | None = None,
         is_faulty: bool | None = None,
         search: str | None = None,
+        driver_id: str | None = None,
+        transport_id: str | None = None,
     ) -> list[Device]:
         return self._device_registry.list_all(
             ids=ids,
@@ -224,6 +226,8 @@ class DevicesService(Service):
             tags=tags,
             is_faulty=is_faulty,
             search=search,
+            driver_id=driver_id,
+            transport_id=transport_id,
         )
 
     def get_device(self, device_id: str) -> Device:
