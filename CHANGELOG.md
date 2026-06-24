@@ -1,3 +1,9 @@
+## v0.110.0 (2026-06-24)
+
+### Feat
+
+- **ui**: render integer series as step lines in the chart (AGR-808)
+
 ## v0.109.0 (2026-06-22)
 
 ### Feat
