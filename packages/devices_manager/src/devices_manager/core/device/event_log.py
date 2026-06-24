@@ -89,8 +89,12 @@ def _wrap_listen(
     *,
     on_append: Callable[[], None] | None = None,
     on_data: Callable[[], None] | None = None,
+    swallow: bool = False,
 ) -> Callable[[object], None]:
-    """Wrap a push-listener callback to append a listen event log to the attribute."""
+    """Wrap a push-listener callback to append a listen event log to the attribute.
+
+    When ``swallow`` is set, a decode failure is skipped silently (no log, no update).
+    """
 
     @wraps(callback)
     def wrapper(v: object) -> None:
@@ -100,6 +104,8 @@ def _wrap_listen(
             if on_data is not None:
                 on_data()
         except Exception as e:
+            if swallow:
+                return
             attribute.append_log(_error_entry(EventType.LISTEN, e))
             raise
         finally:
