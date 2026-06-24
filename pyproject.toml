@@ -68,6 +68,8 @@ pre_bump_hooks = ["uv lock && git add uv.lock"]
 [tool.ruff]
 indent-width = 4
 line-length = 88
+# Personal scratch projects live here and are intentionally not linted.
+extend-exclude = [".user_projects"]
 
 [tool.ruff.lint]
 select = ["ALL"]
