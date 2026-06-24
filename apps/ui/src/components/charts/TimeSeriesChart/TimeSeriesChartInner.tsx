@@ -9,6 +9,8 @@ export function TimeSeriesChartInner({
   timestamps,
   lineSeries = [],
   lineValues = {},
+  intSeries = [],
+  intValues = {},
   booleanSeries = [],
   booleanValues = {},
   stringSeries = [],
@@ -20,6 +22,8 @@ export function TimeSeriesChartInner({
   const panels = usePanels({
     lineSeries,
     lineValues,
+    intSeries,
+    intValues,
     booleanSeries,
     booleanValues,
     stringSeries,

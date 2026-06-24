@@ -9,6 +9,8 @@ import {
   timestamps,
   floatSeries,
   floatValues,
+  intSeries,
+  intValues,
   booleanSeries,
   booleanValues,
   stringSeries,
@@ -369,6 +371,95 @@ describe("TimeSeriesChart — legend swatches", () => {
     expect(areaSwatches.length).toBe(
       booleanSeries.length + 3, // 3 unique string values
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Integer series — share the float panel, rendered as step lines
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — integer series", () => {
+  it("renders int series in the shared float panel (single SVG)", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        intSeries={intSeries}
+        intValues={intValues}
+        width={WIDTH}
+      />,
+    );
+    // Float + int share one panel → exactly one XYChart SVG
+    const svgs = container.querySelectorAll(XYCHART_SVG);
+    expect(svgs.length).toBe(1);
+    expect(screen.getByText("CO2")).toBeInTheDocument();
+    expect(screen.getByText("Temperature")).toBeInTheDocument();
+  });
+
+  it("renders the float panel from int-only data", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        intSeries={intSeries}
+        intValues={intValues}
+        width={WIDTH}
+      />,
+    );
+    const svgs = container.querySelectorAll(XYCHART_SVG);
+    expect(svgs.length).toBe(1);
+    expect(screen.getByText("CO2")).toBeInTheDocument();
+  });
+
+  it("renders int series with line swatches", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        intSeries={intSeries}
+        intValues={intValues}
+        width={WIDTH}
+      />,
+    );
+    // Float (2) + int (1) series all use the 16px × 3px line swatch
+    const lineSwatches = Array.from(
+      container.querySelectorAll<HTMLSpanElement>("span"),
+    ).filter(
+      (span) => span.style.width === "16px" && span.style.height === "3px",
+    );
+    expect(lineSwatches.length).toBe(floatSeries.length + intSeries.length);
+  });
+
+  it("formats int values without decimals in the tooltip", () => {
+    const result = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        intSeries={intSeries}
+        intValues={intValues}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = result.container.firstElementChild!;
+    wrapper.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: WIDTH,
+      bottom: 600,
+      width: WIDTH,
+      height: 600,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    });
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 200 });
+
+    const tooltip = document.querySelector(".bg-popover");
+    expect(tooltip).not.toBeNull();
+    const text = tooltip!.textContent!;
+    expect(text).toContain("CO2");
+    // Integer values render as whole numbers, never "450.00"
+    expect(text).not.toMatch(/CO2[^\d]*\d+\.\d/);
   });
 });
 

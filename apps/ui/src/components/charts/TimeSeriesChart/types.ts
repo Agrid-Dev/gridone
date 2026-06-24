@@ -11,6 +11,9 @@ export type TimeSeriesChartProps = {
   /** Float series — rendered as lines, sharing a single y-axis (top panel) */
   lineSeries?: Series[];
   lineValues?: Record<string, (number | null)[]>;
+  /** Integer series — rendered as step lines in the float panel, sharing its y-axis */
+  intSeries?: Series[];
+  intValues?: Record<string, (number | null)[]>;
   /** Boolean series — each rendered as a step-area in its own panel below */
   booleanSeries?: Series[];
   booleanValues?: Record<string, (boolean | null)[]>;
@@ -39,6 +42,8 @@ export type FloatPanelEntry = {
   key: "float";
   series: Series[];
   values: Record<string, (number | null)[]>;
+  /** Keys of series rendered as step lines (integer series) rather than interpolated lines. */
+  stepKeys: string[];
   height: number;
 };
 
