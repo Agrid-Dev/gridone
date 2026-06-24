@@ -130,6 +130,11 @@ omit = [
 [tool.ty.environment]
 extra-paths = ["packages/timeseries/tests/fixtures"]
 
+[tool.ty.src]
+# Personal scratch projects live here and are intentionally not type-checked
+# (mirrors the ruff extend-exclude above).
+exclude = [".user_projects"]
+
 [tool.pytest.ini_options]
 markers = [
     "integration: mark a test as an integration test",
