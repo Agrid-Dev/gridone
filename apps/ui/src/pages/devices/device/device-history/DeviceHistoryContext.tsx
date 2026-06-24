@@ -18,6 +18,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
+import { appendCurrentValues, type CurrentValue } from "./currentValues";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
@@ -72,12 +73,16 @@ const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
 type DeviceHistoryProviderProps = {
   deviceId: string;
   attributeNames: string[];
+  /** Live attribute values, keyed by attribute name (from device.attributes).
+   *  Carried into the chart so its right edge matches the header status badge. */
+  currentValues: Record<string, CurrentValue>;
   children: ReactNode;
 };
 
 export function DeviceHistoryProvider({
   deviceId,
   attributeNames,
+  currentValues,
   children,
 }: DeviceHistoryProviderProps) {
   const { t } = useTranslation("devices");
@@ -187,10 +192,28 @@ export function DeviceHistoryProvider({
     [deviceId],
   );
 
+  // Carry the device's live attribute values into the series so the chart's
+  // right edge matches the header badge — unless the window is a closed past
+  // range, where "now" lies outside the view and would distort the time axis.
+  const augmentedPoints = useMemo(() => {
+    const isClosedPastWindow =
+      timeRange.kind === "custom" &&
+      !!timeRange.end &&
+      new Date(timeRange.end).getTime() < Date.now();
+    if (isClosedPastWindow) return pointsByMetric;
+
+    const relevant: Record<string, CurrentValue> = {};
+    for (const attr of availableAttributes) {
+      const value = currentValues[attr];
+      if (value) relevant[attr] = value;
+    }
+    return appendCurrentValues(pointsByMetric, relevant);
+  }, [pointsByMetric, availableAttributes, currentValues, timeRange]);
+
   // Merge all attributes once (stable — doesn't change with visibility)
   const allRows = useMemo(
-    () => mergeTimeSeries(pointsByMetric, availableAttributes),
-    [pointsByMetric, availableAttributes],
+    () => mergeTimeSeries(augmentedPoints, availableAttributes),
+    [augmentedPoints, availableAttributes],
   );
 
   // Visible attributes (for row filtering only)

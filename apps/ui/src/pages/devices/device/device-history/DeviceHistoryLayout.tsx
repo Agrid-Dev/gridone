@@ -22,6 +22,7 @@ import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useLocation } from "react-router";
+import type { CurrentValue } from "./currentValues";
 import {
   DeviceHistoryProvider,
   useDeviceHistoryContext,
@@ -41,8 +42,25 @@ export default function DeviceHistoryLayout() {
     [device],
   );
 
+  // Live value per attribute, timestamped at its last observation, so the
+  // history chart can extend each series to the device's present state.
+  const currentValues = useMemo(() => {
+    const out: Record<string, CurrentValue> = {};
+    for (const [name, attr] of Object.entries(device.attributes ?? {})) {
+      if (attr.currentValue === null) continue;
+      const timestamp = attr.lastUpdated ?? attr.lastChanged;
+      if (!timestamp) continue;
+      out[name] = { value: attr.currentValue, timestamp };
+    }
+    return out;
+  }, [device]);
+
   return (
-    <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
+    <DeviceHistoryProvider
+      deviceId={deviceId}
+      attributeNames={attributeNames}
+      currentValues={currentValues}
+    >
       <div className="space-y-6">
         <HistoryToolbar deviceId={deviceId} />
       </div>
