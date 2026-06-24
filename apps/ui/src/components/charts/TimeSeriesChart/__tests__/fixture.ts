@@ -21,6 +21,16 @@ export const floatValues: Record<string, (number | null)[]> = {
 };
 
 // ---------------------------------------------------------------------------
+// Integer series — one counter, rendered as step lines in the float panel
+// ---------------------------------------------------------------------------
+
+export const intSeries: Series[] = [{ key: "co2", label: "CO2" }];
+
+export const intValues: Record<string, (number | null)[]> = {
+  co2: [400, 410, 420, null, 450, 470, 500, 480, 460, 440],
+};
+
+// ---------------------------------------------------------------------------
 // Boolean series — one on/off flag
 // ---------------------------------------------------------------------------
 

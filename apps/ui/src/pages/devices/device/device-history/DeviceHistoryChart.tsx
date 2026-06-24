@@ -6,9 +6,12 @@ import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 export default function DeviceHistoryChart() {
   const { allRows, visibleAttributes, dataTypes } = useDeviceHistoryContext();
-  const { floatAttrs, boolAttrs, stringAttrs } = useMemo(() => {
+  const { floatAttrs, intAttrs, boolAttrs, stringAttrs } = useMemo(() => {
     const floatAttrs = visibleAttributes.filter(
       (attr) => dataTypes[attr] === "float",
+    );
+    const intAttrs = visibleAttributes.filter(
+      (attr) => dataTypes[attr] === "int",
     );
     const boolAttrs = visibleAttributes.filter(
       (attr) => dataTypes[attr] === "bool",
@@ -16,7 +19,7 @@ export default function DeviceHistoryChart() {
     const stringAttrs = visibleAttributes.filter(
       (attr) => dataTypes[attr] === "str",
     );
-    return { floatAttrs, boolAttrs, stringAttrs };
+    return { floatAttrs, intAttrs, boolAttrs, stringAttrs };
   }, [visibleAttributes, dataTypes]);
 
   const timestamps = useMemo(
@@ -38,6 +41,22 @@ export default function DeviceHistoryChart() {
   const lineSeries: Series[] = useMemo(
     () => floatAttrs.map((a) => ({ key: a, label: toLabel(a) })),
     [floatAttrs],
+  );
+
+  const intValues = useMemo(
+    () =>
+      Object.fromEntries(
+        intAttrs.map((a) => [
+          a,
+          allRows.map((r) => r.values[a] as number | null),
+        ]),
+      ),
+    [allRows, intAttrs],
+  );
+
+  const intSeries: Series[] = useMemo(
+    () => intAttrs.map((a) => ({ key: a, label: toLabel(a) })),
+    [intAttrs],
   );
 
   const booleanValues = useMemo(
@@ -74,6 +93,7 @@ export default function DeviceHistoryChart() {
 
   if (
     floatAttrs.length === 0 &&
+    intAttrs.length === 0 &&
     boolAttrs.length === 0 &&
     stringAttrs.length === 0
   ) {
@@ -89,6 +109,8 @@ export default function DeviceHistoryChart() {
       timestamps={timestamps}
       lineSeries={lineSeries}
       lineValues={lineValues}
+      intSeries={intSeries}
+      intValues={intValues}
       booleanSeries={booleanSeries}
       booleanValues={booleanValues}
       stringSeries={stringSeries}

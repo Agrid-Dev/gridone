@@ -6,6 +6,7 @@ import {
   AnimatedLineSeries,
   XYChart,
 } from "@visx/xychart";
+import { curveStepAfter } from "@visx/curve";
 
 import type {
   FloatDatum,
@@ -33,7 +34,8 @@ export function FloatPanel({
   width,
   isLast,
 }: PanelComponentProps) {
-  const { series, values, height } = entry as FloatPanelEntry;
+  const { series, values, stepKeys, height } = entry as FloatPanelEntry;
+  const stepKeySet = new Set(stepKeys);
   const ctx = useContext(FloatScaleContext);
 
   return (
@@ -79,6 +81,8 @@ export function FloatPanel({
               key={s.key}
               dataKey={s.key}
               data={data}
+              // Integer series step between values; floats interpolate linearly.
+              curve={stepKeySet.has(s.key) ? curveStepAfter : undefined}
               {...floatAccessors}
             />
           );

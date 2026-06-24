@@ -6,6 +6,8 @@ import { DEFAULT_LINE_HEIGHT, DEFAULT_CATEGORICAL_HEIGHT } from "./constants";
 type UsePanelsArgs = {
   lineSeries: Series[];
   lineValues: Record<string, (number | null)[]>;
+  intSeries: Series[];
+  intValues: Record<string, (number | null)[]>;
   booleanSeries: Series[];
   booleanValues: Record<string, (boolean | null)[]>;
   stringSeries: Series[];
@@ -18,6 +20,8 @@ type UsePanelsArgs = {
 export function usePanels({
   lineSeries,
   lineValues,
+  intSeries,
+  intValues,
   booleanSeries,
   booleanValues,
   stringSeries,
@@ -28,12 +32,15 @@ export function usePanels({
   return useMemo(() => {
     const panels: PanelEntry[] = [];
 
-    if (lineSeries.length > 0) {
+    // Float and integer series share a single panel and y-axis; integer series
+    // are flagged via stepKeys so they render as step lines.
+    if (lineSeries.length > 0 || intSeries.length > 0) {
       panels.push({
         type: "float",
         key: "float",
-        series: lineSeries,
-        values: lineValues,
+        series: [...lineSeries, ...intSeries],
+        values: { ...lineValues, ...intValues },
+        stepKeys: intSeries.map((s) => s.key),
         height: lineHeight,
       });
     }
@@ -62,6 +69,8 @@ export function usePanels({
   }, [
     lineSeries,
     lineValues,
+    intSeries,
+    intValues,
     booleanSeries,
     booleanValues,
     stringSeries,

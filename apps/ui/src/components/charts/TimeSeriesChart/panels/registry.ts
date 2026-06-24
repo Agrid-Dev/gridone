@@ -48,15 +48,19 @@ function floatTooltipRows(
   active: boolean,
   options: TooltipRowOptions,
 ): TooltipRow[] {
-  const { series, values } = entry as FloatPanelEntry;
+  const { series, values, stepKeys } = entry as FloatPanelEntry;
+  const stepKeySet = new Set(stepKeys);
   return series.map((s, i) => {
     const v = values[s.key]?.[hoveredIdx];
+    const formatted =
+      v !== null && v !== undefined
+        ? stepKeySet.has(s.key)
+          ? String(v)
+          : v.toFixed(options.floatPrecision)
+        : "\u2014";
     return {
       label: s.label,
-      value:
-        v !== null && v !== undefined
-          ? v.toFixed(options.floatPrecision)
-          : "\u2014",
+      value: formatted,
       active,
       swatch: {
         color: CHART_COLORS[i % CHART_COLORS.length],
