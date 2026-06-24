@@ -44,7 +44,7 @@ def _error_entry(event_type: EventType, exc: Exception) -> AttributeEventLog:
     )
 
 
-def _log_event(
+def log_event(
     event_type: EventType,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator: appends an ok/error AttributeEventLog to the named attribute.
@@ -83,7 +83,7 @@ def _log_event(
     return decorator
 
 
-def _wrap_listen(
+def wrap_listen(
     callback: Callable[[object], None],
     attribute: "Attribute",
     *,
@@ -92,19 +92,22 @@ def _wrap_listen(
 ) -> Callable[[object], None]:
     """Wrap a push-listener callback to log a listen event on the attribute.
 
-    Push reads are best-effort: a decode failure is skipped silently.
+    The callback is responsible for skipping best-effort decode misses; any
+    exception it raises is a genuine failure — logged as an error and re-raised.
     """
 
     @wraps(callback)
     def wrapper(v: object) -> None:
         try:
             callback(v)
-        except Exception:  # noqa: BLE001 - best-effort push, decode failure is skipped
-            return
-        attribute.append_log(_ok_entry(EventType.LISTEN))
-        if on_data is not None:
-            on_data()
-        if on_append is not None:
-            on_append()
+            attribute.append_log(_ok_entry(EventType.LISTEN))
+            if on_data is not None:
+                on_data()
+        except Exception as e:
+            attribute.append_log(_error_entry(EventType.LISTEN, e))
+            raise
+        finally:
+            if on_append is not None:
+                on_append()
 
     return wrapper

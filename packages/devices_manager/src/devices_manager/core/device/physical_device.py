@@ -20,7 +20,7 @@ from .connection_status import (
     compute_connection_status,
 )
 from .device import DEFAULT_CONFIRM_TIMEOUT, CoreDevice
-from .event_log import EventType, _log_event, _wrap_listen
+from .event_log import EventType, log_event, wrap_listen
 from .watchdog import SilenceWatchdog
 
 if TYPE_CHECKING:
@@ -164,7 +164,10 @@ class PhysicalDevice(CoreDevice):
         self, codec: FnCodec, attribute: Attribute
     ) -> Callable[[object], None]:
         def on_message(v: object) -> None:
-            decoded = codec.decode(v)
+            try:
+                decoded = codec.decode(v)
+            except Exception:  # noqa: BLE001 - best-effort: frame may not carry this attr
+                return
             logger.debug(
                 "Attribute %s of device %s updated to value %s by listener",
                 attribute.name,
@@ -173,7 +176,7 @@ class PhysicalDevice(CoreDevice):
             )
             self._update_attribute(attribute, decoded)
 
-        return _wrap_listen(
+        return wrap_listen(
             on_message,
             attribute,
             on_append=self._on_log_append,
@@ -231,7 +234,7 @@ class PhysicalDevice(CoreDevice):
                 )
             delay = min(delay * 4, 4.0)
 
-    @_log_event(EventType.READ)
+    @log_event(EventType.READ)
     async def read_attribute_value(
         self,
         attribute_name: str,
@@ -347,7 +350,7 @@ class PhysicalDevice(CoreDevice):
                 with contextlib.suppress(asyncio.CancelledError):
                     await poll_task
 
-    @_log_event(EventType.WRITE)
+    @log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
         attribute_name: str,

@@ -419,7 +419,8 @@ class TestDevicesListeners:
 
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["battery"].current_value is None
-        assert len(device.attributes["battery"].logs.listen) == 0
+        # A decode miss is a non-error: the frame proves the device is alive.
+        assert all(e.status == "ok" for e in device.attributes["battery"].logs.listen)
         assert (
             device.attributes[CONNECTION_STATUS_ATTR].current_value
             == ConnectionStatus.OK
