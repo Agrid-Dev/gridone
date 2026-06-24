@@ -157,14 +157,11 @@ class PhysicalDevice(CoreDevice):
                 render_struct(attribute_driver.read, context), context
             )
             await self.transport.register_listener(
-                address.topic,
-                self._make_on_message(
-                    codec, attribute, swallow=getattr(address, "optional", False)
-                ),
+                address.topic, self._make_on_message(codec, attribute)
             )
 
     def _make_on_message(
-        self, codec: FnCodec, attribute: Attribute, *, swallow: bool = False
+        self, codec: FnCodec, attribute: Attribute
     ) -> Callable[[object], None]:
         def on_message(v: object) -> None:
             decoded = codec.decode(v)
@@ -181,7 +178,6 @@ class PhysicalDevice(CoreDevice):
             attribute,
             on_append=self._on_log_append,
             on_data=self._on_data_received,
-            swallow=swallow,
         )
 
     async def start_sync(self) -> None:

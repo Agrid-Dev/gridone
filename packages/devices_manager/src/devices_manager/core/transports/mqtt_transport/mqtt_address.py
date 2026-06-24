@@ -18,7 +18,6 @@ class MqttAddress(BaseModel, PushTransportAddress):
     topic: str
     request: MqttRequest | None = None
     message: str | dict | None = None
-    optional: bool = False  # topic may not carry this attr everytime
 
     @cached_property
     def id(self) -> str:

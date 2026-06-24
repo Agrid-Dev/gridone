@@ -374,10 +374,10 @@ class TestDevicesListeners:
         assert device.attributes["humidity"].current_value == 65.0
 
     @pytest.mark.asyncio
-    async def test_optional_attribute_absent_does_not_degrade(
+    async def test_partial_and_irrelevant_frames_do_not_degrade(
         self, mock_push_transport_client
     ):
-        """A partial frame missing an optional attribute must not degrade status."""
+        """Best-effort push: frames missing attributes (or carrying none) stay ok."""
         driver = Driver(
             metadata=DriverMetadata(id="partial_push"),
             env={},
@@ -395,7 +395,7 @@ class TestDevicesListeners:
                 "battery": AttributeDriver(
                     name="battery",
                     data_type=DataType.FLOAT,
-                    read={"topic": "/dev/up", "optional": True},
+                    read={"topic": "/dev/up"},
                     write=None,
                     codecs=[CodecSpec(name="json_pointer", argument="/battery")],
                 ),
@@ -408,9 +408,13 @@ class TestDevicesListeners:
         )
         await device.init_listeners()
 
-        # Frame carries temperature but not battery.
+        # Partial frame: carries temperature but not battery.
         await mock_push_transport_client.simulate_event(
             "/dev/up", {"temperature": 22.5}
+        )
+        # Irrelevant frame: a downlink ACK carrying none of our attributes.
+        await mock_push_transport_client.simulate_event(
+            "/dev/up", {"ans": [{"id": 1, "result": 0}]}
         )
 
         assert device.attributes["temperature"].current_value == 22.5
@@ -420,6 +424,11 @@ class TestDevicesListeners:
             device.attributes[CONNECTION_STATUS_ATTR].current_value
             == ConnectionStatus.OK
         )
+
+        # A later frame carrying the previously-absent attribute updates it.
+        await mock_push_transport_client.simulate_event("/dev/up", {"battery": 87.0})
+        assert device.attributes["battery"].current_value == 87.0
+        assert device.attributes["temperature"].current_value == 22.5
 
     @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_pull(

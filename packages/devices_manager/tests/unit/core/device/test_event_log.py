@@ -107,21 +107,19 @@ class TestWrapListen:
         assert attr.logs.listen[0].status == "ok"
         assert attr.logs.listen[0].event_type == EventType.LISTEN
 
-    def test_exception_appends_error_entry_and_reraises(self) -> None:
+    def test_decode_failure_is_swallowed_without_log_or_reraise(self) -> None:
         attr = _make_attribute()
 
         def bad_callback(_: object) -> None:
             raise RuntimeError("listener error")  # noqa: TRY003
 
-        wrapped = _wrap_listen(bad_callback, attr)
+        on_data = MagicMock()
+        wrapped = _wrap_listen(bad_callback, attr, on_data=on_data)
 
-        with pytest.raises(RuntimeError, match="listener error"):
-            wrapped("payload")
+        wrapped("payload")  # does not raise
 
-        assert len(attr.logs.listen) == 1
-        assert attr.logs.listen[0].status == "error"
-        assert attr.logs.listen[0].message is not None
-        assert "listener error" in attr.logs.listen[0].message
+        assert len(attr.logs.listen) == 0
+        on_data.assert_not_called()
 
     def test_ok_entry_has_no_message(self) -> None:
         attr = _make_attribute()
@@ -131,25 +129,11 @@ class TestWrapListen:
 
         assert attr.logs.listen[0].message is None
 
-    def test_swallow_skips_error_without_log_or_reraise(self) -> None:
-        attr = _make_attribute()
-
-        def bad_callback(_: object) -> None:
-            raise RuntimeError("listener error")  # noqa: TRY003
-
-        on_data = MagicMock()
-        wrapped = _wrap_listen(bad_callback, attr, on_data=on_data, swallow=True)
-
-        wrapped("payload")  # does not raise
-
-        assert len(attr.logs.listen) == 0
-        on_data.assert_not_called()
-
-    def test_swallow_does_not_affect_successful_listen(self) -> None:
+    def test_successful_listen_logs_ok_and_feeds_on_data(self) -> None:
         attr = _make_attribute()
         on_data = MagicMock()
 
-        wrapped = _wrap_listen(lambda _: None, attr, on_data=on_data, swallow=True)
+        wrapped = _wrap_listen(lambda _: None, attr, on_data=on_data)
         wrapped("payload")
 
         assert len(attr.logs.listen) == 1

@@ -107,16 +107,6 @@ read:
       input: request
 ```
 
-**Read — optional**: when several attributes share one topic, a device may publish frames that carry only a subset of them. Set `optional: true` on the read address so a frame that does not carry this attribute is skipped silently instead of being treated as a read error. Defaults to `false`.
-
-```yaml
-read:
-  topic: milesight/${device_eui}/up
-  optional: true
-```
-
-When `optional` is `false` (default), a frame missing this attribute's field is a read error and degrades the device's connection status, so a mistyped codec path still surfaces as an error. `optional` only affects **MQTT** push (listener) reads; it is ignored on an explicit read.
-
 **Write**: publish `message` to `topic`.
 
 ```yaml
