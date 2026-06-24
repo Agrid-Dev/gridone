@@ -99,6 +99,7 @@ class MockTransportClient(PullTransportClient[MockTransportAddress]):
 
 class MockPushTransportAddress(PushTransportAddress, BaseModel):
     topic: str
+    optional: bool = False
 
     @property
     def id(self) -> str:

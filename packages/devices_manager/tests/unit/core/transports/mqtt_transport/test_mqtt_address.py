@@ -71,6 +71,14 @@ class TestMqttAddressFromDict:
         assert address.topic == "updData/275"
         assert address.request is not None
 
+    def test_optional_defaults_false(self) -> None:
+        address = MqttAddress.from_dict({"topic": "devices/123/up"})
+        assert address.optional is False
+
+    def test_optional_parsed_when_set(self) -> None:
+        address = MqttAddress.from_dict({"topic": "devices/123/up", "optional": True})
+        assert address.optional is True
+
 
 class TestMqttAddressFromRaw:
     def test_invalid_type_raises(self) -> None:
