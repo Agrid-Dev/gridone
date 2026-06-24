@@ -1,3 +1,9 @@
+## v0.112.0 (2026-06-24)
+
+### Feat
+
+- connection status not degraded on partial downlinks for push devices (#381)
+
 ## v0.111.0 (2026-06-24)
 
 ### Feat
