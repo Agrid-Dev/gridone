@@ -1,3 +1,13 @@
+## v0.111.0 (2026-06-24)
+
+### Feat
+
+- filter devices by driver/transport; list a driver's devices (AGR-742)
+
+### Refactor
+
+- **ui**: drop the Card wrapper around the driver's devices list
+
 ## v0.110.0 (2026-06-24)
 
 ### Feat
