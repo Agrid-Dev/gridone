@@ -158,3 +158,71 @@ async def test_write_holding_register_multi_mismatched_length(
     )
     with pytest.raises(ValueError, match="Length of provided values"):
         await transport.write(address, [1])  # ty: ignore[invalid-argument-type]
+
+
+_ASYNC_CLIENT = (
+    "devices_manager.core.transports.modbus_tcp_transport.client.AsyncModbusTcpClient"
+)
+
+
+class _FakeModbusClient:
+    """Stands in for AsyncModbusTcpClient, tracking instantiation and close."""
+
+    instances: list["_FakeModbusClient"] = []  # noqa: RUF012
+
+    def __init__(self, host: str, port: int) -> None:
+        self.host, self.port = host, port
+        self.connected = False
+        self.closed = False
+        _FakeModbusClient.instances.append(self)
+
+    async def connect(self) -> None:
+        self.connected = True
+
+    def close(self) -> None:
+        self.closed = True
+        self.connected = False
+
+
+@pytest.fixture
+def fake_modbus(monkeypatch: pytest.MonkeyPatch) -> type[_FakeModbusClient]:
+    _FakeModbusClient.instances = []
+    monkeypatch.setattr(_ASYNC_CLIENT, _FakeModbusClient)
+    return _FakeModbusClient
+
+
+def _fresh() -> ModbusTCPTransportClient:
+    return ModbusTCPTransportClient(
+        TransportMetadata(id="t", name="t"),
+        ModbusTCPTransportConfig(host="localhost", port=502),
+    )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_connect_creates_single_client(
+    fake_modbus: type[_FakeModbusClient],
+) -> None:
+    """Concurrent reads on one transport race into connect(); only one client
+    must be built. Previously each call spawned (and leaked) its own socket,
+    exhausting the WAGO's Modbus TCP connection pool."""
+    transport = _fresh()
+
+    await asyncio.gather(transport.connect(), transport.connect())
+
+    assert len(fake_modbus.instances) == 1
+    assert transport.connection_state.is_connected
+
+
+@pytest.mark.asyncio
+async def test_reconnect_closes_previous_client(
+    fake_modbus: type[_FakeModbusClient],
+) -> None:
+    """When the socket dropped, reconnect must close the old client, not leak it."""
+    transport = _fresh()
+    await transport.connect()
+    fake_modbus.instances[0].connected = False  # WAGO closed the idle socket
+
+    await transport.connect()
+
+    assert len(fake_modbus.instances) == 2
+    assert fake_modbus.instances[0].closed is True

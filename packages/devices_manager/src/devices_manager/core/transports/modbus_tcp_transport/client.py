@@ -27,10 +27,21 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
-        self._client = AsyncModbusTcpClient(
-            host=self.config.host, port=self.config.port
-        )
         async with self._connection_lock:
+            client = getattr(self, "_client", None)
+            # Concurrent reads on one transport all hit @connected / the reconnect
+            # check at once; bail if another caller already (re)connected so we
+            # don't spawn — and leak — a client per attribute.
+            if client is not None and client.connected:
+                return
+            # Never orphan the previous socket: WAGO PLCs cap concurrent Modbus
+            # TCP connections, and leaked clients exhaust that pool ("Not
+            # connected" fleet-wide).
+            if client is not None:
+                client.close()
+            self._client = AsyncModbusTcpClient(
+                host=self.config.host, port=self.config.port
+            )
             await self._client.connect()
             await super().connect()
 
