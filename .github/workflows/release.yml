@@ -50,8 +50,13 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Registry-backed build cache instead of type=gha. The GHA cache has a
+          # hard 10 GB/repo cap; a multi-arch mode=max build pushes a large cache
+          # every release and LRU-evicts the layers the next release needs, so
+          # builds randomly fall back to cold from-scratch rebuilds. A dedicated
+          # :buildcache image tag has no such cap and is not evicted.
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache,mode=max
 
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
