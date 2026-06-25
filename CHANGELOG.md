@@ -1,3 +1,9 @@
+## v0.113.2 (2026-06-25)
+
+### Fix
+
+- **devices_manager**: tokenize device-name search on letter/digit boundaries
+
 ## v0.113.1 (2026-06-25)
 
 ### Fix
