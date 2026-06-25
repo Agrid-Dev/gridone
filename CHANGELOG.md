@@ -1,3 +1,9 @@
+## v0.113.1 (2026-06-25)
+
+### Fix
+
+- **devices_manager**: bind a single BACnet application per transport
+
 ## v0.113.0 (2026-06-25)
 
 ### Feat
