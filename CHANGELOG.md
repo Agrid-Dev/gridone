@@ -1,3 +1,9 @@
+## v0.113.0 (2026-06-25)
+
+### Feat
+
+- **devices_manager**: add bit codec for dry-contact bit images
+
 ## v0.112.0 (2026-06-24)
 
 ### Feat
