@@ -27,6 +27,7 @@ A **non-reversible** codec only implements decode. It is skipped on write (falls
 | `scale` | yes |
 | `offset` | yes |
 | `bool_format` | yes |
+| `bit` | no |
 | `byte_convert` | yes |
 | `base64` | yes |
 | `byte_frame` | yes |
@@ -162,6 +163,33 @@ codecs:
 |---|---|---|
 | `0` | `false` | `0` |
 | `1` | `true` | `1` |
+
+---
+
+### `bit`
+
+Decodes a single bit from a 16-bit register into a boolean. Used for **dry-contact bit images**, where many booleans are packed into one holding register. The argument is the 0-based bit position (`0` = least significant bit, `15` = most significant).
+
+| | |
+|---|---|
+| Argument | bit index `0`–`15` |
+| Input | `int` (16-bit register value) |
+| Output | `bool` |
+| Reversible | no |
+
+```yaml
+codecs:
+  - bit: 2
+```
+
+**Decode examples:**
+
+| Raw register | Argument | Output |
+|---|---|---|
+| `0b0000_0000_0000_0101` | `0` | `true` |
+| `0b0000_0000_0000_0101` | `1` | `false` |
+| `0b0000_0000_0000_0101` | `2` | `true` |
+| `0b0000_0001_0000_0000` | `8` | `true` |
 
 ---
 

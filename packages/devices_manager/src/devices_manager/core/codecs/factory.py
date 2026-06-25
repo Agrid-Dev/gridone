@@ -7,6 +7,7 @@ from models.errors import InvalidError
 
 from .fn_codec import FnCodec
 from .registry.base64_codec import base64_codec
+from .registry.bit_codec import bit_codec
 from .registry.bool_format_codec import bool_format_codec
 from .registry.byte_convert_codec import byte_convert_codec
 from .registry.byte_frame_codec import byte_frame_codec
@@ -37,6 +38,7 @@ codec_entries: dict[str, CodecEntry] = {
     "json_pointer": CodecEntry(builder=json_pointer_codec, arg_type=str),
     "json_path": CodecEntry(builder=json_path_codec, arg_type=str),
     "bool_format": CodecEntry(builder=bool_format_codec, arg_type=str),
+    "bit": CodecEntry(builder=bit_codec, arg_type=int),
     "byte_convert": CodecEntry(builder=byte_convert_codec, arg_type=str),
     "base64": CodecEntry(builder=base64_codec, arg_type=str),
     "byte_frame": CodecEntry(builder=byte_frame_codec, arg_type=str),
