@@ -23,6 +23,21 @@ class TestFuzzyMatch:
             ("", "chambre 12", True),
             # whitespace-only query returns True
             ("   ", "chambre 12", True),
+            # --- hyphenated / concatenated names (leak detectors) ---
+            # a substring of a concatenated name matches (was: matched nothing)
+            ("fuite", "EM300-Fuite-Colonne6", True),
+            ("colonne", "EM300-Fuite-Colonne6", True),
+            ("colon", "EM300-Fuite-Colonne6", True),  # partial prefix
+            # full hyphenated query targets exactly its number (was: matched all)
+            ("EM300-Fuite-Colonne-6", "EM300-Fuite-Colonne6", True),
+            ("EM300-Fuite-Colonne-6", "EM300-Fuite-Colonne16", False),
+            ("EM300-Fuite-Colonne-6", "EM300-Fuite-Colonne1", False),
+            # numeric token glued to letters is still whole-number
+            ("colonne 6", "EM300-Fuite-Colonne16", False),
+            ("colonne 16", "EM300-Fuite-Colonne16", True),
+            # accented names tokenize without dropping the accent
+            ("étage 5", "AUT_N6 — Chambres étage 5", True),
+            ("étage 5", "AUT_N6 — Chambres étage 7", False),
         ],
     )
     def test_fuzzy_match(self, query: str, name: str, expected: bool) -> None:
