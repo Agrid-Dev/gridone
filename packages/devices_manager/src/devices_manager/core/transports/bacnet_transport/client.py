@@ -73,10 +73,18 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
-        self._application = make_local_application(self.config)
-        if self.config.bbmd_address:
-            self._register_foreign_device()
         async with self._connection_lock:
+            # Concurrent first-polls each hit @connected and race into connect();
+            # bail if another caller already connected so we bind exactly one
+            # Application (otherwise N stacks bind :47808 and replies scatter).
+            if self.connection_state.is_connected:
+                return
+            # Never leak a previously bound socket on reconnect.
+            if getattr(self, "_application", None):
+                self._application.close()
+            self._application = make_local_application(self.config)
+            if self.config.bbmd_address:
+                self._register_foreign_device()
             self._known_devices = await self._discover_devices()
             await super().connect()
 
