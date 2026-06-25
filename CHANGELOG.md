@@ -1,3 +1,9 @@
+## v0.113.3 (2026-06-25)
+
+### Fix
+
+- **devices_manager**: close stale Modbus client on reconnect (no socket leak)
+
 ## v0.113.2 (2026-06-25)
 
 ### Fix
