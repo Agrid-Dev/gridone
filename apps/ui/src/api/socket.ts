@@ -55,6 +55,10 @@ export function buildWebSocketUrl(): string {
 /**
  * Applies a partial device_update WS event to a cached Device.
  * `attribute` must already be camelCase to match the HTTP-fetched cache keys.
+ *
+ * A device_update is only emitted when the value changes, so we stamp both
+ * `lastUpdated` and `lastChanged` with the message timestamp (falling back to
+ * receive time when the message carries none).
  */
 export function applyDeviceUpdate(
   device: Device,
@@ -67,6 +71,8 @@ export function applyDeviceUpdate(
     return device;
   }
 
+  const changedAt = timestamp ?? new Date().toISOString();
+
   return {
     ...device,
     attributes: {
@@ -74,7 +80,8 @@ export function applyDeviceUpdate(
       [attribute]: {
         ...existingAttribute,
         currentValue: value,
-        lastUpdated: timestamp ?? new Date().toISOString(),
+        lastUpdated: changedAt,
+        lastChanged: changedAt,
       },
     },
   };
