@@ -72,14 +72,13 @@
       "faults": "Faults",
       "internal": "Internal"
     },
-    "attributeTable": {
-      "name": "Name",
+    "attributeDetails": {
       "type": "Type",
-      "mode": "Mode",
-      "value": "Value",
-      "updated": "Updated",
-      "readOnly": "R",
-      "readWrite": "R-W"
+      "access": "Access",
+      "readOnly": "Read-only",
+      "readWrite": "Read-write",
+      "synced": "Synced",
+      "changed": "Changed"
     },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",

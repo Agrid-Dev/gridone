@@ -72,14 +72,13 @@
       "faults": "Défauts",
       "internal": "Interne"
     },
-    "attributeTable": {
-      "name": "Nom",
+    "attributeDetails": {
       "type": "Type",
-      "mode": "Mode",
-      "value": "Valeur",
-      "updated": "Mis à jour",
-      "readOnly": "R",
-      "readWrite": "R-W"
+      "access": "Accès",
+      "readOnly": "Lecture seule",
+      "readWrite": "Lecture-écriture",
+      "synced": "Synchronisé",
+      "changed": "Modifié"
     },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",

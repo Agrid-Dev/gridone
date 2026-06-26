@@ -1,16 +1,5 @@
 import { useTranslation } from "react-i18next";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import { SeverityChip } from "@/components/SeverityChip";
 import {
@@ -20,7 +9,7 @@ import {
   type DeviceAttribute,
 } from "@/api/devices";
 import { getAllFaultAttributes, isFaultAttribute } from "@/lib/faults";
-import { cn, formatAttributeValue, relativeLastChanged } from "@/lib/utils";
+import { compactTimeAgo, formatAttributeValue } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 
 /** Attribute name carrying the device connection status (internal kind). */
@@ -47,9 +36,10 @@ function attributesForKind(
 }
 
 /**
- * Read-only Overview body: device attributes grouped into up to three panes
- * (Standard · Faults · Internal). Each pane is a card with a read-only table;
- * writes happen through the command form, not here. Empty panes are not shown.
+ * Read-only Overview body: device attributes grouped into up to three sections
+ * (Standard · Faults · Internal). Each row is a compact name + value; the type,
+ * access mode and timestamps live in an on-hover details tooltip. Writes happen
+ * through the command form, not here. Empty sections are not shown.
  */
 export function DeviceAttributePanes({ device }: { device: Device }) {
   const { t } = useTranslation("devices");
@@ -60,45 +50,22 @@ export function DeviceAttributePanes({ device }: { device: Device }) {
   })).filter((pane) => pane.rows.length > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {panes.map((pane) => (
-        <Card key={pane.kind}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">{t(pane.titleKey)}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">
-                    {t("deviceDetails.attributeTable.name")}
-                  </TableHead>
-                  <TableHead>
-                    {t("deviceDetails.attributeTable.type")}
-                  </TableHead>
-                  <TableHead>
-                    {t("deviceDetails.attributeTable.mode")}
-                  </TableHead>
-                  <TableHead className="text-right">
-                    {t("deviceDetails.attributeTable.value")}
-                  </TableHead>
-                  <TableHead className="pr-6 text-right">
-                    {t("deviceDetails.attributeTable.updated")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pane.rows.map((attribute) => (
-                  <AttributeRow
-                    key={attribute.name}
-                    device={device}
-                    attribute={attribute}
-                  />
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <section key={pane.kind} className="space-y-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t(pane.titleKey)}
+          </h3>
+          <div>
+            {pane.rows.map((attribute) => (
+              <AttributeRow
+                key={attribute.name}
+                device={device}
+                attribute={attribute}
+              />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );
@@ -112,45 +79,87 @@ function AttributeRow({
   attribute: DeviceAttribute;
 }) {
   const { t } = useTranslation("devices");
-  const { t: tCommon } = useTranslation("common");
 
-  const isWritable = attribute.readWriteModes.includes("write");
   const fault = isFaultAttribute(attribute) ? attribute : null;
   const isFaulty = fault?.isFaulty ?? false;
+  const isWritable = attribute.readWriteModes.includes("write");
+  const changedAgo = compactTimeAgo(attribute.lastChanged);
+  const syncedAgo = compactTimeAgo(attribute.lastUpdated);
 
   return (
-    <TableRow
-      data-faulty={isFaulty || undefined}
-      className={cn(isFaulty && "bg-destructive/5")}
-    >
-      <TableCell className="pl-6 font-medium">
-        <div className="flex items-center gap-2">
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          data-attribute={attribute.name}
+          data-faulty={isFaulty || undefined}
+          className="flex w-fit max-w-full cursor-help items-center gap-2 rounded py-1 text-sm"
+        >
           {isFaulty && fault && <SeverityChip severity={fault.severity} />}
-          <span>{toLabel(attribute.name)}</span>
+          <span className="text-muted-foreground">
+            {toLabel(attribute.name)}
+          </span>
+          <span className="font-mono font-medium tabular-nums text-foreground">
+            {attribute.name === CONNECTION_STATUS_ATTR ? (
+              <ConnectionStatusBadge status={getConnectionStatus(device)} />
+            ) : (
+              formatAttributeValue(attribute.currentValue)
+            )}
+          </span>
+          {changedAgo && (
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span
+                aria-hidden
+                className="h-1 w-1 rounded-full bg-muted-foreground/60"
+              />
+              {changedAgo}
+            </span>
+          )}
         </div>
-      </TableCell>
-      <TableCell className="font-mono text-xs text-muted-foreground">
-        {attribute.dataType}
-      </TableCell>
-      <TableCell>
-        <span className="rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground">
-          {isWritable
-            ? t("deviceDetails.attributeTable.readWrite")
-            : t("deviceDetails.attributeTable.readOnly")}
-        </span>
-      </TableCell>
-      <TableCell className="text-right font-mono">
-        {attribute.name === CONNECTION_STATUS_ATTR ? (
-          <ConnectionStatusBadge status={getConnectionStatus(device)} />
-        ) : (
-          formatAttributeValue(attribute.currentValue)
-        )}
-      </TableCell>
-      <TableCell className="pr-6 text-right text-xs text-muted-foreground">
-        {attribute.lastUpdated
-          ? relativeLastChanged(attribute.lastUpdated, tCommon)
-          : "—"}
-      </TableCell>
-    </TableRow>
+      </TooltipTrigger>
+      <TooltipContent className="space-y-1">
+        <DetailRow
+          label={t("deviceDetails.attributeDetails.type")}
+          value={attribute.dataType}
+          mono
+        />
+        <DetailRow
+          label={t("deviceDetails.attributeDetails.access")}
+          value={
+            isWritable
+              ? t("deviceDetails.attributeDetails.readWrite")
+              : t("deviceDetails.attributeDetails.readOnly")
+          }
+        />
+        <DetailRow
+          label={t("deviceDetails.attributeDetails.synced")}
+          value={syncedAgo || "—"}
+          mono
+        />
+        <DetailRow
+          label={t("deviceDetails.attributeDetails.changed")}
+          value={changedAgo || "—"}
+          mono
+        />
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex justify-between gap-6 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={mono ? "font-mono tabular-nums" : undefined}>
+        {value}
+      </span>
+    </div>
   );
 }

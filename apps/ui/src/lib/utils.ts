@@ -37,6 +37,25 @@ export function getLastUpdateTime(
 
 import type { TFunction } from "i18next";
 
+/**
+ * Compact, language-neutral relative time for dense indicators (e.g. "2m",
+ * "3h", "5d", "now"). Returns "" when there is no timestamp, so callers can
+ * skip rendering. For prose use {@link relativeLastChanged} instead.
+ */
+export function compactTimeAgo(iso: string | null): string {
+  if (!iso) return "";
+  const timestamp = new Date(iso).getTime();
+  if (Number.isNaN(timestamp)) return "";
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return "now";
+  const minutes = Math.round(diffMs / 60000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 export function relativeLastChanged(
   lastChanged: string | null,
   t: TFunction<"common">,
