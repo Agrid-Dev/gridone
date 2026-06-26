@@ -18,7 +18,7 @@ import {
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "deviceDetails.panes.standard": "Standard",
+    "deviceDetails.panes.standard": "Attributes",
     "deviceDetails.panes.faults": "Faults",
     "deviceDetails.panes.internal": "Internal",
     "deviceDetails.attributeDetails.type": "Type",
@@ -99,7 +99,7 @@ afterEach(() => {
 });
 
 describe("DeviceAttributePanes", () => {
-  it("renders only non-empty panes, ordered Standard · Faults · Internal", () => {
+  it("renders only non-empty panes, ordered Attributes · Faults · Internal", () => {
     renderPanes(
       makeDevice({
         temperature: attr({ name: "temperature" }),
@@ -117,9 +117,9 @@ describe("DeviceAttributePanes", () => {
       }),
     );
 
-    const titles = screen.getAllByText(/^(Standard|Faults|Internal)$/);
+    const titles = screen.getAllByText(/^(Attributes|Faults|Internal)$/);
     expect(titles.map((el) => el.textContent)).toEqual([
-      "Standard",
+      "Attributes",
       "Faults",
       "Internal",
     ]);
@@ -128,7 +128,7 @@ describe("DeviceAttributePanes", () => {
   it("hides a pane with no rows", () => {
     renderPanes(makeDevice({ temperature: attr({ name: "temperature" }) }));
 
-    expect(screen.getByText("Standard")).toBeInTheDocument();
+    expect(screen.getByText("Attributes")).toBeInTheDocument();
     expect(screen.queryByText("Faults")).not.toBeInTheDocument();
     expect(screen.queryByText("Internal")).not.toBeInTheDocument();
   });
@@ -141,7 +141,7 @@ describe("DeviceAttributePanes", () => {
     );
 
     const row = rowFor("Temperature");
-    expect(within(row).getByText("21.5")).toBeInTheDocument();
+    expect(within(row).getByText("21.50")).toBeInTheDocument();
     expect(within(row).getByText("1h")).toBeInTheDocument(); // last changed
 
     // Type, access mode and the sync time are details — not first-class on the row.
@@ -166,11 +166,13 @@ describe("DeviceAttributePanes", () => {
     expect(within(row).getByText("alert")).toBeInTheDocument();
   });
 
-  it("renders the connection status badge in the Internal pane", () => {
+  it("renders connection status as a green value when OK", () => {
+    // The map key is camelCased by the API client, but `name` keeps the
+    // backend's snake_case value — the row must still recognise it.
     renderPanes(
       makeDevice({
         connectionStatus: attr({
-          name: "connectionStatus",
+          name: "connection_status",
           kind: "internal",
           dataType: "str",
           currentValue: "ok",
@@ -179,8 +181,7 @@ describe("DeviceAttributePanes", () => {
     );
 
     expect(screen.getByText("Internal")).toBeInTheDocument();
-    expect(
-      within(rowFor("Connection Status")).getByText("Connected"),
-    ).toBeInTheDocument();
+    const value = within(rowFor("Connection Status")).getByText("Connected");
+    expect(value).toHaveClass("text-green-600");
   });
 });

@@ -1,6 +1,12 @@
 import { useTranslation } from "react-i18next";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
-import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import {
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
+import { AttributeValue } from "@/components/AttributeValue";
+import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
 import { SeverityChip } from "@/components/SeverityChip";
 import {
   getConnectionStatus,
@@ -9,10 +15,12 @@ import {
   type DeviceAttribute,
 } from "@/api/devices";
 import { getAllFaultAttributes, isFaultAttribute } from "@/lib/faults";
-import { compactTimeAgo, formatAttributeValue } from "@/lib/utils";
+import { compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 
-/** Attribute name carrying the device connection status (internal kind). */
+/** Map key (camelCased by the API client) of the connection-status attribute.
+ *  We identify it by object identity against `device.attributes`, not by
+ *  `attribute.name` — that field keeps the backend's snake_case value. */
 const CONNECTION_STATUS_ATTR = "connectionStatus";
 
 /** The attribute kinds rendered as panes, in display order. A pane with no
@@ -37,9 +45,10 @@ function attributesForKind(
 
 /**
  * Read-only Overview body: device attributes grouped into up to three sections
- * (Standard · Faults · Internal). Each row is a compact name + value; the type,
- * access mode and timestamps live in an on-hover details tooltip. Writes happen
- * through the command form, not here. Empty sections are not shown.
+ * (Standard · Faults · Internal), laid out in a multi-column list. Each row is a
+ * compact name + value; type, access mode and timestamps live in an on-hover
+ * details tooltip. Writes happen through the command form, not here. Empty
+ * sections are not shown.
  */
 export function DeviceAttributePanes({ device }: { device: Device }) {
   const { t } = useTranslation("devices");
@@ -53,10 +62,10 @@ export function DeviceAttributePanes({ device }: { device: Device }) {
     <div className="space-y-8">
       {panes.map((pane) => (
         <section key={pane.kind} className="space-y-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t(pane.titleKey)}
           </h3>
-          <div>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 lg:grid-cols-2">
             {pane.rows.map((attribute) => (
               <AttributeRow
                 key={attribute.name}
@@ -82,66 +91,82 @@ function AttributeRow({
 
   const fault = isFaultAttribute(attribute) ? attribute : null;
   const isFaulty = fault?.isFaulty ?? false;
+  const isConnectionStatus =
+    device.attributes[CONNECTION_STATUS_ATTR] === attribute;
   const isWritable = attribute.readWriteModes.includes("write");
   const changedAgo = compactTimeAgo(attribute.lastChanged);
   const syncedAgo = compactTimeAgo(attribute.lastUpdated);
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div
-          data-attribute={attribute.name}
-          data-faulty={isFaulty || undefined}
-          className="flex w-fit max-w-full cursor-help items-center gap-2 rounded py-1 text-sm"
-        >
-          {isFaulty && fault && <SeverityChip severity={fault.severity} />}
-          <span className="text-muted-foreground">
-            {toLabel(attribute.name)}
-          </span>
-          <span className="font-mono font-medium tabular-nums text-foreground">
-            {attribute.name === CONNECTION_STATUS_ATTR ? (
-              <ConnectionStatusBadge status={getConnectionStatus(device)} />
-            ) : (
-              formatAttributeValue(attribute.currentValue)
-            )}
-          </span>
-          {changedAgo && (
-            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <span
-                aria-hidden
-                className="h-1 w-1 rounded-full bg-muted-foreground/60"
-              />
-              {changedAgo}
+    <div className="rounded px-2 py-1 transition-colors hover:bg-muted">
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <div
+            data-attribute={attribute.name}
+            data-faulty={isFaulty || undefined}
+            className="flex w-fit min-w-0 max-w-full cursor-help items-center gap-2 text-sm"
+          >
+            {isFaulty && fault && <SeverityChip severity={fault.severity} />}
+            <span className="min-w-0 truncate text-muted-foreground">
+              {toLabel(attribute.name)}
             </span>
-          )}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent className="space-y-1">
-        <DetailRow
-          label={t("deviceDetails.attributeDetails.type")}
-          value={attribute.dataType}
-          mono
-        />
-        <DetailRow
-          label={t("deviceDetails.attributeDetails.access")}
-          value={
-            isWritable
-              ? t("deviceDetails.attributeDetails.readWrite")
-              : t("deviceDetails.attributeDetails.readOnly")
-          }
-        />
-        <DetailRow
-          label={t("deviceDetails.attributeDetails.synced")}
-          value={syncedAgo || "—"}
-          mono
-        />
-        <DetailRow
-          label={t("deviceDetails.attributeDetails.changed")}
-          value={changedAgo || "—"}
-          mono
-        />
-      </TooltipContent>
-    </Tooltip>
+            <span className="shrink-0 font-medium text-foreground">
+              {isConnectionStatus ? (
+                <ConnectionStatusValue status={getConnectionStatus(device)} />
+              ) : (
+                <AttributeValue
+                  attribute={attribute}
+                  deviceType={device.type}
+                />
+              )}
+            </span>
+            {changedAgo && (
+              <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+                <span
+                  aria-hidden
+                  className="h-1 w-1 rounded-full bg-muted-foreground/60"
+                />
+                {changedAgo}
+              </span>
+            )}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side="right"
+          align="center"
+          sideOffset={8}
+          className="space-y-1"
+        >
+          <p className="font-medium text-foreground">
+            {toLabel(attribute.name)}
+          </p>
+          <DetailRow
+            label={t("deviceDetails.attributeDetails.type")}
+            value={attribute.dataType}
+            mono
+          />
+          <DetailRow
+            label={t("deviceDetails.attributeDetails.access")}
+            value={
+              isWritable
+                ? t("deviceDetails.attributeDetails.readWrite")
+                : t("deviceDetails.attributeDetails.readOnly")
+            }
+          />
+          <DetailRow
+            label={t("deviceDetails.attributeDetails.synced")}
+            value={syncedAgo || "—"}
+            mono
+          />
+          <DetailRow
+            label={t("deviceDetails.attributeDetails.changed")}
+            value={changedAgo || "—"}
+            mono
+          />
+          <TooltipArrow className="fill-popover" />
+        </TooltipContent>
+      </Tooltip>
+    </div>
   );
 }
 

@@ -45,6 +45,30 @@ const STATUS_CONFIG: Record<
   },
 };
 
+/** Severity-style text colour per status, matching fault value colours. */
+const STATUS_TEXT_COLOR: Record<ConnectionStatus, string> = {
+  [ConnectionStatus.Idle]: "text-muted-foreground",
+  [ConnectionStatus.Ok]: "text-green-600",
+  [ConnectionStatus.Degraded]: "text-amber-600",
+  [ConnectionStatus.Error]: "text-red-600",
+};
+
+/** Connection status as a plain severity-coloured label (no badge chrome) —
+ *  used where the value sits inline in a list, like the attribute panes. */
+export function ConnectionStatusValue({
+  status,
+}: {
+  status: ConnectionStatus | null;
+}) {
+  const { t } = useTranslation("devices");
+  if (!status) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className={cn("font-medium", STATUS_TEXT_COLOR[status])}>
+      {t(STATUS_CONFIG[status].labelKey)}
+    </span>
+  );
+}
+
 export function ConnectionStatusBadge({
   status,
 }: {

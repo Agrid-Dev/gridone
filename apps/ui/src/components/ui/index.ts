@@ -15,6 +15,7 @@ export {
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
+  TooltipArrow,
 } from "./tooltip";
 export { Tabs, TabsList, TabsTrigger, TabsContent } from "./tabs";
 export {

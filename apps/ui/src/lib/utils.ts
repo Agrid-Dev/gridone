@@ -5,19 +5,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatAttributeValue(value: unknown | null): string {
-  if (value === null || value === undefined) {
-    return "—";
-  }
-  if (typeof value === "boolean") {
-    return value ? "On" : "Off";
-  }
-  if (typeof value === "number") {
-    return value.toString();
-  }
-  return String(value);
-}
-
 export function getLastUpdateTime(
   attributes: Record<string, { lastUpdated?: string | null }>,
 ): number | null {

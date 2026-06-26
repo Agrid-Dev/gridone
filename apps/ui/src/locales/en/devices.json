@@ -68,7 +68,7 @@
       "badge_other": "{{count}} active faults"
     },
     "panes": {
-      "standard": "Standard",
+      "standard": "Attributes",
       "faults": "Faults",
       "internal": "Internal"
     },
@@ -77,8 +77,8 @@
       "access": "Access",
       "readOnly": "Read-only",
       "readWrite": "Read-write",
-      "synced": "Synced",
-      "changed": "Changed"
+      "synced": "Last sync",
+      "changed": "Last change"
     },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",

@@ -68,7 +68,7 @@
       "badge_other": "{{count}} défauts actifs"
     },
     "panes": {
-      "standard": "Standard",
+      "standard": "Attributs",
       "faults": "Défauts",
       "internal": "Interne"
     },
@@ -77,8 +77,8 @@
       "access": "Accès",
       "readOnly": "Lecture seule",
       "readWrite": "Lecture-écriture",
-      "synced": "Synchronisé",
-      "changed": "Modifié"
+      "synced": "Dernière synchronisation",
+      "changed": "Dernier changement"
     },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
