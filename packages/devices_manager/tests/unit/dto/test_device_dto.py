@@ -273,6 +273,21 @@ class TestDeviceAttributeSerialization:
         assert attr.is_faulty is True
         assert attr.healthy_values == [0]
 
+    def test_device_defaults_is_faulty_when_absent(self):
+        """`is_faulty` is derived, so a stored/authored physical-device payload
+        need not carry it — it defaults to False (recomputed on first sync)."""
+        device = Device.model_validate(
+            {
+                "id": "d5",
+                "name": "D5",
+                "driver_id": "drv",
+                "transport_id": "tr",
+                "config": {"device_instance": 1},
+            }
+        )
+        assert device.kind == DeviceKind.PHYSICAL
+        assert device.is_faulty is False
+
     def test_device_parses_standard_attribute_without_kind(self):
         payload = {
             "id": "d3",
