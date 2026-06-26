@@ -31,22 +31,35 @@ afterEach(() => {
 });
 
 describe("applyDeviceUpdate", () => {
-  it("updates the value and stamps both lastUpdated and lastChanged from the message timestamp", () => {
-    const ts = "2026-06-26T10:00:00Z";
+  it("applies the value with the message's lastUpdated and lastChanged", () => {
     const updated = applyDeviceUpdate(
       device({ temperature: attribute({}) }),
       "temperature",
       21.5,
-      ts,
+      "2026-06-26T10:00:00Z",
+      "2026-06-26T09:00:00Z",
     );
 
     const attr = updated.attributes.temperature;
     expect(attr.currentValue).toBe(21.5);
-    expect(attr.lastUpdated).toBe(ts);
-    expect(attr.lastChanged).toBe(ts);
+    expect(attr.lastUpdated).toBe("2026-06-26T10:00:00Z");
+    expect(attr.lastChanged).toBe("2026-06-26T09:00:00Z");
   });
 
-  it("falls back to receive time when the message carries no timestamp", () => {
+  it("defaults lastChanged to lastUpdated when only lastUpdated is sent", () => {
+    const updated = applyDeviceUpdate(
+      device({ temperature: attribute({}) }),
+      "temperature",
+      21.5,
+      "2026-06-26T10:00:00Z",
+    );
+
+    expect(updated.attributes.temperature.lastChanged).toBe(
+      "2026-06-26T10:00:00Z",
+    );
+  });
+
+  it("falls back to receive time when no timestamps are sent", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-26T12:00:00Z"));
 

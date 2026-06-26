@@ -183,7 +183,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             device_id=device.id,
             attribute=attribute_name,
             value=attribute.current_value,
-            timestamp=attribute.last_updated or datetime.now(UTC),
+            last_updated=attribute.last_updated,
+            last_changed=attribute.last_changed,
         )
         await websocket_manager.broadcast(message)
         await ts_service.upsert_points(

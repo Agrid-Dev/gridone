@@ -27,6 +27,10 @@ class DeviceUpdateMessage(WebSocketMessage):
     device_id: str
     attribute: str
     value: AttributeValueType | None
+    # Attribute timestamps so clients reflect freshness without re-fetching.
+    # A device_update is emitted on value change, so last_changed advances too.
+    last_updated: datetime | None = None
+    last_changed: datetime | None = None
 
 
 class DeviceFullUpdateMessage(WebSocketMessage):

@@ -10,7 +10,11 @@ export type DeviceUpdateMessage = {
   deviceId: string;
   attribute: string;
   value: string | number | boolean | null;
+  /** Message envelope time (emit time). */
   timestamp?: string | null;
+  /** Attribute timestamps carried by the backend (see DeviceUpdateMessage). */
+  lastUpdated?: string | null;
+  lastChanged?: string | null;
 };
 
 export type DeviceFullUpdateMessage = {
@@ -56,22 +60,25 @@ export function buildWebSocketUrl(): string {
  * Applies a partial device_update WS event to a cached Device.
  * `attribute` must already be camelCase to match the HTTP-fetched cache keys.
  *
- * A device_update is only emitted when the value changes, so we stamp both
- * `lastUpdated` and `lastChanged` with the message timestamp (falling back to
- * receive time when the message carries none).
+ * The backend sends the attribute's `lastUpdated` / `lastChanged`; we fall back
+ * to receive time when absent, and `lastChanged` defaults to `lastUpdated`
+ * (a device_update only fires on a value change).
  */
 export function applyDeviceUpdate(
   device: Device,
   attribute: string,
   value: string | number | boolean | null,
-  timestamp?: string | null,
+  lastUpdated?: string | null,
+  lastChanged?: string | null,
 ): Device {
   const existingAttribute = device.attributes[attribute];
   if (!existingAttribute) {
     return device;
   }
 
-  const changedAt = timestamp ?? new Date().toISOString();
+  const now = new Date().toISOString();
+  const updatedAt = lastUpdated ?? now;
+  const changedAt = lastChanged ?? lastUpdated ?? now;
 
   return {
     ...device,
@@ -80,7 +87,7 @@ export function applyDeviceUpdate(
       [attribute]: {
         ...existingAttribute,
         currentValue: value,
-        lastUpdated: changedAt,
+        lastUpdated: updatedAt,
         lastChanged: changedAt,
       },
     },
@@ -121,7 +128,8 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
                 current,
                 attributeKey,
                 updateMessage.value,
-                updateMessage.timestamp,
+                updateMessage.lastUpdated,
+                updateMessage.lastChanged,
               )
             : current,
       );
@@ -133,7 +141,8 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
                 device,
                 attributeKey,
                 updateMessage.value,
-                updateMessage.timestamp,
+                updateMessage.lastUpdated,
+                updateMessage.lastChanged,
               )
             : device,
         ),
@@ -152,7 +161,11 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
       );
       if (series) {
         const point: DataPoint = {
-          timestamp: updateMessage.timestamp ?? new Date().toISOString(),
+          // Backend stores the sample at the value's change time.
+          timestamp:
+            updateMessage.lastChanged ??
+            updateMessage.lastUpdated ??
+            new Date().toISOString(),
           value: updateMessage.value as DataPoint["value"],
         };
         queryClient.setQueriesData<SeriesPointsResult>(
