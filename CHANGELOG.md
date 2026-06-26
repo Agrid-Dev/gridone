@@ -1,3 +1,17 @@
+## v0.114.0 (2026-06-26)
+
+### Feat
+
+- **api,ui**: send attribute last_changed/last_updated on device_update WS messages (AGR-746)
+- **ui**: stamp lastChanged from device_update WS messages (AGR-746)
+- **ui**: grouped read-only attribute panes on device Overview (AGR-746)
+
+### Refactor
+
+- **ui**: address review — single value component + shared status colors (AGR-746)
+- **ui**: centralized value formatting + multi-col panes + richer tooltip (AGR-746)
+- **ui**: compact name–value attribute list with on-hover details (AGR-746)
+
 ## v0.113.3 (2026-06-25)
 
 ### Fix
