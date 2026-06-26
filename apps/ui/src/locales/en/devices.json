@@ -61,17 +61,25 @@
       "commands": "Commands",
       "config": "Configuration"
     },
-    "attributes": "Attributes",
-    "advancedAttributes": "Advanced attributes",
     "activeFaults": {
       "title": "Active faults",
       "empty": "No active faults.",
       "badge_one": "{{count}} active fault",
       "badge_other": "{{count}} active faults"
     },
-    "faults": {
-      "title": "Faults",
-      "empty": "No fault monitoring configured for this device."
+    "panes": {
+      "standard": "Standard",
+      "faults": "Faults",
+      "internal": "Internal"
+    },
+    "attributeTable": {
+      "name": "Name",
+      "type": "Type",
+      "mode": "Mode",
+      "value": "Value",
+      "updated": "Updated",
+      "readOnly": "R",
+      "readWrite": "R-W"
     },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",

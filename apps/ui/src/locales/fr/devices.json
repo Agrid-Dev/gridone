@@ -61,17 +61,25 @@
       "commands": "Commandes",
       "config": "Configuration"
     },
-    "attributes": "Attributs",
-    "advancedAttributes": "Attributs avancés",
     "activeFaults": {
       "title": "Défauts actifs",
       "empty": "Aucun défaut actif.",
       "badge_one": "{{count}} défaut actif",
       "badge_other": "{{count}} défauts actifs"
     },
-    "faults": {
-      "title": "Défauts",
-      "empty": "Aucun défaut n'est configuré pour cet appareil."
+    "panes": {
+      "standard": "Standard",
+      "faults": "Défauts",
+      "internal": "Interne"
+    },
+    "attributeTable": {
+      "name": "Nom",
+      "type": "Type",
+      "mode": "Mode",
+      "value": "Valeur",
+      "updated": "Mis à jour",
+      "readOnly": "R",
+      "readWrite": "R-W"
     },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",
