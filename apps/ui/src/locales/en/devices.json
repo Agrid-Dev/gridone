@@ -78,7 +78,8 @@
       "readOnly": "Read-only",
       "readWrite": "Read-write",
       "synced": "Last sync",
-      "changed": "Last change"
+      "changed": "Last change",
+      "action": "click to command"
     },
     "configuration": "Configuration",
     "attributesDescription": "Highlighting read-only vs editable states",
