@@ -1,3 +1,9 @@
+## v0.115.0 (2026-06-26)
+
+### Feat
+
+- **ui**: deep-link writable attribute rows to the command form (AGR-747)
+
 ## v0.114.0 (2026-06-26)
 
 ### Feat
