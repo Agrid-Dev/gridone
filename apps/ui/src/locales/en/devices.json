@@ -6,10 +6,6 @@
       "title": "Create Device",
       "description": "Add the details for a new device."
     },
-    "edit": {
-      "title": "Edit device",
-      "virtualNotEditable": "Editing virtual devices is not yet supported."
-    },
     "fields": {
       "driver": "Driver",
       "driverPlaceholder": "Select a driver",
@@ -29,6 +25,7 @@
       "create": "Create device",
       "add": "Add",
       "delete": "Delete",
+      "deleteDevice": "Delete device",
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",
       "deleteDialogContent": "Delete device {{name}} ? This action cannot be undone.",
@@ -60,6 +57,27 @@
       "history": "History",
       "commands": "Commands",
       "config": "Configuration"
+    },
+    "config": {
+      "identity": {
+        "title": "Identity",
+        "edit": "Edit identity"
+      },
+      "driverTransport": {
+        "title": "Driver & network",
+        "edit": "Edit driver & network"
+      },
+      "config": {
+        "title": "Configuration",
+        "edit": "Edit configuration"
+      },
+      "metadata": {
+        "title": "Metadata",
+        "id": "Identifier",
+        "kind": "Kind",
+        "type": "Type",
+        "tags": "Tags"
+      }
     },
     "attributes": "Attributes",
     "advancedAttributes": "Advanced attributes",

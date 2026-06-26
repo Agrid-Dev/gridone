@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import EditableCard from "./AutomationPage/EditableCard";
+import EditableCard from "@/components/EditableCard";
 import FlowConnector from "./AutomationPage/components/FlowConnector";
 import MetadataForm from "./AutomationPage/form/MetadataForm";
 import MetadataPresenter from "./AutomationPage/presenters/MetadataPresenter";

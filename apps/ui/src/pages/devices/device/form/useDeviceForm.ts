@@ -16,6 +16,11 @@ import type { Transport, TransportProtocol } from "@/api/transports";
 import { useDrivers } from "@/pages/drivers/useDrivers";
 import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
+import {
+  buildDriverOptions,
+  buildTransportOptions,
+  filterTransportsForDriver,
+} from "./driverTransportOptions";
 import { useTranslation } from "react-i18next";
 import { useDeviceDiscovery } from "@/hooks/useDeviceDiscovery";
 import snakecaseKeys from "snakecase-keys";
@@ -87,42 +92,19 @@ export const useDeviceForm = (device?: PhysicalDevice) => {
 
   // Prepare driver options for select
   const driverOptions = useMemo(
-    () =>
-      drivers.map((driver) => {
-        const protocolLabel = t(`transports:protocols.${driver.transport}`, {
-          defaultValue: driver.transport,
-        });
-        const meta = [driver.vendor, driver.model, driver.version]
-          .filter(Boolean)
-          .join(" ");
-        const label = meta
-          ? `${driver.id} — ${meta} (${protocolLabel})`
-          : `${driver.id} (${protocolLabel})`;
-        return { value: driver.id, label };
-      }),
+    () => buildDriverOptions(drivers, t),
     [drivers, t],
   );
 
   // Filter transports based on selected driver's protocol
-  const availableTransports = useMemo(() => {
-    if (!selectedDriver) return [];
-    return transports.filter(
-      (transport) => transport.protocol === selectedDriver.transport,
-    );
-  }, [selectedDriver, transports]);
+  const availableTransports = useMemo(
+    () => filterTransportsForDriver(transports, selectedDriver),
+    [selectedDriver, transports],
+  );
 
   // Prepare transport options for select
   const transportOptions = useMemo(
-    () =>
-      availableTransports.map((transport) => {
-        const protocolLabel = t(`transports:protocols.${transport.protocol}`, {
-          defaultValue: transport.protocol,
-        });
-        return {
-          value: transport.id,
-          label: `${transport.name} (${protocolLabel})`,
-        };
-      }),
+    () => buildTransportOptions(availableTransports, t),
     [availableTransports, t],
   );
 

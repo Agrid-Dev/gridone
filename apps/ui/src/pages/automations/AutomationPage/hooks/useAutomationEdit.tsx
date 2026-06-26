@@ -11,7 +11,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useEditingSection } from "./useEditingSection";
+import { useEditingSection } from "@/hooks/useEditingSection";
 
 const useToggleAutomation = (automationId: string) => {
   const queryClient = useQueryClient();
