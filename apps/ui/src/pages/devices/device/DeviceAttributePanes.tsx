@@ -1,4 +1,7 @@
+import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Terminal } from "lucide-react";
 import {
   Tooltip,
   TooltipArrow,
@@ -15,7 +18,7 @@ import {
   type DeviceAttribute,
 } from "@/api/devices";
 import { getAllFaultAttributes, isFaultAttribute } from "@/lib/faults";
-import { compactTimeAgo } from "@/lib/utils";
+import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 
 /** Map key (camelCased by the API client) of the connection-status attribute.
@@ -97,46 +100,74 @@ function AttributeRow({
   const changedAgo = compactTimeAgo(attribute.lastChanged);
   const syncedAgo = compactTimeAgo(attribute.lastUpdated);
 
+  // Writable rows deep-link into the command form, pre-targeted to this device
+  // and attribute; the user only supplies the value (the table stays read-only).
+  const commandHref = `/devices/${device.id}/commands/new?attribute=${encodeURIComponent(
+    attribute.name,
+  )}`;
+
+  const rowClassName = cn(
+    "flex w-fit min-w-0 max-w-full items-center gap-2 text-sm",
+    isWritable ? "cursor-pointer" : "cursor-help",
+  );
+
+  const rowContent: ReactNode = (
+    <>
+      {isFaulty && fault && <SeverityChip severity={fault.severity} />}
+      <span className="min-w-0 truncate text-muted-foreground">
+        {toLabel(attribute.name)}
+      </span>
+      <span className="shrink-0 font-medium text-foreground">
+        {isConnectionStatus ? (
+          <ConnectionStatusValue status={getConnectionStatus(device)} />
+        ) : (
+          <AttributeValue
+            value={attribute.currentValue}
+            attributeName={attribute.name}
+            deviceType={device.type ?? undefined}
+            dataType={attribute.dataType}
+            fault={
+              fault
+                ? { severity: fault.severity, isFaulty: fault.isFaulty }
+                : undefined
+            }
+          />
+        )}
+      </span>
+      {changedAgo && (
+        <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+          <span
+            aria-hidden
+            className="h-1 w-1 rounded-full bg-muted-foreground/60"
+          />
+          {changedAgo}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div className="rounded px-2 py-1 transition-colors hover:bg-muted">
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
-          <div
-            data-attribute={attribute.name}
-            data-faulty={isFaulty || undefined}
-            className="flex w-fit min-w-0 max-w-full cursor-help items-center gap-2 text-sm"
-          >
-            {isFaulty && fault && <SeverityChip severity={fault.severity} />}
-            <span className="min-w-0 truncate text-muted-foreground">
-              {toLabel(attribute.name)}
-            </span>
-            <span className="shrink-0 font-medium text-foreground">
-              {isConnectionStatus ? (
-                <ConnectionStatusValue status={getConnectionStatus(device)} />
-              ) : (
-                <AttributeValue
-                  value={attribute.currentValue}
-                  attributeName={attribute.name}
-                  deviceType={device.type ?? undefined}
-                  dataType={attribute.dataType}
-                  fault={
-                    fault
-                      ? { severity: fault.severity, isFaulty: fault.isFaulty }
-                      : undefined
-                  }
-                />
-              )}
-            </span>
-            {changedAgo && (
-              <span className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-                <span
-                  aria-hidden
-                  className="h-1 w-1 rounded-full bg-muted-foreground/60"
-                />
-                {changedAgo}
-              </span>
-            )}
-          </div>
+          {isWritable ? (
+            <Link
+              to={commandHref}
+              data-attribute={attribute.name}
+              data-faulty={isFaulty || undefined}
+              className={rowClassName}
+            >
+              {rowContent}
+            </Link>
+          ) : (
+            <div
+              data-attribute={attribute.name}
+              data-faulty={isFaulty || undefined}
+              className={rowClassName}
+            >
+              {rowContent}
+            </div>
+          )}
         </TooltipTrigger>
         <TooltipContent
           side="right"
@@ -170,6 +201,12 @@ function AttributeRow({
             value={changedAgo || "—"}
             mono
           />
+          {isWritable && (
+            <p className="mt-1 flex items-center gap-1.5 border-t border-border pt-1.5 text-xs italic text-primary">
+              <Terminal className="h-3 w-3 shrink-0 not-italic" aria-hidden />
+              {t("deviceDetails.attributeDetails.action")}
+            </p>
+          )}
           <TooltipArrow className="fill-popover" />
         </TooltipContent>
       </Tooltip>

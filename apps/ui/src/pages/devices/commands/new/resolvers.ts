@@ -61,6 +61,21 @@ function intersectValueOptions(
   return allMatch ? first : undefined;
 }
 
+/** The current value of *attributeName* on the first device, or undefined when
+ *  the device, attribute, or value is missing. Used to pre-fill the command
+ *  form's value with what the device currently reports. */
+export function currentValueFor(
+  devices: Device[],
+  attributeName: string,
+): AttributeValue | undefined {
+  const first = devices[0];
+  if (!first) return undefined;
+  const value = Object.values(first.attributes).find(
+    (a) => a.name === attributeName,
+  )?.currentValue;
+  return value ?? undefined;
+}
+
 /** Is *device* a member of the given filter? Mirrors backend semantics. */
 export function deviceMatchesFilter(
   device: Device,

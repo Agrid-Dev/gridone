@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { AttributeValue } from "@/components/AttributeValue";
 import { type Device, type DeviceType } from "@/api/devices";
+import { currentValueFor } from "./resolvers";
 import type { WizardFormValues, WritableAttribute } from "./types";
 
 type CommandStepProps = {
@@ -146,20 +147,6 @@ export function CommandStep({
         })()}
     </div>
   );
-}
-
-function currentValueFor(
-  devices: Device[],
-  attributeName: string,
-): WizardFormValues["value"] {
-  const first = devices[0];
-  if (!first) return undefined;
-  const attr = Object.values(first.attributes).find(
-    (a) => a.name === attributeName,
-  );
-  const value = attr?.currentValue;
-  if (value === null || value === undefined) return undefined;
-  return value as WizardFormValues["value"];
 }
 
 type ValueInputProps = {

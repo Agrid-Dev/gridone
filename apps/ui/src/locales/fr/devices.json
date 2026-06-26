@@ -78,7 +78,8 @@
       "readOnly": "Lecture seule",
       "readWrite": "Lecture-écriture",
       "synced": "Dernière synchronisation",
-      "changed": "Dernier changement"
+      "changed": "Dernier changement",
+      "action": "cliquer pour commander"
     },
     "configuration": "Configuration",
     "attributesDescription": "Mise en évidence des états en lecture seule vs modifiables",

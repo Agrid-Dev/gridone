@@ -44,9 +44,15 @@ export default function NewCommandPage() {
     return undefined;
   }, [deviceId, assetId]);
 
+  const [searchParams] = useSearchParams();
   const { devices, loading: devicesLoading } = useDevicesList();
   const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
-  const wizard = useCommandWizard({ devices, predefinedTarget });
+  const wizard = useCommandWizard({
+    devices,
+    predefinedTarget,
+    // Deep-link from the device Overview: pre-select the attribute to command.
+    preselectAttribute: searchParams.get("attribute") ?? undefined,
+  });
   const mutations = useCommandMutations();
 
   const { data: lockedAsset } = useQuery<Asset>({
@@ -90,10 +96,9 @@ export default function NewCommandPage() {
     return <ErrorFallback title={t("common:errors.default")} />;
   }
 
-  // Where Cancel returns: back to the device's Commands tab when scoped to a
-  // device, otherwise the previous page.
-  const onCancel = () =>
-    deviceId ? navigate(`/devices/${deviceId}/commands`) : navigate(-1);
+  // Cancel returns to wherever the user came from (e.g. the device Overview
+  // when deep-linked from a writable attribute row).
+  const onCancel = () => navigate(-1);
 
   const blocked = devicesLoading || (!!assetId && assetTreeLoading);
 

@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
 import type { AttributeValue, AttributeWrite } from "@/api/commands";
 import type { Device, DevicesFilter } from "@/api/devices";
 import {
+  currentValueFor,
   intersectWritableAttributes,
   isEmptyFilter,
   resolveFilter,
@@ -38,6 +39,10 @@ export type UseCommandWizardArgs = {
    *  (action form's "+ Create new") that don't share the standalone
    *  wizard's draft buffer. */
   disableDraft?: boolean;
+  /** Attribute name to pre-select once it's known writable on the target —
+   *  the deep-link from the device Overview. Applied once; the user still
+   *  supplies the value. */
+  preselectAttribute?: string;
 };
 
 const DRAFT_KEY = "commands.wizard.draft";
@@ -49,6 +54,7 @@ export function useCommandWizard({
   template,
   defaultValues,
   disableDraft,
+  preselectAttribute,
 }: UseCommandWizardArgs) {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -150,6 +156,23 @@ export function useCommandWizard({
       setValue("value", undefined);
     }
   }, [compatibleAttributes, values.attribute, setValue]);
+
+  // Deep-link pre-selection: apply once the target's writable attributes are
+  // known (they load async), and only if the requested attribute is among
+  // them. Pre-fill the value with the device's current value (as the manual
+  // attribute picker does); the user then edits it.
+  const preselectApplied = useRef(false);
+  useEffect(() => {
+    if (preselectApplied.current || !preselectAttribute) return;
+    const match = compatibleAttributes.find(
+      (a) => a.name === preselectAttribute,
+    );
+    if (!match) return;
+    preselectApplied.current = true;
+    setValue("attribute", match.name);
+    setValue("attributeDataType", match.dataType);
+    setValue("value", currentValueFor(selectedDevices, match.name));
+  }, [preselectAttribute, compatibleAttributes, selectedDevices, setValue]);
 
   const targetValid = isTargetValid(selectedDevices, compatibleAttributes);
   const commandValid = isCommandValid(

@@ -6,6 +6,7 @@ import {
   within,
   type RenderResult,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { TooltipProvider } from "@/components/ui";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
@@ -27,6 +28,7 @@ vi.mock("react-i18next", () =>
     "deviceDetails.attributeDetails.readWrite": "Read-write",
     "deviceDetails.attributeDetails.synced": "Synced",
     "deviceDetails.attributeDetails.changed": "Changed",
+    "deviceDetails.attributeDetails.action": "click to command",
     "deviceDetails.connectionStatus.ok": "Connected",
     "common.severity.alert": "alert",
     "common.severity.warning": "warning",
@@ -81,9 +83,11 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
 
 const renderPanes = (device: Device): RenderResult =>
   render(
-    <TooltipProvider>
-      <DeviceAttributePanes device={device} />
-    </TooltipProvider>,
+    <MemoryRouter>
+      <TooltipProvider>
+        <DeviceAttributePanes device={device} />
+      </TooltipProvider>
+    </MemoryRouter>,
   );
 
 const rowFor = (label: string): HTMLElement =>
@@ -183,5 +187,25 @@ describe("DeviceAttributePanes", () => {
     expect(screen.getByText("Internal")).toBeInTheDocument();
     const value = within(rowFor("Connection Status")).getByText("Connected");
     expect(value).toHaveClass("text-green-600");
+  });
+
+  it("links writable rows to the command form pre-targeted to the attribute", () => {
+    renderPanes(
+      makeDevice({
+        setpoint: attr({ name: "setpoint", readWriteModes: ["read", "write"] }),
+      }),
+    );
+
+    const row = rowFor("Setpoint");
+    expect(row.tagName).toBe("A");
+    expect(row).toHaveAttribute(
+      "href",
+      "/devices/d1/commands/new?attribute=setpoint",
+    );
+  });
+
+  it("does not link read-only rows", () => {
+    renderPanes(makeDevice({ temperature: attr({ name: "temperature" }) }));
+    expect(rowFor("Temperature").tagName).toBe("DIV");
   });
 });
