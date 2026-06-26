@@ -115,8 +115,15 @@ function AttributeRow({
                 <ConnectionStatusValue status={getConnectionStatus(device)} />
               ) : (
                 <AttributeValue
-                  attribute={attribute}
-                  deviceType={device.type}
+                  value={attribute.currentValue}
+                  attributeName={attribute.name}
+                  deviceType={device.type ?? undefined}
+                  dataType={attribute.dataType}
+                  fault={
+                    fault
+                      ? { severity: fault.severity, isFaulty: fault.isFaulty }
+                      : undefined
+                  }
                 />
               )}
             </span>

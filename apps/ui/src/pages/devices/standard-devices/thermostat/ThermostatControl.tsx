@@ -6,9 +6,9 @@ import {
   readThermostatAttributes,
 } from "@/api/devices";
 import {
-  AttributeValueBadge,
+  AttributeValue,
   lookupValueRenderer,
-} from "@/components/AttributeValueBadge";
+} from "@/components/AttributeValue";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
 import { cn } from "@/lib/utils";
 import {
@@ -74,7 +74,7 @@ export function ThermostatControl({
       />
       <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
         {attrs.mode ? (
-          <AttributeValueBadge
+          <AttributeValue
             deviceType={DeviceType.Thermostat}
             attributeName="mode"
             value={attrs.mode}

@@ -4,9 +4,9 @@ import {
   readThermostatAttributes,
 } from "@/api/devices";
 import {
-  AttributeValueBadge,
+  AttributeValue,
   lookupValueRenderer,
-} from "@/components/AttributeValueBadge";
+} from "@/components/AttributeValue";
 import { cn } from "@/lib/utils";
 import type { StandardPreviewProps } from "../registry";
 
@@ -47,7 +47,7 @@ export function ThermostatPreview({ device }: StandardPreviewProps) {
       {/* Mode + on/off */}
       <div className="flex items-end gap-1 text-[10px] text-muted-foreground">
         {attrs.mode && (
-          <AttributeValueBadge
+          <AttributeValue
             deviceType={DeviceType.Thermostat}
             attributeName="mode"
             value={attrs.mode}

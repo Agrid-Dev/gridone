@@ -1,62 +1,142 @@
-import type { DeviceAttribute, DeviceType } from "@/api/devices";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowUpNarrowWide,
+  Fan,
+  RefreshCcwDot,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
+  Snowflake,
+  Sun,
+} from "lucide-react";
+import { DeviceType } from "@/api/devices";
 import type { Severity } from "@/api/severity";
-import { AttributeValueBadge } from "@/components/AttributeValueBadge";
-import { formatValue } from "@/lib/formatValue";
-import { isFaultAttribute } from "@/lib/faults";
+import { formatValue, type CellValue } from "@/lib/formatValue";
+import { SEVERITY_LEVEL, STATUS_TEXT_COLOR } from "@/lib/statusColor";
 import { cn } from "@/lib/utils";
 
-/** Value colour for fault attributes: by severity when active, green when ok. */
-const FAULT_VALUE_COLOR: Record<Severity, string> = {
-  alert: "text-red-600",
-  warning: "text-amber-600",
-  info: "text-sky-600",
+type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
+
+const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = {
+  heat: { Icon: Sun, color: "text-orange-500" },
+  cool: { Icon: Snowflake, color: "text-blue-500" },
+  fan: { Icon: Fan, color: "text-green-500" },
+  auto: { Icon: RefreshCcwDot, color: "text-yellow-500" },
 };
-const FAULT_OK_COLOR = "text-green-600";
+
+const HVAC_FAN_SPEED_RENDERERS: Record<string, ValueRenderer> = {
+  low: { Icon: SignalLow, color: "text-muted-foreground" },
+  medium: { Icon: SignalMedium, color: "text-muted-foreground" },
+  high: { Icon: SignalHigh, color: "text-muted-foreground" },
+  auto: {
+    Icon: ArrowUpNarrowWide,
+    color: "text-muted-foreground",
+    rotate: true,
+  },
+};
+
+const STANDARD_VALUE_RENDERERS: Partial<
+  Record<DeviceType, Record<string, Record<string, ValueRenderer>>>
+> = {
+  [DeviceType.Thermostat]: {
+    mode: HVAC_MODE_RENDERERS,
+    fan_speed: HVAC_FAN_SPEED_RENDERERS,
+  },
+  [DeviceType.Awhp]: {
+    mode: HVAC_MODE_RENDERERS,
+    fan_speed: HVAC_FAN_SPEED_RENDERERS,
+  },
+};
+
+/** Returns undefined when deviceType is absent or the triple has no known renderer. */
+export function lookupValueRenderer(
+  deviceType: DeviceType | undefined,
+  attributeName: string,
+  value: string,
+): ValueRenderer | undefined {
+  if (!deviceType) return undefined;
+  return STANDARD_VALUE_RENDERERS[deviceType]?.[attributeName]?.[value];
+}
+
+/** Resolves a renderer shared across all given device types using object identity. */
+function resolveSharedRenderer(
+  deviceTypes: DeviceType[],
+  attributeName: string,
+  value: string,
+): ValueRenderer | undefined {
+  if (deviceTypes.length === 0) return undefined;
+  const renderers = deviceTypes.map((t) =>
+    lookupValueRenderer(t, attributeName, value),
+  );
+  const first = renderers[0];
+  if (first && renderers.every((r) => r === first)) return first;
+  return undefined;
+}
+
+type AttributeValueProps = {
+  value: CellValue;
+  attributeName: string;
+  /** A single device type for the common case, or several when the value is
+   *  shared across a mixed selection — an icon shows only when all of them
+   *  agree on the same renderer. */
+  deviceType?: DeviceType | DeviceType[];
+  /** Data type used by the fallback formatter (e.g. floats to 2 decimals). */
+  dataType?: string;
+  /** When set, colours the value by severity (green when not faulty). */
+  fault?: { severity: Severity; isFaulty: boolean };
+  className?: string;
+};
 
 /**
- * Renders a device attribute's current value with the right formatter:
+ * The single renderer for a device attribute value:
  *  - fault attributes are coloured by severity (green when not faulty);
- *  - standard enum values (e.g. thermostat `mode`) use their icon+label badge;
+ *  - standard enum values (e.g. thermostat `mode`) show their icon + label,
+ *    including across a mixed device-type selection;
  *  - everything else falls back to {@link formatValue} by data type
- *    (floats to 2 decimals, etc.).
+ *    (floats to 2 decimals, booleans, the null em dash…).
  */
 export function AttributeValue({
-  attribute,
+  value,
+  attributeName,
   deviceType,
+  dataType,
+  fault,
   className,
-}: {
-  attribute: DeviceAttribute;
-  deviceType: DeviceType | null;
-  className?: string;
-}) {
-  const fault = isFaultAttribute(attribute) ? attribute : null;
+}: AttributeValueProps) {
   if (fault) {
-    const color = fault.isFaulty
-      ? FAULT_VALUE_COLOR[fault.severity]
-      : FAULT_OK_COLOR;
+    const level = fault.isFaulty ? SEVERITY_LEVEL[fault.severity] : "ok";
     return (
-      <span className={cn("font-medium", color, className)}>
-        {formatValue(attribute.currentValue, attribute.dataType)}
+      <span className={cn("font-medium", STATUS_TEXT_COLOR[level], className)}>
+        {formatValue(value, dataType)}
       </span>
     );
   }
 
-  // Standard enums (mode, fan speed…) carry an icon + colour renderer; the
-  // badge falls back to a plain label when none matches.
-  if (deviceType && typeof attribute.currentValue === "string") {
+  const deviceTypes =
+    deviceType === undefined
+      ? []
+      : Array.isArray(deviceType)
+        ? deviceType
+        : [deviceType];
+  const renderer =
+    value == null
+      ? undefined
+      : resolveSharedRenderer(deviceTypes, attributeName, String(value));
+
+  if (renderer) {
+    const { Icon, color, rotate } = renderer;
     return (
-      <AttributeValueBadge
-        deviceType={deviceType}
-        attributeName={attribute.name}
-        value={attribute.currentValue}
-        className={className}
-      />
+      <span
+        className={cn("inline-flex items-center gap-[0.4em]", color, className)}
+      >
+        <Icon
+          className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
+          aria-hidden
+        />
+        <span>{String(value)}</span>
+      </span>
     );
   }
 
-  return (
-    <span className={className}>
-      {formatValue(attribute.currentValue, attribute.dataType)}
-    </span>
-  );
+  return <span className={className}>{formatValue(value, dataType)}</span>;
 }

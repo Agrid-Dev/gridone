@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { STATUS_TEXT_COLOR, type StatusLevel } from "@/lib/statusColor";
 import { ConnectionStatus } from "@/api/devices";
 
 const STATUS_CONFIG: Record<
@@ -45,12 +46,12 @@ const STATUS_CONFIG: Record<
   },
 };
 
-/** Severity-style text colour per status, matching fault value colours. */
-const STATUS_TEXT_COLOR: Record<ConnectionStatus, string> = {
-  [ConnectionStatus.Idle]: "text-muted-foreground",
-  [ConnectionStatus.Ok]: "text-green-600",
-  [ConnectionStatus.Degraded]: "text-amber-600",
-  [ConnectionStatus.Error]: "text-red-600",
+/** Connection status mapped onto the shared semantic colour levels. */
+const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
+  [ConnectionStatus.Idle]: "info",
+  [ConnectionStatus.Ok]: "ok",
+  [ConnectionStatus.Degraded]: "warning",
+  [ConnectionStatus.Error]: "error",
 };
 
 /** Connection status as a plain severity-coloured label (no badge chrome) —
@@ -63,7 +64,9 @@ export function ConnectionStatusValue({
   const { t } = useTranslation("devices");
   if (!status) return <span className="text-muted-foreground">—</span>;
   return (
-    <span className={cn("font-medium", STATUS_TEXT_COLOR[status])}>
+    <span
+      className={cn("font-medium", STATUS_TEXT_COLOR[STATUS_LEVEL[status]])}
+    >
       {t(STATUS_CONFIG[status].labelKey)}
     </span>
   );
