@@ -1,6 +1,6 @@
 import { Fan, ArrowRight } from "lucide-react";
 import { DeviceType, isAwhp, readAwhpAttributes } from "@/api/devices";
-import { AttributeValueBadge } from "@/components/AttributeValueBadge";
+import { AttributeValue } from "@/components/AttributeValue";
 import type { StandardPreviewProps } from "../types";
 
 function formatTemp(value: number | null): string {
@@ -59,7 +59,7 @@ export function AwhpPreview({ device }: StandardPreviewProps) {
       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
         <span className="uppercase">{attrs.unitRunStatus ?? "—"}</span>
         {attrs.mode && (
-          <AttributeValueBadge
+          <AttributeValue
             deviceType={DeviceType.Awhp}
             attributeName="mode"
             value={attrs.mode}

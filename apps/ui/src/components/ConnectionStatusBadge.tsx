@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { STATUS_TEXT_COLOR, type StatusLevel } from "@/lib/statusColor";
 import { ConnectionStatus } from "@/api/devices";
 
 const STATUS_CONFIG: Record<
@@ -44,6 +45,32 @@ const STATUS_CONFIG: Record<
     labelKey: "deviceDetails.connectionStatus.error",
   },
 };
+
+/** Connection status mapped onto the shared semantic colour levels. */
+const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
+  [ConnectionStatus.Idle]: "info",
+  [ConnectionStatus.Ok]: "ok",
+  [ConnectionStatus.Degraded]: "warning",
+  [ConnectionStatus.Error]: "error",
+};
+
+/** Connection status as a plain severity-coloured label (no badge chrome) —
+ *  used where the value sits inline in a list, like the attribute panes. */
+export function ConnectionStatusValue({
+  status,
+}: {
+  status: ConnectionStatus | null;
+}) {
+  const { t } = useTranslation("devices");
+  if (!status) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn("font-medium", STATUS_TEXT_COLOR[STATUS_LEVEL[status]])}
+    >
+      {t(STATUS_CONFIG[status].labelKey)}
+    </span>
+  );
+}
 
 export function ConnectionStatusBadge({
   status,

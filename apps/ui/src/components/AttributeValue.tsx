@@ -1,5 +1,3 @@
-import { DeviceType } from "@/api/devices";
-import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUpNarrowWide,
@@ -11,6 +9,11 @@ import {
   Snowflake,
   Sun,
 } from "lucide-react";
+import { DeviceType } from "@/api/devices";
+import type { Severity } from "@/api/severity";
+import { formatValue, type CellValue } from "@/lib/formatValue";
+import { SEVERITY_LEVEL, STATUS_TEXT_COLOR } from "@/lib/statusColor";
+import { cn } from "@/lib/utils";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
@@ -70,26 +73,45 @@ function resolveSharedRenderer(
   return undefined;
 }
 
-type AttributeValueBadgeProps = {
+type AttributeValueProps = {
+  value: CellValue;
+  attributeName: string;
   /** A single device type for the common case, or several when the value is
    *  shared across a mixed selection — an icon shows only when all of them
    *  agree on the same renderer. */
   deviceType?: DeviceType | DeviceType[];
-  attributeName: string;
-  value: string | number | boolean;
+  /** Data type used by the fallback formatter (e.g. floats to 2 decimals). */
+  dataType?: string;
+  /** When set, colours the value by severity (green when not faulty). */
+  fault?: { severity: Severity; isFaulty: boolean };
   className?: string;
 };
 
-/** Renders a discrete attribute value with an icon and colour when the device
- *  type(s) share the same standard renderer; falls back to a plain text label
- *  otherwise. */
-export function AttributeValueBadge({
-  deviceType,
-  attributeName,
+/**
+ * The single renderer for a device attribute value:
+ *  - fault attributes are coloured by severity (green when not faulty);
+ *  - standard enum values (e.g. thermostat `mode`) show their icon + label,
+ *    including across a mixed device-type selection;
+ *  - everything else falls back to {@link formatValue} by data type
+ *    (floats to 2 decimals, booleans, the null em dash…).
+ */
+export function AttributeValue({
   value,
+  attributeName,
+  deviceType,
+  dataType,
+  fault,
   className,
-}: AttributeValueBadgeProps) {
-  const label = String(value);
+}: AttributeValueProps) {
+  if (fault) {
+    const level = fault.isFaulty ? SEVERITY_LEVEL[fault.severity] : "ok";
+    return (
+      <span className={cn("font-medium", STATUS_TEXT_COLOR[level], className)}>
+        {formatValue(value, dataType)}
+      </span>
+    );
+  }
+
   const deviceTypes =
     deviceType === undefined
       ? []
@@ -97,24 +119,24 @@ export function AttributeValueBadge({
         ? deviceType
         : [deviceType];
   const renderer =
-    deviceTypes.length > 0
-      ? resolveSharedRenderer(deviceTypes, attributeName, label)
-      : undefined;
+    value == null
+      ? undefined
+      : resolveSharedRenderer(deviceTypes, attributeName, String(value));
 
-  if (!renderer) {
-    return <span className={className}>{label}</span>;
+  if (renderer) {
+    const { Icon, color, rotate } = renderer;
+    return (
+      <span
+        className={cn("inline-flex items-center gap-[0.4em]", color, className)}
+      >
+        <Icon
+          className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
+          aria-hidden
+        />
+        <span>{String(value)}</span>
+      </span>
+    );
   }
 
-  const { Icon, color, rotate } = renderer;
-  return (
-    <span
-      className={cn("inline-flex items-center gap-[0.4em]", color, className)}
-    >
-      <Icon
-        className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
-        aria-hidden
-      />
-      <span>{label}</span>
-    </span>
-  );
+  return <span className={className}>{formatValue(value, dataType)}</span>;
 }

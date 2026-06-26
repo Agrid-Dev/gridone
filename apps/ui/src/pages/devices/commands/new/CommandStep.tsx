@@ -18,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
-import { AttributeValueBadge } from "@/components/AttributeValueBadge";
+import { AttributeValue } from "@/components/AttributeValue";
 import { type Device, type DeviceType } from "@/api/devices";
 import type { WizardFormValues, WritableAttribute } from "./types";
 
@@ -115,7 +115,7 @@ export function CommandStep({
                 options={selectedValueOptions.map((opt) => ({
                   value: opt,
                   label: (
-                    <AttributeValueBadge
+                    <AttributeValue
                       deviceType={deviceTypes}
                       attributeName={selectedAttribute}
                       value={opt}

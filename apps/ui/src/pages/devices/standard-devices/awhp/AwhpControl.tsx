@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Fan, Wind, Droplets, ArrowRight, Thermometer } from "lucide-react";
 import { DeviceType, isAwhp, readAwhpAttributes } from "@/api/devices";
 import { Badge } from "@/components/ui/badge";
-import { AttributeValueBadge } from "@/components/AttributeValueBadge";
+import { AttributeValue } from "@/components/AttributeValue";
 import { ControlPanel } from "../ControlPanel";
 import type { StandardControlProps } from "../types";
 
@@ -44,7 +44,7 @@ export function AwhpControl({ device }: StandardControlProps) {
       modeChip={
         a.mode ? (
           <Badge variant="info">
-            <AttributeValueBadge
+            <AttributeValue
               deviceType={DeviceType.Awhp}
               attributeName="mode"
               value={a.mode}
