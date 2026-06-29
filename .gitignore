@@ -41,3 +41,8 @@ apps/ui/dist/
 .claude/
 .user_docs
 *.diff
+
+# Local notes / agent session artifacts (not for the repo)
+AGENTS.md
+INFRA.md
+tasks/
