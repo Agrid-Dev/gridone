@@ -16,7 +16,9 @@
     "description": "Jump into the systems and zones that power this site.",
     "notifications": {
       "title": "Notifications",
-      "empty": "No new notification"
+      "empty": "No new notification",
+      "more_one": "and {{count}} more notification",
+      "more_other": "and {{count}} more notifications"
     },
     "zones": {
       "title": "Zones",
