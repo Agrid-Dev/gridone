@@ -13,6 +13,9 @@
       "signIn": "Sign in",
       "signingIn": "Signing in...",
       "error": "Login failed. Please try again.",
+      "unreachableTitle": "Server unreachable",
+      "unreachable": "Can't reach the server. Please try again in a moment.",
+      "retry": "Retry",
       "validation": {
         "usernameMinLength": "Username must be at least {{count}} characters.",
         "usernameMaxLength": "Username must be at most {{count}} characters.",

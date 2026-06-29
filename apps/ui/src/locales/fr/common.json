@@ -13,6 +13,9 @@
       "signIn": "Se connecter",
       "signingIn": "Connexion...",
       "error": "\u00c9chec de la connexion. Veuillez r\u00e9essayer.",
+      "unreachableTitle": "Serveur injoignable",
+      "unreachable": "Impossible de contacter le serveur. R\u00e9essayez dans un instant.",
+      "retry": "R\u00e9essayer",
       "validation": {
         "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caract\u00e8res.",
         "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caract\u00e8res.",
