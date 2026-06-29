@@ -1,3 +1,9 @@
+## v0.117.0 (2026-06-29)
+
+### Feat
+
+- **ui**: restore Networks (transports) list + detail with device cross-links (AGR-741)
+
 ## v0.116.1 (2026-06-29)
 
 ### Fix
