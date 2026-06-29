@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Cpu,
   LayoutGrid,
+  Network,
   Puzzle,
   TriangleAlert,
   Users,
@@ -17,6 +19,16 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
   }`;
 
+/** Muted group heading separating the nav into Operations / Configuration /
+ *  Administration. Collapses its top spacing when it is the first item. */
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 first:pt-1">
+      {children}
+    </p>
+  );
+}
+
 export function Sidebar() {
   const { t } = useTranslation("common");
   const can = usePermissions();
@@ -29,6 +41,8 @@ export function Sidebar() {
     <aside className="fixed left-0 top-16 z-30 h-[calc(100vh-4rem)] w-64 border-r border-border bg-sidebar">
       <div className="flex h-full flex-col">
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+          <SectionLabel>{t("nav.supervision")}</SectionLabel>
+
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />
             {t("app.devices")}
@@ -38,15 +52,6 @@ export function Sidebar() {
             <LayoutGrid className="h-4 w-4" />
             {t("app.assets")}
           </NavLink>
-
-          <NavLink to="/drivers" className={navLinkClass}>
-            <Puzzle className="h-4 w-4" />
-            {t("app.drivers")}
-          </NavLink>
-
-          {/* Transports — pending restoration (AGR-742) */}
-
-          <hr className="!my-3 border-border" />
 
           <NavLink to="/automations" className={navLinkClass}>
             <Zap className="h-4 w-4" />
@@ -58,9 +63,21 @@ export function Sidebar() {
             {t("app.faults")}
           </NavLink>
 
+          <SectionLabel>{t("nav.configuration")}</SectionLabel>
+
+          <NavLink to="/drivers" className={navLinkClass}>
+            <Puzzle className="h-4 w-4" />
+            {t("app.drivers")}
+          </NavLink>
+
+          <NavLink to="/transports" className={navLinkClass}>
+            <Network className="h-4 w-4" />
+            {t("app.networks")}
+          </NavLink>
+
           {can("users:read") && (
             <>
-              <hr className="!my-3 border-border" />
+              <SectionLabel>{t("nav.administration")}</SectionLabel>
 
               <NavLink to="/users" className={navLinkClass}>
                 <Users className="h-4 w-4" />

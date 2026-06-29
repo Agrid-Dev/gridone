@@ -11,13 +11,7 @@ export const transportProtocols = [
 export type TransportProtocol = (typeof transportProtocols)[number];
 
 export type TransportConnectionState = {
-  status:
-    | "idle"
-    | "connecting"
-    | "connected"
-    | "connection_error"
-    | "closing"
-    | "closed";
+  status: "idle" | "ok" | "degraded" | "error";
   info?: string | null;
 };
 
@@ -85,7 +79,11 @@ export function listTransports(): Promise<Transport[]> {
 }
 
 export function getTransport(transportId: string): Promise<Transport> {
-  return request<Transport>(`/transports/${encodeURIComponent(transportId)}`);
+  return request<Transport>(
+    `/transports/${encodeURIComponent(transportId)}`,
+    undefined,
+    { camelCase: true },
+  );
 }
 
 export function createTransport(

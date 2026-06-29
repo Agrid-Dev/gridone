@@ -36,7 +36,15 @@
   "updateAction": "Mettre à jour",
   "editAction": "Modifier",
   "deleteAction": "Supprimer",
+  "deleteConfirmTitle": "Confirmer la suppression",
   "deletingAction": "Suppression...",
+  "device_one": "{{count}} appareil",
+  "device_other": "{{count}} appareils",
+  "devicesSection": {
+    "title": "Appareils sur ce réseau",
+    "empty": "Aucun appareil n'utilise ce réseau pour le moment.",
+    "error": "Impossible de charger les appareils"
+  },
   "state": "État",
   "empty": "Aucun réseau pour le moment.",
   "unableToLoad": "Impossible de charger les réseaux",
@@ -71,12 +79,10 @@
     "protocolNotSupported": "Ce protocole ne supporte pas la découverte automatique d'appareils."
   },
   "status": {
-    "connected": "Connecté",
-    "connecting": "Connexion...",
-    "connection_error": "Erreur de connexion",
+    "ok": "Connecté",
+    "degraded": "Dégradé",
+    "error": "Déconnecté",
     "idle": "Inactif",
-    "closing": "Fermeture",
-    "closed": "Fermé",
     "unknown": "Inconnu"
   }
 }

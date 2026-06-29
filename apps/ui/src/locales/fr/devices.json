@@ -17,7 +17,7 @@
       "transportPlaceholder": "Sélectionnez un réseau",
       "transportDisabled": "Sélectionnez d'abord un pilote",
       "transportLoadError": "Impossible de charger les réseaux",
-      "createNetworkAction": "+ Créer un nouveau réseau",
+      "createNetworkAction": "Créer un nouveau réseau",
       "editNetworkAction": "Modifier le réseau",
       "discoverDevicesLikeMe": "Découvrir des appareils similaires",
       "discoverDevicesLikeMeHelp": "Écouter ce réseau et importer automatiquement les appareils correspondant à ce driver.",

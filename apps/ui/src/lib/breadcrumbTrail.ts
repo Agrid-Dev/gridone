@@ -25,6 +25,7 @@ export const SECTION_LABELS: Record<string, string> = {
   devices: "app.devices",
   assets: "app.assets",
   drivers: "app.drivers",
+  transports: "app.networks",
   automations: "app.automations",
   faults: "app.faults",
   users: "app.users",

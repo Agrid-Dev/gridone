@@ -1,10 +1,10 @@
 import React from "react";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Button } from "@/components/ui";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { FieldSet, FieldLegend } from "@/components/ui/field";
+import { FieldSet, FieldLegend, FieldLabel } from "@/components/ui/field";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
 import { PhysicalDevice } from "@/api/devices";
@@ -23,7 +23,6 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     transportOptions,
     configFields,
     selectedDriver,
-    selectedTransport,
     driversLoading,
     transportsLoading,
     transportsError,
@@ -33,7 +32,6 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     submitDisabled,
     networkModalState,
     openCreateNetworkModal,
-    openEditNetworkModal,
     closeNetworkModal,
     onNetworkSubmitted,
     discovery,
@@ -80,7 +78,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
                 disabled={driversLoading}
               />
 
-              <div className="md:col-span-2 grid gap-2 md:grid-cols-[1fr_auto_auto] md:items-end">
+              <div className="md:col-span-2 grid gap-2 md:grid-cols-[1fr_auto] md:items-start">
                 <SelectController
                   name="transportId"
                   control={baseFormMethods.control}
@@ -101,26 +99,27 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
                   }
                 />
                 {isCreate && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={openCreateNetworkModal}
-                    disabled={!selectedDriver}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t("devices.fields.createNetworkAction")}
-                  </Button>
+                  /* Mirror the select's label + gap so the button lines up with
+                     the trigger, not the row — the select's validation error
+                     grows its own cell without dragging the button down. */
+                  <div className="flex flex-col gap-3">
+                    <FieldLabel
+                      aria-hidden="true"
+                      className="invisible hidden md:flex"
+                    >
+                      &nbsp;
+                    </FieldLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openCreateNetworkModal}
+                      disabled={!selectedDriver}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t("devices.fields.createNetworkAction")}
+                    </Button>
+                  </div>
                 )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={openEditNetworkModal}
-                  disabled={!selectedTransport}
-                  title={t("devices.fields.editNetworkAction")}
-                  aria-label={t("devices.fields.editNetworkAction")}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
               </div>
               {transportsError && (
                 <p className="text-sm text-destructive md:col-span-2">

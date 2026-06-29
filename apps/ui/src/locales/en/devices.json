@@ -17,7 +17,7 @@
       "transportPlaceholder": "Select a network",
       "transportDisabled": "Select a driver first",
       "transportLoadError": "Unable to load networks",
-      "createNetworkAction": "+ Create new network",
+      "createNetworkAction": "Create new network",
       "editNetworkAction": "Edit network",
       "discoverDevicesLikeMe": "Discover devices like me",
       "discoverDevicesLikeMeHelp": "Listen on this network and auto-import devices that match this driver.",
