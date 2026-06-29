@@ -189,11 +189,17 @@
     "assets": "Zones",
     "devices": "Appareils",
     "drivers": "Drivers",
+    "networks": "Réseaux",
     "apps": "Applications",
     "automations": "Automatisations",
     "faults": "Défauts",
     "users": "Utilisateurs",
     "notifications": "Notifications"
+  },
+  "nav": {
+    "supervision": "Supervision",
+    "configuration": "Configuration",
+    "administration": "Administration"
   },
   "breadcrumb": {
     "history": "Historique",

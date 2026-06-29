@@ -49,6 +49,7 @@ export default function DeviceConfigView() {
   const transport = transportsListQuery.data?.find(
     (item) => item.id === device.transportId,
   );
+  const transportLabel = transport?.name ?? device.transportId;
   const configEntries = Object.entries(device.config);
 
   return (
@@ -74,7 +75,14 @@ export default function DeviceConfigView() {
           />
           <Row
             label={t("devices.fields.transport")}
-            value={transport?.name ?? device.transportId}
+            value={
+              <Link
+                to={`/transports/${device.transportId}`}
+                className="text-primary hover:underline"
+              >
+                {transportLabel}
+              </Link>
+            }
           />
         </FieldSet>
 

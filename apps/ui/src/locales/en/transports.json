@@ -36,7 +36,15 @@
   "updateAction": "Update network",
   "editAction": "Edit",
   "deleteAction": "Delete",
+  "deleteConfirmTitle": "Confirm deletion",
   "deletingAction": "Deleting...",
+  "device_one": "{{count}} device",
+  "device_other": "{{count}} devices",
+  "devicesSection": {
+    "title": "Devices on this network",
+    "empty": "No devices use this network yet.",
+    "error": "Unable to load devices"
+  },
   "state": "State",
   "empty": "No networks created yet.",
   "unableToLoad": "Unable to load networks",
@@ -71,12 +79,10 @@
     "protocolNotSupported": "This protocol does not support automatic device discovery."
   },
   "status": {
-    "connected": "Connected",
-    "connecting": "Connecting",
-    "connection_error": "Connection error",
+    "ok": "Connected",
+    "degraded": "Degraded",
+    "error": "Disconnected",
     "idle": "Idle",
-    "closing": "Closing",
-    "closed": "Closed",
     "unknown": "Unknown"
   }
 }

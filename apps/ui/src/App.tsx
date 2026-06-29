@@ -8,6 +8,7 @@ import FaultsPage from "./pages/faults/FaultsPage";
 import Home from "./pages/home";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
+import Transports from "./pages/transports";
 import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
@@ -40,6 +41,7 @@ function ProtectedLayout() {
                 <Route path="/assets/*" element={<Assets />} />
                 <Route path="/devices/*" element={<Devices />} />
                 <Route path="/drivers/*" element={<Drivers />} />
+                <Route path="/transports/*" element={<Transports />} />
                 <Route path="/apps/*" element={<Apps />} />
                 <Route path="/automations/*" element={<Automations />} />
                 <Route path="/faults" element={<FaultsPage />} />
