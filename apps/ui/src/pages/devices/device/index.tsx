@@ -7,6 +7,7 @@ import DeviceHistoryTable from "./device-history/DeviceHistoryTable";
 import DeviceHistoryChart from "./device-history/DeviceHistoryChart";
 import DeviceCreate from "./DeviceCreate";
 import DeviceEdit from "./DeviceEdit";
+import DeviceConfigView from "./DeviceConfigView";
 import DeviceCommandsPage from "./DeviceCommandsPage";
 
 const NewCommandPage = lazy(() => import("../commands/new/NewCommandPage"));
@@ -30,7 +31,8 @@ const Device: FC = () => (
           </Suspense>
         }
       />
-      <Route path="edit" element={<DeviceEdit />} />
+      <Route path="config" element={<DeviceConfigView />} />
+      <Route path="config/edit" element={<DeviceEdit />} />
     </Route>
   </Routes>
 );

@@ -39,6 +39,11 @@
       "updated": "Device updated",
       "updateError": "Failed to update device"
     },
+    "sections": {
+      "identity": "Identity",
+      "driverNetwork": "Driver & network",
+      "configuration": "Configuration"
+    },
     "saving": "Saving...",
     "health": {
       "label": "Health",
