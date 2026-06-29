@@ -1,3 +1,9 @@
+## v0.116.1 (2026-06-29)
+
+### Fix
+
+- **ui**: surface backend-unreachable state on the login page (AGR-860)
+
 ## v0.116.0 (2026-06-29)
 
 ### Feat
