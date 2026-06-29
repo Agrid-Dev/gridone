@@ -1,3 +1,9 @@
+## v0.118.0 (2026-06-29)
+
+### Feat
+
+- **ui**: cap home-page notifications at 5 with 'N more' link (AGR-867)
+
 ## v0.117.0 (2026-06-29)
 
 ### Feat
