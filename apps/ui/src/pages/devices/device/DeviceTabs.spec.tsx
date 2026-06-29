@@ -70,7 +70,7 @@ describe("DeviceTabs", () => {
     );
     expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
       "href",
-      "/devices/d1/edit",
+      "/devices/d1/config",
     );
   });
 

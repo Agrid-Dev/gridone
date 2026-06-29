@@ -39,6 +39,11 @@
       "updated": "Appareil mis à jour",
       "updateError": "Échec de la mise à jour de l'appareil"
     },
+    "sections": {
+      "identity": "Identité",
+      "driverNetwork": "Pilote et réseau",
+      "configuration": "Configuration"
+    },
     "saving": "Enregistrement...",
     "health": {
       "label": "Santé",

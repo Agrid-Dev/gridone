@@ -18,7 +18,7 @@ export function DeviceTabs({ device }: { device: Device }) {
     ? "history"
     : pathname.startsWith(`${base}/commands`)
       ? "commands"
-      : pathname.startsWith(`${base}/edit`)
+      : pathname.startsWith(`${base}/config`)
         ? "config"
         : "overview";
 
@@ -45,7 +45,7 @@ export function DeviceTabs({ device }: { device: Device }) {
         </TabsTrigger>
         {isPhysicalDevice(device) && (
           <TabsTrigger value="config" className="ml-auto gap-2" asChild>
-            <NavLink to={`${base}/edit`}>
+            <NavLink to={`${base}/config`}>
               <Settings2 className="h-4 w-4" />
               {t("deviceDetails.tabs.config")}
             </NavLink>
