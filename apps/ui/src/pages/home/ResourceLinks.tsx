@@ -34,6 +34,10 @@ const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
 const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));
 const OTHER_KEY = "other";
 
+/** Cap the home-page notifications list; the rest is reachable via the
+ *  "and N more" link to the full notifications page. */
+const MAX_HOME_NOTIFICATIONS = 5;
+
 type ResourceItem = {
   key: string;
   label: string;
@@ -64,16 +68,19 @@ export const ResourceLinks: FC = () => {
     queryFn: () => listAssets(),
   });
 
-  const notificationItems: ResourceItem[] = (notifications?.items ?? []).map(
-    ({ notification }) => ({
+  const notificationItems: ResourceItem[] = (notifications?.items ?? [])
+    .slice(0, MAX_HOME_NOTIFICATIONS)
+    .map(({ notification }) => ({
       key: notification.id,
       label: notification.title,
       to: "/notifications",
       icon: Bell,
       iconClassName: SEVERITY_TEXT_CLASS[notification.severity],
       hoverClassName: SEVERITY_HOVER_TEXT_CLASS[notification.severity],
-    }),
-  );
+    }));
+
+  const moreNotificationsCount =
+    (notifications?.total ?? 0) - notificationItems.length;
 
   const deviceItems = buildDeviceItems(devices ?? [], t);
 
@@ -101,15 +108,28 @@ export const ResourceLinks: FC = () => {
         {notificationsLoading ? (
           <ContentSkeleton />
         ) : (
-          <ResourcePanelContent
-            items={notificationItems}
-            empty={
-              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Check className="h-4 w-4 text-emerald-500" />
-                {t("resources.notifications.empty")}
-              </p>
-            }
-          />
+          <div className="space-y-2">
+            <ResourcePanelContent
+              items={notificationItems}
+              column
+              empty={
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Check className="h-4 w-4 text-emerald-500" />
+                  {t("resources.notifications.empty")}
+                </p>
+              }
+            />
+            {moreNotificationsCount > 0 && (
+              <Link
+                to="/notifications"
+                className="inline-block text-sm font-medium text-primary hover:underline"
+              >
+                {t("resources.notifications.more", {
+                  count: moreNotificationsCount,
+                })}
+              </Link>
+            )}
+          </div>
         )}
       </ResourcePanel>
 
@@ -212,13 +232,19 @@ const ResourcePanel: FC<{ title: string; to: string; children: ReactNode }> = ({
   </section>
 );
 
-/** Renders the resource items, or the provided empty node when there are none. */
-const ResourcePanelContent: FC<{ items: ResourceItem[]; empty: ReactNode }> = ({
-  items,
-  empty,
-}) =>
+/** Renders the resource items, or the provided empty node when there are none.
+ *  `column` stacks items vertically (one per line) instead of wrapping rows. */
+const ResourcePanelContent: FC<{
+  items: ResourceItem[];
+  empty: ReactNode;
+  column?: boolean;
+}> = ({ items, empty, column = false }) =>
   items.length > 0 ? (
-    <div className="flex flex-wrap gap-x-5 gap-y-2">
+    <div
+      className={cn(
+        column ? "flex flex-col gap-2" : "flex flex-wrap gap-x-5 gap-y-2",
+      )}
+    >
       {items.map((item) => (
         <ResourceTypeLink key={item.key} item={item} />
       ))}

@@ -16,7 +16,9 @@
     "description": "Accédez aux systèmes et zones qui composent ce site.",
     "notifications": {
       "title": "Notifications",
-      "empty": "Aucune nouvelle notification"
+      "empty": "Aucune nouvelle notification",
+      "more_one": "et {{count}} autre notification",
+      "more_other": "et {{count}} autres notifications"
     },
     "zones": {
       "title": "Zones",
