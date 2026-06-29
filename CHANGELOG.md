@@ -1,3 +1,9 @@
+## v0.116.0 (2026-06-29)
+
+### Feat
+
+- **ui**: read-only device config view with edit/delete actions (AGR-749)
+
 ## v0.115.1 (2026-06-29)
 
 ### Fix
