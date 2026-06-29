@@ -85,7 +85,10 @@ class Device(BaseModel):
     type: str | None = None
     tags: dict[str, str] = Field(default_factory=dict)
     attributes: dict[str, _AttributeUnion] = Field(default_factory=dict)
-    is_faulty: bool
+    # Derived from the device's fault attributes (rolled up by `core_to_dto`,
+    # recomputed on sync). Defaulted so authored/stored payloads need not carry
+    # it — a freshly loaded device reads False until its first sync.
+    is_faulty: bool = False
     # Physical-only fields — absent for virtual devices
     config: dict | None = None
     driver_id: str | None = None
