@@ -1,3 +1,9 @@
+## v0.115.1 (2026-06-29)
+
+### Fix
+
+- **devices_manager**: default Device.is_faulty to False
+
 ## v0.115.0 (2026-06-26)
 
 ### Feat
