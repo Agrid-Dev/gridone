@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
+import { TriangleAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiError } from "@/api/apiError";
 import { getAuthSchema } from "@/api/authValidation";
@@ -16,19 +17,34 @@ type LoginFormValues = {
   password: string;
 };
 
+// Minimal client-side validation used when the backend auth schema can't be
+// fetched (server unreachable). The server stays the source of truth — this
+// only keeps the form usable so the user can attempt to sign in once the
+// backend is back, instead of being stuck behind a permanently-disabled button.
+const FALLBACK_SCHEMA = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const { data: authSchema, isLoading: isSchemaLoading } = useQuery({
+  const {
+    data: authSchema,
+    isLoading: isSchemaLoading,
+    isError: isSchemaError,
+    isFetching: isSchemaFetching,
+    refetch: refetchSchema,
+  } = useQuery({
     queryKey: ["auth-schema"],
     queryFn: getAuthSchema,
     staleTime: 5 * 60 * 1000,
   });
 
   const schema = useMemo(() => {
-    if (!authSchema) return null;
+    if (!authSchema) return FALLBACK_SCHEMA;
     return z.fromJSONSchema(authSchema) as z.ZodObject<{
       username: z.ZodString;
       password: z.ZodString;
@@ -36,7 +52,7 @@ export default function LoginPage() {
   }, [authSchema]);
 
   const form = useForm<LoginFormValues>({
-    resolver: schema ? zodResolver(schema) : undefined,
+    resolver: zodResolver(schema),
     defaultValues: {
       username: "",
       password: "",
@@ -54,8 +70,10 @@ export default function LoginPage() {
           message: err.detail || err.details || t("auth.login.error"),
         });
       } else {
+        // A non-ApiError means the request never completed (transport/network
+        // failure): the backend is unreachable, not a credentials problem.
         form.setError("root", {
-          message: t("auth.login.error"),
+          message: t("auth.login.unreachable"),
         });
       }
     }
@@ -133,7 +151,10 @@ export default function LoginPage() {
             </div>
 
             {form.formState.errors.root?.message && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+              <div
+                role="alert"
+                className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2"
+              >
                 <p className="text-sm text-destructive">
                   {form.formState.errors.root.message}
                 </p>
@@ -143,9 +164,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               className="h-11 w-full font-display font-semibold tracking-wide"
-              disabled={
-                form.formState.isSubmitting || isSchemaLoading || !schema
-              }
+              disabled={form.formState.isSubmitting || isSchemaLoading}
             >
               {form.formState.isSubmitting
                 ? t("auth.login.signingIn")
@@ -153,6 +172,34 @@ export default function LoginPage() {
                   ? t("common.loading")
                   : t("auth.login.signIn")}
             </Button>
+
+            {isSchemaError && (
+              <div
+                role="status"
+                className="space-y-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-3"
+              >
+                <div className="flex items-center gap-2 text-[hsl(var(--warning))]">
+                  <TriangleAlert className="h-4 w-4" aria-hidden="true" />
+                  <p className="text-sm font-medium">
+                    {t("auth.login.unreachableTitle")}
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {t("auth.login.unreachable")}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => refetchSchema()}
+                  disabled={isSchemaFetching}
+                >
+                  {isSchemaFetching
+                    ? t("common.loading")
+                    : t("auth.login.retry")}
+                </Button>
+              </div>
+            )}
           </form>
         </div>
 
