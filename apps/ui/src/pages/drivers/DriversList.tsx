@@ -22,6 +22,13 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
       <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
         <div>
           <div className="flex items-center gap-1.5">
+            {driver.imageSrc && (
+              <img
+                src={driver.imageSrc}
+                alt={driver.id}
+                className="h-10 w-10 rounded object-cover"
+              />
+            )}
             <span className="ml-auto">
               <DeviceTypeChip type={driver.type} />
             </span>

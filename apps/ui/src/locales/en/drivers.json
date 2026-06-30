@@ -9,6 +9,8 @@
     "vendor": "Vendor",
     "model": "Model",
     "version": "Version",
+    "imageSrc": "Image",
+    "imageSrcHint": "URL or base64 content. Recommended: square image 400×400.",
     "protocol": "Protocol",
     "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
     "updateStrategy": "Update strategy",
@@ -22,12 +24,14 @@
   },
   "actions": {
     "create": "New driver",
+    "edit": "Edit",
     "delete": "Delete",
     "deleteConfirmTitle": "Delete this driver?",
     "deleteConfirmDetails": "Driver will be permanently deleted."
   },
   "feedback": {
     "created": "Driver {{driverId}} created",
+    "updated": "Driver updated",
     "deleted": "Driver deleted"
   }
 }

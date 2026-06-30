@@ -28,6 +28,7 @@ export type Driver = {
   vendor: string | null;
   model: string | null;
   version: string | null;
+  imageSrc: string | null;
   transport: TransportProtocol;
   updateStrategy: DriverUpdateStrategy;
   deviceConfig: {
@@ -62,4 +63,26 @@ export async function deleteDriver(driverId: string): Promise<void> {
   return request<void>(`/drivers/${driverId}`, {
     method: "DELETE",
   });
+}
+
+export type DriverPatchPayload = {
+  vendor?: string | null;
+  model?: string | null;
+  version?: number | null;
+  image_src?: string | null;
+};
+
+export function patchDriver(
+  driverId: string,
+  payload: DriverPatchPayload,
+): Promise<Driver> {
+  return request<Driver>(
+    `/drivers/${driverId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    { camelCase: true },
+  );
 }
