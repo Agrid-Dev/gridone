@@ -1,3 +1,9 @@
+## v0.119.0 (2026-06-30)
+
+### Feat
+
+- **devices-manager**: register standard CTA/AHU and air extractor schemas
+
 ## v0.118.1 (2026-06-30)
 
 ### Fix
