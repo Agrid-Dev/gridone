@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         Device,
         DeviceCreate,
         DeviceUpdate,
+        DriverPatch,
         DriverSpec,
         FaultView,
         StandardAttributeSchema,
@@ -199,6 +200,8 @@ class DevicesServiceInterface(Protocol):
     def get_driver(self, driver_id: str) -> DriverSpec: ...
 
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec: ...
+
+    async def update_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec: ...
 
     async def delete_driver(self, driver_id: str) -> None: ...
 

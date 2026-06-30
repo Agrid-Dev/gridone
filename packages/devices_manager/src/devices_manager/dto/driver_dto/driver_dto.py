@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
 import yaml as pyyaml
-from pydantic import BaseModel, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
@@ -55,6 +55,18 @@ class DriverSpec(BaseModel):
 
 class DriverYaml(BaseModel):
     yaml: str
+
+
+class DriverPatch(BaseModel):
+    """Mutable root-level driver fields; extra fields are rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    vendor: str | None = Field(default=None)
+    model: str | None = Field(default=None)
+    version: int | None = Field(default=None)
+    env: dict | None = Field(default=None)
+    update_strategy: UpdateStrategy | None = Field(default=None)
 
 
 def core_to_dto(driver: Driver) -> DriverSpec:

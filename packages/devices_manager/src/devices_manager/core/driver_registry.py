@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.dto import DriverSpec, driver_from_public, driver_to_public
+from devices_manager.dto import (
+    DriverPatch,
+    DriverSpec,
+    driver_from_public,
+    driver_to_public,
+)
 from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
 
@@ -68,6 +73,19 @@ class DriverRegistry:
             raise ValueError(msg)
         driver = driver_from_public(driver_dto)
         self._drivers[driver_dto.id] = driver
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return dto
+
+    async def update(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
+        driver = self._get_or_raise(driver_id)
+        changes = patch.model_dump(exclude_unset=True)
+        metadata_fields = {"vendor", "model", "version"}
+        for field, value in changes.items():
+            if field in metadata_fields:
+                setattr(driver.metadata, field, value)
+            else:
+                setattr(driver, field, value)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
