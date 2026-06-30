@@ -78,6 +78,7 @@ dependencies = [
     { name = "opentelemetry-instrumentation-logging" },
     { name = "opentelemetry-sdk" },
     { name = "uvicorn" },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -95,6 +96,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-logging", specifier = ">=0.63b1" },
     { name = "opentelemetry-sdk", specifier = ">=1.42.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
+    { name = "websockets", specifier = ">=16.0" },
 ]
 
 [package.metadata.requires-dev]
