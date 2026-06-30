@@ -56,7 +56,7 @@ def dm() -> MagicMock:
 
     mock.get_driver.side_effect = _get_driver
     mock.add_driver = AsyncMock(side_effect=lambda dto: dto)
-    mock.update_driver = AsyncMock(return_value=_DRIVERS[0])
+    mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
     mock.delete_driver = AsyncMock()
     return mock
 
@@ -138,10 +138,10 @@ class TestPatchDriver:
     def test_ok_returns_updated_driver(self, client: TestClient, dm: MagicMock):
         response = client.patch("/test_driver", json={"vendor": "Acme"})
         assert response.status_code == 200
-        dm.update_driver.assert_called_once()
+        dm.patch_driver.assert_called_once()
 
     def test_not_found_returns_404(self, client: TestClient, dm: MagicMock):
-        dm.update_driver.side_effect = NotFoundError("not found")
+        dm.patch_driver.side_effect = NotFoundError("not found")
         response = client.patch("/unknown", json={"vendor": "Acme"})
         assert response.status_code == 404
 
@@ -155,7 +155,7 @@ class TestPatchDriver:
         payload = {field: "any_value"}
         response = client.patch("/test_driver", json=payload)
         assert response.status_code == 422
-        dm.update_driver.assert_not_called()
+        dm.patch_driver.assert_not_called()
 
     def test_empty_patch_ok(self, client: TestClient):
         response = client.patch("/test_driver", json={})

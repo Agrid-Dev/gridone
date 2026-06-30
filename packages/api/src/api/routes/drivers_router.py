@@ -58,7 +58,7 @@ async def patch_driver(
     payload: DriverPatch,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> DriverSpec:
-    return await dm.update_driver(driver_id, payload)
+    return await dm.patch_driver(driver_id, payload)
 
 
 @router.delete(

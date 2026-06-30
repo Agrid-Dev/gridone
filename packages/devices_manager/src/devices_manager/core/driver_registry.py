@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from devices_manager.dto import (
     DriverPatch,
     DriverSpec,
@@ -77,15 +79,20 @@ class DriverRegistry:
         await self._storage.write(dto.id, dto)
         return dto
 
-    async def update(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
+    async def patch(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
-        changes = patch.model_dump(exclude_unset=True)
-        metadata_fields = {"vendor", "model", "version"}
-        for field, value in changes.items():
-            if field in metadata_fields:
-                setattr(driver.metadata, field, value)
-            else:
-                setattr(driver, field, value)
+        for field in patch.model_fields_set:
+            value = getattr(patch, field)
+            if isinstance(value, BaseModel):
+                value = getattr(driver, field).model_copy(
+                    update=value.model_dump(exclude_unset=True)
+                )
+            target = (
+                driver.metadata
+                if field in type(driver.metadata).model_fields
+                else driver
+            )
+            setattr(target, field, value)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
