@@ -12,6 +12,10 @@ dependencies = [
     "opentelemetry-instrumentation-logging>=0.63b1",
     "opentelemetry-sdk>=1.42.1",
     "uvicorn>=0.38.0",
+    # uvicorn needs the websockets protocol library to serve the /ws endpoint;
+    # we depend on it directly rather than pulling the whole uvicorn[standard]
+    # extra so it rides the cached uv sync layer instead of a separate install.
+    "websockets>=16.0",
 ]
 
 [dependency-groups]
