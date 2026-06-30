@@ -1,7 +1,7 @@
 from typing import Annotated, Any
 
 import yaml as pyyaml
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
@@ -62,11 +62,19 @@ class DriverPatch(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    vendor: str | None = Field(default=None)
-    model: str | None = Field(default=None)
-    version: int | None = Field(default=None)
-    env: dict | None = Field(default=None)
-    update_strategy: UpdateStrategy | None = Field(default=None)
+    vendor: str | None = None
+    model: str | None = None
+    version: int | None = None
+    env: dict | None = None
+    update_strategy: UpdateStrategy | None = None
+
+    @field_validator("env", "update_strategy", mode="before")
+    @classmethod
+    def _not_null(cls, v: Any) -> Any:  # noqa: ANN401
+        if v is None:
+            msg = "cannot be null"
+            raise ValueError(msg)
+        return v
 
 
 def core_to_dto(driver: Driver) -> DriverSpec:

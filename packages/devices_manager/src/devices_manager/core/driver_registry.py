@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.dto import (
     DriverPatch,
     DriverSpec,
@@ -81,17 +82,14 @@ class DriverRegistry:
 
     async def patch(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
+        metadata_fields = DriverMetadata.model_fields
         for field in patch.model_fields_set:
             value = getattr(patch, field)
             if isinstance(value, BaseModel):
                 value = getattr(driver, field).model_copy(
                     update=value.model_dump(exclude_unset=True)
                 )
-            target = (
-                driver.metadata
-                if field in type(driver.metadata).model_fields
-                else driver
-            )
+            target = driver.metadata if field in metadata_fields else driver
             setattr(target, field, value)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
