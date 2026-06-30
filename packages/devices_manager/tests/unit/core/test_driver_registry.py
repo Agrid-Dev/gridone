@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager.core.driver_registry import DriverRegistry
-from devices_manager.dto import DriverSpec, driver_to_public
+from devices_manager.dto import DriverPatch, DriverSpec, driver_to_public
 from devices_manager.storage import StorageBackend
 from models.errors import NotFoundError
 
@@ -86,6 +86,44 @@ class TestDriverRegistryAdd:
         await registry.add(driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
             await registry.add(driver_dto)
+
+
+class TestDriverRegistryUpdate:
+    @pytest.mark.asyncio
+    async def test_update_vendor(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        patch = DriverPatch(vendor="Acme")
+        result = await registry.update(driver.id, patch)
+        assert result.vendor == "Acme"
+        assert result.id == driver.id
+
+    @pytest.mark.asyncio
+    async def test_update_env(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        patch = DriverPatch(env={"base_url": "http://new.example.com"})
+        result = await registry.update(driver.id, patch)
+        assert result.env == {"base_url": "http://new.example.com"}
+
+    @pytest.mark.asyncio
+    async def test_update_only_supplied_fields(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        original_env = dict(driver.env)
+        patch = DriverPatch(vendor="Acme")
+        result = await registry.update(driver.id, patch)
+        assert result.env == original_env
+
+    @pytest.mark.asyncio
+    async def test_update_not_found(self):
+        registry = DriverRegistry()
+        with pytest.raises(NotFoundError):
+            await registry.update("unknown", DriverPatch())
+
+    @pytest.mark.asyncio
+    async def test_update_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        await registry.update(driver.id, DriverPatch(vendor="Acme"))
+        storage.write.assert_called_once()
 
 
 class TestDriverRegistryRemove:
