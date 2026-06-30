@@ -6,6 +6,7 @@ class DriverMetadata(BaseModel):
     vendor: str | None = None
     model: str | None = None
     version: int | None = None
+    image_src: str | None = None
 
     @property
     def name(self) -> str:

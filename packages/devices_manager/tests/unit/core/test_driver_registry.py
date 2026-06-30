@@ -128,6 +128,12 @@ class TestDriverRegistryPatch:
         assert isinstance(driver.update_strategy, UpdateStrategy)
 
     @pytest.mark.asyncio
+    async def test_patch_image_src(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.patch(driver.id, DriverPatch(image_src="https://example.com/device.png"))
+        assert result.image_src == "https://example.com/device.png"
+
+    @pytest.mark.asyncio
     async def test_patch_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):

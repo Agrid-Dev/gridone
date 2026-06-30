@@ -39,6 +39,7 @@ class DriverSpec(BaseModel):
     vendor: str | None = None
     model: str | None = None
     version: int | None = None
+    image_src: str | None = None
     transport: TransportProtocols
     env: Annotated[dict, Field(default_factory=dict)]
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
@@ -65,6 +66,7 @@ class DriverPatch(BaseModel):
     vendor: str | None = None
     model: str | None = None
     version: int | None = None
+    image_src: str | None = None
     env: dict | None = None
     update_strategy: UpdateStrategy | None = None
 
@@ -83,6 +85,7 @@ def core_to_dto(driver: Driver) -> DriverSpec:
         vendor=driver.metadata.vendor,
         model=driver.metadata.model,
         version=driver.metadata.version,
+        image_src=driver.metadata.image_src,
         transport=driver.transport,
         env=driver.env,
         update_strategy=driver.update_strategy,

@@ -29,6 +29,7 @@ class Driver:
     attributes: dict[str, AttributeDriver]
     discovery_schema: dict | None = None
     type: str | None = None
+    image_src: str | None = None
 
     def __post_init__(self) -> None:
         if self.type is not None:

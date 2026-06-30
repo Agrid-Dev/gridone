@@ -6,6 +6,7 @@ from devices_manager.storage.storage_backend import StorageBackend
 # Fields that stay in the JSONB data column
 _JSONB_FIELDS = {
     "version",
+    "image_src",
     "env",
     "update_strategy",
     "device_config",
