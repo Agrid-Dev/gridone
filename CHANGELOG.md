@@ -1,3 +1,9 @@
+## v0.118.1 (2026-06-30)
+
+### Fix
+
+- first attempt to speed up docker release build
+
 ## v0.118.0 (2026-06-29)
 
 ### Feat
