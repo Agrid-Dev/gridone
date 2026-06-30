@@ -31,6 +31,8 @@ When a driver is registered with a `type`, Gridone validates its attributes agai
 - **Optional attributes** may be omitted, but if present they must match the expected data type.
 - Drivers may define **additional attributes** beyond the standard schema — the schema only constrains what must exist, not what can exist.
 
+A schema only ever imposes attribute **names** and **data types** — never physical units or value ranges. Gridone is unit-agnostic: it makes no assumption about the unit a device reports for a given attribute. Any unit shown in the tables below is purely illustrative (e.g. a temperature is a `float`, whether the device reports °C or °F).
+
 Validation runs at driver registration time. If an attribute is missing or has the wrong type, the driver is rejected with a clear error message.
 
 ### Multiple-instance attributes
@@ -120,12 +122,93 @@ An outdoor weather station providing ambient conditions data.
 
 | Attribute | Data type | Required | Description |
 |---|---|---|---|
-| `temperature` | float | yes | Ambient temperature (°C) |
-| `weather_code` | int | yes | WMO weather interpretation code (0–99) |
-| `wind_speed` | float | yes | Wind speed (km/h) |
-| `wind_direction` | int | yes | Wind direction in degrees (0–360) |
-| `humidity` | float | yes | Relative humidity (%) |
+| `temperature` | float | yes | Ambient temperature |
+| `weather_code` | int | yes | WMO weather interpretation code |
+| `wind_speed` | float | yes | Wind speed |
+| `wind_direction` | int | yes | Wind direction |
+| `humidity` | float | yes | Relative humidity |
 
 **UI behavior:** The control panel displays the weather condition with an icon derived from the WMO code, a prominent temperature reading, wind speed with compass direction, and humidity.
+
+---
+
+### Air Extractor
+
+**Key:** `air_extractor`
+
+An air extraction unit (extracteur / tourelle) that removes stale air from a space.
+
+| Attribute | Data type | Required | Description |
+|---|---|---|---|
+| `onoff_state` | bool | no | Power on/off state (running/stopped) |
+| `fan_speed` | float | no | Fan speed — variable-speed units |
+| `flow_switch` | bool | no | Air-flow proven by a differential-pressure switch |
+
+`flow_switch` is a flow-proving status, not a measurement: it confirms the fan is actually moving air, catching a broken belt, seized motor, or fully blocked filter even when commanded on. Running state is derived from `fan_speed` (> 0) or `onoff_state` when present.
+
+Faults (e.g. a general fault synthesis) are not part of the standard schema yet; drivers declare them as non-standard attributes for now.
+
+**UI behavior:** The control panel shows the running state, plus the fan speed when available.
+
+---
+
+### Single-Flux Air Handling Unit (CTA simple flux)
+
+**Key:** `ahu_single_flux`
+
+An air handling unit with a single supply air-treatment train (filter, coil, fan) and no heat recovery.
+
+| Attribute | Data type | Required | Description |
+|---|---|---|---|
+| `supply_air_temperature` | float | yes | Supply air temperature |
+| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint |
+| `supply_fan_speed` | float | yes | Supply fan speed |
+| `onoff_state` | bool | no | Power on/off state |
+| `hvac_mode` | string | no | Operating mode |
+| `supply_air_pressure` | float | no | Supply duct pressure |
+| `supply_air_pressure_setpoint` | float | no | Supply duct pressure setpoint |
+| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
+| `extract_air_temperature` | float | no | Return air temperature, if fitted |
+| `extract_air_pressure` | float | no | Return duct pressure |
+| `extract_fan_speed` | float | no | Return fan speed |
+| `heating_valve` | float | no | Heating coil valve opening |
+| `cooling_valve` | float | no | Cooling coil valve opening |
+
+Faults and alarms (frost, filter, fan, pressure, general fault synthesis) are not part of the standard schema yet; drivers declare them as non-standard attributes for now.
+
+**UI behavior:** The control panel displays the supply air temperature and setpoint, fan speed, and coil valve positions.
+
+---
+
+### Double-Flux Air Handling Unit (CTA double flux)
+
+**Key:** `ahu_double_flux`
+
+An air handling unit with both supply and extract air trains and an energy-recovery exchanger. A superset of `ahu_single_flux`; the required `extract_air_temperature` and `extract_fan_speed` distinguish it from the single-flux type.
+
+| Attribute | Data type | Required | Description |
+|---|---|---|---|
+| `supply_air_temperature` | float | yes | Supply air temperature |
+| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint |
+| `supply_fan_speed` | float | yes | Supply fan speed |
+| `extract_air_temperature` | float | yes | Extract/return air temperature |
+| `extract_fan_speed` | float | yes | Extract fan speed |
+| `onoff_state` | bool | no | Power on/off state |
+| `hvac_mode` | string | no | Operating mode |
+| `supply_air_pressure` | float | no | Supply duct pressure |
+| `supply_air_pressure_setpoint` | float | no | Supply duct pressure setpoint |
+| `extract_air_pressure` | float | no | Extract duct pressure |
+| `extract_air_pressure_setpoint` | float | no | Extract duct pressure setpoint |
+| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
+| `exhaust_air_temperature` | float | no | Exhaust (rejected) air temperature |
+| `heating_valve` | float | no | Heating coil valve opening |
+| `cooling_valve` | float | no | Cooling coil valve opening |
+| `exchanger_utilization` | float | no | Energy exchanger utilization — heat and cool recovery |
+
+`exchanger_utilization` is a reported value (e.g. recovery wheel speed or bypass position), never computed by Gridone. The exchanger recovers energy in both directions — heat in winter and coolth (free-cooling) in summer — so the name is direction-neutral.
+
+Faults and alarms (frost, filters, fans, pressure, general fault synthesis) are not part of the standard schema yet; drivers declare them as non-standard attributes for now.
+
+**UI behavior:** The control panel displays both supply and extract air temperatures, fan speeds, coil valve positions, and exchanger utilization.
 
 ---
