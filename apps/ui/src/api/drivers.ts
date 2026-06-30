@@ -64,25 +64,3 @@ export async function deleteDriver(driverId: string): Promise<void> {
     method: "DELETE",
   });
 }
-
-export type DriverPatchPayload = {
-  vendor?: string | null;
-  model?: string | null;
-  version?: number | null;
-  image_src?: string | null;
-};
-
-export function patchDriver(
-  driverId: string,
-  payload: DriverPatchPayload,
-): Promise<Driver> {
-  return request<Driver>(
-    `/drivers/${driverId}`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-    { camelCase: true },
-  );
-}

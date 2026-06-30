@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useDriverFromRoute, useDeleteDriver } from "./useDrivers";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { type Driver, type DriverAttribute } from "@/api/drivers";
 import {
@@ -8,7 +8,7 @@ import {
   TypographyP,
   TypographySmall,
 } from "@/components/ui/typography";
-import { Button, Card, CardContent } from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,6 @@ import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { DriverDevicesSection } from "./DriverDevicesSection";
-import { Pencil } from "lucide-react";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -68,20 +67,12 @@ const DriverDetails: FC<{
         title={driver.id}
         actions={
           can("drivers:write") ? (
-            <div className="flex items-center gap-2">
-              <Button asChild>
-                <Link to="edit">
-                  <Pencil className="h-4 w-4" />
-                  {t("actions.edit")}
-                </Link>
-              </Button>
-              <ResourceDeleteButton
-                onDelete={() => onDelete(driver.id)}
-                confirmTitle={t("actions.deleteConfirmTitle")}
-                confirmDetails={t("actions.deleteConfirmDetails")}
-                deleteLabel={t("actions.delete")}
-              />
-            </div>
+            <ResourceDeleteButton
+              onDelete={() => onDelete(driver.id)}
+              confirmTitle={t("actions.deleteConfirmTitle")}
+              confirmDetails={t("actions.deleteConfirmDetails")}
+              deleteLabel={t("actions.delete")}
+            />
           ) : undefined
         }
       />

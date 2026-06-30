@@ -9,8 +9,6 @@
     "vendor": "Fabricant",
     "model": "Mod\u00e8le",
     "version": "Version",
-    "imageSrc": "Image",
-    "imageSrcHint": "URL ou contenu base64. Recommand\u00e9 : image carr\u00e9e 400\u00d7400.",
     "protocol": "Protocole",
     "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
     "updateStrategy": "Strat\u00e9gie de mise \u00e0 jour",
@@ -24,14 +22,12 @@
   },
   "actions": {
     "create": "Nouveau driver",
-    "edit": "Modifier",
     "delete": "Supprimer",
     "deleteConfirmTitle": "Supprimer ce driver ?",
     "deleteConfirmDetails": "Cette action ne peut pas \u00eatre annul\u00e9e."
   },
   "feedback": {
     "created": "Driver {{driverId}} cr\u00e9\u00e9",
-    "updated": "Driver mis \u00e0 jour",
     "deleted": "Driver supprim\u00e9"
   }
 }

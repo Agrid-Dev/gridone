@@ -1,11 +1,4 @@
-import {
-  getDrivers,
-  getDriver,
-  Driver,
-  deleteDriver,
-  patchDriver,
-  DriverPatchPayload,
-} from "@/api/drivers";
+import { getDrivers, getDriver, Driver, deleteDriver } from "@/api/drivers";
 import {
   useQuery,
   useMutation,
@@ -89,25 +82,6 @@ export const useDriverFromRoute = (): Driver => {
     initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
   });
   return data;
-};
-
-export const usePatchDriver = (driverId: string) => {
-  const { t } = useTranslation(["drivers", "common"]);
-  const queryClient = useQueryClient();
-  const patchMutation = useMutation({
-    mutationFn: (payload: DriverPatchPayload) => patchDriver(driverId, payload),
-    onSuccess: (updated: Driver) => {
-      queryClient.setQueryData(["driver", driverId], updated);
-      queryClient.invalidateQueries({ queryKey: ["drivers"] });
-      toast.success(t("feedback.updated"));
-    },
-    onError: (err: ApiError) => {
-      toast.error(
-        `${t("common:errors.default")}: ${err.details || err.message}`,
-      );
-    },
-  });
-  return { patchMutation, handlePatch: patchMutation.mutateAsync };
 };
 
 export const useDeleteDriver = () => {
