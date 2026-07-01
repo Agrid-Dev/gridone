@@ -28,6 +28,7 @@ export type Driver = {
   vendor: string | null;
   model: string | null;
   version: string | null;
+  imageSrc: string | null;
   transport: TransportProtocol;
   updateStrategy: DriverUpdateStrategy;
   deviceConfig: {

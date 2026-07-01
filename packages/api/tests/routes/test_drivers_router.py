@@ -161,6 +161,13 @@ class TestPatchDriver:
         response = client.patch("/test_driver", json={})
         assert response.status_code == 200
 
+    def test_image_src_patch_ok(self, client: TestClient, dm: MagicMock):
+        response = client.patch(
+            "/test_driver", json={"image_src": "https://example.com/img.png"}
+        )
+        assert response.status_code == 200
+        dm.patch_driver.assert_called_once()
+
 
 class TestDeleteDriver:
     def test_ok_returns_204(self, client: TestClient):

@@ -79,7 +79,15 @@ const DriverDetails: FC<{
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>
-
+          {driver.imageSrc && (
+            <div className="my-4">
+              <img
+                src={driver.imageSrc}
+                alt={driver.id}
+                className="h-40 w-40 rounded-lg object-cover"
+              />
+            </div>
+          )}
           <div className="flex justify-start gap-16 my-4">
             <LabelledProperty
               label={t("fields.vendor")}
