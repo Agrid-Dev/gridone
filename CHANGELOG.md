@@ -1,3 +1,9 @@
+## v0.124.0 (2026-07-01)
+
+### Feat
+
+- deleting a driver attribute (#406)
+
 ## v0.123.0 (2026-07-01)
 
 ### Feat
