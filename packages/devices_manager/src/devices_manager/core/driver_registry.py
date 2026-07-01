@@ -104,7 +104,7 @@ class DriverRegistry:
         await self._storage.write(dto.id, dto)
         return dto
 
-    async def patch_attribute(
+    async def patch_driver_attribute(
         self, driver_id: str, attribute_id: str, patch: AttributePatch
     ) -> AttributeDriver:
         driver = self._get_or_raise(driver_id)

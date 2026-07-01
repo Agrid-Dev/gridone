@@ -1290,7 +1290,7 @@ class TestDevicesServiceRestartSync:
         await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_patch_attribute_restarts_sync_for_affected_devices(
+    async def test_patch_driver_attribute_restarts_sync_for_affected_devices(
         self, driver, mock_transport_client
     ):
         device1 = PhysicalDevice.from_base(
@@ -1310,7 +1310,7 @@ class TestDevicesServiceRestartSync:
         )
         await dm.start()
 
-        await dm.patch_attribute(
+        await dm.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(read="GET /temp/v2")
         )
 
@@ -1319,7 +1319,7 @@ class TestDevicesServiceRestartSync:
         await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_patch_attribute_rebuilds_kind_in_live_devices(
+    async def test_patch_driver_attribute_rebuilds_kind_in_live_devices(
         self, driver, mock_transport_client
     ):
         device = PhysicalDevice.from_base(
@@ -1335,7 +1335,7 @@ class TestDevicesServiceRestartSync:
         await dm.start()
         assert not isinstance(device.attributes["temperature"], FaultAttribute)
 
-        await dm.patch_attribute(
+        await dm.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(kind=AttributeKind.FAULT)
         )
 

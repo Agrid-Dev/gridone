@@ -71,13 +71,13 @@ async def patch_driver(
     "/{driver_id}/attributes/{attribute_id}",
     dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
 )
-async def patch_attribute(
+async def patch_driver_attribute(
     driver_id: str,
     attribute_id: str,
     payload: AttributePatch,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> AttributeDriverSpec:
-    return await dm.patch_attribute(driver_id, attribute_id, payload)
+    return await dm.patch_driver_attribute(driver_id, attribute_id, payload)
 
 
 @router.delete(

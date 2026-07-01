@@ -205,7 +205,7 @@ class DevicesServiceInterface(Protocol):
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec: ...
 
-    async def patch_attribute(
+    async def patch_driver_attribute(
         self, driver_id: str, attribute_id: str, patch: AttributePatch
     ) -> AttributeDriver: ...
 

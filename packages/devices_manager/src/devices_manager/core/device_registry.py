@@ -25,6 +25,7 @@ from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
     from devices_manager.core.device.event_log import AttributeLogs
+    from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.dto import (
         Device,
         DeviceCreate,
@@ -342,6 +343,27 @@ class DeviceRegistry:
         return await device.write_attribute_value(
             attribute_name, value, confirm=confirm
         )
+
+    async def restart_devices(
+        self,
+        *,
+        driver_id: str | None = None,
+        transport_id: str | None = None,
+    ) -> None:
+        """Stop then start all devices matching the given filters."""
+        filters = DeviceFilters(driver_id=driver_id, transport_id=transport_id)
+        for device in list(self._devices.values()):
+            if filters.matches(device):
+                await device.stop_sync()
+                await device.start_sync()
+
+    def rebuild_attribute_in_devices(
+        self, attribute_driver: AttributeDriver, *, driver_id: str
+    ) -> None:
+        """Rebuild the runtime attribute for all devices using driver_id."""
+        for device in list(self._devices.values()):
+            if device.driver_id == driver_id:
+                device.rebuild_attribute(attribute_driver)
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)

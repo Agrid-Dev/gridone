@@ -850,7 +850,7 @@ def _build_drivers_app() -> FastAPI:
     dm = MagicMock()
     dm.list_drivers.return_value = []
     dm.patch_driver = AsyncMock()
-    dm.patch_attribute = AsyncMock()
+    dm.patch_driver_attribute = AsyncMock()
     dm.delete_driver = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm

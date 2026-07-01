@@ -88,7 +88,7 @@ class AttributePatch(BaseModel):
 
     read: RawTransportAddress | None = None
     write: RawTransportAddress | None = None  # null means read-only
-    codecs: list[Any] | None = None
+    codecs: list[dict[str, Any]] | None = None
     kind: AttributeKind | None = None
     severity: Severity | None = None
     healthy_values: list[AttributeValueType] | None = None

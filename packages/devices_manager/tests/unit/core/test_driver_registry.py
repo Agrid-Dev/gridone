@@ -163,7 +163,7 @@ class TestDriverRegistryPatchAttribute:
     @pytest.mark.asyncio
     async def test_patch_read_address(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = await registry.patch_attribute(
+        result = await registry.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(read="GET /temp/v2")
         )
         assert result.read == "GET /temp/v2"
@@ -173,7 +173,7 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_only_supplied_fields(self, driver):
         registry = DriverRegistry({driver.id: driver})
         original_write = driver.attributes["temperature"].write
-        result = await registry.patch_attribute(
+        result = await registry.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(read="GET /temp/v2")
         )
         assert result.write == original_write
@@ -181,7 +181,7 @@ class TestDriverRegistryPatchAttribute:
     @pytest.mark.asyncio
     async def test_patch_codecs(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = await registry.patch_attribute(
+        result = await registry.patch_driver_attribute(
             driver.id,
             "temperature",
             AttributePatch(codecs=[{"json_pointer": "/data/temp"}]),
@@ -194,7 +194,7 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_kind_standard_to_fault(self, driver):
         """Changing kind rebuilds the attribute as FaultAttributeDriver."""
         registry = DriverRegistry({driver.id: driver})
-        result = await registry.patch_attribute(
+        result = await registry.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(kind=AttributeKind.FAULT)
         )
         assert isinstance(result, FaultAttributeDriver)
@@ -204,19 +204,23 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_driver_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
-            await registry.patch_attribute("unknown", "temperature", AttributePatch())
+            await registry.patch_driver_attribute(
+                "unknown", "temperature", AttributePatch()
+            )
 
     @pytest.mark.asyncio
-    async def test_patch_attribute_not_found(self, driver):
+    async def test_patch_driver_attribute_not_found(self, driver):
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(NotFoundError):
-            await registry.patch_attribute(driver.id, "nonexistent", AttributePatch())
+            await registry.patch_driver_attribute(
+                driver.id, "nonexistent", AttributePatch()
+            )
 
     @pytest.mark.asyncio
     async def test_patch_persists_to_storage(self, driver):
         storage = AsyncMock(spec=StorageBackend)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
-        await registry.patch_attribute(
+        await registry.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(read="GET /temp/v2")
         )
         storage.write.assert_called_once()

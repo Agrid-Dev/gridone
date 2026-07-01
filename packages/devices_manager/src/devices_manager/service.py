@@ -453,8 +453,8 @@ class DevicesService(Service):
         self, transport_id: str, update: TransportUpdate
     ) -> Transport:
         transport = await self._transport_registry.update(transport_id, update)
-        if update.config is not None:
-            await self._restart_devices_for_transport(transport_id)
+        if update.config is not None and self._running:
+            await self._device_registry.restart_devices(transport_id=transport_id)
         return transport_to_public(transport)
 
     # -- Drivers (delegated to DriverRegistry) --
@@ -480,39 +480,23 @@ class DevicesService(Service):
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         result = await self._driver_registry.patch(driver_id, patch)
-        await self._restart_devices_for_driver(driver_id)
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
         return result
 
-    async def patch_attribute(
+    async def patch_driver_attribute(
         self,
         driver_id: str,
         attribute_id: str,
         patch: AttributePatch,
     ) -> AttributeDriver:
-        result = await self._driver_registry.patch_attribute(
+        result = await self._driver_registry.patch_driver_attribute(
             driver_id, attribute_id, patch
         )
-        for device in list(self._device_registry.all.values()):
-            if device.driver_id == driver_id:
-                await device.stop_sync()
-                device.rebuild_attribute(result)
-                if self._running:
-                    await device.start_sync()
+        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
         return result
-
-    async def _restart_devices_for_driver(self, driver_id: str) -> None:
-        for device in list(self._device_registry.all.values()):
-            if device.driver_id == driver_id:
-                await device.stop_sync()
-                if self._running:
-                    await device.start_sync()
-
-    async def _restart_devices_for_transport(self, transport_id: str) -> None:
-        for device in list(self._device_registry.all.values()):
-            if device.transport_id == transport_id:
-                await device.stop_sync()
-                if self._running:
-                    await device.start_sync()
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
