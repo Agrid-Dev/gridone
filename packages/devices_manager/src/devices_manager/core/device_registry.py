@@ -178,7 +178,7 @@ class DeviceRegistry:
             msg = "Duplicate attribute names in virtual device payload"
             raise InvalidError(msg)
         if device_create.type is not None:
-            validate_standard_schema(device_create.type, device_create.attributes)  # ty: ignore[invalid-argument-type]
+            validate_standard_schema(device_create.type, device_create.attributes)
         attributes = {
             a.name: Attribute.create(a.name, a.data_type, {a.read_write_mode})
             for a in device_create.attributes

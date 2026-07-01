@@ -148,15 +148,12 @@ class DriverRegistry:
                 a for aid, a in driver.attributes.items() if aid != attribute_id
             ]
             try:
-                validate_standard_schema(
-                    driver.type,
-                    remaining,  # ty: ignore[invalid-argument-type]
-                )
+                validate_standard_schema(driver.type, remaining)
             except InvalidError as e:
                 msg = (
-                    f"Deleting attribute {attribute_id} would make driver {driver_id} "
-                    f"invalid for standard schema {driver.type!r}: {e}; unset the "
-                    "driver's type before deleting it"
+                    f"Driver {driver_id} declares type {driver.type!r} which "
+                    f"requires {attribute_id}. Unset the driver's type before "
+                    "deleting this attribute."
                 )
                 raise ForbiddenError(msg) from e
         del driver.attributes[attribute_id]
