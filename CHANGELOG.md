@@ -1,3 +1,9 @@
+## v0.121.0 (2026-07-01)
+
+### Feat
+
+- add driver image src to driver page (#401)
+
 ## v0.120.0 (2026-07-01)
 
 ### Feat
