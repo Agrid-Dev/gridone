@@ -15,11 +15,14 @@ from devices_manager.core.device import (
     PhysicalDevice,
     VirtualDevice,
 )
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import Driver, UpdateStrategy
 from devices_manager.dto import (
     AttributeCreate,
+    AttributePatch,
     Device,
     DeviceUpdate,
+    DriverPatch,
     DriverSpec,
     TransportBase,
     TransportCreate,
@@ -1257,6 +1260,86 @@ class TestDevicesServiceRestartSync:
 
         assert device1.syncing is True
         assert device2.syncing is True
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_patch_driver_restarts_sync_for_affected_devices(
+        self, driver, mock_transport_client
+    ):
+        device1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        device2 = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+
+        await dm.patch_driver(driver.id, DriverPatch(vendor="Acme"))
+
+        assert device1.syncing is True
+        assert device2.syncing is True
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_patch_attribute_restarts_sync_for_affected_devices(
+        self, driver, mock_transport_client
+    ):
+        device1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        device2 = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+
+        await dm.patch_attribute(
+            driver.id, "temperature", AttributePatch(read="GET /temp/v2")
+        )
+
+        assert device1.syncing is True
+        assert device2.syncing is True
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_patch_attribute_rebuilds_kind_in_live_devices(
+        self, driver, mock_transport_client
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+        assert not isinstance(device.attributes["temperature"], FaultAttribute)
+
+        await dm.patch_attribute(
+            driver.id, "temperature", AttributePatch(kind=AttributeKind.FAULT)
+        )
+
+        assert isinstance(device.attributes["temperature"], FaultAttribute)
         await dm.stop()
 
 
