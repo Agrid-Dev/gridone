@@ -498,6 +498,16 @@ class DevicesService(Service):
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result
 
+    async def delete_attribute(self, driver_id: str, attribute_id: str) -> DriverSpec:
+        result = await self._driver_registry.delete_attribute(driver_id, attribute_id)
+        self._device_registry.delete_attribute_in_devices(
+            attribute_id, driver_id=driver_id
+        )
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
+        return result
+
+
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
             (d for d in self._device_registry.all.values() if d.driver_id == driver_id),

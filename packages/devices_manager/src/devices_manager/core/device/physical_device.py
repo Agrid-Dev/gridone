@@ -122,6 +122,10 @@ class PhysicalDevice(CoreDevice):
             attribute_driver, current_value
         )
 
+    def delete_attribute(self, attribute_name: str) -> None:
+        """Delete a runtime attribute that no longer exists on the driver."""
+        self.attributes.pop(attribute_name, None)
+
     @classmethod
     def from_base(
         cls,
