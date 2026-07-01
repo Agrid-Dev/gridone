@@ -178,7 +178,7 @@ class DeviceRegistry:
             msg = "Duplicate attribute names in virtual device payload"
             raise InvalidError(msg)
         if device_create.type is not None:
-            validate_standard_schema(device_create.type, device_create.attributes)  # ty: ignore[invalid-argument-type]
+            validate_standard_schema(device_create.type, device_create.attributes)
         attributes = {
             a.name: Attribute.create(a.name, a.data_type, {a.read_write_mode})
             for a in device_create.attributes
@@ -364,6 +364,14 @@ class DeviceRegistry:
         for device in list(self._devices.values()):
             if device.driver_id == driver_id:
                 device.rebuild_attribute(attribute_driver)
+
+    def delete_attribute_in_devices(
+        self, attribute_name: str, *, driver_id: str
+    ) -> None:
+        """Delete the runtime attribute for all devices using driver_id."""
+        for device in list(self._devices.values()):
+            if device.driver_id == driver_id:
+                device.delete_attribute(attribute_name)
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)

@@ -7,6 +7,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver.driver_metadata import DriverMetadata
+from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.dto import (
     AttributeDriverSpec,
     AttributePatch,
@@ -16,7 +17,7 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage.memory import MemoryStorageBackend
-from models.errors import InvalidError, NotFoundError
+from models.errors import ForbiddenError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from devices_manager.core.driver.attribute_driver import AttributeDriver
@@ -134,6 +135,31 @@ class DriverRegistry:
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return updated
+
+    async def delete_driver_attribute(
+        self, driver_id: str, attribute_id: str
+    ) -> DriverSpec:
+        driver = self._get_or_raise(driver_id)
+        if attribute_id not in driver.attributes:
+            msg = f"Attribute {attribute_id} not found in driver {driver_id}"
+            raise NotFoundError(msg)
+        if driver.type is not None:
+            remaining = [
+                a for aid, a in driver.attributes.items() if aid != attribute_id
+            ]
+            try:
+                validate_standard_schema(driver.type, remaining)
+            except InvalidError as e:
+                msg = (
+                    f"Driver {driver_id} declares type {driver.type!r} which "
+                    f"requires {attribute_id}. Unset the driver's type before "
+                    "deleting this attribute."
+                )
+                raise ForbiddenError(msg) from e
+        del driver.attributes[attribute_id]
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return dto
 
     async def remove(self, driver_id: str) -> None:
         self._get_or_raise(driver_id)

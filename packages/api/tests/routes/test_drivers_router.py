@@ -67,6 +67,7 @@ def dm() -> MagicMock:
     mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
     mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.delete_driver = AsyncMock()
+    mock.delete_driver_attribute = AsyncMock(return_value=_DRIVERS[0])
     return mock
 
 
@@ -223,4 +224,22 @@ class TestDeleteDriver:
     def test_not_found_returns_404(self, client: TestClient, dm: MagicMock):
         dm.delete_driver.side_effect = NotFoundError("not found")
         response = client.delete("/unknown")
+        assert response.status_code == 404
+
+
+class TestDeleteAttribute:
+    def test_ok_returns_updated_driver(self, client: TestClient, dm: MagicMock):
+        response = client.delete("/test_driver/attributes/temperature")
+        assert response.status_code == 200
+        assert response.json()["id"] == "test_driver"
+        dm.delete_driver_attribute.assert_called_once_with("test_driver", "temperature")
+
+    def test_driver_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.delete_driver_attribute.side_effect = NotFoundError("driver not found")
+        response = client.delete("/unknown/attributes/temperature")
+        assert response.status_code == 404
+
+    def test_attribute_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.delete_driver_attribute.side_effect = NotFoundError("attribute not found")
+        response = client.delete("/test_driver/attributes/nonexistent")
         assert response.status_code == 404

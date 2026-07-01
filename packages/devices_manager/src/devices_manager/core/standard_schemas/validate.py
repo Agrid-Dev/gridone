@@ -1,4 +1,5 @@
 import re
+from collections.abc import Sequence
 from typing import Protocol
 
 from devices_manager.types import DataType
@@ -19,7 +20,7 @@ class ValidatedField(Protocol):
 
 def _find_matching_fields(
     standard_field: StandardAttributeSchemaField,
-    validated_fields: list[ValidatedField],
+    validated_fields: Sequence[ValidatedField],
 ) -> list[ValidatedField]:
     """Find fields matching a standard field definition.
 
@@ -45,7 +46,8 @@ def _validate_standard_field(
 
 
 def _validate_standard_schema(
-    standard_schema: StandardAttributeSchema, validated_schema: list[ValidatedField]
+    standard_schema: StandardAttributeSchema,
+    validated_schema: Sequence[ValidatedField],
 ) -> None:
     for standard_field in standard_schema.fields:
         matches = _find_matching_fields(standard_field, validated_schema)
@@ -63,7 +65,7 @@ def _validate_standard_schema(
 
 def validate_standard_schema(
     schema_key: str,
-    validated_schema: list[ValidatedField],
+    validated_schema: Sequence[ValidatedField],
     *,
     registry: StandardAttributeSchemaRegistry = default_registry,
 ) -> None:

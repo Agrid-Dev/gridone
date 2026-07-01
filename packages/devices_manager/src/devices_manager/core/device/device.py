@@ -118,6 +118,12 @@ class CoreDevice(ABC):
         No-op for non-physical devices.
         """
 
+    def delete_attribute(self, attribute_name: str) -> None:  # noqa: B027
+        """Delete a single runtime attribute.
+
+        No-op for non-physical devices.
+        """
+
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
             return self.attributes[attribute_name]
