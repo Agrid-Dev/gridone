@@ -12,17 +12,33 @@ import {
 import { DeviceType } from "@/api/devices";
 import type { Severity } from "@/api/severity";
 import { formatValue, type CellValue } from "@/lib/formatValue";
-import { SEVERITY_LEVEL, STATUS_TEXT_COLOR } from "@/lib/statusColor";
+import {
+  lookupSemanticColor,
+  SEMANTIC_TEXT_CLASS,
+  SEVERITY_LEVEL,
+} from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
-const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = {
-  heat: { Icon: Sun, color: "text-orange-500" },
-  cool: { Icon: Snowflake, color: "text-blue-500" },
-  fan: { Icon: Fan, color: "text-green-500" },
-  auto: { Icon: RefreshCcwDot, color: "text-yellow-500" },
+/** HVAC mode icons; the colour comes from the shared semantic registry so a
+ *  mode is tinted the same here and in its history chart panel. */
+const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
+  heat: Sun,
+  cool: Snowflake,
+  fan: Fan,
+  auto: RefreshCcwDot,
 };
+
+const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = Object.fromEntries(
+  Object.entries(HVAC_MODE_ICONS).map(([value, Icon]) => {
+    const color = lookupSemanticColor("mode", value);
+    return [
+      value,
+      { Icon, color: color ? SEMANTIC_TEXT_CLASS[color] : "text-foreground" },
+    ];
+  }),
+);
 
 const HVAC_FAN_SPEED_RENDERERS: Record<string, ValueRenderer> = {
   low: { Icon: SignalLow, color: "text-muted-foreground" },
@@ -106,7 +122,9 @@ export function AttributeValue({
   if (fault) {
     const level = fault.isFaulty ? SEVERITY_LEVEL[fault.severity] : "ok";
     return (
-      <span className={cn("font-medium", STATUS_TEXT_COLOR[level], className)}>
+      <span
+        className={cn("font-medium", SEMANTIC_TEXT_CLASS[level], className)}
+      >
         {formatValue(value, dataType)}
       </span>
     );

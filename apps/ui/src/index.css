@@ -42,6 +42,17 @@
     --chart-6: 187 80% 44%;
     --chart-7: 24 90% 50%;
     --chart-8: 330 70% 52%;
+
+    /* Semantic palette — BMS meaning shared by inline text and chart fills.
+       Consumed via lib/semanticColors.ts (text-status-*, hsl(var(--status-*))). */
+    --status-ok: 142 76% 36%;
+    --status-info: 200 98% 39%;
+    --status-warning: 32 95% 44%;
+    --status-error: 0 72% 51%;
+    --hvac-heat: 25 95% 53%;
+    --hvac-cool: 217 91% 60%;
+    --hvac-fan: 142 71% 45%;
+    --hvac-auto: 48 96% 53%;
   }
 
   .dark {
@@ -82,6 +93,16 @@
     --chart-6: 187 85% 53%;
     --chart-7: 24 95% 53%;
     --chart-8: 330 81% 60%;
+
+    /* Semantic palette — brightened for legibility on dark surfaces. */
+    --status-ok: 142 65% 55%;
+    --status-info: 200 90% 60%;
+    --status-warning: 36 90% 58%;
+    --status-error: 0 75% 62%;
+    --hvac-heat: 25 95% 62%;
+    --hvac-cool: 217 91% 68%;
+    --hvac-fan: 142 65% 55%;
+    --hvac-auto: 48 90% 60%;
   }
 }
 

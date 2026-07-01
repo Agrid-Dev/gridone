@@ -186,7 +186,7 @@ describe("DeviceAttributePanes", () => {
 
     expect(screen.getByText("Internal")).toBeInTheDocument();
     const value = within(rowFor("Connection Status")).getByText("Connected");
-    expect(value).toHaveClass("text-green-600");
+    expect(value).toHaveClass("text-status-ok");
   });
 
   it("links writable rows to the command form pre-targeted to the attribute", () => {

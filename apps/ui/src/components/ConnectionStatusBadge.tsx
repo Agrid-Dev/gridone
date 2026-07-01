@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { STATUS_TEXT_COLOR, type StatusLevel } from "@/lib/statusColor";
+import { SEMANTIC_TEXT_CLASS, type StatusLevel } from "@/lib/semanticColors";
 import { ConnectionStatus } from "@/api/devices";
 
 const STATUS_CONFIG: Record<
@@ -65,7 +65,7 @@ export function ConnectionStatusValue({
   if (!status) return <span className="text-muted-foreground">—</span>;
   return (
     <span
-      className={cn("font-medium", STATUS_TEXT_COLOR[STATUS_LEVEL[status]])}
+      className={cn("font-medium", SEMANTIC_TEXT_CLASS[STATUS_LEVEL[status]])}
     >
       {t(STATUS_CONFIG[status].labelKey)}
     </span>
