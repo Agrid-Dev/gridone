@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 
     from .core.device.event_log import AttributeLogs
     from .core.discovery_manager import DiscoveryConfig
+    from .core.driver.attribute_driver import AttributeDriver
     from .dto import (
+        AttributePatch,
         Device,
         DeviceCreate,
         DeviceUpdate,
@@ -202,6 +204,10 @@ class DevicesServiceInterface(Protocol):
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec: ...
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec: ...
+
+    async def patch_attribute(
+        self, driver_id: str, attribute_id: str, patch: AttributePatch
+    ) -> AttributeDriver: ...
 
     async def delete_driver(self, driver_id: str) -> None: ...
 

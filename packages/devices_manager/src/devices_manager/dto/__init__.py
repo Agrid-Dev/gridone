@@ -9,7 +9,13 @@ from .device_dto import (
 from .device_dto import core_to_dto as device_to_public
 from .device_dto import dto_to_base as device_public_to_base
 from .device_dto import dto_to_core as device_from_public
-from .driver_dto import DriverPatch, DriverSpec, DriverYaml
+from .driver_dto import (
+    AttributeDriverSpec,
+    AttributePatch,
+    DriverPatch,
+    DriverSpec,
+    DriverYaml,
+)
 from .driver_dto import core_to_dto as driver_to_public
 from .driver_dto import dto_to_core as driver_from_public
 from .fault_dto import FaultView
@@ -33,6 +39,8 @@ from .transport_dto import dto_to_core as transport_from_public
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
     "AttributeCreate",
+    "AttributeDriverSpec",
+    "AttributePatch",
     "Device",
     "DeviceCreate",
     "DeviceUpdate",
