@@ -1,3 +1,9 @@
+## v0.122.0 (2026-07-01)
+
+### Feat
+
+- **ui**: centralize semantic colors + apply to chart string panels (AGR-854)
+
 ## v0.121.0 (2026-07-01)
 
 ### Feat
