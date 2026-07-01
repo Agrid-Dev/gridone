@@ -108,10 +108,7 @@ class DriverRegistry:
         if driver.type is None:
             return
         try:
-            validate_standard_schema(
-                driver.type,
-                candidate_attrs,  # ty: ignore[invalid-argument-type]
-            )
+            validate_standard_schema(driver.type, candidate_attrs)
         except InvalidError as e:
             raise ForbiddenError(build_message(e)) from e
 
