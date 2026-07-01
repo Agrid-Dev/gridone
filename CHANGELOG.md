@@ -1,3 +1,9 @@
+## v0.120.0 (2026-07-01)
+
+### Feat
+
+- patch drivers id endpoint (#400)
+
 ## v0.119.0 (2026-06-30)
 
 ### Feat
