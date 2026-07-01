@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
-from devices_manager.dto import DriverPatch, DriverSpec, DriverYaml
+from devices_manager.dto import (
+    AttributeDriverSpec,
+    AttributePatch,
+    DriverPatch,
+    DriverSpec,
+    DriverYaml,
+)
 
 router = APIRouter()
 
@@ -59,6 +65,19 @@ async def patch_driver(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> DriverSpec:
     return await dm.patch_driver(driver_id, payload)
+
+
+@router.patch(
+    "/{driver_id}/attributes/{attribute_id}",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
+)
+async def patch_driver_attribute(
+    driver_id: str,
+    attribute_id: str,
+    payload: AttributePatch,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> AttributeDriverSpec:
+    return await dm.patch_driver_attribute(driver_id, attribute_id, payload)
 
 
 @router.delete(

@@ -12,7 +12,9 @@ from devices_manager.core.driver import (
     FaultAttributeDriver,
     UpdateStrategy,
 )
-from devices_manager.types import TransportProtocols
+from devices_manager.core.transports import RawTransportAddress
+from devices_manager.types import AttributeValueType, TransportProtocols
+from models.types import Severity
 
 
 def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
@@ -27,7 +29,7 @@ def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
     return getattr(v, "kind", AttributeKind.STANDARD)
 
 
-_AttributeDriverUnion = Annotated[
+AttributeDriverSpec = Annotated[
     Annotated[AttributeDriver, Tag(AttributeKind.STANDARD)]
     | Annotated[FaultAttributeDriver, Tag(AttributeKind.FAULT)],
     Discriminator(_attribute_kind_tag),
@@ -44,7 +46,7 @@ class DriverSpec(BaseModel):
     env: Annotated[dict, Field(default_factory=dict)]
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
     device_config: list[DeviceConfigField]
-    attributes: list[_AttributeDriverUnion]
+    attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
     type: str | None = None
 
@@ -71,6 +73,29 @@ class DriverPatch(BaseModel):
     update_strategy: UpdateStrategy | None = None
 
     @field_validator("env", "update_strategy", mode="before")
+    @classmethod
+    def _not_null(cls, v: Any) -> Any:  # noqa: ANN401
+        if v is None:
+            msg = "cannot be null"
+            raise ValueError(msg)
+        return v
+
+
+class AttributePatch(BaseModel):
+    """Mutable attribute fields; name and data_type are immutable and are rejected."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    read: RawTransportAddress | None = None
+    write: RawTransportAddress | None = None  # null means read-only
+    codecs: list[dict[str, Any]] | None = None
+    kind: AttributeKind | None = None
+    severity: Severity | None = None
+    healthy_values: list[AttributeValueType] | None = None
+
+    @field_validator(
+        "read", "codecs", "kind", "severity", "healthy_values", mode="before"
+    )
     @classmethod
     def _not_null(cls, v: Any) -> Any:  # noqa: ANN401
         if v is None:

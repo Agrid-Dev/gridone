@@ -8,9 +8,17 @@ from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 from devices_manager import DevicesServiceInterface
+from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.dto import DriverSpec
-from devices_manager.types import TransportProtocols
+from devices_manager.types import DataType, TransportProtocols
 from models.errors import NotFoundError
+
+_ATTRIBUTE = AttributeDriver(
+    name="temperature",
+    data_type=DataType.FLOAT,
+    read="GET /temp",
+    codecs=[],
+)
 
 _DRIVERS = [
     DriverSpec.model_validate(
@@ -57,6 +65,7 @@ def dm() -> MagicMock:
     mock.get_driver.side_effect = _get_driver
     mock.add_driver = AsyncMock(side_effect=lambda dto: dto)
     mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
+    mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.delete_driver = AsyncMock()
     return mock
 
@@ -167,6 +176,43 @@ class TestPatchDriver:
         )
         assert response.status_code == 200
         dm.patch_driver.assert_called_once()
+
+
+class TestPatchAttribute:
+    def test_ok_returns_updated_attribute(self, client: TestClient, dm: MagicMock):
+        response = client.patch(
+            "/test_driver/attributes/temperature", json={"read": "GET /temp/v2"}
+        )
+        assert response.status_code == 200
+        dm.patch_driver_attribute.assert_called_once()
+
+    def test_driver_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.patch_driver_attribute.side_effect = NotFoundError("driver not found")
+        response = client.patch(
+            "/unknown/attributes/temperature", json={"read": "GET /temp/v2"}
+        )
+        assert response.status_code == 404
+
+    def test_attribute_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.patch_driver_attribute.side_effect = NotFoundError("attribute not found")
+        response = client.patch(
+            "/test_driver/attributes/nonexistent", json={"read": "GET /temp/v2"}
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.parametrize("field", ["name", "data_type"])
+    def test_immutable_field_rejected_with_422(
+        self, client: TestClient, dm: MagicMock, field: str
+    ):
+        response = client.patch(
+            "/test_driver/attributes/temperature", json={field: "any_value"}
+        )
+        assert response.status_code == 422
+        dm.patch_driver_attribute.assert_not_called()
+
+    def test_empty_patch_ok(self, client: TestClient):
+        response = client.patch("/test_driver/attributes/temperature", json={})
+        assert response.status_code == 200
 
 
 class TestDeleteDriver:

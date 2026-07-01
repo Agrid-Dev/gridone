@@ -850,6 +850,7 @@ def _build_drivers_app() -> FastAPI:
     dm = MagicMock()
     dm.list_drivers.return_value = []
     dm.patch_driver = AsyncMock()
+    dm.patch_driver_attribute = AsyncMock()
     dm.delete_driver = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
@@ -872,6 +873,20 @@ DRIVERS_ACCESS_CONTROL_SCENARIOS = [
     # Write (DRIVERS_WRITE) — viewer is forbidden; operator and admin are allowed
     pytest.param("PATCH", "/drivers/any-id", "viewer", 403, id="patch-viewer"),
     pytest.param("PATCH", "/drivers/any-id", None, 401, id="patch-no-auth"),
+    pytest.param(
+        "PATCH",
+        "/drivers/any-id/attributes/any-attr",
+        "viewer",
+        403,
+        id="patch-attr-viewer",
+    ),
+    pytest.param(
+        "PATCH",
+        "/drivers/any-id/attributes/any-attr",
+        None,
+        401,
+        id="patch-attr-no-auth",
+    ),
     pytest.param("DELETE", "/drivers/any-id", "viewer", 403, id="delete-viewer"),
     pytest.param("DELETE", "/drivers/any-id", None, 401, id="delete-no-auth"),
 ]

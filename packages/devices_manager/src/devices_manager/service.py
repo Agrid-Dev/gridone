@@ -22,6 +22,7 @@ from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry
 from .dto import (
+    AttributePatch,
     Device,
     DeviceCreate,
     DeviceUpdate,
@@ -47,6 +48,7 @@ if TYPE_CHECKING:
 
     from .core.device.event_log import AttributeLogs
     from .core.driver import Driver
+    from .core.driver.attribute_driver import AttributeDriver
     from .core.transports import TransportClient
     from .interface import AttributeListener, DeviceDiscoveredListener
     from .storage import DevicesManagerStorage
@@ -451,12 +453,8 @@ class DevicesService(Service):
         self, transport_id: str, update: TransportUpdate
     ) -> Transport:
         transport = await self._transport_registry.update(transport_id, update)
-        if update.config is not None:
-            for device in self._device_registry.all.values():
-                if device.transport_id == transport_id:
-                    await device.stop_sync()
-                    if self._running:
-                        await device.start_sync()
+        if update.config is not None and self._running:
+            await self._device_registry.restart_devices(transport_id=transport_id)
         return transport_to_public(transport)
 
     # -- Drivers (delegated to DriverRegistry) --
@@ -482,11 +480,22 @@ class DevicesService(Service):
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         result = await self._driver_registry.patch(driver_id, patch)
-        for device in self._device_registry.all.values():
-            if device.driver_id == driver_id:
-                await device.stop_sync()
-                if self._running:
-                    await device.start_sync()
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
+        return result
+
+    async def patch_driver_attribute(
+        self,
+        driver_id: str,
+        attribute_id: str,
+        patch: AttributePatch,
+    ) -> AttributeDriver:
+        result = await self._driver_registry.patch_driver_attribute(
+            driver_id, attribute_id, patch
+        )
+        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
         return result
 
     def _assert_driver_not_used(self, driver_id: str) -> None:

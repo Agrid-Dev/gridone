@@ -1,24 +1,33 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
+from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.dto import (
+    AttributeDriverSpec,
+    AttributePatch,
     DriverPatch,
     DriverSpec,
     driver_from_public,
     driver_to_public,
 )
 from devices_manager.storage.memory import MemoryStorageBackend
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
+    from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.core.transports import TransportClient
     from devices_manager.storage import StorageBackend
 
     from .driver import Driver
+
+logger = logging.getLogger(__name__)
+
+_attr_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(AttributeDriverSpec)
 
 
 class DriverRegistry:
@@ -94,6 +103,37 @@ class DriverRegistry:
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
+
+    async def patch_driver_attribute(
+        self, driver_id: str, attribute_id: str, patch: AttributePatch
+    ) -> AttributeDriver:
+        driver = self._get_or_raise(driver_id)
+        if attribute_id not in driver.attributes:
+            msg = f"Attribute {attribute_id} not found in driver {driver_id}"
+            raise NotFoundError(msg)
+        existing = driver.attributes[attribute_id]
+        merged: dict[str, Any] = existing.model_dump() | patch.model_dump(
+            exclude_unset=True
+        )
+        if merged.get("kind") != AttributeKind.FAULT:
+            fault_only = {"severity", "healthy_values"} & patch.model_fields_set
+            if fault_only:
+                msg = f"Fields {sorted(fault_only)} are only valid on fault attributes"
+                raise InvalidError(msg)
+        try:
+            updated: AttributeDriver = _attr_adapter.validate_python(merged)
+        except ValidationError:
+            logger.exception(
+                "Attribute validation failed for driver %s attribute %s",
+                driver_id,
+                attribute_id,
+            )
+            msg = "Invalid attribute configuration"
+            raise InvalidError(msg) from None
+        driver.attributes[attribute_id] = updated
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return updated
 
     async def remove(self, driver_id: str) -> None:
         self._get_or_raise(driver_id)

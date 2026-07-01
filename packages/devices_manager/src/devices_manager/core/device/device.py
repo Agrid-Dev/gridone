@@ -13,6 +13,7 @@ from models.errors import NotFoundError
 from .attribute import Attribute, FaultAttribute
 
 if TYPE_CHECKING:
+    from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.types import AttributeValueType, DataType, DeviceKind
 
 logger = logging.getLogger(__name__)
@@ -110,6 +111,12 @@ class CoreDevice(ABC):
 
     async def update_once(self) -> None:  # noqa: B027
         """Open transport, read all attributes, close. No-op for non-physical."""
+
+    def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:  # noqa: B027
+        """Rebuild a single runtime attribute from its driver spec.
+
+        No-op for non-physical devices.
+        """
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:

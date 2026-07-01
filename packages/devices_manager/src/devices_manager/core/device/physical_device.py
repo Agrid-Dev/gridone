@@ -111,6 +111,17 @@ class PhysicalDevice(CoreDevice):
         push_interval = self.driver.update_strategy.expected_push_interval
         return float(push_interval) if push_interval is not None else None
 
+    def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:
+        """Rebuild a single runtime attribute from its updated driver spec.
+
+        Preserves the attribute's current_value so live telemetry is not lost.
+        """
+        existing = self.attributes.get(attribute_driver.name)
+        current_value = existing.current_value if existing is not None else None
+        self.attributes[attribute_driver.name] = _build_attribute(
+            attribute_driver, current_value
+        )
+
     @classmethod
     def from_base(
         cls,
