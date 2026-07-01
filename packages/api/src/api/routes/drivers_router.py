@@ -96,9 +96,9 @@ async def delete_driver(
     "/{driver_id}/attributes/{attribute_id}",
     dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
 )
-async def delete_attribute(
+async def delete_driver_attribute(
     driver_id: str,
     attribute_id: str,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> DriverSpec:
-    return await dm.delete_attribute(driver_id, attribute_id)
+    return await dm.delete_driver_attribute(driver_id, attribute_id)

@@ -852,7 +852,7 @@ def _build_drivers_app() -> FastAPI:
     dm.patch_driver = AsyncMock()
     dm.patch_driver_attribute = AsyncMock()
     dm.delete_driver = AsyncMock()
-    dm.delete_attribute = AsyncMock()
+    dm.delete_driver_attribute = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.include_router(auth_router, prefix="/auth")

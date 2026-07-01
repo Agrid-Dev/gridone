@@ -209,7 +209,7 @@ class DevicesServiceInterface(Protocol):
         self, driver_id: str, attribute_id: str, patch: AttributePatch
     ) -> AttributeDriver: ...
 
-    async def delete_attribute(
+    async def delete_driver_attribute(
         self, driver_id: str, attribute_id: str
     ) -> DriverSpec: ...
 

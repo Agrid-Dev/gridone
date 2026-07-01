@@ -1345,14 +1345,14 @@ class TestDevicesServiceRestartSync:
     @pytest.mark.asyncio
     async def test_delete_attribute_ok(self, driver):
         dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
-        result = await dm.delete_attribute(driver.id, "temperature")
+        result = await dm.delete_driver_attribute(driver.id, "temperature")
         assert isinstance(result, DriverSpec)
         assert all(attr.name != "temperature" for attr in result.attributes)
 
     @pytest.mark.asyncio
     async def test_delete_attribute_not_found(self, devices_manager, driver):
         with pytest.raises(NotFoundError):
-            await devices_manager.delete_attribute(driver.id, "nonexistent")
+            await devices_manager.delete_driver_attribute(driver.id, "nonexistent")
 
     @pytest.mark.asyncio
     async def test_delete_required_standard_attribute_forbidden(
@@ -1362,7 +1362,7 @@ class TestDevicesServiceRestartSync:
             devices={}, drivers={thermostat_driver.id: thermostat_driver}, transports={}
         )
         with pytest.raises(ForbiddenError):
-            await dm.delete_attribute(thermostat_driver.id, "temperature")
+            await dm.delete_driver_attribute(thermostat_driver.id, "temperature")
 
     @pytest.mark.asyncio
     async def test_delete_attribute_restarts_sync_for_affected_devices(
@@ -1385,7 +1385,7 @@ class TestDevicesServiceRestartSync:
         )
         await dm.start()
 
-        await dm.delete_attribute(driver.id, "temperature")
+        await dm.delete_driver_attribute(driver.id, "temperature")
 
         assert device1.syncing is True
         assert device2.syncing is True
@@ -1408,7 +1408,7 @@ class TestDevicesServiceRestartSync:
         await dm.start()
         assert "temperature" in device.attributes
 
-        await dm.delete_attribute(driver.id, "temperature")
+        await dm.delete_driver_attribute(driver.id, "temperature")
 
         assert "temperature" not in device.attributes
         await dm.stop()

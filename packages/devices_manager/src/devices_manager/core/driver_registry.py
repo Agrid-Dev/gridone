@@ -136,7 +136,9 @@ class DriverRegistry:
         await self._storage.write(dto.id, dto)
         return updated
 
-    async def delete_attribute(self, driver_id: str, attribute_id: str) -> DriverSpec:
+    async def delete_driver_attribute(
+        self, driver_id: str, attribute_id: str
+    ) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
         if attribute_id not in driver.attributes:
             msg = f"Attribute {attribute_id} not found in driver {driver_id}"

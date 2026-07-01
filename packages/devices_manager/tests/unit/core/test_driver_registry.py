@@ -206,7 +206,7 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_kind_fault_to_standard_drops_fault_fields(self, driver):
         """Downgrading kind rebuilds as AttributeDriver, dropping stale fault fields."""
         registry = DriverRegistry({driver.id: driver})
-        await registry.patch_attribute(
+        await registry.patch_driver_attribute(
             driver.id,
             "temperature",
             AttributePatch(
@@ -214,7 +214,7 @@ class TestDriverRegistryPatchAttribute:
             ),
         )
 
-        result = await registry.patch_attribute(
+        result = await registry.patch_driver_attribute(
             driver.id, "temperature", AttributePatch(kind=AttributeKind.STANDARD)
         )
 
@@ -252,7 +252,7 @@ class TestDriverRegistryDeleteAttribute:
     @pytest.mark.asyncio
     async def test_delete_existing(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = await registry.delete_attribute(driver.id, "temperature")
+        result = await registry.delete_driver_attribute(driver.id, "temperature")
         assert isinstance(result, DriverSpec)
         assert all(attr.name != "temperature" for attr in result.attributes)
         assert "temperature" not in driver.attributes
@@ -261,19 +261,19 @@ class TestDriverRegistryDeleteAttribute:
     async def test_delete_driver_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
-            await registry.delete_attribute("unknown", "temperature")
+            await registry.delete_driver_attribute("unknown", "temperature")
 
     @pytest.mark.asyncio
     async def test_delete_attribute_not_found(self, driver):
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(NotFoundError):
-            await registry.delete_attribute(driver.id, "nonexistent")
+            await registry.delete_driver_attribute(driver.id, "nonexistent")
 
     @pytest.mark.asyncio
     async def test_delete_persists_to_storage(self, driver):
         storage = AsyncMock(spec=StorageBackend)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
-        await registry.delete_attribute(driver.id, "temperature")
+        await registry.delete_driver_attribute(driver.id, "temperature")
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
@@ -282,7 +282,7 @@ class TestDriverRegistryDeleteAttribute:
     ):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
         with pytest.raises(ForbiddenError):
-            await registry.delete_attribute(thermostat_driver.id, "temperature")
+            await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         assert "temperature" in thermostat_driver.attributes
 
     @pytest.mark.asyncio
@@ -294,14 +294,14 @@ class TestDriverRegistryDeleteAttribute:
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
         with pytest.raises(ForbiddenError):
-            await registry.delete_attribute(thermostat_driver.id, "temperature")
+            await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         storage.write.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_delete_optional_standard_attribute_ok(self, thermostat_driver):
         """Non-required/optional standard fields are deletable."""
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        result = await registry.delete_attribute(
+        result = await registry.delete_driver_attribute(
             thermostat_driver.id, "temperature_setpoint_min"
         )
         assert isinstance(result, DriverSpec)
