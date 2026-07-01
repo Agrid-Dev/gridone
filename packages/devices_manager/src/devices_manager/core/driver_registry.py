@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.dto import (
@@ -20,6 +21,8 @@ from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.core.transports import TransportClient
     from devices_manager.storage import StorageBackend
@@ -29,6 +32,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _attr_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(AttributeDriverSpec)
+
+
+def _reject_reserved_attribute_name(name: str) -> None:
+    if name == CONNECTION_STATUS_ATTR:
+        msg = f'"{CONNECTION_STATUS_ATTR}" is a reserved attribute name'
+        raise InvalidError(msg)
 
 
 class DriverRegistry:
@@ -80,10 +89,38 @@ class DriverRegistry:
         driver = self._get_or_raise(driver_id)
         return driver_to_public(driver)
 
+    @staticmethod
+    def _get_attribute_or_raise(
+        driver: Driver, driver_id: str, attribute_id: str
+    ) -> AttributeDriver:
+        try:
+            return driver.attributes[attribute_id]
+        except KeyError as e:
+            msg = f"Attribute {attribute_id} not found in driver {driver_id}"
+            raise NotFoundError(msg) from e
+
+    @staticmethod
+    def _assert_standard_schema_allows(
+        driver: Driver,
+        candidate_attrs: list[AttributeDriver],
+        build_message: Callable[[InvalidError], str],
+    ) -> None:
+        if driver.type is None:
+            return
+        try:
+            validate_standard_schema(
+                driver.type,
+                candidate_attrs,  # ty: ignore[invalid-argument-type]
+            )
+        except InvalidError as e:
+            raise ForbiddenError(build_message(e)) from e
+
     async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)
+        for attr in driver_dto.attributes:
+            _reject_reserved_attribute_name(attr.name)
         driver = driver_from_public(driver_dto)
         self._drivers[driver_dto.id] = driver
         dto = driver_to_public(driver)
@@ -109,10 +146,7 @@ class DriverRegistry:
         self, driver_id: str, attribute_id: str, patch: AttributePatch
     ) -> AttributeDriver:
         driver = self._get_or_raise(driver_id)
-        if attribute_id not in driver.attributes:
-            msg = f"Attribute {attribute_id} not found in driver {driver_id}"
-            raise NotFoundError(msg)
-        existing = driver.attributes[attribute_id]
+        existing = self._get_attribute_or_raise(driver, driver_id, attribute_id)
         merged: dict[str, Any] = existing.model_dump() | patch.model_dump(
             exclude_unset=True
         )
@@ -140,26 +174,50 @@ class DriverRegistry:
         self, driver_id: str, attribute_id: str
     ) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
-        if attribute_id not in driver.attributes:
-            msg = f"Attribute {attribute_id} not found in driver {driver_id}"
-            raise NotFoundError(msg)
-        if driver.type is not None:
-            remaining = [
-                a for aid, a in driver.attributes.items() if aid != attribute_id
-            ]
-            try:
-                validate_standard_schema(driver.type, remaining)
-            except InvalidError as e:
-                msg = (
-                    f"Driver {driver_id} declares type {driver.type!r} which "
-                    f"requires {attribute_id}. Unset the driver's type before "
-                    "deleting this attribute."
-                )
-                raise ForbiddenError(msg) from e
+        self._get_attribute_or_raise(driver, driver_id, attribute_id)
+        remaining = [a for aid, a in driver.attributes.items() if aid != attribute_id]
+        self._assert_standard_schema_allows(
+            driver,
+            remaining,
+            lambda e: (  # noqa: ARG005
+                f"Driver {driver_id} declares type {driver.type!r} which "
+                f"requires {attribute_id}. Unset the driver's type before "
+                "deleting this attribute."
+            ),
+        )
         del driver.attributes[attribute_id]
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
+
+    async def rename_driver_attribute(
+        self, driver_id: str, attribute_id: str, new_name: str
+    ) -> AttributeDriver:
+        driver = self._get_or_raise(driver_id)
+        self._get_attribute_or_raise(driver, driver_id, attribute_id)
+        _reject_reserved_attribute_name(new_name)
+        if new_name != attribute_id and new_name in driver.attributes:
+            msg = f"Attribute {new_name} already exists in driver {driver_id}"
+            raise InvalidError(msg)
+        renamed = driver.attributes[attribute_id].model_copy(update={"name": new_name})
+        remaining = [
+            renamed if aid == attribute_id else a
+            for aid, a in driver.attributes.items()
+        ]
+        self._assert_standard_schema_allows(
+            driver,
+            remaining,
+            lambda e: (  # noqa: ARG005
+                f'Cannot rename "{attribute_id}" which is required for devices '
+                f'of type "{driver.type}". Change or unset the type before '
+                "modifying this attribute name."
+            ),
+        )
+        del driver.attributes[attribute_id]
+        driver.attributes[new_name] = renamed
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return renamed
 
     async def remove(self, driver_id: str) -> None:
         self._get_or_raise(driver_id)

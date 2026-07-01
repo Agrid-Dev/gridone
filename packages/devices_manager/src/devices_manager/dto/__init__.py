@@ -12,6 +12,7 @@ from .device_dto import dto_to_core as device_from_public
 from .driver_dto import (
     AttributeDriverSpec,
     AttributePatch,
+    AttributeRename,
     DriverPatch,
     DriverSpec,
     DriverYaml,
@@ -41,6 +42,7 @@ __all__ = [
     "AttributeCreate",
     "AttributeDriverSpec",
     "AttributePatch",
+    "AttributeRename",
     "Device",
     "DeviceCreate",
     "DeviceUpdate",

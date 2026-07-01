@@ -1413,6 +1413,82 @@ class TestDevicesServiceRestartSync:
         assert "temperature" not in device.attributes
         await dm.stop()
 
+    @pytest.mark.asyncio
+    async def test_rename_attribute_ok(self, driver):
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        result = await dm.rename_driver_attribute(driver.id, "temperature", "temp")
+        assert result.name == "temp"
+
+    @pytest.mark.asyncio
+    async def test_rename_attribute_not_found(self, devices_manager, driver):
+        with pytest.raises(NotFoundError):
+            await devices_manager.rename_driver_attribute(
+                driver.id, "nonexistent", "temp"
+            )
+
+    @pytest.mark.asyncio
+    async def test_rename_required_standard_attribute_forbidden(
+        self, thermostat_driver
+    ):
+        dm = DevicesService(
+            devices={}, drivers={thermostat_driver.id: thermostat_driver}, transports={}
+        )
+        with pytest.raises(ForbiddenError):
+            await dm.rename_driver_attribute(
+                thermostat_driver.id, "temperature", "temp"
+            )
+
+    @pytest.mark.asyncio
+    async def test_rename_attribute_restarts_sync_for_affected_devices(
+        self, driver, mock_transport_client
+    ):
+        device1 = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        device2 = PhysicalDevice.from_base(
+            DeviceBase(id="d2", name="Device 2", config={"some_id": "b"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device1.id: device1, device2.id: device2},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+
+        await dm.rename_driver_attribute(driver.id, "temperature", "temp")
+
+        assert device1.syncing is True
+        assert device2.syncing is True
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_rename_attribute_renames_it_in_live_devices_preserving_value(
+        self, driver, mock_transport_client
+    ):
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+            initial_values={"temperature": 21.5},
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+        assert "temperature" in device.attributes
+
+        await dm.rename_driver_attribute(driver.id, "temperature", "temp")
+
+        assert "temperature" not in device.attributes
+        assert device.attributes["temp"].current_value == 21.5
+        await dm.stop()
+
 
 class TestDevicesServiceListActiveFaults:
     """Tests for DevicesService.list_active_faults."""
