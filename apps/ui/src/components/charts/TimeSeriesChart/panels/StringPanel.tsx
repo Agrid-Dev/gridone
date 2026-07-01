@@ -20,6 +20,7 @@ import {
 } from "../constants";
 import { LegendSwatch } from "../LegendSwatch";
 import { computeTopStringValues } from "../topStringValues";
+import { attributeValueChartColor } from "@/lib/semanticColors";
 
 type RenderItem = {
   label: string;
@@ -56,7 +57,9 @@ export function StringPanel({
       }
       items.push({
         label: `${series.label}: ${val}`,
-        color: CHART_COLORS[vi % CHART_COLORS.length],
+        color:
+          attributeValueChartColor(series.key, val) ??
+          CHART_COLORS[vi % CHART_COLORS.length],
         dataKey: `${series.key}::${val}`,
         data,
       });

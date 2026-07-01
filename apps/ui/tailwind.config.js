@@ -56,6 +56,15 @@ module.exports = {
           foreground: "hsl(var(--sidebar-foreground))",
           accent: "hsl(var(--sidebar-accent))",
         },
+        // Semantic palette — see index.css and lib/semanticColors.ts.
+        "status-ok": "hsl(var(--status-ok))",
+        "status-info": "hsl(var(--status-info))",
+        "status-warning": "hsl(var(--status-warning))",
+        "status-error": "hsl(var(--status-error))",
+        "hvac-heat": "hsl(var(--hvac-heat))",
+        "hvac-cool": "hsl(var(--hvac-cool))",
+        "hvac-fan": "hsl(var(--hvac-fan))",
+        "hvac-auto": "hsl(var(--hvac-auto))",
       },
       borderRadius: {
         "2xl": "calc(var(--radius) + 8px)",

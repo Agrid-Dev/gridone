@@ -43,6 +43,86 @@ function renderFull() {
   );
 }
 
+/** Legend swatch (first span) sitting next to the legend label with `text`. */
+function swatchFor(text: string): HTMLSpanElement {
+  const label = screen.getByText(text);
+  const swatch = label.parentElement?.querySelector("span");
+  if (!swatch) throw new Error(`no swatch for "${text}"`);
+  return swatch as HTMLSpanElement;
+}
+
+// ---------------------------------------------------------------------------
+// Semantic string panel colours (AGR-854)
+// ---------------------------------------------------------------------------
+
+describe("StringPanel — semantic colours", () => {
+  it("colours a connection_status panel with the shared status palette", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[{ key: "connection_status", label: "Connection" }]}
+        stringValues={{
+          connection_status: [
+            "ok",
+            "ok",
+            "degraded",
+            "error",
+            "idle",
+            "ok",
+            "degraded",
+            "error",
+            "idle",
+            "ok",
+          ],
+        }}
+        width={WIDTH}
+      />,
+    );
+    expect(swatchFor("Connection: ok").style.backgroundColor).toBe(
+      "hsl(var(--status-ok))",
+    );
+    expect(swatchFor("Connection: degraded").style.backgroundColor).toBe(
+      "hsl(var(--status-warning))",
+    );
+    expect(swatchFor("Connection: error").style.backgroundColor).toBe(
+      "hsl(var(--status-error))",
+    );
+    expect(swatchFor("Connection: idle").style.backgroundColor).toBe(
+      "hsl(var(--status-info))",
+    );
+  });
+
+  it("colours a thermostat mode panel by HVAC meaning", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[{ key: "mode", label: "Mode" }]}
+        stringValues={{
+          mode: [
+            "heat",
+            "heat",
+            "cool",
+            "cool",
+            "fan",
+            "auto",
+            "heat",
+            "cool",
+            "fan",
+            "auto",
+          ],
+        }}
+        width={WIDTH}
+      />,
+    );
+    expect(swatchFor("Mode: heat").style.backgroundColor).toBe(
+      "hsl(var(--hvac-heat))",
+    );
+    expect(swatchFor("Mode: cool").style.backgroundColor).toBe(
+      "hsl(var(--hvac-cool))",
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Legends
 // ---------------------------------------------------------------------------

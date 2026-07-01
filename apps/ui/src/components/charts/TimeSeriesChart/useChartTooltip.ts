@@ -16,6 +16,7 @@ import {
 } from "./constants";
 import { computeTopStringValues } from "./topStringValues";
 import { nearestIndex } from "./nearestIndex";
+import { attributeValueChartColor } from "@/lib/semanticColors";
 import { getTooltipRows, type TooltipRowOptions } from "./panels/registry";
 
 type UseChartTooltipArgs = {
@@ -72,7 +73,11 @@ export function useChartTooltip({
       const { displayValues } = computeTopStringValues(sp.values, timestamps);
       const colorMap = new Map<string, string>();
       for (let i = 0; i < displayValues.length; i++) {
-        colorMap.set(displayValues[i], CHART_COLORS[i % CHART_COLORS.length]);
+        colorMap.set(
+          displayValues[i],
+          attributeValueChartColor(sp.series.key, displayValues[i]) ??
+            CHART_COLORS[i % CHART_COLORS.length],
+        );
       }
       // Any value not in topSet gets OTHER_COLOR (looked up on demand)
       for (const v of sp.values) {

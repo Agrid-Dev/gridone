@@ -130,7 +130,7 @@ describe("AttributeValue — fault colouring", () => {
         fault={{ severity: "alert", isFaulty: true }}
       />,
     );
-    expect(screen.getByText("true")).toHaveClass("text-red-600");
+    expect(screen.getByText("true")).toHaveClass("text-status-error");
 
     rerender(
       <AttributeValue
@@ -140,7 +140,7 @@ describe("AttributeValue — fault colouring", () => {
         fault={{ severity: "warning", isFaulty: true }}
       />,
     );
-    expect(screen.getByText("true")).toHaveClass("text-amber-600");
+    expect(screen.getByText("true")).toHaveClass("text-status-warning");
 
     rerender(
       <AttributeValue
@@ -150,6 +150,6 @@ describe("AttributeValue — fault colouring", () => {
         fault={{ severity: "alert", isFaulty: false }}
       />,
     );
-    expect(screen.getByText("false")).toHaveClass("text-green-600");
+    expect(screen.getByText("false")).toHaveClass("text-status-ok");
   });
 });
