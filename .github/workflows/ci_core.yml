@@ -30,7 +30,7 @@ jobs:
       notifications: ${{ steps.filter.outputs.notifications }}
       timeseries: ${{ steps.filter.outputs.timeseries }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # A change to a shared dependency (models, lockfile, docker image, or this
       # workflow) can break any package, so each filter includes the &shared set
@@ -68,7 +68,7 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up UV
         uses: astral-sh/setup-uv@v7
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: quality
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up UV
         uses: astral-sh/setup-uv@v7
@@ -115,7 +115,7 @@ jobs:
         run: uv run coverage xml
 
       - name: Upload unit coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           flags: unit
           fail_ci_if_error: true
@@ -149,7 +149,7 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Set up UV
         uses: astral-sh/setup-uv@v7
@@ -207,7 +207,7 @@ jobs:
         run: uv run coverage xml
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           flags: integration
           fail_ci_if_error: true

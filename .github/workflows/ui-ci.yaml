@@ -15,7 +15,7 @@ jobs:
       run:
         working-directory: ./apps/ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # reuse the setup-node step via YAML anchor
       - &setup_node
@@ -38,7 +38,7 @@ jobs:
       run:
         working-directory: ./apps/ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - *setup_node
 
@@ -55,7 +55,7 @@ jobs:
       run:
         working-directory: ./apps/ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - *setup_node
 
@@ -72,7 +72,7 @@ jobs:
       run:
         working-directory: ./apps/ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - *setup_node
 
@@ -89,7 +89,7 @@ jobs:
       run:
         working-directory: ./apps/ui
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - *setup_node
 
