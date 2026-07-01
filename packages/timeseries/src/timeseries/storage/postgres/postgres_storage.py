@@ -33,6 +33,10 @@ _VALUE_COLUMNS: dict[DataType, str] = {
 }
 
 
+def _series_key_collision(key: SeriesKey) -> InvalidError:
+    return InvalidError(f"Series with key {key} already exists")
+
+
 class PostgresStorage:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -78,9 +82,8 @@ class PostgresStorage:
         except asyncpg.UniqueViolationError as exc:
             if "ts_series_pkey" in str(exc):
                 msg = f"Series {series.id} already exists"
-            else:
-                msg = f"Series with key {series.key} already exists"
-            raise InvalidError(msg) from exc
+                raise InvalidError(msg) from exc
+            raise _series_key_collision(series.key) from exc
 
         return self._row_to_series(row)
 
@@ -230,6 +233,22 @@ class PostgresStorage:
                 "UPDATE ts_series SET updated_at = NOW() WHERE id = $1",
                 series.id,
             )
+
+    async def rename_series(self, key: SeriesKey, new_metric: str) -> TimeSeries | None:
+        try:
+            row = await self._pool.fetchrow(
+                """
+                UPDATE ts_series SET metric = $1, updated_at = NOW()
+                WHERE owner_id = $2 AND metric = $3
+                RETURNING *
+                """,
+                new_metric,
+                key.owner_id,
+                key.metric,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise _series_key_collision(SeriesKey(key.owner_id, new_metric)) from exc
+        return self._row_to_series(row) if row else None
 
     async def aggregate(
         self,
