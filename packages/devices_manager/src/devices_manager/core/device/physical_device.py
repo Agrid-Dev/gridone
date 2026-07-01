@@ -126,6 +126,20 @@ class PhysicalDevice(CoreDevice):
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
 
+    def rename_attribute(
+        self, old_name: str, attribute_driver: AttributeDriver
+    ) -> None:
+        """Rename a runtime attribute, preserving its current_value.
+
+        The old key is popped and rebuilt under the new key from
+        ``attribute_driver.name`` so live telemetry is not lost.
+        """
+        existing = self.attributes.pop(old_name, None)
+        current_value = existing.current_value if existing is not None else None
+        self.attributes[attribute_driver.name] = _build_attribute(
+            attribute_driver, current_value
+        )
+
     @classmethod
     def from_base(
         cls,

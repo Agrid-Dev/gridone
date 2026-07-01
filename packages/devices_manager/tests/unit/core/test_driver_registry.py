@@ -17,7 +17,7 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage import StorageBackend
-from models.errors import ForbiddenError, NotFoundError
+from models.errors import ForbiddenError, InvalidError, NotFoundError
 from models.types import Severity
 
 
@@ -99,6 +99,21 @@ class TestDriverRegistryAdd:
         await registry.add(driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
             await registry.add(driver_dto)
+
+    @pytest.mark.asyncio
+    async def test_add_with_reserved_connection_status_attribute_rejected(self, driver):
+        registry = DriverRegistry()
+        driver_dto = driver_to_public(driver)
+        renamed_attrs = [
+            a.model_copy(update={"name": "connection_status"})
+            if a.name == "temperature"
+            else a
+            for a in driver_dto.attributes
+        ]
+        driver_dto = driver_dto.model_copy(update={"attributes": renamed_attrs})
+        with pytest.raises(InvalidError):
+            await registry.add(driver_dto)
+        assert driver_dto.id not in registry.ids
 
 
 class TestDriverRegistryPatch:
@@ -308,6 +323,95 @@ class TestDriverRegistryDeleteAttribute:
         assert all(
             attr.name != "temperature_setpoint_min" for attr in result.attributes
         )
+        assert "temperature_setpoint_min" not in thermostat_driver.attributes
+
+
+class TestDriverRegistryRenameAttribute:
+    @pytest.mark.asyncio
+    async def test_rename_existing(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.rename_driver_attribute(
+            driver.id, "temperature", "temp"
+        )
+        assert result.name == "temp"
+        assert "temp" in driver.attributes
+        assert "temperature" not in driver.attributes
+
+    @pytest.mark.asyncio
+    async def test_rename_driver_not_found(self):
+        registry = DriverRegistry()
+        with pytest.raises(NotFoundError):
+            await registry.rename_driver_attribute("unknown", "temperature", "temp")
+
+    @pytest.mark.asyncio
+    async def test_rename_to_reserved_connection_status_name_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError):
+            await registry.rename_driver_attribute(
+                driver.id, "temperature", "connection_status"
+            )
+        assert "temperature" in driver.attributes
+
+    @pytest.mark.asyncio
+    async def test_rename_attribute_not_found(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(NotFoundError):
+            await registry.rename_driver_attribute(driver.id, "nonexistent", "temp")
+
+    @pytest.mark.asyncio
+    async def test_rename_to_existing_name_conflict(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError):
+            await registry.rename_driver_attribute(driver.id, "temperature", "humidity")
+
+    @pytest.mark.asyncio
+    async def test_rename_to_same_name_is_noop_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.rename_driver_attribute(
+            driver.id, "temperature", "temperature"
+        )
+        assert result.name == "temperature"
+
+    @pytest.mark.asyncio
+    async def test_rename_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        await registry.rename_driver_attribute(driver.id, "temperature", "temp")
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_rename_required_standard_attribute_forbidden(
+        self, thermostat_driver
+    ):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
+        with pytest.raises(ForbiddenError):
+            await registry.rename_driver_attribute(
+                thermostat_driver.id, "temperature", "temp"
+            )
+        assert "temperature" in thermostat_driver.attributes
+
+    @pytest.mark.asyncio
+    async def test_rename_required_standard_attribute_does_not_persist(
+        self, thermostat_driver
+    ):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry(
+            {thermostat_driver.id: thermostat_driver}, storage=storage
+        )
+        with pytest.raises(ForbiddenError):
+            await registry.rename_driver_attribute(
+                thermostat_driver.id, "temperature", "temp"
+            )
+        storage.write.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rename_optional_standard_attribute_ok(self, thermostat_driver):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
+        result = await registry.rename_driver_attribute(
+            thermostat_driver.id, "temperature_setpoint_min", "min_setpoint"
+        )
+        assert result.name == "min_setpoint"
+        assert "min_setpoint" in thermostat_driver.attributes
         assert "temperature_setpoint_min" not in thermostat_driver.attributes
 
 

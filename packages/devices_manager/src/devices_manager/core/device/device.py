@@ -124,6 +124,14 @@ class CoreDevice(ABC):
         No-op for non-physical devices.
         """
 
+    def rename_attribute(  # noqa: B027
+        self, old_name: str, attribute_driver: AttributeDriver
+    ) -> None:
+        """Rename a single runtime attribute to its updated driver spec.
+
+        No-op for non-physical devices.
+        """
+
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
             return self.attributes[attribute_name]

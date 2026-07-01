@@ -1,6 +1,7 @@
 from .driver_dto import (
     AttributeDriverSpec,
     AttributePatch,
+    AttributeRename,
     DriverPatch,
     DriverSpec,
     DriverYaml,
@@ -11,6 +12,7 @@ from .driver_dto import (
 __all__ = [
     "AttributeDriverSpec",
     "AttributePatch",
+    "AttributeRename",
     "DriverPatch",
     "DriverSpec",
     "DriverYaml",

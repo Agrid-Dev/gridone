@@ -215,6 +215,24 @@ class TimeSeriesService(Service):
         logger.debug("Upserting %d points for %s", len(points), key)
         await storage.upsert_points(key, points)
 
+    async def rename_metric_for_owners(
+        self,
+        owner_ids: list[str],
+        old_metric: str,
+        new_metric: str,
+    ) -> None:
+        """Rename a metric across all owners' series, validating before any write."""
+        keys = [
+            SeriesKey(owner_id=owner_id, metric=old_metric) for owner_id in owner_ids
+        ]
+        for key in keys:
+            new_key = SeriesKey(owner_id=key.owner_id, metric=new_metric)
+            if new_key != key and await self._backend.get_series_by_key(new_key):
+                msg = f"Series with key {new_key} already exists"
+                raise InvalidError(msg)
+        for key in keys:
+            await self._backend.rename_series(key, new_metric)
+
     async def get_aggregate(
         self,
         key: SeriesKey,

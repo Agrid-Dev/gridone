@@ -853,8 +853,11 @@ def _build_drivers_app() -> FastAPI:
     dm.patch_driver_attribute = AsyncMock()
     dm.delete_driver = AsyncMock()
     dm.delete_driver_attribute = AsyncMock()
+    dm.rename_driver_attribute = AsyncMock()
+    dm.list_devices.return_value = []
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
+    app.dependency_overrides[get_ts_service] = AsyncMock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(drivers_router, prefix="/drivers", dependencies=jwt_dep)
@@ -903,6 +906,20 @@ DRIVERS_ACCESS_CONTROL_SCENARIOS = [
         None,
         401,
         id="delete-attr-no-auth",
+    ),
+    pytest.param(
+        "POST",
+        "/drivers/any-id/attributes/any-attr/rename",
+        "viewer",
+        403,
+        id="rename-attr-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/drivers/any-id/attributes/any-attr/rename",
+        None,
+        401,
+        id="rename-attr-no-auth",
     ),
 ]
 

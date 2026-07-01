@@ -50,6 +50,10 @@ class TimeSeriesStorage(Protocol):
         points: list[DataPoint],
     ) -> None: ...
 
+    async def rename_series(
+        self, key: SeriesKey, new_metric: str
+    ) -> TimeSeries | None: ...
+
     async def aggregate(
         self,
         key: SeriesKey,
