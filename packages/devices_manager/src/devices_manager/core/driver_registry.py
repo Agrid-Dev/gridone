@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.dto import DriverSpec, driver_from_public, driver_to_public
+from pydantic import BaseModel
+
+from devices_manager.core.driver.driver_metadata import DriverMetadata
+from devices_manager.dto import (
+    DriverPatch,
+    DriverSpec,
+    driver_from_public,
+    driver_to_public,
+)
 from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
 
@@ -68,6 +76,21 @@ class DriverRegistry:
             raise ValueError(msg)
         driver = driver_from_public(driver_dto)
         self._drivers[driver_dto.id] = driver
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return dto
+
+    async def patch(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
+        driver = self._get_or_raise(driver_id)
+        metadata_fields = DriverMetadata.model_fields
+        for field in patch.model_fields_set:
+            value = getattr(patch, field)
+            if isinstance(value, BaseModel):
+                value = getattr(driver, field).model_copy(
+                    update=value.model_dump(exclude_unset=True)
+                )
+            target = driver.metadata if field in metadata_fields else driver
+            setattr(target, field, value)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto

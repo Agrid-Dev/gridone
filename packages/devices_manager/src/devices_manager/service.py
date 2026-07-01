@@ -25,6 +25,7 @@ from .dto import (
     Device,
     DeviceCreate,
     DeviceUpdate,
+    DriverPatch,
     DriverSpec,
     FaultView,
     StandardAttributeSchema,
@@ -478,6 +479,15 @@ class DevicesService(Service):
 
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec:
         return await self._driver_registry.add(driver_dto)
+
+    async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
+        result = await self._driver_registry.patch(driver_id, patch)
+        for device in self._device_registry.all.values():
+            if device.driver_id == driver_id:
+                await device.stop_sync()
+                if self._running:
+                    await device.start_sync()
+        return result
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
-from devices_manager.dto import DriverSpec, DriverYaml
+from devices_manager.dto import DriverPatch, DriverSpec, DriverYaml
 
 router = APIRouter()
 
@@ -47,6 +47,18 @@ async def create_driver(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     return created_driver
+
+
+@router.patch(
+    "/{driver_id}",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
+)
+async def patch_driver(
+    driver_id: str,
+    payload: DriverPatch,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> DriverSpec:
+    return await dm.patch_driver(driver_id, payload)
 
 
 @router.delete(

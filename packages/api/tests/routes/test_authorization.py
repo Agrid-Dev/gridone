@@ -23,6 +23,7 @@ from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
 from api.routes.devices_router import router as devices_router
+from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
@@ -838,4 +839,59 @@ def test_notifications_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers, json=body)
+        assert resp.status_code == expected_status
+
+
+def _build_drivers_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersService()
+    dm = MagicMock()
+    dm.list_drivers.return_value = []
+    dm.patch_driver = AsyncMock()
+    dm.delete_driver = AsyncMock()
+    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_device_manager] = lambda: dm
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(drivers_router, prefix="/drivers", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def drivers_app() -> FastAPI:
+    return _build_drivers_app()
+
+
+DRIVERS_ACCESS_CONTROL_SCENARIOS = [
+    # Read — viewer and operator both have DRIVERS_READ
+    pytest.param("GET", "/drivers/", "viewer", 200, id="list-viewer"),
+    pytest.param("GET", "/drivers/", "operator", 200, id="list-operator"),
+    pytest.param("GET", "/drivers/", None, 401, id="list-no-auth"),
+    # Write (DRIVERS_WRITE) — viewer is forbidden; operator and admin are allowed
+    pytest.param("PATCH", "/drivers/any-id", "viewer", 403, id="patch-viewer"),
+    pytest.param("PATCH", "/drivers/any-id", None, 401, id="patch-no-auth"),
+    pytest.param("DELETE", "/drivers/any-id", "viewer", 403, id="delete-viewer"),
+    pytest.param("DELETE", "/drivers/any-id", None, 401, id="delete-no-auth"),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    DRIVERS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_drivers_access_control(
+    drivers_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    with TestClient(drivers_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json={})
         assert resp.status_code == expected_status

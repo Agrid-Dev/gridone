@@ -2,8 +2,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from devices_manager.core.driver.update_strategy import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
-from devices_manager.dto import DriverSpec, driver_to_public
+from devices_manager.dto import DriverPatch, DriverSpec, driver_to_public
 from devices_manager.storage import StorageBackend
 from models.errors import NotFoundError
 
@@ -86,6 +87,58 @@ class TestDriverRegistryAdd:
         await registry.add(driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
             await registry.add(driver_dto)
+
+
+class TestDriverRegistryPatch:
+    @pytest.mark.asyncio
+    async def test_patch_vendor(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        assert result.vendor == "Acme"
+        assert result.id == driver.id
+
+    @pytest.mark.asyncio
+    async def test_patch_env(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.patch(
+            driver.id, DriverPatch(env={"base_url": "http://new.example.com"})
+        )
+        assert result.env == {"base_url": "http://new.example.com"}
+
+    @pytest.mark.asyncio
+    async def test_patch_only_supplied_fields(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        original_env = dict(driver.env)
+        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        assert result.env == original_env
+
+    @pytest.mark.asyncio
+    async def test_patch_update_strategy_deep_merge(self, driver):
+        """Patching one update_strategy field leaves the rest intact and typed."""
+        registry = DriverRegistry({driver.id: driver})
+        original_enabled = driver.update_strategy.polling_enabled
+        original_timeout = driver.update_strategy.read_timeout
+        result = await registry.patch(
+            driver.id,
+            DriverPatch(update_strategy=UpdateStrategy(polling_interval=30)),
+        )
+        assert result.update_strategy.polling_interval == 30
+        assert result.update_strategy.polling_enabled == original_enabled
+        assert result.update_strategy.read_timeout == original_timeout
+        assert isinstance(driver.update_strategy, UpdateStrategy)
+
+    @pytest.mark.asyncio
+    async def test_patch_not_found(self):
+        registry = DriverRegistry()
+        with pytest.raises(NotFoundError):
+            await registry.patch("unknown", DriverPatch())
+
+    @pytest.mark.asyncio
+    async def test_patch_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        storage.write.assert_called_once()
 
 
 class TestDriverRegistryRemove:
