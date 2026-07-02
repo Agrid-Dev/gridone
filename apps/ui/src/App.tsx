@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
@@ -10,7 +10,6 @@ import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
 import Transports from "./pages/transports";
 import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
-import AhuDoubleFluxSandbox from "./pages/sandbox/AhuDoubleFluxSandbox";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
@@ -21,9 +20,15 @@ import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
 import { useBuildingProfile } from "./hooks/useBuildingProfile";
+import { useFeatureEnabled } from "./utils/featureFlags";
+
+const AhuDoubleFluxSandbox = lazy(
+  () => import("./pages/sandbox/AhuDoubleFluxSandbox"),
+);
 
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
+  const sandboxEnabled = useFeatureEnabled("uiSandbox");
 
   useEffect(() => {
     document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
@@ -50,7 +55,16 @@ function ProtectedLayout() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/profile/edit" element={<BuildingProfileEdit />} />
                 <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/sandbox/ahu" element={<AhuDoubleFluxSandbox />} />
+                {sandboxEnabled && (
+                  <Route
+                    path="/sandbox/ahu"
+                    element={
+                      <Suspense>
+                        <AhuDoubleFluxSandbox />
+                      </Suspense>
+                    }
+                  />
+                )}
               </Routes>
               <Toaster />
             </div>

@@ -41,7 +41,7 @@ const SETPOINTS: { key: AhuSetpointKey; digits: number; suffix?: string }[] = [
 
 /** No physical units yet — devices don't declare them, so we can't assume
  *  any. Temperatures get a scale-agnostic `°` like the other standard
- *  device views. */
+ *  device views; `%` stays because it is a ratio, not a physical unit. */
 function fmt(
   value: number | null | undefined,
   digits = 0,
@@ -200,7 +200,7 @@ export function AhuDoubleFluxSynoptic({
           cx={680}
           cy={139}
           title={label("extractFan")}
-          value={fmt(values.extractFanSpeed)}
+          value={fmt(values.extractFanSpeed, 0, " %")}
         />
 
         {/* Supply duct internals */}
@@ -211,7 +211,7 @@ export function AhuDoubleFluxSynoptic({
             ductY={216}
             colorClass="stroke-hvac-heat"
             title={label("heatingCoil")}
-            valve={fmt(values.heatingValve)}
+            valve={fmt(values.heatingValve, 0, " %")}
           />
         )}
         {hasCoolingCoil && (
@@ -220,7 +220,7 @@ export function AhuDoubleFluxSynoptic({
             ductY={216}
             colorClass="stroke-hvac-cool"
             title={label("coolingCoil")}
-            valve={fmt(values.coolingValve)}
+            valve={fmt(values.coolingValve, 0, " %")}
           />
         )}
         <FanGlyph
@@ -233,7 +233,7 @@ export function AhuDoubleFluxSynoptic({
           cx={700}
           cy={195}
           title={label("supplyFan")}
-          value={fmt(values.supplyFanSpeed)}
+          value={fmt(values.supplyFanSpeed, 0, " %")}
         />
 
         {/* Exchanger utilization */}
@@ -242,7 +242,7 @@ export function AhuDoubleFluxSynoptic({
           cy={168}
           w={64}
           title={label("exchanger")}
-          value={fmt(values.exchangerUtilization)}
+          value={fmt(values.exchangerUtilization, 0, " %")}
         />
 
         {/* Air measurement tags at the four duct ends */}
