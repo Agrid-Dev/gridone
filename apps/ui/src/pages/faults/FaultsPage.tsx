@@ -18,7 +18,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { SeverityChip } from "@/components/SeverityChip";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { faultLabel } from "@/lib/faultLabel";
-import { formatTimeAgo } from "@/lib/utils";
+import { formatDurationSince } from "@/lib/utils";
 import type { FaultView } from "@/api/faults";
 
 /** Subsequence match: every char of `query` appears in `target` in order,
@@ -132,7 +132,10 @@ function FaultRow({ fault }: { fault: FaultView }) {
     dataType: fault.dataType,
     currentValue: fault.currentValue,
   });
-  const activeSince = formatTimeAgo(new Date(fault.lastChanged).getTime(), t);
+  const activeSince = formatDurationSince(
+    new Date(fault.lastChanged).getTime(),
+    t,
+  );
 
   return (
     <TableRow>

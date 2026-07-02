@@ -19,11 +19,11 @@ vi.mock("react-i18next", () =>
     "common.severity.warning": "warning",
     "common.severity.info": "info",
     "common.faults.ok": "OK",
-    "common.faults.activeSince": "Active since {{ago}}",
-    "common.timeAgo.justNow": "just now",
-    "common.timeAgo.minutes": "{{count}} minutes",
-    "common.timeAgo.hours": "{{count}} hours",
-    "common.timeAgo.days": "{{count}} days",
+    "common.faults.activeSince": "Active for {{ago}}",
+    "common.duration.lessThanAMinute": "less than a minute",
+    "common.duration.minutes": "{{count}} minutes",
+    "common.duration.hours": "{{count}} hours",
+    "common.duration.days": "{{count}} days",
   }),
 );
 

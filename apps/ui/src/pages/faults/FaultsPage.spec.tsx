@@ -24,10 +24,10 @@ vi.mock("react-i18next", () =>
     "common.severity.alert": "alert",
     "common.severity.warning": "warning",
     "common.severity.info": "info",
-    "common.timeAgo.justNow": "just now",
-    "common.timeAgo.minutes": "a few minutes ago",
-    "common.timeAgo.hours": "a few hours ago",
-    "common.timeAgo.days": "a few days ago",
+    "common.duration.lessThanAMinute": "less than a minute",
+    "common.duration.minutes": "a few minutes",
+    "common.duration.hours": "a few hours",
+    "common.duration.days": "a few days",
   }),
 );
 

@@ -47,10 +47,29 @@ export function relativeLastChanged(
   lastChanged: string | null,
   t: TFunction<"common">,
 ): string {
-  if (!lastChanged) return t("common.timeAgo.justNow");
+  if (!lastChanged) return t("common.duration.lessThanAMinute");
   const timestamp = new Date(lastChanged).getTime();
-  if (Number.isNaN(timestamp)) return t("common.timeAgo.justNow");
-  return formatTimeAgo(timestamp, t);
+  if (Number.isNaN(timestamp)) return t("common.duration.lessThanAMinute");
+  return formatDurationSince(timestamp, t);
+}
+
+/**
+ * Bare elapsed duration for "since"-style prose (e.g. "20 minutes",
+ * "3 heures"). Unlike {@link formatTimeAgo} there is no "ago" / "il y a"
+ * wrapper, so it composes with templates like "Actif depuis {{ago}}".
+ */
+export function formatDurationSince(
+  timestamp: number,
+  t: TFunction<"common">,
+): string {
+  const minutes = Math.round((Date.now() - timestamp) / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return t("common.duration.days", { count: days });
+  if (hours > 0) return t("common.duration.hours", { count: hours });
+  if (minutes > 0) return t("common.duration.minutes", { count: minutes });
+  return t("common.duration.lessThanAMinute");
 }
 
 export function formatTimeAgo(
