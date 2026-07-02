@@ -16,7 +16,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
-from models.errors import ForbiddenError, NotFoundError
+from models.errors import ForbiddenError, InvalidError, NotFoundError
 from timeseries.service import TimeSeriesService
 
 _ATTRIBUTE = AttributeDriver(
@@ -70,6 +70,7 @@ def dm() -> MagicMock:
 
     mock.get_driver.side_effect = _get_driver
     mock.add_driver = AsyncMock(side_effect=lambda dto: dto)
+    mock.create_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
     mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.delete_driver = AsyncMock()
@@ -203,6 +204,51 @@ class TestPatchDriver:
         response = client.patch("/test_driver", json={"type": None})
         assert response.status_code == 200
         dm.patch_driver.assert_called_once()
+
+
+class TestCreateAttribute:
+    def test_ok_returns_created_attribute(self, client: TestClient, dm: MagicMock):
+        response = client.put(
+            "/test_driver/attributes/pressure",
+            json={"name": "pressure", "data_type": "float", "read": "GET /pressure"},
+        )
+        assert response.status_code == 200
+        dm.create_driver_attribute.assert_called_once()
+
+    def test_driver_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.create_driver_attribute.side_effect = NotFoundError("driver not found")
+        response = client.put(
+            "/unknown/attributes/pressure",
+            json={"name": "pressure", "data_type": "float", "read": "GET /pressure"},
+        )
+        assert response.status_code == 404
+
+    def test_duplicate_name_returns_409(self, client: TestClient, dm: MagicMock):
+        dm.create_driver_attribute.side_effect = ValueError(
+            "Attribute temperature already exists in driver test_driver"
+        )
+        response = client.put(
+            "/test_driver/attributes/temperature",
+            json={"name": "temperature", "data_type": "float", "read": "GET /temp"},
+        )
+        assert response.status_code == 409
+
+    def test_invalid_payload_returns_422(self, client: TestClient, dm: MagicMock):
+        response = client.put(
+            "/test_driver/attributes/pressure", json={"name": "pressure"}
+        )
+        assert response.status_code == 422
+        dm.create_driver_attribute.assert_not_called()
+
+    def test_name_mismatch_returns_422(self, client: TestClient, dm: MagicMock):
+        dm.create_driver_attribute.side_effect = InvalidError(
+            "Attribute name 'mismatched' must match path 'pressure'"
+        )
+        response = client.put(
+            "/test_driver/attributes/pressure",
+            json={"name": "mismatched", "data_type": "float", "read": "GET /pressure"},
+        )
+        assert response.status_code == 422
 
 
 class TestPatchAttribute:
