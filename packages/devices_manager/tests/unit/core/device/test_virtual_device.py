@@ -144,3 +144,10 @@ class TestVirtualDeviceWrite:
         device = _make_virtual_device()
         with pytest.raises(TypeError):
             await device.write_attribute_value("temperature", "not-a-float")
+
+
+class TestVirtualDeviceRenameAttribute:
+    def test_rename_attribute_raises_not_implemented(self):
+        device = _make_virtual_device()
+        with pytest.raises(NotImplementedError):
+            device.rename_attribute("temperature", "temp")

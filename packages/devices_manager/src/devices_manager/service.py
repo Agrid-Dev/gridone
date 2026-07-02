@@ -518,7 +518,7 @@ class DevicesService(Service):
             driver_id, attribute_id, new_name
         )
         self._device_registry.rename_attribute_in_devices(
-            attribute_id, result, driver_id=driver_id
+            attribute_id, new_name, driver_id=driver_id
         )
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)

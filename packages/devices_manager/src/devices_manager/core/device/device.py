@@ -124,13 +124,13 @@ class CoreDevice(ABC):
         No-op for non-physical devices.
         """
 
-    def rename_attribute(  # noqa: B027
-        self, old_name: str, attribute_driver: AttributeDriver
-    ) -> None:
-        """Rename a single runtime attribute to its updated driver spec.
-
-        No-op for non-physical devices.
-        """
+    def rename_attribute(self, old_name: str, new_name: str) -> None:
+        """Not supported on non-physical devices."""
+        msg = (
+            f"{type(self).__name__} does not support renaming attribute "
+            f"'{old_name}' to '{new_name}'"
+        )
+        raise NotImplementedError(msg)
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:
