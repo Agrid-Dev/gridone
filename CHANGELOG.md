@@ -1,3 +1,9 @@
+## v0.126.0 (2026-07-02)
+
+### Feat
+
+- double-flux AHU synoptic UI (AGR-865) (#410)
+
 ## v0.125.0 (2026-07-02)
 
 ### Feat
