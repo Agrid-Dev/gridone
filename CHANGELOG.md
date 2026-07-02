@@ -1,3 +1,9 @@
+## v0.127.0 (2026-07-02)
+
+### Feat
+
+- support updating driver type via PATCH /drivers/:id (#411)
+
 ## v0.126.0 (2026-07-02)
 
 ### Feat
