@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from devices_manager.core.device.attribute import Attribute
@@ -151,3 +153,17 @@ class TestVirtualDeviceRenameAttribute:
         device = _make_virtual_device()
         with pytest.raises(NotImplementedError):
             device.rename_attribute("temperature", "temp")
+
+
+class TestVirtualDeviceDeleteAttribute:
+    def test_delete_attribute_raises_not_implemented(self):
+        device = _make_virtual_device()
+        with pytest.raises(NotImplementedError):
+            device.delete_attribute("temperature")
+
+
+class TestVirtualDeviceRebuildAttribute:
+    def test_rebuild_attribute_raises_not_implemented(self):
+        device = _make_virtual_device()
+        with pytest.raises(NotImplementedError):
+            device.rebuild_attribute(MagicMock())
