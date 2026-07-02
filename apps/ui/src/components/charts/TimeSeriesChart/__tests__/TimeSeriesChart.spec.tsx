@@ -191,6 +191,24 @@ describe("TimeSeriesChart — series rendering", () => {
     const svgs = container.querySelectorAll(XYCHART_SVG);
     expect(svgs.length).toBe(3);
   });
+
+  it("scales the float y-axis to the data extent, not down to 0 (AGR-883)", () => {
+    // All fixture values sit in [20.1, 48.5]; with visx's default
+    // `zero: true` the axis would start at 0.
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        width={WIDTH}
+      />,
+    );
+    const tickValues = [...container.querySelectorAll("text")]
+      .map((el) => Number(el.textContent))
+      .filter((v) => !Number.isNaN(v));
+    expect(tickValues.length).toBeGreaterThan(0);
+    expect(Math.min(...tickValues)).toBeGreaterThanOrEqual(20);
+  });
 });
 
 // ---------------------------------------------------------------------------
