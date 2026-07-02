@@ -62,6 +62,9 @@ const STANDARD_VALUE_RENDERERS: Partial<
     mode: HVAC_MODE_RENDERERS,
     fan_speed: HVAC_FAN_SPEED_RENDERERS,
   },
+  [DeviceType.AhuDoubleFlux]: {
+    hvac_mode: HVAC_MODE_RENDERERS,
+  },
 };
 
 /** Returns undefined when deviceType is absent or the triple has no known renderer. */

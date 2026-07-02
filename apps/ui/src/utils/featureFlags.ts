@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
  */
 const FLAG_BACKEND_NAMES = {
   buildingHomepage: "building_homepage",
+  uiSandbox: "ui_sandbox",
 } as const;
 
 export type FeatureFlag = keyof typeof FLAG_BACKEND_NAMES;

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
@@ -14,15 +14,22 @@ import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { BreadcrumbProvider } from "./components/BreadcrumbProvider";
+import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
 import { useBuildingProfile } from "./hooks/useBuildingProfile";
+import { useFeatureEnabled } from "./utils/featureFlags";
+
+const AhuDoubleFluxSandbox = lazy(
+  () => import("./pages/sandbox/AhuDoubleFluxSandbox"),
+);
 
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
+  const sandboxEnabled = useFeatureEnabled("uiSandbox");
 
   useEffect(() => {
     document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
@@ -49,6 +56,17 @@ function ProtectedLayout() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/profile/edit" element={<BuildingProfileEdit />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                {sandboxEnabled && (
+                  <Route
+                    path="/sandbox/ahu"
+                    element={
+                      <Suspense>
+                        <AhuDoubleFluxSandbox />
+                      </Suspense>
+                    }
+                  />
+                )}
+                <Route path="*" element={<NotFoundFallback />} />
               </Routes>
               <Toaster />
             </div>

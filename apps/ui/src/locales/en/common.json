@@ -108,7 +108,8 @@
       "thermostat": "Thermostat",
       "awhp": "AWHP",
       "weather_sensor": "Weather Sensor",
-      "electricity_meter": "Electricity Meter"
+      "electricity_meter": "Electricity Meter",
+      "ahu_double_flux": "Double-flux AHU"
     },
     "deviceKinds": {
       "physical": "Physical",

@@ -9,5 +9,30 @@
     "name": "Electricity meter",
     "name_plural": "Electricity meters"
   },
+  "ahu_double_flux": {
+    "name": "Double-flux AHU",
+    "name_plural": "Double-flux AHUs",
+    "synoptic": {
+      "freshAir": "Fresh air",
+      "exhaustAir": "Exhaust air",
+      "extractAir": "Extract air",
+      "supplyAir": "Supply air",
+      "exchanger": "Heat exchanger",
+      "filter": "Filter",
+      "heatingCoil": "Heating coil",
+      "coolingCoil": "Cooling coil",
+      "supplyFan": "Supply fan",
+      "extractFan": "Extract fan",
+      "on": "Running",
+      "off": "Stopped",
+      "setpoints": "Setpoints",
+      "supplyAirTemperatureSetpoint": "Supply temperature",
+      "supplyAirPressureSetpoint": "Supply pressure",
+      "extractAirPressureSetpoint": "Extract pressure",
+      "editSetpoint": "Edit setpoint",
+      "editSetpointDescription": "Set a new value for {{label}}.",
+      "invalidNumber": "Invalid number"
+    }
+  },
   "other": { "name": "Other", "name_plural": "Others" }
 }

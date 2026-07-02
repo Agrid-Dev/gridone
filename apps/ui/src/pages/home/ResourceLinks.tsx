@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useQuery } from "@tanstack/react-query";
 import {
+  AirVent,
   ArrowRight,
   Bell,
   Check,
@@ -29,6 +30,7 @@ const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
   [DeviceType.Awhp]: Fan,
   [DeviceType.ElectricityMeter]: Zap,
   [DeviceType.WeatherSensor]: CloudSun,
+  [DeviceType.AhuDoubleFlux]: AirVent,
 };
 
 const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));
