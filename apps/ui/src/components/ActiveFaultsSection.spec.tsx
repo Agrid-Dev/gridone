@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
 import {
@@ -11,7 +11,9 @@ import {
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "deviceDetails.activeFaults.title": "Active faults",
+    "deviceDetails.activeFaults.badge": "{{count}} active faults",
+    "deviceDetails.activeFaults.expand": "Show details",
+    "deviceDetails.activeFaults.collapse": "Hide details",
     "deviceDetails.activeFaults.empty": "No active faults.",
     "common.severity.alert": "alert",
     "common.severity.warning": "warning",
@@ -92,12 +94,42 @@ describe("ActiveFaultsSection", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the alert banner title when at least one fault is active", () => {
-    const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: true }),
-    });
-    render(<ActiveFaultsSection device={device} />);
-    expect(screen.getByText("Active faults")).toBeInTheDocument();
+  it("shows the fault count tinted by the most severe fault, collapsed by default", () => {
+    const { container } = render(
+      <ActiveFaultsSection
+        device={makeDevice({
+          a: fault({ name: "warn_fault", severity: "warning", isFaulty: true }),
+          b: fault({ name: "alert_fault", severity: "alert", isFaulty: true }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("2 active faults")).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveAttribute(
+      "data-severity",
+      "alert",
+    );
+    // Collapsed: the fault list is not rendered
+    expect(screen.queryByText("Alert Fault")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Show details/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("expands to the fault list and collapses back", () => {
+    render(
+      <ActiveFaultsSection
+        device={makeDevice({
+          a: fault({ name: "alert_fault", severity: "alert", isFaulty: true }),
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Show details/ }));
+    expect(screen.getByText("Alert Fault")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Hide details/ }));
+    expect(screen.queryByText("Alert Fault")).not.toBeInTheDocument();
   });
 
   it("renders active faults sorted by severity desc (alert → warning → info)", () => {
@@ -125,6 +157,8 @@ describe("ActiveFaultsSection", () => {
       }),
     });
     render(<ActiveFaultsSection device={device} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Show details/ }));
 
     expect(screen.queryByText("No active faults.")).not.toBeInTheDocument();
 
@@ -159,6 +193,8 @@ describe("ActiveFaultsSection", () => {
     });
     render(<ActiveFaultsSection device={device} />);
 
+    fireEvent.click(screen.getByRole("button", { name: /Show details/ }));
+
     const labels = screen.getAllByText(/Fault$/);
     expect(labels.map((el) => el.textContent)).toEqual([
       "Newer Fault",
@@ -176,6 +212,7 @@ describe("ActiveFaultsSection", () => {
       }),
     });
     render(<ActiveFaultsSection device={device} />);
+    fireEvent.click(screen.getByRole("button", { name: /Show details/ }));
     expect(screen.getByText("Alarm")).toBeInTheDocument();
     expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
   });
