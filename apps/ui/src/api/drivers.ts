@@ -52,9 +52,24 @@ export function getDriver(driverId: string): Promise<Driver> {
 
 export type DriverCreatePayload = { yaml: string };
 
-export function createDriver(payload: DriverCreatePayload): Promise<Driver> {
-  return request<Driver>("/drivers/", {
-    method: "POST",
+// Matches a top-level `id:` field in the driver YAML, e.g. "id: my_driver"
+// or "id: 'my_driver'" -> captures `my_driver`.
+const DRIVER_ID_FIELD = /^id:\s*["']?([^"'\n\r]+?)["']?\s*$/m;
+
+function extractDriverId(yaml: string): string {
+  const match = yaml.match(DRIVER_ID_FIELD);
+  if (!match) {
+    throw new Error("Driver YAML must include a top-level 'id' field");
+  }
+  return match[1];
+}
+
+export async function createDriver(
+  payload: DriverCreatePayload,
+): Promise<Driver> {
+  const driverId = extractDriverId(payload.yaml);
+  return request<Driver>(`/drivers/${driverId}`, {
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
