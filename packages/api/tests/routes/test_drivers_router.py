@@ -69,7 +69,7 @@ def dm() -> MagicMock:
         return _DRIVERS_BY_ID[driver_id]
 
     mock.get_driver.side_effect = _get_driver
-    mock.add_driver = AsyncMock(side_effect=lambda dto: dto)
+    mock.add_driver = AsyncMock(side_effect=lambda _driver_id, dto: dto)
     mock.create_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
     mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
@@ -137,7 +137,7 @@ class TestCreateDriver:
             "device_config": [],
             "attributes": [],
         }
-        response = client.post("/", json=payload)
+        response = client.put("/new_driver", json=payload)
         assert response.status_code == 201
         dm.add_driver.assert_called_once()
 
@@ -149,15 +149,28 @@ class TestCreateDriver:
             "device_config": [],
             "attributes": [],
         }
-        response = client.post("/", json=payload)
+        response = client.put("/test_driver", json=payload)
         assert response.status_code == 409
 
+    def test_id_mismatch_returns_422(self, client: TestClient, dm: MagicMock):
+        dm.add_driver.side_effect = InvalidError(
+            "Driver id 'other_driver' must match path 'new_driver'"
+        )
+        payload = {
+            "id": "other_driver",
+            "transport": "http",
+            "device_config": [],
+            "attributes": [],
+        }
+        response = client.put("/new_driver", json=payload)
+        assert response.status_code == 422
+
     def test_invalid_payload_returns_422(self, client: TestClient):
-        response = client.post("/", json={"id": "bad"})
+        response = client.put("/bad", json={"id": "bad"})
         assert response.status_code == 422
 
     def test_yaml_payload(self, client: TestClient, yaml_driver: str):
-        response = client.post("/", json={"yaml": yaml_driver})
+        response = client.put("/thermocktat_modbus", json={"yaml": yaml_driver})
         assert response.status_code == 201
 
 

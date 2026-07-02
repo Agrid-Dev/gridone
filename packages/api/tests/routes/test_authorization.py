@@ -849,6 +849,7 @@ def _build_drivers_app() -> FastAPI:
     manager = MockUsersService()
     dm = MagicMock()
     dm.list_drivers.return_value = []
+    dm.add_driver = AsyncMock()
     dm.create_driver_attribute = AsyncMock()
     dm.patch_driver = AsyncMock()
     dm.patch_driver_attribute = AsyncMock()
@@ -876,6 +877,8 @@ DRIVERS_ACCESS_CONTROL_SCENARIOS = [
     pytest.param("GET", "/drivers/", "operator", 200, id="list-operator"),
     pytest.param("GET", "/drivers/", None, 401, id="list-no-auth"),
     # Write (DRIVERS_WRITE) — viewer is forbidden; operator and admin are allowed
+    pytest.param("PUT", "/drivers/any-id", "viewer", 403, id="create-viewer"),
+    pytest.param("PUT", "/drivers/any-id", None, 401, id="create-no-auth"),
     pytest.param("PATCH", "/drivers/any-id", "viewer", 403, id="patch-viewer"),
     pytest.param("PATCH", "/drivers/any-id", None, 401, id="patch-no-auth"),
     pytest.param(
