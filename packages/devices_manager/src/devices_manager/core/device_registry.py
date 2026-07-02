@@ -385,6 +385,12 @@ class DeviceRegistry:
             if device.driver_id == driver_id:
                 device.rename_attribute(old_name, new_name)
 
+    def update_type_in_devices(self, new_type: str | None, *, driver_id: str) -> None:
+        """Update the runtime type for all devices using driver_id."""
+        for device in list(self._devices.values()):
+            if device.driver_id == driver_id:
+                device.type = new_type
+
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
         return device.get_attribute(attribute_name).logs

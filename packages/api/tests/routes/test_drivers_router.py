@@ -194,6 +194,16 @@ class TestPatchDriver:
         assert response.status_code == 200
         dm.patch_driver.assert_called_once()
 
+    def test_type_patch_ok(self, client: TestClient, dm: MagicMock):
+        response = client.patch("/test_driver", json={"type": "thermostat"})
+        assert response.status_code == 200
+        dm.patch_driver.assert_called_once()
+
+    def test_type_null_clears_type(self, client: TestClient, dm: MagicMock):
+        response = client.patch("/test_driver", json={"type": None})
+        assert response.status_code == 200
+        dm.patch_driver.assert_called_once()
+
 
 class TestPatchAttribute:
     def test_ok_returns_updated_attribute(self, client: TestClient, dm: MagicMock):

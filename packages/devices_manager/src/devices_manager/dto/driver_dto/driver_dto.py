@@ -73,7 +73,7 @@ class DriverPatch(BaseModel):
     env: dict | None = None
     update_strategy: UpdateStrategy | None = None
 
-    @field_validator("type", "env", "update_strategy", mode="before")
+    @field_validator("env", "update_strategy", mode="before")
     @classmethod
     def _not_null(cls, v: Any) -> Any:  # noqa: ANN401
         if v is None:

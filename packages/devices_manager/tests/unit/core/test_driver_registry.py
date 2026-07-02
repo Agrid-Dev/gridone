@@ -177,6 +177,12 @@ class TestDriverRegistryPatch:
             await registry.patch(driver.id, DriverPatch(type="thermostat"))
 
     @pytest.mark.asyncio
+    async def test_patch_type_null_clears_type(self, thermostat_driver):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
+        result = await registry.patch(thermostat_driver.id, DriverPatch(type=None))
+        assert result.type is None
+
+    @pytest.mark.asyncio
     async def test_patch_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
