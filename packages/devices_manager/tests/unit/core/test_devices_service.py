@@ -777,7 +777,7 @@ class TestDevicesServiceDrivers:
         await dm.load()
         driver_dto = driver_to_public(driver)
 
-        created = await dm.add_driver(driver_dto)
+        created = await dm.add_driver(driver_dto.id, driver_dto)
 
         assert isinstance(created, DriverSpec)
         assert created.id == driver_dto.id
@@ -789,10 +789,10 @@ class TestDevicesServiceDrivers:
         await dm.load()
         driver_dto = driver_to_public(driver)
 
-        await dm.add_driver(driver_dto)
+        await dm.add_driver(driver_dto.id, driver_dto)
 
         with pytest.raises(ValueError):  # noqa: PT011
-            await dm.add_driver(driver_dto)
+            await dm.add_driver(driver_dto.id, driver_dto)
 
     @pytest.mark.asyncio
     async def test_delete_driver_ok(self, driver):

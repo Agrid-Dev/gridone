@@ -111,7 +111,10 @@ class DriverRegistry:
         except InvalidError as e:
             raise ConflictError(build_message(e)) from e
 
-    async def add(self, driver_dto: DriverSpec) -> DriverSpec:
+    async def add(self, driver_id: str, driver_dto: DriverSpec) -> DriverSpec:
+        if driver_dto.id != driver_id:
+            msg = f"Driver id {driver_dto.id!r} must match path {driver_id!r}"
+            raise InvalidError(msg)
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
             raise ValueError(msg)

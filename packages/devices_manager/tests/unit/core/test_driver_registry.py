@@ -88,7 +88,7 @@ class TestDriverRegistryAdd:
     async def test_add_ok(self, driver):
         registry = DriverRegistry()
         driver_dto = driver_to_public(driver)
-        created = await registry.add(driver_dto)
+        created = await registry.add(driver_dto.id, driver_dto)
         assert isinstance(created, DriverSpec)
         assert created.id == driver_dto.id
         assert driver_dto.id in registry.ids
@@ -97,9 +97,17 @@ class TestDriverRegistryAdd:
     async def test_add_duplicate_raises(self, driver):
         registry = DriverRegistry()
         driver_dto = driver_to_public(driver)
-        await registry.add(driver_dto)
+        await registry.add(driver_dto.id, driver_dto)
         with pytest.raises(ValueError):  # noqa: PT011
-            await registry.add(driver_dto)
+            await registry.add(driver_dto.id, driver_dto)
+
+    @pytest.mark.asyncio
+    async def test_add_id_mismatch_raises(self, driver):
+        registry = DriverRegistry()
+        driver_dto = driver_to_public(driver)
+        with pytest.raises(InvalidError):
+            await registry.add("some-other-id", driver_dto)
+        assert driver_dto.id not in registry.ids
 
     @pytest.mark.asyncio
     async def test_add_with_reserved_connection_status_attribute_rejected(self, driver):
@@ -113,7 +121,7 @@ class TestDriverRegistryAdd:
         ]
         driver_dto = driver_dto.model_copy(update={"attributes": renamed_attrs})
         with pytest.raises(InvalidError):
-            await registry.add(driver_dto)
+            await registry.add(driver_dto.id, driver_dto)
         assert driver_dto.id not in registry.ids
 
 
@@ -521,7 +529,7 @@ class TestDriverRegistryPersistence:
         storage = AsyncMock(spec=StorageBackend)
         registry = DriverRegistry(storage=storage)
         driver_dto = driver_to_public(driver)
-        await registry.add(driver_dto)
+        await registry.add(driver_dto.id, driver_dto)
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
@@ -535,7 +543,7 @@ class TestDriverRegistryPersistence:
     async def test_no_storage_does_not_raise(self, driver):
         registry = DriverRegistry()
         driver_dto = driver_to_public(driver)
-        created = await registry.add(driver_dto)
+        created = await registry.add(driver_dto.id, driver_dto)
         assert created.id == driver_dto.id
         await registry.remove(driver_dto.id)
         assert driver_dto.id not in registry.ids
