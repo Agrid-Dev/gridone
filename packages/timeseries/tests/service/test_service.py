@@ -19,6 +19,8 @@ from timeseries.service.service import MAX_RAW_LIMIT
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from timeseries.domain import TimeSeries
+
 pytestmark = pytest.mark.asyncio
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
@@ -152,6 +154,43 @@ class TestRenameMetricForOwners:
 
     async def test_owner_without_series_is_skipped(self, service: TimeSeriesService):
         await service.rename_metric_for_owners(["no-such-owner"], "temperature", "temp")
+
+    async def test_mid_loop_failure_reverts_already_renamed_owners(
+        self, service: TimeSeriesService
+    ):
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d2", metric="temperature"
+        )
+        backend = service._backend  # noqa: SLF001
+        original_rename_series = backend.rename_series
+        call_count = 0
+
+        async def flaky_rename_series(
+            key: SeriesKey, new_metric: str
+        ) -> TimeSeries | None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                msg = "simulated backend failure"
+                raise RuntimeError(msg)
+            return await original_rename_series(key, new_metric)
+
+        backend.rename_series = flaky_rename_series  # ty: ignore[invalid-assignment]
+
+        with pytest.raises(RuntimeError, match="simulated backend failure"):
+            await service.rename_metric_for_owners(["d1", "d2"], "temperature", "temp")
+
+        d1_series = await service.get_series_by_key(
+            SeriesKey(owner_id="d1", metric="temperature")
+        )
+        d2_series = await service.get_series_by_key(
+            SeriesKey(owner_id="d2", metric="temperature")
+        )
+        assert d1_series is not None
+        assert d2_series is not None
 
     async def test_collision_on_one_owner_leaves_no_owner_renamed(
         self, service: TimeSeriesService

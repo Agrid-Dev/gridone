@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -230,8 +231,17 @@ class TimeSeriesService(Service):
             if new_key != key and await self._backend.get_series_by_key(new_key):
                 msg = f"Series with key {new_key} already exists"
                 raise InvalidError(msg)
-        for key in keys:
-            await self._backend.rename_series(key, new_metric)
+        renamed: list[SeriesKey] = []
+        try:
+            for key in keys:
+                await self._backend.rename_series(key, new_metric)
+                renamed.append(key)
+        except Exception:
+            for key in reversed(renamed):
+                new_key = SeriesKey(owner_id=key.owner_id, metric=new_metric)
+                with contextlib.suppress(Exception):
+                    await self._backend.rename_series(new_key, old_metric)
+            raise
 
     async def get_aggregate(
         self,
