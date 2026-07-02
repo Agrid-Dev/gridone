@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -214,6 +215,33 @@ class TimeSeriesService(Service):
             raise InvalidError(msg)
         logger.debug("Upserting %d points for %s", len(points), key)
         await storage.upsert_points(key, points)
+
+    async def rename_metric_for_owners(
+        self,
+        owner_ids: list[str],
+        old_metric: str,
+        new_metric: str,
+    ) -> None:
+        """Rename a metric across all owners' series, validating before any write."""
+        keys = [
+            SeriesKey(owner_id=owner_id, metric=old_metric) for owner_id in owner_ids
+        ]
+        for key in keys:
+            new_key = SeriesKey(owner_id=key.owner_id, metric=new_metric)
+            if new_key != key and await self._backend.get_series_by_key(new_key):
+                msg = f"Series with key {new_key} already exists"
+                raise InvalidError(msg)
+        renamed: list[SeriesKey] = []
+        try:
+            for key in keys:
+                await self._backend.rename_series(key, new_metric)
+                renamed.append(key)
+        except Exception:
+            for key in reversed(renamed):
+                new_key = SeriesKey(owner_id=key.owner_id, metric=new_metric)
+                with contextlib.suppress(Exception):
+                    await self._backend.rename_series(new_key, old_metric)
+            raise
 
     async def get_aggregate(
         self,

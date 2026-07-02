@@ -511,6 +511,19 @@ class DevicesService(Service):
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result
 
+    async def rename_driver_attribute(
+        self, driver_id: str, attribute_id: str, new_name: str
+    ) -> AttributeDriver:
+        result = await self._driver_registry.rename_driver_attribute(
+            driver_id, attribute_id, new_name
+        )
+        self._device_registry.rename_attribute_in_devices(
+            attribute_id, new_name, driver_id=driver_id
+        )
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
+        return result
+
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
             (d for d in self._device_registry.all.values() if d.driver_id == driver_id),

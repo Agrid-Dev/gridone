@@ -201,6 +201,55 @@ class TestUpsertPoints:
         assert fetched[0].command_id == 10
 
 
+class TestRenameSeries:
+    async def test_rename_updates_metric(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        renamed = await storage.rename_series(KEY, "temp")
+        assert renamed is not None
+        assert renamed.metric == "temp"
+
+    async def test_rename_preserves_points(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=23.5)])
+
+        await storage.rename_series(KEY, "temp")
+
+        new_key = SeriesKey(owner_id=KEY.owner_id, metric="temp")
+        fetched = await storage.fetch_points(new_key)
+        assert len(fetched) == 1
+        assert fetched[0].value == 23.5
+
+    async def test_rename_old_key_no_longer_resolves(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        await storage.rename_series(KEY, "temp")
+        assert await storage.get_series_by_key(KEY) is None
+
+    async def test_rename_unknown_key_returns_none(self, storage: MemoryStorage):
+        unknown = SeriesKey(owner_id="y", metric="z")
+        assert await storage.rename_series(unknown, "temp") is None
+
+    async def test_rename_collision_raises(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        other_key = SeriesKey(owner_id="s1", metric="temp")
+        await storage.create_series(_make_series(other_key))
+        with pytest.raises(InvalidError, match="already exists"):
+            await storage.rename_series(KEY, "temp")
+
+    async def test_rename_to_same_name_is_noop_ok(self, storage: MemoryStorage):
+        await storage.create_series(_make_series())
+        now = datetime.now(tz=UTC)
+        await storage.upsert_points(KEY, [DataPoint(timestamp=now, value=23.5)])
+
+        renamed = await storage.rename_series(KEY, KEY.metric)
+
+        assert renamed is not None
+        assert renamed.metric == KEY.metric
+        fetched = await storage.fetch_points(KEY)
+        assert len(fetched) == 1
+        assert fetched[0].value == 23.5
+
+
 class TestFetchPointBefore:
     async def test_returns_most_recent_point_before(self, storage: MemoryStorage):
         await storage.create_series(_make_series())

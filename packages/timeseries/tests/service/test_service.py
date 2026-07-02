@@ -19,6 +19,8 @@ from timeseries.service.service import MAX_RAW_LIMIT
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from timeseries.domain import TimeSeries
+
 pytestmark = pytest.mark.asyncio
 
 KEY = SeriesKey(owner_id="s1", metric="temperature")
@@ -109,6 +111,108 @@ class TestListSeries:
         results = await service.list_series(metric="temperature")
         assert len(results) == 1
         assert results[0].metric == "temperature"
+
+
+class TestRenameMetricForOwners:
+    async def test_renames_series_for_each_owner(self, service: TimeSeriesService):
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d2", metric="temperature"
+        )
+
+        await service.rename_metric_for_owners(["d1", "d2"], "temperature", "temp")
+
+        assert (
+            await service.get_series_by_key(
+                SeriesKey(owner_id="d1", metric="temperature")
+            )
+            is None
+        )
+        assert (
+            await service.get_series_by_key(
+                SeriesKey(owner_id="d2", metric="temperature")
+            )
+            is None
+        )
+        renamed_d1 = await service.get_series_by_key(SeriesKey("d1", "temp"))
+        renamed_d2 = await service.get_series_by_key(SeriesKey("d2", "temp"))
+        assert renamed_d1 is not None
+        assert renamed_d2 is not None
+
+    async def test_preserves_history(self, service: TimeSeriesService):
+        now = datetime.now(tz=UTC)
+        await service.upsert_points(
+            KEY, [DataPoint(timestamp=now, value=21.5)], create_if_not_found=True
+        )
+
+        await service.rename_metric_for_owners([KEY.owner_id], KEY.metric, "temp")
+
+        result = await service.fetch_points(SeriesKey(KEY.owner_id, "temp"))
+        assert result.points[0].value == 21.5
+
+    async def test_owner_without_series_is_skipped(self, service: TimeSeriesService):
+        await service.rename_metric_for_owners(["no-such-owner"], "temperature", "temp")
+
+    async def test_mid_loop_failure_reverts_already_renamed_owners(
+        self, service: TimeSeriesService
+    ):
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d2", metric="temperature"
+        )
+        backend = service._backend  # noqa: SLF001
+        original_rename_series = backend.rename_series
+        call_count = 0
+
+        async def flaky_rename_series(
+            key: SeriesKey, new_metric: str
+        ) -> TimeSeries | None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                msg = "simulated backend failure"
+                raise RuntimeError(msg)
+            return await original_rename_series(key, new_metric)
+
+        backend.rename_series = flaky_rename_series  # ty: ignore[invalid-assignment]
+
+        with pytest.raises(RuntimeError, match="simulated backend failure"):
+            await service.rename_metric_for_owners(["d1", "d2"], "temperature", "temp")
+
+        d1_series = await service.get_series_by_key(
+            SeriesKey(owner_id="d1", metric="temperature")
+        )
+        d2_series = await service.get_series_by_key(
+            SeriesKey(owner_id="d2", metric="temperature")
+        )
+        assert d1_series is not None
+        assert d2_series is not None
+
+    async def test_collision_on_one_owner_leaves_no_owner_renamed(
+        self, service: TimeSeriesService
+    ):
+        """A collision anywhere validates first, so nothing is renamed anywhere."""
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d1", metric="temperature"
+        )
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d2", metric="temperature"
+        )
+        await service.create_series(
+            data_type=DataType.FLOAT, owner_id="d2", metric="temp"
+        )
+
+        with pytest.raises(InvalidError, match="already exists"):
+            await service.rename_metric_for_owners(["d1", "d2"], "temperature", "temp")
+
+        d1_series = await service.get_series_by_key(
+            SeriesKey(owner_id="d1", metric="temperature")
+        )
+        assert d1_series is not None
 
 
 class TestUpsertPoints:

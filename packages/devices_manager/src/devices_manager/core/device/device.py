@@ -112,17 +112,26 @@ class CoreDevice(ABC):
     async def update_once(self) -> None:  # noqa: B027
         """Open transport, read all attributes, close. No-op for non-physical."""
 
-    def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:  # noqa: B027
-        """Rebuild a single runtime attribute from its driver spec.
+    def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:
+        """Not supported on non-physical devices."""
+        msg = f"{type(self).__name__} does not support rebuilding attributes"
+        raise NotImplementedError(msg)
 
-        No-op for non-physical devices.
-        """
+    def delete_attribute(self, attribute_name: str) -> None:
+        """Not supported on non-physical devices."""
+        msg = (
+            f"{type(self).__name__} does not support deleting attribute "
+            f"'{attribute_name}'"
+        )
+        raise NotImplementedError(msg)
 
-    def delete_attribute(self, attribute_name: str) -> None:  # noqa: B027
-        """Delete a single runtime attribute.
-
-        No-op for non-physical devices.
-        """
+    def rename_attribute(self, old_name: str, new_name: str) -> None:
+        """Not supported on non-physical devices."""
+        msg = (
+            f"{type(self).__name__} does not support renaming attribute "
+            f"'{old_name}' to '{new_name}'"
+        )
+        raise NotImplementedError(msg)
 
     def get_attribute(self, attribute_name: str) -> Attribute:
         try:

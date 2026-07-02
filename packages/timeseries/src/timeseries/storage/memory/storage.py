@@ -6,15 +6,18 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from models.errors import InvalidError, NotFoundError
-from timeseries.domain import DataPoint
+from timeseries.domain import DataPoint, SeriesKey
 
 if TYPE_CHECKING:
     from timeseries.domain import (
         AggregationQuery,
         AggregationResult,
-        SeriesKey,
         TimeSeries,
     )
+
+
+def _series_key_collision(key: SeriesKey) -> InvalidError:
+    return InvalidError(f"Series with key {key} already exists")
 
 
 class MemoryStorage:
@@ -27,8 +30,7 @@ class MemoryStorage:
             msg = f"Series {series.id} already exists"
             raise InvalidError(msg)
         if series.key in self._key_index:
-            msg = f"Series with key {series.key} already exists"
-            raise InvalidError(msg)
+            raise _series_key_collision(series.key)
         stored = deepcopy(series)
         self._series[stored.id] = stored
         self._key_index[stored.key] = stored.id
@@ -117,6 +119,20 @@ class MemoryStorage:
             )
         series.data_points = sorted(existing.values(), key=lambda p: p.timestamp)
         series.updated_at = datetime.now(tz=UTC)
+
+    async def rename_series(self, key: SeriesKey, new_metric: str) -> TimeSeries | None:
+        series_id = self._key_index.get(key)
+        if series_id is None:
+            return None
+        new_key = SeriesKey(owner_id=key.owner_id, metric=new_metric)
+        if new_key != key and new_key in self._key_index:
+            raise _series_key_collision(new_key)
+        series = self._series[series_id]
+        series.metric = new_metric
+        series.updated_at = datetime.now(tz=UTC)
+        del self._key_index[key]
+        self._key_index[new_key] = series_id
+        return deepcopy(series)
 
     async def aggregate(
         self,

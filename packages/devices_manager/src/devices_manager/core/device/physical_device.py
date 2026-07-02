@@ -126,6 +126,12 @@ class PhysicalDevice(CoreDevice):
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
 
+    def rename_attribute(self, old_name: str, new_name: str) -> None:
+        """Rename a runtime attribute in place, preserving all of its state."""
+        existing = self.attributes.pop(old_name, None)
+        if existing is not None:
+            self.attributes[new_name] = existing.model_copy(update={"name": new_name})
+
     @classmethod
     def from_base(
         cls,

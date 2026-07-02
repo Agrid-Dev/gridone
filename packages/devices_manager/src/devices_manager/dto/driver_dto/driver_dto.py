@@ -104,6 +104,13 @@ class AttributePatch(BaseModel):
         return v
 
 
+class AttributeRename(BaseModel):
+    """Rename a driver attribute."""
+
+    model_config = ConfigDict(extra="forbid")
+    new_name: Annotated[str, Field(min_length=1)]
+
+
 def core_to_dto(driver: Driver) -> DriverSpec:
     return DriverSpec(
         id=driver.metadata.id,

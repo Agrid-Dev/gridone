@@ -1,17 +1,23 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_token_payload, get_device_manager
+from api.dependencies import (
+    get_current_token_payload,
+    get_device_manager,
+    get_ts_service,
+)
 from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
-from devices_manager.dto import DriverSpec
+from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
-from models.errors import NotFoundError
+from models.errors import ForbiddenError, NotFoundError
+from timeseries.service import TimeSeriesService
 
 _ATTRIBUTE = AttributeDriver(
     name="temperature",
@@ -68,15 +74,25 @@ def dm() -> MagicMock:
     mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.delete_driver = AsyncMock()
     mock.delete_driver_attribute = AsyncMock(return_value=_DRIVERS[0])
+    mock.rename_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
+    mock.list_devices = MagicMock(return_value=[])
     return mock
 
 
 @pytest.fixture
-def app(dm, admin_token_payload) -> FastAPI:
+def ts() -> MagicMock:
+    mock = MagicMock(spec=TimeSeriesService)
+    mock.rename_metric_for_owners = AsyncMock()
+    return mock
+
+
+@pytest.fixture
+def app(dm, ts, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
+    app.dependency_overrides[get_ts_service] = lambda: ts
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     return app
 
@@ -243,3 +259,102 @@ class TestDeleteAttribute:
         dm.delete_driver_attribute.side_effect = NotFoundError("attribute not found")
         response = client.delete("/test_driver/attributes/nonexistent")
         assert response.status_code == 404
+
+
+class TestRenameAttribute:
+    def test_ok_renames_in_dm_and_ts(
+        self, client: TestClient, dm: MagicMock, ts: MagicMock
+    ):
+        dm.list_devices.return_value = [
+            Device(id="d1", name="Device 1", driver_id="test_driver"),
+            Device(id="d2", name="Device 2", driver_id="test_driver"),
+        ]
+        response = client.post(
+            "/test_driver/attributes/temperature/rename", json={"new_name": "temp"}
+        )
+        assert response.status_code == 200
+        dm.rename_driver_attribute.assert_called_once_with(
+            "test_driver", "temperature", "temp"
+        )
+        dm.list_devices.assert_called_once_with(driver_id="test_driver")
+        ts.rename_metric_for_owners.assert_called_once_with(
+            ["d1", "d2"], "temperature", "temp"
+        )
+
+    def test_driver_not_found_returns_404(
+        self, client: TestClient, dm: MagicMock, ts: MagicMock
+    ):
+        dm.rename_driver_attribute.side_effect = NotFoundError("driver not found")
+        response = client.post(
+            "/unknown/attributes/temperature/rename", json={"new_name": "temp"}
+        )
+        assert response.status_code == 404
+        ts.rename_metric_for_owners.assert_not_called()
+
+    def test_attribute_not_found_returns_404(
+        self, client: TestClient, dm: MagicMock, ts: MagicMock
+    ):
+        dm.rename_driver_attribute.side_effect = NotFoundError("attribute not found")
+        response = client.post(
+            "/test_driver/attributes/nonexistent/rename", json={"new_name": "temp"}
+        )
+        assert response.status_code == 404
+        ts.rename_metric_for_owners.assert_not_called()
+
+    def test_required_standard_attribute_returns_409(
+        self, client: TestClient, dm: MagicMock, ts: MagicMock
+    ):
+        dm.rename_driver_attribute.side_effect = ForbiddenError(
+            'Cannot rename "temperature" which is required for devices of type '
+            '"thermostat". Change or unset the type before modifying this '
+            "attribute name."
+        )
+        response = client.post(
+            "/test_driver/attributes/temperature/rename", json={"new_name": "temp"}
+        )
+        assert response.status_code == 409
+        ts.rename_metric_for_owners.assert_not_called()
+
+    def test_empty_new_name_returns_422(self, client: TestClient, dm: MagicMock):
+        response = client.post(
+            "/test_driver/attributes/temperature/rename", json={"new_name": ""}
+        )
+        assert response.status_code == 422
+        dm.rename_driver_attribute.assert_not_called()
+
+    def test_ts_failure_after_dm_success_rolls_back_and_propagates(
+        self,
+        client: TestClient,
+        dm: MagicMock,
+        ts: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        ts.rename_metric_for_owners.side_effect = RuntimeError("db unreachable")
+        with caplog.at_level(logging.ERROR), pytest.raises(RuntimeError):
+            client.post(
+                "/test_driver/attributes/temperature/rename", json={"new_name": "temp"}
+            )
+        dm.rename_driver_attribute.assert_called_with(
+            "test_driver", "temp", "temperature"
+        )
+        assert dm.rename_driver_attribute.call_count == 2
+        assert "timeseries rename failed" in caplog.text
+
+    def test_ts_failure_and_rollback_failure_are_both_logged(
+        self,
+        client: TestClient,
+        dm: MagicMock,
+        ts: MagicMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        ts.rename_metric_for_owners.side_effect = RuntimeError("db unreachable")
+        dm.rename_driver_attribute.side_effect = [
+            _ATTRIBUTE,
+            NotFoundError("driver not found"),
+        ]
+        with caplog.at_level(logging.ERROR), pytest.raises(RuntimeError):
+            client.post(
+                "/test_driver/attributes/temperature/rename", json={"new_name": "temp"}
+            )
+        assert "timeseries rename failed" in caplog.text
+        assert "Failed to roll back" in caplog.text

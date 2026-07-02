@@ -213,6 +213,10 @@ class DevicesServiceInterface(Protocol):
         self, driver_id: str, attribute_id: str
     ) -> DriverSpec: ...
 
+    async def rename_driver_attribute(
+        self, driver_id: str, attribute_id: str, new_name: str
+    ) -> AttributeDriver: ...
+
     async def delete_driver(self, driver_id: str) -> None: ...
 
     # -- standard schemas --

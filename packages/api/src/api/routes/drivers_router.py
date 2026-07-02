@@ -1,17 +1,22 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from api.dependencies import get_device_manager, require_permission
+from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
 from devices_manager.dto import (
     AttributeDriverSpec,
     AttributePatch,
+    AttributeRename,
     DriverPatch,
     DriverSpec,
     DriverYaml,
 )
+from timeseries.service import TimeSeriesService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -102,3 +107,40 @@ async def delete_driver_attribute(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> DriverSpec:
     return await dm.delete_driver_attribute(driver_id, attribute_id)
+
+
+@router.post(
+    "/{driver_id}/attributes/{attribute_id}/rename",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
+)
+async def rename_driver_attribute(
+    driver_id: str,
+    attribute_id: str,
+    payload: AttributeRename,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    ts: Annotated[TimeSeriesService, Depends(get_ts_service)],
+) -> AttributeDriverSpec:
+    result = await dm.rename_driver_attribute(driver_id, attribute_id, payload.new_name)
+    device_ids = [d.id for d in dm.list_devices(driver_id=driver_id)]
+    try:
+        await ts.rename_metric_for_owners(device_ids, attribute_id, payload.new_name)
+    except Exception:
+        logger.exception(
+            "Driver attribute %s renamed to %s on driver %s, but the timeseries "
+            "rename failed; rolling back the driver attribute rename",
+            attribute_id,
+            payload.new_name,
+            driver_id,
+        )
+        try:
+            await dm.rename_driver_attribute(driver_id, payload.new_name, attribute_id)
+        except Exception:
+            logger.exception(
+                "Failed to roll back driver attribute rename for driver %s; "
+                "attribute is now named %s instead of %s",
+                driver_id,
+                payload.new_name,
+                attribute_id,
+            )
+        raise
+    return result
