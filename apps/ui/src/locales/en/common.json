@@ -126,6 +126,8 @@
     "toggleColumns": "Toggle attributes",
     "selectAll": "Select all",
     "unselectAll": "Unselect all",
+    "searchAttributes": "Search attributes\u2026",
+    "selectAllDisabledHint": "Too many attributes to select all",
     "timestamp": "Timestamp",
     "rowsRange": "{{from}}\u2013{{to}} of {{total}} rows",
     "timeAgo": {
@@ -140,13 +142,22 @@
       "days_one": "{{count}} day ago",
       "days_other": "{{count}} days ago"
     },
+    "duration": {
+      "lessThanAMinute": "less than a minute",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
+    },
     "severity": {
       "alert": "alert",
       "warning": "warning",
       "info": "info"
     },
     "faults": {
-      "activeSince": "Active since {{ago}}",
+      "activeSince": "Active for {{ago}}",
       "ok": "OK"
     }
   },

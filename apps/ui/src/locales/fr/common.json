@@ -126,6 +126,8 @@
     "toggleColumns": "Afficher les attributs",
     "selectAll": "Tout s\u00e9lectionner",
     "unselectAll": "Tout d\u00e9s\u00e9lectionner",
+    "searchAttributes": "Rechercher un attribut\u2026",
+    "selectAllDisabledHint": "Trop d'attributs pour tout s\u00e9lectionner",
     "timestamp": "Horodatage",
     "rowsRange": "{{from}}\u2013{{to}} sur {{total}} lignes",
     "timeAgo": {
@@ -139,6 +141,15 @@
       "hours_other": "il y a {{count}} heures",
       "days_one": "il y a {{count}} jour",
       "days_other": "il y a {{count}} jours"
+    },
+    "duration": {
+      "lessThanAMinute": "moins d'une minute",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} heure",
+      "hours_other": "{{count}} heures",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours"
     },
     "severity": {
       "alert": "alerte",

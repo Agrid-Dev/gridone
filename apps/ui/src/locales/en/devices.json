@@ -70,7 +70,9 @@
       "title": "Active faults",
       "empty": "No active faults.",
       "badge_one": "{{count}} active fault",
-      "badge_other": "{{count}} active faults"
+      "badge_other": "{{count}} active faults",
+      "expand": "Show details",
+      "collapse": "Hide details"
     },
     "panes": {
       "standard": "Attributes",

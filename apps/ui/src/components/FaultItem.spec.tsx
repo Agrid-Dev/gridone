@@ -11,11 +11,11 @@ vi.mock("react-i18next", () =>
     "common.severity.warning": "warning",
     "common.severity.info": "info",
     "common.faults.ok": "OK",
-    "common.faults.activeSince": "Active since {{ago}}",
-    "common.timeAgo.justNow": "just now",
-    "common.timeAgo.minutes": "{{count}} minutes",
-    "common.timeAgo.hours": "{{count}} hours",
-    "common.timeAgo.days": "{{count}} days",
+    "common.faults.activeSince": "Active for {{ago}}",
+    "common.duration.lessThanAMinute": "less than a minute",
+    "common.duration.minutes": "{{count}} minutes",
+    "common.duration.hours": "{{count}} hours",
+    "common.duration.days": "{{count}} days",
   }),
 );
 
@@ -44,7 +44,7 @@ describe("FaultItem — active mode", () => {
   const severities: Severity[] = ["alert", "warning", "info"];
 
   it.each(severities)(
-    "renders %s chip with label and 'Active since' text",
+    "renders %s chip with label and 'Active for' text",
     (severity) => {
       const lastChanged = new Date(
         Date.parse("2026-04-22T10:00:00Z") - 10 * 60_000,
@@ -54,13 +54,15 @@ describe("FaultItem — active mode", () => {
       );
       expect(screen.getByText(severity)).toBeInTheDocument();
       expect(screen.getByText("Filter Alarm")).toBeInTheDocument();
-      expect(screen.getByText(/Active since 10 minutes/)).toBeInTheDocument();
+      expect(screen.getByText(/Active for 10 minutes/)).toBeInTheDocument();
     },
   );
 
   it("falls back to 'just now' when lastChanged is null", () => {
     render(<FaultItem attribute={{ ...baseActive, lastChanged: null }} />);
-    expect(screen.getByText("Active since just now")).toBeInTheDocument();
+    expect(
+      screen.getByText("Active for less than a minute"),
+    ).toBeInTheDocument();
   });
 });
 

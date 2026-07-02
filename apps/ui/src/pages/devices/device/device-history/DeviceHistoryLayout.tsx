@@ -6,19 +6,30 @@ import {
 } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
-import { BarChart3, Download, Loader2, Settings2, Table } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  Download,
+  Loader2,
+  Settings2,
+  Table,
+} from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useLocation } from "react-router";
@@ -27,6 +38,10 @@ import {
   useDeviceHistoryContext,
 } from "./DeviceHistoryContext";
 import { TimeRangeSelect } from "./TimeRangeSelect";
+
+/** Above this attribute count, "select all" would trigger one points fetch
+ *  per attribute (some AHUs expose ~600), so the action is disabled. */
+export const MAX_SELECT_ALL_ATTRIBUTES = 20;
 
 export default function DeviceHistoryLayout() {
   const device = useDeviceFromRoute();
@@ -69,6 +84,7 @@ function HistoryToolbar({ deviceId }: { deviceId: string }) {
     (attr) => columnVisibility[attr] !== false,
   ).length;
   const allVisible = visibleCount === availableAttributes.length;
+  const canSelectAll = availableAttributes.length <= MAX_SELECT_ALL_ATTRIBUTES;
 
   const toggleAll = (visible: boolean) => {
     const next = { ...columnVisibility };
@@ -89,46 +105,67 @@ function HistoryToolbar({ deviceId }: { deviceId: string }) {
 
         {hasTelemetry && (
           <div className="flex flex-wrap items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+            <Popover>
+              <PopoverTrigger asChild>
                 <Button variant="outline" size="sm">
                   <Settings2 className="mr-2 h-4 w-4" />
                   {t("common:common.columns")}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuLabel>
-                  {t("common:common.toggleColumns")}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    toggleAll(!allVisible);
-                  }}
-                >
-                  {allVisible
-                    ? t("common:common.unselectAll")
-                    : t("common:common.selectAll")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {availableAttributes.map((attr) => (
-                  <DropdownMenuCheckboxItem
-                    key={attr}
-                    checked={columnVisibility[attr] !== false}
-                    onSelect={(e) => e.preventDefault()}
-                    onCheckedChange={(checked) =>
-                      handleVisibilityChange((prev) => ({
-                        ...prev,
-                        [attr]: !!checked,
-                      }))
-                    }
-                  >
-                    {toLabel(attr)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-0">
+                <Command>
+                  <CommandInput
+                    placeholder={t("common:common.searchAttributes")}
+                  />
+                  <CommandList>
+                    <CommandEmpty>{t("common:common.noResults")}</CommandEmpty>
+                    <CommandGroup>
+                      {availableAttributes.map((attr) => (
+                        <CommandItem
+                          key={attr}
+                          value={attr}
+                          keywords={[toLabel(attr)]}
+                          onSelect={() =>
+                            handleVisibilityChange((prev) => ({
+                              ...prev,
+                              [attr]: columnVisibility[attr] === false,
+                            }))
+                          }
+                        >
+                          <Check
+                            className={cn(
+                              "h-4 w-4",
+                              columnVisibility[attr] !== false
+                                ? "opacity-100"
+                                : "opacity-0",
+                            )}
+                          />
+                          {toLabel(attr)}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                  <div className="border-t p-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start font-normal"
+                      disabled={!allVisible && !canSelectAll}
+                      onClick={() => toggleAll(!allVisible)}
+                    >
+                      {allVisible
+                        ? t("common:common.unselectAll")
+                        : t("common:common.selectAll")}
+                    </Button>
+                    {!allVisible && !canSelectAll && (
+                      <p className="px-2 pb-1 text-xs text-muted-foreground">
+                        {t("common:common.selectAllDisabledHint")}
+                      </p>
+                    )}
+                  </div>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             <Badge variant="secondary" className="text-xs">
               {visibleCount} / {availableAttributes.length}

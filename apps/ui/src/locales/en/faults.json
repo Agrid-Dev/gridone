@@ -10,7 +10,7 @@
       "device": "Device",
       "fault": "Fault",
       "severity": "Severity",
-      "activeSince": "Active since"
+      "activeSince": "Active for"
     }
   }
 }

@@ -62,7 +62,9 @@ export function FloatPanel({
               ? [timestamps[0], timestamps[timestamps.length - 1]]
               : undefined,
         }}
-        yScale={{ type: "linear" }}
+        // visx defaults linear scales to `zero: true`, which pins the y-axis
+        // to 0 and squashes series that hover far from it (AGR-883).
+        yScale={{ type: "linear", zero: false }}
         theme={lineChartTheme}
       >
         {ctx?.yScaleRef && <ScaleCapture yScaleRef={ctx.yScaleRef} />}

@@ -70,7 +70,9 @@
       "title": "Défauts actifs",
       "empty": "Aucun défaut actif.",
       "badge_one": "{{count}} défaut actif",
-      "badge_other": "{{count}} défauts actifs"
+      "badge_other": "{{count}} défauts actifs",
+      "expand": "Voir le détail",
+      "collapse": "Masquer le détail"
     },
     "panes": {
       "standard": "Attributs",

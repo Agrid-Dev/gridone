@@ -2,7 +2,7 @@ import type { DeviceCommand } from "@/api/commands";
 import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
 import type { User } from "@/api/users";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
-import { useDeviceTimeSeries } from "@/hooks/useDeviceTimeSeries";
+import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
 import { useUsers } from "@/hooks/useUsers";
 import type { VisibilityState } from "@tanstack/react-table";
 import React, {
@@ -90,12 +90,11 @@ export function DeviceHistoryProvider({
 
   const resolved = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
 
-  const { series, pointsByMetric, isLoading, error } = useDeviceTimeSeries(
-    deviceId,
-    resolved.start,
-    resolved.end,
-    resolved.last,
-  );
+  const {
+    series,
+    isLoading: seriesLoading,
+    error: seriesError,
+  } = useDeviceSeries(deviceId);
 
   const availableAttributes = useMemo(
     () => series.map((s) => s.metric),
@@ -187,17 +186,50 @@ export function DeviceHistoryProvider({
     [deviceId],
   );
 
-  // Merge all attributes once (stable — doesn't change with visibility)
-  const allRows = useMemo(
-    () => mergeTimeSeries(pointsByMetric, availableAttributes),
-    [pointsByMetric, availableAttributes],
-  );
+  // Selection is unresolved until defaults are applied (or stored state
+  // exists). Fetch nothing in the meantime so devices exposing hundreds of
+  // attributes don't trigger a request burst on load.
+  const visibilityReady = Object.keys(columnVisibility).length > 0;
 
-  // Visible attributes (for row filtering only)
   const visibleAttributes = useMemo(
     () =>
-      availableAttributes.filter((attr) => columnVisibility[attr] !== false),
-    [availableAttributes, columnVisibility],
+      visibilityReady
+        ? availableAttributes.filter((attr) => columnVisibility[attr] !== false)
+        : [],
+    [availableAttributes, columnVisibility, visibilityReady],
+  );
+
+  // Only fetch points for the selected attributes; deselected series stay in
+  // the React Query cache, so re-selecting fetches only what's missing.
+  const selectedSeries = useMemo(
+    () => series.filter((s) => visibleAttributes.includes(s.metric)),
+    [series, visibleAttributes],
+  );
+
+  const {
+    pointsByMetric,
+    isLoading: pointsLoading,
+    error: pointsError,
+  } = useSeriesPoints(
+    selectedSeries,
+    resolved.start,
+    resolved.end,
+    resolved.last,
+  );
+
+  // Only the initial load blanks the page; incremental fetches triggered by
+  // selection changes keep the current UI (toolbar, table) mounted.
+  const initialLoadDone = useRef(false);
+  const isLoading =
+    !initialLoadDone.current &&
+    (seriesLoading || pointsLoading || (series.length > 0 && !visibilityReady));
+  if (!isLoading) initialLoadDone.current = true;
+
+  const error = seriesError ?? pointsError;
+
+  const allRows = useMemo(
+    () => mergeTimeSeries(pointsByMetric, visibleAttributes),
+    [pointsByMetric, visibleAttributes],
   );
 
   // Only keep rows where at least one visible attribute has a real data point
@@ -213,13 +245,13 @@ export function DeviceHistoryProvider({
   const commandIds = useMemo(() => {
     const ids = new Set<number>();
     for (const row of allRows) {
-      for (const attr of availableAttributes) {
+      for (const attr of visibleAttributes) {
         const id = row.commandIds[attr];
         if (id != null) ids.add(id);
       }
     }
     return [...ids];
-  }, [allRows, availableAttributes]);
+  }, [allRows, visibleAttributes]);
 
   const { commandsMap } = useCommandsByIds(commandIds);
   const { usersMap } = useUsers();
