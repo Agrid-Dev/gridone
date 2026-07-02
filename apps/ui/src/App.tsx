@@ -14,6 +14,7 @@ import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { BreadcrumbProvider } from "./components/BreadcrumbProvider";
+import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { Toaster } from "./components/ui/sonner";
@@ -65,6 +66,7 @@ function ProtectedLayout() {
                     }
                   />
                 )}
+                <Route path="*" element={<NotFoundFallback />} />
               </Routes>
               <Toaster />
             </div>
