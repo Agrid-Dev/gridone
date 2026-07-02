@@ -108,7 +108,8 @@
       "thermostat": "Thermostat",
       "awhp": "PAC air-eau",
       "weather_sensor": "Station m\u00e9t\u00e9o",
-      "electricity_meter": "Compteur \u00e9lectrique"
+      "electricity_meter": "Compteur \u00e9lectrique",
+      "ahu_double_flux": "CTA double flux"
     },
     "deviceKinds": {
       "physical": "Physique",

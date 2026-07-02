@@ -29,6 +29,7 @@ export enum DeviceType {
   Awhp = "awhp",
   WeatherSensor = "weather_sensor",
   ElectricityMeter = "electricity_meter",
+  AhuDoubleFlux = "ahu_double_flux",
 }
 
 export enum DeviceKind {

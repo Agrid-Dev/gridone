@@ -9,5 +9,30 @@
     "name": "Compteur électrique",
     "name_plural": "Compteurs électriques"
   },
+  "ahu_double_flux": {
+    "name": "CTA double flux",
+    "name_plural": "CTA double flux",
+    "synoptic": {
+      "freshAir": "Air neuf",
+      "exhaustAir": "Rejet",
+      "extractAir": "Reprise",
+      "supplyAir": "Soufflage",
+      "exchanger": "Échangeur",
+      "filter": "Filtre",
+      "heatingCoil": "Batterie chaude",
+      "coolingCoil": "Batterie froide",
+      "supplyFan": "Ventilateur soufflage",
+      "extractFan": "Ventilateur reprise",
+      "on": "Marche",
+      "off": "Arrêt",
+      "setpoints": "Consignes",
+      "supplyAirTemperatureSetpoint": "Température soufflage",
+      "supplyAirPressureSetpoint": "Pression soufflage",
+      "extractAirPressureSetpoint": "Pression reprise",
+      "editSetpoint": "Modifier la consigne",
+      "editSetpointDescription": "Définir une nouvelle valeur pour {{label}}.",
+      "invalidNumber": "Valeur numérique invalide"
+    }
+  },
   "other": { "name": "Autre", "name_plural": "Autres" }
 }

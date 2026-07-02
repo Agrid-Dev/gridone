@@ -10,6 +10,7 @@ import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
 import Transports from "./pages/transports";
 import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
+import AhuDoubleFluxSandbox from "./pages/sandbox/AhuDoubleFluxSandbox";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
@@ -49,6 +50,7 @@ function ProtectedLayout() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/profile/edit" element={<BuildingProfileEdit />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/sandbox/ahu" element={<AhuDoubleFluxSandbox />} />
               </Routes>
               <Toaster />
             </div>
