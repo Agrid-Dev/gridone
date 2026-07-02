@@ -69,6 +69,7 @@ class DriverPatch(BaseModel):
     model: str | None = None
     version: int | None = None
     image_src: str | None = None
+    type: str | None = None
     env: dict | None = None
     update_strategy: UpdateStrategy | None = None
 

@@ -173,7 +173,7 @@ class TestPatchDriver:
 
     @pytest.mark.parametrize(
         "field",
-        ["id", "transport", "type", "device_config", "attributes"],
+        ["id", "transport", "device_config", "attributes"],
     )
     def test_immutable_field_rejected_with_422(
         self, client: TestClient, dm: MagicMock, field: str
@@ -191,6 +191,16 @@ class TestPatchDriver:
         response = client.patch(
             "/test_driver", json={"image_src": "https://example.com/img.png"}
         )
+        assert response.status_code == 200
+        dm.patch_driver.assert_called_once()
+
+    def test_type_patch_ok(self, client: TestClient, dm: MagicMock):
+        response = client.patch("/test_driver", json={"type": "thermostat"})
+        assert response.status_code == 200
+        dm.patch_driver.assert_called_once()
+
+    def test_type_null_clears_type(self, client: TestClient, dm: MagicMock):
+        response = client.patch("/test_driver", json={"type": None})
         assert response.status_code == 200
         dm.patch_driver.assert_called_once()
 
