@@ -558,8 +558,8 @@ class DevicesService(Service):
     def get_driver(self, driver_id: str) -> DriverSpec:
         return self._driver_registry.get_dto(driver_id)
 
-    async def add_driver(self, driver_id: str, driver_dto: DriverSpec) -> DriverSpec:
-        return await self._driver_registry.add(driver_id, driver_dto)
+    async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec:
+        return await self._driver_registry.add(driver_dto)
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         result = await self._driver_registry.patch(driver_id, patch)

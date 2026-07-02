@@ -69,7 +69,7 @@ def dm() -> MagicMock:
         return _DRIVERS_BY_ID[driver_id]
 
     mock.get_driver.side_effect = _get_driver
-    mock.add_driver = AsyncMock(side_effect=lambda _driver_id, dto: dto)
+    mock.add_driver = AsyncMock(side_effect=lambda dto: dto)
     mock.create_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
     mock.patch_driver = AsyncMock(return_value=_DRIVERS[0])
     mock.patch_driver_attribute = AsyncMock(return_value=_ATTRIBUTE)
@@ -142,7 +142,7 @@ class TestCreateDriver:
         dm.add_driver.assert_called_once()
 
     def test_conflict_returns_409(self, client: TestClient, dm: MagicMock):
-        dm.add_driver.side_effect = ValueError("Driver already exists")
+        dm.add_driver.side_effect = ConflictError("Driver already exists")
         payload = {
             "id": "test_driver",
             "transport": "http",
@@ -153,9 +153,6 @@ class TestCreateDriver:
         assert response.status_code == 409
 
     def test_id_mismatch_returns_422(self, client: TestClient, dm: MagicMock):
-        dm.add_driver.side_effect = InvalidError(
-            "Driver id 'other_driver' must match path 'new_driver'"
-        )
         payload = {
             "id": "other_driver",
             "transport": "http",
@@ -164,6 +161,7 @@ class TestCreateDriver:
         }
         response = client.put("/new_driver", json=payload)
         assert response.status_code == 422
+        dm.add_driver.assert_not_called()
 
     def test_invalid_payload_returns_422(self, client: TestClient):
         response = client.put("/bad", json={"id": "bad"})

@@ -55,14 +55,10 @@ async def create_driver(
         if isinstance(payload, DriverSpec)
         else DriverSpec.from_yaml(payload.yaml)
     )
-    try:
-        created_driver = await dm.add_driver(driver_id, driver_dto)
-    except InvalidError:
-        # InvalidError subclasses ValueError; avoid the 409 mapping below.
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    return created_driver
+    if driver_dto.id != driver_id:
+        msg = f"Driver id {driver_dto.id!r} must match URL id {driver_id!r}"
+        raise InvalidError(msg)
+    return await dm.add_driver(driver_dto)
 
 
 @router.patch(
