@@ -63,12 +63,12 @@ describe("AhuDoubleFluxSynoptic", () => {
   it("renders air measurements and fan speeds", () => {
     render(<AhuDoubleFluxSynoptic values={VALUES} />);
 
-    expect(screen.getByText("17.8 °C · 79 Pa")).toBeInTheDocument();
-    expect(screen.getByText("22.3 °C · 82 Pa")).toBeInTheDocument();
-    expect(screen.getByText("15.7 °C")).toBeInTheDocument();
-    expect(screen.getByText("16.4 °C")).toBeInTheDocument();
-    expect(screen.getByText("55 %")).toBeInTheDocument();
-    expect(screen.getByText("70 %")).toBeInTheDocument();
+    expect(screen.getByText("17.8° · 79")).toBeInTheDocument();
+    expect(screen.getByText("22.3° · 82")).toBeInTheDocument();
+    expect(screen.getByText("15.7°")).toBeInTheDocument();
+    expect(screen.getByText("16.4°")).toBeInTheDocument();
+    expect(screen.getByText("55")).toBeInTheDocument();
+    expect(screen.getByText("70")).toBeInTheDocument();
   });
 
   it("renders missing values as placeholders", () => {
@@ -120,7 +120,7 @@ describe("AhuDoubleFluxSynoptic", () => {
     expect(
       screen.queryByText("Heating coil", { selector: "title" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("65 %")).toBeInTheDocument();
+    expect(screen.getByText("65")).toBeInTheDocument();
   });
 
   it("renders non-writable setpoints read-only", () => {

@@ -33,28 +33,31 @@ type SynopticLabelKey =
   | "setpoints"
   | AhuSetpointKey;
 
-const SETPOINTS: { key: AhuSetpointKey; unit: string; digits: number }[] = [
-  { key: "supplyAirTemperatureSetpoint", unit: "°C", digits: 1 },
-  { key: "supplyAirPressureSetpoint", unit: "Pa", digits: 0 },
-  { key: "extractAirPressureSetpoint", unit: "Pa", digits: 0 },
+const SETPOINTS: { key: AhuSetpointKey; digits: number; suffix?: string }[] = [
+  { key: "supplyAirTemperatureSetpoint", digits: 1, suffix: "°" },
+  { key: "supplyAirPressureSetpoint", digits: 0 },
+  { key: "extractAirPressureSetpoint", digits: 0 },
 ];
 
+/** No physical units yet — devices don't declare them, so we can't assume
+ *  any. Temperatures get a scale-agnostic `°` like the other standard
+ *  device views. */
 function fmt(
   value: number | null | undefined,
-  unit: string,
   digits = 0,
+  suffix = "",
 ): string {
   if (value == null) return "—";
-  return `${value.toFixed(digits)} ${unit}`;
+  return `${value.toFixed(digits)}${suffix}`;
 }
 
-/** "23.1 °C · 82 Pa" — pressure omitted when the field is absent. */
+/** "23.1° · 82" — pressure omitted when the field is absent. */
 function airLine(
   temperature: number | null | undefined,
   pressure: number | null | undefined,
 ): string {
-  const parts = [fmt(temperature, "°C", 1)];
-  if (pressure != null) parts.push(fmt(pressure, "Pa"));
+  const parts = [fmt(temperature, 1, "°")];
+  if (pressure != null) parts.push(fmt(pressure));
   return parts.join(" · ");
 }
 
@@ -75,7 +78,6 @@ export function AhuDoubleFluxSynoptic({
   const [editing, setEditing] = useState<AhuSetpointKey | null>(null);
 
   const running = values.onoffState;
-  const editingDef = SETPOINTS.find((s) => s.key === editing);
 
   const label = (key: SynopticLabelKey): string =>
     t(`ahu_double_flux.synoptic.${key}`);
@@ -198,7 +200,7 @@ export function AhuDoubleFluxSynoptic({
           cx={680}
           cy={139}
           title={label("extractFan")}
-          value={fmt(values.extractFanSpeed, "%")}
+          value={fmt(values.extractFanSpeed)}
         />
 
         {/* Supply duct internals */}
@@ -209,7 +211,7 @@ export function AhuDoubleFluxSynoptic({
             ductY={216}
             colorClass="stroke-hvac-heat"
             title={label("heatingCoil")}
-            valve={fmt(values.heatingValve, "%")}
+            valve={fmt(values.heatingValve)}
           />
         )}
         {hasCoolingCoil && (
@@ -218,7 +220,7 @@ export function AhuDoubleFluxSynoptic({
             ductY={216}
             colorClass="stroke-hvac-cool"
             title={label("coolingCoil")}
-            valve={fmt(values.coolingValve, "%")}
+            valve={fmt(values.coolingValve)}
           />
         )}
         <FanGlyph
@@ -231,7 +233,7 @@ export function AhuDoubleFluxSynoptic({
           cx={700}
           cy={195}
           title={label("supplyFan")}
-          value={fmt(values.supplyFanSpeed, "%")}
+          value={fmt(values.supplyFanSpeed)}
         />
 
         {/* Exchanger utilization */}
@@ -240,7 +242,7 @@ export function AhuDoubleFluxSynoptic({
           cy={168}
           w={64}
           title={label("exchanger")}
-          value={fmt(values.exchangerUtilization, "%")}
+          value={fmt(values.exchangerUtilization)}
         />
 
         {/* Air measurement tags at the four duct ends */}
@@ -250,7 +252,7 @@ export function AhuDoubleFluxSynoptic({
           w={124}
           lineY={[46, 64]}
           labelText={label("exhaustAir")}
-          value={fmt(values.exhaustAirTemperature, "°C", 1)}
+          value={fmt(values.exhaustAirTemperature, 1, "°")}
         />
         <MeasureTag
           cx={800}
@@ -269,7 +271,7 @@ export function AhuDoubleFluxSynoptic({
           w={124}
           lineY={[272, 290]}
           labelText={label("freshAir")}
-          value={fmt(values.outdoorAirTemperature, "°C", 1)}
+          value={fmt(values.outdoorAirTemperature, 1, "°")}
         />
         <MeasureTag
           cx={790}
@@ -286,7 +288,7 @@ export function AhuDoubleFluxSynoptic({
           {label("setpoints")}
         </p>
         <div className="flex flex-wrap gap-2">
-          {SETPOINTS.map(({ key, unit, digits }) => {
+          {SETPOINTS.map(({ key, digits, suffix }) => {
             const value = values[key];
             const writable = writableSetpoints.includes(key);
             if (value == null && !writable) return null;
@@ -294,7 +296,7 @@ export function AhuDoubleFluxSynoptic({
               <>
                 <span className="text-muted-foreground">{label(key)}</span>
                 <span className="font-semibold text-foreground">
-                  {fmt(value, unit, digits)}
+                  {fmt(value, digits, suffix)}
                 </span>
               </>
             );
@@ -322,10 +324,9 @@ export function AhuDoubleFluxSynoptic({
         </div>
       </div>
 
-      {editing && editingDef && (
+      {editing && (
         <SetpointDialog
           label={label(editing)}
-          unit={editingDef.unit}
           currentValue={values[editing] ?? null}
           onClose={() => setEditing(null)}
           onSave={async (value) => {

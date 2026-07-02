@@ -15,7 +15,6 @@ import { InputController } from "@/components/forms/controllers/InputController"
 
 type SetpointDialogProps = {
   label: string;
-  unit: string;
   currentValue: number | null;
   onClose: () => void;
   onSave: (value: number) => void | Promise<void>;
@@ -25,7 +24,6 @@ type SetpointDialogProps = {
  *  the form resets by remounting, not by syncing state. */
 export function SetpointDialog({
   label,
-  unit,
   currentValue,
   onClose,
   onSave,
@@ -64,7 +62,7 @@ export function SetpointDialog({
             control={form.control}
             name="value"
             type="number"
-            label={`${label} (${unit})`}
+            label={label}
             inputProps={{ step: "any", autoFocus: true }}
           />
           <DialogFooter>
