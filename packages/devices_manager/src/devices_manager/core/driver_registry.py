@@ -145,6 +145,31 @@ class DriverRegistry:
         await self._storage.write(dto.id, dto)
         return dto
 
+    async def create_driver_attribute(
+        self, driver_id: str, attribute_id: str, attribute: AttributeDriver
+    ) -> AttributeDriver:
+        driver = self._get_or_raise(driver_id)
+        _reject_reserved_attribute_name(attribute_id)
+        if attribute.name != attribute_id:
+            msg = f"Attribute name {attribute.name!r} must match path {attribute_id!r}"
+            raise InvalidError(msg)
+        if attribute_id in driver.attributes:
+            msg = f"Attribute {attribute_id} already exists in driver {driver_id}"
+            raise ValueError(msg)
+        candidate_attrs = [*driver.attributes.values(), attribute]
+        self._assert_standard_schema_allows(
+            driver,
+            candidate_attrs,
+            lambda e: (
+                f'Cannot add "{attribute_id}" to driver {driver_id} which declares '
+                f"type {driver.type!r}: {e}"
+            ),
+        )
+        driver.attributes[attribute_id] = attribute
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return attribute
+
     async def patch_driver_attribute(
         self, driver_id: str, attribute_id: str, patch: AttributePatch
     ) -> AttributeDriver:

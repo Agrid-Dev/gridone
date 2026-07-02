@@ -17,6 +17,7 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage import StorageBackend
+from devices_manager.types import DataType
 from models.errors import ForbiddenError, InvalidError, NotFoundError
 from models.types import Severity
 
@@ -194,6 +195,76 @@ class TestDriverRegistryPatch:
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.patch(driver.id, DriverPatch(vendor="Acme"))
         storage.write.assert_called_once()
+
+
+class TestDriverRegistryCreateAttribute:
+    @pytest.mark.asyncio
+    async def test_create_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="pressure",
+            data_type=DataType.FLOAT,
+            read="GET /pressure",
+            write=None,
+            codecs=[],
+        )
+        result = await registry.create_driver_attribute(driver.id, "pressure", new_attr)
+        assert result.name == "pressure"
+        assert driver.attributes["pressure"] is result
+
+    @pytest.mark.asyncio
+    async def test_create_driver_not_found(self):
+        registry = DriverRegistry()
+        new_attr = AttributeDriver(
+            name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
+        )
+        with pytest.raises(NotFoundError):
+            await registry.create_driver_attribute("unknown", "pressure", new_attr)
+
+    @pytest.mark.asyncio
+    async def test_create_duplicate_name_raises(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read="GET /temperature",
+            codecs=[],
+        )
+        with pytest.raises(ValueError):  # noqa: PT011
+            await registry.create_driver_attribute(driver.id, "temperature", new_attr)
+
+    @pytest.mark.asyncio
+    async def test_create_reserved_connection_status_name_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="connection_status", data_type=DataType.BOOL, read="GET /cs", codecs=[]
+        )
+        with pytest.raises(InvalidError):
+            await registry.create_driver_attribute(
+                driver.id, "connection_status", new_attr
+            )
+
+    @pytest.mark.asyncio
+    async def test_create_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        new_attr = AttributeDriver(
+            name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
+        )
+        await registry.create_driver_attribute(driver.id, "pressure", new_attr)
+        storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_name_mismatch_rejected(self, driver):
+        """The body's name must match the attribute_id path segment."""
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="mismatched", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
+        )
+        with pytest.raises(InvalidError):
+            await registry.create_driver_attribute(driver.id, "pressure", new_attr)
+        assert "pressure" not in driver.attributes
+        assert "mismatched" not in driver.attributes
 
 
 class TestDriverRegistryPatchAttribute:
