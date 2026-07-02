@@ -1264,6 +1264,26 @@ class TestDevicesServiceRestartSync:
         await dm.stop()
 
     @pytest.mark.asyncio
+    async def test_patch_driver_type_propagates_to_devices(
+        self, thermostat_driver, mock_transport_client
+    ):
+        # Start with type=None so we can observe the update
+        thermostat_driver.type = None
+        device = PhysicalDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={}),
+            driver=thermostat_driver,
+            transport=mock_transport_client,
+        )
+        assert device.type is None
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={thermostat_driver.id: thermostat_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.patch_driver(thermostat_driver.id, DriverPatch(type="thermostat"))
+        assert device.type == "thermostat"
+
+    @pytest.mark.asyncio
     async def test_patch_driver_restarts_sync_for_affected_devices(
         self, driver, mock_transport_client
     ):

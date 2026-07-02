@@ -173,7 +173,7 @@ class TestPatchDriver:
 
     @pytest.mark.parametrize(
         "field",
-        ["id", "transport", "type", "device_config", "attributes"],
+        ["id", "transport", "device_config", "attributes"],
     )
     def test_immutable_field_rejected_with_422(
         self, client: TestClient, dm: MagicMock, field: str

@@ -104,11 +104,14 @@ class DriverRegistry:
         driver: Driver,
         candidate_attrs: list[AttributeDriver],
         build_message: Callable[[InvalidError], str],
+        *,
+        type_override: str | None = None,
     ) -> None:
-        if driver.type is None:
+        effective_type = type_override if type_override is not None else driver.type
+        if effective_type is None:
             return
         try:
-            validate_standard_schema(driver.type, candidate_attrs)
+            validate_standard_schema(effective_type, candidate_attrs)
         except InvalidError as e:
             raise ForbiddenError(build_message(e)) from e
 
@@ -126,6 +129,13 @@ class DriverRegistry:
 
     async def patch(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         driver = self._get_or_raise(driver_id)
+        if "type" in patch.model_fields_set and patch.type is not None:
+            self._assert_standard_schema_allows(
+                driver,
+                list(driver.attributes.values()),
+                lambda e: f"Cannot set driver type to '{patch.type}': {e}",
+                type_override=patch.type,
+            )
         metadata_fields = DriverMetadata.model_fields
         for field in patch.model_fields_set:
             value = getattr(patch, field)

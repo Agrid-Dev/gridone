@@ -480,6 +480,10 @@ class DevicesService(Service):
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
         result = await self._driver_registry.patch(driver_id, patch)
+        if "type" in patch.model_fields_set:
+            for device in self._device_registry.all.values():
+                if device.driver_id == driver_id:
+                    device.type = result.type
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result

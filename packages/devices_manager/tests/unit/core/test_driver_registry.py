@@ -163,6 +163,20 @@ class TestDriverRegistryPatch:
         assert result.image_src == "https://example.com/device.png"
 
     @pytest.mark.asyncio
+    async def test_patch_type(self, thermostat_driver):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
+        result = await registry.patch(
+            thermostat_driver.id, DriverPatch(type="thermostat")
+        )
+        assert result.type == "thermostat"
+
+    @pytest.mark.asyncio
+    async def test_patch_type_invalid_schema(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(ForbiddenError):
+            await registry.patch(driver.id, DriverPatch(type="thermostat"))
+
+    @pytest.mark.asyncio
     async def test_patch_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
