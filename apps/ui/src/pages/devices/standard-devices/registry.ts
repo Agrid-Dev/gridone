@@ -7,6 +7,7 @@ import {
   ElectricityMeterPreview,
   ElectricityMeterControl,
 } from "./electricity-meter";
+import { AhuDoubleFluxPreview, AhuDoubleFluxControl } from "./ahu-double-flux";
 import type { StandardPreviewProps, StandardControlProps } from "./types";
 
 export type { StandardPreviewProps, StandardControlProps } from "./types";
@@ -32,6 +33,10 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.ElectricityMeter]: {
     Preview: ElectricityMeterPreview,
     Control: ElectricityMeterControl,
+  },
+  [DeviceType.AhuDoubleFlux]: {
+    Preview: AhuDoubleFluxPreview,
+    Control: AhuDoubleFluxControl,
   },
 };
 
