@@ -1,3 +1,15 @@
+## v0.128.0 (2026-07-02)
+
+### Feat
+
+- collapsible active-faults panel on device details (AGR-883)
+
+### Fix
+
+- bare duration in active-since fault labels (AGR-883)
+- scale float chart y-axis to data extent instead of zero (AGR-883)
+- fetch only selected attribute time series in device history (AGR-883)
+
 ## v0.127.0 (2026-07-02)
 
 ### Feat
