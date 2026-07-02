@@ -10,6 +10,10 @@ class InvalidError(ValueError):
     """Raised when an invalid input is submitted."""
 
 
+class ConflictError(Exception):
+    """Raised when an action conflicts with the current state of a resource."""
+
+
 class ConfirmationError(ValueError):
     """Raised when the result of a command failed to be confirmed."""
 

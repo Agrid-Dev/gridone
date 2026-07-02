@@ -5,6 +5,7 @@ from apps import AppUnreachableError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
+    ConflictError,
     ForbiddenError,
     InvalidError,
     NotFoundError,
@@ -23,6 +24,10 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(InvalidError)
     async def invalid_handler(request: Request, exc: InvalidError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    @app.exception_handler(ConflictError)
+    async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(ConfirmationError)
     async def confirmation_handler(
