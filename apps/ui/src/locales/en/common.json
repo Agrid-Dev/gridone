@@ -126,6 +126,8 @@
     "toggleColumns": "Toggle attributes",
     "selectAll": "Select all",
     "unselectAll": "Unselect all",
+    "searchAttributes": "Search attributes\u2026",
+    "selectAllDisabledHint": "Too many attributes to select all",
     "timestamp": "Timestamp",
     "rowsRange": "{{from}}\u2013{{to}} of {{total}} rows",
     "timeAgo": {

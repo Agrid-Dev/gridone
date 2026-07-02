@@ -7,20 +7,28 @@ import type {
   TimeSeries,
 } from "../api/timeseries";
 
-export function useDeviceTimeSeries(
-  deviceId: string | undefined,
-  start?: string,
-  end?: string,
-  last?: string,
-) {
+export function useDeviceSeries(deviceId: string | undefined) {
   const seriesQuery = useQuery<TimeSeries[]>({
     queryKey: ["timeseries", "series", deviceId],
     queryFn: () => listSeries(deviceId!),
     enabled: !!deviceId,
   });
 
-  const seriesList = seriesQuery.data ?? [];
+  const series = useMemo(() => seriesQuery.data ?? [], [seriesQuery.data]);
 
+  return {
+    series,
+    isLoading: seriesQuery.isLoading,
+    error: seriesQuery.error ?? null,
+  };
+}
+
+export function useSeriesPoints(
+  seriesList: TimeSeries[],
+  start?: string,
+  end?: string,
+  last?: string,
+) {
   const pointsQueries = useQueries({
     queries: seriesList.map((series) => ({
       queryKey: ["timeseries", "points", series.id, start, end, last],
@@ -34,7 +42,7 @@ export function useDeviceTimeSeries(
     })),
   });
 
-  const isLoadingPoints =
+  const isLoading =
     seriesList.length > 0 && pointsQueries.some((q) => q.isLoading);
 
   // Build a stable pointsByMetric object.
@@ -53,16 +61,14 @@ export function useDeviceTimeSeries(
     },
     // pointsFingerprint is a stable scalar derived from the query timestamps;
     // it changes only when the underlying data actually updates.
-    // seriesList is stable (React Query ref), pointsQueries is accessed via
+    // seriesList must be memoized by the caller; pointsQueries is accessed via
     // closure and is always current when the memo recomputes.
     [seriesList, pointsFingerprint],
   );
 
   return {
-    series: seriesList,
     pointsByMetric,
-    isLoading: seriesQuery.isLoading || isLoadingPoints,
-    error:
-      seriesQuery.error ?? pointsQueries.find((q) => q.error)?.error ?? null,
+    isLoading,
+    error: pointsQueries.find((q) => q.error)?.error ?? null,
   };
 }

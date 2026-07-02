@@ -126,6 +126,8 @@
     "toggleColumns": "Afficher les attributs",
     "selectAll": "Tout s\u00e9lectionner",
     "unselectAll": "Tout d\u00e9s\u00e9lectionner",
+    "searchAttributes": "Rechercher un attribut\u2026",
+    "selectAllDisabledHint": "Trop d'attributs pour tout s\u00e9lectionner",
     "timestamp": "Horodatage",
     "rowsRange": "{{from}}\u2013{{to}} sur {{total}} lignes",
     "timeAgo": {
