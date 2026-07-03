@@ -47,6 +47,7 @@ from devices_manager.types import (
 )
 from models.errors import (
     ConfirmationError,
+    ConflictError,
     ForbiddenError,
     NotFoundError,
 )
@@ -1415,7 +1416,7 @@ class TestDevicesServiceRestartSync:
         new_attr = AttributeDriver(
             name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
         )
-        result = await dm.create_driver_attribute(driver.id, "pressure", new_attr)
+        result = await dm.create_driver_attribute(driver.id, new_attr)
         assert result.name == "pressure"
 
     @pytest.mark.asyncio
@@ -1428,10 +1429,8 @@ class TestDevicesServiceRestartSync:
             read="GET /temperature",
             codecs=[],
         )
-        with pytest.raises(ValueError):  # noqa: PT011
-            await devices_manager.create_driver_attribute(
-                driver.id, "temperature", new_attr
-            )
+        with pytest.raises(ConflictError):
+            await devices_manager.create_driver_attribute(driver.id, new_attr)
 
     @pytest.mark.asyncio
     async def test_create_attribute_restarts_sync_for_affected_devices(
@@ -1457,7 +1456,7 @@ class TestDevicesServiceRestartSync:
         new_attr = AttributeDriver(
             name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
         )
-        await dm.create_driver_attribute(driver.id, "pressure", new_attr)
+        await dm.create_driver_attribute(driver.id, new_attr)
 
         assert device1.syncing is True
         assert device2.syncing is True
@@ -1483,7 +1482,7 @@ class TestDevicesServiceRestartSync:
         new_attr = AttributeDriver(
             name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
         )
-        await dm.create_driver_attribute(driver.id, "pressure", new_attr)
+        await dm.create_driver_attribute(driver.id, new_attr)
 
         assert "pressure" in device.attributes
         assert device.attributes["pressure"].current_value is None

@@ -112,11 +112,6 @@ class CoreDevice(ABC):
     async def update_once(self) -> None:  # noqa: B027
         """Open transport, read all attributes, close. No-op for non-physical."""
 
-    def add_attribute(self, attribute_driver: AttributeDriver) -> None:
-        """Not supported on non-physical devices."""
-        msg = f"{type(self).__name__} does not support adding attributes"
-        raise NotImplementedError(msg)
-
     def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:
         """Not supported on non-physical devices."""
         msg = f"{type(self).__name__} does not support rebuilding attributes"

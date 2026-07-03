@@ -18,7 +18,7 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage.memory import MemoryStorageBackend
-from models.errors import ForbiddenError, InvalidError, NotFoundError
+from models.errors import ConflictError, ForbiddenError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -146,26 +146,23 @@ class DriverRegistry:
         return dto
 
     async def create_driver_attribute(
-        self, driver_id: str, attribute_id: str, attribute: AttributeDriver
+        self, driver_id: str, attribute: AttributeDriver
     ) -> AttributeDriver:
         driver = self._get_or_raise(driver_id)
-        _reject_reserved_attribute_name(attribute_id)
-        if attribute.name != attribute_id:
-            msg = f"Attribute name {attribute.name!r} must match path {attribute_id!r}"
-            raise InvalidError(msg)
-        if attribute_id in driver.attributes:
-            msg = f"Attribute {attribute_id} already exists in driver {driver_id}"
-            raise ValueError(msg)
+        _reject_reserved_attribute_name(attribute.name)
+        if attribute.name in driver.attributes:
+            msg = f"Attribute {attribute.name} already exists in driver {driver_id}"
+            raise ConflictError(msg)
         candidate_attrs = [*driver.attributes.values(), attribute]
         self._assert_standard_schema_allows(
             driver,
             candidate_attrs,
             lambda e: (
-                f'Cannot add "{attribute_id}" to driver {driver_id} which declares '
+                f'Cannot add "{attribute.name}" to driver {driver_id} which declares '
                 f"type {driver.type!r}: {e}"
             ),
         )
-        driver.attributes[attribute_id] = attribute
+        driver.attributes[attribute.name] = attribute
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return attribute

@@ -148,13 +148,6 @@ class TestVirtualDeviceWrite:
             await device.write_attribute_value("temperature", "not-a-float")
 
 
-class TestVirtualDeviceAddAttribute:
-    def test_add_attribute_raises_not_implemented(self):
-        device = _make_virtual_device()
-        with pytest.raises(NotImplementedError):
-            device.add_attribute(MagicMock())
-
-
 class TestVirtualDeviceRenameAttribute:
     def test_rename_attribute_raises_not_implemented(self):
         device = _make_virtual_device()

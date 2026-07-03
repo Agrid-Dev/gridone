@@ -16,7 +16,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
-from models.errors import ForbiddenError, InvalidError, NotFoundError
+from models.errors import ConflictError, ForbiddenError, NotFoundError
 from timeseries.service import TimeSeriesService
 
 _ATTRIBUTE = AttributeDriver(
@@ -212,7 +212,7 @@ class TestCreateAttribute:
             "/test_driver/attributes/pressure",
             json={"name": "pressure", "data_type": "float", "read": "GET /pressure"},
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         dm.create_driver_attribute.assert_called_once()
 
     def test_driver_not_found_returns_404(self, client: TestClient, dm: MagicMock):
@@ -224,7 +224,7 @@ class TestCreateAttribute:
         assert response.status_code == 404
 
     def test_duplicate_name_returns_409(self, client: TestClient, dm: MagicMock):
-        dm.create_driver_attribute.side_effect = ValueError(
+        dm.create_driver_attribute.side_effect = ConflictError(
             "Attribute temperature already exists in driver test_driver"
         )
         response = client.put(
@@ -241,14 +241,12 @@ class TestCreateAttribute:
         dm.create_driver_attribute.assert_not_called()
 
     def test_name_mismatch_returns_422(self, client: TestClient, dm: MagicMock):
-        dm.create_driver_attribute.side_effect = InvalidError(
-            "Attribute name 'mismatched' must match path 'pressure'"
-        )
         response = client.put(
             "/test_driver/attributes/pressure",
             json={"name": "mismatched", "data_type": "float", "read": "GET /pressure"},
         )
         assert response.status_code == 422
+        dm.create_driver_attribute.assert_not_called()
 
 
 class TestPatchAttribute:

@@ -574,13 +574,12 @@ class DevicesService(Service):
     async def create_driver_attribute(
         self,
         driver_id: str,
-        attribute_id: str,
         attribute: AttributeDriver,
     ) -> AttributeDriver:
         result = await self._driver_registry.create_driver_attribute(
-            driver_id, attribute_id, attribute
+            driver_id, attribute
         )
-        self._device_registry.add_attribute_in_devices(result, driver_id=driver_id)
+        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result

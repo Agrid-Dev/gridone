@@ -75,6 +75,7 @@ async def patch_driver(
 
 @router.put(
     "/{driver_id}/attributes/{attribute_id}",
+    status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
 )
 async def create_driver_attribute(
@@ -83,22 +84,10 @@ async def create_driver_attribute(
     payload: AttributeDriverSpec,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> AttributeDriverSpec:
-    try:
-        return await dm.create_driver_attribute(driver_id, attribute_id, payload)
-    except InvalidError:
-        # InvalidError subclasses ValueError; avoid the 409 mapping below.
-        raise
-    except ValueError as e:
-        logger.info(
-            "Rejected create_driver_attribute for driver %s attribute %s: %s",
-            driver_id,
-            attribute_id,
-            e,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Attribute {attribute_id} already exists in driver {driver_id}",
-        ) from e
+    if payload.name != attribute_id:
+        msg = f"Attribute name {payload.name!r} must match URL id {attribute_id!r}"
+        raise InvalidError(msg)
+    return await dm.create_driver_attribute(driver_id, payload)
 
 
 @router.patch(

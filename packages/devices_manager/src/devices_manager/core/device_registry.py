@@ -351,13 +351,6 @@ class DeviceRegistry:
     def _devices_for_driver(self, driver_id: str) -> list[CoreDevice]:
         return [d for d in self._devices.values() if d.driver_id == driver_id]
 
-    def add_attribute_in_devices(
-        self, attribute_driver: AttributeDriver, *, driver_id: str
-    ) -> None:
-        """Add the runtime attribute for all devices using driver_id."""
-        for device in self._devices_for_driver(driver_id):
-            device.add_attribute(attribute_driver)
-
     def rebuild_attribute_in_devices(
         self, attribute_driver: AttributeDriver, *, driver_id: str
     ) -> None:
