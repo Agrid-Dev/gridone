@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from models.errors import ForbiddenError, StorageNotInitializedError
+from models.errors import ConflictError, StorageNotInitializedError
 from models.ids import gen_id
 from models.service import Service
 
@@ -524,7 +524,7 @@ class DevicesService(Service):
         )
         if device is not None:
             msg = f"Transport {transport_id} is used by device {device.id}"
-            raise ForbiddenError(msg)
+            raise ConflictError(msg)
 
     async def delete_transport(self, transport_id: str) -> None:
         self._transport_registry.get(transport_id)
@@ -567,6 +567,19 @@ class DevicesService(Service):
             self._device_registry.update_type_in_devices(
                 result.type, driver_id=driver_id
             )
+        if self._running:
+            await self._device_registry.restart_devices(driver_id=driver_id)
+        return result
+
+    async def create_driver_attribute(
+        self,
+        driver_id: str,
+        attribute: AttributeDriver,
+    ) -> AttributeDriver:
+        result = await self._driver_registry.create_driver_attribute(
+            driver_id, attribute
+        )
+        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result
@@ -618,7 +631,7 @@ class DevicesService(Service):
         )
         if device is not None:
             msg = f"Driver {driver_id} is used by device {device.id}"
-            raise ForbiddenError(msg)
+            raise ConflictError(msg)
 
     async def delete_driver(self, driver_id: str) -> None:
         self._driver_registry.get(driver_id)

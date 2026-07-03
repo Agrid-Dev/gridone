@@ -17,7 +17,8 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage import StorageBackend
-from models.errors import ForbiddenError, InvalidError, NotFoundError
+from devices_manager.types import DataType
+from models.errors import ConflictError, InvalidError, NotFoundError
 from models.types import Severity
 
 
@@ -173,7 +174,7 @@ class TestDriverRegistryPatch:
     @pytest.mark.asyncio
     async def test_patch_type_invalid_schema(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.patch(driver.id, DriverPatch(type="thermostat"))
 
     @pytest.mark.asyncio
@@ -193,6 +194,62 @@ class TestDriverRegistryPatch:
         storage = AsyncMock(spec=StorageBackend)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        storage.write.assert_called_once()
+
+
+class TestDriverRegistryCreateAttribute:
+    @pytest.mark.asyncio
+    async def test_create_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="pressure",
+            data_type=DataType.FLOAT,
+            read="GET /pressure",
+            write=None,
+            codecs=[],
+        )
+        result = await registry.create_driver_attribute(driver.id, new_attr)
+        assert result.name == "pressure"
+        assert driver.attributes["pressure"] is result
+
+    @pytest.mark.asyncio
+    async def test_create_driver_not_found(self):
+        registry = DriverRegistry()
+        new_attr = AttributeDriver(
+            name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
+        )
+        with pytest.raises(NotFoundError):
+            await registry.create_driver_attribute("unknown", new_attr)
+
+    @pytest.mark.asyncio
+    async def test_create_duplicate_name_raises(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read="GET /temperature",
+            codecs=[],
+        )
+        with pytest.raises(ConflictError):
+            await registry.create_driver_attribute(driver.id, new_attr)
+
+    @pytest.mark.asyncio
+    async def test_create_reserved_connection_status_name_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="connection_status", data_type=DataType.BOOL, read="GET /cs", codecs=[]
+        )
+        with pytest.raises(InvalidError):
+            await registry.create_driver_attribute(driver.id, new_attr)
+
+    @pytest.mark.asyncio
+    async def test_create_persists_to_storage(self, driver):
+        storage = AsyncMock(spec=StorageBackend)
+        registry = DriverRegistry({driver.id: driver}, storage=storage)
+        new_attr = AttributeDriver(
+            name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
+        )
+        await registry.create_driver_attribute(driver.id, new_attr)
         storage.write.assert_called_once()
 
 
@@ -312,11 +369,11 @@ class TestDriverRegistryDeleteAttribute:
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_required_standard_attribute_forbidden(
+    async def test_delete_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         assert "temperature" in thermostat_driver.attributes
 
@@ -328,7 +385,7 @@ class TestDriverRegistryDeleteAttribute:
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         storage.write.assert_not_called()
 
@@ -400,11 +457,11 @@ class TestDriverRegistryRenameAttribute:
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_rename_required_standard_attribute_forbidden(
+    async def test_rename_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.rename_driver_attribute(
                 thermostat_driver.id, "temperature", "temp"
             )
@@ -418,7 +475,7 @@ class TestDriverRegistryRenameAttribute:
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.rename_driver_attribute(
                 thermostat_driver.id, "temperature", "temp"
             )

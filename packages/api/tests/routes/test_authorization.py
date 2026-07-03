@@ -849,6 +849,7 @@ def _build_drivers_app() -> FastAPI:
     manager = MockUsersService()
     dm = MagicMock()
     dm.list_drivers.return_value = []
+    dm.create_driver_attribute = AsyncMock()
     dm.patch_driver = AsyncMock()
     dm.patch_driver_attribute = AsyncMock()
     dm.delete_driver = AsyncMock()
@@ -890,6 +891,20 @@ DRIVERS_ACCESS_CONTROL_SCENARIOS = [
         None,
         401,
         id="patch-attr-no-auth",
+    ),
+    pytest.param(
+        "PUT",
+        "/drivers/any-id/attributes/any-attr",
+        "viewer",
+        403,
+        id="create-attr-viewer",
+    ),
+    pytest.param(
+        "PUT",
+        "/drivers/any-id/attributes/any-attr",
+        None,
+        401,
+        id="create-attr-no-auth",
     ),
     pytest.param("DELETE", "/drivers/any-id", "viewer", 403, id="delete-viewer"),
     pytest.param("DELETE", "/drivers/any-id", None, 401, id="delete-no-auth"),

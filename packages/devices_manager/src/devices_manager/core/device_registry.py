@@ -348,21 +348,22 @@ class DeviceRegistry:
                 await device.stop_sync()
                 await device.start_sync()
 
+    def _devices_for_driver(self, driver_id: str) -> list[CoreDevice]:
+        return [d for d in self._devices.values() if d.driver_id == driver_id]
+
     def rebuild_attribute_in_devices(
         self, attribute_driver: AttributeDriver, *, driver_id: str
     ) -> None:
         """Rebuild the runtime attribute for all devices using driver_id."""
-        for device in list(self._devices.values()):
-            if device.driver_id == driver_id:
-                device.rebuild_attribute(attribute_driver)
+        for device in self._devices_for_driver(driver_id):
+            device.rebuild_attribute(attribute_driver)
 
     def delete_attribute_in_devices(
         self, attribute_name: str, *, driver_id: str
     ) -> None:
         """Delete the runtime attribute for all devices using driver_id."""
-        for device in list(self._devices.values()):
-            if device.driver_id == driver_id:
-                device.delete_attribute(attribute_name)
+        for device in self._devices_for_driver(driver_id):
+            device.delete_attribute(attribute_name)
 
     def rename_attribute_in_devices(
         self,
@@ -372,9 +373,8 @@ class DeviceRegistry:
         driver_id: str,
     ) -> None:
         """Rename the runtime attribute for all devices using driver_id."""
-        for device in list(self._devices.values()):
-            if device.driver_id == driver_id:
-                device.rename_attribute(old_name, new_name)
+        for device in self._devices_for_driver(driver_id):
+            device.rename_attribute(old_name, new_name)
 
     def update_type_in_devices(self, new_type: str | None, *, driver_id: str) -> None:
         """Update the runtime type for all devices using driver_id."""
