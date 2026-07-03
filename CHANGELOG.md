@@ -1,3 +1,9 @@
+## v0.129.0 (2026-07-03)
+
+### Feat
+
+- fault-tolerant DevicesService load with load_errors surface (AGR-834)
+
 ## v0.128.1 (2026-07-03)
 
 ### Refactor
