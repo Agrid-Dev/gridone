@@ -5,6 +5,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel
+
 from models.errors import ForbiddenError, StorageNotInitializedError
 from models.ids import gen_id
 from models.service import Service
@@ -30,6 +32,7 @@ from .dto import (
     DriverPatch,
     DriverSpec,
     FaultView,
+    LoadError,
     StandardAttributeSchema,
     Transport,
     TransportCreate,
@@ -51,8 +54,9 @@ if TYPE_CHECKING:
     from .core.driver import Driver
     from .core.driver.attribute_driver import AttributeDriver
     from .core.transports import TransportClient
+    from .dto import LoadEntityKind
     from .interface import AttributeListener, DeviceDiscoveredListener
-    from .storage import DevicesManagerStorage
+    from .storage import DevicesManagerStorage, StorageBackend
     from .types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
@@ -103,6 +107,7 @@ class DevicesService(Service):
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
         self._loaded: _LoadedState | None = None
+        self._load_errors: list[LoadError] = []
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
@@ -151,8 +156,14 @@ class DevicesService(Service):
         are constructed directly against it, pre-populated with the stored
         entities. Hydration performs no writes, starts no background sync
         and registers no persistence listener.
+
+        Fault-tolerant per stored entity: an unreadable or unresolvable
+        entry is skipped and recorded in :attr:`load_errors`, never fatal.
+        Backend-level failures still raise (``UnsupportedStorageError``,
+        ``StorageConnectionError``).
         """
         storage = await build_storage(self._storage_url)
+        self._load_errors = []
         transports = await self._load_transports(storage)
         drivers = await self._load_drivers(storage)
         devices = await self._load_devices(storage, drivers, transports)
@@ -184,30 +195,56 @@ class DevicesService(Service):
         )
         await self._storage.close()
 
+    @property
+    def load_errors(self) -> list[LoadError]:
+        """Entities skipped during the last :meth:`load`. Empty on a clean boot."""
+        return list(self._load_errors)
+
     # -- Read-only hydration (seeded entities win over stored duplicates) --
+
+    def _record_load_error(
+        self, kind: LoadEntityKind, entity_id: str, reason: str
+    ) -> None:
+        """Record a skipped entity. Must be called from an ``except`` block."""
+        self._load_errors.append(
+            LoadError(kind=kind, entity_id=entity_id, reason=reason)
+        )
+        logger.exception("Skipped %s '%s' during load: %s", kind, entity_id, reason)
+
+    async def _read_entities[M: BaseModel](
+        self, backend: StorageBackend[M], kind: LoadEntityKind
+    ) -> list[M]:
+        """Read stored entities one by one, skipping unreadable entries."""
+        entities: list[M] = []
+        for item_id in await backend.list_all():
+            try:
+                entities.append(await backend.read(item_id))
+            except Exception:  # noqa: BLE001 -- fault-tolerant load
+                self._record_load_error(kind, item_id, "unreadable entry")
+        return entities
 
     async def _load_transports(
         self, storage: DevicesManagerStorage
     ) -> dict[str, TransportClient]:
         transports = dict(self._seed_transports)
-        for dto in await storage.transports.read_all():
+        for dto in await self._read_entities(storage.transports, "transport"):
             if dto.id in transports:
                 continue
             try:
                 transports[dto.id] = build_transport_client(dto)
-            except Exception:
-                logger.exception("Failed to init transport %s", dto.id)
+            except Exception:  # noqa: BLE001 -- fault-tolerant load
+                self._record_load_error("transport", dto.id, "failed to initialize")
         return transports
 
     async def _load_drivers(self, storage: DevicesManagerStorage) -> dict[str, Driver]:
         drivers = dict(self._seed_drivers)
-        for dto in await storage.drivers.read_all():
+        for dto in await self._read_entities(storage.drivers, "driver"):
             if dto.id in drivers:
                 continue
             try:
                 drivers[dto.id] = driver_from_public(dto)
-            except Exception:
-                logger.exception("Failed to init driver %s", dto.id)
+            except Exception:  # noqa: BLE001 -- fault-tolerant load
+                self._record_load_error("driver", dto.id, "failed to initialize")
         return drivers
 
     async def _load_devices(
@@ -217,7 +254,7 @@ class DevicesService(Service):
         transports: dict[str, TransportClient],
     ) -> dict[str, CoreDevice]:
         devices = dict(self._seed_devices)
-        for dto in await storage.devices.read_all():
+        for dto in await self._read_entities(storage.devices, "device"):
             if dto.id in devices:
                 continue
             try:
@@ -225,11 +262,9 @@ class DevicesService(Service):
                     dto, drivers, transports, on_update=self._on_attribute_update
                 )
             except KeyError:
-                logger.exception(
-                    "Cannot create device %s: missing driver or transport", dto.id
-                )
-            except Exception:
-                logger.exception("Failed to init device %s", dto.id)
+                self._record_load_error("device", dto.id, "missing driver or transport")
+            except Exception:  # noqa: BLE001 -- fault-tolerant load
+                self._record_load_error("device", dto.id, "failed to initialize")
         return devices
 
     def _register_attribute_persistence_listener(self) -> None:
