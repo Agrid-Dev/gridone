@@ -1,3 +1,9 @@
+## v0.133.0 (2026-07-03)
+
+### Feat
+
+-  migrate driver creation from POST /drivers to PUT /drivers/:driver_id (#409)
+
 ## v0.132.0 (2026-07-03)
 
 ### Feat
