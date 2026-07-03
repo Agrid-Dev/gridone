@@ -17,10 +17,13 @@ DEFAULT_PROPERTY_NAME = "present-value"  # use dash form
 # is abbreviated "MV", not the "MSV" its initials would give.
 _OBJECT_TYPE_BY_SHORTHAND = {
     "AI": BacnetObjectType.ANALOG_INPUT,
+    "AO": BacnetObjectType.ANALOG_OUTPUT,
     "AV": BacnetObjectType.ANALOG_VALUE,
     "BI": BacnetObjectType.BINARY_INPUT,
+    "BO": BacnetObjectType.BINARY_OUTPUT,
     "BV": BacnetObjectType.BINARY_VALUE,
     "MI": BacnetObjectType.MULTISTATE_INPUT,
+    "MO": BacnetObjectType.MULTISTATE_OUTPUT,
     "MV": BacnetObjectType.MULTISTATE_VALUE,
 }
 
@@ -55,9 +58,10 @@ class BacnetAddress(BaseModel, TransportAddress):
             description=(
                 "Kind of datapoint. 'analog-*' carries a number, 'binary-*' an "
                 "on/off, 'multi-state-*' an enumerated state. '*-input' is a "
-                "read-only sensor reading; '*-value' is a writable setpoint. "
-                "Accepts canonical names ('analog-value'), shorthands ('AV') or "
-                "underscores ('analog_value')."
+                "read-only sensor reading; '*-output' a commandable physical "
+                "output; '*-value' is a writable setpoint. Accepts canonical "
+                "names ('analog-value'), shorthands ('AV') or underscores "
+                "('analog_value')."
             )
         ),
     ]
