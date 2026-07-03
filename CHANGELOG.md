@@ -1,3 +1,10 @@
+## v0.128.1 (2026-07-03)
+
+### Refactor
+
+- replace recording storage double with AsyncMock in load tests (AGR-834)
+- single-phase read-only DevicesService load (AGR-834)
+
 ## v0.128.0 (2026-07-02)
 
 ### Feat
