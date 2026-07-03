@@ -1,3 +1,9 @@
+## v0.135.0 (2026-07-03)
+
+### Feat
+
+- enforce snake_case for driver attribute names (#418)
+
 ## v0.134.0 (2026-07-03)
 
 ### Feat
