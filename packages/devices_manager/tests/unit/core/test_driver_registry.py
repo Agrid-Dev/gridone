@@ -252,6 +252,19 @@ class TestDriverRegistryCreateAttribute:
         await registry.create_driver_attribute(driver.id, new_attr)
         storage.write.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_create_non_snake_case_name_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="Temperature",
+            data_type=DataType.FLOAT,
+            read="GET /temperature2",
+            codecs=[],
+        )
+        with pytest.raises(InvalidError):
+            await registry.create_driver_attribute(driver.id, new_attr)
+        assert "Temperature" not in driver.attributes
+
 
 class TestDriverRegistryPatchAttribute:
     @pytest.mark.asyncio
@@ -440,6 +453,15 @@ class TestDriverRegistryRenameAttribute:
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(InvalidError):
             await registry.rename_driver_attribute(driver.id, "temperature", "humidity")
+
+    @pytest.mark.asyncio
+    async def test_rename_to_non_snake_case_name_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError):
+            await registry.rename_driver_attribute(
+                driver.id, "temperature", "Temperature"
+            )
+        assert "temperature" in driver.attributes
 
     @pytest.mark.asyncio
     async def test_rename_to_same_name_is_noop_ok(self, driver):
