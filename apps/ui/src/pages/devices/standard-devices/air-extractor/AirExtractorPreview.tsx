@@ -2,6 +2,7 @@ import { Fan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAirExtractor, readAirExtractorAttributes } from "@/api/devices";
 import { fmt } from "../synoptic";
+import { fanIsSpinning } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { StandardPreviewProps } from "../types";
 
@@ -10,6 +11,7 @@ export function AirExtractorPreview({ device }: StandardPreviewProps) {
   if (!isAirExtractor(device)) return null;
   const a = readAirExtractorAttributes(device);
   const running = a.onoffState;
+  const spinning = fanIsSpinning(a);
 
   return (
     <div className="flex items-center justify-between gap-3">
@@ -33,7 +35,7 @@ export function AirExtractorPreview({ device }: StandardPreviewProps) {
         <Fan
           className={cn(
             "h-3 w-3",
-            running ? "text-hvac-fan" : "text-muted-foreground",
+            spinning ? "text-hvac-fan" : "text-muted-foreground",
           )}
         />
         <span className="tabular-nums">{fmt(a.fanSpeed, 0)} %</span>

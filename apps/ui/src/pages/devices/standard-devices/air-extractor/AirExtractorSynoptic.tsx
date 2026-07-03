@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FanGlyph, FlowChevron, fmt, ValueChip } from "../synoptic";
+import { fanIsSpinning } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { AirExtractorValues } from "./types";
 
@@ -91,7 +92,7 @@ export function AirExtractorSynoptic({
         <FanGlyph
           cx={460}
           cy={DUCT_CY}
-          spinning={(values.fanSpeed ?? 0) > 0 || running === true}
+          spinning={fanIsSpinning(values)}
           title={label("fan")}
         />
         <ValueChip

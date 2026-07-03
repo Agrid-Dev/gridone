@@ -63,20 +63,30 @@ const SINGLE_FLUX_UNIT: AhuSingleFluxValues = {
   heatingValve: 30,
 };
 
+// Running, airflow proven — the fan spins.
 const EXTRACTOR_RUNNING: AirExtractorValues = {
   onoffState: true,
   fanSpeed: 45,
   flowSwitch: true,
 };
 
-// Fan commanded on but airflow not proven — the flow-switch fault case.
-const EXTRACTOR_NO_FLOW: AirExtractorValues = {
+// Commanded off but airflow still proven — reverse discordance. The fan
+// spins despite the stop command; the device raises the fault itself.
+const EXTRACTOR_REVERSE_DISCORDANCE: AirExtractorValues = {
+  onoffState: false,
+  fanSpeed: 0,
+  flowSwitch: true,
+};
+
+// Commanded on but no proven airflow — fan failed (belt/motor). Static.
+const EXTRACTOR_FAN_FAILED: AirExtractorValues = {
   onoffState: true,
   fanSpeed: 60,
   flowSwitch: false,
 };
 
-// Minimal unit exposing only on/off — no fan speed or flow switch.
+// Minimal unit exposing only on/off — no fan speed or flow switch, so the
+// animation follows the command.
 const EXTRACTOR_MINIMAL: AirExtractorValues = {
   onoffState: true,
 };
@@ -169,12 +179,13 @@ function ExtractorUnit({
 }) {
   const [values, setValues] = useState<AirExtractorValues>(initial);
 
+  // The toggle drives only the command; flow_switch stays put so the
+  // discordance states remain visible while toggling.
   const toggleRunning = (on: boolean) => {
     setValues((current) => ({
       ...current,
       onoffState: on,
       fanSpeed: on ? initial.fanSpeed : 0,
-      flowSwitch: on ? initial.flowSwitch : false,
     }));
   };
 
@@ -244,8 +255,12 @@ export default function SynopticsSandbox() {
         initial={EXTRACTOR_RUNNING}
       />
       <ExtractorUnit
-        title="VE02 — extractor, running (no flow — fault)"
-        initial={EXTRACTOR_NO_FLOW}
+        title="VE02 — extractor, off but flow proven (reverse discordance)"
+        initial={EXTRACTOR_REVERSE_DISCORDANCE}
+      />
+      <ExtractorUnit
+        title="VE04 — extractor, on but no flow (fan failed)"
+        initial={EXTRACTOR_FAN_FAILED}
       />
       <ExtractorUnit
         title="VE05 — extractor, on/off only"

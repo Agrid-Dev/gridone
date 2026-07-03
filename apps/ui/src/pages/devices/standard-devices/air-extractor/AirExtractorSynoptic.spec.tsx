@@ -48,6 +48,22 @@ describe("AirExtractorSynoptic", () => {
     expect(screen.getByText("0 %")).toBeInTheDocument();
   });
 
+  it("spins the fan from proven flow, not the command", () => {
+    // Commanded off but flow proven (reverse discordance) → fan turning.
+    const { container } = render(
+      <AirExtractorSynoptic values={{ onoffState: false, flowSwitch: true }} />,
+    );
+    expect(container.querySelector(".fill-hvac-fan")).toBeInTheDocument();
+  });
+
+  it("keeps the fan static when commanded on but flow is not proven", () => {
+    // Fan failed: commanded on, no flow → not turning.
+    const { container } = render(
+      <AirExtractorSynoptic values={{ onoffState: true, flowSwitch: false }} />,
+    );
+    expect(container.querySelector(".fill-hvac-fan")).not.toBeInTheDocument();
+  });
+
   it("omits status badges and shows a placeholder speed when values are absent", () => {
     render(<AirExtractorSynoptic values={{}} />);
 
