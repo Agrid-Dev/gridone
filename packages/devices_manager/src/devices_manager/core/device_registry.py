@@ -70,15 +70,6 @@ class DeviceRegistry:
         for device in self._devices.values():
             device.on_update = self._on_attribute_update
 
-    def set_storage(self, storage: DeviceStorageBackend) -> None:
-        """Swap the persistence backend after construction.
-
-        Used by ``DevicesService.start`` to upgrade from the default
-        in-memory storage to a real backend (e.g. postgres) without
-        rebuilding the registry.
-        """
-        self._storage = storage
-
     @property
     def all(self) -> dict[str, CoreDevice]:
         return self._devices

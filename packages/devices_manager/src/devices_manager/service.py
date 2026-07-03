@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from models.errors import ForbiddenError
+from models.errors import ForbiddenError, StorageNotInitializedError
 from models.ids import gen_id
 from models.service import Service
 
@@ -20,7 +21,7 @@ from .core.discovery_manager import (
 )
 from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
-from .core.transport_registry import TransportRegistry
+from .core.transport_registry import TransportRegistry, build_transport_client
 from .dto import (
     AttributePatch,
     Device,
@@ -35,11 +36,11 @@ from .dto import (
     TransportUpdate,
     device_from_public,
     device_to_public,
+    driver_from_public,
     standard_schema_to_public,
     transport_to_public,
 )
 from .storage.factory import build_storage
-from .storage.memory import MemoryDevicesStorage
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -76,9 +77,18 @@ def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
     )
 
 
+@dataclass
+class _LoadedState:
+    """Storage and registries, built together by :meth:`DevicesService.load`."""
+
+    storage: DevicesManagerStorage
+    transport_registry: TransportRegistry
+    driver_registry: DriverRegistry
+    device_registry: DeviceRegistry
+
+
 class DevicesService(Service):
     _discovery_manager: PhysicalDevicesDiscoveryManager
-    _storage: DevicesManagerStorage
 
     def __init__(
         self,
@@ -89,31 +99,37 @@ class DevicesService(Service):
         devices: dict[str, CoreDevice] | None = None,
     ) -> None:
         self._storage_url = storage_url
-        # Always start with an in-memory storage so the registries are
-        # immediately usable. ``start()`` upgrades to the configured backend
-        # (e.g. postgres) by re-pointing the registries at the new storage
-        # and replaying the existing stored entries.
-        self._storage = MemoryDevicesStorage()
+        self._seed_drivers = drivers if drivers is not None else {}
+        self._seed_transports = transports if transports is not None else {}
+        self._seed_devices = devices if devices is not None else {}
+        self._loaded: _LoadedState | None = None
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
 
-        self._transport_registry = TransportRegistry(
-            transports,
-            storage=self._storage.transports,
-        )
-        self._driver_registry = DriverRegistry(
-            drivers,
-            storage=self._storage.drivers,
-        )
-        self._device_registry = DeviceRegistry(
-            devices,
-            resolve_driver=self._driver_registry.get,
-            resolve_transport=self._transport_registry.get,
-            on_attribute_update=self._on_attribute_update,
-            storage=self._storage.devices,
-        )
+    @property
+    def _state(self) -> _LoadedState:
+        if self._loaded is None:
+            msg = "DevicesService used before load() or start()"
+            raise StorageNotInitializedError(msg)
+        return self._loaded
+
+    @property
+    def _storage(self) -> DevicesManagerStorage:
+        return self._state.storage
+
+    @property
+    def _transport_registry(self) -> TransportRegistry:
+        return self._state.transport_registry
+
+    @property
+    def _driver_registry(self) -> DriverRegistry:
+        return self._state.driver_registry
+
+    @property
+    def _device_registry(self) -> DeviceRegistry:
+        return self._state.device_registry
 
     # -- Lifecycle --
 
@@ -129,22 +145,38 @@ class DevicesService(Service):
                 logger.exception("Failed to start sync for device %s", device.id)
 
     async def load(self) -> None:
-        """Build storage and populate the registries from it.
+        """Build storage and registries once, and hydrate them read-only.
 
-        Loads transports, drivers and devices into memory without starting
-        background sync or attribute persistence.
+        Single-phase: the storage backend is built once and the registries
+        are constructed directly against it, pre-populated with the stored
+        entities. Hydration performs no writes, starts no background sync
+        and registers no persistence listener.
         """
-        if self._storage_url is not None:
-            new_storage = await build_storage(self._storage_url)
-            self._storage = new_storage
-            self._transport_registry.set_storage(new_storage.transports)
-            self._driver_registry.set_storage(new_storage.drivers)
-            self._device_registry.set_storage(new_storage.devices)
-            await self._populate_from_storage()
+        storage = await build_storage(self._storage_url)
+        transports = await self._load_transports(storage)
+        drivers = await self._load_drivers(storage)
+        devices = await self._load_devices(storage, drivers, transports)
+        transport_registry = TransportRegistry(transports, storage=storage.transports)
+        driver_registry = DriverRegistry(drivers, storage=storage.drivers)
+        device_registry = DeviceRegistry(
+            devices,
+            resolve_driver=driver_registry.get,
+            resolve_transport=transport_registry.get,
+            on_attribute_update=self._on_attribute_update,
+            storage=storage.devices,
+        )
+        self._loaded = _LoadedState(
+            storage=storage,
+            transport_registry=transport_registry,
+            driver_registry=driver_registry,
+            device_registry=device_registry,
+        )
 
     async def stop(self) -> None:
-        """Stop syncing, close transports, and release storage."""
+        """Stop syncing, close transports, and release storage. Idempotent."""
         self._running = False
+        if self._loaded is None:
+            return
         for device in self._device_registry.all.values():
             await device.stop_sync()
         await asyncio.gather(
@@ -152,37 +184,53 @@ class DevicesService(Service):
         )
         await self._storage.close()
 
-    async def _populate_from_storage(self) -> None:
-        """Restore drivers/transports/devices from storage into the registries."""
-        for transport_dto in await self._storage.transports.read_all():
-            try:
-                await self._transport_registry.add(transport_dto)
-            except Exception:
-                logger.exception("Failed to init transport %s", transport_dto.id)
-        for driver_dto in await self._storage.drivers.read_all():
-            try:
-                await self._driver_registry.add(driver_dto)
-            except Exception:
-                logger.exception("Failed to init driver %s", driver_dto.id)
-        for device_dto in await self._storage.devices.read_all():
-            await self._restore_device(device_dto)
+    # -- Read-only hydration (seeded entities win over stored duplicates) --
 
-    async def _restore_device(self, d: Device) -> None:
-        logger.info("Adding device %s", d.id)
-        try:
-            device = device_from_public(
-                d,
-                self._driver_registry.all,
-                self._transport_registry.all,
-                on_update=self._on_attribute_update,
-            )
-            await self._device_registry.register(device)
-        except KeyError:
-            logger.exception(
-                "Cannot create device %s: missing driver or transport", d.id
-            )
-        except Exception:
-            logger.exception("Failed to init device %s", d.id)
+    async def _load_transports(
+        self, storage: DevicesManagerStorage
+    ) -> dict[str, TransportClient]:
+        transports = dict(self._seed_transports)
+        for dto in await storage.transports.read_all():
+            if dto.id in transports:
+                continue
+            try:
+                transports[dto.id] = build_transport_client(dto)
+            except Exception:
+                logger.exception("Failed to init transport %s", dto.id)
+        return transports
+
+    async def _load_drivers(self, storage: DevicesManagerStorage) -> dict[str, Driver]:
+        drivers = dict(self._seed_drivers)
+        for dto in await storage.drivers.read_all():
+            if dto.id in drivers:
+                continue
+            try:
+                drivers[dto.id] = driver_from_public(dto)
+            except Exception:
+                logger.exception("Failed to init driver %s", dto.id)
+        return drivers
+
+    async def _load_devices(
+        self,
+        storage: DevicesManagerStorage,
+        drivers: dict[str, Driver],
+        transports: dict[str, TransportClient],
+    ) -> dict[str, CoreDevice]:
+        devices = dict(self._seed_devices)
+        for dto in await storage.devices.read_all():
+            if dto.id in devices:
+                continue
+            try:
+                devices[dto.id] = device_from_public(
+                    dto, drivers, transports, on_update=self._on_attribute_update
+                )
+            except KeyError:
+                logger.exception(
+                    "Cannot create device %s: missing driver or transport", dto.id
+                )
+            except Exception:
+                logger.exception("Failed to init device %s", dto.id)
+        return devices
 
     def _register_attribute_persistence_listener(self) -> None:
         """Persist attribute values on change.

@@ -57,10 +57,6 @@ class DriverRegistry:
             storage if storage is not None else MemoryStorageBackend[DriverSpec]()
         )
 
-    def set_storage(self, storage: StorageBackend[DriverSpec]) -> None:
-        """Swap the persistence backend after construction."""
-        self._storage = storage
-
     @property
     def all(self) -> dict[str, Driver]:
         return self._drivers
