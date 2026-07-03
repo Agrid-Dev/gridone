@@ -1,6 +1,7 @@
 from models.errors import (
     StorageConnectionError,
     StorageError,
+    StorageNotInitializedError,
     UnsupportedStorageError,
 )
 
@@ -8,6 +9,7 @@ from models.errors import (
 def test_subclasses_share_storage_error_base() -> None:
     assert issubclass(UnsupportedStorageError, StorageError)
     assert issubclass(StorageConnectionError, StorageError)
+    assert issubclass(StorageNotInitializedError, StorageError)
 
 
 def test_unsupported_storage_carries_message() -> None:

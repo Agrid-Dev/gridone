@@ -23,6 +23,14 @@ if TYPE_CHECKING:
     from devices_manager.storage import StorageBackend
 
 
+def build_transport_client(transport: TransportCreate | Transport) -> TransportClient:
+    """Build a transport client from a create payload or a stored DTO."""
+    config = make_transport_config(transport.protocol, transport.config.model_dump())
+    transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
+    metadata = TransportMetadata(id=transport_id, name=transport.name)
+    return make_transport_client(transport.protocol, config, metadata)
+
+
 class TransportRegistry:
     """In-memory registry for transport clients with optional persistence."""
 
@@ -39,10 +47,6 @@ class TransportRegistry:
         self._storage = (
             storage if storage is not None else MemoryStorageBackend[Transport]()
         )
-
-    def set_storage(self, storage: StorageBackend[Transport]) -> None:
-        """Swap the persistence backend after construction."""
-        self._storage = storage
 
     @property
     def all(self) -> dict[str, TransportClient]:
@@ -70,13 +74,8 @@ class TransportRegistry:
         return transport_to_public(client)
 
     async def add(self, transport: TransportCreate | Transport) -> Transport:
-        config = make_transport_config(
-            transport.protocol, transport.config.model_dump()
-        )
-        transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
-        metadata = TransportMetadata(id=transport_id, name=transport.name)
-        client = make_transport_client(transport.protocol, config, metadata)
-        self._transports[metadata.id] = client
+        client = build_transport_client(transport)
+        self._transports[client.id] = client
         dto = transport_to_public(client)
         await self._storage.write(dto.id, dto)
         return dto

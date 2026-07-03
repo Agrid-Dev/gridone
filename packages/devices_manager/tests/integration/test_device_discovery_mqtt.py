@@ -1,17 +1,20 @@
 import asyncio
 
 import pytest
+import pytest_asyncio
 from fixtures.config import TMK_DEVICE_ID
 
 from devices_manager import DevicesService
 
 
-@pytest.fixture
-def devices_service(thermocktat_mqtt_driver, mqtt_transport) -> DevicesService:
-    return DevicesService(
+@pytest_asyncio.fixture
+async def devices_service(thermocktat_mqtt_driver, mqtt_transport) -> DevicesService:
+    svc = DevicesService(
         drivers={thermocktat_mqtt_driver.id: thermocktat_mqtt_driver},
         transports={mqtt_transport.id: mqtt_transport},
     )
+    await svc.load()
+    return svc
 
 
 @pytest.mark.asyncio

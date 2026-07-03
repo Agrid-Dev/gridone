@@ -36,3 +36,11 @@ class StorageConnectionError(StorageError):
     This is an infrastructure error (e.g. database unreachable, migration
     failed) and should surface as a 5xx-class problem to API callers.
     """
+
+
+class StorageNotInitializedError(StorageError):
+    """Raised when a service's storage is used before ``load()``/``start()``.
+
+    This is a programming error (wrong lifecycle usage), kept explicit so a
+    service used before loading fails fast instead of silently misbehaving.
+    """
