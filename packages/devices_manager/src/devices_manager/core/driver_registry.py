@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -37,6 +38,16 @@ _attr_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(AttributeDriverSpec)
 def _reject_reserved_attribute_name(name: str) -> None:
     if name == CONNECTION_STATUS_ATTR:
         msg = f'"{CONNECTION_STATUS_ATTR}" is a reserved attribute name'
+        raise InvalidError(msg)
+
+
+_SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9]*(_[a-z0-9]+)*$")
+
+
+def _reject_non_snake_case_name(name: str) -> None:
+    """Reject attribute names that aren't snake_case."""
+    if not _SNAKE_CASE_PATTERN.fullmatch(name):
+        msg = f"Attribute name {name!r} must be snake_case"
         raise InvalidError(msg)
 
 
@@ -150,6 +161,7 @@ class DriverRegistry:
     ) -> AttributeDriver:
         driver = self._get_or_raise(driver_id)
         _reject_reserved_attribute_name(attribute.name)
+        _reject_non_snake_case_name(attribute.name)
         if attribute.name in driver.attributes:
             msg = f"Attribute {attribute.name} already exists in driver {driver_id}"
             raise ConflictError(msg)
@@ -221,6 +233,7 @@ class DriverRegistry:
         driver = self._get_or_raise(driver_id)
         self._get_attribute_or_raise(driver, driver_id, attribute_id)
         _reject_reserved_attribute_name(new_name)
+        _reject_non_snake_case_name(new_name)
         if new_name != attribute_id and new_name in driver.attributes:
             msg = f"Attribute {new_name} already exists in driver {driver_id}"
             raise InvalidError(msg)
