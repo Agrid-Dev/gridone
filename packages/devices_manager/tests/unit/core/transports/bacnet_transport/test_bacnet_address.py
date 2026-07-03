@@ -13,10 +13,14 @@ from devices_manager.core.transports.bacnet_transport.bacnet_address import (
     [
         ("BV", BacnetObjectType.BINARY_VALUE),
         ("BI", BacnetObjectType.BINARY_INPUT),
+        ("BO", BacnetObjectType.BINARY_OUTPUT),
         ("AI", BacnetObjectType.ANALOG_INPUT),
+        ("AO", BacnetObjectType.ANALOG_OUTPUT),
         ("MV", BacnetObjectType.MULTISTATE_VALUE),
         ("MI", BacnetObjectType.MULTISTATE_INPUT),
+        ("MO", BacnetObjectType.MULTISTATE_OUTPUT),
         ("binary-input", BacnetObjectType.BINARY_INPUT),
+        ("analog-output", BacnetObjectType.ANALOG_OUTPUT),
         ("multi-state-value", BacnetObjectType.MULTISTATE_VALUE),
         ("multi_state_value", BacnetObjectType.MULTISTATE_VALUE),
         ("BV ", BacnetObjectType.BINARY_VALUE),
@@ -54,6 +58,14 @@ ANALOG_INPUT_5_ADDRESS = BacnetAddress(
         ("AI:5", ANALOG_INPUT_5_ADDRESS),
         ("analog-input:5", ANALOG_INPUT_5_ADDRESS),
         ("ANALOG_INPUT:5", ANALOG_INPUT_5_ADDRESS),
+        (
+            "AO5",
+            BacnetAddress(
+                object_type=BacnetObjectType.ANALOG_OUTPUT,
+                object_instance=5,
+                device_instance=8851,
+            ),
+        ),
         (
             "AI05 P8",
             BacnetAddress(
