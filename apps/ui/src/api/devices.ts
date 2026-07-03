@@ -30,6 +30,7 @@ export enum DeviceType {
   WeatherSensor = "weather_sensor",
   ElectricityMeter = "electricity_meter",
   AhuDoubleFlux = "ahu_double_flux",
+  AhuSingleFlux = "ahu_single_flux",
 }
 
 export enum DeviceKind {
@@ -158,6 +159,23 @@ export type AhuDoubleFluxAttributes = {
   exchangerUtilization: AttrValue<number>;
 };
 
+/** Typed view of the `ahu_single_flux` standard attributes. */
+export type AhuSingleFluxAttributes = {
+  supplyAirTemperature: AttrValue<number>;
+  supplyAirTemperatureSetpoint: AttrValue<number>;
+  supplyFanSpeed: AttrValue<number>;
+  onoffState: AttrValue<boolean>;
+  hvacMode: AttrValue<string>;
+  supplyAirPressure: AttrValue<number>;
+  supplyAirPressureSetpoint: AttrValue<number>;
+  outdoorAirTemperature: AttrValue<number>;
+  extractAirTemperature: AttrValue<number>;
+  extractAirPressure: AttrValue<number>;
+  extractFanSpeed: AttrValue<number>;
+  heatingValve: AttrValue<number>;
+  coolingValve: AttrValue<number>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
@@ -179,13 +197,19 @@ export type AhuDoubleFluxDevice = Device & {
   type: DeviceType.AhuDoubleFlux;
 };
 
+/** A Device whose `type` is `"ahu_single_flux"`. */
+export type AhuSingleFluxDevice = Device & {
+  type: DeviceType.AhuSingleFlux;
+};
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
   | AwhpDevice
   | WeatherSensorDevice
   | ElectricityMeterDevice
-  | AhuDoubleFluxDevice;
+  | AhuDoubleFluxDevice
+  | AhuSingleFluxDevice;
 
 // Type guards ---
 
@@ -211,13 +235,18 @@ export function isAhuDoubleFlux(device: Device): device is AhuDoubleFluxDevice {
   return device.type === DeviceType.AhuDoubleFlux;
 }
 
+export function isAhuSingleFlux(device: Device): device is AhuSingleFluxDevice {
+  return device.type === DeviceType.AhuSingleFlux;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
   return (
     isThermostat(device) ||
     isAwhp(device) ||
     isWeatherSensor(device) ||
     isElectricityMeter(device) ||
-    isAhuDoubleFlux(device)
+    isAhuDoubleFlux(device) ||
+    isAhuSingleFlux(device)
   );
 }
 
@@ -364,6 +393,35 @@ export function readAhuDoubleFluxAttributes(
     heatingValve: v("heatingValve") as AttrValue<number>,
     coolingValve: v("coolingValve") as AttrValue<number>,
     exchangerUtilization: v("exchangerUtilization") as AttrValue<number>,
+  };
+}
+
+/**
+ * Read the standard single-flux AHU attributes from a device's attribute map.
+ * Attribute keys are already camelCase (converted by the API client).
+ */
+export function readAhuSingleFluxAttributes(
+  device: AhuSingleFluxDevice,
+): AhuSingleFluxAttributes {
+  const v = (name: string) => device.attributes[name]?.currentValue ?? null;
+  return {
+    supplyAirTemperature: v("supplyAirTemperature") as AttrValue<number>,
+    supplyAirTemperatureSetpoint: v(
+      "supplyAirTemperatureSetpoint",
+    ) as AttrValue<number>,
+    supplyFanSpeed: v("supplyFanSpeed") as AttrValue<number>,
+    onoffState: v("onoffState") as AttrValue<boolean>,
+    hvacMode: v("hvacMode") as AttrValue<string>,
+    supplyAirPressure: v("supplyAirPressure") as AttrValue<number>,
+    supplyAirPressureSetpoint: v(
+      "supplyAirPressureSetpoint",
+    ) as AttrValue<number>,
+    outdoorAirTemperature: v("outdoorAirTemperature") as AttrValue<number>,
+    extractAirTemperature: v("extractAirTemperature") as AttrValue<number>,
+    extractAirPressure: v("extractAirPressure") as AttrValue<number>,
+    extractFanSpeed: v("extractFanSpeed") as AttrValue<number>,
+    heatingValve: v("heatingValve") as AttrValue<number>,
+    coolingValve: v("coolingValve") as AttrValue<number>,
   };
 }
 

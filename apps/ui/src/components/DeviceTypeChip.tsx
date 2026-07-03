@@ -16,6 +16,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
   [DeviceType.WeatherSensor]: CloudSun,
   [DeviceType.ElectricityMeter]: Zap,
   [DeviceType.AhuDoubleFlux]: AirVent,
+  [DeviceType.AhuSingleFlux]: AirVent,
 };
 
 export function deviceTypeIcon(

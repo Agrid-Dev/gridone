@@ -9,9 +9,7 @@
     "name": "Compteur électrique",
     "name_plural": "Compteurs électriques"
   },
-  "ahu_double_flux": {
-    "name": "CTA double flux",
-    "name_plural": "CTA double flux",
+  "ahu": {
     "synoptic": {
       "freshAir": "Air neuf",
       "exhaustAir": "Rejet",
@@ -33,6 +31,14 @@
       "editSetpointDescription": "Définir une nouvelle valeur pour {{label}}.",
       "invalidNumber": "Valeur numérique invalide"
     }
+  },
+  "ahu_double_flux": {
+    "name": "CTA double flux",
+    "name_plural": "CTA double flux"
+  },
+  "ahu_single_flux": {
+    "name": "CTA simple flux",
+    "name_plural": "CTA simple flux"
   },
   "other": { "name": "Autre", "name_plural": "Autres" }
 }
