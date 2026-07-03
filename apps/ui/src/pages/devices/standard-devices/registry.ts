@@ -9,6 +9,7 @@ import {
 } from "./electricity-meter";
 import { AhuDoubleFluxPreview, AhuDoubleFluxControl } from "./ahu-double-flux";
 import { AhuSingleFluxPreview, AhuSingleFluxControl } from "./ahu-single-flux";
+import { AirExtractorPreview, AirExtractorControl } from "./air-extractor";
 import type { StandardPreviewProps, StandardControlProps } from "./types";
 
 export type { StandardPreviewProps, StandardControlProps } from "./types";
@@ -42,6 +43,10 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.AhuSingleFlux]: {
     Preview: AhuSingleFluxPreview,
     Control: AhuSingleFluxControl,
+  },
+  [DeviceType.AirExtractor]: {
+    Preview: AirExtractorPreview,
+    Control: AirExtractorControl,
   },
 };
 

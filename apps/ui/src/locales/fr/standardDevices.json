@@ -40,5 +40,18 @@
     "name": "CTA simple flux",
     "name_plural": "CTA simple flux"
   },
+  "air_extractor": {
+    "name": "Extracteur d'air",
+    "name_plural": "Extracteurs d'air",
+    "synoptic": {
+      "extractAir": "Air repris",
+      "exhaustAir": "Rejet",
+      "fan": "Ventilateur d'extraction",
+      "on": "Marche",
+      "off": "Arrêt",
+      "flowProven": "Débit établi",
+      "flowMissing": "Pas de débit"
+    }
+  },
   "other": { "name": "Autre", "name_plural": "Autres" }
 }

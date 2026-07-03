@@ -110,7 +110,8 @@
       "weather_sensor": "Weather Sensor",
       "electricity_meter": "Electricity Meter",
       "ahu_double_flux": "Double-flux AHU",
-      "ahu_single_flux": "Single-flux AHU"
+      "ahu_single_flux": "Single-flux AHU",
+      "air_extractor": "Air Extractor"
     },
     "deviceKinds": {
       "physical": "Physical",
