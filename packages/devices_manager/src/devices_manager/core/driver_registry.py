@@ -18,7 +18,7 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.storage.memory import MemoryStorageBackend
-from models.errors import ConflictError, ForbiddenError, InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -109,7 +109,7 @@ class DriverRegistry:
         try:
             validate_standard_schema(effective_type, candidate_attrs)
         except InvalidError as e:
-            raise ForbiddenError(build_message(e)) from e
+            raise ConflictError(build_message(e)) from e
 
     async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:

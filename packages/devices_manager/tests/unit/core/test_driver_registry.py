@@ -18,7 +18,7 @@ from devices_manager.dto import (
 )
 from devices_manager.storage import StorageBackend
 from devices_manager.types import DataType
-from models.errors import ConflictError, ForbiddenError, InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 from models.types import Severity
 
 
@@ -174,7 +174,7 @@ class TestDriverRegistryPatch:
     @pytest.mark.asyncio
     async def test_patch_type_invalid_schema(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.patch(driver.id, DriverPatch(type="thermostat"))
 
     @pytest.mark.asyncio
@@ -369,11 +369,11 @@ class TestDriverRegistryDeleteAttribute:
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_delete_required_standard_attribute_forbidden(
+    async def test_delete_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         assert "temperature" in thermostat_driver.attributes
 
@@ -385,7 +385,7 @@ class TestDriverRegistryDeleteAttribute:
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.delete_driver_attribute(thermostat_driver.id, "temperature")
         storage.write.assert_not_called()
 
@@ -457,11 +457,11 @@ class TestDriverRegistryRenameAttribute:
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_rename_required_standard_attribute_forbidden(
+    async def test_rename_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.rename_driver_attribute(
                 thermostat_driver.id, "temperature", "temp"
             )
@@ -475,7 +475,7 @@ class TestDriverRegistryRenameAttribute:
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await registry.rename_driver_attribute(
                 thermostat_driver.id, "temperature", "temp"
             )

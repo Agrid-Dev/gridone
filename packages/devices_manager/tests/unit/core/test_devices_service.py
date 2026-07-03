@@ -48,7 +48,6 @@ from devices_manager.types import (
 from models.errors import (
     ConfirmationError,
     ConflictError,
-    ForbiddenError,
     NotFoundError,
 )
 from models.types import Severity
@@ -665,7 +664,7 @@ class TestDevicesServiceDeleteTransport:
     @pytest.mark.asyncio
     async def test_delete_transport_in_use(self, devices_manager, device):
         transport_id = device.transport.id
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await devices_manager.delete_transport(transport_id)
 
 
@@ -810,7 +809,7 @@ class TestDevicesServiceDrivers:
 
     @pytest.mark.asyncio
     async def test_delete_driver_in_use(self, devices_manager, driver):
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await devices_manager.delete_driver(driver.id)
 
 
@@ -1503,14 +1502,14 @@ class TestDevicesServiceRestartSync:
             await devices_manager.delete_driver_attribute(driver.id, "nonexistent")
 
     @pytest.mark.asyncio
-    async def test_delete_required_standard_attribute_forbidden(
+    async def test_delete_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         dm = DevicesService(
             devices={}, drivers={thermostat_driver.id: thermostat_driver}, transports={}
         )
         await dm.load()
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await dm.delete_driver_attribute(thermostat_driver.id, "temperature")
 
     @pytest.mark.asyncio
@@ -1577,14 +1576,14 @@ class TestDevicesServiceRestartSync:
             )
 
     @pytest.mark.asyncio
-    async def test_rename_required_standard_attribute_forbidden(
+    async def test_rename_required_standard_attribute_conflicts(
         self, thermostat_driver
     ):
         dm = DevicesService(
             devices={}, drivers={thermostat_driver.id: thermostat_driver}, transports={}
         )
         await dm.load()
-        with pytest.raises(ForbiddenError):
+        with pytest.raises(ConflictError):
             await dm.rename_driver_attribute(
                 thermostat_driver.id, "temperature", "temp"
             )

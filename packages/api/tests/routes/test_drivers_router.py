@@ -16,7 +16,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
-from models.errors import ConflictError, ForbiddenError, NotFoundError
+from models.errors import ConflictError, NotFoundError
 from timeseries.service import TimeSeriesService
 
 _ATTRIBUTE = AttributeDriver(
@@ -358,7 +358,7 @@ class TestRenameAttribute:
     def test_required_standard_attribute_returns_409(
         self, client: TestClient, dm: MagicMock, ts: MagicMock
     ):
-        dm.rename_driver_attribute.side_effect = ForbiddenError(
+        dm.rename_driver_attribute.side_effect = ConflictError(
             'Cannot rename "temperature" which is required for devices of type '
             '"thermostat". Change or unset the type before modifying this '
             "attribute name."
