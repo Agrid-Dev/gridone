@@ -1,14 +1,16 @@
 """Service-boundary tests for the single-phase, read-only DevicesService load.
 
-Covers the AGR-834 read-only-load acceptance criteria: hydrating from a
-populated backend performs zero writes, storage and registries are built once
-in ``load()`` (no ``set_storage`` swap), and ``load()`` starts no background
-work.
+Covers the AGR-834 acceptance criteria: hydrating from a populated backend
+performs zero writes, storage and registries are built once in ``load()``
+(no ``set_storage`` swap), ``load()`` starts no background work, a bad stored
+entry is skipped and surfaced via ``load_errors`` instead of aborting the
+boot, and backend-level failures still raise.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
@@ -18,6 +20,7 @@ import pytest_asyncio
 from devices_manager import DevicesService
 from devices_manager.core.device import Attribute
 from devices_manager.core.device_registry import DeviceRegistry
+from devices_manager.core.driver import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.core.transport_registry import TransportRegistry
 from devices_manager.dto import (
@@ -27,7 +30,11 @@ from devices_manager.dto import (
     driver_to_public,
 )
 from devices_manager.types import DataType, DeviceKind, TransportProtocols
-from models.errors import StorageNotInitializedError, UnsupportedStorageError
+from models.errors import (
+    StorageConnectionError,
+    StorageNotInitializedError,
+    UnsupportedStorageError,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -45,6 +52,12 @@ def _snapshot_files(root: Path) -> dict[Path, tuple[bytes, int]]:
     }
 
 
+def _seed_backend(backend: AsyncMock, entities: list) -> None:
+    by_id = {entity.id: entity for entity in entities}
+    backend.list_all.return_value = list(by_id)
+    backend.read.side_effect = lambda item_id: by_id[item_id]
+
+
 def _storage_mock(
     *,
     devices: list[Device] | None = None,
@@ -52,9 +65,9 @@ def _storage_mock(
 ) -> AsyncMock:
     """An ``AsyncMock`` standing in for ``DevicesManagerStorage``."""
     storage = AsyncMock()
-    storage.devices.read_all.return_value = devices or []
-    storage.drivers.read_all.return_value = drivers or []
-    storage.transports.read_all.return_value = []
+    _seed_backend(storage.devices, devices or [])
+    _seed_backend(storage.drivers, drivers or [])
+    _seed_backend(storage.transports, [])
     return storage
 
 
@@ -82,7 +95,12 @@ def _virtual_device_dto(device_id: str = "vd1") -> Device:
 
 @pytest_asyncio.fixture
 async def seeded_yaml_db(tmp_path: Path, driver) -> tuple[str, dict[str, str]]:
-    """A ``yaml:`` DB dir seeded with one transport, one driver and one device."""
+    """A ``yaml:`` DB dir seeded with one transport, one driver and one device.
+
+    Polling is disabled on the seeded driver so tests can ``start()`` the
+    service without triggering network requests.
+    """
+    driver.update_strategy = UpdateStrategy(polling_enabled=False)
     url = f"yaml:{tmp_path}"
     svc = DevicesService(url)
     await svc.load()
@@ -175,6 +193,95 @@ class TestReadOnlyLoad:
         await svc.stop()
 
         assert asyncio.all_tasks() == tasks_before
+
+
+class TestFaultTolerantLoad:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("subdir", "kind"),
+        [
+            ("devices", "device"),
+            ("drivers", "driver"),
+            ("transports", "transport"),
+        ],
+    )
+    async def test_corrupt_file_is_skipped_and_recorded(
+        self,
+        tmp_path: Path,
+        seeded_yaml_db: tuple[str, dict[str, str]],
+        subdir: str,
+        kind: str,
+    ):
+        url, ids = seeded_yaml_db
+        (tmp_path / subdir / "corrupt.yaml").write_text("[ unclosed", encoding="utf-8")
+
+        svc = DevicesService(url)
+        await svc.start()
+        try:
+            assert ids["device_id"] in svc.device_ids
+            assert ids["driver_id"] in svc.driver_ids
+            assert ids["transport_id"] in svc.transport_ids
+            [error] = svc.load_errors
+            assert (error.kind, error.entity_id) == (kind, "corrupt")
+        finally:
+            await svc.stop()
+
+    @pytest.mark.asyncio
+    async def test_device_with_missing_driver_is_skipped(
+        self, tmp_path: Path, seeded_yaml_db: tuple[str, dict[str, str]]
+    ):
+        url, ids = seeded_yaml_db
+        (tmp_path / "drivers" / f"{ids['driver_id']}.yaml").unlink()
+
+        svc = DevicesService(url)
+        await svc.load()
+        try:
+            assert svc.device_ids == set()
+            assert ids["transport_id"] in svc.transport_ids
+            [error] = svc.load_errors
+            assert (error.kind, error.entity_id) == ("device", ids["device_id"])
+        finally:
+            await svc.stop()
+
+    @pytest.mark.asyncio
+    async def test_skipped_entity_is_logged_at_error_with_its_id(
+        self,
+        tmp_path: Path,
+        seeded_yaml_db: tuple[str, dict[str, str]],
+        caplog: pytest.LogCaptureFixture,
+    ):
+        url, _ = seeded_yaml_db
+        (tmp_path / "devices" / "corrupt.yaml").write_text(
+            "[ unclosed", encoding="utf-8"
+        )
+
+        svc = DevicesService(url)
+        with caplog.at_level(logging.ERROR, logger="devices_manager.service"):
+            await svc.load()
+        await svc.stop()
+
+        assert "corrupt" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_clean_boot_has_no_load_errors(
+        self, seeded_yaml_db: tuple[str, dict[str, str]]
+    ):
+        url, _ = seeded_yaml_db
+        svc = DevicesService(url)
+        await svc.load()
+        try:
+            assert svc.load_errors == []
+        finally:
+            await svc.stop()
+
+    @pytest.mark.asyncio
+    async def test_uninitializable_backend_still_raises(self, tmp_path: Path):
+        blocker = tmp_path / "blocker"
+        blocker.write_text("not a directory")
+
+        svc = DevicesService(f"yaml:{blocker}/db")
+        with pytest.raises(StorageConnectionError):
+            await svc.load()
 
 
 class TestSinglePhaseConstruction:
