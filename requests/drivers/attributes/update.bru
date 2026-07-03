@@ -1,0 +1,22 @@
+meta {
+  name: update attribute
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{BASE_URL}}/drivers/:driver_id/attributes/:attribute_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+  attribute_id: temperature
+}
+
+body:json {
+  {
+    "read": "GET /temp/v2"
+  }
+}

@@ -1,0 +1,21 @@
+meta {
+  name: update driver
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/drivers/:driver_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+}
+
+body:json {
+  {
+    "vendor": "Acme"
+  }
+}

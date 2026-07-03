@@ -1,0 +1,24 @@
+meta {
+  name: create attribute
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/drivers/:driver_id/attributes/:attribute_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+  attribute_id: humidity
+}
+
+body:json {
+  {
+    "name": "humidity",
+    "data_type": "float",
+    "read": "GET /humidity"
+  }
+}

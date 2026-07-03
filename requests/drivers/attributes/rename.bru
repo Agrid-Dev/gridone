@@ -1,0 +1,22 @@
+meta {
+  name: rename attribute
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{BASE_URL}}/drivers/:driver_id/attributes/:attribute_id/rename
+  body: json
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+  attribute_id: humidity
+}
+
+body:json {
+  {
+    "new_name": "relative_humidity"
+  }
+}
