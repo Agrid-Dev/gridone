@@ -1413,6 +1413,7 @@ class TestDevicesServiceRestartSync:
     @pytest.mark.asyncio
     async def test_create_attribute_ok(self, driver):
         dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.load()
         new_attr = AttributeDriver(
             name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
         )
