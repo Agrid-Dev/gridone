@@ -1,3 +1,9 @@
+## v0.134.0 (2026-07-03)
+
+### Feat
+
+- add driver edition endpoint requests (#417)
+
 ## v0.133.0 (2026-07-03)
 
 ### Feat
