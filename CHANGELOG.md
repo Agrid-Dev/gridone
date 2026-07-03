@@ -1,3 +1,13 @@
+## v0.131.0 (2026-07-03)
+
+### Feat
+
+- single-flux AHU synoptic UI (AGR-865)
+
+### Refactor
+
+- sort all device lists alphabetically via shared comparator
+
 ## v0.130.0 (2026-07-03)
 
 ### Feat
