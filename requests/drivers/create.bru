@@ -4,10 +4,14 @@ meta {
   seq: 3
 }
 
-post {
-  url: {{BASE_URL}}/drivers/
+put {
+  url: {{BASE_URL}}/drivers/:driver_id
   body: json
   auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_mqtt-44
 }
 
 body:json {

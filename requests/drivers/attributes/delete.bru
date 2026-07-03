@@ -1,0 +1,16 @@
+meta {
+  name: delete attribute
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{BASE_URL}}/drivers/:driver_id/attributes/:attribute_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  driver_id: thermocktat_http
+  attribute_id: humidity
+}
