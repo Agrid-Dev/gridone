@@ -791,7 +791,7 @@ class TestDevicesServiceDrivers:
 
         await dm.add_driver(driver_dto)
 
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(ConflictError):
             await dm.add_driver(driver_dto)
 
     @pytest.mark.asyncio

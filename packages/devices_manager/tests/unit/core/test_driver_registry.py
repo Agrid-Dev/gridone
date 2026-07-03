@@ -98,7 +98,7 @@ class TestDriverRegistryAdd:
         registry = DriverRegistry()
         driver_dto = driver_to_public(driver)
         await registry.add(driver_dto)
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(ConflictError):
             await registry.add(driver_dto)
 
     @pytest.mark.asyncio

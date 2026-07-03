@@ -137,27 +137,38 @@ class TestCreateDriver:
             "device_config": [],
             "attributes": [],
         }
-        response = client.post("/", json=payload)
+        response = client.put("/new_driver", json=payload)
         assert response.status_code == 201
         dm.add_driver.assert_called_once()
 
     def test_conflict_returns_409(self, client: TestClient, dm: MagicMock):
-        dm.add_driver.side_effect = ValueError("Driver already exists")
+        dm.add_driver.side_effect = ConflictError("Driver already exists")
         payload = {
             "id": "test_driver",
             "transport": "http",
             "device_config": [],
             "attributes": [],
         }
-        response = client.post("/", json=payload)
+        response = client.put("/test_driver", json=payload)
         assert response.status_code == 409
 
+    def test_id_mismatch_returns_422(self, client: TestClient, dm: MagicMock):
+        payload = {
+            "id": "other_driver",
+            "transport": "http",
+            "device_config": [],
+            "attributes": [],
+        }
+        response = client.put("/new_driver", json=payload)
+        assert response.status_code == 422
+        dm.add_driver.assert_not_called()
+
     def test_invalid_payload_returns_422(self, client: TestClient):
-        response = client.post("/", json={"id": "bad"})
+        response = client.put("/bad", json={"id": "bad"})
         assert response.status_code == 422
 
     def test_yaml_payload(self, client: TestClient, yaml_driver: str):
-        response = client.post("/", json={"yaml": yaml_driver})
+        response = client.put("/thermocktat_modbus", json={"yaml": yaml_driver})
         assert response.status_code == 201
 
 

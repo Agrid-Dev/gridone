@@ -114,7 +114,7 @@ class DriverRegistry:
     async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
-            raise ValueError(msg)
+            raise ConflictError(msg)
         for attr in driver_dto.attributes:
             _reject_reserved_attribute_name(attr.name)
         driver = driver_from_public(driver_dto)

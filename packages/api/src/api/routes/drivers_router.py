@@ -1,7 +1,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
@@ -40,12 +40,13 @@ def get_driver(
     return dm.get_driver(driver_id)
 
 
-@router.post(
-    "/",
+@router.put(
+    "/{driver_id}",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
 )
 async def create_driver(
+    driver_id: str,
     payload: DriverSpec | DriverYaml,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> DriverSpec:
@@ -54,11 +55,10 @@ async def create_driver(
         if isinstance(payload, DriverSpec)
         else DriverSpec.from_yaml(payload.yaml)
     )
-    try:
-        created_driver = await dm.add_driver(driver_dto)
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
-    return created_driver
+    if driver_dto.id != driver_id:
+        msg = f"Driver id {driver_dto.id!r} must match URL id {driver_id!r}"
+        raise InvalidError(msg)
+    return await dm.add_driver(driver_dto)
 
 
 @router.patch(
