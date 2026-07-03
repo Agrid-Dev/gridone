@@ -4,6 +4,7 @@ import { TypographyH3 } from "@/components/ui/typography";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DeviceCard } from "@/pages/devices/DeviceCard";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { sortedByName } from "@/lib/sortByName";
 
 /** Lists the devices bound to `driverId`, reusing the device-list `DeviceCard`.
  *  Filtering is done server-side via the `driver_id` device filter. */
@@ -14,15 +15,7 @@ export const DriverDevicesSection: FC<{ driverId: string }> = ({
   const filter = useMemo(() => ({ driverId }), [driverId]);
   const { devices, loading, error } = useDevicesList(filter);
 
-  const sorted = useMemo(
-    () =>
-      [...devices].sort((a, b) =>
-        (a.name || a.id).localeCompare(b.name || b.id, undefined, {
-          sensitivity: "base",
-        }),
-      ),
-    [devices],
-  );
+  const sorted = useMemo(() => sortedByName(devices), [devices]);
 
   return (
     <section>

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { DeviceCard } from "./DeviceCard";
 import { Button } from "@/components/ui";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { sortedByName } from "@/lib/sortByName";
 import { useFilterParams } from "@/hooks/useFilterParams";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -19,13 +20,7 @@ export default function DevicesList() {
   const filters = useFilterParams();
   const [, setSearchParams] = useSearchParams();
   const { devices, loading, error } = useDevicesList(filters);
-  const sortedDevices = useMemo(
-    () =>
-      [...devices].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      ),
-    [devices],
-  );
+  const sortedDevices = useMemo(() => sortedByName(devices), [devices]);
   const can = usePermissions();
   const hasFilters = !!filters;
 

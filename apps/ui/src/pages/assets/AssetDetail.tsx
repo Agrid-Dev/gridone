@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getAsset, listAssets, listAssetDevices } from "@/api/assets";
 import type { Asset } from "@/api/assets";
 import { listDevices, unlinkDeviceFromAsset } from "@/api/devices";
+import { compareByName } from "@/lib/sortByName";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
@@ -55,6 +56,16 @@ export default function AssetDetail() {
   const deviceNameMap = useMemo(
     () => new Map(allDevices.map((d) => [d.id, d.name])),
     [allDevices],
+  );
+
+  // Alphabetical by resolved name; ids without a loaded name sort by id.
+  const sortedDeviceIds = useMemo(
+    () =>
+      deviceIds
+        .map((id) => ({ id, name: deviceNameMap.get(id) }))
+        .sort(compareByName)
+        .map(({ id }) => id),
+    [deviceIds, deviceNameMap],
   );
 
   const unlinkMutation = useMutation({
@@ -202,7 +213,7 @@ export default function AssetDetail() {
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-border">
-                {deviceIds.map((deviceId) => (
+                {sortedDeviceIds.map((deviceId) => (
                   <tr key={deviceId} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
                       <Link

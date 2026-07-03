@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { listDevices, linkDeviceToAsset } from "@/api/devices";
 import type { Device } from "@/api/devices";
+import { sortedByName } from "@/lib/sortByName";
 
 type DeviceLinkDialogProps = {
   assetId: string;
@@ -38,11 +39,13 @@ export function DeviceLinkDialog({
     enabled: open,
   });
 
-  const available = devices.filter(
-    (d) =>
-      !existingDeviceIds.includes(d.id) &&
-      (d.name.toLowerCase().includes(search.toLowerCase()) ||
-        d.id.toLowerCase().includes(search.toLowerCase())),
+  const available = sortedByName(
+    devices.filter(
+      (d) =>
+        !existingDeviceIds.includes(d.id) &&
+        (d.name.toLowerCase().includes(search.toLowerCase()) ||
+          d.id.toLowerCase().includes(search.toLowerCase())),
+    ),
   );
 
   const mutation = useMutation({
