@@ -23,9 +23,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { useBuildingProfile } from "./hooks/useBuildingProfile";
 import { useFeatureEnabled } from "./utils/featureFlags";
 
-const AhuDoubleFluxSandbox = lazy(
-  () => import("./pages/sandbox/AhuDoubleFluxSandbox"),
-);
+const AhuSandbox = lazy(() => import("./pages/sandbox/AhuSandbox"));
 
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
@@ -61,7 +59,7 @@ function ProtectedLayout() {
                     path="/sandbox/ahu"
                     element={
                       <Suspense>
-                        <AhuDoubleFluxSandbox />
+                        <AhuSandbox />
                       </Suspense>
                     }
                   />

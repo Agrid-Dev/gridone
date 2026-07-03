@@ -9,9 +9,7 @@
     "name": "Electricity meter",
     "name_plural": "Electricity meters"
   },
-  "ahu_double_flux": {
-    "name": "Double-flux AHU",
-    "name_plural": "Double-flux AHUs",
+  "ahu": {
     "synoptic": {
       "freshAir": "Fresh air",
       "exhaustAir": "Exhaust air",
@@ -33,6 +31,14 @@
       "editSetpointDescription": "Set a new value for {{label}}.",
       "invalidNumber": "Invalid number"
     }
+  },
+  "ahu_double_flux": {
+    "name": "Double-flux AHU",
+    "name_plural": "Double-flux AHUs"
+  },
+  "ahu_single_flux": {
+    "name": "Single-flux AHU",
+    "name_plural": "Single-flux AHUs"
   },
   "other": { "name": "Other", "name_plural": "Others" }
 }

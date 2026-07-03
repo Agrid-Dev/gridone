@@ -109,7 +109,8 @@
       "awhp": "AWHP",
       "weather_sensor": "Weather Sensor",
       "electricity_meter": "Electricity Meter",
-      "ahu_double_flux": "Double-flux AHU"
+      "ahu_double_flux": "Double-flux AHU",
+      "ahu_single_flux": "Single-flux AHU"
     },
     "deviceKinds": {
       "physical": "Physical",
@@ -120,16 +121,14 @@
     "notFound": "Not found",
     "noResults": "No results",
     "rows": "rows",
-    "previous": "Previous",
-    "next": "Next",
     "columns": "Attributes",
     "toggleColumns": "Toggle attributes",
     "selectAll": "Select all",
     "unselectAll": "Unselect all",
-    "searchAttributes": "Search attributes\u2026",
+    "searchAttributes": "Search attributes…",
     "selectAllDisabledHint": "Too many attributes to select all",
     "timestamp": "Timestamp",
-    "rowsRange": "{{from}}\u2013{{to}} of {{total}} rows",
+    "rowsRange": "{{from}}–{{to}} of {{total}} rows",
     "timeAgo": {
       "future": "In the future",
       "justNow": "just now",

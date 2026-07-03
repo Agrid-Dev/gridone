@@ -1,9 +1,9 @@
 {
   "appearance": {
-    "theme": "Th\u00e8me",
+    "theme": "Thème",
     "light": "Clair",
     "dark": "Sombre",
-    "system": "Syst\u00e8me",
+    "system": "Système",
     "language": "Langue"
   },
   "auth": {
@@ -12,36 +12,36 @@
       "password": "Mot de passe",
       "signIn": "Se connecter",
       "signingIn": "Connexion...",
-      "error": "\u00c9chec de la connexion. Veuillez r\u00e9essayer.",
+      "error": "Échec de la connexion. Veuillez réessayer.",
       "unreachableTitle": "Serveur injoignable",
-      "unreachable": "Impossible de contacter le serveur. R\u00e9essayez dans un instant.",
-      "retry": "R\u00e9essayer",
+      "unreachable": "Impossible de contacter le serveur. Réessayez dans un instant.",
+      "retry": "Réessayer",
       "validation": {
-        "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caract\u00e8res.",
-        "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caract\u00e8res.",
-        "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caract\u00e8res.",
-        "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caract\u00e8res."
+        "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
+        "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
+        "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
+        "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères."
       }
     },
-    "logout": "Se d\u00e9connecter"
+    "logout": "Se déconnecter"
   },
   "settings": {
     "subtitle": "Mon compte",
-    "saved": "Profil enregistr\u00e9",
+    "saved": "Profil enregistré",
     "sections": {
       "profile": {
         "title": "Profil",
-        "description": "Vos informations de compte et la fa\u00e7on dont vous appara\u00eetrez dans l\u2019application."
+        "description": "Vos informations de compte et la façon dont vous apparaîtrez dans l’application."
       },
       "security": {
-        "title": "S\u00e9curit\u00e9",
+        "title": "Sécurité",
         "description": "Modifiez le mot de passe que vous utilisez pour vous connecter."
       }
     },
     "mustChangePasswordTitle": "Changement de mot de passe requis",
-    "mustChangePassword": "Vous \u00eates toujours connect\u00e9 avec le mot de passe par d\u00e9faut attribu\u00e9 \u00e0 votre compte. D\u00e9finissez un nouveau mot de passe ci-dessous pour s\u00e9curiser votre compte avant de continuer.",
-    "updatePassword": "Mettre \u00e0 jour le mot de passe",
-    "passwordUpdated": "Mot de passe mis \u00e0 jour",
+    "mustChangePassword": "Vous êtes toujours connecté avec le mot de passe par défaut attribué à votre compte. Définissez un nouveau mot de passe ci-dessous pour sécuriser votre compte avant de continuer.",
+    "updatePassword": "Mettre à jour le mot de passe",
+    "passwordUpdated": "Mot de passe mis à jour",
     "newPassword": "Nouveau mot de passe",
     "newPasswordPlaceholder": "Saisissez un nouveau mot de passe",
     "confirmPassword": "Confirmer le nouveau mot de passe",
@@ -54,11 +54,11 @@
       "title": "Titre"
     },
     "validation": {
-      "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caract\u00e8res.",
-      "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caract\u00e8res.",
+      "usernameMinLength": "Le nom d'utilisateur doit contenir au moins {{count}} caractères.",
+      "usernameMaxLength": "Le nom d'utilisateur doit contenir au plus {{count}} caractères.",
       "emailInvalid": "Veuillez saisir une adresse email valide.",
-      "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caract\u00e8res.",
-      "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caract\u00e8res.",
+      "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
+      "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères.",
       "confirmPasswordRequired": "Veuillez confirmer votre nouveau mot de passe."
     }
   },
@@ -69,26 +69,26 @@
     "home": "Accueil",
     "loading": "Chargement...",
     "error": "Erreur",
-    "success": "Succ\u00e8s",
-    "noData": "Aucune donn\u00e9e",
+    "success": "Succès",
+    "noData": "Aucune donnée",
     "min": "Min",
     "max": "Max",
     "currentValue": "Valeur actuelle",
-    "state": "\u00c9tat",
-    "lastUpdated": "Derni\u00e8re mise \u00e0 jour",
-    "tapForDetails": "Appuyer pour les d\u00e9tails",
-    "noLiveMetrics": "Aucune m\u00e9trique en direct",
+    "state": "État",
+    "lastUpdated": "Dernière mise à jour",
+    "tapForDetails": "Appuyer pour les détails",
+    "noLiveMetrics": "Aucune métrique en direct",
     "noConfiguration": "Aucune configuration",
-    "noConfigurationData": "Aucune donn\u00e9e de configuration",
+    "noConfigurationData": "Aucune donnée de configuration",
     "optional": "Optionnel",
     "true": "Vrai",
     "false": "Faux",
     "cancel": "Annuler",
     "clear": "Effacer",
-    "create": "Cr\u00e9er",
+    "create": "Créer",
     "save": "Enregistrer",
     "next": "Suivant",
-    "previous": "Pr\u00e9c\u00e9dent",
+    "previous": "Précédent",
     "submit": "Valider",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -107,29 +107,28 @@
     "deviceTypes": {
       "thermostat": "Thermostat",
       "awhp": "PAC air-eau",
-      "weather_sensor": "Station m\u00e9t\u00e9o",
-      "electricity_meter": "Compteur \u00e9lectrique",
-      "ahu_double_flux": "CTA double flux"
+      "weather_sensor": "Station météo",
+      "electricity_meter": "Compteur électrique",
+      "ahu_double_flux": "CTA double flux",
+      "ahu_single_flux": "CTA simple flux"
     },
     "deviceKinds": {
       "physical": "Physique",
       "virtual": "Virtuel"
     },
-    "recentlyUpdated": "Mis \u00e0 jour r\u00e9cemment",
-    "lastUpdate": "Mis \u00e0 jour il y a",
+    "recentlyUpdated": "Mis à jour récemment",
+    "lastUpdate": "Mis à jour il y a",
     "notFound": "Introuvable",
-    "noResults": "Aucun r\u00e9sultat",
+    "noResults": "Aucun résultat",
     "rows": "lignes",
-    "previous": "Pr\u00e9c\u00e9dent",
-    "next": "Suivant",
     "columns": "Attributs",
     "toggleColumns": "Afficher les attributs",
-    "selectAll": "Tout s\u00e9lectionner",
-    "unselectAll": "Tout d\u00e9s\u00e9lectionner",
-    "searchAttributes": "Rechercher un attribut\u2026",
-    "selectAllDisabledHint": "Trop d'attributs pour tout s\u00e9lectionner",
+    "selectAll": "Tout sélectionner",
+    "unselectAll": "Tout désélectionner",
+    "searchAttributes": "Rechercher un attribut…",
+    "selectAllDisabledHint": "Trop d'attributs pour tout sélectionner",
     "timestamp": "Horodatage",
-    "rowsRange": "{{from}}\u2013{{to}} sur {{total}} lignes",
+    "rowsRange": "{{from}}–{{to}} sur {{total}} lignes",
     "timeAgo": {
       "future": "Dans le futur",
       "justNow": "moins d'une minute",
@@ -168,8 +167,8 @@
   },
   "empty": {
     "title": "Aucun {{resourceName}} pour le moment",
-    "details": "Vous n'avez pas encore cr\u00e9\u00e9 de {{resourceName}}. Commencez par cr\u00e9er votre premier {{resourceName}}.",
-    "new": "Cr\u00e9er un {{resourceName}}",
+    "details": "Vous n'avez pas encore créé de {{resourceName}}. Commencez par créer votre premier {{resourceName}}.",
+    "new": "Créer un {{resourceName}}",
     "noMatch": "Aucun {{resourceName}} correspondant",
     "clearFiltersHint": "Essayez d'ajuster ou de supprimer vos filtres.",
     "clearFilters": "Effacer les filtres"
@@ -177,20 +176,20 @@
   "pickers": {
     "device": {
       "label": "Appareil",
-      "placeholder": "S\u00e9lectionner un appareil",
+      "placeholder": "Sélectionner un appareil",
       "noDevices": "Aucun appareil disponible"
     },
     "attribute": {
       "label": "Attribut",
-      "placeholder": "S\u00e9lectionner un attribut",
-      "pickDeviceFirst": "S\u00e9lectionnez d'abord un appareil",
+      "placeholder": "Sélectionner un attribut",
+      "pickDeviceFirst": "Sélectionnez d'abord un appareil",
       "noMatching": "Aucun attribut correspondant"
     },
     "user": {
       "label": "Destinataires",
-      "placeholder": "S\u00e9lectionner des utilisateurs",
+      "placeholder": "Sélectionner des utilisateurs",
       "search": "Rechercher des utilisateurs",
-      "noUsers": "Aucun utilisateur trouv\u00e9"
+      "noUsers": "Aucun utilisateur trouvé"
     }
   },
   "app": {

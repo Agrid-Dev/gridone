@@ -126,7 +126,7 @@ describe("DevicePicker", () => {
     expect(screen.getByText("No devices available")).toBeInTheDocument();
   });
 
-  it("renders an option per device and calls onSelect with the matching Device", () => {
+  it("renders an alphabetical option per device and calls onSelect with the matching Device", () => {
     mockUseQuery.mockReturnValue({ data: devices, isLoading: false });
     const onSelect = vi.fn();
 
@@ -134,8 +134,8 @@ describe("DevicePicker", () => {
 
     const select = screen.getByTestId("select") as HTMLSelectElement;
     expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
-      "Lobby thermostat",
       "Boiler",
+      "Lobby thermostat",
     ]);
 
     fireEvent.change(select, { target: { value: "d2" } });

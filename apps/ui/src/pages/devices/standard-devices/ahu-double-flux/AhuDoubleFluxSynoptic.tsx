@@ -1,11 +1,21 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil } from "lucide-react";
 import { DeviceType } from "@/api/devices";
-import { AttributeValue } from "@/components/AttributeValue";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { SetpointDialog } from "./SetpointDialog";
+import {
+  AhuSetpointsSection,
+  AhuStatusBadges,
+  airLine,
+  CoilGlyph,
+  FanGlyph,
+  FilterGlyph,
+  FlowChevron,
+  fmt,
+  MeasureTag,
+  useAhuSynopticLabel,
+  ValueChip,
+  type AhuSetpointSpec,
+} from "../ahu-shared";
 import type { AhuDoubleFluxValues, AhuSetpointKey } from "./types";
 
 type AhuDoubleFluxSynopticProps = {
@@ -17,49 +27,11 @@ type AhuDoubleFluxSynopticProps = {
   className?: string;
 };
 
-type SynopticLabelKey =
-  | "freshAir"
-  | "exhaustAir"
-  | "extractAir"
-  | "supplyAir"
-  | "exchanger"
-  | "filter"
-  | "supplyFan"
-  | "extractFan"
-  | "heatingCoil"
-  | "coolingCoil"
-  | "on"
-  | "off"
-  | "setpoints"
-  | AhuSetpointKey;
-
-const SETPOINTS: { key: AhuSetpointKey; digits: number; suffix?: string }[] = [
+const SETPOINTS: readonly AhuSetpointSpec<AhuSetpointKey>[] = [
   { key: "supplyAirTemperatureSetpoint", digits: 1, suffix: "°" },
   { key: "supplyAirPressureSetpoint", digits: 0 },
   { key: "extractAirPressureSetpoint", digits: 0 },
 ];
-
-/** No physical units yet — devices don't declare them, so we can't assume
- *  any. Temperatures get a scale-agnostic `°` like the other standard
- *  device views; `%` stays because it is a ratio, not a physical unit. */
-function fmt(
-  value: number | null | undefined,
-  digits = 0,
-  suffix = "",
-): string {
-  if (value == null) return "—";
-  return `${value.toFixed(digits)}${suffix}`;
-}
-
-/** "23.1° · 82" — pressure omitted when the field is absent. */
-function airLine(
-  temperature: number | null | undefined,
-  pressure: number | null | undefined,
-): string {
-  const parts = [fmt(temperature, 1, "°")];
-  if (pressure != null) parts.push(fmt(pressure));
-  return parts.join(" · ");
-}
 
 /** Flat 2D synoptic of a double-flux AHU: extract duct on top (right to
  *  left), supply duct below (left to right), a generic heat-recovery
@@ -73,14 +45,8 @@ export function AhuDoubleFluxSynoptic({
   className,
 }: AhuDoubleFluxSynopticProps) {
   const { t } = useTranslation("standardDevices");
-  const { t: tCommon } = useTranslation("common");
+  const label = useAhuSynopticLabel();
   const exchangerClipId = useId();
-  const [editing, setEditing] = useState<AhuSetpointKey | null>(null);
-
-  const running = values.onoffState;
-
-  const label = (key: SynopticLabelKey): string =>
-    t(`ahu_double_flux.synoptic.${key}`);
 
   const hasHeatingCoil = values.heatingValve != null;
   const hasCoolingCoil = values.coolingValve != null;
@@ -90,30 +56,11 @@ export function AhuDoubleFluxSynoptic({
 
   return (
     <div className={cn("rounded-xl border bg-card p-4", className)}>
-      {(running != null || values.hvacMode) && (
-        <div className="mb-3 flex items-center gap-2">
-          {running != null && (
-            <Badge variant="outline" className="gap-1.5">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  running ? "bg-status-ok" : "bg-muted-foreground",
-                )}
-              />
-              {running ? label("on") : label("off")}
-            </Badge>
-          )}
-          {values.hvacMode && (
-            <Badge variant="outline">
-              <AttributeValue
-                deviceType={DeviceType.AhuDoubleFlux}
-                attributeName="hvac_mode"
-                value={values.hvacMode}
-              />
-            </Badge>
-          )}
-        </div>
-      )}
+      <AhuStatusBadges
+        deviceType={DeviceType.AhuDoubleFlux}
+        onoffState={values.onoffState}
+        hvacMode={values.hvacMode}
+      />
 
       <svg
         viewBox="0 0 920 336"
@@ -283,306 +230,12 @@ export function AhuDoubleFluxSynoptic({
         />
       </svg>
 
-      <div className="mt-4 border-t pt-4">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {label("setpoints")}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {SETPOINTS.map(({ key, digits, suffix }) => {
-            const value = values[key];
-            const writable = writableSetpoints.includes(key);
-            if (value == null && !writable) return null;
-            const content = (
-              <>
-                <span className="text-muted-foreground">{label(key)}</span>
-                <span className="font-semibold text-foreground">
-                  {fmt(value, digits, suffix)}
-                </span>
-              </>
-            );
-            return writable ? (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setEditing(key)}
-                aria-label={`${tCommon("common.edit")} ${label(key)}`}
-                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm transition-colors hover:border-primary hover:bg-accent"
-              >
-                {content}
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            ) : (
-              <div
-                key={key}
-                title={tCommon("common.readOnly")}
-                className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm"
-              >
-                {content}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {editing && (
-        <SetpointDialog
-          label={label(editing)}
-          currentValue={values[editing] ?? null}
-          onClose={() => setEditing(null)}
-          onSave={async (value) => {
-            await onSetpointSave?.(editing, value);
-          }}
-        />
-      )}
+      <AhuSetpointsSection
+        setpoints={SETPOINTS}
+        values={values}
+        writableSetpoints={writableSetpoints}
+        onSetpointSave={onSetpointSave}
+      />
     </div>
-  );
-}
-
-function FlowChevron({
-  x,
-  cy,
-  dir,
-}: {
-  x: number;
-  cy: number;
-  dir: "left" | "right";
-}) {
-  const tip = dir === "left" ? x - 6 : x + 6;
-  const base = dir === "left" ? x + 6 : x - 6;
-  return (
-    <path
-      d={`M ${base} ${cy - 8} L ${tip} ${cy} L ${base} ${cy + 8}`}
-      fill="none"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="stroke-muted-foreground"
-    />
-  );
-}
-
-function FanGlyph({
-  cx,
-  cy,
-  spinning,
-  title,
-}: {
-  cx: number;
-  cy: number;
-  spinning: boolean;
-  title: string;
-}) {
-  return (
-    <g>
-      <title>{title}</title>
-      <circle
-        cx={cx}
-        cy={cy}
-        r="24"
-        strokeWidth="1.5"
-        className="fill-background stroke-border"
-      />
-      {/* Blades are drawn around the local origin; the SMIL rotation is
-          additive so it composes with the translate and spins in place. */}
-      <g
-        transform={`translate(${cx} ${cy})`}
-        className={spinning ? "fill-hvac-fan" : "fill-muted-foreground"}
-      >
-        {[0, 120, 240].map((angle) => (
-          <path
-            key={angle}
-            transform={`rotate(${angle})`}
-            d="M0 -4 C7 -7 8 -17 0 -20 C-8 -17 -7 -7 0 -4 Z"
-          />
-        ))}
-        {spinning && (
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            from="0"
-            to="360"
-            dur="2.6s"
-            repeatCount="indefinite"
-            additive="sum"
-          />
-        )}
-      </g>
-      <circle cx={cx} cy={cy} r="3.5" className="fill-border" />
-    </g>
-  );
-}
-
-function FilterGlyph({
-  x,
-  cy,
-  title,
-}: {
-  x: number;
-  cy: number;
-  title: string;
-}) {
-  const mid = x + 13;
-  const zigzag = [-22, -15, -8, -1, 6, 13, 20]
-    .map((dy, i) => `${i % 2 === 0 ? mid - 5 : mid + 5},${cy + dy}`)
-    .join(" ");
-  return (
-    <g>
-      <title>{title}</title>
-      <rect
-        x={x}
-        y={cy - 26}
-        width="26"
-        height="52"
-        rx="3"
-        className="fill-background stroke-border"
-      />
-      <polyline
-        points={zigzag}
-        fill="none"
-        strokeWidth="1.5"
-        className="stroke-muted-foreground"
-      />
-    </g>
-  );
-}
-
-/** Heating or cooling battery in the supply duct, with its valve position
- *  tagged below the duct. */
-function CoilGlyph({
-  cx,
-  ductY,
-  colorClass,
-  title,
-  valve,
-}: {
-  cx: number;
-  ductY: number;
-  colorClass: string;
-  title: string;
-  valve: string;
-}) {
-  const y = ductY + 4;
-  return (
-    <g>
-      <title>{title}</title>
-      <rect
-        x={cx - 14}
-        y={y}
-        width="28"
-        height="48"
-        rx="2"
-        strokeWidth="1.5"
-        className={cn("fill-background", colorClass)}
-      />
-      {[-7, 0, 7].map((dx) => (
-        <line
-          key={dx}
-          x1={cx + dx}
-          y1={y + 5}
-          x2={cx + dx}
-          y2={y + 43}
-          strokeWidth="1.5"
-          className={colorClass}
-        />
-      ))}
-      <line
-        x1={cx}
-        y1={ductY + 56}
-        x2={cx}
-        y2={ductY + 73}
-        strokeWidth="1.5"
-        className="stroke-border"
-      />
-      <ValueChip cx={cx} cy={ductY + 84} w={46} title={title} value={valve} />
-    </g>
-  );
-}
-
-function ValueChip({
-  cx,
-  cy,
-  value,
-  title,
-  w = 56,
-}: {
-  cx: number;
-  cy: number;
-  value: string;
-  title: string;
-  w?: number;
-}) {
-  return (
-    <g>
-      <title>{title}</title>
-      <rect
-        x={cx - w / 2}
-        y={cy - 11}
-        width={w}
-        height="22"
-        rx="11"
-        className="fill-background stroke-border"
-      />
-      <text
-        x={cx}
-        y={cy + 4}
-        textAnchor="middle"
-        className="fill-foreground text-[11px] font-semibold"
-      >
-        {value}
-      </text>
-    </g>
-  );
-}
-
-function MeasureTag({
-  cx,
-  y,
-  w,
-  lineY,
-  labelText,
-  value,
-}: {
-  cx: number;
-  y: number;
-  w: number;
-  lineY: [number, number];
-  labelText: string;
-  value: string;
-}) {
-  return (
-    <g>
-      <line
-        x1={cx}
-        y1={lineY[0]}
-        x2={cx}
-        y2={lineY[1]}
-        strokeWidth="1.5"
-        className="stroke-border"
-      />
-      <rect
-        x={cx - w / 2}
-        y={y}
-        width={w}
-        height="38"
-        rx="7"
-        className="fill-background stroke-border"
-      />
-      <text
-        x={cx}
-        y={y + 15}
-        textAnchor="middle"
-        className="fill-muted-foreground text-[10px] font-medium uppercase tracking-wider"
-      >
-        {labelText}
-      </text>
-      <text
-        x={cx}
-        y={y + 31}
-        textAnchor="middle"
-        className="fill-foreground text-[13px] font-semibold"
-      >
-        {value}
-      </text>
-    </g>
   );
 }

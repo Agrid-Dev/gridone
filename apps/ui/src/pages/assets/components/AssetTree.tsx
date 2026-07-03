@@ -29,6 +29,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { AssetTreeNode } from "@/api/assets";
 import { ASSET_TYPES } from "@/api/assets";
+import { sortedByName } from "@/lib/sortByName";
 
 const typeIcons: Record<string, typeof Building2> = {
   org: Globe,
@@ -419,7 +420,7 @@ function TreeNode({
               onRename={onRename}
             />
           ))}
-          {node.devices?.map((device) => (
+          {sortedByName(node.devices ?? []).map((device) => (
             <div
               key={`device-${device.id}`}
               className="flex items-center gap-2 py-1.5 px-3"

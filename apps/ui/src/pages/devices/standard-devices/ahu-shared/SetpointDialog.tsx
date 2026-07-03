@@ -33,7 +33,7 @@ export function SetpointDialog({
 
   // InputController stores number | undefined for type="number" inputs.
   const schema = z.object({
-    value: z.number(t("ahu_double_flux.synoptic.invalidNumber")),
+    value: z.number(t("ahu.synoptic.invalidNumber")),
   });
 
   const form = useForm<z.infer<typeof schema>>({
@@ -50,11 +50,9 @@ export function SetpointDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>
-            {t("ahu_double_flux.synoptic.editSetpoint")}
-          </DialogTitle>
+          <DialogTitle>{t("ahu.synoptic.editSetpoint")}</DialogTitle>
           <DialogDescription>
-            {t("ahu_double_flux.synoptic.editSetpointDescription", { label })}
+            {t("ahu.synoptic.editSetpointDescription", { label })}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4" noValidate>

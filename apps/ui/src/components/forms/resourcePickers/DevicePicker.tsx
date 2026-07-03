@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { deviceTypeIcon } from "@/components/DeviceTypeChip";
+import { sortedByName } from "@/lib/sortByName";
 
 interface DevicePickerProps {
   value: string | undefined;
@@ -78,7 +79,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
           <SelectValue placeholder={resolvedPlaceholder} />
         </SelectTrigger>
         <SelectContent>
-          {devices.map((device) => {
+          {sortedByName(devices).map((device) => {
             const Icon = deviceTypeIcon(device.type);
             return (
               <SelectItem key={device.id} value={device.id}>

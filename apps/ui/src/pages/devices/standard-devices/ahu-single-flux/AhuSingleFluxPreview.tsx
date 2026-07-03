@@ -1,10 +1,10 @@
-import { isAhuDoubleFlux, readAhuDoubleFluxAttributes } from "@/api/devices";
+import { isAhuSingleFlux, readAhuSingleFluxAttributes } from "@/api/devices";
 import { AhuPreviewBody } from "../ahu-shared";
 import type { StandardPreviewProps } from "../types";
 
-export function AhuDoubleFluxPreview({ device }: StandardPreviewProps) {
-  if (!isAhuDoubleFlux(device)) return null;
-  const a = readAhuDoubleFluxAttributes(device);
+export function AhuSingleFluxPreview({ device }: StandardPreviewProps) {
+  if (!isAhuSingleFlux(device)) return null;
+  const a = readAhuSingleFluxAttributes(device);
 
   return (
     <AhuPreviewBody

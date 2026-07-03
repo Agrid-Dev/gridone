@@ -31,6 +31,7 @@ const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
   [DeviceType.ElectricityMeter]: Zap,
   [DeviceType.WeatherSensor]: CloudSun,
   [DeviceType.AhuDoubleFlux]: AirVent,
+  [DeviceType.AhuSingleFlux]: AirVent,
 };
 
 const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));
