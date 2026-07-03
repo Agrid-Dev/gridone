@@ -1,7 +1,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from api.dependencies import get_device_manager, get_ts_service, require_permission
 from api.permissions import Permission
