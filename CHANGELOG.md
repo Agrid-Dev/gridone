@@ -1,3 +1,9 @@
+## v0.130.0 (2026-07-03)
+
+### Feat
+
+- support BACnet output object types (AGR-869)
+
 ## v0.129.0 (2026-07-03)
 
 ### Feat
