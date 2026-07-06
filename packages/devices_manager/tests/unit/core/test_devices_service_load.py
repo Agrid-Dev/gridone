@@ -18,18 +18,18 @@ import pytest
 import pytest_asyncio
 
 from devices_manager import DevicesService
-from devices_manager.core.device import Attribute
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.core.driver import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.core.transport_registry import TransportRegistry
 from devices_manager.dto import (
     Device,
-    PhysicalDeviceCreate,
+    DeviceCreate,
     TransportCreate,
     driver_to_public,
+    transport_to_public,
 )
-from devices_manager.types import DataType, DeviceKind, TransportProtocols
+from devices_manager.types import TransportProtocols
 from models.errors import (
     StorageConnectionError,
     StorageNotInitializedError,
@@ -39,7 +39,8 @@ from models.errors import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from devices_manager.dto import DriverSpec
+    from devices_manager.core.driver import Driver
+    from devices_manager.dto import DriverSpec, Transport
 
 _MUTATING_METHODS = {"write", "delete", "set_tag", "delete_tag", "save_attribute"}
 
@@ -62,12 +63,13 @@ def _storage_mock(
     *,
     devices: list[Device] | None = None,
     drivers: list[DriverSpec] | None = None,
+    transports: list[Transport] | None = None,
 ) -> AsyncMock:
     """An ``AsyncMock`` standing in for ``DevicesManagerStorage``."""
     storage = AsyncMock()
     _seed_backend(storage.devices, devices or [])
     _seed_backend(storage.drivers, drivers or [])
-    _seed_backend(storage.transports, [])
+    _seed_backend(storage.transports, transports or [])
     return storage
 
 
@@ -80,15 +82,13 @@ def _assert_no_mutating_call(storage: AsyncMock) -> None:
     assert mutating == []
 
 
-def _virtual_device_dto(device_id: str = "vd1") -> Device:
+def _device_dto(driver: Driver, transport_id: str, device_id: str = "d1") -> Device:
     return Device(
         id=device_id,
-        kind=DeviceKind.VIRTUAL,
-        name="Virtual Sensor",
-        type="sensor",
-        attributes={
-            "value": Attribute.create("value", DataType.FLOAT, {"read", "write"}),
-        },
+        name="Sensor",
+        config={"some_id": "abc"},
+        driver_id=driver.id,
+        transport_id=transport_id,
         is_faulty=False,
     )
 
@@ -113,7 +113,7 @@ async def seeded_yaml_db(tmp_path: Path, driver) -> tuple[str, dict[str, str]]:
     )
     await svc.add_driver(driver_to_public(driver))
     device = await svc.add_device(
-        PhysicalDeviceCreate(
+        DeviceCreate(
             name="Seed Device",
             driver_id=driver.id,
             transport_id=transport.id,
@@ -150,9 +150,13 @@ class TestReadOnlyLoad:
         assert _snapshot_files(tmp_path) == snapshot
 
     @pytest.mark.asyncio
-    async def test_load_calls_no_mutating_storage_method(self, monkeypatch, driver):
+    async def test_load_calls_no_mutating_storage_method(
+        self, monkeypatch, driver, mock_transport_client
+    ):
         storage = _storage_mock(
-            devices=[_virtual_device_dto()], drivers=[driver_to_public(driver)]
+            devices=[_device_dto(driver, mock_transport_client.id)],
+            drivers=[driver_to_public(driver)],
+            transports=[transport_to_public(mock_transport_client)],
         )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)
@@ -161,28 +165,41 @@ class TestReadOnlyLoad:
         svc = DevicesService(storage_url="memory://test")
         await svc.load()
 
-        assert svc.device_ids == {"vd1"}
+        assert svc.device_ids == {"d1"}
         assert svc.driver_ids == {driver.id}
         _assert_no_mutating_call(storage)
 
     @pytest.mark.asyncio
-    async def test_load_registers_no_persistence_listener(self, monkeypatch):
+    async def test_load_registers_no_persistence_listener(
+        self, monkeypatch, driver, mock_transport_client
+    ):
         """An attribute update after ``load()`` must not be persisted."""
-        storage = _storage_mock(devices=[_virtual_device_dto()])
+        storage = _storage_mock(
+            devices=[_device_dto(driver, mock_transport_client.id)],
+            drivers=[driver_to_public(driver)],
+            transports=[transport_to_public(mock_transport_client)],
+        )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)
         )
 
         svc = DevicesService(storage_url="memory://test")
         await svc.load()
-        await svc.write_device_attribute("vd1", "value", 42.0)
+        device = svc._device_registry.get("d1")  # noqa: SLF001
+        device._update_attribute(device.attributes["temperature"], 42.0)  # noqa: SLF001
         await asyncio.sleep(0.05)
 
         _assert_no_mutating_call(storage)
 
     @pytest.mark.asyncio
-    async def test_load_then_stop_starts_no_background_task(self, monkeypatch):
-        storage = _storage_mock(devices=[_virtual_device_dto()])
+    async def test_load_then_stop_starts_no_background_task(
+        self, monkeypatch, driver, mock_transport_client
+    ):
+        storage = _storage_mock(
+            devices=[_device_dto(driver, mock_transport_client.id)],
+            drivers=[driver_to_public(driver)],
+            transports=[transport_to_public(mock_transport_client)],
+        )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)
         )

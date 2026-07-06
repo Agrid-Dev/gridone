@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { DeviceKind, type Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -30,7 +30,6 @@ import { DriverDevicesSection } from "./DriverDevicesSection";
 function physical(id: string, name: string, driverId: string): Device {
   return {
     id,
-    kind: DeviceKind.Physical,
     name,
     type: null,
     tags: {},

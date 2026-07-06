@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { DeviceKind, type Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import { DeviceTabs } from "./DeviceTabs";
 
 vi.mock("react-i18next", () =>
@@ -15,11 +15,10 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-function makeDevice(
-  kind: DeviceKind,
-  { readWriteModes = ["read", "write"] }: { readWriteModes?: string[] } = {},
-): Device {
-  const common = {
+function makeDevice({
+  readWriteModes = ["read", "write"],
+}: { readWriteModes?: string[] } = {}): Device {
+  return {
     id: "d1",
     name: "RTU-3",
     type: null,
@@ -36,10 +35,10 @@ function makeDevice(
       },
     },
     isFaulty: false,
+    driverId: "drv",
+    transportId: "tr",
+    config: {},
   };
-  return kind === DeviceKind.Physical
-    ? { ...common, kind, driverId: "drv", transportId: "tr", config: {} }
-    : { ...common, kind };
 }
 
 function renderAt(path: string, device: Device) {
@@ -53,8 +52,8 @@ function renderAt(path: string, device: Device) {
 afterEach(cleanup);
 
 describe("DeviceTabs", () => {
-  it("shows Overview, History, Commands and Config for a physical device, with correct routes", () => {
-    renderAt("/devices/d1", makeDevice(DeviceKind.Physical));
+  it("shows Overview, History, Commands and Config with correct routes", () => {
+    renderAt("/devices/d1", makeDevice());
 
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "href",
@@ -74,22 +73,8 @@ describe("DeviceTabs", () => {
     );
   });
 
-  it("hides Config for a virtual device but keeps Commands", () => {
-    renderAt("/devices/d1", makeDevice(DeviceKind.Virtual));
-
-    expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "History" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Commands" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("tab", { name: "Config" }),
-    ).not.toBeInTheDocument();
-  });
-
   it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
-    renderAt(
-      "/devices/d1",
-      makeDevice(DeviceKind.Physical, { readWriteModes: ["read"] }),
-    );
+    renderAt("/devices/d1", makeDevice({ readWriteModes: ["read"] }));
 
     expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
       "href",
@@ -98,7 +83,7 @@ describe("DeviceTabs", () => {
   });
 
   it("marks Overview active only on the index route", () => {
-    renderAt("/devices/d1", makeDevice(DeviceKind.Physical));
+    renderAt("/devices/d1", makeDevice());
 
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
       "aria-current",
@@ -110,7 +95,7 @@ describe("DeviceTabs", () => {
   });
 
   it("marks History active on a history sub-route", () => {
-    renderAt("/devices/d1/history/chart", makeDevice(DeviceKind.Physical));
+    renderAt("/devices/d1/history/chart", makeDevice());
 
     expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
       "aria-current",

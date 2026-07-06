@@ -16,10 +16,8 @@ graph TD
         DrvR[DriverRegistry]
     end
 
-    subgraph "Device hierarchy"
-        D[Device]
-        PD[PhysicalDevice]
-        VD[VirtualDevice]
+    subgraph Devices
+        D[CoreDevice]
     end
 
     subgraph Core
@@ -45,12 +43,9 @@ graph TD
     DrvR --> Drv
     TrR --> TC
 
-    D --> PD
-    D --> VD
-
-    PD -->|"uses"| Drv
-    PD -->|"uses"| TC
-    PD -->|"start_sync: init_listeners + poll loop"| PD
+    D -->|"uses"| Drv
+    D -->|"uses"| TC
+    D -->|"start_sync: init_listeners + poll loop"| D
 
     SB --> MEM
     SB --> PG
@@ -59,7 +54,7 @@ graph TD
 
 ### Key design decisions
 
-- **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`. Physical devices start transport listeners and spawn their own poll task. Virtual devices are no-ops. The service drives these via `start()` / `stop()` — no centralized polling manager.
+- **Device owns its sync lifecycle.** Each device implements `start_sync()` / `stop_sync()`: it starts transport listeners and spawns its own poll task. The service drives these via `start()` / `stop()` — no centralized polling manager.
 - **Registries are pure in-memory.** `DeviceRegistry`, `TransportRegistry`, and `DriverRegistry` handle CRUD on in-memory dicts. Persistence is the service's responsibility.
 - **Service = orchestration recipes.** `DevicesService` methods are short sequences: delegate to registry, toggle sync, persist. No business logic lives in the service.
 - **Dependency inversion via resolvers.** `DeviceRegistry` doesn't depend on `DriverRegistry` or `TransportRegistry` — it receives `resolve_driver` / `resolve_transport` callables, injected by the service. `DeviceRegistryInterface` allows the service itself to be tested with mocks.

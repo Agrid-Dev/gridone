@@ -113,10 +113,6 @@
       "ahu_single_flux": "CTA simple flux",
       "air_extractor": "Extracteur d'air"
     },
-    "deviceKinds": {
-      "physical": "Physique",
-      "virtual": "Virtuel"
-    },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
     "notFound": "Introuvable",

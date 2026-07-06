@@ -4,7 +4,6 @@ import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceCard } from "./DeviceCard";
 import {
-  DeviceKind,
   type Device,
   type DeviceAttribute,
   type FaultAttribute,
@@ -44,7 +43,6 @@ function makeDevice(
 ): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

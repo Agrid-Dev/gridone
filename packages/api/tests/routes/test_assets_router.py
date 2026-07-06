@@ -21,7 +21,7 @@ from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
-from devices_manager.types import DataType, DeviceKind
+from devices_manager.types import DataType
 from models.errors import NotFoundError
 
 _ASSET_ID = "asset-1"
@@ -29,7 +29,6 @@ _CHILD_ASSET_ID = "asset-2"
 
 _THERMOSTAT_A = Device(
     id="t-a",
-    kind=DeviceKind.PHYSICAL,
     name="Thermostat A",
     type="thermostat",
     tags={"asset_id": _ASSET_ID},
@@ -43,7 +42,6 @@ _THERMOSTAT_A = Device(
 )
 _THERMOSTAT_B = Device(
     id="t-b",
-    kind=DeviceKind.PHYSICAL,
     name="Thermostat B",
     type="thermostat",
     tags={"asset_id": _CHILD_ASSET_ID},
@@ -57,7 +55,6 @@ _THERMOSTAT_B = Device(
 )
 _LIGHT = Device(
     id="l-1",
-    kind=DeviceKind.PHYSICAL,
     name="Light",
     type="light",
     tags={"asset_id": _ASSET_ID},

@@ -11,7 +11,7 @@ import pytest_asyncio
 from fixtures.config import HTTP_PORT
 from thermocktat_client import ThermocktatAsync
 
-from devices_manager.core.device import DeviceBase, FaultAttribute, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase, FaultAttribute
 
 
 @pytest_asyncio.fixture
@@ -25,8 +25,8 @@ async def thermocktat_http(
 
 
 @pytest.fixture
-def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> PhysicalDevice:
-    return PhysicalDevice.from_base(
+def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> CoreDevice:
+    return CoreDevice.from_base(
         DeviceBase(
             id="thermocktat-1",
             name="Thermocktat 1",
@@ -39,7 +39,7 @@ def mqtt_device(mqtt_transport, thermocktat_mqtt_driver) -> PhysicalDevice:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: PhysicalDevice):  # noqa: ARG001
+async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: CoreDevice):  # noqa: ARG001
     await mqtt_device.init_listeners()
     # thermocktat publish_interval is 0.5s — allow margin for delivery
     await asyncio.sleep(1.0)
@@ -57,7 +57,7 @@ async def test_read_attributes(thermocktat_container_mqtt, mqtt_device: Physical
 )
 async def test_write_attribute(
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: PhysicalDevice,
+    mqtt_device: CoreDevice,
     attribute: str,
     value,
 ):
@@ -73,7 +73,7 @@ async def test_write_attribute(
 )
 async def test_write_attribute_invalid_value(
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: PhysicalDevice,
+    mqtt_device: CoreDevice,
     attribute: str,
     invalid_value,
 ):
@@ -92,7 +92,7 @@ async def test_write_attribute_invalid_value(
 )
 async def test_push_update_received(  # noqa: PLR0913
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: PhysicalDevice,
+    mqtt_device: CoreDevice,
     thermocktat_http: ThermocktatAsync,
     setter: str,
     attribute: str,
@@ -111,7 +111,7 @@ async def test_push_update_received(  # noqa: PLR0913
 @pytest.mark.integration
 async def test_push_fault_toggles_is_faulty(
     thermocktat_container_mqtt,  # noqa: ARG001
-    mqtt_device: PhysicalDevice,
+    mqtt_device: CoreDevice,
     thermocktat_http: ThermocktatAsync,
 ):
     """A non-healthy fault_code pushed by thermocktat flips is_faulty, and

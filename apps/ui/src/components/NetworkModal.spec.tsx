@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import { DeviceKind, type Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import type { Transport } from "@/api/transports";
 
 const { mockUseDevicesList } = vi.hoisted(() => ({
@@ -52,7 +52,6 @@ import { NetworkModal } from "./NetworkModal";
 function makeDevice(id: string, transportId: string): Device {
   return {
     id,
-    kind: DeviceKind.Physical,
     name: id,
     type: null,
     tags: {},

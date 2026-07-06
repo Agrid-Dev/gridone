@@ -7,25 +7,18 @@ import pytest
 import pytest_asyncio
 
 from devices_manager.core.device import (
-    Attribute,
+    CoreDevice,
     DeviceBase,
-    PhysicalDevice,
-    VirtualDevice,
 )
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.dto import (
-    AttributeCreate,
     Device,
+    DeviceCreate,
     DeviceUpdate,
-    VirtualDeviceCreate,
-)
-from devices_manager.dto import (
-    PhysicalDeviceCreate as DeviceCreate,
 )
 from devices_manager.storage import DeviceStorageBackend
-from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
@@ -155,12 +148,12 @@ class TestDeviceRegistryList:
         mock_transport_client,
         on_attribute_update,
     ):
-        device_typed = PhysicalDevice.from_base(
+        device_typed = CoreDevice.from_base(
             DeviceBase(id="d1", name="Typed", config={}),
             driver=thermostat_driver,
             transport=mock_transport_client,
         )
-        device_untyped = PhysicalDevice.from_base(
+        device_untyped = CoreDevice.from_base(
             DeviceBase(id="d2", name="Untyped", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -182,12 +175,12 @@ class TestDeviceRegistryList:
         mock_transport_client,
         on_attribute_update,
     ):
-        device_a = PhysicalDevice.from_base(
+        device_a = CoreDevice.from_base(
             DeviceBase(id="d1", name="A", config={}),
             driver=thermostat_driver,
             transport=mock_transport_client,
         )
-        device_b = PhysicalDevice.from_base(
+        device_b = CoreDevice.from_base(
             DeviceBase(id="d2", name="B", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -226,7 +219,7 @@ class TestDeviceRegistryAddPhysical:
             transport_id=mock_transport_client.id,
         )
         device = await empty_registry.add(create)
-        assert isinstance(device, PhysicalDevice)
+        assert isinstance(device, CoreDevice)
         assert device.name == "New Device"
         assert device.id in empty_registry.ids
 
@@ -300,87 +293,6 @@ class TestDeviceRegistryAddPhysical:
             config={"some_id": "abc"},
             driver_id=driver.id,
             transport_id=mock_transport_client.id,
-        )
-        device = await empty_registry.add(create)
-        assert device.on_update is on_attribute_update
-
-
-class TestDeviceRegistryAddVirtual:
-    @pytest.mark.asyncio
-    async def test_add_virtual_device_ok(self, empty_registry):
-        create = VirtualDeviceCreate(
-            name="Sensor",
-            attributes=[
-                AttributeCreate(
-                    name="temperature",
-                    data_type=DataType.FLOAT,
-                    read_write_mode="read",
-                ),
-            ],
-        )
-        device = await empty_registry.add(create)
-        assert isinstance(device, VirtualDevice)
-        assert device.name == "Sensor"
-        assert "temperature" in device.attributes
-        assert device.id in empty_registry.ids
-
-    @pytest.mark.asyncio
-    async def test_add_virtual_device_empty_attributes_raises(self, empty_registry):
-        create = VirtualDeviceCreate(name="Bad", attributes=[])
-        with pytest.raises(InvalidError):
-            await empty_registry.add(create)
-
-    @pytest.mark.asyncio
-    async def test_add_virtual_device_duplicate_attributes_raises(self, empty_registry):
-        create = VirtualDeviceCreate(
-            name="Bad",
-            attributes=[
-                AttributeCreate(
-                    name="temp",
-                    data_type=DataType.FLOAT,
-                    read_write_mode="read",
-                ),
-                AttributeCreate(
-                    name="temp",
-                    data_type=DataType.INT,
-                    read_write_mode="read",
-                ),
-            ],
-        )
-        with pytest.raises(InvalidError):
-            await empty_registry.add(create)
-
-    @pytest.mark.asyncio
-    async def test_add_virtual_device_invalid_standard_schema_raises(
-        self, empty_registry
-    ):
-        create = VirtualDeviceCreate(
-            name="Bad Thermo",
-            type="thermostat",
-            attributes=[
-                AttributeCreate(
-                    name="temperature",
-                    data_type=DataType.FLOAT,
-                    read_write_mode="read",
-                ),
-            ],
-        )
-        with pytest.raises(InvalidError):
-            await empty_registry.add(create)
-
-    @pytest.mark.asyncio
-    async def test_add_sets_on_update_callback(
-        self, empty_registry, on_attribute_update
-    ):
-        create = VirtualDeviceCreate(
-            name="V",
-            attributes=[
-                AttributeCreate(
-                    name="x",
-                    data_type=DataType.INT,
-                    read_write_mode="read",
-                ),
-            ],
         )
         device = await empty_registry.add(create)
         assert device.on_update is on_attribute_update
@@ -464,7 +376,7 @@ class TestDeviceRegistryUpdate:
         result = await device_registry.update(
             device.id, DeviceUpdate(config=new_config)
         )
-        assert isinstance(result, PhysicalDevice)
+        assert isinstance(result, CoreDevice)
         assert result.config == new_config
 
     @pytest.mark.asyncio
@@ -503,7 +415,7 @@ class TestDeviceRegistryUpdate:
             device.id,
             DeviceUpdate(driver_id=other_http_driver.id),
         )
-        assert isinstance(result, PhysicalDevice)
+        assert isinstance(result, CoreDevice)
         assert result.driver_id == other_http_driver.id
         assert "power" in result.attributes
 
@@ -549,7 +461,7 @@ class TestDeviceRegistryUpdate:
             device.id,
             DeviceUpdate(transport_id=second_mock_transport_client.id),
         )
-        assert isinstance(result, PhysicalDevice)
+        assert isinstance(result, CoreDevice)
         assert result.transport_id == second_mock_transport_client.id
 
     @pytest.mark.asyncio
@@ -572,7 +484,7 @@ class TestDeviceRegistryUpdate:
             device.id,
             DeviceUpdate(driver_id=other_http_driver.id),
         )
-        assert isinstance(result, PhysicalDevice)
+        assert isinstance(result, CoreDevice)
         assert result.attributes["temperature"].current_value == 42.0
 
     @pytest.mark.asyncio
@@ -596,92 +508,6 @@ class TestDeviceRegistryUpdate:
         )
         assert registry.get(device.id) is result
         assert result is not device
-
-
-class TestDeviceRegistryUpdateVirtual:
-    @pytest.fixture
-    def registry_with_virtual(self, driver, mock_transport_client, on_attribute_update):
-        vd = VirtualDevice(
-            id="vd1",
-            name="Original",
-            attributes={
-                "temperature": Attribute.create(
-                    "temperature", DataType.FLOAT, {"read"}
-                ),
-                "humidity": Attribute.create("humidity", DataType.FLOAT, {"read"}),
-            },
-        )
-        return DeviceRegistry(
-            {vd.id: vd},
-            resolve_driver=_make_driver_resolver(driver),
-            resolve_transport=_make_transport_resolver(mock_transport_client),
-            on_attribute_update=on_attribute_update,
-        )
-
-    @pytest.mark.asyncio
-    async def test_update_virtual_name(self, registry_with_virtual):
-        result = await registry_with_virtual.update(
-            "vd1", DeviceUpdate(name="New Name")
-        )
-        assert result.name == "New Name"
-
-    @pytest.mark.asyncio
-    async def test_update_virtual_add_attribute(self, registry_with_virtual):
-        result = await registry_with_virtual.update(
-            "vd1",
-            DeviceUpdate(
-                attributes=[
-                    AttributeCreate(
-                        name="temperature",
-                        data_type=DataType.FLOAT,
-                        read_write_mode="read",
-                    ),
-                    AttributeCreate(
-                        name="humidity",
-                        data_type=DataType.FLOAT,
-                        read_write_mode="read",
-                    ),
-                    AttributeCreate(
-                        name="pressure",
-                        data_type=DataType.FLOAT,
-                        read_write_mode="read",
-                    ),
-                ]
-            ),
-        )
-        assert "pressure" in result.attributes
-
-    @pytest.mark.asyncio
-    async def test_update_virtual_remove_attribute(self, registry_with_virtual):
-        result = await registry_with_virtual.update(
-            "vd1",
-            DeviceUpdate(
-                attributes=[
-                    AttributeCreate(
-                        name="temperature",
-                        data_type=DataType.FLOAT,
-                        read_write_mode="read",
-                    ),
-                ]
-            ),
-        )
-        assert "humidity" not in result.attributes
-
-    @pytest.mark.asyncio
-    async def test_update_virtual_reject_type_change(self, registry_with_virtual):
-        with pytest.raises(InvalidError):
-            await registry_with_virtual.update(
-                "vd1",
-                DeviceUpdate(
-                    attributes=[
-                        AttributeCreate(
-                            name="temperature",
-                            data_type=DataType.INT,
-                            read_write_mode="read",
-                        ),
-                    ]
-                ),
-            )
 
 
 class TestDeviceRegistryRemove:
@@ -721,40 +547,19 @@ class TestDeviceRegistryWriteAttribute:
                 device.id, CONNECTION_STATUS_ATTR, "ok"
             )
 
-    @pytest.mark.asyncio
-    async def test_write_virtual_attribute_ok(
-        self, driver, mock_transport_client, on_attribute_update
-    ):
-        vd = VirtualDevice(
-            id="vd1",
-            name="V",
-            attributes={
-                "value": Attribute.create("value", DataType.FLOAT, {"read", "write"}),
-            },
-        )
-        registry = DeviceRegistry(
-            {vd.id: vd},
-            resolve_driver=_make_driver_resolver(driver),
-            resolve_transport=_make_transport_resolver(mock_transport_client),
-            on_attribute_update=on_attribute_update,
-        )
-        result = await registry.write_attribute("vd1", "value", 42.0)
-        assert isinstance(result, Attribute)
-        assert result.current_value == 42.0
-
 
 class TestDeviceRegistryRebuild:
-    def test_rebuild_physical_device(
+    def test_rebuild_device(
         self,
         device_registry,
         device,
         other_http_driver,
         mock_transport_client,
     ):
-        result = device_registry.rebuild_physical_device(
+        result = device_registry.rebuild_device(
             device, other_http_driver, mock_transport_client
         )
-        assert isinstance(result, PhysicalDevice)
+        assert isinstance(result, CoreDevice)
         assert result.id == device.id
         assert result.driver_id == other_http_driver.id
 
@@ -766,7 +571,7 @@ class TestDeviceRegistryRebuild:
         mock_transport_client,
     ):
         device.attributes["temperature"].update_value(25.5)
-        result = device_registry.rebuild_physical_device(
+        result = device_registry.rebuild_device(
             device, other_http_driver, mock_transport_client
         )
         assert result.attributes["temperature"].current_value == 25.5
@@ -784,13 +589,11 @@ class TestDeviceRegistryPersistence:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        create = VirtualDeviceCreate(
-            name="V",
-            attributes=[
-                AttributeCreate(
-                    name="x", data_type=DataType.FLOAT, read_write_mode="read"
-                ),
-            ],
+        create = DeviceCreate(
+            name="Device",
+            config={"some_id": "abc"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
         )
         await registry.add(create)
         storage.write.assert_called_once()
@@ -806,14 +609,12 @@ class TestDeviceRegistryPersistence:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        vd = VirtualDevice(
-            id="vd1",
-            name="V",
-            attributes={
-                "x": Attribute.create("x", DataType.FLOAT, {"read"}),
-            },
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
         )
-        await registry.register(vd)
+        await registry.register(device)
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio

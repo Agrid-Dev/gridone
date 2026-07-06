@@ -1,7 +1,7 @@
 import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { DeviceKind, type Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery, mockListDevices } = vi.hoisted(() => ({
@@ -75,7 +75,6 @@ import { DevicePicker } from "./DevicePicker";
 const devices: Device[] = [
   {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "Lobby thermostat",
     type: null,
     tags: {},
@@ -87,7 +86,6 @@ const devices: Device[] = [
   },
   {
     id: "d2",
-    kind: DeviceKind.Physical,
     name: "Boiler",
     type: null,
     tags: {},

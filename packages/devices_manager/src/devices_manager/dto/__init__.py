@@ -1,10 +1,7 @@
 from .device_dto import (
-    AttributeCreate,
     Device,
     DeviceCreate,
     DeviceUpdate,
-    PhysicalDeviceCreate,
-    VirtualDeviceCreate,
 )
 from .device_dto import core_to_dto as device_to_public
 from .device_dto import dto_to_base as device_public_to_base
@@ -40,7 +37,6 @@ from .transport_dto import dto_to_core as transport_from_public
 
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
-    "AttributeCreate",
     "AttributeDriverSpec",
     "AttributePatch",
     "AttributeRename",
@@ -53,13 +49,11 @@ __all__ = [
     "FaultView",
     "LoadEntityKind",
     "LoadError",
-    "PhysicalDeviceCreate",
     "StandardAttributeSchema",
     "Transport",
     "TransportBase",
     "TransportCreate",
     "TransportUpdate",
-    "VirtualDeviceCreate",
     "build_transport",
     "device_from_public",
     "device_public_to_base",

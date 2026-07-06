@@ -5,8 +5,6 @@ from .core.device import (
     CoreDevice,
     DeviceBase,
     FaultAttribute,
-    PhysicalDevice,
-    VirtualDevice,
 )
 from .core.device_registry import DeviceRegistry
 from .core.driver import Driver
@@ -28,6 +26,4 @@ __all__ = [
     "DiscoveryManagerInterface",
     "Driver",
     "FaultAttribute",
-    "PhysicalDevice",
-    "VirtualDevice",
 ]

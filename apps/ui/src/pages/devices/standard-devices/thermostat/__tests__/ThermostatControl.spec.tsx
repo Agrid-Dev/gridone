@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui";
 import { ThermostatControl } from "../ThermostatControl";
-import { DeviceKind, DeviceType, type Device } from "@/api/devices";
+import { DeviceType, type Device } from "@/api/devices";
 import type { StandardControlProps } from "../../registry";
 
 // --- Mocks ---
@@ -94,7 +94,6 @@ function makeThermostat(
 
   return {
     id: "dev-1",
-    kind: DeviceKind.Physical,
     name: "Living Room Thermostat",
     type: DeviceType.Thermostat,
     tags: {},

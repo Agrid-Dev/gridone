@@ -15,9 +15,19 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
-from devices_manager import DevicesService, VirtualDevice
-from devices_manager.core.device import Attribute
-from devices_manager.types import DataType
+from devices_manager import CoreDevice, DeviceBase, DevicesService, Driver
+from devices_manager.core.codecs.factory import CodecSpec
+from devices_manager.core.driver import (
+    AttributeDriver,
+    DriverMetadata,
+    UpdateStrategy,
+)
+from devices_manager.core.transports import TransportMetadata
+from devices_manager.core.transports.http_transport import (
+    HTTPTransportClient,
+    HttpTransportConfig,
+)
+from devices_manager.types import DataType, TransportProtocols
 from timeseries.domain import SeriesKey
 from timeseries.service import TimeSeriesService
 
@@ -26,20 +36,57 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.asyncio
 
-DEVICE_ID = "vd-int"
+DEVICE_ID = "dev-int"
 TEMPERATURE = "temperature"
 SETPOINT = "setpoint"
+INITIAL_TEMPERATURE = 20.0
 
 
 @pytest.fixture
-def virtual_device() -> VirtualDevice:
-    return VirtualDevice(
-        id=DEVICE_ID,
-        name="Integration Sensor",
+def driver() -> Driver:
+    # Polling is disabled so the seeded device never reads from its
+    # transport during the test — attribute values only change if the
+    # API mutates the runtime device state.
+    return Driver(
+        metadata=DriverMetadata(id="integration_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(polling_enabled=False),
         attributes={
-            TEMPERATURE: Attribute.create(TEMPERATURE, DataType.FLOAT, {"read"}),
-            SETPOINT: Attribute.create(SETPOINT, DataType.FLOAT, {"read", "write"}),
+            TEMPERATURE: AttributeDriver(
+                name=TEMPERATURE,
+                data_type=DataType.FLOAT,
+                read=f"GET /{TEMPERATURE}",
+                write=None,
+                codecs=[CodecSpec(name="identity", argument="")],
+            ),
+            SETPOINT: AttributeDriver(
+                name=SETPOINT,
+                data_type=DataType.FLOAT,
+                read=f"GET /{SETPOINT}",
+                write=f"POST /{SETPOINT}",
+                codecs=[CodecSpec(name="identity", argument="")],
+            ),
         },
+    )
+
+
+@pytest.fixture
+def transport() -> HTTPTransportClient:
+    return HTTPTransportClient(
+        TransportMetadata(id="http-int", name="Integration HTTP"),
+        HttpTransportConfig(),
+    )
+
+
+@pytest.fixture
+def device(driver: Driver, transport: HTTPTransportClient) -> CoreDevice:
+    return CoreDevice.from_base(
+        DeviceBase(id=DEVICE_ID, name="Integration Sensor", config={}),
+        driver=driver,
+        transport=transport,
+        initial_values={TEMPERATURE: INITIAL_TEMPERATURE},
     )
 
 
@@ -53,14 +100,20 @@ async def ts_service() -> AsyncIterator[TimeSeriesService]:
 
 @pytest_asyncio.fixture
 async def integration_app(
-    virtual_device: VirtualDevice,
+    device: CoreDevice,
+    driver: Driver,
+    transport: HTTPTransportClient,
     ts_service: TimeSeriesService,
     admin_token_payload,
 ) -> AsyncIterator[FastAPI]:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
-    dm = DevicesService(devices={virtual_device.id: virtual_device})
+    dm = DevicesService(
+        drivers={driver.id: driver},
+        transports={transport.id: transport},
+        devices={device.id: device},
+    )
     await dm.start()
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: ts_service
@@ -141,10 +194,10 @@ class TestBulkPushIntegration:
         assert all(p.command_id is None for p in result.points)
 
     async def test_does_not_update_device_state(
-        self, client: AsyncClient, virtual_device: VirtualDevice
+        self, client: AsyncClient, device: CoreDevice
     ):
         """History push must not change the device's in-memory attribute values."""
-        original_value = virtual_device.attributes[TEMPERATURE].current_value
+        assert device.attributes[TEMPERATURE].current_value == INITIAL_TEMPERATURE
         async with client as ac:
             await ac.post(
                 f"/{DEVICE_ID}/timeseries",
@@ -158,7 +211,7 @@ class TestBulkPushIntegration:
                     ]
                 },
             )
-        assert virtual_device.attributes[TEMPERATURE].current_value == original_value
+        assert device.attributes[TEMPERATURE].current_value == INITIAL_TEMPERATURE
 
 
 class TestSingleAttrPushIntegration:

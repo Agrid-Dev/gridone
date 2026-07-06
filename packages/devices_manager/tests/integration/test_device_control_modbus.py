@@ -1,7 +1,7 @@
 import pytest
 from fixtures.config import TMK_DEVICE_ID
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
@@ -22,7 +22,7 @@ def modbus_driver(
 
 
 @pytest.fixture
-def device(thermocktat_container_modbus, modbus_driver) -> PhysicalDevice:
+def device(thermocktat_container_modbus, modbus_driver) -> CoreDevice:
     host, port = thermocktat_container_modbus
     modbus_transport = make_transport_client(
         TransportProtocols.MODBUS_TCP,
@@ -31,7 +31,7 @@ def device(thermocktat_container_modbus, modbus_driver) -> PhysicalDevice:
         ),
         TransportMetadata(id="my-transport", name="my-transport"),
     )
-    return PhysicalDevice.from_base(
+    return CoreDevice.from_base(
         DeviceBase(id=TMK_DEVICE_ID, name="My thermocktat", config={"device_id": 4}),
         transport=modbus_transport,
         driver=modbus_driver,
@@ -40,7 +40,7 @@ def device(thermocktat_container_modbus, modbus_driver) -> PhysicalDevice:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(thermocktat_container_modbus, device: PhysicalDevice):  # noqa: ARG001
+async def test_read_attributes(thermocktat_container_modbus, device: CoreDevice):  # noqa: ARG001
     await device.update_attributes()
     assert "state" in device.attributes
     assert not device.attributes["state"].current_value
@@ -58,7 +58,7 @@ async def test_read_attributes(thermocktat_container_modbus, device: PhysicalDev
 )
 async def test_write_attribute(
     thermocktat_container_modbus,  # noqa: ARG001
-    device: PhysicalDevice,
+    device: CoreDevice,
     attribute: str,
     value,
 ):
@@ -76,7 +76,7 @@ async def test_write_attribute(
 )
 async def test_write_attribute_invalid_value(
     thermocktat_container_modbus,  # noqa: ARG001
-    device: PhysicalDevice,
+    device: CoreDevice,
     attribute: str,
     invalid_value,
 ):

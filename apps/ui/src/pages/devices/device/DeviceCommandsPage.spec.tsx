@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import { DeviceKind, type Device, type DeviceAttribute } from "@/api/devices";
+import { type Device, type DeviceAttribute } from "@/api/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -38,7 +38,6 @@ function attr(readWriteModes: string[]): DeviceAttribute {
 function makeDevice(readWriteModes: string[]): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "d1",
     type: null,
     tags: {},

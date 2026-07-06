@@ -4,21 +4,21 @@ import asyncio
 
 import pytest
 
-from devices_manager.core.device import PhysicalDevice
+from devices_manager.core.device import CoreDevice
 from devices_manager.core.discovery_manager.discovery_handler import (
     DiscoveryHandler,
 )
 
 
 class FnCallSpy:
-    call_args: list[PhysicalDevice]
+    call_args: list[CoreDevice]
     called: asyncio.Event
 
     def __init__(self) -> None:
         self.call_args = []
         self.called = asyncio.Event()
 
-    async def call(self, device: PhysicalDevice):
+    async def call(self, device: CoreDevice):
         self.call_args.append(device)
         self.called.set()
 
@@ -116,7 +116,7 @@ async def tests_callback_called_with_actual_device(
     await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
     device = on_discover_spy.call_args[0]
-    assert isinstance(device, PhysicalDevice)
+    assert isinstance(device, CoreDevice)
     assert isinstance(device.id, str)
     assert device.config == {"vendor_id": "abc", "gateway_id": "gtw"}
 
@@ -135,8 +135,8 @@ async def tests_initializes_attributes_if_present_in_payload(
     )
     await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
-    device: PhysicalDevice = on_discover_spy.call_args[0]
-    assert isinstance(device, PhysicalDevice)
+    device: CoreDevice = on_discover_spy.call_args[0]
+    assert isinstance(device, CoreDevice)
     assert device.get_attribute_value("temperature") == 22
 
 
@@ -154,7 +154,7 @@ async def tests_initializes_name_from_config_fields(
     )
     await on_discover_spy.wait()
     assert on_discover_spy.call_count == 1
-    device: PhysicalDevice = on_discover_spy.call_args[0]
-    assert isinstance(device, PhysicalDevice)
+    device: CoreDevice = on_discover_spy.call_args[0]
+    assert isinstance(device, CoreDevice)
     assert "gtw" in device.name
     assert "abc" in device.name

@@ -13,11 +13,6 @@ class ConnectionStatus(StrEnum):
     ERROR = "error"
 
 
-class DeviceKind(StrEnum):
-    PHYSICAL = "physical"
-    VIRTUAL = "virtual"
-
-
 class TransportType(StrEnum):
     PULL = "pull"
     PUSH = "push"
@@ -39,7 +34,6 @@ __all__ = [
     "ConnectionStatus",
     "DataType",
     "DeviceConfig",
-    "DeviceKind",
     "ReadWriteMode",
     "TransportProtocols",
     "TransportType",

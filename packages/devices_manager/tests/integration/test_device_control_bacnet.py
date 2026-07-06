@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 import pytest
 import pytest_asyncio
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 async def bacnet_device(
     thermocktat_container_bacnet: tuple[str, int],
     thermocktat_bacnet_driver: Driver,
-) -> AsyncGenerator[PhysicalDevice]:
+) -> AsyncGenerator[CoreDevice]:
     host, port = thermocktat_container_bacnet
     transport = make_transport_client(
         TransportProtocols.BACNET,
@@ -48,7 +48,7 @@ async def bacnet_device(
         ),
         TransportMetadata(id="bacnet-transport", name="bacnet-transport"),
     )
-    device = PhysicalDevice.from_base(
+    device = CoreDevice.from_base(
         DeviceBase(
             id="bacnet-thermocktat",
             name="BACnet Thermocktat",
@@ -66,7 +66,7 @@ async def bacnet_device(
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(bacnet_device: PhysicalDevice) -> None:
+async def test_read_attributes(bacnet_device: CoreDevice) -> None:
     """Reads cover float (AV/AI), bool (BV) and int (fault) data types."""
     await bacnet_device.update_attributes()
     attrs = bacnet_device.attributes
@@ -97,7 +97,7 @@ async def test_read_attributes(bacnet_device: PhysicalDevice) -> None:
     ],
 )
 async def test_write_attribute(
-    bacnet_device: PhysicalDevice, attribute: str, value: float
+    bacnet_device: CoreDevice, attribute: str, value: float
 ) -> None:
     # thermocktat only decodes Real on write, so this covers float (AnalogValue)
     # writes. bool/int writes use BinaryPV/Integer and are exercised on real

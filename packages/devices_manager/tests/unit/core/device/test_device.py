@@ -10,9 +10,9 @@ from devices_manager.core import Driver, TransportClient
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import (
     Attribute,
+    CoreDevice,
     DeviceBase,
     FaultAttribute,
-    PhysicalDevice,
 )
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.driver import (
@@ -29,8 +29,8 @@ from ..fixtures.transport_clients import MockTransportAddress
 
 
 @pytest.fixture
-def device(mock_transport_client, driver) -> PhysicalDevice:
-    return PhysicalDevice.from_base(
+def device(mock_transport_client, driver) -> CoreDevice:
+    return CoreDevice.from_base(
         DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
         driver=driver,
         transport=mock_transport_client,
@@ -40,8 +40,8 @@ def device(mock_transport_client, driver) -> PhysicalDevice:
 @pytest.fixture
 def device_w_push_transport(
     mock_push_transport_client, driver_w_push_transport
-) -> PhysicalDevice:
-    return PhysicalDevice.from_base(
+) -> CoreDevice:
+    return CoreDevice.from_base(
         DeviceBase(id="d2", name="My push device", config={"some_id": "abcd"}),
         driver=driver_w_push_transport,
         transport=mock_push_transport_client,
@@ -53,7 +53,7 @@ class TestDeviceCreation:
         self, driver_w_push_transport, mock_transport_client
     ):
         with pytest.raises(TypeError):
-            _ = PhysicalDevice(
+            _ = CoreDevice(
                 id="some_id",
                 name="name",
                 config={},
@@ -65,7 +65,7 @@ class TestDeviceCreation:
     def test_build_from_raw_raw(
         self, driver: Driver, mock_transport_client: TransportClient
     ):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="my device", config={}),
             transport=mock_transport_client,
             driver=driver,
@@ -75,7 +75,7 @@ class TestDeviceCreation:
         assert set(device.attributes) == expected
 
     def test_initialize_attributes(self, driver, mock_transport_client):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
@@ -84,8 +84,8 @@ class TestDeviceCreation:
         assert device.get_attribute_value("temperature") == 20
 
     def test_type_reflects_driver_type(self, driver, mock_transport_client):
-        """Regression: PhysicalDevice.type is a live property from driver.type."""
-        device = PhysicalDevice.from_base(
+        """Regression: CoreDevice.type is a live property from driver.type."""
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="my device", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -109,7 +109,7 @@ class TestDeviceCreation:
                 )
             },
         )
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="dev", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -119,7 +119,7 @@ class TestDeviceCreation:
 
 class TestDeviceRead:
     @pytest.mark.asyncio
-    async def test_read_value_ok(self, device: PhysicalDevice, mock_transport_client):
+    async def test_read_value_ok(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value=23.5)
         value = await device.read_attribute_value("temperature")
         assert value == 23.5
@@ -127,7 +127,7 @@ class TestDeviceRead:
 
     @pytest.mark.asyncio
     async def test_read_value_with_context_rendering(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(return_value=23.5)
         await device.read_attribute_value("temperature_setpoint")
@@ -137,7 +137,7 @@ class TestDeviceRead:
 
     @pytest.mark.asyncio
     async def test_read_value_with_adapter(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(
             return_value={"data": {"temperature": 23.5}}
@@ -147,7 +147,7 @@ class TestDeviceRead:
         mock_transport_client.read.assert_called_once()
 
     @pytest.mark.skip
-    def test_handle_transport_error(self, device: PhysicalDevice):
+    def test_handle_transport_error(self, device: CoreDevice):
         """@TODO: check that a transport error is raised
         if an error occurs in transport"""
 
@@ -155,7 +155,7 @@ class TestDeviceRead:
 class TestDeviceWrite:
     @pytest.mark.asyncio
     async def test_write_value_calls_transport(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.write = AsyncMock()
         await device.write_attribute_value("temperature_setpoint", 20, confirm=False)
@@ -163,7 +163,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_value_calls_transport_with_context_rendering(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.write = AsyncMock()
         await device.write_attribute_value("temperature_setpoint", 20, confirm=False)
@@ -175,7 +175,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_value_calls_transport_with_adapter(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.write = AsyncMock()
         await device.write_attribute_value(
@@ -186,7 +186,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_value_with_confirm(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.write = AsyncMock()
         mock_transport_client.read = AsyncMock(return_value=20)
@@ -197,7 +197,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_attribute_value_returns_attribute(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.write = AsyncMock()
         result = await device.write_attribute_value(
@@ -207,7 +207,7 @@ class TestDeviceWrite:
         assert result.current_value == 20
 
     @pytest.mark.asyncio
-    async def test_write_value_not_writable(self, device: PhysicalDevice):
+    async def test_write_value_not_writable(self, device: CoreDevice):
         with pytest.raises(PermissionError):
             await device.write_attribute_value("humidity", 12)
 
@@ -216,7 +216,7 @@ class TestDeviceWrite:
         self, mock_transport_client, driver
     ):
         """Cache already holds the expected value — confirm returns without polling."""
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
@@ -248,7 +248,7 @@ class TestDeviceWrite:
                 ),
             },
         )
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="push_write_dev", name="Push Write Device", config={}),
             driver=driver,
             transport=mock_push_transport_client,
@@ -291,7 +291,7 @@ class TestDeviceWrite:
                 ),
             },
         )
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(
                 id="push_write_fail_dev", name="Push Write Fail Device", config={}
             ),
@@ -313,7 +313,7 @@ class TestDeviceWrite:
 class TestDevicesListeners:
     @pytest.mark.asyncio
     async def test_devices_updates_on_listen(
-        self, device_w_push_transport: PhysicalDevice, mock_push_transport_client
+        self, device_w_push_transport: CoreDevice, mock_push_transport_client
     ):
         assert device_w_push_transport.attributes["temperature"].current_value is None
         await device_w_push_transport.init_listeners()
@@ -356,7 +356,7 @@ class TestDevicesListeners:
                 ),
             },
         )
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d3", name="Multi-attr push device", config={}),
             driver=driver,
             transport=mock_push_transport_client,
@@ -401,7 +401,7 @@ class TestDevicesListeners:
                 ),
             },
         )
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d4", name="Partial-frame device", config={}),
             driver=driver,
             transport=mock_push_transport_client,
@@ -433,7 +433,7 @@ class TestDevicesListeners:
 
     @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_pull(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         """Regression AGR-534: callback must fire only when value changes."""
         calls: list[tuple[str, object]] = []
@@ -458,7 +458,7 @@ class TestDevicesListeners:
     @pytest.mark.asyncio
     async def test_on_update_fires_only_on_value_change_push(
         self,
-        device_w_push_transport: PhysicalDevice,
+        device_w_push_transport: CoreDevice,
         mock_push_transport_client,
     ):
         """Regression AGR-534: push listener must fire callback only on changes."""
@@ -488,16 +488,16 @@ class TestDevicesListeners:
 
 
 class TestCoreDeviceCanWrite:
-    def test_writable_attribute_returns_true(self, device: PhysicalDevice):
+    def test_writable_attribute_returns_true(self, device: CoreDevice):
         assert device.can_write("temperature_setpoint") is True
 
-    def test_read_only_attribute_returns_false(self, device: PhysicalDevice):
+    def test_read_only_attribute_returns_false(self, device: CoreDevice):
         assert device.can_write("temperature") is False
 
-    def test_unknown_attribute_returns_false(self, device: PhysicalDevice):
+    def test_unknown_attribute_returns_false(self, device: CoreDevice):
         assert device.can_write("nonexistent") is False
 
-    def test_writable_with_matching_data_type(self, device: PhysicalDevice):
+    def test_writable_with_matching_data_type(self, device: CoreDevice):
         assert (
             device.can_write("temperature_setpoint", data_type=DataType.FLOAT) is True
         )
@@ -505,18 +505,14 @@ class TestCoreDeviceCanWrite:
 
 class TestEventLogWiring:
     @pytest.mark.asyncio
-    async def test_read_appends_log(
-        self, device: PhysicalDevice, mock_transport_client
-    ):
+    async def test_read_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
         assert len(device.attributes["temperature"].logs.read) == 1
         assert device.attributes["temperature"].logs.read[0].status == "ok"
 
     @pytest.mark.asyncio
-    async def test_write_appends_log(
-        self, device: PhysicalDevice, mock_transport_client
-    ):
+    async def test_write_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="22.0")
         await device.write_attribute_value("temperature_setpoint", 22.0, confirm=False)
         assert len(device.attributes["temperature_setpoint"].logs.write) == 1
@@ -524,7 +520,7 @@ class TestEventLogWiring:
 
     @pytest.mark.asyncio
     async def test_listen_appends_log(
-        self, device_w_push_transport: PhysicalDevice, mock_push_transport_client
+        self, device_w_push_transport: CoreDevice, mock_push_transport_client
     ):
         await device_w_push_transport.init_listeners()
         await mock_push_transport_client.simulate_event(
@@ -534,26 +530,26 @@ class TestEventLogWiring:
         assert len(listen_logs) == 1
         assert listen_logs[0].status == "ok"
 
-    def test_writable_with_mismatched_data_type(self, device: PhysicalDevice):
+    def test_writable_with_mismatched_data_type(self, device: CoreDevice):
         assert (
             device.can_write("temperature_setpoint", data_type=DataType.BOOL) is False
         )
 
-    def test_data_type_ignored_when_none(self, device: PhysicalDevice):
+    def test_data_type_ignored_when_none(self, device: CoreDevice):
         assert device.can_write("temperature_setpoint", data_type=None) is True
 
 
 class TestDeviceEquality:
-    def test_device_equals_to_itself(self, device: PhysicalDevice):
+    def test_device_equals_to_itself(self, device: CoreDevice):
         assert device == device  # noqa: PLR0124
 
     def test_device_equals_same_configs(self, mock_transport_client, driver):
-        device_1 = PhysicalDevice.from_base(
+        device_1 = CoreDevice.from_base(
             DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
         )
-        device_2 = PhysicalDevice.from_base(
+        device_2 = CoreDevice.from_base(
             DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
@@ -561,12 +557,12 @@ class TestDeviceEquality:
         assert device_1 == device_2
 
     def test_device_not_equals_different_configs(self, mock_transport_client, driver):
-        device_1 = PhysicalDevice.from_base(
+        device_1 = CoreDevice.from_base(
             DeviceBase(id="xxx", name="My device", config={"some_id": "abcd"}),
             driver=driver,
             transport=mock_transport_client,
         )
-        device_2 = PhysicalDevice.from_base(
+        device_2 = CoreDevice.from_base(
             DeviceBase(id="xxx", name="My device", config={"some_id": "xyz"}),
             driver=driver,
             transport=mock_transport_client,
@@ -574,8 +570,8 @@ class TestDeviceEquality:
         assert device_1 != device_2
 
 
-class TestPhysicalDeviceAttributeFactory:
-    """PhysicalDevice.from_base picks Attribute or FaultAttribute per driver."""
+class TestCoreDeviceAttributeFactory:
+    """CoreDevice.from_base picks Attribute or FaultAttribute per driver."""
 
     @pytest.fixture
     def fault_driver(self) -> Driver:
@@ -609,7 +605,7 @@ class TestPhysicalDeviceAttributeFactory:
         mock_transport_client: TransportClient,
         fault_driver: Driver,
     ):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d", name="mixed", config={}),
             driver=fault_driver,
             transport=mock_transport_client,
@@ -624,7 +620,7 @@ class TestPhysicalDeviceAttributeFactory:
         mock_transport_client: TransportClient,
         fault_driver: Driver,
     ):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d", name="mixed", config={}),
             driver=fault_driver,
             transport=mock_transport_client,
@@ -637,7 +633,7 @@ class TestPhysicalDeviceAttributeFactory:
         mock_transport_client: TransportClient,
         fault_driver: Driver,
     ):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d", name="mixed", config={}),
             driver=fault_driver,
             transport=mock_transport_client,
@@ -652,7 +648,7 @@ class TestPhysicalDeviceAttributeFactory:
         mock_transport_client: TransportClient,
         fault_driver: Driver,
     ):
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d", name="mixed", config={}),
             driver=fault_driver,
             transport=mock_transport_client,
@@ -666,7 +662,7 @@ class TestPhysicalDeviceAttributeFactory:
 class TestCoreDeviceWaiters:
     @pytest.mark.asyncio
     async def test_waiter_fires_when_predicate_matches(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(return_value=25.0)
         async with device.wait_for_attribute(
@@ -677,7 +673,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_waiter_not_fired_when_predicate_misses(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(return_value=20.0)
         async with device.wait_for_attribute(
@@ -688,7 +684,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_waiter_not_fired_for_different_attribute(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(return_value=25.0)
         async with device.wait_for_attribute(
@@ -699,7 +695,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_multiple_waiters_only_matching_fires(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         mock_transport_client.read = AsyncMock(return_value=25.0)
         async with (
@@ -712,7 +708,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_waiter_cleaned_up_after_normal_exit(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         async with device.wait_for_attribute(
             "temperature", lambda v: v == 25.0
@@ -724,7 +720,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_waiter_cleaned_up_after_cancellation(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ):
         captured: list[asyncio.Event] = []
 
@@ -746,7 +742,7 @@ class TestCoreDeviceWaiters:
 
     @pytest.mark.asyncio
     async def test_push_update_fires_waiter(
-        self, device_w_push_transport: PhysicalDevice, mock_push_transport_client
+        self, device_w_push_transport: CoreDevice, mock_push_transport_client
     ):
         """Push listener path through _update_attribute fires the waiter."""
         await device_w_push_transport.init_listeners()

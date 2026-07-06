@@ -22,7 +22,6 @@ from devices_manager.storage.postgres import (
 )
 from devices_manager.types import (
     DataType,
-    DeviceKind,
     TransportProtocols,
 )
 
@@ -76,17 +75,15 @@ def _make_driver(
     )
 
 
-def _make_device(  # noqa: PLR0913
+def _make_device(
     device_id: str = "dev1",
     driver_id: str = "d1",
     transport_id: str = "t1",
-    kind: DeviceKind = DeviceKind.PHYSICAL,
     name: str = "Test Device",
     attributes: dict[str, Attribute] | None = None,
 ) -> Device:
     return Device(
         id=device_id,
-        kind=kind,
         name=name,
         type="hvac/thermostat",
         config={"address": "1"},
@@ -286,7 +283,6 @@ class TestDeviceStorage:
 
         result = await device_storage.read(device.id)
         assert result.id == device.id
-        assert result.kind == DeviceKind.PHYSICAL
         assert result.name == "Test Device"
         assert result.driver_id == "d1"
         assert result.transport_id == "t1"
@@ -445,30 +441,6 @@ class TestDeviceStorage:
         )
         assert count == 0
 
-    async def test_virtual_device(
-        self,
-        device_storage: PostgresDeviceStorage,
-    ):
-        device = Device(
-            id="vdev1",
-            kind=DeviceKind.VIRTUAL,
-            name="Virtual Sensor",
-            type="sensor",
-            attributes={
-                "value": Attribute.create(
-                    "value", DataType.FLOAT, {"read", "write"}, 42.0
-                ),
-            },
-            is_faulty=False,
-        )
-        await device_storage.write(device.id, device)
-
-        result = await device_storage.read(device.id)
-        assert result.kind == DeviceKind.VIRTUAL
-        assert result.driver_id is None
-        assert result.transport_id is None
-        assert result.attributes["value"].current_value == 42.0
-
 
 # ---------------------------------------------------------------------------
 # Foreign Key Constraints
@@ -483,10 +455,9 @@ class TestForeignKeys:
         """Device insert with non-existent driver/transport FK should fail."""
         with pytest.raises(asyncpg.ForeignKeyViolationError):
             await pool.execute(
-                "INSERT INTO dm_devices (id, kind, name, driver_id, transport_id) "
-                "VALUES ($1, $2, $3, $4, $5)",
+                "INSERT INTO dm_devices (id, name, driver_id, transport_id) "
+                "VALUES ($1, $2, $3, $4)",
                 "bad-dev",
-                "physical",
                 "Bad Device",
                 "nonexistent-driver",
                 "nonexistent-transport",
@@ -772,34 +743,3 @@ class TestAttributePersistence:
         all_devices = await device_storage.read_all()
         dev = next(d for d in all_devices if d.id == "dev1")
         assert dev.tags == {"asset_id": "asset-xyz"}
-
-    async def test_virtual_device_attribute_round_trip(
-        self,
-        device_storage: PostgresDeviceStorage,
-    ):
-        """Virtual device attributes persist and restore correctly."""
-        device = Device(
-            id="vdev1",
-            kind=DeviceKind.VIRTUAL,
-            name="Virtual Sensor",
-            type="sensor",
-            attributes={
-                "value": Attribute.create(
-                    "value",
-                    DataType.FLOAT,
-                    {"read", "write"},
-                    42.0,
-                ),
-            },
-            is_faulty=False,
-        )
-        await device_storage.write(device.id, device)
-
-        # Update attribute via save_attribute
-        updated = Attribute.create("value", DataType.FLOAT, {"read", "write"}, 99.0)
-        await device_storage.save_attribute("vdev1", updated)
-
-        # Read back and verify
-        result = await device_storage.read("vdev1")
-        assert result.kind == DeviceKind.VIRTUAL
-        assert result.attributes["value"].current_value == 99.0

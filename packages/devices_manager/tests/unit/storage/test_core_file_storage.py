@@ -11,7 +11,6 @@ from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import (
     ConnectionStatus,
     DataType,
-    DeviceKind,
     TransportProtocols,
 )
 
@@ -25,9 +24,11 @@ def _make_device(
 ) -> Device:
     return Device(
         id=device_id,
-        kind=DeviceKind.VIRTUAL,
         name="Test Device",
         type="sensor",
+        config={},
+        driver_id="d1",
+        transport_id="t1",
         attributes=attributes or {},
         is_faulty=False,
     )

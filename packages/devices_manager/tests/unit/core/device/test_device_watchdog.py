@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.connection_status import (
     CONNECTION_STATUS_ATTR,
     SILENCE_ERROR_MULTIPLIER,
@@ -67,8 +67,8 @@ def push_only_driver_no_interval(
 
 def _make_device(
     driver: Driver, transport, initial_values: dict | None = None
-) -> PhysicalDevice:
-    return PhysicalDevice.from_base(
+) -> CoreDevice:
+    return CoreDevice.from_base(
         DeviceBase(id="d_watchdog", name="Watchdog Device", config={}),
         driver=driver,
         transport=transport,
@@ -76,7 +76,7 @@ def _make_device(
     )
 
 
-def _silence(device: PhysicalDevice, multiplier: float) -> None:
+def _silence(device: CoreDevice, multiplier: float) -> None:
     interval = device.expected_interval
     assert interval is not None
     assert device._watchdog is not None  # noqa: SLF001
@@ -101,7 +101,7 @@ class TestExpectedInterval:
         device = _make_device(push_only_driver_no_interval, mock_push_transport_client)
         assert device.expected_interval is None
 
-    def test_pull_device_returns_none(self, device: PhysicalDevice) -> None:
+    def test_pull_device_returns_none(self, device: CoreDevice) -> None:
         assert device.expected_interval is None
 
 

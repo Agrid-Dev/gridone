@@ -18,8 +18,8 @@ from .core.device import (
 )
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
+    DevicesDiscoveryManager,
     DiscoveryContext,
-    PhysicalDevicesDiscoveryManager,
 )
 from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
@@ -92,7 +92,7 @@ class _LoadedState:
 
 
 class DevicesService(Service):
-    _discovery_manager: PhysicalDevicesDiscoveryManager
+    _discovery_manager: DevicesDiscoveryManager
 
     def __init__(
         self,
@@ -481,7 +481,7 @@ class DevicesService(Service):
                 logger.exception("Discovery listener failed for device %s", device.id)
 
     @property
-    def discovery_manager(self) -> PhysicalDevicesDiscoveryManager:
+    def discovery_manager(self) -> DevicesDiscoveryManager:
         if not hasattr(self, "_discovery_manager"):
             discovery_context = DiscoveryContext(
                 get_driver=lambda driver_id: self._driver_registry.all[driver_id],
@@ -493,9 +493,7 @@ class DevicesService(Service):
                     d == device for d in self._device_registry.all.values()
                 ),
             )
-            self._discovery_manager = PhysicalDevicesDiscoveryManager(
-                context=discovery_context
-            )
+            self._discovery_manager = DevicesDiscoveryManager(context=discovery_context)
         return self._discovery_manager
 
     # -- Transports (delegated to TransportRegistry) --

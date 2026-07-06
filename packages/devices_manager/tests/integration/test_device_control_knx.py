@@ -11,10 +11,10 @@ import pytest_asyncio
 from fixtures.config import HTTP_PORT
 from thermocktat_client import ThermocktatAsync
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 
 
-async def _wait_for_knx_tunnel(device: PhysicalDevice) -> None:
+async def _wait_for_knx_tunnel(device: CoreDevice) -> None:
     """Retry connect until the KNX/IP tunnel is ready (container startup lag)."""
     last_error: Exception | None = None
     for _ in range(30):
@@ -32,8 +32,8 @@ async def _wait_for_knx_tunnel(device: PhysicalDevice) -> None:
 @pytest_asyncio.fixture
 async def connected_knx_device(
     thermocktat_container_knx_http,  # noqa: ARG001
-    knx_device: PhysicalDevice,
-) -> AsyncGenerator[PhysicalDevice]:
+    knx_device: CoreDevice,
+) -> AsyncGenerator[CoreDevice]:
     await _wait_for_knx_tunnel(knx_device)
     try:
         yield knx_device
@@ -52,8 +52,8 @@ async def thermocktat_http(
 
 
 @pytest.fixture
-def knx_device(knx_transport, thermocktat_knx_driver) -> PhysicalDevice:
-    return PhysicalDevice.from_base(
+def knx_device(knx_transport, thermocktat_knx_driver) -> CoreDevice:
+    return CoreDevice.from_base(
         DeviceBase(
             id="thermocktat-1",
             name="Thermocktat 1",
@@ -66,7 +66,7 @@ def knx_device(knx_transport, thermocktat_knx_driver) -> PhysicalDevice:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_read_attributes(connected_knx_device: PhysicalDevice):
+async def test_read_attributes(connected_knx_device: CoreDevice):
     await connected_knx_device.update_attributes()
     attrs = connected_knx_device.attributes
     assert not attrs["onoff_state"].current_value
@@ -82,7 +82,7 @@ async def test_read_attributes(connected_knx_device: PhysicalDevice):
     [("temperature_setpoint", 20), ("onoff_state", True), ("fan_speed", "low")],
 )
 async def test_write_attribute(
-    connected_knx_device: PhysicalDevice,
+    connected_knx_device: CoreDevice,
     attribute: str,
     value,
 ):
@@ -100,7 +100,7 @@ async def test_write_attribute(
     ],
 )
 async def test_push_update_received(  # noqa: PLR0913
-    connected_knx_device: PhysicalDevice,
+    connected_knx_device: CoreDevice,
     thermocktat_http: ThermocktatAsync,
     setter: str,
     attribute: str,

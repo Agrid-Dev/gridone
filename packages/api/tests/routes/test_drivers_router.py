@@ -331,8 +331,20 @@ class TestRenameAttribute:
         self, client: TestClient, dm: MagicMock, ts: MagicMock
     ):
         dm.list_devices.return_value = [
-            Device(id="d1", name="Device 1", driver_id="test_driver"),
-            Device(id="d2", name="Device 2", driver_id="test_driver"),
+            Device(
+                id="d1",
+                name="Device 1",
+                driver_id="test_driver",
+                transport_id="tr",
+                config={},
+            ),
+            Device(
+                id="d2",
+                name="Device 2",
+                driver_id="test_driver",
+                transport_id="tr",
+                config={},
+            ),
         ]
         response = client.post(
             "/test_driver/attributes/temperature/rename", json={"new_name": "temp"}
