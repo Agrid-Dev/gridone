@@ -14,6 +14,7 @@ export default defineConfig([
     languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: {
       "no-unused-vars": "off", // handled by tseslint
+      "no-undef": "off", // handled by tsc (knows lib types like RequestInit)
       "no-console": "warn",
     },
   },
