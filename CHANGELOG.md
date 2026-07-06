@@ -1,3 +1,9 @@
+## v0.137.0 (2026-07-06)
+
+### Feat
+
+- scaffold @gridone/sdk package with build, tests and CI
+
 ## v0.136.1 (2026-07-06)
 
 ### Fix
