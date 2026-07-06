@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FanGlyph, FlowChevron, fmt, ValueChip } from "../synoptic";
-import { fanIsSpinning } from "./fan";
+import { FAN_STATUS_DOT_CLASS, fanIsSpinning, fanStatus } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { AirExtractorValues } from "./types";
 
@@ -24,35 +24,21 @@ export function AirExtractorSynoptic({
   const { t } = useTranslation("standardDevices");
   const label = useAirExtractorLabel();
 
-  const running = values.onoffState;
-  const flow = values.flowSwitch;
+  const status = fanStatus(values);
 
   return (
     <div className={cn("rounded-xl border bg-card p-4", className)}>
-      {(running != null || flow != null) && (
+      {status && (
         <div className="mb-3 flex items-center gap-2">
-          {running != null && (
-            <Badge variant="outline" className="gap-1.5">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  running ? "bg-status-ok" : "bg-muted-foreground",
-                )}
-              />
-              {running ? label("on") : label("off")}
-            </Badge>
-          )}
-          {flow != null && (
-            <Badge variant="outline" className="gap-1.5">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  flow ? "bg-status-ok" : "bg-status-warning",
-                )}
-              />
-              {flow ? label("flowProven") : label("flowMissing")}
-            </Badge>
-          )}
+          <Badge variant="outline" className="gap-1.5">
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                FAN_STATUS_DOT_CLASS[status.tone],
+              )}
+            />
+            {label(status.key)}
+          </Badge>
         </div>
       )}
 

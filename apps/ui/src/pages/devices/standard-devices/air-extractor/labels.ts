@@ -8,6 +8,8 @@ export type AirExtractorLabelKey =
   | "fan"
   | "on"
   | "off"
+  | "commandedNoFlow"
+  | "flowWithoutCommand"
   | "flowProven"
   | "flowMissing";
 

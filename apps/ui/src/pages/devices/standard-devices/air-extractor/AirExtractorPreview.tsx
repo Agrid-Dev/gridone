@@ -2,7 +2,7 @@ import { Fan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isAirExtractor, readAirExtractorAttributes } from "@/api/devices";
 import { fmt } from "../synoptic";
-import { fanIsSpinning } from "./fan";
+import { FAN_STATUS_DOT_CLASS, fanIsSpinning, fanStatus } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { StandardPreviewProps } from "../types";
 
@@ -10,23 +10,23 @@ export function AirExtractorPreview({ device }: StandardPreviewProps) {
   const label = useAirExtractorLabel();
   if (!isAirExtractor(device)) return null;
   const a = readAirExtractorAttributes(device);
-  const running = a.onoffState;
+  const status = fanStatus(a);
   const spinning = fanIsSpinning(a);
 
   return (
     <div className="flex items-center justify-between gap-3">
       {/* Running status */}
       <div className="flex items-center gap-1.5 min-w-0">
-        {running != null && (
+        {status && (
           <span
             className={cn(
               "h-1.5 w-1.5 shrink-0 rounded-full",
-              running ? "bg-status-ok" : "bg-muted-foreground",
+              FAN_STATUS_DOT_CLASS[status.tone],
             )}
           />
         )}
         <span className="truncate text-xs text-muted-foreground">
-          {running == null ? "—" : running ? label("on") : label("off")}
+          {status ? label(status.key) : "—"}
         </span>
       </div>
 

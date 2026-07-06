@@ -49,6 +49,8 @@
       "fan": "Ventilateur d'extraction",
       "on": "Marche",
       "off": "Arrêt",
+      "commandedNoFlow": "Commandé, pas de débit",
+      "flowWithoutCommand": "Débit sans commande",
       "flowProven": "Débit établi",
       "flowMissing": "Pas de débit"
     }
