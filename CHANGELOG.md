@@ -1,3 +1,10 @@
+## v0.139.0 (2026-07-06)
+
+### Feat
+
+- add smoke-test script for live-server verification
+- add GridoneClient with auth, token storage and request layer
+
 ## v0.138.0 (2026-07-06)
 
 ### Feat
