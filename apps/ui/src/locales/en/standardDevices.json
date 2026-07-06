@@ -40,5 +40,18 @@
     "name": "Single-flux AHU",
     "name_plural": "Single-flux AHUs"
   },
+  "air_extractor": {
+    "name": "Air extractor",
+    "name_plural": "Air extractors",
+    "synoptic": {
+      "extractAir": "Extract air",
+      "exhaustAir": "Exhaust air",
+      "fan": "Extract fan",
+      "on": "Running",
+      "off": "Stopped",
+      "flowProven": "Flow proven",
+      "flowMissing": "No flow"
+    }
+  },
   "other": { "name": "Other", "name_plural": "Others" }
 }

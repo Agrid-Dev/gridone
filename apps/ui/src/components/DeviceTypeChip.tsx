@@ -4,6 +4,7 @@ import {
   CloudSun,
   Zap,
   AirVent,
+  Wind,
   CircleHelp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
   [DeviceType.ElectricityMeter]: Zap,
   [DeviceType.AhuDoubleFlux]: AirVent,
   [DeviceType.AhuSingleFlux]: AirVent,
+  [DeviceType.AirExtractor]: Wind,
 };
 
 export function deviceTypeIcon(

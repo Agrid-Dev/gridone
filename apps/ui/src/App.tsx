@@ -23,7 +23,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { useBuildingProfile } from "./hooks/useBuildingProfile";
 import { useFeatureEnabled } from "./utils/featureFlags";
 
-const AhuSandbox = lazy(() => import("./pages/sandbox/AhuSandbox"));
+const SynopticsSandbox = lazy(() => import("./pages/sandbox/SynopticsSandbox"));
 
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
@@ -56,10 +56,10 @@ function ProtectedLayout() {
                 <Route path="/settings" element={<SettingsPage />} />
                 {sandboxEnabled && (
                   <Route
-                    path="/sandbox/ahu"
+                    path="/sandbox/synoptics"
                     element={
                       <Suspense>
-                        <AhuSandbox />
+                        <SynopticsSandbox />
                       </Suspense>
                     }
                   />

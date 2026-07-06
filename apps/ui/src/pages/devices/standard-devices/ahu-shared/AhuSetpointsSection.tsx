@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pencil } from "lucide-react";
-import { fmt } from "./format";
+import { fmt } from "../synoptic";
 import { useAhuSynopticLabel, type AhuSynopticLabelKey } from "./labels";
 import { SetpointDialog } from "./SetpointDialog";
 

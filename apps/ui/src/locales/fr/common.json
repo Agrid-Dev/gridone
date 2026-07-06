@@ -110,7 +110,8 @@
       "weather_sensor": "Station météo",
       "electricity_meter": "Compteur électrique",
       "ahu_double_flux": "CTA double flux",
-      "ahu_single_flux": "CTA simple flux"
+      "ahu_single_flux": "CTA simple flux",
+      "air_extractor": "Extracteur d'air"
     },
     "deviceKinds": {
       "physical": "Physique",

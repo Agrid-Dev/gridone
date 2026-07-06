@@ -12,6 +12,7 @@ import {
   Cpu,
   Fan,
   Thermometer,
+  Wind,
   Zap,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
   [DeviceType.WeatherSensor]: CloudSun,
   [DeviceType.AhuDoubleFlux]: AirVent,
   [DeviceType.AhuSingleFlux]: AirVent,
+  [DeviceType.AirExtractor]: Wind,
 };
 
 const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));

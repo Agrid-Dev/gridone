@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
-/** SVG building blocks shared by the AHU synoptics (single and double
- *  flux): ducts internals, value chips and air measurement tags. All
+/** Generic SVG building blocks for HVAC duct synoptics (AHUs, extractors,
+ *  …): duct internals, value chips and air measurement tags. All
  *  coordinates are in the parent SVG's viewBox space. */
 
 export function FlowChevron({
