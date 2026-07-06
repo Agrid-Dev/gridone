@@ -1,3 +1,9 @@
+## v0.136.1 (2026-07-06)
+
+### Fix
+
+- collapse extractor command/flow pills into one derived status
+
 ## v0.136.0 (2026-07-06)
 
 ### Feat
