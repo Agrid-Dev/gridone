@@ -1,0 +1,42 @@
+name: CI (SDK)
+
+on:
+  pull_request:
+    paths:
+      - "sdk/ts/**"
+      - ".github/workflows/sdk-ci.yaml"
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./sdk/ts
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ./sdk/ts/.node-version
+          cache: npm
+          cache-dependency-path: sdk/ts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format -- --check
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
