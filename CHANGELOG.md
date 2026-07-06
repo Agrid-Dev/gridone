@@ -1,3 +1,9 @@
+## v0.138.0 (2026-07-06)
+
+### Feat
+
+- add error classes to @gridone/sdk
+
 ## v0.137.0 (2026-07-06)
 
 ### Feat
