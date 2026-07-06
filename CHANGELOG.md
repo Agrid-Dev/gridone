@@ -1,3 +1,17 @@
+## v0.136.0 (2026-07-06)
+
+### Feat
+
+- air extractor device UI
+
+### Fix
+
+- derive extractor fan spin from proven flow, not fan speed
+
+### Refactor
+
+- extract generic synoptic/ primitives from ahu-shared
+
 ## v0.135.0 (2026-07-03)
 
 ### Feat
