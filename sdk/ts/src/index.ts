@@ -1,10 +1,13 @@
 /**
  * @gridone/sdk — TypeScript client for the Gridone API.
  *
- * Placeholder entry point that validates the build, test and CI pipeline.
- * Real exports (GridoneClient, TokenStorage, errors) land in the next
- * AGR-373 PRs and replace this function.
+ * API payloads keep the wire format (snake_case keys, as documented in the
+ * OpenAPI schema); SDK code is idiomatic camelCase. `GridoneClient`,
+ * `TokenStorage` and `MemoryTokenStorage` land in the next AGR-373 PR.
  */
-export function hello(name = "world"): string {
-  return `Hello, ${name}! This is @gridone/sdk.`;
-}
+export {
+  GridoneError,
+  isGridoneError,
+  isNotFound,
+  NetworkError,
+} from "./errors";
