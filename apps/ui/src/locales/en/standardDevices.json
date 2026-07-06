@@ -49,6 +49,8 @@
       "fan": "Extract fan",
       "on": "Running",
       "off": "Stopped",
+      "commandedNoFlow": "Commanded, no flow",
+      "flowWithoutCommand": "Flow without command",
       "flowProven": "Flow proven",
       "flowMissing": "No flow"
     }
