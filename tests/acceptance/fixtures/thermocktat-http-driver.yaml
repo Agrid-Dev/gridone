@@ -1,12 +1,18 @@
 # HTTP driver for the thermocktat emulators in compose.override.yaml.
-# Adapted from packages/devices_manager/tests/integration/fixtures/raw_drivers/
-# thermockat_http_driver.yaml, trimmed to the attributes the suites exercise.
+# Mirrors the reference driver from gridone-setup (.db/drivers/
+# thermocktat_http.yaml), plus test-env deltas: fast polling (5s) so read-back
+# assertions resolve quickly, and a fault_code attribute mapped to readable
+# labels through the mapping codec.
+#
+# NOTE: the reference file uses an attribute-level `json_pointer:` shorthand
+# that current gridone silently ignores (AttributeDriver only reads `codecs:`,
+# unknown fields are dropped) — every read here uses the supported list form.
 id: thermocktat_http
 transport: http
+type: thermostat
 
 update_strategy:
-  # Fast polling so read-back assertions resolve quickly.
-  polling: 5
+  polling: 5s
 
 device_config:
   - name: ip
@@ -29,7 +35,7 @@ attributes:
       body:
         value: ${value}
 
-  - name: state
+  - name: onoff_state
     data_type: bool
     read: "GET ${ip}/v1"
     codecs:
@@ -37,6 +43,39 @@ attributes:
     write:
       method: "POST"
       path: "${ip}/v1/enabled"
+      body:
+        value: ${value}
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /temperature_setpoint_min
+    write:
+      method: "POST"
+      path: "${ip}/v1/temperature_setpoint_min"
+      body:
+        value: ${value}
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /temperature_setpoint_max
+    write:
+      method: "POST"
+      path: "${ip}/v1/temperature_setpoint_max"
+      body:
+        value: ${value}
+
+  - name: fan_speed
+    data_type: str
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /fan_speed
+    write:
+      method: "POST"
+      path: "${ip}/v1/fan_speed"
       body:
         value: ${value}
 
@@ -51,13 +90,13 @@ attributes:
       body:
         value: ${value}
 
-  - name: fan_speed
+  - name: fault_code
     data_type: str
     read: "GET ${ip}/v1"
     codecs:
-      - json_pointer: /fan_speed
-    write:
-      method: "POST"
-      path: "${ip}/v1/fan_speed"
-      body:
-        value: ${value}
+      - json_pointer: /fault_code
+      - mapping:
+          0: ok
+          1: firmware_error
+          2: oops_error
+          3: disastrous_internal_error
