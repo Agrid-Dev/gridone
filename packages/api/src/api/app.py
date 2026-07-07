@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     dm = DevicesService(
         settings.storage_url,
-        transport_encryption_key=settings.transport_encryption_key,
+        transport_encryption_key=settings.transport_encryption_key,  # pragma: no cover
     )
     ts_service = TimeSeriesService(
         settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE

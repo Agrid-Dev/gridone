@@ -25,6 +25,15 @@ class TestTimezoneValidation:
         assert "not a valid IANA timezone name" in str(exc_info.value)
 
 
+class TestTransportEncryptionKey:
+    def test_defaults_to_none(self):
+        assert Settings().transport_encryption_key is None
+
+    def test_reads_from_env(self):
+        settings = load_settings({"TRANSPORT_ENCRYPTION_KEY": "test-key"})
+        assert settings.transport_encryption_key == "test-key"
+
+
 class TestCookieSecure:
     def test_secure_by_default(self):
         assert Settings().COOKIE_SECURE is True
