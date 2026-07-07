@@ -23,6 +23,7 @@ from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.core.driver import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.core.transport_registry import TransportRegistry
+from devices_manager.core.transports.secret_cipher import SecretCipher
 from devices_manager.dto import (
     Device,
     PhysicalDeviceCreate,
@@ -225,6 +226,35 @@ class TestFaultTolerantLoad:
             assert (error.kind, error.entity_id) == (kind, "corrupt")
         finally:
             await svc.stop()
+
+    @pytest.mark.asyncio
+    async def test_wrong_encryption_key_is_skipped_with_a_distinct_reason(
+        self, tmp_path: Path
+    ):
+        """A secret that can't be decrypted must not look like a corrupt file."""
+        url = f"yaml:{tmp_path}"
+        svc = DevicesService(url, transport_encryption_key=SecretCipher.generate_key())
+        await svc.load()
+        transport = await svc.add_transport(
+            TransportCreate(
+                name="Secret MQTT",
+                protocol=TransportProtocols.MQTT,
+                config={"host": "broker", "client_key": "shh"},  # ty: ignore[invalid-argument-type]
+            )
+        )
+        await svc.stop()
+
+        svc_wrong_key = DevicesService(
+            url, transport_encryption_key=SecretCipher.generate_key()
+        )
+        await svc_wrong_key.load()
+        try:
+            [error] = svc_wrong_key.load_errors
+            assert (error.kind, error.entity_id) == ("transport", transport.id)
+            assert "decrypt" in error.reason
+            assert "TRANSPORT_ENCRYPTION_KEY" in error.reason
+        finally:
+            await svc_wrong_key.stop()
 
     @pytest.mark.asyncio
     async def test_device_with_missing_driver_is_skipped(

@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from models.errors import ConflictError, StorageNotInitializedError
+from models.errors import (
+    ConflictError,
+    StorageConnectionError,
+    StorageNotInitializedError,
+)
 from models.ids import gen_id
 from models.service import Service
 
@@ -101,8 +105,10 @@ class DevicesService(Service):
         drivers: dict[str, Driver] | None = None,
         transports: dict[str, TransportClient] | None = None,
         devices: dict[str, CoreDevice] | None = None,
+        transport_encryption_key: str | None = None,
     ) -> None:
         self._storage_url = storage_url
+        self._transport_encryption_key = transport_encryption_key
         self._seed_drivers = drivers if drivers is not None else {}
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
@@ -162,9 +168,11 @@ class DevicesService(Service):
         Backend-level failures still raise (``UnsupportedStorageError``,
         ``StorageConnectionError``).
         """
-        storage = await build_storage(self._storage_url)
+        storage = await build_storage(
+            self._storage_url, transport_encryption_key=self._transport_encryption_key
+        )
         self._load_errors = []
-        transports = await self._load_transports(storage)
+        transports = await self._load_transports(storage.transports)
         drivers = await self._load_drivers(storage)
         devices = await self._load_devices(storage, drivers, transports)
         transport_registry = TransportRegistry(transports, storage=storage.transports)
@@ -219,15 +227,21 @@ class DevicesService(Service):
         for item_id in await backend.list_all():
             try:
                 entities.append(await backend.read(item_id))
+            except StorageConnectionError:
+                self._record_load_error(
+                    kind,
+                    item_id,
+                    "failed to decrypt a secret field — check TRANSPORT_ENCRYPTION_KEY",
+                )
             except Exception:  # noqa: BLE001 -- fault-tolerant load
                 self._record_load_error(kind, item_id, "unreadable entry")
         return entities
 
     async def _load_transports(
-        self, storage: DevicesManagerStorage
+        self, transport_storage: StorageBackend[Transport]
     ) -> dict[str, TransportClient]:
         transports = dict(self._seed_transports)
-        for dto in await self._read_entities(storage.transports, "transport"):
+        for dto in await self._read_entities(transport_storage, "transport"):
             if dto.id in transports:
                 continue
             try:

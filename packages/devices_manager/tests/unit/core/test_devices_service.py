@@ -1114,7 +1114,11 @@ class TestDevicesServiceStorage:
         mock_transport_client,
         monkeypatch,
     ):
-        async def _build(_url: str | None) -> MemoryDevicesStorage:
+        async def _build(
+            _url: str | None,
+            *,
+            transport_encryption_key: str | None = None,  # noqa: ARG001
+        ) -> MemoryDevicesStorage:
             return seeded_storage
 
         monkeypatch.setattr("devices_manager.service.build_storage", _build)
@@ -1145,7 +1149,11 @@ class TestDevicesServiceStorage:
         )
         await storage.devices.write(device_dto.id, device_dto)
 
-        async def _build(_url: str | None) -> MemoryDevicesStorage:
+        async def _build(
+            _url: str | None,
+            *,
+            transport_encryption_key: str | None = None,  # noqa: ARG001
+        ) -> MemoryDevicesStorage:
             return storage
 
         monkeypatch.setattr("devices_manager.service.build_storage", _build)
