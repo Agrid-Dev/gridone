@@ -76,6 +76,24 @@ const SEEDS: ProtocolSeed[] = [
       },
     ],
   },
+  {
+    protocol: "mqtt",
+    driverId: "thermocktat_mqtt",
+    driverFixture: "thermocktat-mqtt-driver.yaml",
+    transport: {
+      name: "acceptance-mqtt",
+      protocol: "mqtt",
+      config: { host: "mqtt-broker", port: 1883 },
+    },
+    // device_id is the emulator's TMK_DEVICE_ID (topic segment).
+    devices: [
+      {
+        name: "Thermocktat MQTT 0",
+        config: { device_id: "TMK_mqtt_0" },
+        externalUrl: "http://localhost:9083",
+      },
+    ],
+  },
 ];
 
 declare module "vitest" {
