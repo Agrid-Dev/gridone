@@ -49,7 +49,8 @@ const COMMANDS: {
  * the history steps assert on what the command step recorded in `written`.
  */
 export function goldenPathSuite(protocol: string): void {
-  const deviceIds = inject("devicesByProtocol")[protocol] ?? [];
+  const seededDevices = inject("devicesByProtocol")[protocol] ?? [];
+  const deviceIds = seededDevices.map((device) => device.id);
 
   let client: GridoneClient;
   let admin: MeResponse;
@@ -67,7 +68,13 @@ export function goldenPathSuite(protocol: string): void {
     expect(ids).toEqual(expect.arrayContaining(deviceIds));
   });
 
-  function goldenPathDeviceSuite({ id }: { id: string }): void {
+  function goldenPathDeviceSuite({
+    id,
+    externalUrl,
+  }: {
+    id: string;
+    externalUrl: string;
+  }): void {
     const written = new Map<
       string,
       { value: AttributeValueType; commandId: number }
@@ -150,11 +157,48 @@ export function goldenPathSuite(protocol: string): void {
         expect(match?.user_id).toBe(admin.id);
       }
     });
+
+    it("catches attribute updates made outside gridone", async () => {
+      const before = await client.devices.get(id);
+      const current = currentValue(before, "temperature_setpoint");
+      // Distinct from the command targets (24/25) so assertions can't
+      // accidentally match a command-produced state or point.
+      const target = current === 19 ? 21 : 19;
+
+      // Write straight to the emulator's public http API — the "someone
+      // physically in the building" channel; gridone is not aware of it.
+      const response = await fetch(`${externalUrl}/v1/temperature_setpoint`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: target }),
+      });
+      expect(response.ok).toBe(true);
+
+      // The driver's background sync (5s polling) must pick it up.
+      await pollUntil(
+        () => client.devices.get(id),
+        (d) => currentValue(d, "temperature_setpoint") === target,
+        { description: `external setpoint ${target} to be caught by polling` },
+      );
+
+      // The change lands in the timeseries history like any other — but with
+      // no command attribution, since no gridone command produced it.
+      const result = await client.timeseries.getPoints(
+        id,
+        "temperature_setpoint",
+        { start: runStart },
+      );
+      const point = result.points.find((p) => p.value === target);
+      expect(point, `an external point with value ${target}`).toBeDefined();
+      expect(point?.command_id ?? null).toBeNull();
+    });
   }
 
   // index as string: vitest's title interpolation formats the number 0 as "+0".
-  describe.each(deviceIds.map((id, index) => ({ id, index: String(index) })))(
-    `seeded ${protocol} device $index`,
-    goldenPathDeviceSuite,
-  );
+  describe.each(
+    seededDevices.map((device, index) => ({
+      ...device,
+      index: String(index),
+    })),
+  )(`seeded ${protocol} device $index`, goldenPathDeviceSuite);
 }

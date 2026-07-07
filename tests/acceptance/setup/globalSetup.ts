@@ -10,6 +10,14 @@ import { makeAdminClient } from "../lib/api";
 interface DeviceSeed {
   name: string;
   config: Record<string, unknown>;
+  /** Emulator http API published on the host — the suites' side-channel for
+   *  external (non-gridone) state changes. */
+  externalUrl: string;
+}
+
+export interface SeededDevice {
+  id: string;
+  externalUrl: string;
 }
 
 // TransportCreate's generated `config` is `Record<string, never>`: the API
@@ -41,10 +49,12 @@ const SEEDS: ProtocolSeed[] = [
       {
         name: "Thermocktat 0",
         config: { ip: "http://thermocktat-http-0:8080" },
+        externalUrl: "http://localhost:9080",
       },
       {
         name: "Thermocktat 1",
         config: { ip: "http://thermocktat-http-1:8080" },
+        externalUrl: "http://localhost:9081",
       },
     ],
   },
@@ -58,13 +68,19 @@ const SEEDS: ProtocolSeed[] = [
       config: { host: "thermocktat-modbus-0", port: 1502 },
     },
     // device_id is the Modbus unit id (thermocktat default: 4).
-    devices: [{ name: "Thermocktat Modbus 0", config: { device_id: 4 } }],
+    devices: [
+      {
+        name: "Thermocktat Modbus 0",
+        config: { device_id: 4 },
+        externalUrl: "http://localhost:9082",
+      },
+    ],
   },
 ];
 
 declare module "vitest" {
   interface ProvidedContext {
-    devicesByProtocol: Record<string, string[]>;
+    devicesByProtocol: Record<string, SeededDevice[]>;
   }
 }
 
@@ -114,7 +130,7 @@ async function ensureTransport(
 async function seedProtocol(
   client: GridoneClient,
   seed: ProtocolSeed,
-): Promise<string[]> {
+): Promise<SeededDevice[]> {
   await step(`create driver ${seed.driverId}`, () =>
     ensureDriver(client, seed),
   );
@@ -127,7 +143,7 @@ async function seedProtocol(
     client.devices.list({ driver_id: seed.driverId }),
   );
 
-  const deviceIds: string[] = [];
+  const seeded: SeededDevice[] = [];
   for (const device of seed.devices) {
     const found =
       existingDevices.find((candidate) => candidate.name === device.name) ??
@@ -139,9 +155,9 @@ async function seedProtocol(
           config: device.config,
         }),
       ));
-    deviceIds.push(found.id);
+    seeded.push({ id: found.id, externalUrl: device.externalUrl });
   }
-  return deviceIds;
+  return seeded;
 }
 
 /**
@@ -155,7 +171,7 @@ async function seedProtocol(
 export default async function globalSetup(project: TestProject): Promise<void> {
   const client = await step("login as default admin", makeAdminClient);
 
-  const devicesByProtocol: Record<string, string[]> = {};
+  const devicesByProtocol: Record<string, SeededDevice[]> = {};
   for (const seed of SEEDS) {
     devicesByProtocol[seed.protocol] = await seedProtocol(client, seed);
   }

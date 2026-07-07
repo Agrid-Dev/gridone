@@ -48,8 +48,11 @@ Environment overrides: `GRIDONE_API` (default `http://localhost:8765/api`),
 - `suites/<feature>/` — one directory per feature, mapped to a vitest project
   (`vitest run --project <feature>`) so suites can be selected individually and
   later parallelized in CI.
-- Tests never talk to the emulators or the database directly: the public API,
-  through the SDK, is the only interface. Payloads are wire-format snake_case,
-  per the SDK casing convention.
+- Assertions go through the public API (via the SDK) only — never the
+  database. The one direct emulator contact is deliberate: every emulator's
+  http API is published on a host port (`908x`) as the **external
+  side-channel**, used to change device state behind gridone's back and assert
+  that polling/listening catches it. Payloads are wire-format snake_case, per
+  the SDK casing convention.
 - No teardown between tests: the stack is ephemeral (`stack:down` wipes the
   volume-less database), so suites seed what they need and leave it.

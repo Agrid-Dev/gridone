@@ -3,10 +3,14 @@
 # consumer is the test stack).
 #
 # Mirrors the demo overlay (gridone-demo files/docker-compose.override.yml)
-# trimmed to the HTTP pair the v1 suites use. No host ports: tests talk to
-# gridone only; gridone reaches the emulators on the compose network. The
-# thermocktat image is FROM scratch (no shell), so no healthcheck is possible —
-# it serves within milliseconds of starting, and the devices suite polls
+# trimmed to what the suites use. Every emulator keeps its HTTP controller
+# enabled and published on a host port (908x, same convention as the demo
+# overlay): that is the external side-channel the suites use to change
+# device state behind gridone's back
+# (and the only reason tests ever talk to an emulator directly). gridone
+# itself reaches the emulators on the compose network — never via these ports.
+# The thermocktat image is FROM scratch (no shell), so no healthcheck is
+# possible — it serves within milliseconds of starting, and the suites poll
 # read-back values anyway.
 services:
   thermocktat-http-0:
@@ -14,18 +18,27 @@ services:
     environment:
       TMK_DEVICE_ID: TMK_http_0
       TMK_CONTROLLER: http
+    ports:
+      - "9080:8080"
 
   thermocktat-http-1:
     image: ghcr.io/agrid-dev/thermocktat:v0.9.0
     environment:
       TMK_DEVICE_ID: TMK_http_1
       TMK_CONTROLLER: http
+    ports:
+      - "9081:8080"
 
   thermocktat-modbus-0:
     image: ghcr.io/agrid-dev/thermocktat:v0.9.0
     environment:
       TMK_DEVICE_ID: TMK_modbus_0
-      TMK_CONTROLLER: modbus
+      # Per-controller enables, NOT TMK_CONTROLLER (which would enable modbus
+      # alone and kill the http side-channel).
+      TMK_CONTROLLERS_HTTP_ENABLED: "true"
+      TMK_CONTROLLERS_MODBUS_ENABLED: "true"
       # Float32 register pairs, matching the driver's byte_convert codecs
       # (the emulator default is 16-bit scaled ints).
       TMK_CONTROLLERS_MODBUS_REGISTER_COUNT: "2"
+    ports:
+      - "9082:8080"
