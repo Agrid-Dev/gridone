@@ -33,3 +33,19 @@ class TestMqttTransportConfig:
     def test_extra_field_rejected(self) -> None:
         with pytest.raises(ValidationError):
             MqttTransportConfig(host="test.broker", unknown_field="x")  # type: ignore[call-arg]
+
+    def test_client_cert_without_client_key_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="must be provided together"):
+            MqttTransportConfig(host="test.broker", client_cert="cert-pem")
+
+    def test_client_key_without_client_cert_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="must be provided together"):
+            MqttTransportConfig(host="test.broker", client_key="key-pem")
+
+    def test_neither_client_cert_nor_key_is_valid(self) -> None:
+        MqttTransportConfig(host="test.broker")
+
+    def test_both_client_cert_and_key_is_valid(self) -> None:
+        MqttTransportConfig(
+            host="test.broker", client_cert="cert-pem", client_key="key-pem"
+        )

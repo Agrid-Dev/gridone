@@ -1,4 +1,3 @@
-import asyncio
 import socket
 import ssl
 import tempfile
@@ -14,7 +13,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
-from devices_manager.core.transports.mqtt_transport.client import _build_ssl_context
+from devices_manager.core.transports.mqtt_transport.client import build_ssl_context
 from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttRequest
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
@@ -181,16 +180,31 @@ async def test_connect_builds_tls_context_off_the_event_loop(
     mock_metadata,
     test_pki: dict,
 ):
+    """The blocking SSL setup must not run on the event loop, however it's offloaded.
+
+    Asserts the observable property (which thread ran the SSL work) rather
+    than pinning the exact offload mechanism (e.g. asyncio.to_thread), so this
+    survives a refactor to e.g. run_in_executor.
+    """
     config = MqttTransportConfig(
         host="test.broker",
         tls=True,
         ca_cert=test_pki["ca_cert"],
     )
     client = MqttTransportClient(mock_metadata, config)
+
+    loop_thread = threading.get_ident()
+    seen: dict[str, int] = {}
+    original = ssl.SSLContext.load_verify_locations
+
+    def spy(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        seen["thread"] = threading.get_ident()
+        return original(self, *args, **kwargs)
+
     with (
+        patch.object(ssl.SSLContext, "load_verify_locations", spy),
         patch("aiomqtt.Client") as mock_client_class,
         patch("asyncio.wait_for") as mock_wait_for,
-        patch("asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread,
     ):
         mock_client_class.return_value.__aenter__.return_value = AsyncMock()
 
@@ -201,8 +215,7 @@ async def test_connect_builds_tls_context_off_the_event_loop(
 
         await client.connect()
 
-        mock_to_thread.assert_called_once()
-        assert mock_to_thread.call_args[0][0] is _build_ssl_context
+        assert seen["thread"] != loop_thread
 
 
 @pytest.mark.asyncio
@@ -379,36 +392,34 @@ class TestWrite:
 
 class TestBuildSslContext:
     def test_builds_context_with_ca_and_client_cert(self, test_pki: dict) -> None:
-        context = _build_ssl_context(_tls_config(test_pki, with_client_cert=True))
+        context = build_ssl_context(_tls_config(test_pki, with_client_cert=True))
         assert isinstance(context, ssl.SSLContext)
 
     def test_ca_only_context_omits_client_cert(self, test_pki: dict) -> None:
-        context = _build_ssl_context(_tls_config(test_pki, with_client_cert=False))
+        context = build_ssl_context(_tls_config(test_pki, with_client_cert=False))
         assert context.get_ca_certs() != []
 
     def test_explicit_ca_cert_skips_system_default_certs(self, test_pki: dict) -> None:
         with patch.object(ssl.SSLContext, "load_default_certs") as load_default:
-            _build_ssl_context(_tls_config(test_pki, with_client_cert=False))
+            build_ssl_context(_tls_config(test_pki, with_client_cert=False))
         load_default.assert_not_called()
 
     def test_no_ca_cert_falls_back_to_system_default_certs(self) -> None:
         config = MqttTransportConfig(host="test.broker", tls=True)
         with patch.object(ssl.SSLContext, "load_default_certs") as load_default:
-            _build_ssl_context(config)
+            build_ssl_context(config)
         load_default.assert_called_once()
 
 
 class TestMtlsHandshake:
     def test_handshake_succeeds_with_matching_client_cert(self, test_pki: dict) -> None:
-        client_context = _build_ssl_context(
-            _tls_config(test_pki, with_client_cert=True)
-        )
+        client_context = build_ssl_context(_tls_config(test_pki, with_client_cert=True))
         result = _run_mtls_handshake(client_context, test_pki)
         assert "error" not in result
         assert result["peer_cert"] is not None
 
     def test_handshake_rejected_without_client_cert(self, test_pki: dict) -> None:
-        client_context = _build_ssl_context(
+        client_context = build_ssl_context(
             _tls_config(test_pki, with_client_cert=False)
         )
         result = _run_mtls_handshake(client_context, test_pki)

@@ -26,7 +26,7 @@ TIMEOUT = 10
 logger = logging.getLogger(__name__)
 
 
-def _build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
+def build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
     """load_cert_chain needs file paths, so cert/key are written to temp files."""
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     if config.ca_cert:
@@ -74,7 +74,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 # a disconnected client ("client is not currently connected").
                 return
             tls_context = (
-                await asyncio.to_thread(_build_ssl_context, self.config)
+                await asyncio.to_thread(build_ssl_context, self.config)
                 if self.config.tls
                 else None
             )
