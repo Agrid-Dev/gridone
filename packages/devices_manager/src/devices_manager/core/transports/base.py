@@ -107,6 +107,12 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         if isinstance(config, BaseTransportConfig):
             config = config.model_dump()
+        secret_names = self.config.secret_field_names()
+        config = {
+            key: value
+            for key, value in config.items()
+            if value is not None or key not in secret_names
+        }
         self.config = self.config.model_copy(update=config)
         if reconnect:
             self.schedule_reconnect()

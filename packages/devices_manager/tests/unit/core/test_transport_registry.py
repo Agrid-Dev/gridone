@@ -3,13 +3,19 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager.core.transport_registry import TransportRegistry
+from devices_manager.core.transports.secret_cipher import SecretCipher
 from devices_manager.dto import (
+    Transport,
     TransportBase,
     TransportCreate,
     TransportUpdate,
     transport_to_public,
 )
 from devices_manager.storage import StorageBackend
+from devices_manager.storage.encrypting_transport_storage import (
+    EncryptingTransportStorage,
+)
+from devices_manager.storage.memory import MemoryStorageBackend
 from devices_manager.types import TransportProtocols
 from models.errors import NotFoundError
 
@@ -153,3 +159,87 @@ class TestTransportRegistryPersistence:
         )
         await registry.update(mock_transport_client.id, TransportUpdate(name="Updated"))
         storage.write.assert_called_once()
+
+
+class TestTransportRegistryUpdateSecrets:
+    """Secret fields must survive an omitted update and change on a resent one."""
+
+    @pytest.fixture
+    def registry_and_backend(self) -> tuple[TransportRegistry, MemoryStorageBackend]:
+        backend = MemoryStorageBackend[Transport]()
+        cipher = SecretCipher(SecretCipher.generate_key())
+        storage = EncryptingTransportStorage(backend, cipher)
+        return TransportRegistry(storage=storage), backend
+
+    @pytest.mark.asyncio
+    async def test_omitting_secret_field_preserves_existing_value(
+        self, registry_and_backend: tuple[TransportRegistry, MemoryStorageBackend]
+    ):
+        registry, backend = registry_and_backend
+        create = TransportCreate(
+            name="Secret MQTT",
+            protocol=TransportProtocols.MQTT,
+            config={"host": "broker", "client_key": "original-key"},  # ty: ignore[invalid-argument-type]
+        )
+        dto = await registry.add(create)
+
+        await registry.update(dto.id, TransportUpdate(config={"port": 8883}))
+
+        client = registry.get(dto.id)
+        assert client.config.client_key == "original-key"  # ty: ignore[unresolved-attribute]
+        raw = await backend.read(dto.id)
+        assert raw.config.client_key != "original-key"
+
+    @pytest.mark.asyncio
+    async def test_resending_secret_field_replaces_value(
+        self, registry_and_backend: tuple[TransportRegistry, MemoryStorageBackend]
+    ):
+        registry, _backend = registry_and_backend
+        create = TransportCreate(
+            name="Secret MQTT",
+            protocol=TransportProtocols.MQTT,
+            config={"host": "broker", "client_key": "original-key"},  # ty: ignore[invalid-argument-type]
+        )
+        dto = await registry.add(create)
+
+        await registry.update(dto.id, TransportUpdate(config={"client_key": "new-key"}))
+
+        client = registry.get(dto.id)
+        assert client.config.client_key == "new-key"  # ty: ignore[unresolved-attribute]
+
+    @pytest.mark.asyncio
+    async def test_explicit_null_secret_field_preserves_existing_value(
+        self, registry_and_backend: tuple[TransportRegistry, MemoryStorageBackend]
+    ):
+        """A full payload resending every field (secrets included as null) —
+
+        exactly what a form that always submits its whole state produces —
+        must not clear a secret it never touched.
+        """
+        registry, _backend = registry_and_backend
+        create = TransportCreate(
+            name="Secret MQTT",
+            protocol=TransportProtocols.MQTT,
+            config={"host": "broker", "client_key": "original-key"},  # ty: ignore[invalid-argument-type]
+        )
+        dto = await registry.add(create)
+
+        await registry.update(
+            dto.id,
+            TransportUpdate(
+                config={
+                    "host": "broker",
+                    "port": 8883,
+                    "tls": False,
+                    "ca_cert": None,
+                    "client_cert": None,
+                    "client_key": None,
+                    "username": None,
+                    "password": None,
+                }
+            ),
+        )
+
+        client = registry.get(dto.id)
+        assert client.config.client_key == "original-key"  # ty: ignore[unresolved-attribute]
+        assert client.config.port == 8883  # ty: ignore[unresolved-attribute]
