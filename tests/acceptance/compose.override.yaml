@@ -78,3 +78,15 @@ services:
         condition: service_healthy
     ports:
       - "9083:8080"
+
+  thermocktat-knx-0:
+    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    environment:
+      TMK_DEVICE_ID: TMK_knx_0
+      TMK_CONTROLLERS_HTTP_ENABLED: "true"
+      TMK_CONTROLLERS_KNX_ENABLED: "true"
+      # State-change telegrams pushed to the tunnel client every 1s
+      # (default 10s) so external updates surface quickly.
+      TMK_CONTROLLERS_KNX_PUBLISH_INTERVAL: 1s
+    ports:
+      - "9084:8080"

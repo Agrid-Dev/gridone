@@ -94,6 +94,24 @@ const SEEDS: ProtocolSeed[] = [
       },
     ],
   },
+  {
+    protocol: "knx",
+    driverId: "thermocktat_knx",
+    driverFixture: "thermocktat-knx-driver.yaml",
+    transport: {
+      name: "acceptance-knx",
+      protocol: "knx",
+      config: { gateway_ip: "thermocktat-knx-0", port: 3671 },
+    },
+    // Group address main/middle match the emulator defaults (1/0/x).
+    devices: [
+      {
+        name: "Thermocktat KNX 0",
+        config: { ga_main: "1", ga_middle: "0" },
+        externalUrl: "http://localhost:9084",
+      },
+    ],
+  },
 ];
 
 declare module "vitest" {

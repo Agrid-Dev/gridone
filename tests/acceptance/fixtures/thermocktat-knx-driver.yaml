@@ -1,0 +1,81 @@
+# KNX driver for the thermocktat emulator in compose.override.yaml.
+# Mirrors the integration fixture (packages/devices_manager/tests/integration/
+# fixtures/raw_drivers/thermocktat_knx_driver.yaml — already in the acceptance
+# conventions), plus fast polling and a fault_code attribute (group address
+# sub 7, DPT 7.001) mapped to the same labels as the other drivers.
+id: thermocktat_knx
+transport: knx
+type: thermostat
+
+update_strategy:
+  polling: 2s
+
+device_config:
+  - name: ga_main
+    default: "1"
+  - name: ga_middle
+    default: "0"
+
+attributes:
+  - name: onoff_state
+    data_type: bool
+    read_write: "${ga_main}/${ga_middle}/0"
+    codecs:
+      - knx_dpt: "1.001"
+
+  - name: temperature_setpoint
+    data_type: float
+    read_write: "${ga_main}/${ga_middle}/1"
+    codecs:
+      - knx_dpt: "9.001"
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read_write: "${ga_main}/${ga_middle}/2"
+    codecs:
+      - knx_dpt: "9.001"
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read_write: "${ga_main}/${ga_middle}/3"
+    codecs:
+      - knx_dpt: "9.001"
+
+  - name: temperature
+    data_type: float
+    read: "${ga_main}/${ga_middle}/4"
+    codecs:
+      - knx_dpt: "9.001"
+
+  - name: mode
+    data_type: str
+    read_write: "${ga_main}/${ga_middle}/5"
+    codecs:
+      - knx_dpt: "5.010"
+      - mapping:
+          1: "heat"
+          2: "cool"
+          3: "fan"
+          4: "auto"
+
+  - name: fan_speed
+    data_type: str
+    read_write: "${ga_main}/${ga_middle}/6"
+    codecs:
+      - knx_dpt: "5.010"
+      - mapping:
+          1: "auto"
+          2: "low"
+          3: "medium"
+          4: "high"
+
+  - name: fault_code
+    data_type: str
+    read: "${ga_main}/${ga_middle}/7"
+    codecs:
+      - knx_dpt: "7.001"
+      - mapping:
+          0: ok
+          1: firmware_error
+          2: oops_error
+          3: disastrous_internal_error
