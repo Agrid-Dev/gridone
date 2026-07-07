@@ -16,7 +16,7 @@ import { isApiError } from "@/api/apiError";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export type TransportFormCallbacks = {
   onCreated?: (transport: Transport) => void;
@@ -94,21 +94,47 @@ export const useTransportForm = (
   const configJsonSchema =
     protocol && transportProtocols.includes(protocol)
       ? configSchemas[protocol]
-      : { required: [] };
+      : { required: [], properties: {} };
   const configZodSchema = z.fromJSONSchema(configJsonSchema) as z.ZodObject;
   const configFormMethods = useForm<z.infer<typeof configZodSchema>>({
     resolver: zodResolver(configZodSchema),
     defaultValues: currentTransport?.config ?? {},
   });
+  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(
+    new Set(),
+  );
+  const revealSecret = (name: string) =>
+    setRevealedSecrets((prev) => new Set(prev).add(name));
+  const isSecretConfigured = (name: string) =>
+    Boolean(
+      (currentTransport?.config as Record<string, unknown> | undefined)?.[
+        `${name}_is_set`
+      ],
+    );
   useEffect(() => {
     if (transportProtocols.includes(protocol)) {
       configFormMethods.reset();
+      setRevealedSecrets(new Set());
     }
   }, [protocol]);
   const handleSubmit = async () => {
+    const configValues: Record<string, unknown> = {
+      ...configFormMethods.getValues(),
+    };
+    for (const [name, property] of Object.entries(
+      configJsonSchema.properties ?? {},
+    )) {
+      if (
+        property.secret &&
+        isSecretConfigured(name) &&
+        !revealedSecrets.has(name)
+      ) {
+        delete configValues[name];
+      }
+    }
     const values = {
       ...baseFormMethods.getValues(),
-      config: configFormMethods.getValues(),
+      config: configValues,
     };
     const [okBase, okConfig] = await Promise.all([
       baseFormMethods.trigger(),
@@ -141,5 +167,8 @@ export const useTransportForm = (
     configFormMethods,
     jsonSchema: configSchemas[protocol],
     lockedProtocol,
+    revealedSecrets,
+    revealSecret,
+    isSecretConfigured,
   };
 };

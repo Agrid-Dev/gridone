@@ -11,6 +11,7 @@ import {
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
+import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { Button } from "@/components/ui";
 import { transportProtocols } from "@/api/transports";
 import { useTranslation } from "react-i18next";
@@ -43,6 +44,9 @@ const TransportForm: FC<TransportFormProps> = ({
     isSubmitting,
     handleCancel,
     isCreate,
+    revealedSecrets,
+    revealSecret,
+    isSecretConfigured,
   } = useTransportForm(configSchemas, transport, {
     lockedProtocol,
     onCreated,
@@ -84,22 +88,52 @@ const TransportForm: FC<TransportFormProps> = ({
         />
         {jsonSchema &&
           Object.entries(jsonSchema.properties || {}).map(
-            ([propertyName, property]) => (
-              <InputController
-                key={propertyName}
-                name={propertyName}
-                control={configFormMethods.control}
-                label={toLabel(propertyName)}
-                type={property.type}
-                required={requiredSet.has(propertyName)}
-                description={property.description}
-                inputProps={{
-                  placeholder: property.default
-                    ? String(property.default)
-                    : undefined,
-                }}
-              />
-            ),
+            ([propertyName, property]) => {
+              if (
+                property.secret &&
+                isSecretConfigured(propertyName) &&
+                !revealedSecrets.has(propertyName)
+              ) {
+                return (
+                  <FieldShell
+                    key={propertyName}
+                    id={propertyName}
+                    label={toLabel(propertyName)}
+                    description={property.description}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        {t("fields.secretConfigured")}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => revealSecret(propertyName)}
+                      >
+                        {t("fields.secretReplace")}
+                      </Button>
+                    </div>
+                  </FieldShell>
+                );
+              }
+              return (
+                <InputController
+                  key={propertyName}
+                  name={propertyName}
+                  control={configFormMethods.control}
+                  label={toLabel(propertyName)}
+                  type={property.secret ? "password" : property.type}
+                  required={requiredSet.has(propertyName)}
+                  description={property.description}
+                  inputProps={{
+                    placeholder: property.default
+                      ? String(property.default)
+                      : undefined,
+                  }}
+                />
+              );
+            },
           )}
       </form>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">

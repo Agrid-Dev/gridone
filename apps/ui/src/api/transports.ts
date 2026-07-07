@@ -24,13 +24,14 @@ export type Transport = {
 };
 
 export type JsonSchemaProperty = {
-  type?: "string" | "number" | "integer" | "boolean" | "object";
+  type?: "string" | "number" | "integer" | "boolean" | "object" | "null";
   title?: string;
   description?: string;
   default?: string | number | boolean | null;
   enum?: Array<string | number>;
   anyOf?: JsonSchemaProperty[];
   oneOf?: JsonSchemaProperty[];
+  secret?: boolean;
 };
 
 export type TransportSchema = {
