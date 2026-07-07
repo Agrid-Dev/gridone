@@ -1,3 +1,9 @@
+## v0.145.0 (2026-07-07)
+
+### Feat
+
+- add devices golden-path acceptance suite
+
 ## v0.144.0 (2026-07-07)
 
 ### Feat
