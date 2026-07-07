@@ -1,0 +1,52 @@
+# Acceptance test stack — mirrors the production compose (gridone-infra
+# `gridone_stack` role) with test-environment deltas documented in README.md.
+# The main delta: bridge networking with service-name URLs instead of
+# `network_mode: host` (host networking only exists in production for building
+# LAN device discovery, which these tests don't cover, and it does not work on
+# macOS Docker Desktop).
+services:
+  gridone:
+    # CI injects the PR-built image via GRIDONE_IMAGE; local runs build from source.
+    image: ${GRIDONE_IMAGE:-gridone:acceptance}
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      - STORAGE_URL=postgresql://gridone:${DB_PASSWORD:-gridone}@postgres:5432/gridone
+      - SECRET_KEY=${SECRET_KEY:-acceptance-only-not-a-secret}
+      # Served over plain http://localhost — Secure cookies would be dropped.
+      - COOKIE_SECURE=false
+      - GRIDONE_TIMEZONE=${GRIDONE_TIMEZONE:-UTC}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Same probe as production; tighter cadence so `up --wait` returns fast.
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8765/api/health', timeout=5)",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      - POSTGRES_USER=gridone
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-gridone}
+      - POSTGRES_DB=gridone
+    # No volume: every `up` starts from an empty database, so the stack seeds
+    # the default admin/admin user and tests are reproducible.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridone"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s

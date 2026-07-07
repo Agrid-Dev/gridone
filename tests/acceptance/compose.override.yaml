@@ -1,0 +1,22 @@
+# Device emulators — auto-merged into compose.yaml by every bare
+# `docker compose up` (that is deliberate: inside tests/acceptance the only
+# consumer is the test stack).
+#
+# Mirrors the demo overlay (gridone-demo files/docker-compose.override.yml)
+# trimmed to the HTTP pair the v1 suites use. No host ports: tests talk to
+# gridone only; gridone reaches the emulators on the compose network. The
+# thermocktat image is FROM scratch (no shell), so no healthcheck is possible —
+# it serves within milliseconds of starting, and the devices suite polls
+# read-back values anyway.
+services:
+  thermocktat-http-0:
+    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    environment:
+      TMK_DEVICE_ID: TMK_http_0
+      TMK_CONTROLLER: http
+
+  thermocktat-http-1:
+    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    environment:
+      TMK_DEVICE_ID: TMK_http_1
+      TMK_CONTROLLER: http
