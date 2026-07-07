@@ -13,5 +13,6 @@ export {
   NetworkError,
 } from "./errors";
 export type { FetchLike, HttpMethod, RequestOptions } from "./http/httpClient";
+export type * from "./types";
 export { MemoryTokenStorage } from "./http/tokenStorage";
 export type { MaybePromise, Tokens, TokenStorage } from "./http/tokenStorage";
