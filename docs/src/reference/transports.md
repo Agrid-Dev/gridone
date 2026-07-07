@@ -49,6 +49,40 @@ MQTT maintains a persistent connection to a broker. It is push-based: on connect
 |---|---|---|---|
 | `host` | yes | — | Hostname or IP address of the MQTT broker |
 | `port` | no | `1883` | TCP port of the MQTT broker |
+| `tls` | no | `false` | Enables `mqtts` (TLS/mTLS) |
+| `ca_cert` | no | — | PEM-encoded CA certificate used to validate the broker's certificate |
+| `client_cert` | no | — | PEM-encoded client certificate presented to the broker (mTLS) |
+| `client_key` | no | — | PEM-encoded private key matching `client_cert` |
+| `username` | no | — | Username, for brokers combining mTLS with user auth |
+| `password` | no | — | Password, for brokers combining mTLS with user auth |
+
+TLS brokers conventionally listen on **8883**, not the plain-mqtt default of
+**1883** — `port` does not change automatically when `tls: true` is set.
+Connecting with `tls: true` to a plaintext port (or vice versa) fails as a
+connection timeout, not a clear error, so double-check the port matches the
+broker's actual listener.
+
+```yaml
+transport:
+  name: site-mqtts
+  protocol: mqtt
+  config:
+    host: broker.example.com
+    port: 8883
+    tls: true
+    ca_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    client_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    client_key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+      -----END PRIVATE KEY-----
+```
 
 ---
 

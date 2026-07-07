@@ -95,6 +95,37 @@ Resolution rules:
 - `postgresql://...` -> PostgreSQL backend
 - Any other URL -> raises `UnsupportedStorageError`
 
+## MQTT transports
+
+The MQTT transport supports plain `mqtt://` (the default) and `mqtts` (TLS/mTLS).
+Declaring an `mqtts` transport in driver YAML only changes the transport
+`config` block — topics, requests, and codecs are unaffected:
+
+```yaml
+transport:
+  name: site-mqtts
+  protocol: mqtt
+  config:
+    host: broker.example.com
+    port: 8883
+    tls: true
+    ca_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    client_cert: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    client_key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+      -----END PRIVATE KEY-----
+```
+
+See [`docs/src/reference/transports.md`](../../docs/src/reference/transports.md)
+for the full field reference.
+
 ## Service shape
 
 `DevicesService` follows the common service shape (`__init__(storage_url, ...)` + `async start` / `async stop`):
