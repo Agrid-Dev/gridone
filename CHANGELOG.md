@@ -1,3 +1,10 @@
+## v0.144.0 (2026-07-07)
+
+### Feat
+
+- align acceptance driver with gridone-setup and map fault_code
+- add acceptance global setup with sdk-seeded devices
+
 ## v0.143.0 (2026-07-07)
 
 ### Feat
