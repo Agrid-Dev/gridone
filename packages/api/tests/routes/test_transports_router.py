@@ -149,6 +149,78 @@ class TestDeleteTransport:
         assert response.status_code == 404
 
 
+class TestSecretMasking:
+    def test_get_masks_secret_fields(self, dm: MagicMock, client: TestClient):
+        secret_mqtt = build_transport(
+            "secret-mqtt",
+            "Secret MQTT",
+            TransportProtocols.MQTT,
+            {
+                "host": "broker",
+                "client_key": "super-secret-key",
+                "password": "hunter2",
+            },
+        )
+        dm.get_transport.side_effect = lambda _tid: secret_mqtt
+        response = client.get("/secret-mqtt")
+        assert response.status_code == 200
+        assert "super-secret-key" not in response.text
+        assert "hunter2" not in response.text
+        config = response.json()["config"]
+        assert config["client_key"] is None
+        assert config["client_key_is_set"] is True
+        assert config["password"] is None
+        assert config["password_is_set"] is True
+
+    def test_get_reports_is_set_false_when_secret_absent(self, client: TestClient):
+        response = client.get("/my-mqtt")
+        config = response.json()["config"]
+        assert config["client_key_is_set"] is False
+        assert config["password_is_set"] is False
+
+    def test_list_masks_secret_fields(self, dm: MagicMock, client: TestClient):
+        secret_mqtt = build_transport(
+            "secret-mqtt",
+            "Secret MQTT",
+            TransportProtocols.MQTT,
+            {"host": "broker", "client_key": "super-secret-key"},
+        )
+        dm.list_transports.return_value = [secret_mqtt]
+        response = client.get("/")
+        assert "super-secret-key" not in response.text
+        assert response.json()[0]["config"]["client_key_is_set"] is True
+
+    def test_create_masks_secret_fields(self, client: TestClient):
+        payload = {
+            "name": "Secret MQTT",
+            "protocol": "mqtt",
+            "config": {"host": "broker", "client_key": "super-secret-key"},
+        }
+        response = client.post("/", json=payload)
+        assert response.status_code == 201
+        assert "super-secret-key" not in response.text
+        assert response.json()["config"]["client_key_is_set"] is True
+
+    @pytest.mark.asyncio
+    async def test_update_masks_secret_fields(
+        self, dm: MagicMock, async_client: AsyncClient
+    ):
+        rotated = build_transport(
+            "my-mqtt",
+            "My mqtt broker",
+            TransportProtocols.MQTT,
+            {"host": "localhost", "client_key": "rotated-secret"},
+        )
+        dm.update_transport.side_effect = lambda _tid, _update: rotated
+        async with async_client as ac:
+            response = await ac.patch(
+                "/my-mqtt", json={"config": {"client_key": "rotated-secret"}}
+            )
+        assert response.status_code == 200
+        assert "rotated-secret" not in response.text
+        assert response.json()["config"]["client_key_is_set"] is True
+
+
 class TestGetTransportSchemas:
     def test_returns_schemas(self, client: TestClient):
         response = client.get("/schemas/")

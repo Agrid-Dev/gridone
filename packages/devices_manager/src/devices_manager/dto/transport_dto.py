@@ -176,3 +176,76 @@ class TransportCreate(BaseModel):
 class TransportUpdate(BaseModel):
     name: str | None = None
     config: dict | None = None
+
+
+class MqttTransportConfigRead(MqttTransportConfig):
+    """Secret fields carry an `_is_set` flag instead of their value."""
+
+    client_key_is_set: bool = False
+    password_is_set: bool = False
+
+
+class HttpTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.HTTP]
+    config: HttpTransportConfig
+
+
+class KnxTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.KNX]
+    config: KNXTransportConfig
+
+
+class MqttTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.MQTT]
+    config: MqttTransportConfigRead
+
+
+class ModbusTcpTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.MODBUS_TCP]
+    config: ModbusTCPTransportConfig
+
+
+class MbusTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.MBUS]
+    config: MBusTransportConfig
+
+
+class BacnetTransportRead(TransportBase):
+    protocol: Literal[TransportProtocols.BACNET]
+    config: BacnetTransportConfig
+
+
+TransportRead = Annotated[
+    HttpTransportRead
+    | KnxTransportRead
+    | MqttTransportRead
+    | ModbusTcpTransportRead
+    | MbusTransportRead
+    | BacnetTransportRead,
+    Field(discriminator="protocol"),
+]
+
+READ_DTO_BY_PROTOCOL = {
+    TransportProtocols.HTTP: HttpTransportRead,
+    TransportProtocols.KNX: KnxTransportRead,
+    TransportProtocols.MQTT: MqttTransportRead,
+    TransportProtocols.MODBUS_TCP: ModbusTcpTransportRead,
+    TransportProtocols.MBUS: MbusTransportRead,
+    TransportProtocols.BACNET: BacnetTransportRead,
+}
+
+
+def mask_transport(transport: Transport) -> TransportRead:
+    """Build a wire-safe view where secret config fields are never sent as plaintext."""
+    config_dict = transport.config.model_dump(mode="json")
+    for name in transport.config.secret_field_names():
+        config_dict[f"{name}_is_set"] = config_dict.get(name) is not None
+        config_dict[name] = None
+    read_cls = READ_DTO_BY_PROTOCOL[transport.protocol]
+    return read_cls(
+        id=transport.id,
+        name=transport.name,
+        protocol=transport.protocol,  # ty: ignore[invalid-argument-type]
+        config=config_dict,
+        connection_state=transport.connection_state,
+    )

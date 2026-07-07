@@ -30,7 +30,9 @@ from .transport_dto import (
     Transport,
     TransportBase,
     TransportCreate,
+    TransportRead,
     TransportUpdate,
+    mask_transport,
 )
 from .transport_dto import build_dto as build_transport
 from .transport_dto import (
@@ -58,6 +60,7 @@ __all__ = [
     "Transport",
     "TransportBase",
     "TransportCreate",
+    "TransportRead",
     "TransportUpdate",
     "VirtualDeviceCreate",
     "build_transport",
@@ -66,6 +69,7 @@ __all__ = [
     "device_to_public",
     "driver_from_public",
     "driver_to_public",
+    "mask_transport",
     "standard_schema_to_public",
     "transport_from_public",
     "transport_to_public",
