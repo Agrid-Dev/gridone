@@ -1,3 +1,9 @@
+## v0.148.0 (2026-07-07)
+
+### Feat
+
+- extend golden path to knx
+
 ## v0.147.1 (2026-07-07)
 
 ### Refactor
