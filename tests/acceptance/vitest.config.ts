@@ -14,6 +14,12 @@ export default defineConfig({
           include: ["suites/auth/**/*.spec.ts"],
         },
       },
+      {
+        test: {
+          name: "devices",
+          include: ["suites/devices/**/*.spec.ts"],
+        },
+      },
     ],
   },
 });
