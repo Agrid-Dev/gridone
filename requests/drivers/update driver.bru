@@ -1,0 +1,19 @@
+meta {
+  name: update driver
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{BASE_URL}}/drivers/:driver_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  driver_id: 
+}
+
+settings {
+  encodeUrl: true
+}

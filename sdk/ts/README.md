@@ -4,18 +4,19 @@ TypeScript client for the Gridone API. Runs in the browser and Node 18+, with ze
 
 API payloads keep the **wire format** — snake_case keys, exactly as documented in the OpenAPI schema. SDK code (classes, methods, config) is idiomatic camelCase.
 
-> **Status**: under construction ([AGR-373](https://linear.app/agrid-bms/issue/AGR-373)) — resource namespaces (`client.devices`, ...) and generated types are coming; until then `client.request()` reaches any endpoint.
+> **Status**: under construction ([AGR-373](https://linear.app/agrid-bms/issue/AGR-373)) — resource namespaces (`client.devices`, ...) are coming; until then `client.request()` reaches any endpoint.
 
 ## Usage
 
 ```ts
 import { GridoneClient, isNotFound } from "@gridone/sdk";
+import type { Device } from "@gridone/sdk";
 
 const client = new GridoneClient({ baseUrl: "http://localhost:8000" });
 
 await client.login("admin", "s3cret");
 
-const devices = await client.request<{ items: unknown[] }>("GET", "/devices", {
+const devices = await client.request<Device[]>("GET", "/devices", {
   searchParams: { page_size: 50 },
 });
 
@@ -33,6 +34,30 @@ await client.logout();
 Tokens are held in a `MemoryTokenStorage` by default (lifetime of the client). Pass your own `TokenStorage` implementation for other lifetimes — e.g. a cookie-backed one in the browser. Expired access tokens are refreshed transparently: on a 401 the client exchanges the refresh token (one refresh shared across concurrent requests) and retries once.
 
 For testing or Node-side tuning, inject a custom `fetch` via the config (`{ fetch: myFetch }`).
+
+## Types
+
+All API request and response types are exported, in wire format:
+
+```ts
+import type {
+  Device,
+  DeviceCreate,
+  Transport,
+  Page,
+  UnitCommand,
+} from "@gridone/sdk";
+```
+
+They are generated from the OpenAPI schema (`openapi-typescript`) into `src/generated/openapi.ts` and re-exported under stable names by `src/types.ts` — see its header for the few renames (`Driver`, `TimeSeries`, `Page<T>`, the `Transport` union). The raw `paths` / `components` / `operations` types are exported too for endpoint-level lookups.
+
+After changing the API, regenerate and commit the result:
+
+```sh
+npm run generate-types  # regenerates docs/src/openapi.json, then src/generated/openapi.ts
+```
+
+`src/types.spec.ts` contains compile-time assertions that fail `tsc` if the hand-written shapes drift from the generated ones.
 
 ## Development
 

@@ -71,6 +71,24 @@ files = "^apps/ui/"
 stages = ["pre-commit"]
 
 [[repos.hooks]]
+id = "sdk-lint"
+name = "SDK lint"
+language = "system"
+entry = "npm --prefix sdk/ts run lint"
+pass_filenames = false
+files = "^sdk/ts/"
+stages = ["pre-commit"]
+
+[[repos.hooks]]
+id = "sdk-format"
+name = "SDK format check"
+language = "system"
+entry = "npm --prefix sdk/ts run format -- --check"
+pass_filenames = false
+files = "^sdk/ts/"
+stages = ["pre-commit"]
+
+[[repos.hooks]]
 id = "ui-translations"
 name = "UI translation sync"
 language = "system"
