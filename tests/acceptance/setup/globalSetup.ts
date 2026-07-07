@@ -20,20 +20,12 @@ export interface SeededDevice {
   externalUrl: string;
 }
 
-// TransportCreate's generated `config` is `Record<string, never>`: the API
-// schema types it as the (empty) BaseTransportConfig instead of the
-// per-protocol config union the endpoint actually accepts. Widen it here
-// until the backend schema is fixed.
-type TransportSeed = Omit<TransportCreate, "config"> & {
-  config: Record<string, unknown>;
-};
-
 interface ProtocolSeed {
   /** Key under which the seeded device ids are provided to the suites. */
   protocol: string;
   driverId: string;
   driverFixture: string;
-  transport: TransportSeed;
+  transport: TransportCreate;
   devices: DeviceSeed[];
 }
 
@@ -121,9 +113,7 @@ async function ensureTransport(
   if (existing) {
     return existing.id;
   }
-  const created = await client.transports.create(
-    seed.transport as TransportCreate,
-  );
+  const created = await client.transports.create(seed.transport);
   return created.id;
 }
 

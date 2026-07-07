@@ -3,12 +3,13 @@ from unittest.mock import AsyncMock
 import pytest
 
 from devices_manager.core.transport_registry import TransportRegistry
+from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.dto import (
     TransportBase,
-    TransportCreate,
     TransportUpdate,
     transport_to_public,
 )
+from devices_manager.dto.transport_dto import HttpTransportCreate
 from devices_manager.storage import StorageBackend
 from devices_manager.types import TransportProtocols
 from models.errors import NotFoundError
@@ -64,10 +65,10 @@ class TestTransportRegistryAdd:
     @pytest.mark.asyncio
     async def test_add_from_create_dto(self):
         registry = TransportRegistry()
-        create = TransportCreate(
+        create = HttpTransportCreate(
             name="New Transport",
             protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
+            config=HttpTransportConfig(),
         )
         dto = await registry.add(create)
         assert dto.name == "New Transport"
@@ -110,11 +111,11 @@ class TestTransportRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_config(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
-        new_config = {"request_timeout": 5}
+        new_config = HttpTransportConfig(request_timeout=5)
         updated = await registry.update(
             mock_transport_client.id, TransportUpdate(config=new_config)
         )
-        assert updated.config.model_dump() == new_config
+        assert updated.config == new_config
 
     @pytest.mark.asyncio
     async def test_update_not_found(self):
@@ -128,10 +129,10 @@ class TestTransportRegistryPersistence:
     async def test_add_persists_to_storage(self):
         storage = AsyncMock(spec=StorageBackend)
         registry = TransportRegistry(storage=storage)
-        create = TransportCreate(
+        create = HttpTransportCreate(
             name="Test",
             protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
+            config=HttpTransportConfig(),
         )
         await registry.add(create)
         storage.write.assert_called_once()

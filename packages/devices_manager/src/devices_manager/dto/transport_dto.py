@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field
 
 from devices_manager.core.transports import (
     BaseTransportConfig,
@@ -137,42 +137,66 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
 }
 
 
-class TransportCreate(BaseModel):
+TransportConfig = (
+    HttpTransportConfig
+    | KNXTransportConfig
+    | MqttTransportConfig
+    | ModbusTCPTransportConfig
+    | MBusTransportConfig
+    | BacnetTransportConfig
+)
+
+
+class TransportCreateBase(BaseModel):
     name: str
-    protocol: TransportProtocols
-    config: BaseTransportConfig
 
-    @field_validator("config", mode="before")
-    @classmethod
-    def validate_and_build_config(
-        cls,
-        v: dict | BaseTransportConfig,
-        info: ValidationInfo,
-    ) -> BaseTransportConfig:
-        protocol = info.data.get("protocol")
-        if protocol is None:
-            msg = "protocol must be set before config"
-            raise ValueError(msg)
 
-        config_cls = CONFIG_CLASS_BY_PROTOCOL.get(protocol)
-        if config_cls is None:
-            raise ValueError(f"Unsupported protocol: {protocol}")  # noqa: EM102, TRY003
+class HttpTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.HTTP]
+    config: HttpTransportConfig
 
-        # Already a config instance of the right type → accept as-is
-        if isinstance(v, config_cls):
-            return v
 
-        # Dict → let the config Pydantic model do full validation
-        if isinstance(v, dict):
-            return config_cls.model_validate(v)
+class KnxTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.KNX]
+    config: KNXTransportConfig
 
-        msg = (
-            f"config for {protocol} must be a dict or {config_cls.__name__}, "
-            f"got {type(v).__name__}"
-        )
-        raise TypeError(msg)
+
+class MqttTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.MQTT]
+    config: MqttTransportConfig
+
+
+class ModbusTcpTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.MODBUS_TCP]
+    config: ModbusTCPTransportConfig
+
+
+class MbusTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.MBUS]
+    config: MBusTransportConfig
+
+
+class BacnetTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.BACNET]
+    config: BacnetTransportConfig
+
+
+# Mirrors the read-side `Transport` union so `protocol` narrows `config` to the
+# matching per-protocol config, both server-side and in generated client types.
+TransportCreate = Annotated[
+    HttpTransportCreate
+    | KnxTransportCreate
+    | MqttTransportCreate
+    | ModbusTcpTransportCreate
+    | MbusTransportCreate
+    | BacnetTransportCreate,
+    Field(discriminator="protocol"),
+]
 
 
 class TransportUpdate(BaseModel):
     name: str | None = None
-    config: dict | None = None
+    # PATCH has no `protocol` field to discriminate on: config validates
+    # against the plain union, then the transport's own config class is
+    # authoritative when the update is applied.
+    config: TransportConfig | None = None

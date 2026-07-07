@@ -14,6 +14,7 @@ import type {
   Page,
   TimeSeries,
   Transport,
+  TransportCreate,
   UnitCommand,
 } from "./types";
 
@@ -33,6 +34,18 @@ describe("public types match the generated OpenAPI types", () => {
     type WireTransport =
       paths["/transports/{transport_id}"]["get"]["responses"]["200"]["content"]["application/json"];
     expectTypeOf<Transport>().toEqualTypeOf<WireTransport>();
+  });
+
+  it("TransportCreate matches the union accepted by the transports API", () => {
+    type WireTransportCreate =
+      paths["/transports/"]["post"]["requestBody"]["content"]["application/json"];
+    expectTypeOf<TransportCreate>().toEqualTypeOf<WireTransportCreate>();
+  });
+
+  it("TransportCreate's protocol narrows config to the per-protocol type", () => {
+    expectTypeOf<
+      Extract<TransportCreate, { protocol: "modbus-tcp" }>["config"]
+    >().toEqualTypeOf<Schemas["ModbusTCPTransportConfig"]>();
   });
 
   it("renamed aliases point at the right schemas", () => {

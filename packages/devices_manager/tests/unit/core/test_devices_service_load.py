@@ -22,13 +22,14 @@ from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.core.driver import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.core.transport_registry import TransportRegistry
+from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.dto import (
     Device,
     DeviceCreate,
-    TransportCreate,
     driver_to_public,
     transport_to_public,
 )
+from devices_manager.dto.transport_dto import HttpTransportCreate
 from devices_manager.types import TransportProtocols
 from models.errors import (
     StorageConnectionError,
@@ -105,10 +106,10 @@ async def seeded_yaml_db(tmp_path: Path, driver) -> tuple[str, dict[str, str]]:
     svc = DevicesService(url)
     await svc.load()
     transport = await svc.add_transport(
-        TransportCreate(
+        HttpTransportCreate(
             name="Seed Transport",
             protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
+            config=HttpTransportConfig(),
         )
     )
     await svc.add_driver(driver_to_public(driver))

@@ -23,7 +23,7 @@
   },
   "scripts": {
     "build": "tsup",
-    "generate-types": "uv run --project ../.. python ../../packages/api/generate_openapi.py && openapi-typescript ../../docs/src/openapi.json -o src/generated/openapi.ts && prettier --write src/generated/openapi.ts",
+    "generate-types": "uv run --project ../.. python ../../packages/api/generate_openapi.py && openapi-typescript ../../docs/src/openapi.json -o src/generated/openapi.ts --default-non-nullable false && prettier --write src/generated/openapi.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",
     "smoke": "tsx --env-file-if-exists=.env scripts/smoke.ts",

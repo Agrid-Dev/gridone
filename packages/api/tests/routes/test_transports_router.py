@@ -107,6 +107,11 @@ class TestCreateTransport:
         response = client.post("/", json=payload)
         assert response.status_code == 422
 
+    def test_config_not_matching_protocol_returns_422(self, client: TestClient):
+        payload = {"name": "PLC", "protocol": "modbus-tcp", "config": {}}
+        response = client.post("/", json=payload)
+        assert response.status_code == 422
+
 
 class TestUpdateTransport:
     @pytest.mark.asyncio
