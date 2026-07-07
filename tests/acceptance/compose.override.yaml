@@ -20,3 +20,12 @@ services:
     environment:
       TMK_DEVICE_ID: TMK_http_1
       TMK_CONTROLLER: http
+
+  thermocktat-modbus-0:
+    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    environment:
+      TMK_DEVICE_ID: TMK_modbus_0
+      TMK_CONTROLLER: modbus
+      # Float32 register pairs, matching the driver's byte_convert codecs
+      # (the emulator default is 16-bit scaled ints).
+      TMK_CONTROLLERS_MODBUS_REGISTER_COUNT: "2"
