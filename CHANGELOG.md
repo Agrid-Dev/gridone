@@ -1,3 +1,9 @@
+## v0.141.0 (2026-07-07)
+
+### Feat
+
+- generate SDK types from OpenAPI schema, wire format (AGR-374)
+
 ## v0.140.0 (2026-07-07)
 
 ### Feat
