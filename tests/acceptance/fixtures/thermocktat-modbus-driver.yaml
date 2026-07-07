@@ -1,0 +1,77 @@
+# Modbus TCP driver for the thermocktat emulator in compose.override.yaml.
+# Mirrors the reference driver from gridone-setup (.db/drivers/
+# thermocktat_modbus.yaml) with the same test-env deltas as the http driver:
+# supported `codecs:` list form (the reference's attribute-level shorthand is
+# silently ignored by current gridone), fast polling, and a fault_code
+# attribute (HR 10) mapped to the same labels.
+#
+# Registers hold float32 big_endian pairs — the emulator must run with
+# `register_count: 2` (set via TMK_CONTROLLERS_MODBUS_REGISTER_COUNT).
+id: thermocktat_modbus
+transport: modbus-tcp
+type: thermostat
+
+update_strategy:
+  polling: 5s
+
+device_config:
+  - name: device_id
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: IR0:2
+    codecs:
+      - byte_convert: "float32 big_endian"
+
+  - name: temperature_setpoint
+    data_type: float
+    read_write: HR0:2
+    codecs:
+      - byte_convert: "float32 big_endian"
+
+  - name: onoff_state
+    data_type: bool
+    read_write: C0
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read_write: HR2:2
+    codecs:
+      - byte_convert: "float32 big_endian"
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read_write: HR4:2
+    codecs:
+      - byte_convert: "float32 big_endian"
+
+  - name: mode
+    data_type: str
+    read_write: HR6
+    codecs:
+      - mapping:
+          1: heat
+          2: cool
+          3: fan
+          4: auto
+
+  - name: fan_speed
+    data_type: str
+    read_write: HR8
+    codecs:
+      - mapping:
+          1: auto
+          2: low
+          3: medium
+          4: high
+
+  - name: fault_code
+    data_type: str
+    read: HR10
+    codecs:
+      - mapping:
+          0: ok
+          1: firmware_error
+          2: oops_error
+          3: disastrous_internal_error
