@@ -1,3 +1,9 @@
+## v0.139.1 (2026-07-07)
+
+### Refactor
+
+- retire virtual devices, collapse device hierarchy into CoreDevice (AGR-886)
+
 ## v0.139.0 (2026-07-06)
 
 ### Feat
