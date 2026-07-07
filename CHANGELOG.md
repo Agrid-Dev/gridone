@@ -1,3 +1,9 @@
+## v0.146.0 (2026-07-07)
+
+### Feat
+
+- extend golden path to modbus tcp
+
 ## v0.145.0 (2026-07-07)
 
 ### Feat
