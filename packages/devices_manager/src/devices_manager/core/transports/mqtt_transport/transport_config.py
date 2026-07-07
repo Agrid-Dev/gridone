@@ -9,3 +9,9 @@ class MqttTransportConfig(BaseTransportConfig):
     model_config = ConfigDict(extra="forbid", revalidate_instances="always")
     host: str
     port: PositiveInt = MQTT_DEFAULT_PORT
+    tls: bool = False
+    ca_cert: str | None = None
+    client_cert: str | None = None
+    client_key: str | None = None
+    username: str | None = None
+    password: str | None = None

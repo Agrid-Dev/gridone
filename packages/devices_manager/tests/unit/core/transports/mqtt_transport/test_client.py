@@ -1,3 +1,9 @@
+import asyncio
+import socket
+import ssl
+import tempfile
+import threading
+from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -8,8 +14,68 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.mqtt_transport.client import _build_ssl_context
 from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttRequest
 from devices_manager.core.transports.transport_metadata import TransportMetadata
+
+
+def _serve_one_mtls_connection(
+    server_socket: socket.socket, server_context: ssl.SSLContext, result: dict
+) -> None:
+    conn, _ = server_socket.accept()
+    try:
+        with server_context.wrap_socket(conn, server_side=True) as tls_conn:
+            result["peer_cert"] = tls_conn.getpeercert()
+    except ssl.SSLError as exc:
+        result["error"] = exc
+
+
+def _run_mtls_handshake(client_context: ssl.SSLContext, test_pki: dict) -> dict:
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.load_verify_locations(cadata=test_pki["ca_cert"])
+    server_context.verify_mode = ssl.CERT_REQUIRED
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        cert_path = Path(tmp_dir) / "server_cert.pem"
+        key_path = Path(tmp_dir) / "server_key.pem"
+        cert_path.write_text(test_pki["server_cert"])
+        key_path.write_text(test_pki["server_key"])
+        server_context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind(("localhost", 0))
+        server_socket.listen(1)
+        port = server_socket.getsockname()[1]
+
+        result: dict = {}
+        thread = threading.Thread(
+            target=_serve_one_mtls_connection,
+            args=(server_socket, server_context, result),
+        )
+        thread.start()
+        try:
+            with socket.create_connection(("localhost", port), timeout=5) as sock:
+                try:
+                    with client_context.wrap_socket(
+                        sock, server_hostname="localhost"
+                    ) as tls_sock:
+                        tls_sock.do_handshake()
+                except ssl.SSLError as exc:
+                    result["client_error"] = exc
+        finally:
+            thread.join(timeout=5)
+            server_socket.close()
+        return result
+
+
+def _tls_config(test_pki: dict, *, with_client_cert: bool) -> MqttTransportConfig:
+    return MqttTransportConfig(
+        host="test.broker",
+        tls=True,
+        ca_cert=test_pki["ca_cert"],
+        client_cert=test_pki["client_cert"] if with_client_cert else None,
+        client_key=test_pki["client_key"] if with_client_cert else None,
+    )
 
 
 @pytest.fixture
@@ -59,6 +125,84 @@ async def test_connect_success(
     mock_aiomqtt_client.__aenter__.assert_awaited_once()
     # _handle_incoming_messages task
     assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_connect_falls_back_to_plain_mqtt_when_tls_unset(
+    mqtt_client: MqttTransportClient,
+    mock_aiomqtt_client: AsyncMock,  # noqa: ARG001
+):
+    with patch("aiomqtt.Client") as mock_client_class:
+        mock_client_class.return_value.__aenter__.return_value = AsyncMock()
+        await mqtt_client.connect()
+        _, kwargs = mock_client_class.call_args
+        assert kwargs["tls_context"] is None
+        assert kwargs["username"] is None
+        assert kwargs["password"] is None
+
+
+@pytest.mark.asyncio
+async def test_connect_passes_tls_context_and_credentials(
+    mock_metadata,
+    test_pki: dict,
+):
+    config = MqttTransportConfig(
+        host="test.broker",
+        port=8883,
+        tls=True,
+        ca_cert=test_pki["ca_cert"],
+        client_cert=test_pki["client_cert"],
+        client_key=test_pki["client_key"],
+        username="gridone",
+        password="secret",
+    )
+    client = MqttTransportClient(mock_metadata, config)
+    with (
+        patch("aiomqtt.Client") as mock_client_class,
+        patch("asyncio.wait_for") as mock_wait_for,
+    ):
+        mock_client_class.return_value.__aenter__.return_value = AsyncMock()
+
+        async def mock_wait_for_coroutine(coroutine, timeout):  # noqa: ANN202, ARG001, ASYNC109
+            return await coroutine
+
+        mock_wait_for.side_effect = mock_wait_for_coroutine
+
+        await client.connect()
+
+        _, kwargs = mock_client_class.call_args
+        assert kwargs["username"] == "gridone"
+        assert kwargs["password"] == "secret"  # noqa: S105
+        assert kwargs["tls_context"] is not None
+
+
+@pytest.mark.asyncio
+async def test_connect_builds_tls_context_off_the_event_loop(
+    mock_metadata,
+    test_pki: dict,
+):
+    config = MqttTransportConfig(
+        host="test.broker",
+        tls=True,
+        ca_cert=test_pki["ca_cert"],
+    )
+    client = MqttTransportClient(mock_metadata, config)
+    with (
+        patch("aiomqtt.Client") as mock_client_class,
+        patch("asyncio.wait_for") as mock_wait_for,
+        patch("asyncio.to_thread", wraps=asyncio.to_thread) as mock_to_thread,
+    ):
+        mock_client_class.return_value.__aenter__.return_value = AsyncMock()
+
+        async def mock_wait_for_coroutine(coroutine, timeout):  # noqa: ANN202, ARG001, ASYNC109
+            return await coroutine
+
+        mock_wait_for.side_effect = mock_wait_for_coroutine
+
+        await client.connect()
+
+        mock_to_thread.assert_called_once()
+        assert mock_to_thread.call_args[0][0] is _build_ssl_context
 
 
 @pytest.mark.asyncio
@@ -231,3 +375,41 @@ class TestWrite:
         address = MqttAddress(topic="test/topic")
         with pytest.raises(ValueError, match="no message template"):
             await mqtt_client.write(address, 42)
+
+
+class TestBuildSslContext:
+    def test_builds_context_with_ca_and_client_cert(self, test_pki: dict) -> None:
+        context = _build_ssl_context(_tls_config(test_pki, with_client_cert=True))
+        assert isinstance(context, ssl.SSLContext)
+
+    def test_ca_only_context_omits_client_cert(self, test_pki: dict) -> None:
+        context = _build_ssl_context(_tls_config(test_pki, with_client_cert=False))
+        assert context.get_ca_certs() != []
+
+    def test_explicit_ca_cert_skips_system_default_certs(self, test_pki: dict) -> None:
+        with patch.object(ssl.SSLContext, "load_default_certs") as load_default:
+            _build_ssl_context(_tls_config(test_pki, with_client_cert=False))
+        load_default.assert_not_called()
+
+    def test_no_ca_cert_falls_back_to_system_default_certs(self) -> None:
+        config = MqttTransportConfig(host="test.broker", tls=True)
+        with patch.object(ssl.SSLContext, "load_default_certs") as load_default:
+            _build_ssl_context(config)
+        load_default.assert_called_once()
+
+
+class TestMtlsHandshake:
+    def test_handshake_succeeds_with_matching_client_cert(self, test_pki: dict) -> None:
+        client_context = _build_ssl_context(
+            _tls_config(test_pki, with_client_cert=True)
+        )
+        result = _run_mtls_handshake(client_context, test_pki)
+        assert "error" not in result
+        assert result["peer_cert"] is not None
+
+    def test_handshake_rejected_without_client_cert(self, test_pki: dict) -> None:
+        client_context = _build_ssl_context(
+            _tls_config(test_pki, with_client_cert=False)
+        )
+        result = _run_mtls_handshake(client_context, test_pki)
+        assert "error" in result or "client_error" in result
