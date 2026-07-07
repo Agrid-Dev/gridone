@@ -174,7 +174,7 @@ export function goldenPathSuite(protocol: string): void {
       });
       expect(response.ok).toBe(true);
 
-      // The driver's background sync (5s polling) must pick it up.
+      // gridone's background sync (2s polls, or push for mqtt) must pick it up.
       await pollUntil(
         () => client.devices.get(id),
         (d) => currentValue(d, "temperature_setpoint") === target,

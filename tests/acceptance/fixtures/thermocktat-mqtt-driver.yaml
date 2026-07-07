@@ -4,15 +4,15 @@
 # conventions: onoff_state naming, type: thermostat, and fault_code mapped to
 # the same labels as the http/modbus drivers.
 #
-# Reads are push-driven: the device subscribes to the emulator's snapshot
-# topic; the request topic triggers an on-demand publish for polls. The slow
-# polling interval below is a safety net — updates normally arrive by push.
+# Reads are pure push: the device subscribes to the emulator's snapshot
+# topic (published every 1s); polling is disabled — delivery relies entirely
+# on the listener path.
 id: thermocktat_mqtt
 transport: mqtt
 type: thermostat
 
 update_strategy:
-  polling: 60s
+  polling: disable
 
 device_config:
   - name: device_id
