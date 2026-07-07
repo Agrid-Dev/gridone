@@ -1,10 +1,15 @@
 import asyncio
 
 import pytest
+from bacpypes3.basetypes import BinaryPV
 from bacpypes3.primitivedata import Enumerated, Integer, Real, Unsigned
 
+from devices_manager.core.transports.bacnet_transport.bacnet_types import (
+    BacnetObjectType,
+)
 from devices_manager.core.transports.bacnet_transport.client import (
     BacnetTransportClient,
+    encode_present_value,
     to_native,
 )
 from devices_manager.core.transports.bacnet_transport.transport_config import (
@@ -14,6 +19,7 @@ from devices_manager.core.transports.transport_connection_state import (
     TransportConnectionState,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
+from devices_manager.types import AttributeValueType
 
 _MAKE_APP = (
     "devices_manager.core.transports.bacnet_transport.client.make_local_application"
@@ -114,3 +120,27 @@ def test_to_native_returns_plain_python_types(
     result = to_native(value)
     assert result == expected
     assert type(result) is expected_type
+
+
+@pytest.mark.parametrize(
+    ("object_type", "value", "expected_type", "expected"),
+    [
+        (BacnetObjectType.ANALOG_VALUE, 22.5, Real, 22.5),
+        # An integer written to an analog object is still a Real.
+        (BacnetObjectType.ANALOG_VALUE, 21, Real, 21.0),
+        (BacnetObjectType.BINARY_VALUE, True, BinaryPV, 1),
+        (BacnetObjectType.BINARY_VALUE, False, BinaryPV, 0),
+        # A multi-state present-value is Unsigned — not the Signed integer a
+        # plain Python int would otherwise encode to.
+        (BacnetObjectType.MULTISTATE_VALUE, 2, Unsigned, 2),
+    ],
+)
+def test_encode_present_value_uses_the_object_types_datatype(
+    object_type: BacnetObjectType,
+    value: AttributeValueType,
+    expected_type: type,
+    expected: object,
+) -> None:
+    result = encode_present_value(object_type, value)
+    assert type(result) is expected_type
+    assert result == expected
