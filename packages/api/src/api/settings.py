@@ -11,6 +11,7 @@ class Settings(BaseModel):
     STORAGE_URL: str | None = None
     DATABASE_URL: str | None = None
     SECRET_KEY: str = secrets.token_hex(32)
+    TRANSPORT_ENCRYPTION_KEY: str | None = None
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     COOKIE_SECURE: bool = True  # False only when served over plain HTTP
@@ -38,6 +39,10 @@ class Settings(BaseModel):
     @property
     def secret_key(self) -> str:
         return self.SECRET_KEY
+
+    @property
+    def transport_encryption_key(self) -> str | None:
+        return self.TRANSPORT_ENCRYPTION_KEY
 
     @property
     def access_token_expire_minutes(self) -> int:

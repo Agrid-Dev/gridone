@@ -6,7 +6,7 @@ import functools
 from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
-from cli.config import get_storage_url
+from cli.config import get_storage_url, get_transport_encryption_key
 from devices_manager import DevicesService
 
 
@@ -17,7 +17,10 @@ async def service() -> AsyncIterator[DevicesService]:
     Only loads data from storage — no background polling or persistence — so
     CLI commands never start the full service or write to the DB on their own.
     """
-    svc = DevicesService(get_storage_url())
+    svc = DevicesService(
+        get_storage_url(),
+        transport_encryption_key=get_transport_encryption_key(),
+    )
     await svc.load()
     try:
         yield svc

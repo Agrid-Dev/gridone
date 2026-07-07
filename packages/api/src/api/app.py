@@ -81,7 +81,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     websocket_manager = WebSocketManager()
     app.state.websocket_manager = websocket_manager
 
-    dm = DevicesService(settings.storage_url)
+    dm = DevicesService(
+        settings.storage_url,
+        transport_encryption_key=settings.transport_encryption_key,
+    )
     ts_service = TimeSeriesService(
         settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE
     )

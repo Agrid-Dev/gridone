@@ -17,8 +17,12 @@ runner = CliRunner()
 
 def _seeded_build_storage(
     storage: MemoryDevicesStorage,
-) -> Callable[[str | None], Awaitable[MemoryDevicesStorage]]:
-    async def _build(_url: str | None) -> MemoryDevicesStorage:
+) -> Callable[..., Awaitable[MemoryDevicesStorage]]:
+    async def _build(
+        _url: str | None,
+        *,
+        transport_encryption_key: str | None = None,  # noqa: ARG001
+    ) -> MemoryDevicesStorage:
         return storage
 
     return _build
