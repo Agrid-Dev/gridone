@@ -1,6 +1,9 @@
 import asyncio
 import json
 import logging
+import ssl
+import tempfile
+from pathlib import Path
 
 import aiomqtt
 
@@ -21,6 +24,23 @@ from .transport_config import MqttTransportConfig
 TIMEOUT = 10
 
 logger = logging.getLogger(__name__)
+
+
+def _build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
+    """load_cert_chain needs file paths, so cert/key are written to temp files."""
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if config.ca_cert:
+        context.load_verify_locations(cadata=config.ca_cert)
+    else:
+        context.load_default_certs()
+    if config.client_cert and config.client_key:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cert_path = Path(tmp_dir) / "client_cert.pem"
+            key_path = Path(tmp_dir) / "client_key.pem"
+            cert_path.write_text(config.client_cert)
+            key_path.write_text(config.client_key)
+            context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+    return context
 
 
 class MqttTransportClient(PushTransportClient[MqttAddress]):
@@ -53,8 +73,17 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 # leaving the state "connected", so later reads/writes would hit
                 # a disconnected client ("client is not currently connected").
                 return
+            tls_context = (
+                await asyncio.to_thread(_build_ssl_context, self.config)
+                if self.config.tls
+                else None
+            )
             self._client_instance = aiomqtt.Client(
-                self.config.host, port=self.config.port
+                self.config.host,
+                port=self.config.port,
+                username=self.config.username,
+                password=self.config.password,
+                tls_context=tls_context,
             )
             await asyncio.wait_for(self._client_instance.__aenter__(), timeout=TIMEOUT)
             self._background_tasks.add(
