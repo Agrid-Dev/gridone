@@ -16,6 +16,7 @@ from devices_manager.core.device import (
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
+from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.dto import (
     AttributePatch,
     Device,
@@ -24,12 +25,12 @@ from devices_manager.dto import (
     DriverPatch,
     DriverSpec,
     TransportBase,
-    TransportCreate,
     TransportUpdate,
     device_to_public,
     driver_to_public,
     transport_to_public,
 )
+from devices_manager.dto.transport_dto import HttpTransportCreate
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import (
     AttributeValueType,
@@ -622,10 +623,10 @@ class TestDevicesServiceGetTransport:
 class TestDevicesServiceAddTransport:
     @pytest.mark.asyncio
     async def test_add_transport(self, devices_manager):
-        transport_data = TransportCreate(
+        transport_data = HttpTransportCreate(
             name="New Transport",
             protocol=TransportProtocols.HTTP,
-            config={},  # ty: ignore[invalid-argument-type]
+            config=HttpTransportConfig(),
         )
         new_transport = await devices_manager.add_transport(transport_data)
         assert new_transport.name == transport_data.name
@@ -665,7 +666,8 @@ class TestDevicesServiceUpdateTransport:
     async def test_update_non_existing_transport(self, devices_manager):
         with pytest.raises(NotFoundError):
             await devices_manager.update_transport(
-                "non-existing-id", TransportUpdate(name="x", config={"a": 2})
+                "non-existing-id",
+                TransportUpdate(name="x", config=HttpTransportConfig()),
             )
 
     @pytest.mark.asyncio
@@ -701,12 +703,12 @@ class TestDevicesServiceUpdateTransport:
         )
         await dm.load()
         transport_id = mock_transport_client.id
-        new_config = {"request_timeout": 5}
+        new_config = HttpTransportConfig(request_timeout=5)
         updated_transport = await dm.update_transport(
             transport_id, TransportUpdate(config=new_config)
         )
-        assert updated_transport.config.model_dump() == new_config
-        assert dm.get_transport(transport_id).config.model_dump() == new_config
+        assert updated_transport.config == new_config
+        assert dm.get_transport(transport_id).config == new_config
 
 
 class TestDevicesServiceDrivers:
@@ -1184,7 +1186,7 @@ class TestDevicesServiceRestartSync:
 
         await dm.update_transport(
             mock_transport_client.id,
-            TransportUpdate(config={"request_timeout": 5}),
+            TransportUpdate(config=HttpTransportConfig(request_timeout=5)),
         )
 
         assert device1.syncing is True

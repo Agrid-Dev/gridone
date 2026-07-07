@@ -12,7 +12,8 @@
  * - `DiscoveryHandlerDTO` / `DiscoveryHandlerCreateDTO` →
  *   `DiscoveryHandler` / `DiscoveryHandlerCreate`
  * - the monomorphized `PaginatedResponse_*_` schemas → the `Page<T>` generic
- * - `Transport` names the discriminated union served by the transports API
+ * - `Transport` / `TransportCreate` name the discriminated unions served and
+ *   accepted by the transports API
  *
  * `src/types.spec.ts` holds compile-time assertions that keep the manual
  * shapes (`Page<T>`, `Transport`, renames) in sync with the generated ones.
@@ -133,11 +134,28 @@ export type Transport =
   | MbusTransport
   | BacnetTransport;
 
-export type TransportCreate = Schemas["TransportCreate"];
+export type HttpTransportCreate = Schemas["HttpTransportCreate"];
+export type KnxTransportCreate = Schemas["KnxTransportCreate"];
+export type MqttTransportCreate = Schemas["MqttTransportCreate"];
+export type ModbusTcpTransportCreate = Schemas["ModbusTcpTransportCreate"];
+export type MbusTransportCreate = Schemas["MbusTransportCreate"];
+export type BacnetTransportCreate = Schemas["BacnetTransportCreate"];
+
+/**
+ * Discriminated union (on `protocol`) of every transport create payload:
+ * the declared `protocol` narrows `config` to its per-protocol config type.
+ */
+export type TransportCreate =
+  | HttpTransportCreate
+  | KnxTransportCreate
+  | MqttTransportCreate
+  | ModbusTcpTransportCreate
+  | MbusTransportCreate
+  | BacnetTransportCreate;
+
 export type TransportUpdate = Schemas["TransportUpdate"];
 export type TransportProtocols = Schemas["TransportProtocols"];
 export type TransportConnectionState = Schemas["TransportConnectionState"];
-export type BaseTransportConfig = Schemas["BaseTransportConfig"];
 export type HttpTransportConfig = Schemas["HttpTransportConfig"];
 export type KNXTransportConfig = Schemas["KNXTransportConfig"];
 export type KNXSecureCredentials = Schemas["KNXSecureCredentials"];

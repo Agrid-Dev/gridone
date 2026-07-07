@@ -17,7 +17,7 @@ function makeResource() {
 const CREATE: TransportCreate = {
   name: "Main MQTT broker",
   protocol: "mqtt",
-  config: {},
+  config: { host: "broker.local" },
 };
 const UPDATE: TransportUpdate = { name: "Backup MQTT broker" };
 

@@ -1230,12 +1230,12 @@ export interface components {
       /** Icon */
       icon: string;
       /** @default registered */
-      status: components["schemas"]["AppStatus"];
+      status?: components["schemas"]["AppStatus"];
       /**
        * Manifest
        * @default
        */
-      manifest: string;
+      manifest?: string;
       /**
        * Created At
        * Format: date-time
@@ -1269,7 +1269,7 @@ export interface components {
        * Position
        * @default 0
        */
-      position: number;
+      position?: number;
     };
     /**
      * AssetCommand
@@ -1286,12 +1286,12 @@ export interface components {
        * Recursive
        * @default false
        */
-      recursive: boolean;
+      recursive?: boolean;
       /**
        * Confirm
        * @default true
        */
-      confirm: boolean;
+      confirm?: boolean;
     };
     /**
      * AssetCreate
@@ -1331,7 +1331,7 @@ export interface components {
        * @default standard
        * @constant
        */
-      kind: "standard";
+      kind?: "standard";
       /** Name */
       name: string;
       data_type: components["schemas"]["DataType"];
@@ -1415,19 +1415,19 @@ export interface components {
        * Description
        * @default
        */
-      description: string;
+      description?: string;
       trigger: components["schemas"]["Trigger"];
       action: components["schemas"]["Action"];
       /**
        * Enabled
        * @default true
        */
-      enabled: boolean;
+      enabled?: boolean;
       /**
        * Id
        * @default
        */
-      id: string;
+      id?: string;
       /**
        * Created At
        * Format: date-time
@@ -1442,7 +1442,7 @@ export interface components {
        * Created By
        * @default
        */
-      created_by: string;
+      created_by?: string;
     };
     /** AutomationCreate */
     AutomationCreate: {
@@ -1452,14 +1452,14 @@ export interface components {
        * Description
        * @default
        */
-      description: string;
+      description?: string;
       trigger: components["schemas"]["Trigger"];
       action: components["schemas"]["Action"];
       /**
        * Enabled
        * @default true
        */
-      enabled: boolean;
+      enabled?: boolean;
     };
     /** AutomationExecution */
     AutomationExecution: {
@@ -1488,7 +1488,7 @@ export interface components {
        * Description
        * @default
        */
-      description: string;
+      description?: string;
       trigger?: components["schemas"]["Trigger"] | null;
       action?: components["schemas"]["Action"] | null;
       /** Enabled */
@@ -1516,7 +1516,7 @@ export interface components {
        * Port
        * @default 47808
        */
-      port: number;
+      port?: number;
       /** Discovery Address */
       discovery_address?: string | null;
       /** Bbmd Address */
@@ -1525,53 +1525,62 @@ export interface components {
        * Foreign Ttl
        * @default 900
        */
-      foreign_ttl: number;
+      foreign_ttl?: number;
       /**
        * Local Device Instance
        * @default 990001
        */
-      local_device_instance: number;
+      local_device_instance?: number;
       /**
        * Local Device Name
        * @default GridOne BACnet Client
        */
-      local_device_name: string;
+      local_device_name?: string;
       /**
        * Max Apdu Length
        * @default 1024
        */
-      max_apdu_length: number;
+      max_apdu_length?: number;
       /**
        * Vendor Identifier
        * @default 999
        */
-      vendor_identifier: number;
+      vendor_identifier?: number;
       /**
        * Segmentation Supported
        * @default 3
        */
-      segmentation_supported: number;
+      segmentation_supported?: number;
       /**
        * Discovery Timeout
        * @default 5
        */
-      discovery_timeout: number;
+      discovery_timeout?: number;
       /**
        * Read Property Timeout
        * @default 5
        */
-      read_property_timeout: number;
+      read_property_timeout?: number;
       /**
        * Write Property Timeout
        * @default 5
        */
-      write_property_timeout: number;
+      write_property_timeout?: number;
       /** @default 8 */
-      default_write_priority: components["schemas"]["BacnetWritePriority"];
+      default_write_priority?: components["schemas"]["BacnetWritePriority"];
+    };
+    /** BacnetTransportCreate */
+    BacnetTransportCreate: {
+      /** Name */
+      name: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "bacnet";
+      config: components["schemas"]["BacnetTransportConfig"];
     };
     BacnetWritePriority: number;
-    /** BaseTransportConfig */
-    BaseTransportConfig: Record<string, never>;
     /**
      * BatchDeviceCommand
      * @description Request body for ``POST /devices/commands``.
@@ -1590,7 +1599,7 @@ export interface components {
        * Confirm
        * @default true
        */
-      confirm: boolean;
+      confirm?: boolean;
     };
     /**
      * BatchDispatchResponse
@@ -1761,7 +1770,7 @@ export interface components {
        * Is Faulty
        * @default false
        */
-      is_faulty: boolean;
+      is_faulty?: boolean;
       /** Config */
       config: {
         [key: string]: unknown;
@@ -1779,7 +1788,7 @@ export interface components {
        * Required
        * @default true
        */
-      required: boolean;
+      required?: boolean;
     };
     /** DeviceCreate */
     DeviceCreate: {
@@ -1973,7 +1982,7 @@ export interface components {
        * @default fault
        * @constant
        */
-      kind: "fault";
+      kind?: "fault";
       /** Name */
       name: string;
       data_type: components["schemas"]["DataType"];
@@ -1982,7 +1991,7 @@ export interface components {
       /** Codecs */
       codecs?: components["schemas"]["CodecSpec"][];
       /** @default warning */
-      severity: components["schemas"]["Severity"];
+      severity?: components["schemas"]["Severity"];
       /** Healthy Values */
       healthy_values?: (number | string | boolean)[];
     };
@@ -2029,7 +2038,7 @@ export interface components {
        * Status
        * @default ok
        */
-      status: string;
+      status?: string;
       /** Version */
       version?: string | null;
       /** Flags */
@@ -2055,7 +2064,18 @@ export interface components {
        * Request Timeout
        * @default 10
        */
-      request_timeout: number;
+      request_timeout?: number;
+    };
+    /** HttpTransportCreate */
+    HttpTransportCreate: {
+      /** Name */
+      name: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "http";
+      config: components["schemas"]["HttpTransportConfig"];
     };
     /** IntervalOption */
     IntervalOption: {
@@ -2074,7 +2094,7 @@ export interface components {
        * User Id
        * @default 2
        */
-      user_id: number;
+      user_id?: number;
     };
     /** KNXTransportConfig */
     KNXTransportConfig: {
@@ -2087,13 +2107,13 @@ export interface components {
        * Port
        * @default 3671
        */
-      port: number;
+      port?: number;
       /**
        * Tunneling Mode
        * @default udp
        * @enum {string}
        */
-      tunneling_mode: "udp" | "tcp";
+      tunneling_mode?: "udp" | "tcp";
       secure_credentials?: components["schemas"]["KNXSecureCredentials"] | null;
     };
     /** KnxTransport */
@@ -2103,6 +2123,17 @@ export interface components {
       /** Name */
       name: string;
       connection_state: components["schemas"]["TransportConnectionState"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "knx";
+      config: components["schemas"]["KNXTransportConfig"];
+    };
+    /** KnxTransportCreate */
+    KnxTransportCreate: {
+      /** Name */
+      name: string;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -2125,7 +2156,7 @@ export interface components {
        * Baud Rate
        * @default 2400
        */
-      baud_rate: number;
+      baud_rate?: number;
     };
     /** MbusTransport */
     MbusTransport: {
@@ -2134,6 +2165,17 @@ export interface components {
       /** Name */
       name: string;
       connection_state: components["schemas"]["TransportConnectionState"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "mbus";
+      config: components["schemas"]["MBusTransportConfig"];
+    };
+    /** MbusTransportCreate */
+    MbusTransportCreate: {
+      /** Name */
+      name: string;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -2173,7 +2215,7 @@ export interface components {
        * Port
        * @default 502
        */
-      port: number;
+      port?: number;
     };
     /** ModbusTcpTransport */
     ModbusTcpTransport: {
@@ -2182,6 +2224,17 @@ export interface components {
       /** Name */
       name: string;
       connection_state: components["schemas"]["TransportConnectionState"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "modbus-tcp";
+      config: components["schemas"]["ModbusTCPTransportConfig"];
+    };
+    /** ModbusTcpTransportCreate */
+    ModbusTcpTransportCreate: {
+      /** Name */
+      name: string;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -2211,7 +2264,18 @@ export interface components {
        * Port
        * @default 1883
        */
-      port: number;
+      port?: number;
+    };
+    /** MqttTransportCreate */
+    MqttTransportCreate: {
+      /** Name */
+      name: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "mqtt";
+      config: components["schemas"]["MqttTransportConfig"];
     };
     /** Notification */
     Notification: {
@@ -2315,7 +2379,7 @@ export interface components {
        * Config
        * @default
        */
-      config: string;
+      config?: string;
     };
     /** RegistrationRequestResponse */
     RegistrationRequestResponse: {
@@ -2368,7 +2432,7 @@ export interface components {
        * Confirm
        * @default true
        */
-      confirm: boolean;
+      confirm?: boolean;
     };
     /**
      * SortOrder
@@ -2397,7 +2461,7 @@ export interface components {
        * Multiple
        * @default false
        */
-      multiple: boolean;
+      multiple?: boolean;
     };
     /** TagValueBody */
     TagValueBody: {
@@ -2456,7 +2520,7 @@ export interface components {
        * Token Type
        * @default bearer
        */
-      token_type: string;
+      token_type?: string;
       /** Expires In */
       expires_in: number;
     };
@@ -2465,13 +2529,6 @@ export interface components {
       status: components["schemas"]["ConnectionStatus"];
       /** Info */
       info?: string | null;
-    };
-    /** TransportCreate */
-    TransportCreate: {
-      /** Name */
-      name: string;
-      protocol: components["schemas"]["TransportProtocols"];
-      config: components["schemas"]["BaseTransportConfig"];
     };
     /**
      * TransportProtocols
@@ -2489,9 +2546,14 @@ export interface components {
       /** Name */
       name?: string | null;
       /** Config */
-      config?: {
-        [key: string]: unknown;
-      } | null;
+      config?:
+        | components["schemas"]["HttpTransportConfig"]
+        | components["schemas"]["KNXTransportConfig"]
+        | components["schemas"]["MqttTransportConfig"]
+        | components["schemas"]["ModbusTCPTransportConfig"]
+        | components["schemas"]["MBusTransportConfig"]
+        | components["schemas"]["BacnetTransportConfig"]
+        | null;
     };
     /** Trigger */
     Trigger: {
@@ -2538,13 +2600,13 @@ export interface components {
        * Polling Enabled
        * @default true
        */
-      polling_enabled: boolean;
+      polling_enabled?: boolean;
       /**
        * Polling Interval
        * @description Polling interval in seconds. Default 10s
        * @default 10
        */
-      polling_interval: number;
+      polling_interval?: number;
       /**
        * Expected Push Interval
        * @description Expected emission interval (seconds) for push devices.
@@ -2555,7 +2617,7 @@ export interface components {
        * @description Read timeout in seconds.
        * @default 10
        */
-      read_timeout: number | null;
+      read_timeout?: number | null;
     };
     /**
      * User
@@ -2567,34 +2629,34 @@ export interface components {
       /** Username */
       username: string;
       /** @default operator */
-      role: components["schemas"]["Role"];
+      role?: components["schemas"]["Role"];
       /** @default user */
-      type: components["schemas"]["UserType"];
+      type?: components["schemas"]["UserType"];
       /**
        * Name
        * @default
        */
-      name: string;
+      name?: string;
       /**
        * Email
        * @default
        */
-      email: string;
+      email?: string;
       /**
        * Title
        * @default
        */
-      title: string;
+      title?: string;
       /**
        * Must Change Password
        * @default false
        */
-      must_change_password: boolean;
+      must_change_password?: boolean;
       /**
        * Is Blocked
        * @default false
        */
-      is_blocked: boolean;
+      is_blocked?: boolean;
     };
     /** UserBasic */
     UserBasic: {
@@ -2610,24 +2672,24 @@ export interface components {
       /** Password */
       password: string;
       /** @default operator */
-      role: components["schemas"]["Role"];
+      role?: components["schemas"]["Role"];
       /** @default user */
-      type: components["schemas"]["UserType"];
+      type?: components["schemas"]["UserType"];
       /**
        * Name
        * @default
        */
-      name: string;
+      name?: string;
       /**
        * Email
        * @default
        */
-      email: string;
+      email?: string;
       /**
        * Title
        * @default
        */
-      title: string;
+      title?: string;
     };
     /**
      * UserType
@@ -4223,7 +4285,13 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["TransportCreate"];
+        "application/json":
+          | components["schemas"]["HttpTransportCreate"]
+          | components["schemas"]["KnxTransportCreate"]
+          | components["schemas"]["MqttTransportCreate"]
+          | components["schemas"]["ModbusTcpTransportCreate"]
+          | components["schemas"]["MbusTransportCreate"]
+          | components["schemas"]["BacnetTransportCreate"];
       };
     };
     responses: {
