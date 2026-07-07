@@ -111,18 +111,14 @@ function goldenPathDeviceSuite({ id }: { id: string }): void {
     expect(metrics).toEqual(expect.arrayContaining([...written.keys()]));
 
     for (const [attribute, { value, commandId }] of written) {
-      // Recording is asynchronous — poll for the point, then check that it
-      // links back to the command that produced it.
-      const result = await pollUntil(
-        () => client.timeseries.getPoints(id, attribute, { start: runStart }),
-        (r) => r.points.some((point) => point.value === value),
-        {
-          timeoutMs: 15_000,
-          description: `a ${attribute} point with value ${value}`,
-        },
-      );
+      // Points are recorded at write time, so the command step already
+      // guarantees they are queryable — no polling needed.
+      const result = await client.timeseries.getPoints(id, attribute, {
+        start: runStart,
+      });
 
       const point = result.points.find((p) => p.value === value);
+      expect(point, `a ${attribute} point with value ${value}`).toBeDefined();
       expect(point?.command_id).toBe(commandId);
     }
   });
@@ -142,7 +138,8 @@ function goldenPathDeviceSuite({ id }: { id: string }): void {
   });
 }
 
-describe.each(deviceIds.map((id, index) => ({ id, index })))(
+// index as string: vitest's title interpolation formats the number 0 as "+0".
+describe.each(deviceIds.map((id, index) => ({ id, index: String(index) })))(
   "seeded device $index",
   goldenPathDeviceSuite,
 );
