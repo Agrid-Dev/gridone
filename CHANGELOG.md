@@ -1,3 +1,9 @@
+## v0.143.0 (2026-07-07)
+
+### Feat
+
+- add remaining SDK resource namespaces (AGR-375)
+
 ## v0.142.0 (2026-07-07)
 
 ### Feat
