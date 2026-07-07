@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["suites", "vitest.config.ts"]
+  "include": ["suites", "lib", "setup", "vitest.config.ts"]
 }

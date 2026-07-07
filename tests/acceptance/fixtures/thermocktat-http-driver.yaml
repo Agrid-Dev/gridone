@@ -1,0 +1,63 @@
+# HTTP driver for the thermocktat emulators in compose.override.yaml.
+# Adapted from packages/devices_manager/tests/integration/fixtures/raw_drivers/
+# thermockat_http_driver.yaml, trimmed to the attributes the suites exercise.
+id: thermocktat_http
+transport: http
+
+update_strategy:
+  # Fast polling so read-back assertions resolve quickly.
+  polling: 5
+
+device_config:
+  - name: ip
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /ambient_temperature
+
+  - name: temperature_setpoint
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /temperature_setpoint
+    write:
+      method: "POST"
+      path: "${ip}/v1/temperature_setpoint"
+      body:
+        value: ${value}
+
+  - name: state
+    data_type: bool
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /enabled
+    write:
+      method: "POST"
+      path: "${ip}/v1/enabled"
+      body:
+        value: ${value}
+
+  - name: mode
+    data_type: str
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /mode
+    write:
+      method: "POST"
+      path: "${ip}/v1/mode"
+      body:
+        value: ${value}
+
+  - name: fan_speed
+    data_type: str
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /fan_speed
+    write:
+      method: "POST"
+      path: "${ip}/v1/fan_speed"
+      body:
+        value: ${value}
