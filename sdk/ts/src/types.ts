@@ -87,6 +87,12 @@ export type Severity = Schemas["Severity"];
 
 // Attributes
 export type Attribute = Schemas["Attribute"];
+/**
+ * Value of a device attribute on the wire — the backend's
+ * `AttributeValueType` (str | int | float | bool). Derived from the generated
+ * command value field so it tracks the OpenAPI schema.
+ */
+export type AttributeValueType = Schemas["UnitCommand"]["value"];
 export type FaultAttribute = Schemas["FaultAttribute"];
 export type AttributeKind = Schemas["AttributeKind"];
 export type AttributeDriver = Schemas["AttributeDriver"];
