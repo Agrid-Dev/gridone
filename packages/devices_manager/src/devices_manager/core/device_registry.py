@@ -4,10 +4,7 @@ import logging
 from collections.abc import Callable, Collection
 from typing import TYPE_CHECKING
 
-from devices_manager.dto import (
-    PhysicalDeviceCreate,
-    device_to_public,
-)
+from devices_manager.dto import device_to_public
 from devices_manager.storage.memory import MemoryDeviceStorage
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
@@ -17,11 +14,8 @@ from .device import (
     AttributeListener,
     CoreDevice,
     DeviceBase,
-    PhysicalDevice,
-    VirtualDevice,
 )
 from .device_filters import DeviceFilters
-from .standard_schemas.validate import validate_standard_schema
 
 if TYPE_CHECKING:
     from devices_manager.core.device.event_log import AttributeLogs
@@ -30,7 +24,6 @@ if TYPE_CHECKING:
         Device,
         DeviceCreate,
         DeviceUpdate,
-        VirtualDeviceCreate,
     )
     from devices_manager.storage import DeviceStorageBackend
     from devices_manager.types import AttributeValueType, DataType
@@ -141,9 +134,7 @@ class DeviceRegistry:
             msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
             raise ValueError(msg)
 
-    def _create_physical_device(
-        self, device_create: PhysicalDeviceCreate
-    ) -> PhysicalDevice:
+    def _create_device(self, device_create: DeviceCreate) -> CoreDevice:
         driver = self._resolve_driver(device_create.driver_id)
         self._validate_device_config(device_create.config, driver)
         transport = self._resolve_transport(device_create.transport_id)
@@ -151,34 +142,10 @@ class DeviceRegistry:
         base = DeviceBase(
             id=gen_id(), name=device_create.name, config=device_create.config
         )
-        return PhysicalDevice.from_base(
+        return CoreDevice.from_base(
             base,
             driver=driver,
             transport=transport,
-            on_update=self._on_attribute_update,
-        )
-
-    def _create_virtual_device(
-        self, device_create: VirtualDeviceCreate
-    ) -> VirtualDevice:
-        if not device_create.attributes:
-            msg = "Virtual device must have at least one attribute"
-            raise InvalidError(msg)
-        names = [a.name for a in device_create.attributes]
-        if len(names) != len(set(names)):
-            msg = "Duplicate attribute names in virtual device payload"
-            raise InvalidError(msg)
-        if device_create.type is not None:
-            validate_standard_schema(device_create.type, device_create.attributes)
-        attributes = {
-            a.name: Attribute.create(a.name, a.data_type, {a.read_write_mode})
-            for a in device_create.attributes
-        }
-        return VirtualDevice(
-            id=gen_id(),
-            name=device_create.name,
-            type=device_create.type,
-            attributes=attributes,
             on_update=self._on_attribute_update,
         )
 
@@ -187,10 +154,7 @@ class DeviceRegistry:
 
         Returns the CoreDevice so the caller can handle lifecycle.
         """
-        if isinstance(device_create, PhysicalDeviceCreate):
-            device = self._create_physical_device(device_create)
-        else:
-            device = self._create_virtual_device(device_create)
+        device = self._create_device(device_create)
         await self.register(device)
         logger.info(
             "Successfully created device '%s' (id: %s)",
@@ -211,12 +175,12 @@ class DeviceRegistry:
             return None
         return self._resolve_transport(transport_id)
 
-    def rebuild_physical_device(
+    def rebuild_device(
         self,
-        device: PhysicalDevice,
+        device: CoreDevice,
         driver: Driver,
         transport: TransportClient,
-    ) -> PhysicalDevice:
+    ) -> CoreDevice:
         """Rebuild a device with new driver/transport.
 
         Preserves existing attribute values and tags.
@@ -226,7 +190,7 @@ class DeviceRegistry:
             for name, attr in device.attributes.items()
             if attr.current_value is not None
         }
-        new_device = PhysicalDevice.from_base(
+        new_device = CoreDevice.from_base(
             DeviceBase(id=device.id, name=device.name, config=device.config),
             driver=driver,
             transport=transport,
@@ -236,31 +200,6 @@ class DeviceRegistry:
         new_device.tags = device.tags
         return new_device
 
-    def _mutate_virtual_attributes(
-        self, device: VirtualDevice, device_update: DeviceUpdate
-    ) -> None:
-        if device_update.attributes is None:
-            return
-        incoming = {a.name: a for a in device_update.attributes}
-        for name, attr_dto in incoming.items():
-            existing = device.attributes.get(name)
-            if existing is not None and existing.data_type != attr_dto.data_type:
-                msg = f"Cannot change data_type of existing attribute '{name}'"
-                raise InvalidError(msg)
-        new_attributes = {
-            name: (
-                device.attributes[name]
-                if name in device.attributes
-                else Attribute.create(
-                    attr_dto.name, attr_dto.data_type, {attr_dto.read_write_mode}
-                )
-            )
-            for name, attr_dto in incoming.items()
-        }
-        if device.type is not None:
-            validate_standard_schema(device.type, list(device_update.attributes))
-        device.attributes = new_attributes
-
     async def update(self, device_id: str, device_update: DeviceUpdate) -> CoreDevice:
         """Update a device in-place, rebuild if needed, and persist.
 
@@ -268,15 +207,6 @@ class DeviceRegistry:
         handle lifecycle side-effects (polling restart, listener init).
         """
         device = self._get_or_raise(device_id)
-
-        if isinstance(device, VirtualDevice):
-            if device_update.name is not None:
-                device.name = device_update.name
-            self._mutate_virtual_attributes(device, device_update)
-            await self._storage.write(device_id, device_to_public(device))
-            return device
-
-        assert isinstance(device, PhysicalDevice)  # noqa: S101
         new_driver = self._resolve_driver_or_none(device_update.driver_id)
         new_transport = self._resolve_transport_or_none(device_update.transport_id)
         effective_driver = new_driver or device.driver
@@ -295,9 +225,7 @@ class DeviceRegistry:
             self._validate_device_config(device_update.config, device.driver)
 
         if new_driver is not None or new_transport is not None:
-            device = self.rebuild_physical_device(
-                device, effective_driver, effective_transport
-            )
+            device = self.rebuild_device(device, effective_driver, effective_transport)
             self._devices[device_id] = device
 
         result = self._devices[device_id]

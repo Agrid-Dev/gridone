@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import builtins
     from collections.abc import Awaitable, Callable
 
-    from devices_manager.core.device import PhysicalDevice
+    from devices_manager.core.device import CoreDevice
     from devices_manager.core.driver import Driver
     from devices_manager.core.transports import TransportClient
 
@@ -26,11 +26,11 @@ class DiscoveryConfig(TypedDict):
 class DiscoveryContext:
     get_driver: Callable[[str], Driver]
     get_transport: Callable[[str], TransportClient]
-    device_exists: Callable[[PhysicalDevice], bool]
-    add_device: Callable[[PhysicalDevice], Awaitable[None]]
+    device_exists: Callable[[CoreDevice], bool]
+    add_device: Callable[[CoreDevice], Awaitable[None]]
 
 
-class PhysicalDevicesDiscoveryManager:
+class DevicesDiscoveryManager:
     """Discovery manager handles registering listeners
     to Push transport clients to discover new devices.
     When discovering a new device, it fires a callback supplied
@@ -71,7 +71,7 @@ class PhysicalDevicesDiscoveryManager:
             msg = f"Transport not found {transport_id}"
             raise KeyError(msg) from e
 
-        async def on_discover(device: PhysicalDevice) -> None:
+        async def on_discover(device: CoreDevice) -> None:
             logger.info(
                 "Discovered device %s with config %s on driver %s x transport %s",
                 device.id,
@@ -83,7 +83,7 @@ class PhysicalDevicesDiscoveryManager:
                 await self._context.add_device(device)
                 logger.info("Added device %s to context", device.id)
 
-            logger.info("PhysicalDevice %s already exists in context", device.id)
+            logger.info("Device %s already exists in context", device.id)
 
         job = DiscoveryHandler(driver, transport, on_discover)
         await job.start()

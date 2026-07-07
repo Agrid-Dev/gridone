@@ -6,11 +6,9 @@ import { toast } from "sonner";
 import { ApiError } from "@/api/apiError";
 import {
   createDevice,
-  isPhysicalDevice,
   updateDevice,
   type Device,
   type DeviceCreatePayload,
-  type PhysicalDevice,
 } from "@/api/devices";
 import type { Transport, TransportProtocol } from "@/api/transports";
 import { useDrivers } from "@/pages/drivers/useDrivers";
@@ -33,7 +31,7 @@ export type NetworkModalState =
   | { mode: "edit"; transport: Transport }
   | null;
 
-export const useDeviceForm = (device?: PhysicalDevice) => {
+export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isCreate = device === undefined;
@@ -188,12 +186,10 @@ export const useDeviceForm = (device?: PhysicalDevice) => {
     onSuccess: async (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices"] });
       try {
-        if (isPhysicalDevice(device)) {
-          await discovery.flush({
-            transportId: device.transportId,
-            driverId: device.driverId,
-          });
-        }
+        await discovery.flush({
+          transportId: device.transportId,
+          driverId: device.driverId,
+        });
       } catch {
         // Toast is surfaced inside useDeviceDiscovery's mutation onError.
         // Device creation already succeeded — navigate so the user isn't

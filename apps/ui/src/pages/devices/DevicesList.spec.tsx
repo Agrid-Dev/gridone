@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { DeviceKind, type Device, type DevicesFilter } from "@/api/devices";
+import { type Device, type DevicesFilter } from "@/api/devices";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -49,7 +49,6 @@ import DevicesList from "./DevicesList";
 function makeDevice(id: string, name: string, isFaulty: boolean): Device {
   return {
     id,
-    kind: DeviceKind.Physical,
     name,
     type: null,
     tags: {},

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  DeviceKind,
   devicesFilterToQueryParams,
   getDeviceReadWriteModes,
   isReadOnlyDevice,
@@ -23,7 +22,6 @@ function makeAttr(readWriteModes: string[]): DeviceAttribute {
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "d1",
     type: null,
     tags: {},

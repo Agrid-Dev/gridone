@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 from devices_manager.core.device import Attribute
 from devices_manager.dto import Device
 from devices_manager.storage.storage_backend import StorageBackend
-from devices_manager.types import AttributeValueType, DataType, DeviceKind
+from devices_manager.types import AttributeValueType, DataType
 
 if TYPE_CHECKING:
     import asyncpg
@@ -37,7 +37,6 @@ class PostgresDeviceStorage(StorageBackend[Device]):
                 last_changed=attr_row["last_changed"],
             )
 
-        config = row["config"]
         tags = {tag_row["key"]: tag_row["value"] for tag_row in tag_rows}
         # Storage rehydrates plain `Attribute` instances (no FaultAttribute
         # subclass), so the DTO's is_faulty is always False here. The runtime
@@ -46,11 +45,10 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         # instances with their healthy_values/severity.
         return Device(
             id=row["id"],
-            kind=DeviceKind(row["kind"]),
             name=row["name"],
             type=row["type"],
             tags=tags,
-            config=cast("dict | None", config) if config else None,
+            config=cast("dict", row["config"] or {}),
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
             attributes=attributes,
@@ -59,7 +57,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read(self, item_id: str) -> Device:
         row = await self._pool.fetchrow(
-            "SELECT id, kind, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id "
             "FROM dm_devices WHERE id = $1",
             item_id,
         )
@@ -76,20 +74,19 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "INSERT INTO dm_devices"
-                " (id, kind, name, type, config, driver_id, transport_id)"
-                " VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                " (id, name, type, config, driver_id, transport_id)"
+                " VALUES ($1, $2, $3, $4, $5, $6)"
                 " ON CONFLICT (id) DO UPDATE SET"
-                " kind = EXCLUDED.kind, name = EXCLUDED.name,"
+                " name = EXCLUDED.name,"
                 " type = EXCLUDED.type, config = EXCLUDED.config,"
                 " driver_id = EXCLUDED.driver_id,"
                 " transport_id = EXCLUDED.transport_id",
                 item_id,
-                dumped["kind"],
                 dumped["name"],
                 dumped.get("type"),
-                dumped["config"] if dumped.get("config") else None,
-                dumped.get("driver_id"),
-                dumped.get("transport_id"),
+                dumped["config"],
+                dumped["driver_id"],
+                dumped["transport_id"],
             )
 
             await _write_tags(conn, item_id, data.tags)
@@ -164,7 +161,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read_all(self) -> list[Device]:
         device_rows = await self._pool.fetch(
-            "SELECT id, kind, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id "
             "FROM dm_devices ORDER BY id",
         )
         if not device_rows:

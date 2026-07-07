@@ -7,8 +7,7 @@
       "description": "Ajoutez les détails pour un nouvel appareil."
     },
     "edit": {
-      "title": "Modifier l'appareil",
-      "virtualNotEditable": "La modification des appareils virtuels n'est pas encore prise en charge."
+      "title": "Modifier l'appareil"
     },
     "fields": {
       "driver": "Driver",

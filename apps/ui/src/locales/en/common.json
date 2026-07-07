@@ -113,10 +113,6 @@
       "ahu_single_flux": "Single-flux AHU",
       "air_extractor": "Air Extractor"
     },
-    "deviceKinds": {
-      "physical": "Physical",
-      "virtual": "Virtual"
-    },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",

@@ -1,4 +1,4 @@
-"""Tests for connection_status attribute on PhysicalDevice."""
+"""Tests for connection_status attribute on CoreDevice."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.types import ConnectionStatus
@@ -14,20 +14,20 @@ from models.errors import InvalidError
 
 
 class TestConnectionStatusCreation:
-    def test_attribute_present_on_creation(self, device: PhysicalDevice) -> None:
+    def test_attribute_present_on_creation(self, device: CoreDevice) -> None:
         assert CONNECTION_STATUS_ATTR in device.attributes
 
-    def test_initial_value_is_idle(self, device: PhysicalDevice) -> None:
+    def test_initial_value_is_idle(self, device: CoreDevice) -> None:
         cs = device.attributes[CONNECTION_STATUS_ATTR]
         assert cs.current_value == ConnectionStatus.IDLE
 
-    def test_is_internal_kind(self, device: PhysicalDevice) -> None:
+    def test_is_internal_kind(self, device: CoreDevice) -> None:
         assert device.attributes[CONNECTION_STATUS_ATTR].kind == AttributeKind.INTERNAL
 
-    def test_is_readonly(self, device: PhysicalDevice) -> None:
+    def test_is_readonly(self, device: CoreDevice) -> None:
         assert device.attributes[CONNECTION_STATUS_ATTR].read_write_modes == {"read"}
 
-    def test_no_timestamps_on_first_creation(self, device: PhysicalDevice) -> None:
+    def test_no_timestamps_on_first_creation(self, device: CoreDevice) -> None:
         attr = device.attributes[CONNECTION_STATUS_ATTR]
         assert attr.last_updated is None
         assert attr.last_changed is None
@@ -35,7 +35,7 @@ class TestConnectionStatusCreation:
     def test_restores_stored_value_on_restart(
         self, driver, mock_transport_client
     ) -> None:
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="D", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -45,7 +45,7 @@ class TestConnectionStatusCreation:
         assert cs.current_value == ConnectionStatus.OK
 
     def test_restart_value_has_timestamps(self, driver, mock_transport_client) -> None:
-        device = PhysicalDevice.from_base(
+        device = CoreDevice.from_base(
             DeviceBase(id="d1", name="D", config={}),
             driver=driver,
             transport=mock_transport_client,
@@ -59,7 +59,7 @@ class TestConnectionStatusCreation:
 @pytest.mark.asyncio
 class TestConnectionStatusRecompute:
     async def test_transitions_to_ok_on_successful_read(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
@@ -67,7 +67,7 @@ class TestConnectionStatusRecompute:
         assert cs.current_value == ConnectionStatus.OK
 
     async def test_transitions_to_error_on_all_failed_reads(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
         with pytest.raises(OSError, match="timeout"):
@@ -76,7 +76,7 @@ class TestConnectionStatusRecompute:
         assert cs.current_value == ConnectionStatus.ERROR
 
     async def test_read_of_absent_field_still_errors(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         """Push best-effort does not touch the read path: an absent field errors."""
         mock_transport_client.read = AsyncMock(return_value={"data": {}})
@@ -86,7 +86,7 @@ class TestConnectionStatusRecompute:
         assert cs.current_value == ConnectionStatus.ERROR
 
     async def test_transitions_to_degraded_on_mixed_results(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
@@ -97,7 +97,7 @@ class TestConnectionStatusRecompute:
         assert cs.current_value == ConnectionStatus.DEGRADED
 
     async def test_no_duplicate_on_update_for_same_status(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         calls: list[str] = []
         device.on_update = lambda _d, name, _prev, _attr: calls.append(name)
@@ -109,7 +109,7 @@ class TestConnectionStatusRecompute:
         assert calls.count(CONNECTION_STATUS_ATTR) == 1
 
     async def test_transitions_recorded_by_on_update(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         transitions: list[str] = []
 
@@ -138,7 +138,7 @@ class TestConnectionStatusRecompute:
 @pytest.mark.asyncio
 class TestConnectionStatusFailSafe:
     async def test_compute_failure_does_not_disrupt_reads(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
         with patch.object(
@@ -150,7 +150,7 @@ class TestConnectionStatusFailSafe:
         assert value == 25.5
 
     async def test_update_attributes_skips_connection_status(
-        self, device: PhysicalDevice, mock_transport_client
+        self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="22.0")
         await device.update_attributes()
@@ -161,6 +161,6 @@ class TestConnectionStatusFailSafe:
         )
         assert mock_transport_client.read.call_count == driver_readable
 
-    async def test_read_internal_attribute_raises(self, device: PhysicalDevice) -> None:
+    async def test_read_internal_attribute_raises(self, device: CoreDevice) -> None:
         with pytest.raises(InvalidError, match="internal"):
             await device.read_attribute_value(CONNECTION_STATUS_ATTR)

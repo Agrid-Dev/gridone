@@ -11,7 +11,6 @@ import { TooltipProvider } from "@/components/ui";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
 import {
-  DeviceKind,
   type Device,
   type DeviceAttribute,
   type FaultAttribute,
@@ -69,7 +68,6 @@ const faultAttr = (
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

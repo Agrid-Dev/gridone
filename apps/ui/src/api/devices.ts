@@ -34,41 +34,17 @@ export enum DeviceType {
   AirExtractor = "air_extractor",
 }
 
-export enum DeviceKind {
-  Physical = "physical",
-  Virtual = "virtual",
-}
-
-type DeviceCommon = {
+export type Device = {
   id: string;
   name: string;
   type: DeviceType | null;
   tags: Record<string, string>;
   attributes: Record<string, DeviceAttribute>;
   isFaulty: boolean;
-};
-
-export type PhysicalDevice = DeviceCommon & {
-  kind: DeviceKind.Physical;
   driverId: string;
   transportId: string;
   config: Record<string, unknown>;
 };
-
-export type VirtualDevice = DeviceCommon & {
-  kind: DeviceKind.Virtual;
-};
-
-/** Discriminated by `kind`; mirrors the backend `DeviceKind` split. */
-export type Device = PhysicalDevice | VirtualDevice;
-
-export function isPhysicalDevice(device: Device): device is PhysicalDevice {
-  return device.kind === DeviceKind.Physical;
-}
-
-export function isVirtualDevice(device: Device): device is VirtualDevice {
-  return device.kind === DeviceKind.Virtual;
-}
 
 /** The read/write modes a device supports, as the union of its attributes'
  *  modes (e.g. a device with one writable attribute supports "write"). */
@@ -483,9 +459,9 @@ export type DevicesFilter = {
   assetId?: string;
   /** Free-text fuzzy match against the device ``name``. */
   search?: string;
-  /** Restrict to devices bound to this driver (physical devices only). */
+  /** Restrict to devices bound to this driver. */
   driverId?: string;
-  /** Restrict to devices bound to this transport (physical devices only). */
+  /** Restrict to devices bound to this transport. */
   transportId?: string;
 };
 

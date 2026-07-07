@@ -5,8 +5,6 @@ from .device import (
     AttributeListener,
     CoreDevice,
     DeviceBase,
-    PhysicalDevice,
-    VirtualDevice,
 )
 from .driver import Driver
 from .transports import PullTransportClient, PushTransportClient, TransportClient
@@ -17,9 +15,7 @@ __all__ = [
     "CoreDevice",
     "DeviceBase",
     "Driver",
-    "PhysicalDevice",
     "PullTransportClient",
     "PushTransportClient",
     "TransportClient",
-    "VirtualDevice",
 ]

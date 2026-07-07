@@ -3,7 +3,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceFaultBadge } from "./DeviceFaultBadge";
 import {
-  DeviceKind,
   type Device,
   type DeviceAttribute,
   type FaultAttribute,
@@ -50,7 +49,6 @@ function fault(
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

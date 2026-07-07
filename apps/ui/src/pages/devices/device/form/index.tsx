@@ -7,12 +7,12 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { FieldSet, FieldLegend, FieldLabel } from "@/components/ui/field";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
-import { PhysicalDevice } from "@/api/devices";
+import { Device } from "@/api/devices";
 import { NetworkModal } from "@/components/NetworkModal";
 import { DeviceDiscoverySwitch } from "@/components/DeviceDiscoverySwitch";
 
 type DeviceFormProps = {
-  device?: PhysicalDevice;
+  device?: Device;
 };
 
 const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {

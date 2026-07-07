@@ -11,7 +11,6 @@ import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useTransports } from "@/pages/transports/useTransports";
-import { isPhysicalDevice } from "@/api/devices";
 import { toLabel } from "@/lib/textFormat";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -37,14 +36,6 @@ export default function DeviceConfigView() {
   useBreadcrumb([
     { to: `/devices/${device.id}/config`, labelKey: "breadcrumb.config" },
   ]);
-
-  if (!isPhysicalDevice(device)) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {t("devices.edit.virtualNotEditable")}
-      </p>
-    );
-  }
 
   const transport = transportsListQuery.data?.find(
     (item) => item.id === device.transportId,

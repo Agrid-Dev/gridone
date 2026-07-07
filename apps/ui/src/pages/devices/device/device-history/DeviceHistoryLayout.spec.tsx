@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { DeviceKind, type Device } from "@/api/devices";
+import { type Device } from "@/api/devices";
 import type { TimeSeries } from "@/api/timeseries";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -83,7 +83,6 @@ function setupDevice(count: number) {
   const names = Array.from({ length: count }, (_, i) => attrName(i));
   mockDevice.current = {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "AHU-1",
     type: null,
     tags: {},

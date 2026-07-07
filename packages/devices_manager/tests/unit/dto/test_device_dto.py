@@ -4,59 +4,58 @@ import json
 from datetime import UTC, datetime
 
 import pytest
-from pydantic import TypeAdapter, ValidationError
+from pydantic import ValidationError
 
 from devices_manager.core.device import (
     Attribute,
+    CoreDevice,
     FaultAttribute,
-    VirtualDevice,
 )
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.dto.device_dto import (
-    AttributeCreate,
     Device,
     DeviceCreate,
-    PhysicalDeviceCreate,
-    VirtualDeviceCreate,
     core_to_dto,
 )
-from devices_manager.types import DataType, DeviceKind, ReadWriteMode
+from devices_manager.types import DataType
 from models.types import Severity
 
-_dto_adapter: TypeAdapter[DeviceCreate] = TypeAdapter(DeviceCreate)
+
+@pytest.fixture
+def make_device(driver, mock_transport_client):
+    """Build a CoreDevice carrying hand-picked runtime attributes."""
+
+    def _make(
+        device_id: str, name: str, attributes: dict[str, Attribute]
+    ) -> CoreDevice:
+        return CoreDevice(
+            id=device_id,
+            name=name,
+            attributes=attributes,
+            driver=driver,
+            transport=mock_transport_client,
+            config={},
+        )
+
+    return _make
 
 
-class TestPhysicalDeviceCreate:
-    def test_parse_explicit_physical_kind(self):
+class TestDeviceCreate:
+    def test_parse(self):
         payload = {
-            "kind": "physical",
             "name": "Thermostat",
             "config": {"ip": "192.168.1.10"},
             "driver_id": "thermostat-http",
             "transport_id": "t1",
         }
-        dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, PhysicalDeviceCreate)
-        assert dto.kind == DeviceKind.PHYSICAL
+        dto = DeviceCreate.model_validate(payload)
         assert dto.driver_id == "thermostat-http"
-
-    def test_defaults_to_physical_when_kind_omitted(self):
-        """Backwards compat: payloads without 'kind' are physical."""
-        payload = {
-            "name": "Thermostat",
-            "config": {},
-            "driver_id": "d1",
-            "transport_id": "t1",
-        }
-        dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, PhysicalDeviceCreate)
-        assert dto.kind == DeviceKind.PHYSICAL
+        assert dto.transport_id == "t1"
 
     def test_missing_driver_id_rejected(self):
         with pytest.raises(ValidationError):
-            _dto_adapter.validate_python(
+            DeviceCreate.model_validate(
                 {
-                    "kind": "physical",
                     "name": "Thermostat",
                     "config": {},
                     "transport_id": "t1",
@@ -65,85 +64,12 @@ class TestPhysicalDeviceCreate:
 
     def test_missing_transport_id_rejected(self):
         with pytest.raises(ValidationError):
-            _dto_adapter.validate_python(
+            DeviceCreate.model_validate(
                 {
-                    "kind": "physical",
                     "name": "Thermostat",
                     "config": {},
                     "driver_id": "d1",
                 }
-            )
-
-
-class TestVirtualDeviceCreate:
-    def test_parse_virtual_kind(self):
-        payload = {
-            "kind": "virtual",
-            "name": "Occupancy sensor",
-            "attributes": [
-                {"name": "occupied", "data_type": "bool", "read_write_mode": "write"}
-            ],
-        }
-        dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, VirtualDeviceCreate)
-        assert dto.kind == DeviceKind.VIRTUAL
-        assert len(dto.attributes) == 1
-        assert dto.attributes[0].name == "occupied"
-        assert dto.attributes[0].data_type == DataType.BOOL
-
-    def test_parse_virtual_with_type(self):
-        payload = {
-            "kind": "virtual",
-            "name": "Smart meter",
-            "type": "meter",
-            "attributes": [
-                {"name": "energy_kwh", "data_type": "float", "read_write_mode": "write"}
-            ],
-        }
-        dto = _dto_adapter.validate_python(payload)
-        assert isinstance(dto, VirtualDeviceCreate)
-        assert dto.type == "meter"
-
-    def test_type_defaults_to_none(self):
-        dto = VirtualDeviceCreate(name="Sensor", attributes=[])
-        assert dto.type is None
-
-    def test_invalid_kind_rejected(self):
-        with pytest.raises(ValidationError):
-            _dto_adapter.validate_python(
-                {
-                    "kind": "hybrid",
-                    "name": "Bad",
-                    "config": {},
-                    "driver_id": "d1",
-                    "transport_id": "t1",
-                }
-            )
-
-
-class TestAttributeCreate:
-    @pytest.mark.parametrize(
-        ("data_type", "mode"),
-        [
-            (DataType.BOOL, "read"),
-            (DataType.FLOAT, "write"),
-            (DataType.INT, "read"),
-            (DataType.STRING, "write"),
-        ],
-    )
-    def test_valid_combinations(self, data_type: DataType, mode: ReadWriteMode):
-        dto = AttributeCreate(
-            name="temperature", data_type=data_type, read_write_mode=mode
-        )
-        assert dto.name == "temperature"
-        assert dto.data_type == data_type
-
-    def test_invalid_read_write_mode_rejected(self):
-        with pytest.raises(ValidationError):
-            AttributeCreate(
-                name="temperature",
-                data_type=DataType.FLOAT,
-                read_write_mode="readwrite",  # ty:ignore[invalid-argument-type]
             )
 
 
@@ -163,27 +89,19 @@ class TestCoreDeviceToDto:
             last_changed=self._NOW,
         )
 
-    def test_is_faulty_true_when_any_attribute_is_faulty(self):
-        device = VirtualDevice(
-            id="d1",
-            name="D1",
-            attributes={"alarm": self._fault_attr(faulty=True)},
-        )
+    def test_is_faulty_true_when_any_attribute_is_faulty(self, make_device):
+        device = make_device("d1", "D1", {"alarm": self._fault_attr(faulty=True)})
         assert core_to_dto(device).is_faulty is True
 
-    def test_is_faulty_false_when_all_fault_attrs_healthy(self):
-        device = VirtualDevice(
-            id="d2",
-            name="D2",
-            attributes={"alarm": self._fault_attr(faulty=False)},
-        )
+    def test_is_faulty_false_when_all_fault_attrs_healthy(self, make_device):
+        device = make_device("d2", "D2", {"alarm": self._fault_attr(faulty=False)})
         assert core_to_dto(device).is_faulty is False
 
-    def test_is_faulty_false_when_no_fault_attribute(self):
-        device = VirtualDevice(
-            id="d3",
-            name="D3",
-            attributes={
+    def test_is_faulty_false_when_no_fault_attribute(self, make_device):
+        device = make_device(
+            "d3",
+            "D3",
+            {
                 "reading": Attribute.create(
                     "reading", DataType.FLOAT, {"read"}, value=20.0
                 ),
@@ -203,8 +121,10 @@ class TestDeviceAttributeSerialization:
     def _fault_payload(self) -> dict:
         return {
             "id": "d1",
-            "kind": "virtual",
             "name": "D1",
+            "config": {},
+            "driver_id": "drv",
+            "transport_id": "tr",
             "is_faulty": True,
             "attributes": {
                 "fault_code": {
@@ -220,7 +140,7 @@ class TestDeviceAttributeSerialization:
             },
         }
 
-    def test_fault_attribute_fields_round_trip_through_device_json(self):
+    def test_fault_attribute_fields_round_trip_through_device_json(self, make_device):
         fault = FaultAttribute(
             name="fault_code",
             data_type=DataType.INT,
@@ -230,7 +150,7 @@ class TestDeviceAttributeSerialization:
             last_updated=self._NOW,
             last_changed=self._NOW,
         )
-        device = VirtualDevice(id="d1", name="D1", attributes={"fault_code": fault})
+        device = make_device("d1", "D1", {"fault_code": fault})
         dto = core_to_dto(device)
 
         payload = json.loads(dto.model_dump_json())
@@ -244,11 +164,11 @@ class TestDeviceAttributeSerialization:
             "+00:00", "Z"
         )
 
-    def test_standard_attribute_omits_fault_only_fields(self):
-        device = VirtualDevice(
-            id="d2",
-            name="D2",
-            attributes={
+    def test_standard_attribute_omits_fault_only_fields(self, make_device):
+        device = make_device(
+            "d2",
+            "D2",
+            {
                 "reading": Attribute.create(
                     "reading", DataType.FLOAT, {"read"}, value=20.0
                 ),
@@ -274,8 +194,8 @@ class TestDeviceAttributeSerialization:
         assert attr.healthy_values == [0]
 
     def test_device_defaults_is_faulty_when_absent(self):
-        """`is_faulty` is derived, so a stored/authored physical-device payload
-        need not carry it — it defaults to False (recomputed on first sync)."""
+        """`is_faulty` is derived, so a stored/authored device payload need
+        not carry it — it defaults to False (recomputed on first sync)."""
         device = Device.model_validate(
             {
                 "id": "d5",
@@ -285,14 +205,19 @@ class TestDeviceAttributeSerialization:
                 "config": {"device_instance": 1},
             }
         )
-        assert device.kind == DeviceKind.PHYSICAL
         assert device.is_faulty is False
+
+    def test_device_requires_driver_and_transport(self):
+        with pytest.raises(ValidationError):
+            Device.model_validate({"id": "d6", "name": "D6", "config": {}})
 
     def test_device_parses_standard_attribute_without_kind(self):
         payload = {
             "id": "d3",
-            "kind": "virtual",
             "name": "D3",
+            "config": {},
+            "driver_id": "drv",
+            "transport_id": "tr",
             "is_faulty": False,
             "attributes": {
                 "reading": {
@@ -309,7 +234,7 @@ class TestDeviceAttributeSerialization:
         assert not isinstance(attr, FaultAttribute)
         assert attr.kind == AttributeKind.STANDARD
 
-    def test_internal_attribute_serializes_with_kind(self):
+    def test_internal_attribute_serializes_with_kind(self, make_device):
         internal = Attribute(
             name="connection_status",
             kind=AttributeKind.INTERNAL,
@@ -317,9 +242,7 @@ class TestDeviceAttributeSerialization:
             read_write_modes={"read"},
             current_value="ok",
         )
-        device = VirtualDevice(
-            id="d4", name="D4", attributes={"connection_status": internal}
-        )
+        device = make_device("d4", "D4", {"connection_status": internal})
         dto = core_to_dto(device)
         payload = json.loads(dto.model_dump_json())
         attr_payload = payload["attributes"]["connection_status"]
@@ -332,8 +255,10 @@ class TestDeviceAttributeSerialization:
     def test_internal_attribute_parses_from_json(self):
         payload = {
             "id": "d5",
-            "kind": "virtual",
             "name": "D5",
+            "config": {},
+            "driver_id": "drv",
+            "transport_id": "tr",
             "is_faulty": False,
             "attributes": {
                 "connection_status": {

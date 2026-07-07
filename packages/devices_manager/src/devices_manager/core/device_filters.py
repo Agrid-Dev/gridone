@@ -60,9 +60,7 @@ class DeviceFilters:
         return self.search is None or fuzzy_match(self.search, device.name)
 
     def _matches_driver_id(self, device: CoreDevice) -> bool:
-        # Virtual devices have driver_id None and never match a driver filter.
         return self.driver_id is None or device.driver_id == self.driver_id
 
     def _matches_transport_id(self, device: CoreDevice) -> bool:
-        # Virtual devices have transport_id None and never match a transport filter.
         return self.transport_id is None or device.transport_id == self.transport_id

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DeviceKind, type Device, type DeviceAttribute } from "@/api/devices";
+import { type Device, type DeviceAttribute } from "@/api/devices";
 import { intersectWritableAttributes } from "./resolvers";
 
 function attr(
@@ -27,7 +27,6 @@ function device(attributes: DeviceAttribute[]): Device {
     id: "d1",
     name: "Device",
     type: null,
-    kind: DeviceKind.Physical,
     driverId: "drv",
     transportId: "trp",
     config: {},

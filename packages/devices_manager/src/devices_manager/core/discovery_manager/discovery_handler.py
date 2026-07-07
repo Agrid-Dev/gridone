@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
-from devices_manager.core.device import DeviceBase, PhysicalDevice
+from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.transports import PushTransportClient
 from models.ids import gen_id
 
@@ -23,7 +23,7 @@ def _hash_config(device_config: DeviceConfig) -> str:
     return hashlib.sha256(str(device_config).encode("utf-8")).hexdigest()
 
 
-type DiscoveryCallback = Callable[[PhysicalDevice], Coroutine[Any, Any, None]]
+type DiscoveryCallback = Callable[[CoreDevice], Coroutine[Any, Any, None]]
 
 
 class DiscoveryHandler:
@@ -82,7 +82,7 @@ class DiscoveryHandler:
             if config_hash in seen:
                 return
             initial_attribute_values = self.try_parsing_attributes(payload)
-            device = PhysicalDevice.from_base(
+            device = CoreDevice.from_base(
                 DeviceBase(
                     id=gen_id(),
                     name=self.try_parsing_name(device_config),

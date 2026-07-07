@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { applyDeviceUpdate } from "./socket";
-import { DeviceKind, type Device, type DeviceAttribute } from "@/api/devices";
+import { type Device, type DeviceAttribute } from "@/api/devices";
 
 const attribute = (over: Partial<DeviceAttribute>): DeviceAttribute => ({
   kind: "standard",
@@ -15,7 +15,6 @@ const attribute = (over: Partial<DeviceAttribute>): DeviceAttribute => ({
 
 const device = (attrs: Record<string, DeviceAttribute>): Device => ({
   id: "d1",
-  kind: DeviceKind.Physical,
   name: "Device 1",
   type: null,
   tags: {},

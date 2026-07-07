@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
 import {
-  DeviceKind,
   type Device,
   type DeviceAttribute,
   type FaultAttribute,
@@ -56,7 +55,6 @@ const fault = (
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
     id: "d1",
-    kind: DeviceKind.Physical,
     name: "Device 1",
     type: null,
     tags: {},

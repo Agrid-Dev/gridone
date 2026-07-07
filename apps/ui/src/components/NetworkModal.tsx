@@ -11,7 +11,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import TransportForm from "@/pages/transports/form";
 import type { Transport, TransportProtocol } from "@/api/transports";
-import { isPhysicalDevice } from "@/api/devices";
 import { useDevicesList } from "@/hooks/useDevicesList";
 
 export type NetworkModalProps = {
@@ -73,9 +72,7 @@ export const NetworkModal: FC<NetworkModalProps> = ({
 const LinkedDevicesWarning: FC<{ transportId: string }> = ({ transportId }) => {
   const { t } = useTranslation("transports");
   const { devices } = useDevicesList();
-  const count = devices.filter(
-    (d) => isPhysicalDevice(d) && d.transportId === transportId,
-  ).length;
+  const count = devices.filter((d) => d.transportId === transportId).length;
   if (count === 0) return null;
   return (
     <Alert>
