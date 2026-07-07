@@ -1,6 +1,6 @@
 # HTTP driver for the thermocktat emulators in compose.override.yaml.
 # Mirrors the reference driver from gridone-setup (.db/drivers/
-# thermocktat_http.yaml), plus test-env deltas: fast polling (5s) so read-back
+# thermocktat_http.yaml), plus test-env deltas: fast polling (2s) so read-back
 # assertions resolve quickly, and a fault_code attribute mapped to readable
 # labels through the mapping codec.
 #
@@ -12,7 +12,7 @@ transport: http
 type: thermostat
 
 update_strategy:
-  polling: 5s
+  polling: 2s
 
 device_config:
   - name: ip

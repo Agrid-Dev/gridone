@@ -42,3 +42,39 @@ services:
       TMK_CONTROLLERS_MODBUS_REGISTER_COUNT: "2"
     ports:
       - "9082:8080"
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    # Anonymous local broker, config written inline (same as the demo overlay
+    # and ci_core's mosquitto). Not published: only containers talk to it.
+    # echo-chain (not printf): compose's string-command parsing strips
+    # backslashes, so escape sequences never survive to the shell.
+    command: >
+      sh -c "echo 'listener 1883 0.0.0.0' > /mosquitto/config/mosquitto.conf
+      && echo 'allow_anonymous true' >> /mosquitto/config/mosquitto.conf
+      && echo 'persistence false' >> /mosquitto/config/mosquitto.conf
+      && exec mosquitto -c /mosquitto/config/mosquitto.conf"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mosquitto_sub -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  thermocktat-mqtt-0:
+    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    environment:
+      TMK_DEVICE_ID: TMK_mqtt_0
+      TMK_CONTROLLERS_HTTP_ENABLED: "true"
+      TMK_CONTROLLERS_MQTT_ENABLED: "true"
+      TMK_CONTROLLERS_MQTT_ADDR: tcp://mqtt-broker:1883
+      # Snappy push cadence so external updates reach gridone within ~1s.
+      TMK_CONTROLLERS_MQTT_PUBLISH_INTERVAL: 1s
+    depends_on:
+      mqtt-broker:
+        condition: service_healthy
+    ports:
+      - "9083:8080"

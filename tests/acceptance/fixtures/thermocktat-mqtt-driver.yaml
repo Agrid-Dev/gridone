@@ -1,0 +1,136 @@
+# MQTT driver for the thermocktat emulator in compose.override.yaml.
+# Mirrors the integration fixture (packages/devices_manager/tests/integration/
+# fixtures/raw_drivers/thermockat_mqtt_driver.yaml) with the acceptance
+# conventions: onoff_state naming, type: thermostat, and fault_code mapped to
+# the same labels as the http/modbus drivers.
+#
+# Reads are pure push: the device subscribes to the emulator's snapshot
+# topic (published every 1s); polling is disabled — delivery relies entirely
+# on the listener path.
+id: thermocktat_mqtt
+transport: mqtt
+type: thermostat
+
+update_strategy:
+  polling: disable
+
+device_config:
+  - name: device_id
+
+attributes:
+  - name: temperature
+    data_type: float
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    codecs:
+      - json_pointer: /ambient_temperature
+
+  - name: temperature_setpoint
+    data_type: float
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/temperature_setpoint
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /temperature_setpoint
+
+  - name: onoff_state
+    data_type: bool
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/enabled
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /enabled
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/temperature_setpoint_min
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /temperature_setpoint_min
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/temperature_setpoint_max
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /temperature_setpoint_max
+
+  - name: fan_speed
+    data_type: str
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/fan_speed
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /fan_speed
+
+  - name: mode
+    data_type: str
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    write:
+      topic: thermocktat/${device_id}/set/mode
+      message:
+        value: ${value}
+    codecs:
+      - json_pointer: /mode
+
+  - name: fault_code
+    data_type: str
+    read:
+      topic: thermocktat/${device_id}/snapshot
+      request:
+        topic: thermocktat/${device_id}/get/snapshot
+        message:
+          input: hello
+    codecs:
+      - json_pointer: /fault_code
+      - mapping:
+          0: ok
+          1: firmware_error
+          2: oops_error
+          3: disastrous_internal_error

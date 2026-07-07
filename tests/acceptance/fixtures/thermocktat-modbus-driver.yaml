@@ -12,7 +12,7 @@ transport: modbus-tcp
 type: thermostat
 
 update_strategy:
-  polling: 5s
+  polling: 2s
 
 device_config:
   - name: device_id

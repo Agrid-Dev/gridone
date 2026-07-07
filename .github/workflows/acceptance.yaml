@@ -41,9 +41,15 @@ jobs:
           file: docker/Dockerfile
           load: true
           tags: ${{ env.GRIDONE_IMAGE }}
-          # mode=max also caches the intermediate stages (the heavy uv-sync
-          # layer), so source-only changes rebuild in seconds.
-          cache-from: type=gha
+          # Two cache sources: the gha cache is fast for iterating within a
+          # PR, but it is branch-isolated (and this workflow never runs on
+          # main, so new PRs start cold there). The registry ref is the build
+          # cache release.yml pushes on every merge — sizeless, branch-less,
+          # anonymously pullable, so any fresh PR hits the last release's
+          # layers (including the heavy uv-sync stage).
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/agrid-dev/gridone:buildcache-linux-amd64
           cache-to: type=gha,mode=max
 
       - name: Set up Node
