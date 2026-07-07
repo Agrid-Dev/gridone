@@ -1,0 +1,88 @@
+name: Acceptance
+
+# Black-box tests of the production docker image through @gridone/sdk
+# (tests/acceptance/). Runs parallel to the core CI — no job dependency, the
+# only gate is the path filter. UI-only changes don't trigger it: the suites
+# exercise the backend API, not the SPA.
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "apps/api_server/**"
+      - "apps/migrations/**"
+      - "docker/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "sdk/ts/**"
+      - "tests/acceptance/**"
+      - ".github/workflows/acceptance.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GRIDONE_IMAGE: gridone:acceptance
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image from the PR branch
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile
+          load: true
+          tags: ${{ env.GRIDONE_IMAGE }}
+          # mode=max also caches the intermediate stages (the heavy uv-sync
+          # layer), so source-only changes rebuild in seconds.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: tests/acceptance/.node-version
+          cache: npm
+          cache-dependency-path: |
+            sdk/ts/package-lock.json
+            tests/acceptance/package-lock.json
+
+      - name: Build SDK
+        working-directory: sdk/ts
+        run: |
+          npm ci
+          npm run build
+
+      - name: Install test dependencies
+        working-directory: tests/acceptance
+        run: npm ci
+
+      - name: Start stack
+        working-directory: tests/acceptance
+        # No --build: compose uses the image built above via GRIDONE_IMAGE.
+        run: docker compose up --wait
+
+      - name: Run acceptance tests
+        working-directory: tests/acceptance
+        run: npm run test
+
+      - name: Capture stack logs
+        if: failure()
+        working-directory: tests/acceptance
+        run: docker compose logs --no-color --timestamps > /tmp/compose-logs.txt
+
+      - name: Upload stack logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compose-logs
+          path: /tmp/compose-logs.txt
+          retention-days: 7
