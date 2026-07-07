@@ -19,6 +19,17 @@ export type {
   RequestOptions,
   SearchParamValue,
 } from "./http/httpClient";
+export {
+  AppRegistrationRequestsResource,
+  AppsResource,
+} from "./resources/apps";
+export { AssetsResource } from "./resources/assets";
+export type { AssetListParams, AssetTreeNode } from "./resources/assets";
+export { AutomationsResource } from "./resources/automations";
+export type {
+  AutomationListParams,
+  ProviderSchemas,
+} from "./resources/automations";
 export { CommandTemplatesResource } from "./resources/commandTemplates";
 export type { CommandTemplateListParams } from "./resources/commandTemplates";
 export { DevicesResource } from "./resources/devices";
@@ -29,6 +40,8 @@ export type {
 } from "./resources/devices";
 export { DriversResource } from "./resources/drivers";
 export type { DriverAttribute, DriverListParams } from "./resources/drivers";
+export { NotificationsResource } from "./resources/notifications";
+export type { NotificationListParams } from "./resources/notifications";
 export { TimeseriesResource } from "./resources/timeseries";
 export type {
   AggregateOptionsParams,
@@ -39,6 +52,7 @@ export type {
 } from "./resources/timeseries";
 export { TransportsResource } from "./resources/transports";
 export type { TransportSchemas } from "./resources/transports";
+export { UsersResource } from "./resources/users";
 export type * from "./types";
 export { MemoryTokenStorage } from "./http/tokenStorage";
 export type { MaybePromise, Tokens, TokenStorage } from "./http/tokenStorage";

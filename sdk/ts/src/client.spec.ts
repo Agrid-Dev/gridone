@@ -226,6 +226,17 @@ describe("resource namespaces", () => {
     expect(url).toBe(`${BASE_URL}/devices/?search=fan`);
     expect(headers["Authorization"]).toBe("Bearer t1");
   });
+
+  it("exposes health and me as client-level calls", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ status: "ok" }));
+    const { client } = makeClient(fetchMock);
+
+    await client.health();
+    await client.me();
+
+    expect(callOf(fetchMock, 0).url).toBe(`${BASE_URL}/health`);
+    expect(callOf(fetchMock, 1).url).toBe(`${BASE_URL}/auth/me`);
+  });
 });
 
 describe("token refresh", () => {

@@ -4,7 +4,7 @@ TypeScript client for the Gridone API. Runs in the browser and Node 18+, with ze
 
 API payloads keep the **wire format** — snake_case keys, exactly as documented in the OpenAPI schema. SDK code (classes, methods, config) is idiomatic camelCase.
 
-> **Status**: under construction ([AGR-375](https://linear.app/agrid-bms/issue/AGR-375)) — `client.devices`, `client.drivers`, `client.transports` and `client.timeseries` are available; remaining namespaces (`assets`, `users`, `apps`, ...) are coming. `client.request()` reaches any endpoint in the meantime.
+Every API endpoint is covered by a typed resource namespace: `client.devices` (with `client.devices.commandTemplates`), `client.drivers`, `client.transports`, `client.timeseries`, `client.assets`, `client.users`, `client.apps` (with `client.apps.registrationRequests`), `client.automations` and `client.notifications`, plus `client.health()` and `client.me()`.
 
 ## Usage
 
@@ -39,10 +39,10 @@ try {
 await client.logout();
 ```
 
-Endpoints without a namespace method yet are reachable with the raw escape hatch:
+`client.request()` remains available as a raw escape hatch (e.g. for endpoints newer than the SDK build):
 
 ```ts
-await client.request("POST", "/notifications/", { body: { ... } });
+await client.request("GET", "/some/new/endpoint");
 ```
 
 Tokens are held in a `MemoryTokenStorage` by default (lifetime of the client). Pass your own `TokenStorage` implementation for other lifetimes — e.g. a cookie-backed one in the browser. Expired access tokens are refreshed transparently: on a 401 the client exchanges the refresh token (one refresh shared across concurrent requests) and retries once.
