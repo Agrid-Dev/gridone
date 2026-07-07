@@ -1,4 +1,9 @@
-import type { AttributeValueType, Device, GridoneClient } from "@gridone/sdk";
+import type {
+  AttributeValueType,
+  Device,
+  GridoneClient,
+  MeResponse,
+} from "@gridone/sdk";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 
@@ -9,9 +14,11 @@ const deviceIds = inject("deviceIds");
 const runStart = new Date().toISOString();
 
 let client: GridoneClient;
+let admin: MeResponse;
 
 beforeAll(async () => {
   client = await makeAdminClient();
+  admin = await client.request<MeResponse>("GET", "/auth/me");
 });
 
 // The generated wire type keeps attribute payloads open
@@ -134,6 +141,8 @@ function goldenPathDeviceSuite({ id }: { id: string }): void {
       expect(match?.attribute).toBe(attribute);
       expect(match?.value).toBe(value);
       expect(match?.status).toBe("success");
+      // Commands are attributed to the authenticated user.
+      expect(match?.user_id).toBe(admin.id);
     }
   });
 }
