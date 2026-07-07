@@ -1,3 +1,9 @@
+## v0.147.0 (2026-07-07)
+
+### Feat
+
+- extend golden path to mqtt
+
 ## v0.146.0 (2026-07-07)
 
 ### Feat
