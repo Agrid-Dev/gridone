@@ -1,3 +1,9 @@
+## v0.147.1 (2026-07-07)
+
+### Refactor
+
+- type transport create/update payloads with per-protocol config union (AGR-895)
+
 ## v0.147.0 (2026-07-07)
 
 ### Feat
