@@ -1,3 +1,9 @@
+## v0.140.0 (2026-07-07)
+
+### Feat
+
+- scaffold acceptance test project with auth suite
+
 ## v0.139.1 (2026-07-07)
 
 ### Refactor
