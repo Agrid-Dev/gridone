@@ -1,3 +1,9 @@
+## v0.149.0 (2026-07-07)
+
+### Feat
+
+- **mqtt**: add TLS/mTLS support to the MQTT transport client (#437)
+
 ## v0.148.0 (2026-07-07)
 
 ### Feat
