@@ -36,7 +36,7 @@ const COMMANDS: {
     attribute: "temperature_setpoint",
     pick: (current) => (current === 24 ? 25 : 24),
   },
-  { attribute: "state", pick: (current) => current !== true },
+  { attribute: "onoff_state", pick: (current) => current !== true },
   {
     attribute: "mode",
     pick: (current) => (current === "heat" ? "cool" : "heat"),
@@ -69,9 +69,11 @@ describe.each(deviceIds.map((id, index) => ({ id, index })))(
       expect(typeof currentValue(device, "temperature_setpoint")).toBe(
         "number",
       );
-      expect(typeof currentValue(device, "state")).toBe("boolean");
+      expect(typeof currentValue(device, "onoff_state")).toBe("boolean");
       expect(typeof currentValue(device, "mode")).toBe("string");
       expect(typeof currentValue(device, "fan_speed")).toBe("string");
+      // The mapping codec decodes the emulator's numeric code to a label.
+      expect(currentValue(device, "fault_code")).toBe("ok");
     });
 
     it.each(COMMANDS)(
