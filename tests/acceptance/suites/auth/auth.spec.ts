@@ -1,18 +1,11 @@
-import { GridoneClient, isGridoneError } from "@gridone/sdk";
+import { isGridoneError } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
-
 // The stack starts from an empty database, so the default admin user exists.
-const baseUrl = process.env.GRIDONE_API ?? "http://localhost:8765/api";
-const username = process.env.GRIDONE_USERNAME ?? "admin";
-const password = process.env.GRIDONE_PASSWORD ?? "admin";
+import { makeClient, password, username } from "../../lib/api";
 
 interface CurrentUser {
   username: string;
   role: string;
-}
-
-function makeClient(): GridoneClient {
-  return new GridoneClient({ baseUrl });
 }
 
 async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {

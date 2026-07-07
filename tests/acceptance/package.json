@@ -12,8 +12,8 @@
     "stack:down": "docker compose down -v",
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "lint": "eslint suites/",
-    "lint:fix": "eslint suites/ --fix",
+    "lint": "eslint suites/ lib/ setup/",
+    "lint:fix": "eslint suites/ lib/ setup/ --fix",
     "format": "prettier .",
     "type-check": "tsc --noEmit"
   },
