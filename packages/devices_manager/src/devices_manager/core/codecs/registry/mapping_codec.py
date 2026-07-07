@@ -15,8 +15,20 @@ def _coerce(value: str) -> int | float | str:
     return value
 
 
+def _key(value: Any) -> str:  # noqa: ANN401
+    """Normalize a lookup key so an integral float matches its integer.
+
+    Some transports deliver an integer code as a float — a BACnet AnalogValue
+    carries e.g. fault code 0 as ``0.0`` — so ``0.0`` must resolve to the same
+    key as a mapping written with integer keys (``{0: "ok"}``).
+    """
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _build(raw_mapping: dict[str, Any]) -> FnCodec[Any, Any]:
-    forward: dict[str, Any] = {str(k): v for k, v in raw_mapping.items()}
+    forward: dict[str, Any] = {_key(k): v for k, v in raw_mapping.items()}
 
     reverse: dict[str, str] = {}
     for k, v in forward.items():
@@ -28,7 +40,7 @@ def _build(raw_mapping: dict[str, Any]) -> FnCodec[Any, Any]:
 
     def decode(value: Any) -> Any:  # noqa: ANN401
         try:
-            return forward[str(value)]
+            return forward[_key(value)]
         except KeyError:
             msg = f"No mapping found for device value: {value!r}"
             raise ValueError(msg) from None
