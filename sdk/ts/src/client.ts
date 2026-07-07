@@ -1,7 +1,16 @@
-import type { FetchLike, HttpMethod, RequestOptions } from "./http/httpClient";
+import type {
+  FetchLike,
+  HttpMethod,
+  RequestFn,
+  RequestOptions,
+} from "./http/httpClient";
 import { HttpClient } from "./http/httpClient";
 import type { TokenStorage } from "./http/tokenStorage";
 import { MemoryTokenStorage } from "./http/tokenStorage";
+import { DevicesResource } from "./resources/devices";
+import { DriversResource } from "./resources/drivers";
+import { TimeseriesResource } from "./resources/timeseries";
+import { TransportsResource } from "./resources/transports";
 
 export interface GridoneClientConfig {
   /** Root URL of the Gridone API, e.g. `http://localhost:8000`. */
@@ -18,12 +27,23 @@ export interface GridoneClientConfig {
 export class GridoneClient {
   private readonly http: HttpClient;
 
+  readonly devices: DevicesResource;
+  readonly drivers: DriversResource;
+  readonly transports: TransportsResource;
+  readonly timeseries: TimeseriesResource;
+
   constructor(config: GridoneClientConfig) {
     this.http = new HttpClient({
       baseUrl: config.baseUrl,
       tokenStorage: config.tokenStorage ?? new MemoryTokenStorage(),
       fetch: config.fetch,
     });
+    const request: RequestFn = (method, path, options) =>
+      this.http.request(method, path, options);
+    this.devices = new DevicesResource(request);
+    this.drivers = new DriversResource(request);
+    this.transports = new TransportsResource(request);
+    this.timeseries = new TimeseriesResource(request);
   }
 
   /** Authenticates and stores the token pair; subsequent requests are authenticated. */
@@ -37,9 +57,9 @@ export class GridoneClient {
   }
 
   /**
-   * Raw API call. Resource namespaces (`client.devices`, ...) build on this
-   * and land in AGR-375; until then this is the public way to reach any
-   * endpoint. Payload keys are wire-format snake_case.
+   * Raw API call — the escape hatch for endpoints not (yet) covered by the
+   * resource namespaces (`client.devices`, ...). Payload keys are wire-format
+   * snake_case.
    */
   request<T>(
     method: HttpMethod,

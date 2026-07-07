@@ -5,12 +5,33 @@ export type FetchLike = typeof globalThis.fetch;
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+export type SearchParamValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly (string | number | boolean)[];
+
 export interface RequestOptions {
   /** JSON-serialized verbatim — payload keys are wire-format snake_case. */
   body?: unknown;
-  searchParams?: Record<string, string | number | boolean | undefined>;
+  /** `null`/`undefined` values are skipped; arrays become repeated params. */
+  searchParams?: Record<string, SearchParamValue>;
   headers?: Record<string, string>;
+  /** How to parse the response body. Defaults to `"json"`. */
+  responseType?: "json" | "text" | "blob";
 }
+
+/**
+ * Internal request function handed to resource namespaces — same contract as
+ * `GridoneClient.request`.
+ */
+export type RequestFn = <T>(
+  method: HttpMethod,
+  path: string,
+  options?: RequestOptions,
+) => Promise<T>;
 
 export interface HttpClientConfig {
   baseUrl: string;
@@ -63,7 +84,7 @@ export class HttpClient {
     if (!response.ok) {
       throw await this.toGridoneError(response);
     }
-    return this.parseBody<T>(response);
+    return this.parseBody<T>(response, options?.responseType);
   }
 
   /** OAuth2 password grant; stores the returned token pair. */
@@ -106,7 +127,14 @@ export class HttpClient {
     const url = `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams ?? {})) {
-      if (value !== undefined) {
+      if (value === undefined || value === null) {
+        continue;
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          query.append(key, String(item));
+        }
+      } else {
         query.set(key, String(value));
       }
     }
@@ -199,9 +227,18 @@ export class HttpClient {
     return new GridoneError(response.status, detail);
   }
 
-  private async parseBody<T>(response: Response): Promise<T> {
+  private async parseBody<T>(
+    response: Response,
+    responseType: RequestOptions["responseType"] = "json",
+  ): Promise<T> {
     if (response.status === 204) {
       return undefined as T;
+    }
+    if (responseType === "text") {
+      return (await response.text()) as T;
+    }
+    if (responseType === "blob") {
+      return (await response.blob()) as T;
     }
     return (await response.json()) as T;
   }

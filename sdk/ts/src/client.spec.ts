@@ -86,15 +86,62 @@ describe("request", () => {
     expect(init?.body).toBe('{"display_name":"Fan","proven_flow":2}');
   });
 
-  it("appends search params and skips undefined values", async () => {
+  it("appends search params and skips undefined and null values", async () => {
     const fetchMock = vi.fn(async () => jsonResponse([]));
     const { client } = makeClient(fetchMock);
 
     await client.request("GET", "/things", {
-      searchParams: { page: 2, q: "a b", missing: undefined },
+      searchParams: { page: 2, q: "a b", missing: undefined, empty: null },
     });
 
     expect(callOf(fetchMock).url).toBe(`${BASE_URL}/things?page=2&q=a+b`);
+  });
+
+  it("serializes array search params as repeated keys", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([]));
+    const { client } = makeClient(fetchMock);
+
+    await client.request("GET", "/things", {
+      searchParams: { ids: ["a", "b"], page: 1 },
+    });
+
+    expect(callOf(fetchMock).url).toBe(`${BASE_URL}/things?ids=a&ids=b&page=1`);
+  });
+
+  it("returns raw text when responseType is text", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response("timestamp,value\n2026-01-01,42", {
+          status: 200,
+          headers: { "Content-Type": "text/csv" },
+        }),
+    );
+    const { client } = makeClient(fetchMock);
+
+    const csv = await client.request<string>("GET", "/export", {
+      responseType: "text",
+    });
+
+    expect(csv).toBe("timestamp,value\n2026-01-01,42");
+  });
+
+  it("returns a Blob when responseType is blob", async () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(bytes, {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        }),
+    );
+    const { client } = makeClient(fetchMock);
+
+    const png = await client.request<Blob>("GET", "/export", {
+      responseType: "blob",
+    });
+
+    expect(png).toBeInstanceOf(Blob);
+    expect(png.size).toBe(bytes.length);
   });
 
   it("injects the stored access token as a bearer header", async () => {
@@ -164,6 +211,20 @@ describe("request", () => {
     expect(error).toBeInstanceOf(NetworkError);
     expect((error as NetworkError).detail).toBe("fetch failed");
     expect((error as NetworkError).cause).toBe(cause);
+  });
+});
+
+describe("resource namespaces", () => {
+  it("wires the namespaces to the authenticated request pipeline", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([]));
+    const { client, storage } = makeClient(fetchMock);
+    storage.setTokens({ accessToken: "t1", refreshToken: "r1" });
+
+    await client.devices.list({ search: "fan" });
+
+    const { url, headers } = callOf(fetchMock);
+    expect(url).toBe(`${BASE_URL}/devices/?search=fan`);
+    expect(headers["Authorization"]).toBe("Bearer t1");
   });
 });
 

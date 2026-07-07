@@ -4,24 +4,32 @@ TypeScript client for the Gridone API. Runs in the browser and Node 18+, with ze
 
 API payloads keep the **wire format** — snake_case keys, exactly as documented in the OpenAPI schema. SDK code (classes, methods, config) is idiomatic camelCase.
 
-> **Status**: under construction ([AGR-373](https://linear.app/agrid-bms/issue/AGR-373)) — resource namespaces (`client.devices`, ...) are coming; until then `client.request()` reaches any endpoint.
+> **Status**: under construction ([AGR-375](https://linear.app/agrid-bms/issue/AGR-375)) — `client.devices`, `client.drivers`, `client.transports` and `client.timeseries` are available; remaining namespaces (`assets`, `users`, `apps`, ...) are coming. `client.request()` reaches any endpoint in the meantime.
 
 ## Usage
 
 ```ts
 import { GridoneClient, isNotFound } from "@gridone/sdk";
-import type { Device } from "@gridone/sdk";
 
 const client = new GridoneClient({ baseUrl: "http://localhost:8000" });
 
 await client.login("admin", "s3cret");
 
-const devices = await client.request<Device[]>("GET", "/devices", {
-  searchParams: { page_size: 50 },
+const devices = await client.devices.list({ search: "fan" });
+await client.devices.sendCommand(devices[0].id, {
+  attribute: "setpoint",
+  value: 21.5,
+  confirm: true,
 });
 
+const points = await client.timeseries.getPoints(
+  devices[0].id,
+  "active_power",
+  { last: "24h" },
+);
+
 try {
-  await client.request("GET", "/devices/nope");
+  await client.devices.get("nope");
 } catch (error) {
   if (isNotFound(error)) {
     // GridoneError with .status and .detail; NetworkError when unreachable
@@ -29,6 +37,12 @@ try {
 }
 
 await client.logout();
+```
+
+Endpoints without a namespace method yet are reachable with the raw escape hatch:
+
+```ts
+await client.request("POST", "/notifications/", { body: { ... } });
 ```
 
 Tokens are held in a `MemoryTokenStorage` by default (lifetime of the client). Pass your own `TokenStorage` implementation for other lifetimes — e.g. a cookie-backed one in the browser. Expired access tokens are refreshed transparently: on a 401 the client exchanges the refresh token (one refresh shared across concurrent requests) and retries once.
