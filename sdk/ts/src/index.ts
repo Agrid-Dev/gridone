@@ -12,7 +12,33 @@ export {
   isNotFound,
   NetworkError,
 } from "./errors";
-export type { FetchLike, HttpMethod, RequestOptions } from "./http/httpClient";
+export type {
+  FetchLike,
+  HttpMethod,
+  RequestFn,
+  RequestOptions,
+  SearchParamValue,
+} from "./http/httpClient";
+export { CommandTemplatesResource } from "./resources/commandTemplates";
+export type { CommandTemplateListParams } from "./resources/commandTemplates";
+export { DevicesResource } from "./resources/devices";
+export type {
+  CommandListParams,
+  DeviceListParams,
+  FaultListParams,
+} from "./resources/devices";
+export { DriversResource } from "./resources/drivers";
+export type { DriverAttribute, DriverListParams } from "./resources/drivers";
+export { TimeseriesResource } from "./resources/timeseries";
+export type {
+  AggregateOptionsParams,
+  TimeseriesAggregateParams,
+  TimeseriesExportParams,
+  TimeseriesListParams,
+  TimeseriesPointsParams,
+} from "./resources/timeseries";
+export { TransportsResource } from "./resources/transports";
+export type { TransportSchemas } from "./resources/transports";
 export type * from "./types";
 export { MemoryTokenStorage } from "./http/tokenStorage";
 export type { MaybePromise, Tokens, TokenStorage } from "./http/tokenStorage";
