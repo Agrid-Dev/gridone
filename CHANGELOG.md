@@ -1,3 +1,14 @@
+## v0.150.0 (2026-07-08)
+
+### Feat
+
+- extend golden path to bacnet
+- **mapping**: resolve integer-keyed mappings for float-delivered values
+
+### Fix
+
+- **bacnet**: encode write values by the object's datatype
+
 ## v0.149.0 (2026-07-07)
 
 ### Feat
