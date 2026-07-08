@@ -11,6 +11,7 @@ from rich.table import Table
 
 from cli.service import run_async, service
 from devices_manager import CoreDevice, DevicesService
+from devices_manager.types import AttributeValueType, DataType
 
 from .formatters import autoformat_value, device_to_table
 
@@ -49,21 +50,60 @@ async def read(device_id: str) -> None:
         await _read_device_async(svc, device_id)
 
 
+_BOOL_TRUE = {"1", "true", "yes", "on"}
+_BOOL_FALSE = {"0", "false", "no", "off"}
+
+
+def _coerce_write_value(raw: str, data_type: DataType) -> AttributeValueType:
+    """Coerce a CLI string argument to the attribute's declared data type.
+
+    Typer hands every argument in as text, so string-valued attributes (e.g. a
+    thermostat ``mode``) must pass through untouched while ``float``/``int``/
+    ``bool`` attributes are parsed here — otherwise a ``float`` annotation would
+    reject ``"cool"`` at parse time, before the codec pipeline is ever reached.
+    """
+    if data_type is DataType.STRING:
+        return raw
+    if data_type is DataType.BOOL:
+        normalized = raw.strip().lower()
+        if normalized in _BOOL_TRUE:
+            return True
+        if normalized in _BOOL_FALSE:
+            return False
+        msg = f"'{raw}' is not a valid boolean (use one of 0/1, true/false)"
+        raise typer.BadParameter(msg)
+    caster = float if data_type is DataType.FLOAT else int
+    try:
+        return caster(raw)
+    except ValueError as e:
+        msg = f"'{raw}' is not a valid {data_type.value}"
+        raise typer.BadParameter(msg) from e
+
+
+def _attribute_data_type(driver: object, attribute: str) -> DataType:
+    for candidate in driver.attributes:  # ty: ignore[unresolved-attribute]
+        if candidate.name == attribute:
+            return candidate.data_type
+    msg = f"Attribute '{attribute}' is not defined on this device's driver"
+    raise typer.BadParameter(msg)
+
+
 async def _write_device_async(
     dm: DevicesService,
     device_id: str,
     attribute: str,
-    value: float,
+    value: str,
 ) -> None:
     device = dm.get_device(device_id)
     driver = dm.get_driver(device.driver_id)
+    coerced = _coerce_write_value(value, _attribute_data_type(driver, attribute))
     console.print(
-        f"Writing value [bold red]{value}[/bold red] to device"
+        f"Writing value [bold red]{coerced}[/bold red] to device"
         f" [bold blue]{device_id}[/bold blue]"
         f" with driver [bold blue]{driver.id}[/bold blue]"
     )
 
-    await dm.write_device_attribute(device_id, attribute, value)
+    await dm.write_device_attribute(device_id, attribute, coerced)
     console.print("[bold green]Attribute updated[/bold green]")
 
 
@@ -72,10 +112,13 @@ async def _write_device_async(
 async def write(
     device_id: str,
     attribute: str,
-    value: float,
+    value: str,
 ) -> None:
     """Update a device attribute.
-    For boolean values, use 0 or 1. String values are not supported yet."""
+
+    The value is parsed to the attribute's declared type: numbers for
+    float/int attributes, 0/1 or true/false for booleans, and plain text for
+    string attributes (e.g. a thermostat ``mode`` such as ``cool``)."""
     async with service() as svc:
         await _write_device_async(svc, device_id, attribute, value)
 
