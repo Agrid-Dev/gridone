@@ -88,6 +88,10 @@ def test_read_device(devices_service_with_local_driver: DevicesService) -> None:
     assert re.search(r"temperature", result.output), (
         "Expected output not found in the result"
     )
+    # Streaming read ends with a timed summary line.
+    assert re.search(r"attribute\(s\) read in", result.output), (
+        "Expected summary line not found in the result"
+    )
 
 
 @pytest.mark.parametrize(

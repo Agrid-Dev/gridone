@@ -46,7 +46,7 @@ from .dto import (
 from .storage.factory import build_storage
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import AsyncIterator, Collection
 
     from models.types import Severity
 
@@ -359,6 +359,15 @@ class DevicesService(Service):
         device = self._device_registry.get(device_id)
         await device.update_once()
         return device_to_public(device)
+
+    def stream_device_read(
+        self, device_id: str
+    ) -> AsyncIterator[tuple[str, AttributeValueType | None]]:
+        """Read a device's attributes on demand, yielding ``(name, value)`` as
+        each one lands so callers can render progress rather than waiting for the
+        whole device. Like :meth:`read_device`, it contacts the transport.
+        """
+        return self._device_registry.get(device_id).stream_read()
 
     async def start_device_sync(self, device_id: str) -> None:
         """Start background polling for a single device."""

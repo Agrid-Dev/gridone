@@ -11,7 +11,7 @@ DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
 
 if TYPE_CHECKING:
     import builtins
-    from collections.abc import Collection
+    from collections.abc import AsyncIterator, Collection
 
     from models.types import Severity
 
@@ -152,6 +152,10 @@ class DevicesServiceInterface(Protocol):
     async def delete_device_tag(self, device_id: str, key: str) -> Device: ...
 
     async def read_device(self, device_id: str) -> Device: ...
+
+    def stream_device_read(
+        self, device_id: str
+    ) -> AsyncIterator[tuple[str, AttributeValueType | None]]: ...
 
     async def start_device_sync(self, device_id: str) -> None: ...
 
