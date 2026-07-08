@@ -1,3 +1,9 @@
+## v0.152.0 (2026-07-08)
+
+### Feat
+
+- **mqtt**: tls_insecure option + read-path debug logging (follow-up AGR-578) (#443)
+
 ## v0.151.0 (2026-07-08)
 
 ### Feat
