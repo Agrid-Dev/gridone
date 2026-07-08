@@ -84,10 +84,15 @@ class TestTransportCreate:
 
 
 class TestTransportUpdate:
-    def test_config_validates_against_config_union(self):
+    def test_config_kept_as_partial_mapping(self):
+        # PATCH has no protocol to discriminate on, so the config is kept as a
+        # raw mapping and validated against the transport's own config class
+        # when applied (see test_base_transport / update_config).
         update = TransportUpdate.model_validate({"config": {"request_timeout": 5}})
-        assert update.config == HttpTransportConfig(request_timeout=5)
+        assert update.config == {"request_timeout": 5}
 
-    def test_rejects_config_matching_no_protocol(self):
-        with pytest.raises(ValidationError):
-            TransportUpdate.model_validate({"config": {"nonsense": True}})
+    def test_partial_config_is_accepted(self):
+        # Regression (AGR-901): a partial patch that is not a valid standalone
+        # config for any protocol (only `ca_cert`) must still be accepted here.
+        update = TransportUpdate.model_validate({"config": {"ca_cert": "cert"}})
+        assert update.config == {"ca_cert": "cert"}

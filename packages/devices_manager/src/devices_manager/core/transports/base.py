@@ -107,7 +107,11 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         if isinstance(config, BaseTransportConfig):
             config = config.model_dump()
-        self.config = self.config.model_copy(update=config)
+        # Merge the partial patch onto the current config and re-validate against
+        # this transport's own config class — the PATCH body is untyped, so this
+        # is where a partial update is type-checked and defaults are preserved.
+        merged = {**self.config.model_dump(), **config}
+        self.config = type(self.config).model_validate(merged)
         if reconnect:
             self.schedule_reconnect()
 
