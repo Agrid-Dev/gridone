@@ -1,3 +1,9 @@
+## v0.151.0 (2026-07-08)
+
+### Feat
+
+- **codecs**: round real-valued inputs in byte_convert integer encoders
+
 ## v0.150.1 (2026-07-08)
 
 ### Fix
