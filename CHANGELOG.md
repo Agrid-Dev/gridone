@@ -1,3 +1,9 @@
+## v0.150.1 (2026-07-08)
+
+### Fix
+
+- **cli**: parse device write value by attribute data type
+
 ## v0.150.0 (2026-07-08)
 
 ### Feat
