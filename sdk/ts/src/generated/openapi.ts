@@ -2265,6 +2265,26 @@ export interface components {
        * @default 1883
        */
       port?: number;
+      /**
+       * Tls
+       * @default false
+       */
+      tls?: boolean;
+      /**
+       * Tls Insecure
+       * @default false
+       */
+      tls_insecure?: boolean;
+      /** Ca Cert */
+      ca_cert?: string | null;
+      /** Client Cert */
+      client_cert?: string | null;
+      /** Client Key */
+      client_key?: string | null;
+      /** Username */
+      username?: string | null;
+      /** Password */
+      password?: string | null;
     };
     /** MqttTransportCreate */
     MqttTransportCreate: {
@@ -2546,14 +2566,9 @@ export interface components {
       /** Name */
       name?: string | null;
       /** Config */
-      config?:
-        | components["schemas"]["HttpTransportConfig"]
-        | components["schemas"]["KNXTransportConfig"]
-        | components["schemas"]["MqttTransportConfig"]
-        | components["schemas"]["ModbusTCPTransportConfig"]
-        | components["schemas"]["MBusTransportConfig"]
-        | components["schemas"]["BacnetTransportConfig"]
-        | null;
+      config?: {
+        [key: string]: unknown;
+      } | null;
     };
     /** Trigger */
     Trigger: {

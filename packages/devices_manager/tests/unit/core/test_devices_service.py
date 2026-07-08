@@ -667,7 +667,7 @@ class TestDevicesServiceUpdateTransport:
         with pytest.raises(NotFoundError):
             await devices_manager.update_transport(
                 "non-existing-id",
-                TransportUpdate(name="x", config=HttpTransportConfig()),
+                TransportUpdate(name="x", config={}),
             )
 
     @pytest.mark.asyncio
@@ -705,7 +705,7 @@ class TestDevicesServiceUpdateTransport:
         transport_id = mock_transport_client.id
         new_config = HttpTransportConfig(request_timeout=5)
         updated_transport = await dm.update_transport(
-            transport_id, TransportUpdate(config=new_config)
+            transport_id, TransportUpdate(config={"request_timeout": 5})
         )
         assert updated_transport.config == new_config
         assert dm.get_transport(transport_id).config == new_config
@@ -1186,7 +1186,7 @@ class TestDevicesServiceRestartSync:
 
         await dm.update_transport(
             mock_transport_client.id,
-            TransportUpdate(config=HttpTransportConfig(request_timeout=5)),
+            TransportUpdate(config={"request_timeout": 5}),
         )
 
         assert device1.syncing is True

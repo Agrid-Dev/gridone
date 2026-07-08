@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -137,16 +137,6 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
 }
 
 
-TransportConfig = (
-    HttpTransportConfig
-    | KNXTransportConfig
-    | MqttTransportConfig
-    | ModbusTCPTransportConfig
-    | MBusTransportConfig
-    | BacnetTransportConfig
-)
-
-
 class TransportCreateBase(BaseModel):
     name: str
 
@@ -196,7 +186,9 @@ TransportCreate = Annotated[
 
 class TransportUpdate(BaseModel):
     name: str | None = None
-    # PATCH has no `protocol` field to discriminate on: config validates
-    # against the plain union, then the transport's own config class is
-    # authoritative when the update is applied.
-    config: TransportConfig | None = None
+    # A partial config patch. PATCH carries no `protocol` to discriminate the
+    # per-protocol union on, and a partial body would fail its required fields
+    # anyway (e.g. `host`), so the config is left as a raw mapping here and
+    # merged + validated against the transport's own config class when applied
+    # (see `TransportClient.update_config`).
+    config: dict[str, Any] | None = None

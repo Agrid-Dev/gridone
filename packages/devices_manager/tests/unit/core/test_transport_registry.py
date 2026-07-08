@@ -111,11 +111,10 @@ class TestTransportRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_config(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
-        new_config = HttpTransportConfig(request_timeout=5)
         updated = await registry.update(
-            mock_transport_client.id, TransportUpdate(config=new_config)
+            mock_transport_client.id, TransportUpdate(config={"request_timeout": 5})
         )
-        assert updated.config == new_config
+        assert updated.config == HttpTransportConfig(request_timeout=5)
 
     @pytest.mark.asyncio
     async def test_update_not_found(self):

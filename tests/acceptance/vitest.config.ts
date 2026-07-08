@@ -29,6 +29,12 @@ export default defineConfig({
           include: ["suites/devices/**/*.spec.ts"],
         },
       },
+      {
+        test: {
+          name: "transports",
+          include: ["suites/transports/**/*.spec.ts"],
+        },
+      },
     ],
   },
 });
