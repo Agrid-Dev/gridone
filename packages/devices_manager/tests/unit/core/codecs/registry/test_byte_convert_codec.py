@@ -3,6 +3,7 @@ import pytest
 from devices_manager.core.codecs.registry.byte_convert_codec import (
     byte_convert_codec,
 )
+from devices_manager.core.codecs.registry.scale_codec import scale_codec
 
 
 @pytest.mark.parametrize(
@@ -167,6 +168,58 @@ def test_byte_convert_bytes_wrong_length() -> None:
 def test_byte_convert_uint8_int8_from_bytes(spec, raw, decoded) -> None:
     codec = byte_convert_codec(spec)
     assert codec.decode(raw) == decoded
+
+
+# --- real-valued (scaled) inputs on the integer encode path ---
+
+
+@pytest.mark.parametrize(
+    ("spec", "value", "expected"),
+    [
+        # Exact-integer floats round-trip through every integer width.
+        ("uint16", 123.0, 123),
+        ("int16", -1.0, -1),
+        ("int32", -1.0, -1),
+        ("uint32", 305419896.0, 305419896),
+        ("int64", -1.0, -1),
+        ("uint64", 305419896.0, 305419896),
+        ("uint8", 50.0, 50),
+        ("int8", -5.0, -5),
+        # Fractional floats round to nearest (matches firmware int(round(...))).
+        ("int32", 21500.4, 21500),
+        ("int32", 21500.6, 21501),
+    ],
+)
+def test_byte_convert_integer_encode_accepts_floats(spec, value, expected) -> None:
+    codec = byte_convert_codec(spec)
+    raw = codec.encode(value)
+    assert codec.decode(raw) == expected
+
+
+def test_byte_convert_int32_encode_float_out_of_range() -> None:
+    codec = byte_convert_codec("int32")
+    with pytest.raises(ValueError, match="out of range"):
+        codec.encode(3e9)
+
+
+@pytest.mark.parametrize("setpoint", [10.2, 18.0, 21.5, 34.7])
+def test_scaled_int32_setpoint_write_roundtrip(setpoint) -> None:
+    """A fixed-point register (int32 * 1000) must survive the scale->encode path.
+
+    `scale` divides by 0.001 and yields a float carrying tiny error (e.g.
+    10.2 -> 10199.999999999998); the integer encoder must round it so the
+    device receives the correct raw value, and reading it back returns the
+    original setpoint.
+    """
+    byte_convert = byte_convert_codec("int32 big_endian")
+    scale = scale_codec(0.001)
+
+    raw_registers = byte_convert.encode(scale.encode(setpoint))
+
+    wire = round(setpoint * 1000)
+    assert raw_registers == [(wire >> 16) & 0xFFFF, wire & 0xFFFF]
+    read_back = scale.decode(float(byte_convert.decode(raw_registers)))
+    assert read_back == pytest.approx(setpoint, abs=1e-9)
 
 
 def test_byte_convert_uint8_wrong_length() -> None:

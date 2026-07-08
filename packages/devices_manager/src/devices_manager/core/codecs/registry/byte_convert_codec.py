@@ -72,6 +72,17 @@ def _from_bytes(data: bytes) -> list[int]:
     return list(struct.unpack(">" + "H" * count, data))
 
 
+def _coerce_int(value: float) -> int:
+    """Round a real-valued input to an int for integer register encoding.
+
+    Plain ints pass through, but scaled values reach the encoder as floats: a
+    setpoint 10.2 with `scale` 0.001 arrives as 10199.999999999998 because
+    float division is inexact. Rounding (rather than truncating) recovers the
+    intended raw value 10200, matching the firmware's own int(round(value)).
+    """
+    return round(value)
+
+
 def _decode_uint8(value: ByteConvertInput) -> int:
     if isinstance(value, bytes):
         if len(value) != 1:
@@ -82,7 +93,8 @@ def _decode_uint8(value: ByteConvertInput) -> int:
     return registers[0]
 
 
-def _encode_uint8(value: int) -> int:
+def _encode_uint8(value: float) -> int:
+    value = _coerce_int(value)
     if value < 0 or value > _UINT8_MAX:
         msg = f"Value {value} out of range for uint8"
         raise ValueError(msg)
@@ -102,7 +114,8 @@ def _decode_int8(value: ByteConvertInput) -> int:
     return reg
 
 
-def _encode_int8(value: int) -> int:
+def _encode_int8(value: float) -> int:
+    value = _coerce_int(value)
     if value < _INT8_MIN or value > _INT8_MAX:
         msg = f"Value {value} out of range for int8"
         raise ValueError(msg)
@@ -120,7 +133,8 @@ def _decode_uint16(value: ByteConvertInput) -> int:
     return reg
 
 
-def _encode_uint16(value: int) -> int:
+def _encode_uint16(value: float) -> int:
+    value = _coerce_int(value)
     if value < 0 or value > _UINT16_MAX:
         msg = f"Value {value} out of range for uint16"
         raise ValueError(msg)
@@ -134,7 +148,8 @@ def _decode_int16(value: ByteConvertInput) -> int:
     return reg
 
 
-def _encode_int16(value: int) -> int:
+def _encode_int16(value: float) -> int:
+    value = _coerce_int(value)
     if value < _INT16_MIN or value > _INT16_MAX:
         msg = f"Value {value} out of range for int16"
         raise ValueError(msg)
@@ -158,7 +173,8 @@ def _decode_uint32(value: ByteConvertInput) -> int:
     return struct.unpack(">I", data)[0]
 
 
-def _encode_uint32(value: int) -> list[int]:
+def _encode_uint32(value: float) -> list[int]:
+    value = _coerce_int(value)
     if value < 0 or value > _UINT32_MAX:
         msg = f"Value {value} out of range for uint32"
         raise ValueError(msg)
@@ -172,7 +188,8 @@ def _decode_int32(value: ByteConvertInput) -> int:
     return struct.unpack(">i", data)[0]
 
 
-def _encode_int32(value: int) -> list[int]:
+def _encode_int32(value: float) -> list[int]:
+    value = _coerce_int(value)
     if value < _INT32_MIN or value > _INT32_MAX:
         msg = f"Value {value} out of range for int32"
         raise ValueError(msg)
@@ -211,7 +228,8 @@ def _decode_uint64(value: ByteConvertInput) -> int:
     return struct.unpack(">Q", data)[0]
 
 
-def _encode_uint64(value: int) -> list[int]:
+def _encode_uint64(value: float) -> list[int]:
+    value = _coerce_int(value)
     if value < 0 or value > _UINT64_MAX:
         msg = f"Value {value} out of range for uint64"
         raise ValueError(msg)
@@ -225,7 +243,8 @@ def _decode_int64(value: ByteConvertInput) -> int:
     return struct.unpack(">q", data)[0]
 
 
-def _encode_int64(value: int) -> list[int]:
+def _encode_int64(value: float) -> list[int]:
+    value = _coerce_int(value)
     if value < _INT64_MIN or value > _INT64_MAX:
         msg = f"Value {value} out of range for int64"
         raise ValueError(msg)
