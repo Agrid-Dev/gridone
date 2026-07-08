@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 def build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
     """load_cert_chain needs file paths, so cert/key are written to temp files."""
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if config.tls_insecure:
+        # Bypass CN/SAN-vs-host verification (mosquitto `--insecure`). The
+        # chain is still checked against the CA below; only the hostname
+        # match is skipped, so it must be set before load_verify_locations.
+        context.check_hostname = False
     if config.ca_cert:
         context.load_verify_locations(cadata=config.ca_cert)
     else:
@@ -85,7 +90,14 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 password=self.config.password,
                 tls_context=tls_context,
             )
+            logger.debug(
+                "MQTT connecting to %s:%s (tls=%s)",
+                self.config.host,
+                self.config.port,
+                self.config.tls,
+            )
             await asyncio.wait_for(self._client_instance.__aenter__(), timeout=TIMEOUT)
+            logger.debug("MQTT connected to %s:%s", self.config.host, self.config.port)
             self._background_tasks.add(
                 asyncio.create_task(self._handle_incoming_messages())
             )
@@ -168,6 +180,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             message_event.set()
 
         listener_id = await self.register_listener(address.topic, update_value)
+        logger.debug("MQTT read: subscribed to reply topic %s", address.topic)
 
         if address.request is not None:
             payload = (
@@ -175,8 +188,19 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 if isinstance(address.request.message, dict)
                 else address.request.message
             )
+            logger.debug(
+                "MQTT read: publishing request to topic %s: %s",
+                address.request.topic,
+                payload,
+            )
             await self._client.publish(
                 address.request.topic, payload=payload, timeout=TIMEOUT
+            )
+        else:
+            logger.debug(
+                "MQTT read: no request block on address; listen-only on %s "
+                "(nothing published to the broker)",
+                address.topic,
             )
 
         try:

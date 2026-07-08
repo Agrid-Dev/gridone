@@ -410,6 +410,19 @@ class TestBuildSslContext:
             build_ssl_context(config)
         load_default.assert_called_once()
 
+    def test_verifies_hostname_by_default(self, test_pki: dict) -> None:
+        context = build_ssl_context(_tls_config(test_pki, with_client_cert=True))
+        assert context.check_hostname is True
+
+    def test_tls_insecure_disables_hostname_verification(self, test_pki: dict) -> None:
+        config = _tls_config(test_pki, with_client_cert=True).model_copy(
+            update={"tls_insecure": True}
+        )
+        context = build_ssl_context(config)
+        assert context.check_hostname is False
+        # Chain validation stays on — only the hostname match is skipped.
+        assert context.verify_mode == ssl.CERT_REQUIRED
+
 
 class TestMtlsHandshake:
     def test_handshake_succeeds_with_matching_client_cert(self, test_pki: dict) -> None:

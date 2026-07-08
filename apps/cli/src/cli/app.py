@@ -3,6 +3,7 @@ CLI entrypoint for the gridone core.
 """
 
 import logging
+import os
 
 import typer
 from rich.logging import RichHandler
@@ -10,12 +11,21 @@ from rich.logging import RichHandler
 from cli.devices import app as devices_app
 from cli.drivers import app as drivers_app
 
-# Configure logging with RichHandler
+# Configure logging with RichHandler. The level is overridable via the
+# GRIDONE_LOG_LEVEL env var (e.g. GRIDONE_LOG_LEVEL=DEBUG) to surface
+# transport-level diagnostics without a code change.
+#
+# force=True is required: an imported dependency (e.g. the MQTT stack) may
+# call logging.basicConfig() at import time before this runs. Without force,
+# basicConfig is a no-op when the root logger already has a handler, so our
+# RichHandler and level would be silently dropped and DEBUG stays suppressed.
+_log_level = os.environ.get("GRIDONE_LOG_LEVEL", "WARNING").upper()
 logging.basicConfig(
-    level=logging.WARNING,
+    level=getattr(logging, _log_level, logging.WARNING),
     format="%(message)s",
     datefmt="[%X]",
     handlers=[RichHandler()],
+    force=True,
 )
 
 
