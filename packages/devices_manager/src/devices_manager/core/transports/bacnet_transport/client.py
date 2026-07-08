@@ -15,10 +15,10 @@ from bacpypes3.constructeddata import AnyAtomic
 from bacpypes3.ipv4.app import ForeignApplication, NormalApplication
 from bacpypes3.pdu import Address, IPv4Address
 from bacpypes3.primitivedata import (
-    CharacterString,
-    Integer,
+    Atomic,
     ObjectIdentifier,
     Real,
+    Unsigned,
 )
 
 from devices_manager.core.transports.base import PullTransportClient
@@ -28,6 +28,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols
 
 from .application import make_local_application
 from .bacnet_address import BacnetAddress
+from .bacnet_types import BacnetObjectType
 from .transport_config import BacnetTransportConfig
 
 
@@ -52,6 +53,49 @@ def to_native(value: object) -> AttributeValueType:
     if isinstance(value, str):
         return str(value)
     return value  # ty: ignore[invalid-return-type]
+
+
+_ANALOG_OBJECT_TYPES = frozenset(
+    {
+        BacnetObjectType.ANALOG_INPUT,
+        BacnetObjectType.ANALOG_OUTPUT,
+        BacnetObjectType.ANALOG_VALUE,
+    }
+)
+_BINARY_OBJECT_TYPES = frozenset(
+    {
+        BacnetObjectType.BINARY_INPUT,
+        BacnetObjectType.BINARY_OUTPUT,
+        BacnetObjectType.BINARY_VALUE,
+    }
+)
+_MULTISTATE_OBJECT_TYPES = frozenset(
+    {
+        BacnetObjectType.MULTISTATE_INPUT,
+        BacnetObjectType.MULTISTATE_OUTPUT,
+        BacnetObjectType.MULTISTATE_VALUE,
+    }
+)
+
+
+def encode_present_value(
+    object_type: BacnetObjectType, value: AttributeValueType
+) -> Atomic:
+    """Encode a value as the BACnet datatype the object type's present-value uses.
+
+    Each object type fixes the datatype of its present-value: Real for analog,
+    BinaryPV for binary, Unsigned for multi-state. Encoding by object type (not
+    by the Python value's type) is what a device expects — a multi-state
+    present-value is an Unsigned, not a Signed integer.
+    """
+    if object_type in _ANALOG_OBJECT_TYPES:
+        return Real(float(value))
+    if object_type in _BINARY_OBJECT_TYPES:
+        return BinaryPV(1 if value else 0)
+    if object_type in _MULTISTATE_OBJECT_TYPES:
+        return Unsigned(int(value))
+    msg = f"Cannot encode a write value for object type {object_type}"
+    raise ValueError(msg)
 
 
 type DevicesDict = dict[ObjectIdentifier, Address]
@@ -157,22 +201,12 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         self, address: BacnetAddress, value: AttributeValueType
     ) -> None:
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
-        if isinstance(value, bool):
-            value = BinaryPV(value)
-        elif isinstance(value, int):
-            value = Integer(value)
-        elif isinstance(value, float):
-            value = Real(value)
-        elif isinstance(value, str):
-            value = CharacterString(value)
-        else:
-            msg = f"Unsupported value type: {type(value)}"
-            raise TypeError(msg)
+        property_value = encode_present_value(address.object_type, value)
 
         request = WritePropertyRequest(
             objectIdentifier=obj_id,
             propertyIdentifier=address.property_name,
-            propertyValue=value,
+            propertyValue=property_value,
             priority=address.write_priority or self.config.default_write_priority,
         )
         request.pduDestination = self._device_address(address)

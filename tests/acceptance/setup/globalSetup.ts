@@ -104,6 +104,32 @@ const SEEDS: ProtocolSeed[] = [
       },
     ],
   },
+  {
+    protocol: "bacnet",
+    driverId: "thermocktat_bacnet",
+    driverFixture: "thermocktat-bacnet-driver.yaml",
+    transport: {
+      name: "acceptance-bacnet",
+      protocol: "bacnet",
+      // discovery_address is the emulator's pinned IP (compose.override.yaml):
+      // the client sends a directed Who-Is there instead of a LAN broadcast.
+      // ip_with_mask is required but unused on the directed path (the client
+      // binds an ephemeral socket), so it just names the stack's subnet.
+      config: {
+        ip_with_mask: "172.30.0.0/24",
+        discovery_address: "172.30.0.20",
+        port: 47808,
+      },
+    },
+    // device_instance matches the emulator's TMK_CONTROLLERS_BACNET_DEVICE_INSTANCE.
+    devices: [
+      {
+        name: "Thermocktat BACnet 0",
+        config: { device_instance: 1 },
+        externalUrl: "http://localhost:9085",
+      },
+    ],
+  },
 ];
 
 declare module "vitest" {

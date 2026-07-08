@@ -1,0 +1,72 @@
+# BACnet/IP driver for the thermocktat emulator in compose.override.yaml.
+# Mirrors the reference driver from gridone-setup (.db/drivers/
+# thermocktat_bacnet.yaml), corrected to the emulator's object map (onoff_state
+# is BinaryValue 0, not BV5) and with the acceptance-env deltas: fast polling and
+# a read-only fault_code like the other protocol drivers.
+#
+# Object types are the BACnet shorthands: AI/AV analog, BV binary, MV multi-state.
+# Values are typed on the wire (no codecs needed for numbers); mode/fan_speed and
+# fault_code use a mapping codec to turn the numeric code into a label, as on
+# every protocol.
+id: thermocktat_bacnet
+transport: bacnet
+type: thermostat
+
+update_strategy:
+  polling: 2s
+
+# Only device_instance per device; the device address is discovered via Who-Is
+# against the transport's discovery_address.
+device_config:
+  - name: device_instance
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: AI0
+
+  - name: temperature_setpoint
+    data_type: float
+    read_write: AV0
+
+  - name: temperature_setpoint_min
+    data_type: float
+    read_write: AV1
+
+  - name: temperature_setpoint_max
+    data_type: float
+    read_write: AV2
+
+  - name: onoff_state
+    data_type: bool
+    read_write: BV0
+
+  - name: mode
+    data_type: str
+    read_write: MV0
+    codecs:
+      - mapping:
+          1: heat
+          2: cool
+          3: fan
+          4: auto
+
+  - name: fan_speed
+    data_type: str
+    read_write: MV1
+    codecs:
+      - mapping:
+          1: auto
+          2: low
+          3: medium
+          4: high
+
+  - name: fault_code
+    data_type: str
+    read: AV3
+    codecs:
+      - mapping:
+          0: ok
+          1: firmware_error
+          2: oops_error
+          3: disastrous_internal_error

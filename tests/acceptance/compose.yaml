@@ -50,3 +50,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+# Fixed subnet on the default network so the BACnet emulator can be pinned to a
+# static IP: gridone's BACnet client discovers it with a directed (unicast)
+# Who-Is to a literal address, which a compose service name can't provide.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

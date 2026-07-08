@@ -25,6 +25,10 @@ def mode_codec():
         ("chaleur", _LOCALE, "heat"),
         ("froid", _LOCALE, "cool"),
         (1, _REMAP, 10),
+        # A transport that delivers an integer code as a float (e.g. a BACnet
+        # AnalogValue) still resolves an integer-keyed mapping.
+        (1.0, _MODBUS_MODES, "heat"),
+        (4.0, _MODBUS_MODES, "auto"),
     ],
 )
 def test_decode(raw: Any, mapping: dict, expected: Any) -> None:

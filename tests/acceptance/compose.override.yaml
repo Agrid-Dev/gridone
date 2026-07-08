@@ -14,7 +14,7 @@
 # read-back values anyway.
 services:
   thermocktat-http-0:
-    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
     environment:
       TMK_DEVICE_ID: TMK_http_0
       TMK_CONTROLLER: http
@@ -22,7 +22,7 @@ services:
       - "9080:8080"
 
   thermocktat-http-1:
-    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
     environment:
       TMK_DEVICE_ID: TMK_http_1
       TMK_CONTROLLER: http
@@ -30,7 +30,7 @@ services:
       - "9081:8080"
 
   thermocktat-modbus-0:
-    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
     environment:
       TMK_DEVICE_ID: TMK_modbus_0
       # Per-controller enables, NOT TMK_CONTROLLER (which would enable modbus
@@ -65,7 +65,7 @@ services:
       retries: 5
 
   thermocktat-mqtt-0:
-    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
     environment:
       TMK_DEVICE_ID: TMK_mqtt_0
       TMK_CONTROLLERS_HTTP_ENABLED: "true"
@@ -80,7 +80,7 @@ services:
       - "9083:8080"
 
   thermocktat-knx-0:
-    image: ghcr.io/agrid-dev/thermocktat:v0.9.0
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
     environment:
       TMK_DEVICE_ID: TMK_knx_0
       TMK_CONTROLLERS_HTTP_ENABLED: "true"
@@ -90,3 +90,22 @@ services:
       TMK_CONTROLLERS_KNX_PUBLISH_INTERVAL: 1s
     ports:
       - "9084:8080"
+
+  thermocktat-bacnet-0:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_bacnet_0
+      TMK_CONTROLLERS_HTTP_ENABLED: "true"
+      TMK_CONTROLLERS_BACNET_ENABLED: "true"
+      # BACnet device instance the client binds via Who-Is (matches the seed's
+      # device_instance). The controller listens on 0.0.0.0:47808 by default.
+      TMK_CONTROLLERS_BACNET_DEVICE_INSTANCE: "1"
+    # Pinned IP: gridone's BACnet client sends a directed Who-Is to this literal
+    # address (a compose service name isn't a valid discovery_address). The
+    # BACnet UDP port stays on the compose network — only the http side-channel
+    # is published.
+    networks:
+      default:
+        ipv4_address: 172.30.0.20
+    ports:
+      - "9085:8080"
