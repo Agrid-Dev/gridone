@@ -1,3 +1,9 @@
+## v0.152.1 (2026-07-08)
+
+### Fix
+
+- **transports**: accept partial config on transport update (#444)
+
 ## v0.152.0 (2026-07-08)
 
 ### Feat
