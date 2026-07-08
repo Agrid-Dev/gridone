@@ -12,6 +12,10 @@ class MqttTransportConfig(BaseTransportConfig):
     host: str
     port: PositiveInt = MQTT_DEFAULT_PORT
     tls: bool = False
+    # Skip server-hostname verification, keeping certificate-chain validation
+    # against the CA (equivalent to mosquitto's `--insecure`). Needed when the
+    # broker's server certificate has no SAN/CN matching the connection host.
+    tls_insecure: bool = False
     ca_cert: str | None = None
     client_cert: str | None = None
     client_key: str | None = None

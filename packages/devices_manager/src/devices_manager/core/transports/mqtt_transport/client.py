@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 def build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
     """load_cert_chain needs file paths, so cert/key are written to temp files."""
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if config.tls_insecure:
+        # Bypass CN/SAN-vs-host verification (mosquitto `--insecure`). The
+        # chain is still checked against the CA below; only the hostname
+        # match is skipped, so it must be set before load_verify_locations.
+        context.check_hostname = False
     if config.ca_cert:
         context.load_verify_locations(cadata=config.ca_cert)
     else:
