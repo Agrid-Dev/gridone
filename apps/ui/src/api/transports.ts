@@ -1,4 +1,4 @@
-import { request, API_BASE_URL } from "./request";
+import { request } from "./request";
 import snakecaseKeys from "snakecase-keys";
 
 export const transportProtocols = [
@@ -58,17 +58,9 @@ export type DiscoveryHandler = {
 };
 
 export async function deleteTransport(transportId: string): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/transports/${encodeURIComponent(transportId)}`,
-    {
-      method: "DELETE",
-    },
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || response.statusText);
-  }
+  return request<void>(`/transports/${encodeURIComponent(transportId)}`, {
+    method: "DELETE",
+  });
 }
 
 export function getTransportSchemas(): Promise<TransportSchemas> {
