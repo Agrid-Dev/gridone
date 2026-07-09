@@ -9,8 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
-import type { Action } from "@/api/automations";
-import type { Severity } from "@/api/severity";
+import type { Action } from "@gridone/sdk";
+import type { Severity } from "@/lib/severity";
 import { TitlePresenter } from "../presenters/BasePresenter";
 import {
   ACTION_PROVIDER_DESCRIPTORS,
@@ -41,26 +41,27 @@ interface ActionFormProps {
  *  ``result`` slot. */
 function actionToResult(action: Action | undefined): ActionFormResult | null {
   if (!action) return null;
-  if (action.providerId === "command_template") {
-    const id = action.params.templateId;
+  const params = action.params ?? {};
+  if (action.provider_id === "command_template") {
+    const id = params.template_id;
     if (typeof id !== "string") return null;
     return {
-      providerId: "command_template",
-      params: { templateId: id },
+      provider_id: "command_template",
+      params: { template_id: id },
     };
   }
-  if (action.providerId === "notification") {
-    const { title, body, severity, userIds } = action.params;
+  if (action.provider_id === "notification") {
+    const { title, body, severity, user_ids: userIds } = params;
     if (typeof title !== "string" || !title.trim()) return null;
     if (typeof severity !== "string") return null;
     if (!Array.isArray(userIds) || userIds.length === 0) return null;
     return {
-      providerId: "notification",
+      provider_id: "notification",
       params: {
         title,
         body: typeof body === "string" ? body : "",
         severity: severity as Severity,
-        userIds: userIds.filter((id): id is string => typeof id === "string"),
+        user_ids: userIds.filter((id): id is string => typeof id === "string"),
       },
     };
   }

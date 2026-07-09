@@ -8,7 +8,7 @@ import {
   TypographyH5,
   TypographySmall,
 } from "@/components/ui/typography";
-import { BuildingProfile } from "@/api/assets";
+import type { BuildingProfile } from "@gridone/sdk";
 import { OrgAvatar } from "@/components/OrgAvatar";
 import { isProfileConfigured } from "@/hooks/useBuildingProfile";
 import { cn } from "@/lib/utils";
@@ -45,9 +45,16 @@ const SetupEmptyState: FC = () => {
 const Hero: FC<{ profile: BuildingProfile }> = ({ profile }) => {
   const { t } = useTranslation("home");
 
-  const stats = ["surface", "floors", "yearBuilt"].map((key) => ({
+  // i18n keys stay camelCase; the wire fields they read are snake_case.
+  const stats = (
+    [
+      ["surface", profile.surface],
+      ["floors", profile.floors],
+      ["yearBuilt", profile.year_built],
+    ] as const
+  ).map(([key, value]) => ({
     label: t(`hero.${key}`, { defaultValue: key }),
-    value: profile[key as keyof BuildingProfile],
+    value: value ?? null,
   }));
 
   return (

@@ -2,20 +2,27 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import type { CommandTemplate } from "@/api/commands";
+import type { CommandTemplateResponse } from "@gridone/sdk";
 
-// Mock the api layer at the module boundary so the hook's POST/PATCH
+// Mock the SDK client at the context boundary so the hook's POST/PATCH
 // branching is observable via call inspection.
-vi.mock("@/api/commands", () => ({
-  createTemplate: vi.fn(),
-  updateTemplate: vi.fn(),
+const { mockedCreate, mockedUpdate } = vi.hoisted(() => ({
+  mockedCreate: vi.fn(),
+  mockedUpdate: vi.fn(),
 }));
 
-import { createTemplate, updateTemplate } from "@/api/commands";
-import { useCommandTemplate } from "./useCommandTemplate";
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: {
+      commandTemplates: {
+        create: (...args: unknown[]) => mockedCreate(...args),
+        update: (...args: unknown[]) => mockedUpdate(...args),
+      },
+    },
+  }),
+}));
 
-const mockedCreate = vi.mocked(createTemplate);
-const mockedUpdate = vi.mocked(updateTemplate);
+import { useCommandTemplate } from "./useCommandTemplate";
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -29,7 +36,7 @@ const PAYLOAD = {
   write: {
     attribute: "mode",
     value: "auto" as const,
-    dataType: "str" as const,
+    data_type: "str" as const,
   },
   name: null,
 };
@@ -37,13 +44,13 @@ const PAYLOAD = {
 const mkTemplate = (
   id: string,
   name: string | null = null,
-): CommandTemplate => ({
+): CommandTemplateResponse => ({
   id,
   name,
   target: { ids: ["d1"] },
-  write: { attribute: "mode", value: "auto", dataType: "str" },
-  createdAt: "2026-05-01T00:00:00Z",
-  createdBy: "u1",
+  write: { attribute: "mode", value: "auto", data_type: "str" },
+  created_at: "2026-05-01T00:00:00Z",
+  created_by: "u1",
 });
 
 beforeEach(() => {
@@ -56,7 +63,7 @@ describe("useCommandTemplate", () => {
     mockedCreate.mockResolvedValue(mkTemplate("t-new"));
     const { result } = renderHook(() => useCommandTemplate(), { wrapper });
 
-    let resolved: CommandTemplate | undefined;
+    let resolved: CommandTemplateResponse | undefined;
     await act(async () => {
       resolved = await result.current.commit(PAYLOAD);
     });

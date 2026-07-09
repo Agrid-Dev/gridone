@@ -1,5 +1,5 @@
 import { Wind, Navigation2 } from "lucide-react";
-import { isWeatherSensor, readWeatherSensorAttributes } from "@/api/devices";
+import { isWeatherSensor, readWeatherSensorAttributes } from "@/lib/devices";
 import { getWeatherCode } from "./weatherCodes";
 import { degreesToCompass } from "./compass";
 import type { StandardPreviewProps } from "../types";

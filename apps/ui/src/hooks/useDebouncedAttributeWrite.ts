@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { updateDeviceAttribute } from "@/api/devices";
-import { isApiError } from "@/api/apiError";
-import type { Device } from "@/api/devices";
+import { isGridoneError, type Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 type DraftValue = string | number | boolean | null;
 
@@ -20,6 +19,7 @@ export function useDebouncedAttributeWrite({
   delay = 600,
 }: Options) {
   const { t } = useTranslation("devices");
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
@@ -36,7 +36,13 @@ export function useDebouncedAttributeWrite({
     async (name: string, value: DraftValue) => {
       setSaving((prev) => new Set(prev).add(name));
       try {
-        const updated = await updateDeviceAttribute(deviceId, name, value);
+        // Attribute writes go through the commands endpoint; refetch the
+        // device to surface the applied value.
+        await client.devices.sendCommand(deviceId, {
+          attribute: name,
+          value: value as string | number | boolean,
+        });
+        const updated = await client.devices.get(deviceId);
         queryClient.setQueryData<Device>(["device", deviceId], updated);
         toast.success(
           t("controls.thermostat.attributeUpdated", {
@@ -45,8 +51,8 @@ export function useDebouncedAttributeWrite({
           }),
         );
       } catch (err) {
-        const message = isApiError(err)
-          ? err.details || err.message
+        const message = isGridoneError(err)
+          ? err.detail || err.message
           : err instanceof Error
             ? err.message
             : t("deviceDetails.updateFailed");
@@ -59,7 +65,7 @@ export function useDebouncedAttributeWrite({
         });
       }
     },
-    [deviceId, queryClient, t],
+    [client, deviceId, queryClient, t],
   );
 
   const changeAndSave = useCallback(

@@ -1,4 +1,4 @@
-import type { DataPoint } from "@/api/timeseries";
+import type { DataPoint } from "@gridone/sdk";
 
 export type CellValue = string | number | boolean | null;
 
@@ -47,7 +47,7 @@ export function mergeTimeSeries(
         map.set(rounded, {
           original,
           value: point.value,
-          commandId: point.commandId,
+          commandId: point.command_id ?? undefined,
         });
       }
       allEpochs.add(rounded);

@@ -1,20 +1,22 @@
-import camelcase from "camelcase";
-import camelcaseKeys from "camelcase-keys";
 import { QueryClient } from "@tanstack/react-query";
-import { Device } from "@/api/devices";
-import { API_BASE_URL } from "./request";
-import type { DataPoint, SeriesPointsResult, TimeSeries } from "./timeseries";
+import type {
+  DataPoint,
+  Device,
+  FetchPointsResultResponse,
+  TimeSeries,
+} from "@gridone/sdk";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 export type DeviceUpdateMessage = {
   type: "device_update";
-  deviceId: string;
+  device_id: string;
   attribute: string;
   value: string | number | boolean | null;
   /** Message envelope time (emit time). */
   timestamp?: string | null;
   /** Attribute timestamps carried by the backend (see DeviceUpdateMessage). */
-  lastUpdated?: string | null;
-  lastChanged?: string | null;
+  last_updated?: string | null;
+  last_changed?: string | null;
 };
 
 export type DeviceFullUpdateMessage = {
@@ -58,11 +60,12 @@ export function buildWebSocketUrl(): string {
 
 /**
  * Applies a partial device_update WS event to a cached Device.
- * `attribute` must already be camelCase to match the HTTP-fetched cache keys.
+ * Payloads are wire-format snake_case end to end, so the attribute name and
+ * fields match the HTTP-fetched cache entries verbatim.
  *
- * The backend sends the attribute's `lastUpdated` / `lastChanged`; we fall back
- * to receive time when absent, and `lastChanged` defaults to `lastUpdated`
- * (a device_update only fires on a value change).
+ * The backend sends the attribute's `last_updated` / `last_changed`; we fall
+ * back to receive time when absent, and `last_changed` defaults to
+ * `last_updated` (a device_update only fires on a value change).
  */
 export function applyDeviceUpdate(
   device: Device,
@@ -71,7 +74,7 @@ export function applyDeviceUpdate(
   lastUpdated?: string | null,
   lastChanged?: string | null,
 ): Device {
-  const existingAttribute = device.attributes[attribute];
+  const existingAttribute = device.attributes?.[attribute];
   if (!existingAttribute) {
     return device;
   }
@@ -86,75 +89,56 @@ export function applyDeviceUpdate(
       ...device.attributes,
       [attribute]: {
         ...existingAttribute,
-        currentValue: value,
-        lastUpdated: updatedAt,
-        lastChanged: changedAt,
+        current_value: value,
+        last_updated: updatedAt,
+        last_changed: changedAt,
       },
     },
   };
 }
 
 export function createDeviceMessageHandler(queryClient: QueryClient) {
-  return (rawMessage: WebSocketMessage) => {
-    if (
-      typeof rawMessage !== "object" ||
-      !rawMessage ||
-      !("type" in rawMessage)
-    ) {
+  return (message: WebSocketMessage) => {
+    if (typeof message !== "object" || !message || !("type" in message)) {
       return;
     }
 
-    // Normalise all keys to camelCase once, mirroring the HTTP layer transform.
-    // This ensures WS payloads are structurally identical to HTTP-fetched cache entries.
-    const message = camelcaseKeys(rawMessage as Record<string, unknown>, {
-      deep: true,
-      preserveConsecutiveUppercase: true,
-    }) as WebSocketMessage;
-
     if (message.type === "device_update") {
       const updateMessage = message as DeviceUpdateMessage;
-      // `attribute` is a VALUE (not a key) so camelcaseKeys leaves it as snake_case.
-      // Use the same `camelcase` package that camelcase-keys uses internally so
-      // digit-bearing names (e.g. "setpoint_1") resolve identically to the cache keys.
-      const attributeKey = camelcase(updateMessage.attribute, {
-        preserveConsecutiveUppercase: true,
-      });
 
       queryClient.setQueryData<Device | undefined>(
-        ["device", updateMessage.deviceId],
+        ["device", updateMessage.device_id],
         (current) =>
           current
             ? applyDeviceUpdate(
                 current,
-                attributeKey,
+                updateMessage.attribute,
                 updateMessage.value,
-                updateMessage.lastUpdated,
-                updateMessage.lastChanged,
+                updateMessage.last_updated,
+                updateMessage.last_changed,
               )
             : current,
       );
 
       queryClient.setQueryData<Device[] | undefined>(["devices"], (current) =>
         current?.map((device) =>
-          device.id === updateMessage.deviceId
+          device.id === updateMessage.device_id
             ? applyDeviceUpdate(
                 device,
-                attributeKey,
+                updateMessage.attribute,
                 updateMessage.value,
-                updateMessage.lastUpdated,
-                updateMessage.lastChanged,
+                updateMessage.last_updated,
+                updateMessage.last_changed,
               )
             : device,
         ),
       );
 
       // Append data point to the matching time series cache.
-      // Timeseries metrics are stored as raw snake_case values, so compare against
-      // the original attribute name (not the camelCased key).
       const seriesList = queryClient.getQueryData<TimeSeries[]>([
         "timeseries",
         "series",
-        updateMessage.deviceId,
+        updateMessage.device_id,
       ]);
       const series = seriesList?.find(
         (s) => s.metric === updateMessage.attribute,
@@ -163,12 +147,12 @@ export function createDeviceMessageHandler(queryClient: QueryClient) {
         const point: DataPoint = {
           // Backend stores the sample at the value's change time.
           timestamp:
-            updateMessage.lastChanged ??
-            updateMessage.lastUpdated ??
+            updateMessage.last_changed ??
+            updateMessage.last_updated ??
             new Date().toISOString(),
           value: updateMessage.value as DataPoint["value"],
         };
-        queryClient.setQueriesData<SeriesPointsResult>(
+        queryClient.setQueriesData<FetchPointsResultResponse>(
           {
             queryKey: ["timeseries", "points", series.id],
             predicate: (query) => {

@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { FaultItem } from "./FaultItem";
-import type { FaultAttribute } from "@/api/devices";
-import type { Severity } from "@/api/severity";
+import type { FaultAttribute } from "@/lib/faults";
+import type { Severity } from "@/lib/severity";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -22,13 +22,13 @@ vi.mock("react-i18next", () =>
 const baseActive: FaultAttribute = {
   kind: "fault",
   name: "filter_alarm",
-  dataType: "bool",
-  readWriteModes: ["read"],
+  data_type: "bool",
+  read_write_modes: ["read"],
   severity: "alert",
-  isFaulty: true,
-  currentValue: true,
-  lastUpdated: new Date(Date.now() - 10 * 60_000).toISOString(),
-  lastChanged: new Date(Date.now() - 10 * 60_000).toISOString(),
+  is_faulty: true,
+  current_value: true,
+  last_updated: new Date(Date.now() - 10 * 60_000).toISOString(),
+  last_changed: new Date(Date.now() - 10 * 60_000).toISOString(),
 };
 
 beforeEach(() => {
@@ -50,7 +50,9 @@ describe("FaultItem — active mode", () => {
         Date.parse("2026-04-22T10:00:00Z") - 10 * 60_000,
       ).toISOString();
       render(
-        <FaultItem attribute={{ ...baseActive, severity, lastChanged }} />,
+        <FaultItem
+          attribute={{ ...baseActive, severity, last_changed: lastChanged }}
+        />,
       );
       expect(screen.getByText(severity)).toBeInTheDocument();
       expect(screen.getByText("Filter Alarm")).toBeInTheDocument();
@@ -59,7 +61,7 @@ describe("FaultItem — active mode", () => {
   );
 
   it("falls back to 'just now' when lastChanged is null", () => {
-    render(<FaultItem attribute={{ ...baseActive, lastChanged: null }} />);
+    render(<FaultItem attribute={{ ...baseActive, last_changed: null }} />);
     expect(
       screen.getByText("Active for less than a minute"),
     ).toBeInTheDocument();
@@ -69,8 +71,8 @@ describe("FaultItem — active mode", () => {
 describe("FaultItem — healthy mode", () => {
   const healthy: FaultAttribute = {
     ...baseActive,
-    isFaulty: false,
-    currentValue: false,
+    is_faulty: false,
+    current_value: false,
   };
 
   it("shows label + OK and no severity chip", () => {

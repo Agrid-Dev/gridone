@@ -1,5 +1,5 @@
 import { Fan, ArrowRight } from "lucide-react";
-import { DeviceType, isAwhp, readAwhpAttributes } from "@/api/devices";
+import { DeviceType, isAwhp, readAwhpAttributes } from "@/lib/devices";
 import { AttributeValue } from "@/components/AttributeValue";
 import type { StandardPreviewProps } from "../types";
 

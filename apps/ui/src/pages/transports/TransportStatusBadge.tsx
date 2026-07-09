@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import type { TransportConnectionState } from "@/api/transports";
+import type { TransportConnectionState } from "@gridone/sdk";
 
 const STATUS_VARIANT: Record<
   TransportConnectionState["status"],

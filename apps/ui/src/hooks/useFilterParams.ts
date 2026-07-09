@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router";
 import { useMemo } from "react";
-import type { DevicesFilter } from "@/api/devices";
+import type { DevicesFilter } from "@/lib/devices";
 import { readHealthParam } from "@/components/HealthFilter";
 
 /** Read filter-related query params (`type`, `health`, `search`) and expose
@@ -17,7 +17,7 @@ export function useFilterParams(): DevicesFilter | undefined {
 
     const filter: DevicesFilter = {};
     if (type) filter.types = [type];
-    if (health !== "all") filter.isFaulty = health === "faulty";
+    if (health !== "all") filter.is_faulty = health === "faulty";
     if (search) filter.search = search;
 
     return Object.keys(filter).length === 0 ? undefined : filter;

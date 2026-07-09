@@ -3,11 +3,9 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceCard } from "./DeviceCard";
-import {
-  type Device,
-  type DeviceAttribute,
-  type FaultAttribute,
-} from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
+import type { FaultAttribute } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -24,16 +22,16 @@ vi.mock("react-i18next", () =>
 const fault = (
   overrides: Partial<FaultAttribute> & {
     severity: FaultAttribute["severity"];
-    isFaulty: boolean;
+    is_faulty: boolean;
   },
 ): FaultAttribute => ({
   kind: "fault",
   name: overrides.name ?? "fault_x",
-  dataType: "bool",
-  readWriteModes: ["read"],
-  currentValue: true,
-  lastUpdated: "2026-04-22T10:00:00Z",
-  lastChanged: "2026-04-22T09:00:00Z",
+  data_type: "bool",
+  read_write_modes: ["read"],
+  current_value: true,
+  last_updated: "2026-04-22T10:00:00Z",
+  last_changed: "2026-04-22T09:00:00Z",
   ...overrides,
 });
 
@@ -46,11 +44,11 @@ function makeDevice(
     name: "Device 1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes,
-    isFaulty,
+    is_faulty: isFaulty,
   };
 }
 
@@ -79,7 +77,7 @@ describe("DeviceCard", () => {
 
   it("does not render a severity icon when fault attributes are healthy", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: false }),
+      a: fault({ name: "a", severity: "alert", is_faulty: false }),
     });
     renderCard(device);
     expect(screen.queryByLabelText("alert")).not.toBeInTheDocument();
@@ -88,9 +86,9 @@ describe("DeviceCard", () => {
   it("renders the highest active severity icon (alert wins over warning and info)", () => {
     const device = makeDevice(
       {
-        i: fault({ name: "i", severity: "info", isFaulty: true }),
-        a: fault({ name: "a", severity: "alert", isFaulty: true }),
-        w: fault({ name: "w", severity: "warning", isFaulty: true }),
+        i: fault({ name: "i", severity: "info", is_faulty: true }),
+        a: fault({ name: "a", severity: "alert", is_faulty: true }),
+        w: fault({ name: "w", severity: "warning", is_faulty: true }),
       },
       true,
     );
@@ -104,8 +102,8 @@ describe("DeviceCard", () => {
   it("renders warning icon when only warning + info are active", () => {
     const device = makeDevice(
       {
-        w: fault({ name: "w", severity: "warning", isFaulty: true }),
-        i: fault({ name: "i", severity: "info", isFaulty: true }),
+        w: fault({ name: "w", severity: "warning", is_faulty: true }),
+        i: fault({ name: "i", severity: "info", is_faulty: true }),
       },
       true,
     );
@@ -119,7 +117,7 @@ describe("DeviceCard", () => {
   it("renders info icon when only info is active", () => {
     const device = makeDevice(
       {
-        i: fault({ name: "i", severity: "info", isFaulty: true }),
+        i: fault({ name: "i", severity: "info", is_faulty: true }),
       },
       true,
     );

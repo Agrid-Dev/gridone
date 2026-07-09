@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { listDevices, linkDeviceToAsset } from "@/api/devices";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { sortedByName } from "@/lib/sortByName";
 
 type DeviceLinkDialogProps = {
@@ -30,12 +30,13 @@ export function DeviceLinkDialog({
 }: DeviceLinkDialogProps) {
   const { t } = useTranslation(["assets", "common"]);
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: devices = [] } = useQuery<Device[]>({
     queryKey: ["devices"],
-    queryFn: () => listDevices(),
+    queryFn: () => client.devices.list(),
     enabled: open,
   });
 
@@ -49,7 +50,8 @@ export function DeviceLinkDialog({
   );
 
   const mutation = useMutation({
-    mutationFn: (deviceId: string) => linkDeviceToAsset(deviceId, assetId),
+    mutationFn: (deviceId: string) =>
+      client.devices.setTag(deviceId, "asset_id", assetId),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],

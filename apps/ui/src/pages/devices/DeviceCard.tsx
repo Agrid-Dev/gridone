@@ -2,7 +2,12 @@ import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
-import { ConnectionStatus, Device, getConnectionStatus } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import {
+  ConnectionStatus,
+  deviceAttributes,
+  getConnectionStatus,
+} from "@/lib/devices";
 import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
@@ -17,7 +22,8 @@ function DefaultCardContent({ device }: { device: Device }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <Badge variant="outline" className="text-[10px]">
-        {Object.keys(device.attributes).length} {t("common:common.attributes")}
+        {Object.keys(deviceAttributes(device)).length}{" "}
+        {t("common:common.attributes")}
       </Badge>
       {configEntries.length > 0 && (
         <span className="text-[10px] text-muted-foreground truncate">

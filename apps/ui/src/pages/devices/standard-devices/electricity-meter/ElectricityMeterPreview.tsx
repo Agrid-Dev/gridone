@@ -2,7 +2,7 @@ import { Zap } from "lucide-react";
 import {
   isElectricityMeter,
   readElectricityMeterAttributes,
-} from "@/api/devices";
+} from "@/lib/devices";
 import type { StandardPreviewProps } from "../types";
 
 function fmt(value: number | null | undefined, decimals = 1): string {

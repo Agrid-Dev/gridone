@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  createTemplate,
-  updateTemplate,
-  type AttributeWrite,
-  type CommandTemplate,
-} from "@/api/commands";
-import type { DevicesFilter } from "@/api/devices";
+import type {
+  AttributeWritePayload,
+  CommandTemplateResponse,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { DevicesFilter } from "@/lib/devices";
 
 export type CommandTemplateCommitArgs = {
   target: DevicesFilter;
-  write: AttributeWrite;
+  write: AttributeWritePayload;
   /** ``string`` saves a named template, ``null`` keeps it ephemeral. */
   name: string | null;
 };
@@ -27,19 +26,24 @@ export type UseCommandTemplateArgs = {
  *  internally so callers don't have to thread it back into the hook —
  *  re-saves "just work". */
 export function useCommandTemplate({ initialId }: UseCommandTemplateArgs = {}) {
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
   const [resolvedId, setResolvedId] = useState<string | undefined>(initialId);
 
   const mutation = useMutation<
-    CommandTemplate,
+    CommandTemplateResponse,
     Error,
     CommandTemplateCommitArgs
   >({
     mutationFn: async ({ target, write, name }) => {
       if (resolvedId) {
-        return updateTemplate(resolvedId, { target, write, name });
+        return client.devices.commandTemplates.update(resolvedId, {
+          target,
+          write,
+          name,
+        });
       }
-      return createTemplate({ target, write, name });
+      return client.devices.commandTemplates.create({ target, write, name });
     },
     onSuccess: (template) => {
       setResolvedId(template.id);

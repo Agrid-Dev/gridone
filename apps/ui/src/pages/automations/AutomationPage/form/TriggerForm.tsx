@@ -8,7 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { type Trigger } from "@/api/automations";
+import type { Trigger } from "@gridone/sdk";
 import { getTriggerDescriptor } from "../presenters/triggerRegistry";
 import { TitlePresenter } from "../presenters/BasePresenter";
 import { useTriggerForm } from "./useTriggerForm";

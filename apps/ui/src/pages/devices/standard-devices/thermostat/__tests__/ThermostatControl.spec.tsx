@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui";
 import { ThermostatControl } from "../ThermostatControl";
-import { DeviceType, type Device } from "@/api/devices";
+import { DeviceType, deviceAttributes } from "@/lib/devices";
 import type { StandardControlProps } from "../../registry";
 
 // --- Mocks ---
@@ -27,60 +28,59 @@ vi.mock("react-i18next", () => createI18nMock({}));
 
 // --- Fixtures ---
 
+type AttributeFixture = {
+  name: string;
+  data_type: string;
+  read_write_modes: string[];
+  current_value: unknown;
+  last_updated: string | null;
+};
+
 function makeThermostat(
-  overrides: Partial<Record<string, { currentValue: unknown }>> = {},
+  overrides: Partial<Record<string, { current_value: unknown }>> = {},
 ): Device {
-  const defaults: Record<
-    string,
-    {
-      name: string;
-      dataType: string;
-      readWriteModes: string[];
-      currentValue: unknown;
-      lastUpdated: string | null;
-    }
-  > = {
+  const defaults: Record<string, AttributeFixture> = {
     temperature: {
       name: "temperature",
-      dataType: "float",
-      readWriteModes: ["read"],
-      currentValue: 21.5,
-      lastUpdated: null,
+      data_type: "float",
+      read_write_modes: ["read"],
+      current_value: 21.5,
+      last_updated: null,
     },
-    temperatureSetpoint: {
-      name: "temperatureSetpoint",
-      dataType: "float",
-      readWriteModes: ["read", "write"],
-      currentValue: 22.0,
-      lastUpdated: null,
+    temperature_setpoint: {
+      name: "temperature_setpoint",
+      data_type: "float",
+      read_write_modes: ["read", "write"],
+      current_value: 22.0,
+      last_updated: null,
     },
-    temperatureSetpointMin: {
-      name: "temperatureSetpointMin",
-      dataType: "float",
-      readWriteModes: ["read"],
-      currentValue: 16,
-      lastUpdated: null,
+    temperature_setpoint_min: {
+      name: "temperature_setpoint_min",
+      data_type: "float",
+      read_write_modes: ["read"],
+      current_value: 16,
+      last_updated: null,
     },
-    temperatureSetpointMax: {
-      name: "temperatureSetpointMax",
-      dataType: "float",
-      readWriteModes: ["read"],
-      currentValue: 30,
-      lastUpdated: null,
+    temperature_setpoint_max: {
+      name: "temperature_setpoint_max",
+      data_type: "float",
+      read_write_modes: ["read"],
+      current_value: 30,
+      last_updated: null,
     },
-    onoffState: {
-      name: "onoffState",
-      dataType: "bool",
-      readWriteModes: ["read", "write"],
-      currentValue: true,
-      lastUpdated: null,
+    onoff_state: {
+      name: "onoff_state",
+      data_type: "bool",
+      read_write_modes: ["read", "write"],
+      current_value: true,
+      last_updated: null,
     },
     mode: {
       name: "mode",
-      dataType: "string",
-      readWriteModes: ["read"],
-      currentValue: "heating",
-      lastUpdated: null,
+      data_type: "string",
+      read_write_modes: ["read"],
+      current_value: "heating",
+      last_updated: null,
     },
   };
 
@@ -97,11 +97,11 @@ function makeThermostat(
     name: "Living Room Thermostat",
     type: DeviceType.Thermostat,
     tags: {},
-    driverId: "drv-1",
-    transportId: "tr-1",
+    driver_id: "drv-1",
+    transport_id: "tr-1",
     config: {},
     attributes: defaults as Device["attributes"],
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
@@ -110,8 +110,12 @@ function renderControl(
   propsOverrides: Partial<StandardControlProps> = {},
 ) {
   const draft: Record<string, string | number | boolean | null> = {};
-  for (const [name, attr] of Object.entries(device.attributes)) {
-    draft[name] = attr.currentValue;
+  for (const [name, attr] of Object.entries(deviceAttributes(device))) {
+    draft[name] = (attr as AttributeFixture).current_value as
+      | string
+      | number
+      | boolean
+      | null;
   }
 
   const props: StandardControlProps = {
@@ -167,7 +171,7 @@ describe("ThermostatControl", () => {
 
   it("renders power button with OFF label when off", () => {
     const device = makeThermostat({
-      onoffState: { currentValue: false },
+      onoff_state: { current_value: false },
     });
     renderControl(device);
     expect(screen.getByText("controls.thermostat.off")).toBeInTheDocument();
@@ -190,7 +194,10 @@ describe("ThermostatControl", () => {
     });
     await user.click(upButton);
 
-    expect(mockChangeAndSave).toHaveBeenCalledWith("temperatureSetpoint", 22.5);
+    expect(mockChangeAndSave).toHaveBeenCalledWith(
+      "temperature_setpoint",
+      22.5,
+    );
   });
 
   it("calls changeAndSave with decremented setpoint on down arrow click", async () => {
@@ -202,7 +209,10 @@ describe("ThermostatControl", () => {
     });
     await user.click(downButton);
 
-    expect(mockChangeAndSave).toHaveBeenCalledWith("temperatureSetpoint", 21.5);
+    expect(mockChangeAndSave).toHaveBeenCalledWith(
+      "temperature_setpoint",
+      21.5,
+    );
   });
 
   it("calls changeAndSaveNow on power toggle", async () => {
@@ -214,11 +224,11 @@ describe("ThermostatControl", () => {
     });
     await user.click(powerButton);
 
-    expect(mockChangeAndSaveNow).toHaveBeenCalledWith("onoffState", false);
+    expect(mockChangeAndSaveNow).toHaveBeenCalledWith("onoff_state", false);
   });
 
-  it("disables power button while saving onoffState", () => {
-    mockIsSaving.mockImplementation((name: string) => name === "onoffState");
+  it("disables power button while saving onoff_state", () => {
+    mockIsSaving.mockImplementation((name: string) => name === "onoff_state");
     renderControl();
 
     const powerButton = screen.getByRole("button", {
@@ -227,9 +237,9 @@ describe("ThermostatControl", () => {
     expect(powerButton).toBeDisabled();
   });
 
-  it("disables arrows while saving temperatureSetpoint", () => {
+  it("disables arrows while saving temperature_setpoint", () => {
     mockIsSaving.mockImplementation(
-      (name: string) => name === "temperatureSetpoint",
+      (name: string) => name === "temperature_setpoint",
     );
     renderControl();
 
@@ -247,7 +257,7 @@ describe("ThermostatControl", () => {
 
   it("keeps up arrow enabled when max bound is missing", () => {
     const device = makeThermostat({
-      temperatureSetpointMax: { currentValue: null },
+      temperature_setpoint_max: { current_value: null },
     });
     renderControl(device);
 
@@ -260,7 +270,7 @@ describe("ThermostatControl", () => {
 
   it("keeps down arrow enabled when min bound is missing", () => {
     const device = makeThermostat({
-      temperatureSetpointMin: { currentValue: null },
+      temperature_setpoint_min: { current_value: null },
     });
     renderControl(device);
 
@@ -273,8 +283,8 @@ describe("ThermostatControl", () => {
 
   it("disables up arrow at max bound", () => {
     const device = makeThermostat({
-      temperatureSetpoint: { currentValue: 30 },
-      temperatureSetpointMax: { currentValue: 30 },
+      temperature_setpoint: { current_value: 30 },
+      temperature_setpoint_max: { current_value: 30 },
     });
     renderControl(device);
 
@@ -287,8 +297,8 @@ describe("ThermostatControl", () => {
 
   it("disables down arrow at min bound", () => {
     const device = makeThermostat({
-      temperatureSetpoint: { currentValue: 16 },
-      temperatureSetpointMin: { currentValue: 16 },
+      temperature_setpoint: { current_value: 16 },
+      temperature_setpoint_min: { current_value: 16 },
     });
     renderControl(device);
 

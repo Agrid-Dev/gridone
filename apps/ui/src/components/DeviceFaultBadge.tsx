@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
 import { getActiveFaults } from "@/lib/faults";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 
 /** Compact device-health badge: the active-fault count, coloured by the
  *  highest active severity. Renders nothing when the device has no active

@@ -2,7 +2,7 @@ import {
   DeviceType,
   isThermostat,
   readThermostatAttributes,
-} from "@/api/devices";
+} from "@/lib/devices";
 import {
   AttributeValue,
   lookupValueRenderer,

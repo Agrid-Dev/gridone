@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui";
 import { ListFilter, X } from "lucide-react";
-import { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/lib/devices";
 import { useFilterParams } from "@/hooks/useFilterParams";
 
 const ALL = "__all__";

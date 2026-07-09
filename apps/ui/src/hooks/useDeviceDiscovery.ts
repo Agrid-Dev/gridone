@@ -3,18 +3,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import {
-  createTransportDiscovery,
-  deleteTransportDiscovery,
-  listTransportDiscoveries,
+  isGridoneError,
   type DiscoveryHandler,
-  type TransportProtocol,
-} from "@/api/transports";
-import { isApiError } from "@/api/apiError";
+  type TransportProtocols,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
-const MQTT_PROTOCOL: TransportProtocol = "mqtt";
+const MQTT_PROTOCOL: TransportProtocols = "mqtt";
 
 export function protocolSupportsDiscovery(
-  protocol: TransportProtocol | undefined,
+  protocol: TransportProtocols | undefined,
 ): boolean {
   return protocol === MQTT_PROTOCOL;
 }
@@ -22,7 +20,7 @@ export function protocolSupportsDiscovery(
 export type UseDeviceDiscoveryOptions = {
   transportId: string | undefined;
   driverId: string | undefined;
-  protocol: TransportProtocol | undefined;
+  protocol: TransportProtocols | undefined;
   /**
    * When true, toggling does not call the API; the chosen state is held locally
    * until `flush()` is invoked. Use for the device-create flow where the
@@ -38,6 +36,7 @@ export function useDeviceDiscovery({
   deferred,
 }: UseDeviceDiscoveryOptions) {
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const { t } = useTranslation("devices");
   const supported =
     protocolSupportsDiscovery(protocol) && !!transportId && !!driverId;
@@ -46,12 +45,12 @@ export function useDeviceDiscovery({
 
   const query = useQuery<DiscoveryHandler[]>({
     queryKey: discoveryQueryKey,
-    queryFn: () => listTransportDiscoveries(transportId!),
+    queryFn: () => client.transports.listDiscoveryHandlers(transportId!),
     enabled: supported,
   });
 
   const serverEnabled =
-    query.data?.some((h) => h.driverId === driverId && h.enabled) ?? false;
+    query.data?.some((h) => h.driver_id === driverId && h.enabled) ?? false;
 
   const [intent, setIntent] = useState<boolean | null>(null);
 
@@ -64,8 +63,8 @@ export function useDeviceDiscovery({
   const enabled = intent ?? serverEnabled;
 
   const reportError = (error: unknown) => {
-    const detail = isApiError(error)
-      ? error.details || error.message
+    const detail = isGridoneError(error)
+      ? error.detail
       : error instanceof Error
         ? error.message
         : null;
@@ -80,7 +79,10 @@ export function useDeviceDiscovery({
     }: {
       transportId: string;
       driverId: string;
-    }) => createTransportDiscovery(transportId, driverId),
+    }) =>
+      client.transports.createDiscoveryHandler(transportId, {
+        driver_id: driverId,
+      }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: discoveryQueryKey }),
     onError: reportError,
@@ -93,7 +95,7 @@ export function useDeviceDiscovery({
     }: {
       transportId: string;
       driverId: string;
-    }) => deleteTransportDiscovery(transportId, driverId),
+    }) => client.transports.deleteDiscoveryHandler(transportId, driverId),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: discoveryQueryKey }),
     onError: reportError,

@@ -4,12 +4,11 @@ import {
   getAllFaultAttributes,
   getHighestActiveSeverity,
   isFaultAttribute,
-} from "./faults";
-import {
-  type Device,
-  type DeviceAttribute,
+  type AttributeFields,
   type FaultAttribute,
-} from "@/api/devices";
+} from "./faults";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
 
 function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   return {
@@ -17,45 +16,45 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     name: "Device 1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes,
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
-const plain: DeviceAttribute = {
+const plain: AttributeFields = {
   kind: "standard",
   name: "temperature",
-  dataType: "float",
-  readWriteModes: ["read"],
-  currentValue: 21.5,
-  lastUpdated: "2026-04-22T10:00:00Z",
-  lastChanged: "2026-04-22T09:00:00Z",
+  data_type: "float",
+  read_write_modes: ["read"],
+  current_value: 21.5,
+  last_updated: "2026-04-22T10:00:00Z",
+  last_changed: "2026-04-22T09:00:00Z",
 };
 
 const fault = (
   overrides: Partial<FaultAttribute> & {
     severity: FaultAttribute["severity"];
-    isFaulty: boolean;
+    is_faulty: boolean;
   },
 ): FaultAttribute => ({
   kind: "fault",
   name: overrides.name ?? "fault_x",
-  dataType: "bool",
-  readWriteModes: ["read"],
-  currentValue: true,
-  lastUpdated: "2026-04-22T10:00:00Z",
-  lastChanged: "2026-04-22T09:00:00Z",
+  data_type: "bool",
+  read_write_modes: ["read"],
+  current_value: true,
+  last_updated: "2026-04-22T10:00:00Z",
+  last_changed: "2026-04-22T09:00:00Z",
   ...overrides,
 });
 
 describe("isFaultAttribute", () => {
   it("returns true when kind === 'fault'", () => {
-    expect(isFaultAttribute(fault({ severity: "alert", isFaulty: true }))).toBe(
-      true,
-    );
+    expect(
+      isFaultAttribute(fault({ severity: "alert", is_faulty: true })),
+    ).toBe(true);
   });
 
   it("returns false when kind === 'standard'", () => {
@@ -71,8 +70,8 @@ describe("getActiveFaults", () => {
 
   it("filters out fault attributes with isFaulty=false", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: false }),
-      b: fault({ name: "b", severity: "warning", isFaulty: true }),
+      a: fault({ name: "a", severity: "alert", is_faulty: false }),
+      b: fault({ name: "b", severity: "warning", is_faulty: true }),
     });
     const result = getActiveFaults(device);
     expect(result).toHaveLength(1);
@@ -84,20 +83,20 @@ describe("getActiveFaults", () => {
       i: fault({
         name: "i",
         severity: "info",
-        isFaulty: true,
-        lastChanged: "2030-01-01T00:00:00Z",
+        is_faulty: true,
+        last_changed: "2030-01-01T00:00:00Z",
       }),
       a: fault({
         name: "a",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: "2020-01-01T00:00:00Z",
+        is_faulty: true,
+        last_changed: "2020-01-01T00:00:00Z",
       }),
       w: fault({
         name: "w",
         severity: "warning",
-        isFaulty: true,
-        lastChanged: "2025-01-01T00:00:00Z",
+        is_faulty: true,
+        last_changed: "2025-01-01T00:00:00Z",
       }),
     });
     expect(getActiveFaults(device).map((f) => f.name)).toEqual(["a", "w", "i"]);
@@ -108,14 +107,14 @@ describe("getActiveFaults", () => {
       older: fault({
         name: "older",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: "2026-04-22T08:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T08:00:00Z",
       }),
       newer: fault({
         name: "newer",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: "2026-04-22T10:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T10:00:00Z",
       }),
     });
     expect(getActiveFaults(device).map((f) => f.name)).toEqual([
@@ -129,14 +128,14 @@ describe("getActiveFaults", () => {
       noTs: fault({
         name: "noTs",
         severity: "warning",
-        isFaulty: true,
-        lastChanged: null,
+        is_faulty: true,
+        last_changed: null,
       }),
       withTs: fault({
         name: "withTs",
         severity: "warning",
-        isFaulty: true,
-        lastChanged: "2026-04-22T10:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T10:00:00Z",
       }),
     });
     expect(getActiveFaults(device).map((f) => f.name)).toEqual([
@@ -148,7 +147,7 @@ describe("getActiveFaults", () => {
   it("ignores plain (non-fault) attributes even when present alongside faults", () => {
     const device = makeDevice({
       temp: plain,
-      alarm: fault({ name: "alarm", severity: "alert", isFaulty: true }),
+      alarm: fault({ name: "alarm", severity: "alert", is_faulty: true }),
     });
     const result = getActiveFaults(device);
     expect(result.map((f) => f.name)).toEqual(["alarm"]);
@@ -163,8 +162,8 @@ describe("getAllFaultAttributes", () => {
 
   it("includes both active and healthy fault attributes", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: true }),
-      b: fault({ name: "b", severity: "warning", isFaulty: false }),
+      a: fault({ name: "a", severity: "alert", is_faulty: true }),
+      b: fault({ name: "b", severity: "warning", is_faulty: false }),
     });
     expect(
       getAllFaultAttributes(device)
@@ -178,12 +177,12 @@ describe("getAllFaultAttributes", () => {
       healthyAlert: fault({
         name: "healthy_alert",
         severity: "alert",
-        isFaulty: false,
+        is_faulty: false,
       }),
       activeInfo: fault({
         name: "active_info",
         severity: "info",
-        isFaulty: true,
+        is_faulty: true,
       }),
     });
     expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
@@ -197,26 +196,26 @@ describe("getAllFaultAttributes", () => {
       i: fault({
         name: "i",
         severity: "info",
-        isFaulty: true,
-        lastChanged: "2026-04-22T10:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T10:00:00Z",
       }),
       aOlder: fault({
         name: "a_older",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: "2026-04-22T08:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T08:00:00Z",
       }),
       aNewer: fault({
         name: "a_newer",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: "2026-04-22T10:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T10:00:00Z",
       }),
       w: fault({
         name: "w",
         severity: "warning",
-        isFaulty: true,
-        lastChanged: "2026-04-22T09:00:00Z",
+        is_faulty: true,
+        last_changed: "2026-04-22T09:00:00Z",
       }),
     });
     expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
@@ -229,9 +228,9 @@ describe("getAllFaultAttributes", () => {
 
   it("sorts healthy faults by attribute name (ascending)", () => {
     const device = makeDevice({
-      z: fault({ name: "z_leak", severity: "alert", isFaulty: false }),
-      a: fault({ name: "a_smoke", severity: "info", isFaulty: false }),
-      m: fault({ name: "m_overheat", severity: "warning", isFaulty: false }),
+      z: fault({ name: "z_leak", severity: "alert", is_faulty: false }),
+      a: fault({ name: "a_smoke", severity: "info", is_faulty: false }),
+      m: fault({ name: "m_overheat", severity: "warning", is_faulty: false }),
     });
     expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual([
       "a_smoke",
@@ -243,7 +242,7 @@ describe("getAllFaultAttributes", () => {
   it("ignores plain (non-fault) attributes", () => {
     const device = makeDevice({
       temp: plain,
-      alarm: fault({ name: "alarm", severity: "alert", isFaulty: false }),
+      alarm: fault({ name: "alarm", severity: "alert", is_faulty: false }),
     });
     expect(getAllFaultAttributes(device).map((f) => f.name)).toEqual(["alarm"]);
   });
@@ -258,32 +257,32 @@ describe("getHighestActiveSeverity", () => {
 
   it("returns null when all fault attributes are healthy", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: false }),
-      b: fault({ name: "b", severity: "warning", isFaulty: false }),
+      a: fault({ name: "a", severity: "alert", is_faulty: false }),
+      b: fault({ name: "b", severity: "warning", is_faulty: false }),
     });
     expect(getHighestActiveSeverity(device)).toBe(null);
   });
 
   it("returns the severity of the single active fault", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "warning", isFaulty: true }),
+      a: fault({ name: "a", severity: "warning", is_faulty: true }),
     });
     expect(getHighestActiveSeverity(device)).toBe("warning");
   });
 
   it("returns 'alert' when alert + warning + info are all active", () => {
     const device = makeDevice({
-      i: fault({ name: "i", severity: "info", isFaulty: true }),
-      a: fault({ name: "a", severity: "alert", isFaulty: true }),
-      w: fault({ name: "w", severity: "warning", isFaulty: true }),
+      i: fault({ name: "i", severity: "info", is_faulty: true }),
+      a: fault({ name: "a", severity: "alert", is_faulty: true }),
+      w: fault({ name: "w", severity: "warning", is_faulty: true }),
     });
     expect(getHighestActiveSeverity(device)).toBe("alert");
   });
 
   it("returns 'warning' when warning + info are active (no alert)", () => {
     const device = makeDevice({
-      i: fault({ name: "i", severity: "info", isFaulty: true }),
-      w: fault({ name: "w", severity: "warning", isFaulty: true }),
+      i: fault({ name: "i", severity: "info", is_faulty: true }),
+      w: fault({ name: "w", severity: "warning", is_faulty: true }),
     });
     expect(getHighestActiveSeverity(device)).toBe("warning");
   });
@@ -293,12 +292,12 @@ describe("getHighestActiveSeverity", () => {
       healthyAlert: fault({
         name: "healthy_alert",
         severity: "alert",
-        isFaulty: false,
+        is_faulty: false,
       }),
       activeInfo: fault({
         name: "active_info",
         severity: "info",
-        isFaulty: true,
+        is_faulty: true,
       }),
     });
     expect(getHighestActiveSeverity(device)).toBe("info");

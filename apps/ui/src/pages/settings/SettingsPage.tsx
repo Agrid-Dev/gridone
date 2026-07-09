@@ -6,11 +6,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { isGridoneError, type MeResponse } from "@gridone/sdk";
 import { useAuth } from "@/contexts/AuthContext";
-import { updateUser } from "@/api/users";
-import type { CurrentUser } from "@/api/auth";
-import { ApiError } from "@/api/apiError";
-import { getAuthSchema } from "@/api/authValidation";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { getAuthSchema } from "@/lib/authSchema";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,7 +24,7 @@ import { InputController } from "@/components/forms/controllers/InputController"
 
 /** A user-safe message for a failed save — never leaks raw server internals. */
 function toErrorMessage(err: unknown, fallback: string): string {
-  if (err instanceof ApiError) return err.detail || err.details;
+  if (isGridoneError(err)) return err.detail || fallback;
   if (err instanceof Error) return err.message;
   return fallback;
 }
@@ -38,8 +37,8 @@ type ProfileFormValues = {
 };
 
 type ProfileSectionProps = {
-  user: CurrentUser;
-  refreshMe: () => Promise<CurrentUser>;
+  user: MeResponse;
+  refreshMe: () => Promise<MeResponse>;
   usernameMin: number;
   usernameMax: number;
 };
@@ -51,6 +50,7 @@ function ProfileSection({
   usernameMax,
 }: ProfileSectionProps) {
   const { t } = useTranslation();
+  const client = useGridoneClient();
 
   const schema = useMemo(
     () =>
@@ -99,7 +99,7 @@ function ProfileSection({
   const handleSubmit = form.handleSubmit(async (values) => {
     form.clearErrors("root");
     try {
-      await updateUser(user.id, {
+      await client.users.update(user.id, {
         username: values.username || undefined,
         name: values.name,
         email: values.email,
@@ -190,8 +190,8 @@ type SecurityFormValues = {
 };
 
 type SecuritySectionProps = {
-  user: CurrentUser;
-  refreshMe: () => Promise<CurrentUser>;
+  user: MeResponse;
+  refreshMe: () => Promise<MeResponse>;
   passwordMin: number;
   passwordMax: number;
 };
@@ -203,6 +203,7 @@ function SecuritySection({
   passwordMax,
 }: SecuritySectionProps) {
   const { t } = useTranslation();
+  const client = useGridoneClient();
 
   const schema = useMemo(
     () =>
@@ -250,7 +251,7 @@ function SecuritySection({
   const handleSubmit = form.handleSubmit(async (values) => {
     form.clearErrors("root");
     try {
-      await updateUser(user.id, { password: values.password });
+      await client.users.update(user.id, { password: values.password });
 
       await refreshMe();
       toast.success(t("settings.passwordUpdated"));
@@ -275,7 +276,7 @@ function SecuritySection({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {user.mustChangePassword && (
+          {user.must_change_password && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>{t("settings.mustChangePasswordTitle")}</AlertTitle>
@@ -338,12 +339,13 @@ function SecuritySection({
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { state, refreshMe } = useAuth();
+  const client = useGridoneClient();
 
   const user = state.status === "authenticated" ? state.user : null;
 
   const { data: authSchema } = useQuery({
     queryKey: ["auth-schema"],
-    queryFn: getAuthSchema,
+    queryFn: () => getAuthSchema(client),
     staleTime: 5 * 60 * 1000,
   });
 

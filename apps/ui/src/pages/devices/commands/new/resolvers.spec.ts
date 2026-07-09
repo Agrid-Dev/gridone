@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { type Device, type DeviceAttribute } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
 import { intersectWritableAttributes } from "./resolvers";
 
 function attr(
@@ -13,12 +14,12 @@ function attr(
   return {
     kind: "standard",
     name,
-    dataType: opts?.dataType ?? "str",
-    readWriteModes: opts?.writable ? ["read", "write"] : ["read"],
-    currentValue: null,
-    lastUpdated: null,
-    lastChanged: null,
-    valueOptions: opts?.valueOptions,
+    data_type: opts?.dataType ?? "str",
+    read_write_modes: opts?.writable ? ["read", "write"] : ["read"],
+    current_value: null,
+    last_updated: null,
+    last_changed: null,
+    value_options: opts?.valueOptions,
   };
 }
 
@@ -27,12 +28,14 @@ function device(attributes: DeviceAttribute[]): Device {
     id: "d1",
     name: "Device",
     type: null,
-    driverId: "drv",
-    transportId: "trp",
+    driver_id: "drv",
+    transport_id: "trp",
     config: {},
     tags: {},
-    isFaulty: false,
-    attributes: Object.fromEntries(attributes.map((a) => [a.name, a])),
+    is_faulty: false,
+    attributes: Object.fromEntries(
+      attributes.map((a) => [a.name as string, a]),
+    ),
   };
 }
 

@@ -1,4 +1,4 @@
-import { isAirExtractor, readAirExtractorAttributes } from "@/api/devices";
+import { isAirExtractor, readAirExtractorAttributes } from "@/lib/devices";
 import { AirExtractorSynoptic } from "./AirExtractorSynoptic";
 import type { StandardControlProps } from "../types";
 

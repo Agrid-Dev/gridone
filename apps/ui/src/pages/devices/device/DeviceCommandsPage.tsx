@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
-import { isReadOnlyDevice } from "@/api/devices";
+import { isReadOnlyDevice } from "@/lib/devices";
 import CommandsPage from "@/pages/devices/commands/CommandsPage";
 
 export default function DeviceCommandsPage() {

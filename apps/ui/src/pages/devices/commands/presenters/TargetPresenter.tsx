@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { cn } from "@/lib/utils";
-import { DeviceType, type DevicesFilter } from "@/api/devices";
-import type { Asset } from "@/api/assets";
+import type { Asset } from "@gridone/sdk";
+import { DeviceType, type DevicesFilter } from "@/lib/devices";
 
 type TargetPresenterProps = {
   target: DevicesFilter;
@@ -21,17 +21,18 @@ type PresenterContext = {
 
 type SubPresenter = (value: never, ctx: PresenterContext) => ReactNode;
 
-/** Map of target-key → value renderer. Adding a new target dimension means
- *  adding a row here and two i18n keys (label under
- *  ``commands.targetPresenter.labels.<key>``, any value-side strings inline).
- *  Unlisted keys are silently ignored. */
+/** Map of target-key → value renderer, keyed by the wire (snake_case) target
+ *  fields. Adding a new target dimension means adding a row here, its i18n
+ *  label name in ``LABEL_KEYS``, and the label string under
+ *  ``commands.targetPresenter.labels.<name>``. Unlisted keys are silently
+ *  ignored. */
 const SUB_PRESENTERS: Record<string, SubPresenter> = {
   ids: (ids: string[], { t }) => (
     <Badge variant="outline">
       {t("commands.targetPresenter.deviceCount", { count: ids.length })}
     </Badge>
   ),
-  assetId: (id: string, { assetsById }) => (
+  asset_id: (id: string, { assetsById }) => (
     <Badge variant="outline">{assetsById?.[id]?.name ?? id}</Badge>
   ),
   types: (types: string[]) => (
@@ -41,6 +42,13 @@ const SUB_PRESENTERS: Record<string, SubPresenter> = {
       ))}
     </>
   ),
+};
+
+/** i18n label names stay camelCase while the wire keys are snake_case. */
+const LABEL_KEYS: Record<string, string> = {
+  ids: "ids",
+  asset_id: "assetId",
+  types: "types",
 };
 
 export function TargetPresenter({
@@ -56,7 +64,7 @@ export function TargetPresenter({
     .map(([key, value]) => ({
       key,
       label: t(
-        `commands.targetPresenter.labels.${key}` as "commands.targetPresenter.labels.ids",
+        `commands.targetPresenter.labels.${LABEL_KEYS[key]}` as "commands.targetPresenter.labels.ids",
       ),
       content: SUB_PRESENTERS[key](value as never, ctx),
     }));

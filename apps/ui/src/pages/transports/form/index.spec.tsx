@@ -9,7 +9,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createI18nMock } from "@/test/i18nMock";
-import type { TransportSchemas } from "@/api/transports";
+import type { TransportSchemas } from "./useTransportForm";
 
 const { mockGetTransportSchemas, mockCreateTransport, mockUpdateTransport } =
   vi.hoisted(() => ({
@@ -18,18 +18,15 @@ const { mockGetTransportSchemas, mockCreateTransport, mockUpdateTransport } =
     mockUpdateTransport: vi.fn(),
   }));
 
-vi.mock("@/api/transports", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/api/transports")>(
-      "@/api/transports",
-    );
-  return {
-    ...actual,
-    getTransportSchemas: mockGetTransportSchemas,
-    createTransport: mockCreateTransport,
-    updateTransport: mockUpdateTransport,
-  };
-});
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    transports: {
+      getSchemas: mockGetTransportSchemas,
+      create: mockCreateTransport,
+      update: mockUpdateTransport,
+    },
+  }),
+}));
 
 vi.mock("react-i18next", () => createI18nMock({}));
 

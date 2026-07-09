@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import { Button } from "@/components/ui";
 import { FaultItem } from "./FaultItem";
 import { FaultSeverityIcon } from "./FaultSeverityIcon";

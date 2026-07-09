@@ -6,10 +6,10 @@ import { useForm, SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
-import { DriverCreatePayload } from "@/api/drivers";
+import type { DriverYaml } from "@gridone/sdk";
 
 type DriverFormProps = {
-  onSubmit: SubmitHandler<DriverCreatePayload>;
+  onSubmit: SubmitHandler<DriverYaml>;
 };
 
 const DriverForm: FC<DriverFormProps> = ({ onSubmit }) => {

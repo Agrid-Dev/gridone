@@ -19,7 +19,7 @@ import { SeverityChip } from "@/components/SeverityChip";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { faultLabel } from "@/lib/faultLabel";
 import { formatDurationSince } from "@/lib/utils";
-import type { FaultView } from "@/api/faults";
+import type { FaultView } from "@gridone/sdk";
 
 /** Subsequence match: every char of `query` appears in `target` in order,
  *  gaps allowed. Case-insensitive. Empty query matches everything. */
@@ -45,7 +45,7 @@ export default function FaultsPage() {
     const q = query.trim();
     if (!q) return faults;
     return faults.filter(
-      (f) => fuzzyMatch(f.deviceName, q) || fuzzyMatch(f.attributeName, q),
+      (f) => fuzzyMatch(f.device_name, q) || fuzzyMatch(f.attribute_name, q),
     );
   }, [faults, query]);
 
@@ -113,7 +113,7 @@ export default function FaultsPage() {
             <TableBody>
               {filtered.map((fault) => (
                 <FaultRow
-                  key={`${fault.deviceId}:${fault.attributeName}`}
+                  key={`${fault.device_id}:${fault.attribute_name}`}
                   fault={fault}
                 />
               ))}
@@ -128,20 +128,20 @@ export default function FaultsPage() {
 function FaultRow({ fault }: { fault: FaultView }) {
   const { t } = useTranslation();
   const label = faultLabel({
-    name: fault.attributeName,
-    dataType: fault.dataType,
-    currentValue: fault.currentValue,
+    name: fault.attribute_name,
+    data_type: fault.data_type,
+    current_value: fault.current_value,
   });
   const activeSince = formatDurationSince(
-    new Date(fault.lastChanged).getTime(),
+    new Date(fault.last_changed).getTime(),
     t,
   );
 
   return (
     <TableRow>
       <TableCell className="font-medium">
-        <Link to={`/devices/${fault.deviceId}`} className="hover:underline">
-          {fault.deviceName}
+        <Link to={`/devices/${fault.device_id}`} className="hover:underline">
+          {fault.device_name}
         </Link>
       </TableCell>
       <TableCell>{label}</TableCell>

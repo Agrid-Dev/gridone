@@ -11,7 +11,7 @@ import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { COMMANDS_CRUMB, TEMPLATES_CRUMB } from "@/lib/breadcrumbTrail";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import { usePermissions } from "@/contexts/AuthContext";
 import { CommandTemplatePresenter } from "../presenters/CommandTemplatePresenter";
 import { TemplateExecutions } from "./TemplateExecutions";

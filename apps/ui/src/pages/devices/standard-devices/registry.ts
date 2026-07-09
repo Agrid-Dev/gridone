@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/lib/devices";
 import { ThermostatPreview, ThermostatControl } from "./thermostat";
 import { AwhpPreview, AwhpControl } from "./awhp";
 import { WeatherSensorPreview, WeatherSensorControl } from "./weather-sensor";
@@ -51,8 +51,8 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
 };
 
 export function getStandardDeviceEntry(
-  type: DeviceType | null,
+  type: string | null | undefined,
 ): StandardDeviceEntry | undefined {
   if (!type) return undefined;
-  return registry[type];
+  return registry[type as DeviceType];
 }

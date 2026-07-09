@@ -4,8 +4,11 @@ import { Button } from "@/components/ui";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SwitchController } from "@/components/forms/controllers/SwitchController";
 import { toLabel } from "@/lib/textFormat";
-import { type Trigger, type TriggerSchema } from "@/api/automations";
-import { useGenericTriggerForm } from "./useGenericTriggerForm";
+import type { Trigger } from "@gridone/sdk";
+import {
+  useGenericTriggerForm,
+  type TriggerSchema,
+} from "./useGenericTriggerForm";
 
 interface GenericTriggerFormBodyProps {
   type: string;
@@ -50,7 +53,7 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   const requiredSet = new Set(required);
 
   const handleFormSubmit = (values: Record<string, unknown>) => {
-    onSubmit({ providerId: type, params: values } as Trigger);
+    onSubmit({ provider_id: type, params: values });
   };
 
   return (

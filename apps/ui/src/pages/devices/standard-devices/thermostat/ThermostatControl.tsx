@@ -4,7 +4,7 @@ import {
   DeviceType,
   isThermostat,
   readThermostatAttributes,
-} from "@/api/devices";
+} from "@/lib/devices";
 import {
   AttributeValue,
   lookupValueRenderer,
@@ -38,11 +38,11 @@ export function ThermostatControl({
   const attrs = readThermostatAttributes(device);
 
   const setpoint =
-    draft.temperatureSetpoint != null
-      ? Number(draft.temperatureSetpoint)
+    draft.temperature_setpoint != null
+      ? Number(draft.temperature_setpoint)
       : attrs.temperatureSetpoint;
 
-  const isOn = draft.onoffState != null ? Boolean(draft.onoffState) : false;
+  const isOn = draft.onoff_state != null ? Boolean(draft.onoff_state) : false;
   const min = attrs.temperatureSetpointMin;
   const max = attrs.temperatureSetpointMax;
   // min/max optional: clamp only in the direction that has a bound.
@@ -51,8 +51,8 @@ export function ThermostatControl({
   const canDecrement =
     setpoint != null && (min == null || setpoint - STEP >= min);
 
-  const powerSaving = isSaving("onoffState");
-  const setpointSaving = isSaving("temperatureSetpoint");
+  const powerSaving = isSaving("onoff_state");
+  const setpointSaving = isSaving("temperature_setpoint");
 
   const modeRenderer = lookupValueRenderer(
     DeviceType.Thermostat,
@@ -105,7 +105,7 @@ export function ThermostatControl({
                     : t("controls.thermostat.turnOn")
                 }
                 disabled={powerSaving}
-                onClick={() => changeAndSaveNow("onoffState", !isOn)}
+                onClick={() => changeAndSaveNow("onoff_state", !isOn)}
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 disabled:opacity-50",
                   isOn
@@ -172,7 +172,7 @@ export function ThermostatControl({
                 disabled={!canIncrement || setpointSaving}
                 onClick={() =>
                   setpoint != null &&
-                  changeAndSave("temperatureSetpoint", setpoint + STEP)
+                  changeAndSave("temperature_setpoint", setpoint + STEP)
                 }
               >
                 <ChevronUp className="!h-8 !w-8 text-foreground" />
@@ -184,7 +184,7 @@ export function ThermostatControl({
                 disabled={!canDecrement || setpointSaving}
                 onClick={() =>
                   setpoint != null &&
-                  changeAndSave("temperatureSetpoint", setpoint - STEP)
+                  changeAndSave("temperature_setpoint", setpoint - STEP)
                 }
               >
                 <ChevronDown className="!h-8 !w-8 text-foreground" />

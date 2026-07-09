@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { TypographyH3 } from "@/components/ui/typography";
-import { type Automation } from "@/api/automations";
+import type { Automation } from "@gridone/sdk";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import TriggerForm from "./TriggerForm";

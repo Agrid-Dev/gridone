@@ -2,11 +2,9 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
-import {
-  type Device,
-  type DeviceAttribute,
-  type FaultAttribute,
-} from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
+import type { AttributeFields, FaultAttribute } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -26,29 +24,29 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const plain: DeviceAttribute = {
+const plain: AttributeFields = {
   kind: "standard",
   name: "temperature",
-  dataType: "float",
-  readWriteModes: ["read"],
-  currentValue: 21.5,
-  lastUpdated: "2026-04-22T10:00:00Z",
-  lastChanged: "2026-04-22T09:00:00Z",
+  data_type: "float",
+  read_write_modes: ["read"],
+  current_value: 21.5,
+  last_updated: "2026-04-22T10:00:00Z",
+  last_changed: "2026-04-22T09:00:00Z",
 };
 
 const fault = (
   overrides: Partial<FaultAttribute> & {
     severity: FaultAttribute["severity"];
-    isFaulty: boolean;
+    is_faulty: boolean;
   },
 ): FaultAttribute => ({
   kind: "fault",
   name: "fault_x",
-  dataType: "bool",
-  readWriteModes: ["read"],
-  currentValue: true,
-  lastUpdated: "2026-04-22T10:00:00Z",
-  lastChanged: "2026-04-22T10:00:00Z",
+  data_type: "bool",
+  read_write_modes: ["read"],
+  current_value: true,
+  last_updated: "2026-04-22T10:00:00Z",
+  last_changed: "2026-04-22T10:00:00Z",
   ...overrides,
 });
 
@@ -58,11 +56,11 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     name: "Device 1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes,
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
@@ -85,8 +83,8 @@ describe("ActiveFaultsSection", () => {
 
   it("renders nothing when fault attributes exist but none are active", () => {
     const device = makeDevice({
-      a: fault({ name: "a", severity: "alert", isFaulty: false }),
-      b: fault({ name: "b", severity: "warning", isFaulty: false }),
+      a: fault({ name: "a", severity: "alert", is_faulty: false }),
+      b: fault({ name: "b", severity: "warning", is_faulty: false }),
     });
     const { container } = render(<ActiveFaultsSection device={device} />);
     expect(container).toBeEmptyDOMElement();
@@ -96,8 +94,12 @@ describe("ActiveFaultsSection", () => {
     const { container } = render(
       <ActiveFaultsSection
         device={makeDevice({
-          a: fault({ name: "warn_fault", severity: "warning", isFaulty: true }),
-          b: fault({ name: "alert_fault", severity: "alert", isFaulty: true }),
+          a: fault({
+            name: "warn_fault",
+            severity: "warning",
+            is_faulty: true,
+          }),
+          b: fault({ name: "alert_fault", severity: "alert", is_faulty: true }),
         })}
       />,
     );
@@ -118,7 +120,7 @@ describe("ActiveFaultsSection", () => {
     render(
       <ActiveFaultsSection
         device={makeDevice({
-          a: fault({ name: "alert_fault", severity: "alert", isFaulty: true }),
+          a: fault({ name: "alert_fault", severity: "alert", is_faulty: true }),
         })}
       />,
     );
@@ -138,20 +140,20 @@ describe("ActiveFaultsSection", () => {
       infoFault: fault({
         name: "info_fault",
         severity: "info",
-        isFaulty: true,
-        lastChanged: tenMinAgo,
+        is_faulty: true,
+        last_changed: tenMinAgo,
       }),
       alertFault: fault({
         name: "alert_fault",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: tenMinAgo,
+        is_faulty: true,
+        last_changed: tenMinAgo,
       }),
       warnFault: fault({
         name: "warn_fault",
         severity: "warning",
-        isFaulty: true,
-        lastChanged: tenMinAgo,
+        is_faulty: true,
+        last_changed: tenMinAgo,
       }),
     });
     render(<ActiveFaultsSection device={device} />);
@@ -179,14 +181,14 @@ describe("ActiveFaultsSection", () => {
       older: fault({
         name: "older_fault",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: older,
+        is_faulty: true,
+        last_changed: older,
       }),
       newer: fault({
         name: "newer_fault",
         severity: "alert",
-        isFaulty: true,
-        lastChanged: newer,
+        is_faulty: true,
+        last_changed: newer,
       }),
     });
     render(<ActiveFaultsSection device={device} />);
@@ -206,7 +208,7 @@ describe("ActiveFaultsSection", () => {
       alarm: fault({
         name: "alarm",
         severity: "alert",
-        isFaulty: true,
+        is_faulty: true,
       }),
     });
     render(<ActiveFaultsSection device={device} />);

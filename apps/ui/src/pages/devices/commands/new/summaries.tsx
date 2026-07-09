@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import type { WizardFormValues } from "./types";
 
 const MAX_NAMES = 10;

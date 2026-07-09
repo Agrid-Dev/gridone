@@ -11,8 +11,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { NotificationRow } from "./NotificationRow";
-import type { NotificationDispatch } from "@/api/notifications";
-import type { Page } from "@/api/pagination";
+import type { NotificationDispatch, Page } from "@gridone/sdk";
 
 type Props = {
   data: Page<NotificationDispatch>;
@@ -79,7 +78,7 @@ export function NotificationsTable({
         </Table>
       </div>
 
-      {data.totalPages > 1 && (
+      {data.total_pages > 1 && (
         <div className="flex items-center justify-between">
           {prevHref ? (
             <Link to={{ search: prevHref }} className={linkClasses} replace>
@@ -91,7 +90,7 @@ export function NotificationsTable({
             </span>
           )}
           <span className="text-sm text-muted-foreground">
-            {data.page} / {data.totalPages}
+            {data.page} / {data.total_pages}
           </span>
           {nextHref ? (
             <Link to={{ search: nextHref }} className={linkClasses} replace>

@@ -1,4 +1,4 @@
-import type { Severity } from "@/api/severity";
+import type { Severity } from "@gridone/sdk";
 
 /**
  * Semantic colour tokens carrying BMS meaning (alert severity, connection

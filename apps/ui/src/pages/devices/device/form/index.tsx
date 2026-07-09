@@ -7,7 +7,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { FieldSet, FieldLegend, FieldLabel } from "@/components/ui/field";
 import { useDeviceForm } from "./useDeviceForm";
 import { useTranslation } from "react-i18next";
-import { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import { NetworkModal } from "@/components/NetworkModal";
 import { DeviceDiscoverySwitch } from "@/components/DeviceDiscoverySwitch";
 

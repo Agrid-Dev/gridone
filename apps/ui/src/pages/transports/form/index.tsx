@@ -1,19 +1,17 @@
-import {
-  Transport,
-  TransportProtocol,
-  TransportSchemas,
-} from "@/api/transports";
+import type { Transport } from "@gridone/sdk";
 import React, { FC } from "react";
 import {
   useTransportForm,
   useTransportConfigSchemas,
+  transportProtocols,
+  type FormProtocol,
   type TransportFormCallbacks,
+  type TransportSchemas,
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui";
-import { transportProtocols } from "@/api/transports";
 import { useTranslation } from "react-i18next";
 import { toLabel } from "@/lib/textFormat";
 import { ErrorBoundary } from "react-error-boundary";
@@ -22,7 +20,7 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 export type TransportFormProps = TransportFormCallbacks & {
   configSchemas: TransportSchemas;
   transport?: Transport;
-  lockedProtocol?: TransportProtocol;
+  lockedProtocol?: FormProtocol;
   formId?: string;
 };
 
@@ -145,7 +143,7 @@ const TransportForm: FC<TransportFormProps> = ({
 const TransportFormWrapper: FC<
   TransportFormCallbacks & {
     transport?: Transport;
-    lockedProtocol?: TransportProtocol;
+    lockedProtocol?: FormProtocol;
     formId?: string;
   }
 > = (props) => {

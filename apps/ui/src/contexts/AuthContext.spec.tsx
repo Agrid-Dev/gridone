@@ -1,19 +1,21 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import type { GridoneClient } from "@gridone/sdk";
 
-vi.mock("@/api/auth", () => ({
-  getMe: vi.fn(() => Promise.reject(new Error("unauthenticated"))),
-  login: vi.fn(),
-  logout: vi.fn(),
-}));
+import { GridoneClientProvider } from "./GridoneClientContext";
+import { AuthProvider, useAuth } from "./AuthContext";
 
 const getHealthMock = vi.fn();
-vi.mock("@/api/health", () => ({
-  getHealth: () => getHealthMock(),
-}));
 
-import { AuthProvider, useAuth } from "./AuthContext";
+function makeClient(): GridoneClient {
+  return {
+    me: vi.fn(() => Promise.reject(new Error("unauthenticated"))),
+    login: vi.fn(),
+    logout: vi.fn(),
+    health: () => getHealthMock(),
+  } as unknown as GridoneClient;
+}
 
 function FlagsAndVersionProbe() {
   const { health } = useAuth();
@@ -27,9 +29,11 @@ function FlagsAndVersionProbe() {
 
 function renderProbe(): void {
   render(
-    <AuthProvider>
-      <FlagsAndVersionProbe />
-    </AuthProvider>,
+    <GridoneClientProvider client={makeClient()}>
+      <AuthProvider>
+        <FlagsAndVersionProbe />
+      </AuthProvider>
+    </GridoneClientProvider>,
   );
 }
 
@@ -86,11 +90,14 @@ describe("useFeatureEnabled", () => {
       flags: ["building_homepage"],
     });
 
-    // Import inside test so the mocked AuthContext is wired before module load.
     const { useFeatureEnabled } = await import("@/utils/featureFlags");
 
     function Probe({ children }: { children: ReactNode }) {
-      return <AuthProvider>{children}</AuthProvider>;
+      return (
+        <GridoneClientProvider client={makeClient()}>
+          <AuthProvider>{children}</AuthProvider>
+        </GridoneClientProvider>
+      );
     }
     function Flag() {
       const on = useFeatureEnabled("buildingHomepage");

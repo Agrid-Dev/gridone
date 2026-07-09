@@ -1,6 +1,7 @@
 import { FC } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { listExecutions, AutomationExecution } from "@/api/automations";
+import type { AutomationExecution } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
   Table,
   TableBody,
@@ -15,9 +16,10 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 const useAutomationExecutions = (automationId: string) => {
+  const client = useGridoneClient();
   return useQuery<AutomationExecution[]>({
     queryKey: ["automations", automationId, "executions"],
-    queryFn: () => listExecutions(automationId),
+    queryFn: () => client.automations.listExecutions(automationId),
     enabled: !!automationId,
   });
 };
@@ -28,7 +30,7 @@ interface AutomationExecutionHistoryProps {
 
 function ExecutionRow({ execution }: { execution: AutomationExecution }) {
   const { t } = useTranslation("automations");
-  const timestamp = execution.executedAt ?? execution.triggeredAt;
+  const timestamp = execution.executed_at ?? execution.triggered_at;
   return (
     <TableRow>
       <TableCell className="text-sm tabular-nums">
@@ -42,9 +44,9 @@ function ExecutionRow({ execution }: { execution: AutomationExecution }) {
               {execution.error}
             </span>
           )}
-          {execution.outputId && (
+          {execution.output_id && (
             <Link
-              to={`/devices/commands?batch_id=${encodeURIComponent(execution.outputId)}`}
+              to={`/devices/commands?batch_id=${encodeURIComponent(execution.output_id)}`}
               className="ml-auto inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
             >
               {t("executions.viewBatch")}

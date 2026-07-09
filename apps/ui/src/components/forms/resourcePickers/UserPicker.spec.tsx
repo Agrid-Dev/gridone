@@ -2,7 +2,7 @@ import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import type { User } from "@/api/users";
+import type { User } from "@gridone/sdk";
 
 vi.mock("react-i18next", () =>
   createI18nMock({

@@ -19,7 +19,8 @@ import { SelectController } from "@/components/forms/controllers/SelectControlle
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { AttributeValue } from "@/components/AttributeValue";
-import { type Device, type DeviceType } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import { type DeviceType } from "@/lib/devices";
 import { currentValueFor } from "./resolvers";
 import type { WizardFormValues, WritableAttribute } from "./types";
 

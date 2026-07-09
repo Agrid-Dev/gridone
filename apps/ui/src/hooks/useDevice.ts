@@ -4,10 +4,12 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { useParams } from "react-router";
-import { getDevice, Device } from "../api/devices";
+import type { Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useDeviceContext } from "../contexts/DeviceContext";
 
 export function useDevice(deviceId: string | undefined) {
+  const client = useGridoneClient();
   const { isConnected } = useDeviceContext();
   return useQuery<Device>({
     queryKey: ["device", deviceId],
@@ -15,7 +17,7 @@ export function useDevice(deviceId: string | undefined) {
       if (!deviceId) {
         throw new Error("Device ID is required");
       }
-      return getDevice(deviceId);
+      return client.devices.get(deviceId);
     },
     enabled: !!deviceId,
     refetchInterval: isConnected ? false : 15000,
@@ -23,6 +25,7 @@ export function useDevice(deviceId: string | undefined) {
 }
 
 export function useDeviceFromRoute(): Device {
+  const client = useGridoneClient();
   const { deviceId } = useParams<{ deviceId: string }>();
   const { isConnected } = useDeviceContext();
   const queryClient = useQueryClient();
@@ -48,7 +51,7 @@ export function useDeviceFromRoute(): Device {
   };
   const { data } = useSuspenseQuery<Device>({
     queryKey: ["device", deviceId],
-    queryFn: () => getDevice(deviceId),
+    queryFn: () => client.devices.get(deviceId),
     initialData: () => cachedFromList()?.device,
     initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
     refetchInterval: isConnected ? false : 15000,

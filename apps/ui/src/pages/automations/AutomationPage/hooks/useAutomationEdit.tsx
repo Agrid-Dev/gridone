@@ -1,12 +1,6 @@
-import {
-  listTriggerSchemas,
-  TriggerSchema,
-  enableAutomation,
-  disableAutomation,
-  updateAutomation,
-  type AutomationUpdate,
-} from "@/api/automations";
+import type { AutomationUpdate, ProviderSchemas } from "@gridone/sdk";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { usePermissions } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -15,9 +9,10 @@ import { useEditingSection } from "./useEditingSection";
 
 const useToggleAutomation = (automationId: string) => {
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const { t } = useTranslation("automations");
   const { mutate: enable, isPending: isEnabling } = useMutation({
-    mutationFn: () => enableAutomation(automationId),
+    mutationFn: () => client.automations.enable(automationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.enabled"));
@@ -26,7 +21,7 @@ const useToggleAutomation = (automationId: string) => {
   });
 
   const { mutate: disable, isPending: isDisabling } = useMutation({
-    mutationFn: () => disableAutomation(automationId),
+    mutationFn: () => client.automations.disable(automationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.disabled"));
@@ -38,6 +33,7 @@ const useToggleAutomation = (automationId: string) => {
 
 const useUpdateAutomation = (automationId: string, onUpdated?: () => void) => {
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const { t } = useTranslation("automations");
   const [submittingSection, setSubmittingSection] = useState<string | null>(
     null,
@@ -45,7 +41,7 @@ const useUpdateAutomation = (automationId: string, onUpdated?: () => void) => {
 
   const { mutate } = useMutation({
     mutationFn: (payload: AutomationUpdate) =>
-      updateAutomation(automationId, payload),
+      client.automations.update(automationId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.updated"));
@@ -65,12 +61,11 @@ const useUpdateAutomation = (automationId: string, onUpdated?: () => void) => {
 
 export const useAutomationEdit = (automationId: string) => {
   const can = usePermissions();
+  const client = useGridoneClient();
   const canWrite = can("automations:write");
-  const { data: triggerSchemas, isLoading } = useQuery<
-    Record<string, TriggerSchema>
-  >({
+  const { data: triggerSchemas, isLoading } = useQuery<ProviderSchemas>({
     queryKey: ["automations-trigger-schemas"],
-    queryFn: listTriggerSchemas,
+    queryFn: () => client.automations.getTriggerSchemas(),
   });
 
   const editing = useEditingSection();

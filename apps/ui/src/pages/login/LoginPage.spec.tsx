@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ApiError } from "@/api/apiError";
+import { GridoneError } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -37,7 +37,11 @@ vi.mock("react-router", () => ({
   useNavigate: () => navigateMock,
 }));
 
-vi.mock("@/api/authValidation", () => ({
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({}),
+}));
+
+vi.mock("@/lib/authSchema", () => ({
   getAuthSchema: () => getAuthSchemaMock(),
 }));
 
@@ -130,7 +134,7 @@ describe("LoginPage", () => {
   it("surfaces credentials errors distinctly from the unreachable notice", async () => {
     const user = userEvent.setup();
     getAuthSchemaMock.mockResolvedValue(VALID_SCHEMA);
-    loginMock.mockRejectedValue(new ApiError(401, "Unauthorized", "Bad creds"));
+    loginMock.mockRejectedValue(new GridoneError(401, "Bad creds"));
     renderPage();
 
     const submit = await screen.findByRole("button", { name: "Sign in" });

@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { NotificationDispatch } from "@/api/notifications";
-import type { Page } from "@/api/pagination";
+import type { NotificationDispatch, Page } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -66,13 +65,13 @@ function makeDispatch(
       title: "System alert",
       body: "The chiller is offline and requires immediate attention.",
       severity: "alert",
-      correlationId: null,
-      createdBy: null,
-      createdAt: DISPATCHED_AT,
+      correlation_id: null,
+      created_by: null,
+      created_at: DISPATCHED_AT,
     },
-    userId: "u1",
-    dispatchedAt: DISPATCHED_AT,
-    dismissedAt: null,
+    user_id: "u1",
+    dispatched_at: DISPATCHED_AT,
+    dismissed_at: null,
     ...overrides,
   };
 }
@@ -86,7 +85,7 @@ function makePage(
     total: items.length,
     page: 1,
     size: 20,
-    totalPages: 1,
+    total_pages: 1,
     links: { self: "", first: "", last: "", next: null, prev: null },
     ...extra,
   };
@@ -182,11 +181,11 @@ describe("NotificationsPage", () => {
         title: "Old alert",
         body: "Resolved.",
         severity: "warning",
-        correlationId: null,
-        createdBy: null,
-        createdAt: DISPATCHED_AT,
+        correlation_id: null,
+        created_by: null,
+        created_at: DISPATCHED_AT,
       },
-      dismissedAt: DISPATCHED_AT,
+      dismissed_at: DISPATCHED_AT,
     });
     mockUseNotifications.mockReturnValue({
       page: makePage([dismissed]),
@@ -237,9 +236,9 @@ describe("NotificationsPage", () => {
             title: "Discovery",
             body: "A **new device** was discovered for [thermostat](resource://device/d1).",
             severity: "info",
-            correlationId: null,
-            createdBy: null,
-            createdAt: DISPATCHED_AT,
+            correlation_id: null,
+            created_by: null,
+            created_at: DISPATCHED_AT,
           },
         }),
       ]),
@@ -254,10 +253,10 @@ describe("NotificationsPage", () => {
     expect(link).toHaveAttribute("href", "/devices/d1");
   });
 
-  it("renders pagination links when totalPages > 1", () => {
+  it("renders pagination links when total_pages > 1", () => {
     mockUseNotifications.mockReturnValue({
       page: makePage([makeDispatch()], {
-        totalPages: 3,
+        total_pages: 3,
         page: 2,
         links: {
           self: "http://localhost/notifications/?page=2",

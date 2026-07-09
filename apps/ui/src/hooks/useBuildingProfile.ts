@@ -5,19 +5,16 @@ import {
   UseMutationResult,
   UseQueryResult,
 } from "@tanstack/react-query";
-import {
-  getBuildingProfile,
-  getBuildingProfileSchema,
-  setBuildingProfile,
-  BuildingProfile,
-} from "@/api/assets";
+import type { BuildingProfile } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 const PROFILE_KEY = ["building-profile"];
 
 export function useBuildingProfile(): UseQueryResult<BuildingProfile> {
+  const client = useGridoneClient();
   return useQuery({
     queryKey: PROFILE_KEY,
-    queryFn: getBuildingProfile,
+    queryFn: () => client.assets.getBuildingProfile(),
     staleTime: 5 * 60 * 1000,
   });
 }
@@ -36,18 +33,20 @@ type EditBuildingProfile = {
 };
 
 export function useEditBuildingProfile(): EditBuildingProfile {
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
 
   const schema = useQuery({
     queryKey: [...PROFILE_KEY, "schema"],
-    queryFn: getBuildingProfileSchema,
+    queryFn: () => client.assets.getBuildingProfileSchema(),
     staleTime: 5 * 60 * 1000,
   });
 
   const profile = useBuildingProfile();
 
   const save = useMutation({
-    mutationFn: (values: Record<string, unknown>) => setBuildingProfile(values),
+    mutationFn: (values: Record<string, unknown>) =>
+      client.assets.setBuildingProfile(values as BuildingProfile),
     onSuccess: (saved) => {
       queryClient.setQueryData(PROFILE_KEY, saved);
     },

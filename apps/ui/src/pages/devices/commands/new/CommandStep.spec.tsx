@@ -3,7 +3,8 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { useForm } from "react-hook-form";
 import { createI18nMock } from "@/test/i18nMock";
 import type { WizardFormValues, WritableAttribute } from "./types";
-import { DeviceType, type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import { DeviceType } from "@/lib/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -24,11 +25,11 @@ function device(id: string, type: DeviceType | null = null): Device {
     id,
     name: `Device ${id}`,
     type,
-    driverId: "drv",
-    transportId: "trp",
+    driver_id: "drv",
+    transport_id: "trp",
     config: {},
     tags: {},
-    isFaulty: false,
+    is_faulty: false,
     attributes: {},
   };
 }

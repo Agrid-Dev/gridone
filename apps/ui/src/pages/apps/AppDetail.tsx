@@ -7,8 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
-import { getApp, enableApp, disableApp } from "@/api/apps";
-import { listUsers } from "@/api/users";
+import type { User } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 import AppConfigForm from "./components/AppConfigForm";
 
@@ -16,25 +16,27 @@ export default function AppDetail() {
   const { t } = useTranslation("apps");
   const { appId } = useParams<{ appId: string }>();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const can = usePermissions();
 
   const { data: app, isLoading } = useQuery({
     queryKey: ["apps", appId],
-    queryFn: () => getApp(appId!),
+    queryFn: () => client.apps.get(appId!),
     enabled: !!appId,
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
-    queryFn: listUsers,
+    // Admin-only view: the API returns full `User` objects here.
+    queryFn: () => client.users.list() as Promise<User[]>,
     enabled: !!app,
   });
 
-  const appUser = users.find((u) => u.id === app?.userId);
-  const isDisabled = appUser?.isBlocked ?? false;
+  const appUser = users.find((u) => u.id === app?.user_id);
+  const isDisabled = appUser?.is_blocked ?? false;
 
   const enableMutation = useMutation({
-    mutationFn: () => enableApp(appId!),
+    mutationFn: () => client.apps.enable(appId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -44,7 +46,7 @@ export default function AppDetail() {
   });
 
   const disableMutation = useMutation({
-    mutationFn: () => disableApp(appId!),
+    mutationFn: () => client.apps.disable(appId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -107,13 +109,13 @@ export default function AppDetail() {
             <span className="text-muted-foreground">{t("fields.status")}</span>
             {/* TODO: display last health check timestamp when backend exposes it */}
             <div className="mt-1">
-              <AppStatusBadge status={app.status} />
+              <AppStatusBadge status={app.status ?? "registered"} />
             </div>
           </div>
           <div>
             <span className="text-muted-foreground">{t("fields.apiUrl")}</span>
             <p className="mt-1 font-mono text-xs text-foreground">
-              {app.apiUrl}
+              {app.api_url}
             </p>
           </div>
           <div>
@@ -121,7 +123,9 @@ export default function AppDetail() {
               {t("fields.createdAt")}
             </span>
             <p className="mt-1 text-foreground">
-              {new Date(app.createdAt).toLocaleDateString()}
+              {app.created_at
+                ? new Date(app.created_at).toLocaleDateString()
+                : "-"}
             </p>
           </div>
           <div>

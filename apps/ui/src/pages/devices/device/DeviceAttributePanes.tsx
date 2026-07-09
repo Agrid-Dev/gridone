@@ -11,20 +11,24 @@ import {
 import { AttributeValue } from "@/components/AttributeValue";
 import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
 import { SeverityChip } from "@/components/SeverityChip";
+import type { AttributeKind, Device } from "@gridone/sdk";
 import {
+  deviceAttributes,
   getConnectionStatus,
-  type AttributeKind,
-  type Device,
-  type DeviceAttribute,
-} from "@/api/devices";
-import { getAllFaultAttributes, isFaultAttribute } from "@/lib/faults";
+  type DeviceType,
+} from "@/lib/devices";
+import {
+  getAllFaultAttributes,
+  isFaultAttribute,
+  type AttributeFields,
+} from "@/lib/faults";
 import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 
-/** Map key (camelCased by the API client) of the connection-status attribute.
- *  We identify it by object identity against `device.attributes`, not by
- *  `attribute.name` — that field keeps the backend's snake_case value. */
-const CONNECTION_STATUS_ATTR = "connectionStatus";
+/** Wire-format map key of the connection-status attribute. We identify it by
+ *  object identity against the device's attribute map, not by
+ *  `attribute.name`. */
+const CONNECTION_STATUS_ATTR = "connection_status";
 
 /** The attribute kinds rendered as panes, in display order. A pane with no
  *  rows is skipped (see {@link DeviceAttributePanes}). */
@@ -39,9 +43,9 @@ const PANES = [
 function attributesForKind(
   device: Device,
   kind: AttributeKind,
-): DeviceAttribute[] {
+): AttributeFields[] {
   if (kind === "fault") return getAllFaultAttributes(device);
-  return Object.values(device.attributes)
+  return (Object.values(deviceAttributes(device)) as AttributeFields[])
     .filter((attr) => attr.kind === kind)
     .sort((a, b) => toLabel(a.name).localeCompare(toLabel(b.name)));
 }
@@ -88,17 +92,17 @@ function AttributeRow({
   attribute,
 }: {
   device: Device;
-  attribute: DeviceAttribute;
+  attribute: AttributeFields;
 }) {
   const { t } = useTranslation("devices");
 
   const fault = isFaultAttribute(attribute) ? attribute : null;
-  const isFaulty = fault?.isFaulty ?? false;
+  const isFaulty = fault?.is_faulty ?? false;
   const isConnectionStatus =
-    device.attributes[CONNECTION_STATUS_ATTR] === attribute;
-  const isWritable = attribute.readWriteModes.includes("write");
-  const changedAgo = compactTimeAgo(attribute.lastChanged);
-  const syncedAgo = compactTimeAgo(attribute.lastUpdated);
+    deviceAttributes(device)[CONNECTION_STATUS_ATTR] === attribute;
+  const isWritable = attribute.read_write_modes.includes("write");
+  const changedAgo = compactTimeAgo(attribute.last_changed);
+  const syncedAgo = compactTimeAgo(attribute.last_updated);
 
   // Writable rows deep-link into the command form, pre-targeted to this device
   // and attribute; the user only supplies the value (the table stays read-only).
@@ -122,13 +126,13 @@ function AttributeRow({
           <ConnectionStatusValue status={getConnectionStatus(device)} />
         ) : (
           <AttributeValue
-            value={attribute.currentValue}
+            value={attribute.current_value}
             attributeName={attribute.name}
-            deviceType={device.type ?? undefined}
-            dataType={attribute.dataType}
+            deviceType={(device.type ?? undefined) as DeviceType | undefined}
+            dataType={attribute.data_type}
             fault={
               fault
-                ? { severity: fault.severity, isFaulty: fault.isFaulty }
+                ? { severity: fault.severity, isFaulty: fault.is_faulty }
                 : undefined
             }
           />
@@ -180,7 +184,7 @@ function AttributeRow({
           </p>
           <DetailRow
             label={t("deviceDetails.attributeDetails.type")}
-            value={attribute.dataType}
+            value={attribute.data_type}
             mono
           />
           <DetailRow

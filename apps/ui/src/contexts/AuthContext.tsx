@@ -6,14 +6,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getMe, login as apiLogin, logout as apiLogout } from "@/api/auth";
-import type { CurrentUser } from "@/api/auth";
-import { getHealth } from "@/api/health";
+import type { MeResponse } from "@gridone/sdk";
+import { useGridoneClient } from "./GridoneClientContext";
 
 type AuthState =
   | { status: "loading" }
   | { status: "unauthenticated" }
-  | { status: "authenticated"; user: CurrentUser };
+  | { status: "authenticated"; user: MeResponse };
 
 export type HealthState = {
   version: string | null;
@@ -26,29 +25,30 @@ type AuthContextValue = {
   state: AuthState;
   health: HealthState;
   login: (username: string, password: string) => Promise<void>;
-  refreshMe: () => Promise<CurrentUser>;
+  refreshMe: () => Promise<MeResponse>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const client = useGridoneClient();
   const [state, setState] = useState<AuthState>({ status: "loading" });
   const [health, setHealth] = useState<HealthState>(HEALTH_FALLBACK);
 
   const logout = useCallback(async () => {
-    await apiLogout().catch(() => {});
+    await client.logout().catch(() => {});
     setState({ status: "unauthenticated" });
-  }, []);
+  }, [client]);
 
   const refreshMe = useCallback(async () => {
-    const user = await getMe();
+    const user = await client.me();
     setState({ status: "authenticated", user });
     return user;
-  }, []);
+  }, [client]);
 
   useEffect(() => {
-    // Try to restore session from httpOnly cookie
+    // Try to restore the session from the persisted token pair
     refreshMe().catch(() => {
       setState({ status: "unauthenticated" });
     });
@@ -60,23 +60,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // error we keep the empty defaults so the app still renders without
     // optional features.
     let cancelled = false;
-    getHealth()
+    client
+      .health()
       .then((h) => {
         if (cancelled) return;
-        setHealth({ version: h.version, flags: h.flags ?? [] });
+        setHealth({ version: h.version ?? null, flags: h.flags ?? [] });
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [client]);
 
   const login = useCallback(
     async (username: string, password: string) => {
-      await apiLogin({ username, password });
+      await client.login(username, password);
       await refreshMe();
     },
-    [refreshMe],
+    [client, refreshMe],
   );
 
   return (

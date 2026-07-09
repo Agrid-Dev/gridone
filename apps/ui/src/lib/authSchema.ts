@@ -1,4 +1,4 @@
-import { request } from "./request";
+import type { GridoneClient } from "@gridone/sdk";
 
 /** JSON schema of AuthPayload from the API (Pydantic model_json_schema()). */
 export type AuthSchemaProperty = {
@@ -16,6 +16,7 @@ export type AuthSchema = {
   required?: string[];
 };
 
-export function getAuthSchema(): Promise<AuthSchema> {
-  return request<AuthSchema>("/auth/schema");
+/** `GET /auth/schema` — not covered by an SDK namespace yet. */
+export function getAuthSchema(client: GridoneClient): Promise<AuthSchema> {
+  return client.request<AuthSchema>("GET", "/auth/schema");
 }

@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
-import type { Action, Trigger } from "@/api/automations";
-import type { Severity } from "@/api/severity";
+import type { Action, Trigger } from "@gridone/sdk";
+import type { Severity } from "@/lib/severity";
 
 export type CustomTriggerFormProps = {
   type: string;
@@ -28,23 +28,23 @@ export type TriggerDescriptor = {
  *  ``params`` casts. Each provider lands as another arm of the union. */
 export type ActionFormResult =
   | {
-      providerId: "command_template";
-      params: { templateId: string };
+      provider_id: "command_template";
+      params: { template_id: string };
     }
   | {
-      providerId: "notification";
+      provider_id: "notification";
       params: {
         title: string;
         body: string;
         severity: Severity;
-        userIds: string[];
+        user_ids: string[];
       };
     };
 
 export type CustomActionFormProps = {
   /** The automation's existing action when editing, raw off the API.
-   *  Bodies pre-populate from it when ``providerId`` matches what they
-   *  render (e.g. the template picker reads ``params.templateId`` for
+   *  Bodies pre-populate from it when ``provider_id`` matches what they
+   *  render (e.g. the template picker reads ``params.template_id`` for
    *  ``command_template``) and ignore it otherwise. */
   initialValue?: Action;
   onChange: (result: ActionFormResult | null) => void;

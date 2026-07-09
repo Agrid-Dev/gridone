@@ -3,7 +3,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import type { BuildingProfile } from "@/api/assets";
+import type { BuildingProfile, GridoneClient } from "@gridone/sdk";
+import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -43,11 +44,11 @@ function makeProfile(name: string | null): BuildingProfile {
     address: null,
     surface: null,
     floors: null,
-    yearBuilt: null,
+    year_built: null,
     operator: null,
     latitude: null,
     longitude: null,
-    coverUrl: null,
+    cover_url: null,
     icon: null,
   };
 }
@@ -56,13 +57,19 @@ function renderTopBar() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  queryClient.setQueryData(["building-profile"], makeProfile("Tour Mercure"));
+  const profile = makeProfile("Tour Mercure");
+  queryClient.setQueryData(["building-profile"], profile);
+  const fakeClient = {
+    assets: { getBuildingProfile: () => Promise.resolve(profile) },
+  } as unknown as GridoneClient;
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/devices"]}>
-        <TopBar />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <GridoneClientProvider client={fakeClient}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/devices"]}>
+          <TopBar />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </GridoneClientProvider>,
   );
 }
 

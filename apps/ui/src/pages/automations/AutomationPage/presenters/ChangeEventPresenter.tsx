@@ -3,10 +3,10 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { TrendingUp } from "lucide-react";
-import { getDevice } from "@/api/devices";
+import type { Trigger } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { Trigger } from "@/api/automations";
 import type { TriggerDescriptor } from "./types";
 import { ChangeEventForm } from "../form/ChangeEventForm";
 
@@ -23,15 +23,16 @@ function isCondition(value: unknown): value is Condition {
 
 export const ChangeEventPresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t } = useTranslation("automations");
-  const params = trigger.params;
-  const deviceId = typeof params.deviceId === "string" ? params.deviceId : "";
+  const client = useGridoneClient();
+  const params = trigger.params ?? {};
+  const deviceId = typeof params.device_id === "string" ? params.device_id : "";
   const attribute =
     typeof params.attribute === "string" ? params.attribute : "";
   const condition = isCondition(params.condition) ? params.condition : null;
 
   const { data: device } = useQuery({
     queryKey: ["devices", deviceId],
-    queryFn: () => getDevice(deviceId),
+    queryFn: () => client.devices.get(deviceId),
     enabled: !!deviceId,
   });
 

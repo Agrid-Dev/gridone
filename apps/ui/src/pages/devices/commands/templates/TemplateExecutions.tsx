@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
-import { getCommands, type DeviceCommand } from "@/api/commands";
-import type { Page } from "@/api/pagination";
+import type { Page, UnitCommand } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
@@ -17,22 +17,20 @@ const PAGE_SIZE = 50;
  *  column is omitted: the table is already scoped to this template. */
 export function TemplateExecutions({ templateId }: { templateId: string }) {
   const { t } = useTranslation(["devices", "common"]);
+  const client = useGridoneClient();
   const { devices } = useDevicesList();
   const { users } = useUsers();
 
-  const params = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set("template_id", templateId);
-    p.set("sort", "desc");
-    p.set("size", String(PAGE_SIZE));
-    return p;
-  }, [templateId]);
-
   const { data, isLoading, isPlaceholderData, error } = useQuery<
-    Page<DeviceCommand>
+    Page<UnitCommand>
   >({
     queryKey: ["commands", "template", templateId],
-    queryFn: () => getCommands(params),
+    queryFn: () =>
+      client.devices.listCommands({
+        template_id: templateId,
+        sort: "desc",
+        size: PAGE_SIZE,
+      }),
     placeholderData: keepPreviousData,
     staleTime: 5000,
   });
@@ -65,7 +63,7 @@ export function TemplateExecutions({ templateId }: { templateId: string }) {
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
-    pageCount: data?.totalPages ?? 0,
+    pageCount: data?.total_pages ?? 0,
   });
 
   return (

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import type { FaultView } from "@/api/faults";
+import type { FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -40,14 +40,14 @@ import FaultsPage from "./FaultsPage";
 
 function makeFault(overrides: Partial<FaultView> = {}): FaultView {
   return {
-    deviceId: "d1",
-    deviceName: "Alpha",
-    attributeName: "compressor_fault",
-    dataType: "bool",
+    device_id: "d1",
+    device_name: "Alpha",
+    attribute_name: "compressor_fault",
+    data_type: "bool",
     severity: "alert",
-    currentValue: true,
-    lastUpdated: "2026-04-24T00:00:00Z",
-    lastChanged: "2026-04-24T00:00:00Z",
+    current_value: true,
+    last_updated: "2026-04-24T00:00:00Z",
+    last_changed: "2026-04-24T00:00:00Z",
     ...overrides,
   };
 }
@@ -64,14 +64,14 @@ beforeEach(() => {
   mockUseFaultsList.mockReturnValue({
     faults: [
       makeFault({
-        deviceId: "d1",
-        deviceName: "Alpha",
-        attributeName: "compressor_fault",
+        device_id: "d1",
+        device_name: "Alpha",
+        attribute_name: "compressor_fault",
       }),
       makeFault({
-        deviceId: "d2",
-        deviceName: "Bravo",
-        attributeName: "low_pressure",
+        device_id: "d2",
+        device_name: "Bravo",
+        attribute_name: "low_pressure",
         severity: "warning",
       }),
     ],

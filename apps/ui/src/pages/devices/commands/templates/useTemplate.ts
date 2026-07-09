@@ -7,54 +7,56 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ApiError } from "@/api/apiError";
 import {
-  deleteTemplate,
-  dispatchTemplate,
-  getTemplate,
-  type CommandTemplate,
-} from "@/api/commands";
-import { listDevices, type Device } from "@/api/devices";
+  GridoneError,
+  type CommandTemplateResponse,
+  type Device,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
- *  itself (fetched under Suspense — an unknown id propagates as `ApiError(404)`
- *  to the nearest `ResourceBoundary`, so `template` is always defined), the
- *  live-resolved device list, the asset-name lookup used by the
- *  TargetPresenter, and the execute/delete mutations with their toast +
+ *  itself (fetched under Suspense — an unknown id propagates as
+ *  `GridoneError(404)` to the nearest `ResourceBoundary`, so `template` is
+ *  always defined), the live-resolved device list, the asset-name lookup used
+ *  by the TargetPresenter, and the execute/delete mutations with their toast +
  *  navigation side effects. */
 export function useTemplate(templateId: string) {
   const { t } = useTranslation("devices");
   const navigate = useNavigate();
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
 
-  const { data: template } = useSuspenseQuery<CommandTemplate>({
+  const { data: template } = useSuspenseQuery<CommandTemplateResponse>({
     queryKey: ["command-templates", templateId],
-    queryFn: () => getTemplate(templateId),
+    queryFn: () => client.devices.commandTemplates.get(templateId),
   });
 
   const { assetsById } = useAssetTree();
 
   // Resolve devices live so the page reflects the current asset membership.
-  const target = template.target;
+  // The wire type leaves ``target`` an opaque map; it is a
+  // ``DevicesFilterBody`` by construction (validated server-side).
+  const target = template.target as DevicesFilter;
   const resolvedDevices = useQuery<Device[]>({
     queryKey: ["template-resolved-devices", templateId, target],
-    queryFn: () => listDevices(target),
+    queryFn: () => client.devices.list(devicesFilterToListParams(target)),
     enabled: !!target,
   });
 
   const execute = useMutation({
-    mutationFn: () => dispatchTemplate(templateId),
+    mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
     onSuccess: (result) => {
       toast.success(t("commands.templates.executed"));
       queryClient.invalidateQueries({ queryKey: ["commands"] });
-      navigate(`/devices/commands?batch_id=${result.batchId}`);
+      navigate(`/devices/commands?batch_id=${result.batch_id}`);
     },
     onError: (err) => toast.error(describeError(err)),
   });
 
   const remove = useMutation({
-    mutationFn: () => deleteTemplate(templateId),
+    mutationFn: () => client.devices.commandTemplates.delete(templateId),
     onSuccess: () => {
       toast.success(t("commands.templates.deleted"));
       queryClient.invalidateQueries({ queryKey: ["command-templates"] });
@@ -76,6 +78,6 @@ export function useTemplate(templateId: string) {
 }
 
 function describeError(err: Error): string {
-  if (err instanceof ApiError) return err.detail || err.message;
+  if (err instanceof GridoneError) return err.detail || err.message;
   return err.message;
 }

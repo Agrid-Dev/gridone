@@ -6,8 +6,8 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
-import { getAsset, updateAsset, deleteAsset } from "@/api/assets";
-import type { Asset, AssetUpdatePayload } from "@/api/assets";
+import type { Asset, AssetUpdate as AssetUpdatePayload } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AssetForm } from "./components/AssetForm";
 import type { AssetFormValues } from "./components/AssetForm";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -17,17 +17,19 @@ export default function AssetEdit() {
   const { assetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
 
   const can = usePermissions();
 
   const { data: asset, isLoading } = useQuery<Asset>({
     queryKey: ["assets", assetId],
-    queryFn: () => getAsset(assetId!),
+    queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
   });
 
   const mutation = useMutation({
-    mutationFn: (data: AssetUpdatePayload) => updateAsset(assetId!, data),
+    mutationFn: (data: AssetUpdatePayload) =>
+      client.assets.update(assetId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("updated"));
@@ -37,7 +39,7 @@ export default function AssetEdit() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteAsset(assetId!),
+    mutationFn: () => client.assets.delete(assetId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("deleted"));
@@ -64,7 +66,7 @@ export default function AssetEdit() {
     mutation.mutate({
       name: data.name,
       type: data.type,
-      parentId: data.parentId,
+      parent_id: data.parentId,
     });
   };
 
@@ -89,7 +91,7 @@ export default function AssetEdit() {
           defaultValues={{
             name: asset.name,
             type: asset.type,
-            parentId: asset.parentId ?? "",
+            parentId: asset.parent_id ?? "",
           }}
           onSubmit={handleSubmit}
           isPending={mutation.isPending}

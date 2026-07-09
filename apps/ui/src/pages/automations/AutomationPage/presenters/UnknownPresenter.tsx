@@ -1,5 +1,5 @@
 import { CircleQuestionMark } from "lucide-react";
-import type { Trigger } from "@/api/automations";
+import type { Trigger } from "@gridone/sdk";
 import type { TriggerDescriptor } from "./types";
 
 export const UnknownPresenter = ({ trigger }: { trigger: Trigger }) => {

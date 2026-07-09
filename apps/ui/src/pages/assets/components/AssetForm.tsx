@@ -6,8 +6,9 @@ import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
-import { ASSET_TYPES, listAssets } from "@/api/assets";
-import type { Asset } from "@/api/assets";
+import type { Asset } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { ASSET_TYPES } from "@/lib/assets";
 
 /**
  * Zod schema mirroring the Pydantic AssetCreate model constraints:
@@ -40,6 +41,7 @@ export function AssetForm({
   excludeId,
 }: AssetFormProps) {
   const { t } = useTranslation(["assets", "common"]);
+  const client = useGridoneClient();
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -48,7 +50,7 @@ export function AssetForm({
 
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["assets"],
-    queryFn: () => listAssets(),
+    queryFn: () => client.assets.list(),
   });
 
   const parentOptions = allAssets

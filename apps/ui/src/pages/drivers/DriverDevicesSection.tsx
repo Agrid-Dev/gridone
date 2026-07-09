@@ -12,7 +12,7 @@ export const DriverDevicesSection: FC<{ driverId: string }> = ({
   driverId,
 }) => {
   const { t } = useTranslation("drivers");
-  const filter = useMemo(() => ({ driverId }), [driverId]);
+  const filter = useMemo(() => ({ driver_id: driverId }), [driverId]);
   const { devices, loading, error } = useDevicesList(filter);
 
   const sorted = useMemo(() => sortedByName(devices), [devices]);

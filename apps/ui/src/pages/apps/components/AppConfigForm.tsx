@@ -6,12 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  getAppConfigSchema,
-  getAppConfig,
-  updateAppConfig,
-  type AppConfigSchema,
-} from "@/api/apps";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,8 +18,27 @@ interface AppConfigFormProps {
   appId: string;
 }
 
+/** UI view of the JSON schema an app declares for its config (the SDK types
+ *  the payload loosely as an untyped JSON object). */
+type JsonSchemaProperty = {
+  type?: string;
+  description?: string;
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+};
+
+type AppConfigSchema = {
+  type?: string;
+  properties?: Record<string, JsonSchemaProperty>;
+  required?: string[];
+};
+
 const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
   const { t } = useTranslation("apps");
+  const client = useGridoneClient();
 
   const {
     data: schema,
@@ -32,7 +46,8 @@ const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
     isError: schemaError,
   } = useQuery({
     queryKey: ["apps", appId, "config-schema"],
-    queryFn: () => getAppConfigSchema(appId),
+    queryFn: async () =>
+      (await client.apps.getConfigSchema(appId)) as AppConfigSchema,
   });
 
   const {
@@ -41,7 +56,7 @@ const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
     isError: configError,
   } = useQuery({
     queryKey: ["apps", appId, "config"],
-    queryFn: () => getAppConfig(appId),
+    queryFn: () => client.apps.getConfig(appId),
     enabled: !!schema,
   });
 
@@ -79,6 +94,7 @@ interface ConfigFormProps {
 const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
   const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
 
   const zodSchema = useMemo(
     () =>
@@ -96,7 +112,7 @@ const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
 
   const mutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
-      updateAppConfig(appId, values),
+      client.apps.updateConfig(appId, values),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps", appId, "config"] });
       toast.success(t("configSaved"));

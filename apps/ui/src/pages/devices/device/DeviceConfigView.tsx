@@ -38,9 +38,9 @@ export default function DeviceConfigView() {
   ]);
 
   const transport = transportsListQuery.data?.find(
-    (item) => item.id === device.transportId,
+    (item) => item.id === device.transport_id,
   );
-  const transportLabel = transport?.name ?? device.transportId;
+  const transportLabel = transport?.name ?? device.transport_id;
   const configEntries = Object.entries(device.config);
 
   return (
@@ -57,10 +57,10 @@ export default function DeviceConfigView() {
             label={t("devices.fields.driver")}
             value={
               <Link
-                to={`/drivers/${device.driverId}`}
+                to={`/drivers/${device.driver_id}`}
                 className="text-primary hover:underline"
               >
-                {device.driverId}
+                {device.driver_id}
               </Link>
             }
           />
@@ -68,7 +68,7 @@ export default function DeviceConfigView() {
             label={t("devices.fields.transport")}
             value={
               <Link
-                to={`/transports/${device.transportId}`}
+                to={`/transports/${device.transport_id}`}
                 className="text-primary hover:underline"
               >
                 {transportLabel}

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import { DeviceTabs } from "./DeviceTabs";
 
 vi.mock("react-i18next", () =>
@@ -27,16 +27,16 @@ function makeDevice({
       value: {
         kind: "standard" as const,
         name: "value",
-        dataType: "float",
-        readWriteModes,
-        currentValue: null,
-        lastUpdated: null,
-        lastChanged: null,
+        data_type: "float",
+        read_write_modes: readWriteModes,
+        current_value: null,
+        last_updated: null,
+        last_changed: null,
       },
     },
-    isFaulty: false,
-    driverId: "drv",
-    transportId: "tr",
+    is_faulty: false,
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
   };
 }

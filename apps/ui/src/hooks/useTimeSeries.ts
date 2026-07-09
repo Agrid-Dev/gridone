@@ -1,12 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  listSeries,
-  getSeriesPoints,
-  type DataPoint,
-  type DataType,
-  type SeriesPointsResult,
-  type TimeSeries,
-} from "../api/timeseries";
+import type {
+  DataPoint,
+  FetchPointsResultResponse,
+  TimeSeries,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 type UseTimeSeriesOptions = {
   deviceId: string;
@@ -16,17 +14,21 @@ type UseTimeSeriesOptions = {
   enabled?: boolean;
 };
 
-export function useTimeSeries<D extends DataType = DataType>({
+export function useTimeSeries({
   deviceId,
   attributeName,
   start,
   end,
   enabled = true,
 }: UseTimeSeriesOptions) {
-  const seriesQuery = useQuery<TimeSeries<D> | null>({
+  const client = useGridoneClient();
+
+  const seriesQuery = useQuery<TimeSeries | null>({
     queryKey: ["timeseries", "series", deviceId, attributeName],
     queryFn: async () => {
-      const results = await listSeries<D>(deviceId, attributeName);
+      const results = await client.timeseries.list(deviceId, {
+        metric: attributeName,
+      });
       return results[0] ?? null;
     },
     enabled: enabled && !!deviceId && !!attributeName,
@@ -34,20 +36,20 @@ export function useTimeSeries<D extends DataType = DataType>({
 
   const seriesId = seriesQuery.data?.id;
 
-  const pointsQuery = useQuery<SeriesPointsResult<D>>({
+  const pointsQuery = useQuery<FetchPointsResultResponse>({
     queryKey: ["timeseries", "points", seriesId, start, end],
     queryFn: () =>
-      getSeriesPoints<D>(deviceId, attributeName, {
+      client.timeseries.getPoints(deviceId, attributeName, {
         start,
         end,
-        carryForward: true,
+        carry_forward: true,
       }),
     enabled: !!seriesId,
   });
 
   return {
     series: seriesQuery.data ?? null,
-    points: (pointsQuery.data?.points ?? []) as DataPoint<D>[],
+    points: (pointsQuery.data?.points ?? []) as DataPoint[],
     isLoading: seriesQuery.isLoading || (!!seriesId && pointsQuery.isLoading),
     error: seriesQuery.error ?? pointsQuery.error ?? null,
   };

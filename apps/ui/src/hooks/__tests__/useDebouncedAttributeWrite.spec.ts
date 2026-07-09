@@ -4,17 +4,21 @@ import { useDebouncedAttributeWrite } from "../useDebouncedAttributeWrite";
 
 // --- Mocks ---
 
-const { mockUpdateDeviceAttribute, mockSetQueryData, mockToast } = vi.hoisted(
-  () => ({
-    mockUpdateDeviceAttribute: vi.fn(),
+const { mockSendCommand, mockGetDevice, mockSetQueryData, mockToast } =
+  vi.hoisted(() => ({
+    mockSendCommand: vi.fn(),
+    mockGetDevice: vi.fn(),
     mockSetQueryData: vi.fn(),
     mockToast: { success: vi.fn(), error: vi.fn() },
-  }),
-);
+  }));
 
-vi.mock("@/api/devices", () => ({
-  updateDeviceAttribute: (...args: unknown[]) =>
-    mockUpdateDeviceAttribute(...args),
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: {
+      sendCommand: (...args: unknown[]) => mockSendCommand(...args),
+      get: (...args: unknown[]) => mockGetDevice(...args),
+    },
+  }),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -29,11 +33,6 @@ vi.mock("react-i18next", () => ({
 }));
 
 vi.mock("sonner", () => ({ toast: mockToast }));
-
-vi.mock("@/api/apiError", () => ({
-  isApiError: (e: unknown) =>
-    e instanceof Error && "details" in e && "status" in e,
-}));
 
 // --- Helpers ---
 
@@ -55,11 +54,13 @@ function setup(onDraftChange = vi.fn()) {
 describe("useDebouncedAttributeWrite", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    mockUpdateDeviceAttribute.mockReset();
+    mockSendCommand.mockReset();
+    mockGetDevice.mockReset();
     mockSetQueryData.mockReset();
     mockToast.success.mockReset();
     mockToast.error.mockReset();
-    mockUpdateDeviceAttribute.mockResolvedValue({ id: DEVICE_ID });
+    mockSendCommand.mockResolvedValue({ status: "success" });
+    mockGetDevice.mockResolvedValue({ id: DEVICE_ID });
   });
 
   afterEach(() => {
@@ -71,77 +72,74 @@ describe("useDebouncedAttributeWrite", () => {
     const { result } = setup(onDraftChange);
 
     act(() => {
-      result.current.changeAndSave("temperatureSetpoint", 22);
+      result.current.changeAndSave("temperature_setpoint", 22);
     });
 
-    expect(onDraftChange).toHaveBeenCalledWith("temperatureSetpoint", 22);
-    expect(mockUpdateDeviceAttribute).not.toHaveBeenCalled();
+    expect(onDraftChange).toHaveBeenCalledWith("temperature_setpoint", 22);
+    expect(mockSendCommand).not.toHaveBeenCalled();
   });
 
   it("fires API call after debounce delay", async () => {
     const { result } = setup();
 
     act(() => {
-      result.current.changeAndSave("temperatureSetpoint", 22);
+      result.current.changeAndSave("temperature_setpoint", 22);
     });
 
     await act(async () => {
       vi.advanceTimersByTime(DELAY);
     });
 
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledOnce();
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledWith(
-      DEVICE_ID,
-      "temperatureSetpoint",
-      22,
-    );
+    expect(mockSendCommand).toHaveBeenCalledOnce();
+    expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
+      attribute: "temperature_setpoint",
+      value: 22,
+    });
   });
 
   it("coalesces multiple rapid calls into a single API call", async () => {
     const { result } = setup();
 
     act(() => {
-      result.current.changeAndSave("temperatureSetpoint", 21);
-      result.current.changeAndSave("temperatureSetpoint", 21.5);
-      result.current.changeAndSave("temperatureSetpoint", 22);
+      result.current.changeAndSave("temperature_setpoint", 21);
+      result.current.changeAndSave("temperature_setpoint", 21.5);
+      result.current.changeAndSave("temperature_setpoint", 22);
     });
 
     await act(async () => {
       vi.advanceTimersByTime(DELAY);
     });
 
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledOnce();
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledWith(
-      DEVICE_ID,
-      "temperatureSetpoint",
-      22,
-    );
+    expect(mockSendCommand).toHaveBeenCalledOnce();
+    expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
+      attribute: "temperature_setpoint",
+      value: 22,
+    });
   });
 
   it("changeAndSaveNow fires immediately without waiting", async () => {
     const { result } = setup();
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledOnce();
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledWith(
-      DEVICE_ID,
-      "onoffState",
-      true,
-    );
+    expect(mockSendCommand).toHaveBeenCalledOnce();
+    expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
+      attribute: "onoff_state",
+      value: true,
+    });
   });
 
   it("changeAndSaveNow cancels any pending debounced save for the same attribute", async () => {
     const { result } = setup();
 
     act(() => {
-      result.current.changeAndSave("onoffState", false);
+      result.current.changeAndSave("onoff_state", false);
     });
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
     await act(async () => {
@@ -149,35 +147,34 @@ describe("useDebouncedAttributeWrite", () => {
     });
 
     // Only the immediate save, not the debounced one
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledOnce();
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledWith(
-      DEVICE_ID,
-      "onoffState",
-      true,
-    );
+    expect(mockSendCommand).toHaveBeenCalledOnce();
+    expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
+      attribute: "onoff_state",
+      value: true,
+    });
   });
 
   it("allows concurrent saves on different attributes", async () => {
     const { result } = setup();
 
     act(() => {
-      result.current.changeAndSave("temperatureSetpoint", 22);
+      result.current.changeAndSave("temperature_setpoint", 22);
     });
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
     await act(async () => {
       vi.advanceTimersByTime(DELAY);
     });
 
-    expect(mockUpdateDeviceAttribute).toHaveBeenCalledTimes(2);
+    expect(mockSendCommand).toHaveBeenCalledTimes(2);
   });
 
   it("isSaving reflects in-flight state", async () => {
     let resolveApi!: (v: unknown) => void;
-    mockUpdateDeviceAttribute.mockReturnValue(
+    mockSendCommand.mockReturnValue(
       new Promise((r) => {
         resolveApi = r;
       }),
@@ -186,28 +183,29 @@ describe("useDebouncedAttributeWrite", () => {
     const { result } = setup();
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
-    expect(result.current.isSaving("onoffState")).toBe(true);
-    expect(result.current.isSaving("temperatureSetpoint")).toBe(false);
+    expect(result.current.isSaving("onoff_state")).toBe(true);
+    expect(result.current.isSaving("temperature_setpoint")).toBe(false);
 
     await act(async () => {
-      resolveApi({ id: DEVICE_ID });
+      resolveApi({ status: "success" });
     });
 
-    expect(result.current.isSaving("onoffState")).toBe(false);
+    expect(result.current.isSaving("onoff_state")).toBe(false);
   });
 
-  it("updates query cache on success", async () => {
+  it("updates query cache with the refetched device on success", async () => {
     const updated = { id: DEVICE_ID, attributes: {} };
-    mockUpdateDeviceAttribute.mockResolvedValue(updated);
+    mockGetDevice.mockResolvedValue(updated);
     const { result } = setup();
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
+    expect(mockGetDevice).toHaveBeenCalledWith(DEVICE_ID);
     expect(mockSetQueryData).toHaveBeenCalledWith(
       ["device", DEVICE_ID],
       updated,
@@ -215,11 +213,10 @@ describe("useDebouncedAttributeWrite", () => {
   });
 
   it("shows success toast on save", async () => {
-    mockUpdateDeviceAttribute.mockResolvedValue({ id: DEVICE_ID });
     const { result } = setup();
 
     await act(async () => {
-      result.current.changeAndSaveNow("temperatureSetpoint", 22);
+      result.current.changeAndSaveNow("temperature_setpoint", 22);
     });
 
     expect(mockToast.success).toHaveBeenCalledOnce();
@@ -228,11 +225,11 @@ describe("useDebouncedAttributeWrite", () => {
   });
 
   it("shows error toast on API failure", async () => {
-    mockUpdateDeviceAttribute.mockRejectedValue(new Error("Network error"));
+    mockSendCommand.mockRejectedValue(new Error("Network error"));
     const { result } = setup();
 
     await act(async () => {
-      result.current.changeAndSaveNow("onoffState", true);
+      result.current.changeAndSaveNow("onoff_state", true);
     });
 
     expect(mockToast.error).toHaveBeenCalledWith("Network error");
@@ -242,7 +239,7 @@ describe("useDebouncedAttributeWrite", () => {
     const { result, unmount } = setup();
 
     act(() => {
-      result.current.changeAndSave("temperatureSetpoint", 22);
+      result.current.changeAndSave("temperature_setpoint", 22);
     });
 
     unmount();
@@ -251,6 +248,6 @@ describe("useDebouncedAttributeWrite", () => {
       vi.advanceTimersByTime(DELAY);
     });
 
-    expect(mockUpdateDeviceAttribute).not.toHaveBeenCalled();
+    expect(mockSendCommand).not.toHaveBeenCalled();
   });
 });

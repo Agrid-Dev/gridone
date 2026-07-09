@@ -8,23 +8,21 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
-import {
-  getAssetTreeWithDevices,
-  updateAsset,
-  createAsset,
-  reorderChildren,
-} from "@/api/assets";
-import type { AssetTreeNode } from "@/api/assets";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { AssetType } from "@gridone/sdk";
+import type { AssetTreeNode } from "@/lib/assets";
 import { AssetTree } from "./components/AssetTree";
 
 export default function AssetsList() {
   const { t } = useTranslation("assets");
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const can = usePermissions();
 
   const { data: tree = [], isLoading } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree"],
-    queryFn: getAssetTreeWithDevices,
+    queryFn: () =>
+      client.assets.getTreeWithDevices() as Promise<AssetTreeNode[]>,
   });
 
   const moveMutation = useMutation({
@@ -34,7 +32,7 @@ export default function AssetsList() {
     }: {
       assetId: string;
       newParentId: string;
-    }) => updateAsset(assetId, { parentId: newParentId }),
+    }) => client.assets.update(assetId, { parent_id: newParentId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("moved"));
@@ -51,7 +49,12 @@ export default function AssetsList() {
       parentId: string;
       name: string;
       type: string;
-    }) => createAsset({ name, type, parentId }),
+    }) =>
+      client.assets.create({
+        name,
+        type: type as AssetType,
+        parent_id: parentId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("created"));
@@ -61,7 +64,7 @@ export default function AssetsList() {
 
   const renameMutation = useMutation({
     mutationFn: ({ assetId, newName }: { assetId: string; newName: string }) =>
-      updateAsset(assetId, { name: newName }),
+      client.assets.update(assetId, { name: newName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("renamed"));
@@ -84,7 +87,7 @@ export default function AssetsList() {
     }: {
       parentId: string;
       orderedIds: string[];
-    }) => reorderChildren(parentId, orderedIds),
+    }) => client.assets.reorderChildren(parentId, { ordered_ids: orderedIds }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
     },

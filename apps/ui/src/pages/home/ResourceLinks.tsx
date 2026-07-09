@@ -17,8 +17,9 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TypographyH3 } from "@/components/ui/typography";
-import { Device, DeviceType, listDevices } from "@/api/devices";
-import { Asset, listAssets } from "@/api/assets";
+import type { Asset, Device } from "@gridone/sdk";
+import { DeviceType } from "@/lib/devices";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePermissions } from "@/contexts/AuthContext";
 import { SEVERITY_HOVER_TEXT_CLASS, SEVERITY_TEXT_CLASS } from "@/lib/severity";
@@ -61,16 +62,17 @@ type ResourceItem = {
 export const ResourceLinks: FC = () => {
   const { t } = useTranslation(["home", "standardDevices"]);
   const can = usePermissions();
+  const client = useGridoneClient();
 
   const { page: notifications, loading: notificationsLoading } =
     useNotifications({ dismissed: false });
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
     queryKey: ["devices", undefined],
-    queryFn: () => listDevices(),
+    queryFn: () => client.devices.list(),
   });
   const { data: assets, isLoading: assetsLoading } = useQuery<Asset[]>({
     queryKey: ["home", "assets-flat"],
-    queryFn: () => listAssets(),
+    queryFn: () => client.assets.list(),
   });
 
   const notificationItems: ResourceItem[] = (notifications?.items ?? [])

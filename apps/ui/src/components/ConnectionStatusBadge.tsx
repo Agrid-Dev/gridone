@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { SEMANTIC_TEXT_CLASS, type StatusLevel } from "@/lib/semanticColors";
-import { ConnectionStatus } from "@/api/devices";
+import { ConnectionStatus } from "@/lib/devices";
 
 const STATUS_CONFIG: Record<
   ConnectionStatus,

@@ -13,8 +13,9 @@ vi.mock("react-i18next", () =>
 
 import { Breadcrumbs } from "./Breadcrumbs";
 import { BreadcrumbProvider, useBreadcrumb } from "./BreadcrumbProvider";
+import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 import type { BreadcrumbCrumb } from "@/lib/breadcrumbTrail";
-import type { BuildingProfile } from "@/api/assets";
+import type { BuildingProfile, GridoneClient } from "@gridone/sdk";
 
 afterEach(cleanup);
 
@@ -29,11 +30,11 @@ function makeProfile(name: string | null): BuildingProfile {
     address: null,
     surface: null,
     floors: null,
-    yearBuilt: null,
+    year_built: null,
     operator: null,
     latitude: null,
     longitude: null,
-    coverUrl: null,
+    cover_url: null,
     icon: null,
   };
 }
@@ -48,16 +49,22 @@ function renderAt(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  queryClient.setQueryData(["building-profile"], makeProfile(profileName));
+  const profile = makeProfile(profileName);
+  queryClient.setQueryData(["building-profile"], profile);
+  const fakeClient = {
+    assets: { getBuildingProfile: () => Promise.resolve(profile) },
+  } as unknown as GridoneClient;
   return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[pathname]}>
-        <BreadcrumbProvider>
-          <Register crumbs={crumbs} />
-          <Breadcrumbs />
-        </BreadcrumbProvider>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <GridoneClientProvider client={fakeClient}>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={[pathname]}>
+          <BreadcrumbProvider>
+            <Register crumbs={crumbs} />
+            <Breadcrumbs />
+          </BreadcrumbProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </GridoneClientProvider>,
   );
 }
 

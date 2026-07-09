@@ -72,8 +72,8 @@ const AutomationPageContent: FC = () => {
           <MetadataForm
             initialValue={{
               name: automation.name,
-              description: automation.description,
-              enabled: automation.enabled,
+              description: automation.description ?? "",
+              enabled: automation.enabled ?? true,
             }}
             onSubmit={(values) => update("metadata", values)}
             onCancel={() => setEditingSection(null)}
@@ -83,9 +83,9 @@ const AutomationPageContent: FC = () => {
             name={automation.name}
             description={automation.description}
             enabled={automation.enabled}
-            createdAt={automation.createdAt}
-            updatedAt={automation.updatedAt}
-            createdBy={automation.createdBy}
+            createdAt={automation.created_at}
+            updatedAt={automation.updated_at}
+            createdBy={automation.created_by}
           />
         )}
       </EditableCard>

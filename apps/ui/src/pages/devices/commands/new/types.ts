@@ -1,6 +1,7 @@
-import type { AttributeValue } from "@/api/devices";
+import type { DataType } from "@gridone/sdk";
+import type { AttributeValue } from "@/lib/devices";
 
-export type AttributeDataType = "int" | "float" | "bool" | "str";
+export type AttributeDataType = DataType;
 
 export type WritableAttribute = {
   name: string;

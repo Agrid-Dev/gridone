@@ -1,15 +1,15 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import type { Asset } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
   flattenAssetTree,
   flattenAssetTreeById,
-  getAssetTreeWithDevices,
-  type Asset,
   type AssetTreeNode,
-} from "@/api/assets";
+} from "@/lib/assets";
 
 /** Single source of truth for the asset tree + its derived shapes. Wraps
- *  the ``getAssetTreeWithDevices`` query (with its canonical query key) and
+ *  the ``getTreeWithDevices`` query (with its canonical query key) and
  *  the two flatten helpers so callers can reach for the shape they need
  *  without reimplementing the walk in every page.
  *
@@ -22,9 +22,11 @@ export function useAssetTree(): {
   assetsById: Record<string, Asset>;
   isLoading: boolean;
 } {
+  const client = useGridoneClient();
   const { data: assetTree = [], isLoading } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree-with-devices"],
-    queryFn: getAssetTreeWithDevices,
+    queryFn: () =>
+      client.assets.getTreeWithDevices() as Promise<AssetTreeNode[]>,
   });
 
   const assetsList = useMemo(() => flattenAssetTree(assetTree), [assetTree]);

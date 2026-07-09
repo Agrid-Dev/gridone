@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -33,11 +33,11 @@ function physical(id: string, name: string, driverId: string): Device {
     name,
     type: null,
     tags: {},
-    driverId,
-    transportId: "tr",
+    driver_id: driverId,
+    transport_id: "tr",
     config: {},
     attributes: {},
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
@@ -67,7 +67,7 @@ describe("DriverDevicesSection", () => {
     renderSection("drv-1");
 
     // Filtering happens server-side: the hook is called with the driver filter.
-    expect(mockUseDevicesList).toHaveBeenCalledWith({ driverId: "drv-1" });
+    expect(mockUseDevicesList).toHaveBeenCalledWith({ driver_id: "drv-1" });
 
     expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
       "href",

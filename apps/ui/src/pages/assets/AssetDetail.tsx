@@ -9,9 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAsset, listAssets, listAssetDevices } from "@/api/assets";
-import type { Asset } from "@/api/assets";
-import { listDevices, unlinkDeviceFromAsset } from "@/api/devices";
+import type { Asset } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { compareByName } from "@/lib/sortByName";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -20,36 +19,37 @@ export default function AssetDetail() {
   const { t } = useTranslation(["assets", "common", "devices"]);
   const { assetId } = useParams<{ assetId: string }>();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const can = usePermissions();
 
   const { data: asset, isLoading } = useQuery<Asset>({
     queryKey: ["assets", assetId],
-    queryFn: () => getAsset(assetId!),
+    queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
   });
 
   const { data: parent } = useQuery<Asset>({
-    queryKey: ["assets", asset?.parentId],
-    queryFn: () => getAsset(asset!.parentId!),
-    enabled: !!asset?.parentId,
+    queryKey: ["assets", asset?.parent_id],
+    queryFn: () => client.assets.get(asset!.parent_id!),
+    enabled: !!asset?.parent_id,
   });
 
   const { data: children = [] } = useQuery<Asset[]>({
     queryKey: ["assets", "children", assetId],
-    queryFn: () => listAssets({ parentId: assetId! }),
+    queryFn: () => client.assets.list({ parent_id: assetId! }),
     enabled: !!assetId,
   });
 
   const { data: deviceIds = [] } = useQuery<string[]>({
     queryKey: ["assets", assetId, "devices"],
-    queryFn: () => listAssetDevices(assetId!),
+    queryFn: () => client.assets.listDevices(assetId!),
     enabled: !!assetId,
   });
 
   const { data: allDevices = [] } = useQuery({
     queryKey: ["devices"],
-    queryFn: () => listDevices(),
+    queryFn: () => client.devices.list(),
     enabled: deviceIds.length > 0,
   });
 
@@ -69,7 +69,8 @@ export default function AssetDetail() {
   );
 
   const unlinkMutation = useMutation({
-    mutationFn: (deviceId: string) => unlinkDeviceFromAsset(deviceId),
+    mutationFn: (deviceId: string) =>
+      client.devices.deleteTag(deviceId, "asset_id"),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["assets", assetId, "devices"],
@@ -127,17 +128,17 @@ export default function AssetDetail() {
               </Badge>
             </div>
           </div>
-          {asset.parentId && (
+          {asset.parent_id && (
             <div>
               <span className="text-muted-foreground">
                 {t("fields.parent")}
               </span>
               <div className="mt-1">
                 <Link
-                  to={`/assets/${asset.parentId}`}
+                  to={`/assets/${asset.parent_id}`}
                   className="text-foreground underline underline-offset-2 hover:text-muted-foreground"
                 >
-                  {parent?.name ?? asset.parentId}
+                  {parent?.name ?? asset.parent_id}
                 </Link>
               </div>
             </div>

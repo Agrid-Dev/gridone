@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { updateDeviceAttribute } from "../api/devices";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { deviceAttributes } from "@/lib/devices";
+import type { AttributeFields } from "@/lib/faults";
 import { useDeviceFromRoute } from "./useDevice";
 
 export type Feedback = { type: "success" | "error"; message: string };
 
 export function useDeviceDetails() {
   const { t } = useTranslation("devices");
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
   const device = useDeviceFromRoute();
   const deviceId = device.id;
@@ -22,9 +25,9 @@ export function useDeviceDetails() {
   useEffect(() => {
     setDraft(
       Object.fromEntries(
-        Object.entries(device.attributes).map(([name, attribute]) => [
+        Object.entries(deviceAttributes(device)).map(([name, attribute]) => [
           name,
-          attribute.currentValue,
+          (attribute as AttributeFields).current_value,
         ]),
       ),
     );
@@ -39,7 +42,9 @@ export function useDeviceDetails() {
 
   const handleSave = async (name: string) => {
     if (savingAttr) return;
-    const attribute = device.attributes[name];
+    const attribute = deviceAttributes(device)[name] as
+      | AttributeFields
+      | undefined;
     const value = draft[name];
     if (!attribute) return;
 
@@ -48,12 +53,18 @@ export function useDeviceDetails() {
 
     try {
       const parsedValue =
-        attribute.dataType === "bool"
+        attribute.data_type === "bool"
           ? Boolean(value)
-          : attribute.dataType === "int" || attribute.dataType === "float"
+          : attribute.data_type === "int" || attribute.data_type === "float"
             ? Number(value)
             : value;
-      const updated = await updateDeviceAttribute(device.id, name, parsedValue);
+      // Attribute writes go through the commands endpoint; refetch the device
+      // to surface the applied value.
+      await client.devices.sendCommand(device.id, {
+        attribute: name,
+        value: parsedValue as string | number | boolean,
+      });
+      const updated = await client.devices.get(device.id);
 
       // Update the query cache with the new device data
       queryClient.setQueryData(["device", deviceId], updated);
@@ -62,9 +73,9 @@ export function useDeviceDetails() {
       setDraft((prev) => ({
         ...prev,
         ...Object.fromEntries(
-          Object.entries(updated.attributes).map(([k, attr]) => [
+          Object.entries(deviceAttributes(updated)).map(([k, attr]) => [
             k,
-            attr.currentValue,
+            (attr as AttributeFields).current_value,
           ]),
         ),
       }));

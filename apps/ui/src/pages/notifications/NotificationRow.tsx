@@ -5,7 +5,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { SeverityChip } from "@/components/SeverityChip";
 import { NotificationBody } from "./NotificationBody";
 import { cn, formatTimeAgo } from "@/lib/utils";
-import type { NotificationDispatch } from "@/api/notifications";
+import type { NotificationDispatch } from "@gridone/sdk";
 
 type NotificationRowProps = {
   dispatch: NotificationDispatch;
@@ -25,7 +25,7 @@ export function NotificationRow({
   const [expanded, setExpanded] = useState(false);
   const [isTruncated, setIsTruncated] = useState(true);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const isDismissed = dispatch.dismissedAt !== null;
+  const isDismissed = dispatch.dismissed_at !== null;
   const notifId = dispatch.notification.id;
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function NotificationRow({
   }, []);
 
   const receivedAgo = formatTimeAgo(
-    new Date(dispatch.dispatchedAt).getTime(),
+    new Date(dispatch.dispatched_at).getTime(),
     tc,
   );
 
@@ -89,8 +89,8 @@ export function NotificationRow({
         {receivedAgo}
       </TableCell>
       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-        {isDismissed && dispatch.dismissedAt
-          ? formatTimeAgo(new Date(dispatch.dismissedAt).getTime(), tc)
+        {isDismissed && dispatch.dismissed_at
+          ? formatTimeAgo(new Date(dispatch.dismissed_at).getTime(), tc)
           : "—"}
       </TableCell>
       <TableCell className="w-24 text-right">

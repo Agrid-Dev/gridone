@@ -1,15 +1,20 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import type { Automation } from "@/api/automations";
+import type { Automation } from "@gridone/sdk";
 import { useUser } from "@/hooks/useUser";
 import BasePresenter from "./BasePresenter";
 import { AutomationStatusBadge } from "../../components/AutomationStatusBadge";
 
+/** UI-side view props (camelCase); callers map the SDK's snake_case
+ *  ``created_at`` / ``updated_at`` / ``created_by`` fields into them. */
 type MetadataPresenterProps = Pick<
   Automation,
   "name" | "description" | "enabled"
-> &
-  Partial<Pick<Automation, "createdAt" | "updatedAt" | "createdBy">>;
+> & {
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+};
 
 const MetadataPresenter: FC<MetadataPresenterProps> = ({
   name,
@@ -29,7 +34,7 @@ const MetadataPresenter: FC<MetadataPresenterProps> = ({
       title={
         <span className="flex items-center gap-2">
           {name}
-          <AutomationStatusBadge enabled={enabled} />
+          <AutomationStatusBadge enabled={enabled ?? true} />
         </span>
       }
     >

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mergeTimeSeries } from "./mergeTimeSeries";
-import type { DataPoint } from "@/api/timeseries";
+import type { DataPoint } from "@gridone/sdk";
 
 const point = (ts: string, value: string | number | boolean): DataPoint => ({
   timestamp: ts,

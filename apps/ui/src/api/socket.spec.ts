@@ -1,15 +1,16 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
 import { applyDeviceUpdate } from "./socket";
-import { type Device, type DeviceAttribute } from "@/api/devices";
 
 const attribute = (over: Partial<DeviceAttribute>): DeviceAttribute => ({
   kind: "standard",
   name: "temperature",
-  dataType: "float",
-  readWriteModes: ["read"],
-  currentValue: 20,
-  lastUpdated: "2026-01-01T00:00:00Z",
-  lastChanged: "2026-01-01T00:00:00Z",
+  data_type: "float",
+  read_write_modes: ["read"],
+  current_value: 20,
+  last_updated: "2026-01-01T00:00:00Z",
+  last_changed: "2026-01-01T00:00:00Z",
   ...over,
 });
 
@@ -18,11 +19,11 @@ const device = (attrs: Record<string, DeviceAttribute>): Device => ({
   name: "Device 1",
   type: null,
   tags: {},
-  driverId: "drv",
-  transportId: "tr",
+  driver_id: "drv",
+  transport_id: "tr",
   config: {},
   attributes: attrs,
-  isFaulty: false,
+  is_faulty: false,
 });
 
 afterEach(() => {
@@ -30,7 +31,7 @@ afterEach(() => {
 });
 
 describe("applyDeviceUpdate", () => {
-  it("applies the value with the message's lastUpdated and lastChanged", () => {
+  it("applies the value with the message's last_updated and last_changed", () => {
     const updated = applyDeviceUpdate(
       device({ temperature: attribute({}) }),
       "temperature",
@@ -39,13 +40,13 @@ describe("applyDeviceUpdate", () => {
       "2026-06-26T09:00:00Z",
     );
 
-    const attr = updated.attributes.temperature;
-    expect(attr.currentValue).toBe(21.5);
-    expect(attr.lastUpdated).toBe("2026-06-26T10:00:00Z");
-    expect(attr.lastChanged).toBe("2026-06-26T09:00:00Z");
+    const attr = updated.attributes!.temperature;
+    expect(attr.current_value).toBe(21.5);
+    expect(attr.last_updated).toBe("2026-06-26T10:00:00Z");
+    expect(attr.last_changed).toBe("2026-06-26T09:00:00Z");
   });
 
-  it("defaults lastChanged to lastUpdated when only lastUpdated is sent", () => {
+  it("defaults last_changed to last_updated when only last_updated is sent", () => {
     const updated = applyDeviceUpdate(
       device({ temperature: attribute({}) }),
       "temperature",
@@ -53,7 +54,7 @@ describe("applyDeviceUpdate", () => {
       "2026-06-26T10:00:00Z",
     );
 
-    expect(updated.attributes.temperature.lastChanged).toBe(
+    expect(updated.attributes!.temperature.last_changed).toBe(
       "2026-06-26T10:00:00Z",
     );
   });
@@ -69,8 +70,8 @@ describe("applyDeviceUpdate", () => {
     );
 
     const now = "2026-06-26T12:00:00.000Z";
-    expect(updated.attributes.temperature.lastUpdated).toBe(now);
-    expect(updated.attributes.temperature.lastChanged).toBe(now);
+    expect(updated.attributes!.temperature.last_updated).toBe(now);
+    expect(updated.attributes!.temperature.last_changed).toBe(now);
   });
 
   it("returns the device untouched when the attribute is unknown", () => {

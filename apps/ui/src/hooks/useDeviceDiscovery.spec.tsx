@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createI18nMock } from "@/test/i18nMock";
-import type { DiscoveryHandler } from "@/api/transports";
+import type { DiscoveryHandler } from "@gridone/sdk";
 
 const {
   mockListTransportDiscoveries,
@@ -17,18 +17,17 @@ const {
   mockToastError: vi.fn(),
 }));
 
-vi.mock("@/api/transports", () => ({
-  listTransportDiscoveries: (...args: unknown[]) =>
-    mockListTransportDiscoveries(...args),
-  createTransportDiscovery: (...args: unknown[]) =>
-    mockCreateTransportDiscovery(...args),
-  deleteTransportDiscovery: (...args: unknown[]) =>
-    mockDeleteTransportDiscovery(...args),
-}));
-
-vi.mock("@/api/apiError", () => ({
-  isApiError: (e: unknown) =>
-    e instanceof Error && "details" in e && "status" in e,
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    transports: {
+      listDiscoveryHandlers: (...args: unknown[]) =>
+        mockListTransportDiscoveries(...args),
+      createDiscoveryHandler: (...args: unknown[]) =>
+        mockCreateTransportDiscovery(...args),
+      deleteDiscoveryHandler: (...args: unknown[]) =>
+        mockDeleteTransportDiscovery(...args),
+    },
+  }),
 }));
 
 vi.mock("sonner", () => ({ toast: { error: mockToastError } }));
@@ -100,7 +99,7 @@ describe("useDeviceDiscovery", () => {
 
   it("reflects existing server-side enabled state", async () => {
     const handlers: DiscoveryHandler[] = [
-      { driverId: DRIVER_ID, transportId: TRANSPORT_ID, enabled: true },
+      { driver_id: DRIVER_ID, transport_id: TRANSPORT_ID, enabled: true },
     ];
     mockListTransportDiscoveries.mockResolvedValue(handlers);
 
@@ -122,8 +121,8 @@ describe("useDeviceDiscovery", () => {
   it("immediate mode: setEnabled(true) calls createTransportDiscovery", async () => {
     mockListTransportDiscoveries.mockResolvedValue([]);
     mockCreateTransportDiscovery.mockResolvedValue({
-      driverId: DRIVER_ID,
-      transportId: TRANSPORT_ID,
+      driver_id: DRIVER_ID,
+      transport_id: TRANSPORT_ID,
       enabled: true,
     });
 
@@ -141,16 +140,15 @@ describe("useDeviceDiscovery", () => {
     await waitFor(() => expect(result.current.supported).toBe(true));
     act(() => result.current.setEnabled(true));
     await waitFor(() =>
-      expect(mockCreateTransportDiscovery).toHaveBeenCalledWith(
-        TRANSPORT_ID,
-        DRIVER_ID,
-      ),
+      expect(mockCreateTransportDiscovery).toHaveBeenCalledWith(TRANSPORT_ID, {
+        driver_id: DRIVER_ID,
+      }),
     );
   });
 
   it("immediate mode: setEnabled(false) calls deleteTransportDiscovery", async () => {
     mockListTransportDiscoveries.mockResolvedValue([
-      { driverId: DRIVER_ID, transportId: TRANSPORT_ID, enabled: true },
+      { driver_id: DRIVER_ID, transport_id: TRANSPORT_ID, enabled: true },
     ]);
     mockDeleteTransportDiscovery.mockResolvedValue(undefined);
 
@@ -178,8 +176,8 @@ describe("useDeviceDiscovery", () => {
   it("deferred mode: setEnabled does not call API; flush commits the change", async () => {
     mockListTransportDiscoveries.mockResolvedValue([]);
     mockCreateTransportDiscovery.mockResolvedValue({
-      driverId: DRIVER_ID,
-      transportId: TRANSPORT_ID,
+      driver_id: DRIVER_ID,
+      transport_id: TRANSPORT_ID,
       enabled: true,
     });
 
@@ -203,10 +201,9 @@ describe("useDeviceDiscovery", () => {
     await act(async () => {
       await result.current.flush();
     });
-    expect(mockCreateTransportDiscovery).toHaveBeenCalledWith(
-      TRANSPORT_ID,
-      DRIVER_ID,
-    );
+    expect(mockCreateTransportDiscovery).toHaveBeenCalledWith(TRANSPORT_ID, {
+      driver_id: DRIVER_ID,
+    });
   });
 
   it("surfaces a toast when an immediate-mode toggle mutation fails", async () => {
@@ -234,7 +231,7 @@ describe("useDeviceDiscovery", () => {
 
   it("deferred mode: flush is a no-op when local intent matches server state", async () => {
     mockListTransportDiscoveries.mockResolvedValue([
-      { driverId: DRIVER_ID, transportId: TRANSPORT_ID, enabled: true },
+      { driver_id: DRIVER_ID, transport_id: TRANSPORT_ID, enabled: true },
     ]);
 
     const { result } = renderHook(

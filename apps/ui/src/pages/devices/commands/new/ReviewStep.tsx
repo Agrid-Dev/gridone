@@ -10,7 +10,12 @@ import {
 } from "@/components/ui/table";
 import { formatValue } from "@/lib/formatValue";
 import { AttributeValue } from "@/components/AttributeValue";
-import { type Device, type DeviceType } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import {
+  deviceAttributes,
+  type AttributeValue as AttributeValueType,
+  type DeviceType,
+} from "@/lib/devices";
 import type { WizardFormValues } from "./types";
 
 type ReviewStepProps = {
@@ -58,15 +63,18 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
             ) : (
               selectedDevices.map((d) => {
                 const attr = values.attribute
-                  ? Object.values(d.attributes).find(
+                  ? Object.values(deviceAttributes(d)).find(
                       (a) => a.name === values.attribute,
                     )
                   : undefined;
-                const current = attr?.currentValue;
+                const current = attr?.current_value as
+                  | AttributeValueType
+                  | null
+                  | undefined;
                 const currentFormatted =
                   current === null || current === undefined
                     ? null
-                    : formatValue(current, attr?.dataType);
+                    : formatValue(current, attr?.data_type as string);
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">
@@ -80,7 +88,7 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                           <span className="text-muted-foreground">
                             <AttributeValue
                               deviceType={deviceTypes}
-                              attributeName={attr?.name ?? ""}
+                              attributeName={(attr?.name as string) ?? ""}
                               value={currentFormatted}
                             />
                           </span>

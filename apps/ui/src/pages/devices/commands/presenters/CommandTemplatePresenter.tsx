@@ -2,16 +2,17 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { CommandTemplate } from "@/api/commands";
-import type { Asset } from "@/api/assets";
+import type { Asset, CommandTemplateResponse } from "@gridone/sdk";
+import type { DevicesFilter } from "@/lib/devices";
 import { TargetPresenter } from "./TargetPresenter";
 import { WritePresenter } from "./WritePresenter";
 
 type CommandTemplatePresenterProps = {
-  /** A full ``CommandTemplate`` or just its ``(target, write)`` — the same
-   *  shape is reused inside the wizard review step and will be embedded in
-   *  the upcoming automation form, where the template may not be saved yet. */
-  template: Pick<CommandTemplate, "target" | "write">;
+  /** A full ``CommandTemplateResponse`` or just its ``(target, write)`` — the
+   *  same shape is reused inside the wizard review step and will be embedded
+   *  in the upcoming automation form, where the template may not be saved
+   *  yet. */
+  template: Pick<CommandTemplateResponse, "target" | "write">;
   assetsById?: Record<string, Asset>;
   className?: string;
 };
@@ -30,7 +31,12 @@ export function CommandTemplatePresenter({
     <Card className={cn(className)}>
       <CardContent className="space-y-5 py-5">
         <Section title={t("commands.templates.targetCard")}>
-          <TargetPresenter target={template.target} assetsById={assetsById} />
+          <TargetPresenter
+            // The wire type leaves ``target`` an opaque map; it is a
+            // ``DevicesFilterBody`` by construction (validated server-side).
+            target={template.target as DevicesFilter}
+            assetsById={assetsById}
+          />
         </Section>
         <Section title={t("commands.templates.payloadCard")}>
           <WritePresenter write={template.write} />

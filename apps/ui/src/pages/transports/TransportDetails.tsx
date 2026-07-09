@@ -11,7 +11,7 @@ import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { toLabel } from "@/lib/textFormat";
-import type { Transport } from "@/api/transports";
+import type { Transport } from "@gridone/sdk";
 import { useTransportFromRoute, useDeleteTransport } from "./useTransports";
 import { TransportStatusBadge } from "./TransportStatusBadge";
 import { TransportDevicesSection } from "./TransportDevicesSection";
@@ -42,7 +42,7 @@ const TransportDetails: FC<{
     <div className="space-y-6">
       <ResourceHeader
         title={transport.name}
-        status={<TransportStatusBadge state={transport.connectionState} />}
+        status={<TransportStatusBadge state={transport.connection_state} />}
         actions={
           can("transports:write") ? (
             <div className="flex items-center gap-2">
