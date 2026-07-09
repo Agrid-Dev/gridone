@@ -1,3 +1,9 @@
+## v0.153.0 (2026-07-09)
+
+### Feat
+
+- **cli**: stream device attributes as they are read
+
 ## v0.152.2 (2026-07-09)
 
 ### Fix
