@@ -35,3 +35,10 @@ class TestKNXTransportConfig:
     def test_extra_field_rejected(self) -> None:
         with pytest.raises(ValidationError):
             KNXTransportConfig(gateway_ip="127.0.0.1", unknown_field="x")  # type: ignore[call-arg]
+
+    def test_secure_credentials_marked_secret(self) -> None:
+        # Closes the pre-existing plaintext leak: passwords must never be
+        # echoed back by GET /transports.
+        assert KNXTransportConfig.secret_field_names() == {"secure_credentials"}
+        props = KNXTransportConfig.model_json_schema()["properties"]
+        assert props["secure_credentials"].get("secret") is True

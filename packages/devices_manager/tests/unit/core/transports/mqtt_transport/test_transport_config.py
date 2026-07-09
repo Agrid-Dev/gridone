@@ -59,3 +59,12 @@ class TestMqttTransportConfig:
         properties = MqttTransportConfig.model_json_schema()["properties"]
         for field in ("host", "port", "tls", "username", "password"):
             assert "multiline" not in properties[field]
+
+    def test_secret_field_names(self) -> None:
+        assert MqttTransportConfig.secret_field_names() == {"client_key", "password"}
+
+    def test_secret_flag_in_json_schema(self) -> None:
+        props = MqttTransportConfig.model_json_schema()["properties"]
+        assert props["client_key"].get("secret") is True
+        assert props["password"].get("secret") is True
+        assert "secret" not in props["ca_cert"]

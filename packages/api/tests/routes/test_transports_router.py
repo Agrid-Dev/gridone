@@ -12,7 +12,7 @@ from api.routes.transports_router import router
 from devices_manager import DevicesServiceInterface
 from devices_manager.dto import Transport, build_transport
 from devices_manager.types import TransportProtocols
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 
 _HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
 _MQTT = build_transport(
@@ -21,7 +21,22 @@ _MQTT = build_transport(
     TransportProtocols.MQTT,
     {"host": "localhost"},
 )
-_TRANSPORTS_BY_ID: dict[str, Transport] = {_HTTP.id: _HTTP, _MQTT.id: _MQTT}
+_MQTT_SECRET = build_transport(
+    "my-mqtts",
+    "My mqtts broker",
+    TransportProtocols.MQTT,
+    {
+        "host": "localhost",
+        "client_cert": "cert",
+        "client_key": "SUPER-SECRET-KEY",
+        "password": "broker-pw",
+    },
+)
+_TRANSPORTS_BY_ID: dict[str, Transport] = {
+    _HTTP.id: _HTTP,
+    _MQTT.id: _MQTT,
+    _MQTT_SECRET.id: _MQTT_SECRET,
+}
 
 
 def _get_transport(transport_id: str) -> Transport:
@@ -78,7 +93,7 @@ class TestListTransports:
         response = client.get("/")
         assert response.status_code == 200
         transports = response.json()
-        assert len(transports) == 2
+        assert len(transports) == len(_TRANSPORTS_BY_ID)
         for t in transports:
             _assert_valid_transport(t)
 
@@ -138,6 +153,19 @@ class TestUpdateTransport:
             response = await ac.patch("/unknown", json={"name": "x"})
         assert response.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_empty_secret_returns_422(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        # An empty-string secret is rejected in update_config (InvalidError),
+        # which must surface as 422 rather than silently wiping the value.
+        dm.update_transport.side_effect = InvalidError(
+            "'client_key' cannot be set to an empty value"
+        )
+        async with async_client as ac:
+            response = await ac.patch("/my-mqtts", json={"config": {"client_key": ""}})
+        assert response.status_code == 422
+
 
 class TestDeleteTransport:
     @pytest.mark.asyncio
@@ -154,6 +182,60 @@ class TestDeleteTransport:
         assert response.status_code == 404
 
 
+class TestSecretMasking:
+    def test_get_never_returns_secret_values(self, client: TestClient):
+        response = client.get("/my-mqtts")
+        assert response.status_code == 200
+        body = response.json()
+        # plaintext must not appear anywhere in the response
+        assert "SUPER-SECRET-KEY" not in response.text
+        assert "broker-pw" not in response.text
+        assert body["config"]["client_key"] is None
+        assert body["config"]["password"] is None
+        # non-secret fields are still returned
+        assert body["config"]["client_cert"] == "cert"
+        assert set(body["configured_secrets"]) == {"client_key", "password"}
+
+    def test_get_without_secrets_has_empty_configured_secrets(self, client: TestClient):
+        response = client.get("/my-mqtt")
+        assert response.json()["configured_secrets"] == []
+
+    def test_list_masks_secrets(self, client: TestClient):
+        response = client.get("/")
+        assert "SUPER-SECRET-KEY" not in response.text
+        secret_t = next(t for t in response.json() if t["id"] == "my-mqtts")
+        assert secret_t["config"]["client_key"] is None
+        assert set(secret_t["configured_secrets"]) == {"client_key", "password"}
+
+    def test_create_masks_secrets_in_response(self, client: TestClient):
+        payload = {
+            "name": "New mqtts",
+            "protocol": "mqtt",
+            "config": {
+                "host": "localhost",
+                "client_cert": "cert",
+                "client_key": "NEW-SECRET",
+            },
+        }
+        response = client.post("/", json=payload)
+        assert response.status_code == 201
+        assert "NEW-SECRET" not in response.text
+        body = response.json()
+        assert body["config"]["client_key"] is None
+        assert body["configured_secrets"] == ["client_key"]
+
+    @pytest.mark.asyncio
+    async def test_update_masks_secrets_in_response(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.patch(
+                "/my-mqtts", json={"config": {"client_key": "ROTATED"}}
+            )
+        assert response.status_code == 200
+        assert "ROTATED" not in response.text
+        assert "SUPER-SECRET-KEY" not in response.text
+        assert response.json()["config"]["client_key"] is None
+
+
 class TestGetTransportSchemas:
     def test_returns_schemas(self, client: TestClient):
         response = client.get("/schemas/")
@@ -161,3 +243,8 @@ class TestGetTransportSchemas:
         data = response.json()
         assert len(data) == len(TransportProtocols)
         assert data["mqtt"]["properties"]["port"]["type"] == "integer"
+
+    def test_secret_fields_are_flagged(self, client: TestClient):
+        data = client.get("/schemas/").json()
+        assert data["mqtt"]["properties"]["client_key"]["secret"] is True
+        assert data["mqtt"]["properties"]["password"]["secret"] is True

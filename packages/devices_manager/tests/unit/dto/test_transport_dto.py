@@ -13,6 +13,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.dto import build_transport, mask_transport
 from devices_manager.dto.transport_dto import (
     ModbusTcpTransportCreate,
     MqttTransport,
@@ -81,6 +82,75 @@ class TestTransportCreate:
             TRANSPORT_CREATE.validate_python(
                 {"name": "Bad", "protocol": "unknown", "config": {}}
             )
+
+
+class TestMaskTransport:
+    def test_masks_mqtt_secrets_and_lists_configured(self) -> None:
+        transport = build_transport(
+            "t1",
+            "Broker",
+            TransportProtocols.MQTT,
+            {
+                "host": "broker",
+                "client_cert": "cert",
+                "client_key": "SECRET-KEY",
+                "password": "pw",
+            },
+        )
+
+        masked = mask_transport(transport)
+
+        assert masked.config.client_key is None
+        assert masked.config.password is None
+        # non-secret fields are untouched
+        assert masked.config.client_cert == "cert"
+        assert masked.config.host == "broker"
+        assert masked.configured_secrets == ["client_key", "password"]
+        # the original is not mutated
+        assert transport.config.client_key == "SECRET-KEY"
+
+    def test_unset_secrets_are_not_listed(self) -> None:
+        transport = build_transport(
+            "t1", "Broker", TransportProtocols.MQTT, {"host": "broker"}
+        )
+
+        masked = mask_transport(transport)
+
+        assert masked.configured_secrets == []
+        assert masked.config.client_key is None
+
+    def test_masks_knx_secure_credentials(self) -> None:
+        transport = build_transport(
+            "t2",
+            "KNX",
+            TransportProtocols.KNX,
+            {
+                "gateway_ip": "10.0.0.1",
+                "secure_credentials": {
+                    "device_authentication_password": "dev",
+                    "user_password": "usr",
+                    "user_id": 2,
+                },
+            },
+        )
+
+        masked = mask_transport(transport)
+
+        assert masked.config.secure_credentials is None
+        assert masked.configured_secrets == ["secure_credentials"]
+
+    def test_protocol_without_secrets_is_unchanged(self) -> None:
+        transport = build_transport(
+            "t3",
+            "PLC",
+            TransportProtocols.MODBUS_TCP,
+            {"host": "plc.local", "port": 1502},
+        )
+
+        masked = mask_transport(transport)
+
+        assert masked.configured_secrets == []
+        assert masked.config == transport.config
 
 
 class TestTransportUpdate:

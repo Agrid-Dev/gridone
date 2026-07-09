@@ -6,12 +6,13 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from models.errors import InvalidError
 
 
-def _mqtt_client() -> MqttTransportClient:
+def _mqtt_client(**config: object) -> MqttTransportClient:
     return MqttTransportClient(
         TransportMetadata(id="mqtt-1", name="mqtt"),
-        MqttTransportConfig(host="broker", port=1883),
+        MqttTransportConfig(host="broker", port=1883, **config),  # type: ignore[arg-type]
     )
 
 
@@ -39,3 +40,55 @@ class TestUpdateConfig:
 
         with pytest.raises(ValidationError):
             client.update_config({"nonsense": True}, reconnect=False)
+
+
+class TestUpdateConfigSecrets:
+    """Write-only rules: a secret is replaceable but never silently wiped."""
+
+    def test_omitting_a_secret_preserves_the_stored_value(self) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        client.update_config({"host": "new-broker"}, reconnect=False)
+
+        assert client.config.client_key == "orig"
+        assert client.config.host == "new-broker"
+
+    def test_null_secret_preserves_the_stored_value(self) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert", password="pw")
+
+        client.update_config({"client_key": None, "password": None}, reconnect=False)
+
+        assert client.config.client_key == "orig"
+        assert client.config.password == "pw"  # noqa: S105
+
+    def test_non_empty_secret_replaces_the_stored_value(self) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        client.update_config({"client_key": "rotated"}, reconnect=False)
+
+        assert client.config.client_key == "rotated"
+
+    def test_empty_string_secret_is_rejected(self) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        with pytest.raises(InvalidError, match="empty"):
+            client.update_config({"client_key": ""}, reconnect=False)
+
+    def test_full_masked_config_echo_does_not_wipe_secrets(self) -> None:
+        # A naive client re-submitting the whole masked config (secrets nulled)
+        # must not clear them.
+        client = _mqtt_client(client_key="orig", client_cert="cert", password="pw")
+
+        client.update_config(
+            {
+                "host": "broker",
+                "port": 1883,
+                "client_cert": "cert",
+                "client_key": None,
+                "password": None,
+            },
+            reconnect=False,
+        )
+
+        assert client.config.client_key == "orig"
+        assert client.config.password == "pw"  # noqa: S105
