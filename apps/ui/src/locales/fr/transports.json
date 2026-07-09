@@ -18,7 +18,10 @@
     "protocolDisabled": "Le protocole d'un réseau ne peut être modifié après création.",
     "configuration": "Configuration",
     "configurationHint": "Ajustez les paramètres spécifiques au protocole ci-dessous.",
-    "schemaUnavailable": "Aucun schéma n'est disponible pour ce protocole."
+    "schemaUnavailable": "Aucun schéma n'est disponible pour ce protocole.",
+    "secretConfigured": "Configuré",
+    "secretReplace": "Remplacer",
+    "secretCancel": "Annuler"
   },
   "protocols": {
     "mqtt": "MQTT",

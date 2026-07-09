@@ -18,7 +18,10 @@
     "protocolDisabled": "A network's protocol cannot be modified after creation.",
     "configuration": "Configuration",
     "configurationHint": "Adjust protocol-specific settings below.",
-    "schemaUnavailable": "No schema is available for this protocol yet."
+    "schemaUnavailable": "No schema is available for this protocol yet.",
+    "secretConfigured": "Configured",
+    "secretReplace": "Replace",
+    "secretCancel": "Cancel"
   },
   "protocols": {
     "mqtt": "MQTT",

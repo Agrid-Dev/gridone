@@ -16,7 +16,7 @@ import { isApiError } from "@/api/apiError";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export type TransportFormCallbacks = {
   onCreated?: (transport: Transport) => void;
@@ -94,21 +94,53 @@ export const useTransportForm = (
   const configJsonSchema =
     protocol && transportProtocols.includes(protocol)
       ? configSchemas[protocol]
-      : { required: [] };
+      : { required: [], properties: {} };
   const configZodSchema = z.fromJSONSchema(configJsonSchema) as z.ZodObject;
   const configFormMethods = useForm<z.infer<typeof configZodSchema>>({
     resolver: zodResolver(configZodSchema),
     defaultValues: currentTransport?.config ?? {},
   });
+
+  const secretFieldNames = Object.entries(
+    configJsonSchema.properties ?? {},
+  ).flatMap(([name, prop]) => (prop.secret ? [name] : []));
+  const configuredSecrets = currentTransport?.configuredSecrets ?? [];
+  // Secrets the user has chosen to replace this session. Reset on protocol
+  // change so a switch never carries a stale "revealed" state.
+  const [revealedSecrets, setRevealedSecrets] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const revealSecret = (name: string) =>
+    setRevealedSecrets((prev) => new Set(prev).add(name));
+  const cancelReveal = (name: string) =>
+    setRevealedSecrets((prev) => {
+      const next = new Set(prev);
+      next.delete(name);
+      return next;
+    });
+
   useEffect(() => {
     if (transportProtocols.includes(protocol)) {
       configFormMethods.reset();
+      setRevealedSecrets(new Set());
     }
   }, [protocol]);
   const handleSubmit = async () => {
+    const config: Record<string, unknown> = {
+      ...configFormMethods.getValues(),
+    };
+    // Write-only secret rules mirrored client-side: a configured secret left
+    // untouched is omitted (server preserves it); an empty value is omitted
+    // (never wipe); a typed value is sent.
+    for (const name of secretFieldNames) {
+      const untouched =
+        configuredSecrets.includes(name) && !revealedSecrets.has(name);
+      const empty = !config[name];
+      if (untouched || empty) delete config[name];
+    }
     const values = {
       ...baseFormMethods.getValues(),
-      config: configFormMethods.getValues(),
+      config,
     };
     const [okBase, okConfig] = await Promise.all([
       baseFormMethods.trigger(),
@@ -141,5 +173,9 @@ export const useTransportForm = (
     configFormMethods,
     jsonSchema: configSchemas[protocol],
     lockedProtocol,
+    configuredSecrets,
+    revealedSecrets,
+    revealSecret,
+    cancelReveal,
   };
 };

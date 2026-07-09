@@ -10,6 +10,7 @@ import {
   type TransportFormCallbacks,
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
+import { SecretFieldController } from "@/components/forms/controllers/SecretFieldController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui";
@@ -44,6 +45,10 @@ const TransportForm: FC<TransportFormProps> = ({
     isSubmitting,
     handleCancel,
     isCreate,
+    configuredSecrets,
+    revealedSecrets,
+    revealSecret,
+    cancelReveal,
   } = useTransportForm(configSchemas, transport, {
     lockedProtocol,
     onCreated,
@@ -86,6 +91,22 @@ const TransportForm: FC<TransportFormProps> = ({
         {jsonSchema &&
           Object.entries(jsonSchema.properties || {}).map(
             ([propertyName, property]) => {
+              if (property.secret) {
+                return (
+                  <SecretFieldController
+                    key={propertyName}
+                    name={propertyName}
+                    control={configFormMethods.control}
+                    label={toLabel(propertyName)}
+                    required={requiredSet.has(propertyName)}
+                    description={property.description}
+                    configured={configuredSecrets.includes(propertyName)}
+                    revealing={revealedSecrets.has(propertyName)}
+                    onReveal={() => revealSecret(propertyName)}
+                    onCancel={() => cancelReveal(propertyName)}
+                  />
+                );
+              }
               if (property.multiline) {
                 return (
                   <TextareaController

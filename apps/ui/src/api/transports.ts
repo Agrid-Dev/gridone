@@ -21,6 +21,10 @@ export type Transport = {
   protocol: TransportProtocol;
   config: Record<string, unknown>;
   connectionState: TransportConnectionState;
+  // Names of secret config fields that currently hold a value. Their values in
+  // `config` are always null (write-only); this list is how the form knows a
+  // secret is set without ever receiving it.
+  configuredSecrets: string[];
 };
 
 export type JsonSchemaProperty = {
@@ -32,6 +36,7 @@ export type JsonSchemaProperty = {
   anyOf?: JsonSchemaProperty[];
   oneOf?: JsonSchemaProperty[];
   multiline?: boolean;
+  secret?: boolean;
 };
 
 export type TransportSchema = {

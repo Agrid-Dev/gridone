@@ -70,6 +70,7 @@ function makeTransport(id: string, name: string): Transport {
     protocol: "mqtt",
     config: {},
     connectionState: { status: "idle" },
+    configuredSecrets: [],
   };
 }
 
