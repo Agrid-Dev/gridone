@@ -7,6 +7,11 @@ from devices_manager.core.transports.base_transport_config import BaseTransportC
 MQTT_DEFAULT_PORT = 1883
 
 PEM_FIELD = Field(default=None, json_schema_extra={"multiline": True})
+# Write-only: masked out of API reads and preserved-on-omit on update.
+SECRET_FIELD = Field(default=None, json_schema_extra={"secret": True})
+PEM_SECRET_FIELD = Field(
+    default=None, json_schema_extra={"multiline": True, "secret": True}
+)
 
 
 class MqttTransportConfig(BaseTransportConfig):
@@ -20,9 +25,9 @@ class MqttTransportConfig(BaseTransportConfig):
     tls_insecure: bool = False
     ca_cert: Annotated[str | None, PEM_FIELD] = None
     client_cert: Annotated[str | None, PEM_FIELD] = None
-    client_key: Annotated[str | None, PEM_FIELD] = None
+    client_key: Annotated[str | None, PEM_SECRET_FIELD] = None
     username: str | None = None
-    password: str | None = None
+    password: Annotated[str | None, SECRET_FIELD] = None
 
     @model_validator(mode="after")
     def _client_cert_and_key_together(self) -> Self:

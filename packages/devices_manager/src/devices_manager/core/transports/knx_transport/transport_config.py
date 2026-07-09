@@ -38,7 +38,11 @@ class KNXTransportConfig(BaseTransportConfig):
     ]
     port: PositiveInt = KNX_DEFAULT_PORT
     tunneling_mode: Literal["udp", "tcp"] = "udp"
-    secure_credentials: KNXSecureCredentials | None = None
+    # Holds two passwords; masked out of API reads (write-only) so GET
+    # /transports never echoes them back in plaintext.
+    secure_credentials: Annotated[
+        KNXSecureCredentials | None, Field(json_schema_extra={"secret": True})
+    ] = None
 
     def _tunneling_connection_type_and_secure(
         self,

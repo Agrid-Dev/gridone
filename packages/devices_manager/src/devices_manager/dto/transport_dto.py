@@ -27,6 +27,12 @@ class TransportBase(BaseModel):
     id: str
     name: str
     connection_state: TransportConnectionState
+    # Names of secret config fields that currently hold a value. Populated only
+    # on API reads (see ``mask_transport``); empty on internal/stored DTOs. A
+    # flat sibling list rather than per-field flags inside ``config`` so it
+    # survives the UI's deep camelCasing untouched and never leaks into the
+    # write schema.
+    configured_secrets: list[str] = Field(default_factory=list)
 
 
 class HttpTransport(TransportBase):
@@ -192,3 +198,28 @@ class TransportUpdate(BaseModel):
     # merged + validated against the transport's own config class when applied
     # (see `TransportClient.update_config`).
     config: dict[str, Any] | None = None
+
+
+def mask_transport(transport: Transport) -> Transport:
+    """Return a wire-safe copy of a transport for API responses.
+
+    Secret config fields (declared via ``secret_field_names``) are nulled and
+    their names collected in ``configured_secrets`` so a client can tell a
+    value is set without ever receiving it. The config keeps its exact
+    per-protocol shape — secret fields are already ``| None`` — so no separate
+    read model is needed. ``model_copy`` does not re-validate, so nulling a
+    field never trips the config's own validators.
+    """
+    config = transport.config
+    secret_names = type(config).secret_field_names()
+    configured = sorted(
+        name for name in secret_names if getattr(config, name) is not None
+    )
+    masked_config = (
+        config.model_copy(update=dict.fromkeys(configured, None))
+        if configured
+        else config
+    )
+    return transport.model_copy(
+        update={"config": masked_config, "configured_secrets": configured}
+    )

@@ -4,6 +4,7 @@ from asyncio import Lock, Task, create_task
 from typing import ClassVar, TypeVar
 
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
+from models.errors import InvalidError
 
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
@@ -107,6 +108,7 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         if isinstance(config, BaseTransportConfig):
             config = config.model_dump()
+        config = self._apply_secret_update_semantics(config)
         # Merge the partial patch onto the current config and re-validate against
         # this transport's own config class — the PATCH body is untyped, so this
         # is where a partial update is type-checked and defaults are preserved.
@@ -114,6 +116,28 @@ class TransportClient[T_TransportAddress](ABC):
         self.config = type(self.config).model_validate(merged)
         if reconnect:
             self.schedule_reconnect()
+
+    def _apply_secret_update_semantics(self, config: dict) -> dict:
+        """Write-only rules for secret fields on a partial (PATCH) update.
+
+        A secret omitted or sent as ``null`` keeps the stored value (dropped
+        from the patch before the merge); a non-empty value replaces it; an
+        empty string is rejected. This guarantees a secret can be replaced but
+        never silently wiped — even by a client that echoes back the full
+        masked config with nulls.
+        """
+        secret_names = type(self.config).secret_field_names()
+        patch = dict(config)
+        for name in secret_names:
+            if name not in patch:
+                continue
+            value = patch[name]
+            if value is None:
+                del patch[name]
+            elif value == "":
+                msg = f"'{name}' cannot be set to an empty value"
+                raise InvalidError(msg)
+        return patch
 
 
 class PullTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):

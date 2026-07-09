@@ -11,6 +11,7 @@ from devices_manager.dto import (
     Transport,
     TransportCreate,
     TransportUpdate,
+    mask_transport,
 )
 
 from .discovery_router import router as discovery_router
@@ -26,7 +27,7 @@ router.include_router(
 def list_transports(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> list[Transport]:
-    return dm.list_transports()
+    return [mask_transport(t) for t in dm.list_transports()]
 
 
 @router.get(
@@ -38,7 +39,7 @@ def get_transport(
     transport_id: str,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Transport:
-    return dm.get_transport(transport_id)
+    return mask_transport(dm.get_transport(transport_id))
 
 
 @router.post(
@@ -56,7 +57,7 @@ async def create_transport(
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=dto.id)
     )
-    return dto
+    return mask_transport(dto)
 
 
 @router.patch(
@@ -79,7 +80,7 @@ async def update_transport(
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)
     )
-    return transport
+    return mask_transport(transport)
 
 
 @router.delete(
