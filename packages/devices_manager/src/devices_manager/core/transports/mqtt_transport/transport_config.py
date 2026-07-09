@@ -9,8 +9,12 @@ MQTT_DEFAULT_PORT = 1883
 PEM_FIELD = Field(default=None, json_schema_extra={"multiline": True})
 # Write-only: masked out of API reads and preserved-on-omit on update.
 SECRET_FIELD = Field(default=None, json_schema_extra={"secret": True})
+# client_key is coupled to client_cert by _client_cert_and_key_together below;
+# clearing client_cert must also clear client_key, or the write-only
+# preserve-on-omit rule would keep that validator permanently failing.
 PEM_SECRET_FIELD = Field(
-    default=None, json_schema_extra={"multiline": True, "secret": True}
+    default=None,
+    json_schema_extra={"multiline": True, "secret": True, "clear_with": "client_cert"},
 )
 
 

@@ -2,6 +2,10 @@ import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
+from devices_manager.core.transports.knx_transport import (
+    KNXTransportClient,
+    KNXTransportConfig,
+)
 from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
@@ -13,6 +17,13 @@ def _mqtt_client(**config: object) -> MqttTransportClient:
     return MqttTransportClient(
         TransportMetadata(id="mqtt-1", name="mqtt"),
         MqttTransportConfig(host="broker", port=1883, **config),  # type: ignore[arg-type]
+    )
+
+
+def _knx_client(**config: object) -> KNXTransportClient:
+    return KNXTransportClient(
+        TransportMetadata(id="knx-1", name="knx"),
+        KNXTransportConfig(gateway_ip="10.0.0.1", **config),  # type: ignore[arg-type]
     )
 
 
@@ -92,3 +103,48 @@ class TestUpdateConfigSecrets:
 
         assert client.config.client_key == "orig"
         assert client.config.password == "pw"  # noqa: S105
+
+    def test_clearing_a_paired_field_also_clears_its_secret(self) -> None:
+        # Regression: client_key (secret) is coupled to client_cert by
+        # MqttTransportConfig's cross-field validator. Preserving client_key
+        # while client_cert is cleared would permanently fail that validator.
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        client.update_config({"client_cert": ""}, reconnect=False)
+
+        assert not client.config.client_cert
+        assert client.config.client_key is None
+
+    def test_clearing_a_paired_field_alongside_a_new_secret_still_replaces(
+        self,
+    ) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        client.update_config(
+            {"client_cert": "new-cert", "client_key": "new-key"}, reconnect=False
+        )
+
+        assert client.config.client_cert == "new-cert"
+        assert client.config.client_key == "new-key"
+
+    def test_untouched_paired_secret_is_still_preserved(self) -> None:
+        client = _mqtt_client(client_key="orig", client_cert="cert")
+
+        client.update_config({"host": "new-broker"}, reconnect=False)
+
+        assert client.config.client_cert == "cert"
+        assert client.config.client_key == "orig"
+
+    def test_empty_dict_secret_is_rejected(self) -> None:
+        # Regression: a structured (non-string) secret like KNX's
+        # secure_credentials wasn't caught by the empty-string check and fell
+        # through to a raw pydantic ValidationError instead.
+        client = _knx_client(
+            secure_credentials={
+                "device_authentication_password": "dev",
+                "user_password": "usr",
+            }
+        )
+
+        with pytest.raises(InvalidError, match="empty"):
+            client.update_config({"secure_credentials": {}}, reconnect=False)

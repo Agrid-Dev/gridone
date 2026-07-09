@@ -120,21 +120,26 @@ class TransportClient[T_TransportAddress](ABC):
     def _apply_secret_update_semantics(self, config: dict) -> dict:
         """Write-only rules for secret fields on a partial (PATCH) update.
 
-        A secret omitted or sent as ``null`` keeps the stored value (dropped
-        from the patch before the merge); a non-empty value replaces it; an
-        empty string is rejected. This guarantees a secret can be replaced but
-        never silently wiped — even by a client that echoes back the full
-        masked config with nulls.
+        Omitted/``null`` preserves the stored value; non-empty replaces it;
+        empty string is rejected. Exception: a secret declared via
+        ``clear_with`` is cleared instead of preserved when its paired
+        sibling is explicitly cleared in the same patch (see
+        ``secret_clear_triggers``).
         """
         secret_names = type(self.config).secret_field_names()
+        clear_triggers = type(self.config).secret_clear_triggers()
         patch = dict(config)
         for name in secret_names:
+            trigger = clear_triggers.get(name)
+            if trigger is not None and trigger in patch and not patch[trigger]:
+                patch[name] = None
+                continue
             if name not in patch:
                 continue
             value = patch[name]
             if value is None:
                 del patch[name]
-            elif value == "":
+            elif value == "" or (isinstance(value, dict) and not value):
                 msg = f"'{name}' cannot be set to an empty value"
                 raise InvalidError(msg)
         return patch

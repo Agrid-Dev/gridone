@@ -68,3 +68,8 @@ class TestMqttTransportConfig:
         assert props["client_key"].get("secret") is True
         assert props["password"].get("secret") is True
         assert "secret" not in props["ca_cert"]
+
+    def test_secret_clear_triggers(self) -> None:
+        assert MqttTransportConfig.secret_clear_triggers() == {
+            "client_key": "client_cert"
+        }

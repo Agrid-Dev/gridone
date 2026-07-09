@@ -18,3 +18,16 @@ class BaseTransportConfig(BaseModel):
             if isinstance(field.json_schema_extra, dict)
             and field.json_schema_extra.get("secret") is True
         }
+
+    @classmethod
+    def secret_clear_triggers(cls) -> dict[str, str]:
+        """Maps a secret field to a sibling declared via ``clear_with`` whose
+        explicit clearing also clears the secret (e.g. MQTT's client_cert
+        clearing client_key, since a cross-field validator requires both).
+        """
+        return {
+            name: field.json_schema_extra["clear_with"]
+            for name, field in cls.model_fields.items()
+            if isinstance(field.json_schema_extra, dict)
+            and isinstance(field.json_schema_extra.get("clear_with"), str)
+        }
