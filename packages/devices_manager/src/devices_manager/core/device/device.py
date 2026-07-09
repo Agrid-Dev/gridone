@@ -401,8 +401,16 @@ class CoreDevice:
             cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
             self._update_attribute(cs_attr, status)
 
-    async def update_attributes(self) -> None:
-        """Update all attributes at once."""
+    async def _read_all_attributes(
+        self,
+    ) -> AsyncIterator[tuple[str, AttributeValueType | None]]:
+        """Read every readable, non-internal attribute in turn, yielding
+        ``(name, value)`` as each one lands.
+
+        The transport must already be open. A failed read is logged and yields
+        ``None`` for that attribute so a single unreachable register never aborts
+        the whole sweep.
+        """
         for attr_name, attr in self.attributes.items():
             if "read" not in attr.read_write_modes:
                 continue
@@ -416,7 +424,6 @@ class CoreDevice:
                     attr_name,
                     value,
                 )
-
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "[Device %s] failed to read attribute %s — %s: %s",
@@ -425,11 +432,31 @@ class CoreDevice:
                     type(e).__name__,
                     e,
                 )
+                value = None
+            yield attr_name, value
+
+    async def update_attributes(self) -> None:
+        """Update all attributes at once."""
+        async for _ in self._read_all_attributes():
+            pass
 
     async def update_once(self) -> None:
         """Open transport, read all attributes, then close."""
         async with self.transport:
             await self.update_attributes()
+
+    async def stream_read(
+        self,
+    ) -> AsyncIterator[tuple[str, AttributeValueType | None]]:
+        """Open transport, read and yield each attribute as it lands, then close.
+
+        Same attribute selection and error handling as :meth:`update_attributes`,
+        but streams results so callers can render progress instead of waiting for
+        the full sweep to finish.
+        """
+        async with self.transport:
+            async for item in self._read_all_attributes():
+                yield item
 
     async def _confirm_attribute_value(
         self,

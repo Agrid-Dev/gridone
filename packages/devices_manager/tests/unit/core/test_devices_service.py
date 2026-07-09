@@ -973,6 +973,22 @@ class TestDevicesServiceDeviceDelegation:
         assert isinstance(result, Device)
 
     @pytest.mark.asyncio
+    async def test_stream_device_read_yields_each_readable_attribute(
+        self, driver, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        device = _make_physical_device("d1", driver, mock_transport_client)
+        mock_reg = _mock_device_registry({"d1": device})
+        dm = await _dm_with_mock_registry(mock_reg)
+
+        seen = [name async for name, _ in dm.stream_device_read("d1")]
+
+        # Every fixture attribute is readable, so the stream yields them all in
+        # order — one item per attribute, as it lands.
+        assert seen == list(driver.attributes.keys())
+        mock_reg.get.assert_called_once_with("d1")
+
+    @pytest.mark.asyncio
     async def test_list_devices_delegates_to_registry(self):
         mock_reg = _mock_device_registry()
         mock_reg.list_all.return_value = []

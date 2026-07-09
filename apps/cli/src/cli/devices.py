@@ -3,6 +3,7 @@ Command group for devices.
 """
 
 import asyncio
+from time import perf_counter
 
 import typer
 from rich.console import Console
@@ -37,9 +38,16 @@ async def list_all() -> None:
 
 async def _read_device_async(dm: DevicesService, device_id: str) -> None:
     console.print(f"Reading device [bold blue]{device_id}[/bold blue]")
-    device = await dm.read_device(device_id)
-    for attribute in device.attributes.values():
-        console.print(f"{attribute.name}: {autoformat_value(attribute.current_value)}")
+    start = perf_counter()
+    count = 0
+    async for name, value in dm.stream_device_read(device_id):
+        console.print(f"{name}: {autoformat_value(value)}")
+        count += 1
+    elapsed = perf_counter() - start
+    console.print(
+        f"[bold green]{count}[/bold green] attribute(s) read "
+        f"in [bold]{elapsed:.2f}[/bold] secs"
+    )
 
 
 @app.command()
