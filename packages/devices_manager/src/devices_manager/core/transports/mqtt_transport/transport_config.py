@@ -1,10 +1,12 @@
-from typing import Self
+from typing import Annotated, Self
 
-from pydantic import ConfigDict, PositiveInt, model_validator
+from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
 MQTT_DEFAULT_PORT = 1883
+
+PEM_FIELD = Field(default=None, json_schema_extra={"multiline": True})
 
 
 class MqttTransportConfig(BaseTransportConfig):
@@ -16,9 +18,9 @@ class MqttTransportConfig(BaseTransportConfig):
     # against the CA (equivalent to mosquitto's `--insecure`). Needed when the
     # broker's server certificate has no SAN/CN matching the connection host.
     tls_insecure: bool = False
-    ca_cert: str | None = None
-    client_cert: str | None = None
-    client_key: str | None = None
+    ca_cert: Annotated[str | None, PEM_FIELD] = None
+    client_cert: Annotated[str | None, PEM_FIELD] = None
+    client_key: Annotated[str | None, PEM_FIELD] = None
     username: str | None = None
     password: str | None = None
 

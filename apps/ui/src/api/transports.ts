@@ -31,6 +31,7 @@ export type JsonSchemaProperty = {
   enum?: Array<string | number>;
   anyOf?: JsonSchemaProperty[];
   oneOf?: JsonSchemaProperty[];
+  multiline?: boolean;
 };
 
 export type TransportSchema = {

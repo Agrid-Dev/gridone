@@ -49,3 +49,13 @@ class TestMqttTransportConfig:
         MqttTransportConfig(
             host="test.broker", client_cert="cert-pem", client_key="key-pem"
         )
+
+    def test_pem_fields_are_marked_multiline_in_schema(self) -> None:
+        properties = MqttTransportConfig.model_json_schema()["properties"]
+        for field in ("ca_cert", "client_cert", "client_key"):
+            assert properties[field].get("multiline") is True
+
+    def test_non_pem_fields_are_not_marked_multiline(self) -> None:
+        properties = MqttTransportConfig.model_json_schema()["properties"]
+        for field in ("host", "port", "tls", "username", "password"):
+            assert "multiline" not in properties[field]
