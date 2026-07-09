@@ -73,11 +73,59 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Merge the per-platform digests into a single tagged multi-arch manifest and
-  # sign the result.
-  merge:
+  # Release gate: run the acceptance suite against the freshly built amd64 image
+  # (by digest, no rebuild) so the manifest we tag below is the exact bytes the
+  # suite passed against. amd64 only, same as PR CI. If this fails, `merge` and
+  # `github-release` never run, so a failing release publishes only the
+  # digest-only blobs already pushed by `build` — no tags, no signature, no
+  # GitHub release.
+  acceptance:
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The amd64 leg of `build` uploads a single file named after the pushed
+      # image digest. Reading it back is deterministic — unlike a matrix job
+      # output, where the arm64 leg would race to clobber the value with an
+      # empty string.
+      - name: Download amd64 digest
+        uses: actions/download-artifact@v8
+        with:
+          name: digests-linux-amd64
+          path: ${{ runner.temp }}/digests
+
+      - name: Resolve image ref
+        id: image
+        run: |
+          digest=$(ls "${{ runner.temp }}/digests")
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/gridone"
+          echo "ref=${image}@sha256:${digest}" >> "$GITHUB_OUTPUT"
+
+      # Pull before `compose up` so the image is present locally and the stack
+      # runs it as-is instead of rebuilding from the compose `build:` section.
+      - name: Pull image by digest
+        run: docker pull "${{ steps.image.outputs.ref }}"
+
+      - name: Run acceptance suite
+        uses: ./.github/actions/acceptance-suite
+        with:
+          image: ${{ steps.image.outputs.ref }}
+
+  # Merge the per-platform digests into a single tagged multi-arch manifest and
+  # sign the result. Gated on acceptance so tags only ever point at a tested image.
+  merge:
+    runs-on: ubuntu-latest
+    needs: [build, acceptance]
     steps:
       - name: Download digests
         uses: actions/download-artifact@v8
@@ -136,8 +184,12 @@ jobs:
           DIGEST=$(docker buildx imagetools inspect "${{ steps.meta.outputs.image }}:latest" --format '{{.Manifest.Digest}}')
           cosign sign --yes "${{ steps.meta.outputs.image }}@${DIGEST}"
 
+  # Gated on merge (and therefore acceptance): the release notes advertise a
+  # `docker pull …:vX.Y.Z` that only exists once merge has tagged the manifest,
+  # so a failing acceptance suite must not cut a GitHub release either.
   github-release:
     runs-on: ubuntu-latest
+    needs: merge
     steps:
       - name: Checkout
         uses: actions/checkout@v7
