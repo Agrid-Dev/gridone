@@ -1,3 +1,9 @@
+## v0.152.2 (2026-07-09)
+
+### Fix
+
+- **ui**: render MQTT PEM fields as multiline textareas (#445)
+
 ## v0.152.1 (2026-07-08)
 
 ### Fix
