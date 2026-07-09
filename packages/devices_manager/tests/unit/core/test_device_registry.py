@@ -576,6 +576,27 @@ class TestDeviceRegistryRebuild:
         )
         assert result.attributes["temperature"].current_value == 25.5
 
+    def test_rebuild_preserves_timestamps(
+        self,
+        device_registry,
+        device,
+        other_http_driver,
+        mock_transport_client,
+    ):
+        """Regression AGR-887: a rebuild must not reset last_updated/last_changed."""
+        device.attributes["temperature"].update_value(25.5)
+        original = device.attributes["temperature"]
+        assert original.last_updated is not None
+        assert original.last_changed is not None
+
+        result = device_registry.rebuild_device(
+            device, other_http_driver, mock_transport_client
+        )
+
+        rebuilt = result.attributes["temperature"]
+        assert rebuilt.last_updated == original.last_updated
+        assert rebuilt.last_changed == original.last_changed
+
 
 class TestDeviceRegistryPersistence:
     @pytest.mark.asyncio

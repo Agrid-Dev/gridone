@@ -9,6 +9,7 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
     FaultAttribute,
+    snapshot_attribute_state,
 )
 from devices_manager.core.device.attribute import AttributeKind
 
@@ -103,16 +104,13 @@ def dto_to_core(
     """Reconstruct a Device domain object from a stored Device."""
     driver = drivers[dto.driver_id]
     transport = transports[dto.transport_id]
-    initial_values = {
-        name: attr.current_value
-        for name, attr in dto.attributes.items()
-        if attr.current_value is not None
-    }
+    initial_values, restored_timestamps = snapshot_attribute_state(dto.attributes)
     device = CoreDevice.from_base(
         DeviceBase(id=dto.id, name=dto.name, config=dto.config),
         driver=driver,
         transport=transport,
         initial_values=initial_values or None,
+        restored_timestamps=restored_timestamps or None,
         on_update=on_update,
     )
     device.tags = dto.tags
