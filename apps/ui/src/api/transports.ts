@@ -37,6 +37,7 @@ export type JsonSchemaProperty = {
   oneOf?: JsonSchemaProperty[];
   multiline?: boolean;
   secret?: boolean;
+  $ref?: string;
 };
 
 export type TransportSchema = {
@@ -44,7 +45,21 @@ export type TransportSchema = {
   type?: "object";
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
+  $defs?: Record<string, TransportSchema>;
 };
+
+// Resolves a `$ref`-based object property (e.g. KNX's secure_credentials, a
+// nested model) against the schema's own `$defs`, so a secret field whose
+// value is a structured object can be rendered as one sub-input per property
+// instead of a single scalar input.
+export function resolveObjectSchema(
+  property: JsonSchemaProperty,
+  defs: TransportSchema["$defs"],
+): TransportSchema | undefined {
+  const ref = property.$ref ?? property.anyOf?.find((p) => p.$ref)?.$ref;
+  const defName = ref?.replace("#/$defs/", "");
+  return defName ? defs?.[defName] : undefined;
+}
 
 export type TransportSchemas = Record<TransportProtocol, TransportSchema>;
 

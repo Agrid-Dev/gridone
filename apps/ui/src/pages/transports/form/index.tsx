@@ -2,6 +2,7 @@ import {
   Transport,
   TransportProtocol,
   TransportSchemas,
+  resolveObjectSchema,
 } from "@/api/transports";
 import React, { FC } from "react";
 import {
@@ -92,6 +93,24 @@ const TransportForm: FC<TransportFormProps> = ({
           Object.entries(jsonSchema.properties || {}).map(
             ([propertyName, property]) => {
               if (property.secret) {
+                const objectSchema = resolveObjectSchema(
+                  property,
+                  jsonSchema.$defs,
+                );
+                const objectFields = objectSchema
+                  ? Object.entries(objectSchema.properties ?? {}).map(
+                      ([subName, subProperty]) => ({
+                        name: subName,
+                        label: toLabel(subName),
+                        type:
+                          subProperty.type === "string"
+                            ? "password"
+                            : subProperty.type,
+                        required:
+                          objectSchema.required?.includes(subName) ?? false,
+                      }),
+                    )
+                  : undefined;
                 return (
                   <SecretFieldController
                     key={propertyName}
@@ -104,6 +123,7 @@ const TransportForm: FC<TransportFormProps> = ({
                     revealing={revealedSecrets.has(propertyName)}
                     onReveal={() => revealSecret(propertyName)}
                     onCancel={() => cancelReveal(propertyName)}
+                    objectFields={objectFields}
                   />
                 );
               }

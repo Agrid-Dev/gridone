@@ -24,6 +24,10 @@ export type TransportFormCallbacks = {
   onCancel?: () => void;
 };
 
+const isBlank = (value: unknown): boolean =>
+  !value ||
+  (typeof value === "object" && Object.values(value).every((v) => !v));
+
 export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
   const queryClient = useQueryClient();
   const { t } = useTranslation(["transports", "common"]);
@@ -131,11 +135,12 @@ export const useTransportForm = (
     };
     // Write-only secret rules mirrored client-side: a configured secret left
     // untouched is omitted (server preserves it); an empty value is omitted
-    // (never wipe); a typed value is sent.
+    // (never wipe); a typed value is sent. A structured secret (e.g. KNX's
+    // secure_credentials) counts as empty when every sub-field is blank.
     for (const name of secretFieldNames) {
       const untouched =
         configuredSecrets.includes(name) && !revealedSecrets.has(name);
-      const empty = !config[name];
+      const empty = isBlank(config[name]);
       if (untouched || empty) delete config[name];
     }
     const values = {

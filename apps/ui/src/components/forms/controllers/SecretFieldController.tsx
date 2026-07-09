@@ -9,6 +9,14 @@ import { useTranslation } from "react-i18next";
 
 import { Button, Input } from "@/components/ui";
 import { FieldShell } from "./FieldShell";
+import { InputController } from "./InputController";
+
+type ObjectSecretField = {
+  name: string;
+  label: string;
+  type?: React.HTMLInputTypeAttribute;
+  required?: boolean;
+};
 
 type SecretFieldControllerProps<
   TFieldValues extends FieldValues,
@@ -23,6 +31,12 @@ type SecretFieldControllerProps<
   revealing: boolean;
   onReveal: () => void;
   onCancel: () => void;
+  /**
+   * When the secret's value is a structured object (e.g. KNX's
+   * secure_credentials) rather than a scalar, render one input per field
+   * instead of a single masked input.
+   */
+  objectFields?: ObjectSecretField[];
 };
 
 /**
@@ -42,6 +56,7 @@ export function SecretFieldController<
   revealing,
   onReveal,
   onCancel,
+  objectFields,
   ...controllerProps
 }: SecretFieldControllerProps<TFieldValues, TName>) {
   const { t } = useTranslation("transports");
@@ -58,6 +73,45 @@ export function SecretFieldController<
           <Button type="button" variant="outline" size="sm" onClick={onReveal}>
             {t("fields.secretReplace")}
           </Button>
+        </div>
+      </FieldShell>
+    );
+  }
+
+  const cancelButton = configured && revealing && (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => {
+        field.onChange(undefined);
+        onCancel();
+      }}
+    >
+      {t("fields.secretCancel")}
+    </Button>
+  );
+
+  if (objectFields) {
+    return (
+      <FieldShell
+        id={id}
+        label={label}
+        description={description}
+        required={required}
+      >
+        <div className="flex flex-col gap-2">
+          {objectFields.map((sub) => (
+            <InputController
+              key={sub.name}
+              name={`${id}.${sub.name}` as TName}
+              control={controllerProps.control}
+              label={sub.label}
+              type={sub.type}
+              required={sub.required}
+            />
+          ))}
+          {cancelButton}
         </div>
       </FieldShell>
     );
@@ -82,19 +136,7 @@ export function SecretFieldController<
           {...field}
           value={field.value ?? ""}
         />
-        {configured && revealing && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              field.onChange("");
-              onCancel();
-            }}
-          >
-            {t("fields.secretCancel")}
-          </Button>
-        )}
+        {cancelButton}
       </div>
     </FieldShell>
   );

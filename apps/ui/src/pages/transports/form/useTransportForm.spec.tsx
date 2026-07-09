@@ -28,6 +28,17 @@ vi.mock("react-i18next", () => createI18nMock({}));
 
 import { useTransportForm } from "./useTransportForm";
 
+// Dotted sub-field paths (e.g. "device_creds.user") aren't part of the
+// hook's statically-inferred FieldPath union, so setValue needs a loosely
+// typed escape hatch for them in tests.
+function setDottedValue(
+  methods: ReturnType<typeof useTransportForm>["configFormMethods"],
+  name: string,
+  value: string,
+): void {
+  (methods.setValue as (name: string, value: string) => void)(name, value);
+}
+
 const SCHEMAS = {
   mqtt: {
     type: "object",
@@ -37,6 +48,20 @@ const SCHEMAS = {
       client_key: {
         anyOf: [{ type: "string" }, { type: "null" }],
         secret: true,
+      },
+      device_creds: {
+        anyOf: [{ $ref: "#/$defs/DeviceCreds" }, { type: "null" }],
+        secret: true,
+      },
+    },
+    $defs: {
+      DeviceCreds: {
+        type: "object",
+        properties: {
+          user: { type: "string" },
+          pass: { type: "string" },
+        },
+        required: ["user", "pass"],
       },
     },
   },
@@ -140,5 +165,67 @@ describe("useTransportForm secret submit filter", () => {
     await waitFor(() => expect(mockCreateTransport).toHaveBeenCalledOnce());
     const [payload] = mockCreateTransport.mock.calls[0];
     expect(payload.config.client_key).toBe("fresh");
+  });
+
+  it("omits an object-shaped secret left blank after Replace (never partially wipes)", async () => {
+    mockUpdateTransport.mockResolvedValue(configuredTransport);
+    const withDeviceCreds: Transport = {
+      ...configuredTransport,
+      configuredSecrets: ["client_key", "device_creds"],
+    };
+    const { result } = renderHook(
+      () => useTransportForm(SCHEMAS, withDeviceCreds),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.revealSecret("device_creds");
+      // Sub-fields registered but left untouched (blank).
+      setDottedValue(result.current.configFormMethods, "device_creds.user", "");
+      setDottedValue(result.current.configFormMethods, "device_creds.pass", "");
+    });
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    await waitFor(() => expect(mockUpdateTransport).toHaveBeenCalledOnce());
+    const [, payload] = mockUpdateTransport.mock.calls[0];
+    expect(payload.config).not.toHaveProperty("device_creds");
+  });
+
+  it("sends an object-shaped secret once its sub-fields are filled in", async () => {
+    mockUpdateTransport.mockResolvedValue(configuredTransport);
+    const withDeviceCreds: Transport = {
+      ...configuredTransport,
+      configuredSecrets: ["client_key", "device_creds"],
+    };
+    const { result } = renderHook(
+      () => useTransportForm(SCHEMAS, withDeviceCreds),
+      { wrapper },
+    );
+
+    act(() => {
+      result.current.revealSecret("device_creds");
+      setDottedValue(
+        result.current.configFormMethods,
+        "device_creds.user",
+        "admin",
+      );
+      setDottedValue(
+        result.current.configFormMethods,
+        "device_creds.pass",
+        "secret",
+      );
+    });
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    await waitFor(() => expect(mockUpdateTransport).toHaveBeenCalledOnce());
+    const [, payload] = mockUpdateTransport.mock.calls[0];
+    expect(payload.config.device_creds).toEqual({
+      user: "admin",
+      pass: "secret",
+    });
   });
 });

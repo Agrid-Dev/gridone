@@ -77,4 +77,40 @@ describe("SecretFieldController", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
+
+  it("object secret: renders one input per sub-field instead of a single scalar input", () => {
+    function ObjectHarness() {
+      const { control } = useForm({
+        defaultValues: { secure_credentials: null },
+      });
+      return (
+        <SecretFieldController
+          name="secure_credentials"
+          control={control}
+          label="Secure credentials"
+          configured={false}
+          revealing={false}
+          onReveal={vi.fn()}
+          onCancel={vi.fn()}
+          objectFields={[
+            {
+              name: "device_authentication_password",
+              label: "Device authentication password",
+              type: "password",
+              required: true,
+            },
+            { name: "user_id", label: "User id", type: "number" },
+          ]}
+        />
+      );
+    }
+    render(<ObjectHarness />);
+    expect(
+      screen.getByLabelText(/Device authentication password/),
+    ).toHaveProperty("type", "password");
+    expect(screen.getByLabelText(/User id/)).toHaveProperty("type", "number");
+    expect(
+      screen.queryByLabelText(/^Secure credentials$/),
+    ).not.toBeInTheDocument();
+  });
 });
