@@ -11,6 +11,7 @@ import {
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
+import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui";
 import { transportProtocols } from "@/api/transports";
 import { useTranslation } from "react-i18next";
@@ -84,22 +85,36 @@ const TransportForm: FC<TransportFormProps> = ({
         />
         {jsonSchema &&
           Object.entries(jsonSchema.properties || {}).map(
-            ([propertyName, property]) => (
-              <InputController
-                key={propertyName}
-                name={propertyName}
-                control={configFormMethods.control}
-                label={toLabel(propertyName)}
-                type={property.type}
-                required={requiredSet.has(propertyName)}
-                description={property.description}
-                inputProps={{
-                  placeholder: property.default
-                    ? String(property.default)
-                    : undefined,
-                }}
-              />
-            ),
+            ([propertyName, property]) => {
+              if (property.multiline) {
+                return (
+                  <TextareaController
+                    key={propertyName}
+                    name={propertyName}
+                    control={configFormMethods.control}
+                    label={toLabel(propertyName)}
+                    required={requiredSet.has(propertyName)}
+                    description={property.description}
+                  />
+                );
+              }
+              return (
+                <InputController
+                  key={propertyName}
+                  name={propertyName}
+                  control={configFormMethods.control}
+                  label={toLabel(propertyName)}
+                  type={property.type}
+                  required={requiredSet.has(propertyName)}
+                  description={property.description}
+                  inputProps={{
+                    placeholder: property.default
+                      ? String(property.default)
+                      : undefined,
+                  }}
+                />
+              );
+            },
           )}
       </form>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
