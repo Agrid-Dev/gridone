@@ -1,0 +1,63 @@
+name: Run acceptance suite
+description: >
+  Build @gridone/sdk, install the acceptance test deps, boot the compose stack
+  against a prebuilt gridone image, and run the black-box acceptance suite
+  (tests/acceptance/). The image must already be present locally — built and
+  loaded, or pulled by digest — because the stack never rebuilds it (no --build).
+  Shared by the PR acceptance workflow and the release gate so the two can't drift.
+
+inputs:
+  image:
+    description: Fully-qualified gridone image ref the compose stack runs.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v6
+      with:
+        node-version-file: tests/acceptance/.node-version
+        cache: npm
+        cache-dependency-path: |
+          sdk/ts/package-lock.json
+          tests/acceptance/package-lock.json
+
+    - name: Build SDK
+      shell: bash
+      working-directory: sdk/ts
+      run: |
+        npm ci
+        npm run build
+
+    - name: Install test dependencies
+      shell: bash
+      working-directory: tests/acceptance
+      run: npm ci
+
+    - name: Start stack
+      shell: bash
+      working-directory: tests/acceptance
+      env:
+        GRIDONE_IMAGE: ${{ inputs.image }}
+      # No --build: compose runs the prebuilt image via GRIDONE_IMAGE.
+      run: docker compose up --wait
+
+    - name: Run acceptance tests
+      shell: bash
+      working-directory: tests/acceptance
+      run: npm run test
+
+    - name: Capture stack logs
+      if: failure()
+      shell: bash
+      working-directory: tests/acceptance
+      run: docker compose logs --no-color --timestamps > /tmp/compose-logs.txt
+
+    - name: Upload stack logs
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: compose-logs
+        path: /tmp/compose-logs.txt
+        retention-days: 7

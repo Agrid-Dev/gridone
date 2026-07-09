@@ -183,7 +183,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull thermocktat image
-        run: docker pull ghcr.io/agrid-dev/thermocktat:v0.7.0
+        # Keep in sync with the integration fixtures
+        # (packages/devices_manager/tests/integration/fixtures/containers.py).
+        run: docker pull ghcr.io/agrid-dev/thermocktat:v0.8.1
 
       - name: Run integration tests with coverage
         env:
