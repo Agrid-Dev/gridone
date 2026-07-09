@@ -6,6 +6,7 @@ from devices_manager.core.transports.http_transport import (
     HTTPTransportClient,
     HttpTransportConfig,
 )
+from devices_manager.core.transports.knx_transport import KNXTransportConfig
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
@@ -100,6 +101,7 @@ class TestMaskTransport:
 
         masked = mask_transport(transport)
 
+        assert isinstance(masked.config, MqttTransportConfig)
         assert masked.config.client_key is None
         assert masked.config.password is None
         # non-secret fields are untouched
@@ -107,6 +109,7 @@ class TestMaskTransport:
         assert masked.config.host == "broker"
         assert masked.configured_secrets == ["client_key", "password"]
         # the original is not mutated
+        assert isinstance(transport.config, MqttTransportConfig)
         assert transport.config.client_key == "SECRET-KEY"
 
     def test_unset_secrets_are_not_listed(self) -> None:
@@ -117,6 +120,7 @@ class TestMaskTransport:
         masked = mask_transport(transport)
 
         assert masked.configured_secrets == []
+        assert isinstance(masked.config, MqttTransportConfig)
         assert masked.config.client_key is None
 
     def test_masks_knx_secure_credentials(self) -> None:
@@ -136,6 +140,7 @@ class TestMaskTransport:
 
         masked = mask_transport(transport)
 
+        assert isinstance(masked.config, KNXTransportConfig)
         assert masked.config.secure_credentials is None
         assert masked.configured_secrets == ["secure_credentials"]
 
