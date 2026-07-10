@@ -1,3 +1,9 @@
+## v0.153.3 (2026-07-10)
+
+### Fix
+
+- **devices-manager**: persist attribute last_updated/last_changed across reboot (#448)
+
 ## v0.153.2 (2026-07-10)
 
 ### Fix
