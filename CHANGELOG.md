@@ -1,3 +1,9 @@
+## v0.153.2 (2026-07-10)
+
+### Fix
+
+- **devices-manager**: start syncing devices found via discovery (#451)
+
 ## v0.153.1 (2026-07-10)
 
 ### Fix
