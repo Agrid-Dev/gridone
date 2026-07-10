@@ -82,8 +82,8 @@ class DevicesDiscoveryManager:
             if not self._context.device_exists(device):
                 await self._context.add_device(device)
                 logger.info("Added device %s to context", device.id)
-
-            logger.info("Device %s already exists in context", device.id)
+            else:
+                logger.info("Device %s already exists in context", device.id)
 
         job = DiscoveryHandler(driver, transport, on_discover)
         await job.start()

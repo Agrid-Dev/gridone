@@ -483,6 +483,8 @@ class DevicesService(Service):
     async def _register_and_persist_device(self, device: CoreDevice) -> None:
         """Register device and persist to storage. Used by discovery."""
         await self._device_registry.register(device)
+        if self._running:
+            await device.start_sync()
         for listener in self._discovery_listeners.values():
             try:
                 self._schedule_if_coroutine(listener(device))
