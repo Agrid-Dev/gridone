@@ -1,3 +1,9 @@
+## v0.154.0 (2026-07-10)
+
+### Feat
+
+- **observability**: emit structured device read/write logs (#452)
+
 ## v0.153.4 (2026-07-10)
 
 ### Refactor
