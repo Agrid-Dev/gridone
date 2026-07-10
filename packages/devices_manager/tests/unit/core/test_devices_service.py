@@ -591,6 +591,34 @@ class TestDevicesServiceDiscovery:
         assert len(received) == 1
         assert received[0].id == dm_with_discovery.list_devices()[0].id
 
+    @pytest.mark.asyncio
+    async def test_discovered_device_starts_syncing_when_service_running(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        """A device found via discovery must subscribe to live updates, not
+        stay frozen at the single payload that triggered its discovery."""
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesService(
+            devices={},
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        await dm.start()
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+
+        await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
+        await asyncio.sleep(0.05)
+
+        device_dto = dm.list_devices()[0]
+        core_device = dm._device_registry.get(device_dto.id)  # noqa: SLF001
+        assert core_device.syncing is True
+        assert mock_push_transport_client._listener_registry.get_by_address_id(  # noqa: SLF001
+            "/xx/temperature"
+        )
+
 
 class TestDevicesServiceListTransports:
     @pytest.mark.asyncio
