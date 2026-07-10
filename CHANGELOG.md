@@ -1,3 +1,9 @@
+## v0.153.1 (2026-07-10)
+
+### Fix
+
+- **ui**: send auth credentials when deleting a transport (#450)
+
 ## v0.153.0 (2026-07-09)
 
 ### Feat
