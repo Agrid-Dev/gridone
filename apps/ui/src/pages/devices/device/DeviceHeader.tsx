@@ -2,7 +2,8 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
-import { getConnectionStatus, type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import { getConnectionStatus } from "@/lib/devices";
 
 export function DeviceHeader({ device }: { device: Device }) {
   return (

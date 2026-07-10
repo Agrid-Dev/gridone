@@ -2,7 +2,7 @@ import type { KeyboardEvent } from "react";
 import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SeverityChip } from "./SeverityChip";
-import type { FaultAttribute } from "@/api/devices";
+import type { FaultAttribute } from "@/lib/faults";
 import { faultLabel } from "@/lib/faultLabel";
 import { cn, relativeLastChanged } from "@/lib/utils";
 
@@ -26,16 +26,16 @@ export function FaultItem({ attribute, onClick }: FaultItemProps) {
 
   const rowClass = cn(
     "flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm",
-    attribute.isFaulty
+    attribute.is_faulty
       ? "bg-background border-border"
       : "bg-muted/30 text-muted-foreground border-border",
     interactive &&
       "cursor-pointer transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
   );
 
-  const rightText = attribute.isFaulty
+  const rightText = attribute.is_faulty
     ? t("common.faults.activeSince", {
-        ago: relativeLastChanged(attribute.lastChanged, t),
+        ago: relativeLastChanged(attribute.last_changed, t),
       })
     : t("common.faults.ok");
 
@@ -48,7 +48,7 @@ export function FaultItem({ attribute, onClick }: FaultItemProps) {
       onKeyDown={interactive ? handleKeyDown : undefined}
     >
       <div className="flex min-w-0 items-center gap-2">
-        {attribute.isFaulty ? (
+        {attribute.is_faulty ? (
           <SeverityChip severity={attribute.severity} />
         ) : (
           <CircleCheck className="h-4 w-4 shrink-0" aria-hidden="true" />

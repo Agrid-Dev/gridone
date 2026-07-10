@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import { type Device } from "@/api/devices";
-import type { Transport } from "@/api/transports";
+import type { Device, Transport } from "@gridone/sdk";
 
 const { mockUseDevicesList } = vi.hoisted(() => ({
   mockUseDevicesList: vi.fn(),
@@ -55,11 +54,11 @@ function makeDevice(id: string, transportId: string): Device {
     name: id,
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId,
+    driver_id: "drv",
+    transport_id: transportId,
     config: {},
     attributes: {},
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
@@ -68,8 +67,8 @@ function makeTransport(id: string, name: string): Transport {
     id,
     name,
     protocol: "mqtt",
-    config: {},
-    connectionState: { status: "idle" },
+    config: { host: "broker.local" },
+    connection_state: { status: "idle" },
   };
 }
 

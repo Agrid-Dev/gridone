@@ -2,7 +2,7 @@ import React, { FC } from "react";
 import { useDriverFromRoute, useDeleteDriver } from "./useDrivers";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { type Driver, type DriverAttribute } from "@/api/drivers";
+import type { Driver, DriverAttribute } from "@gridone/sdk";
 import {
   TypographyH3,
   TypographyP,
@@ -45,7 +45,7 @@ const DriverAttributeItem: FC<{ attribute: DriverAttribute }> = ({
         <TypographyP>{toLabel(attribute.name)}</TypographyP>
       </div>
       <div className="w-12">
-        <Badge variant="secondary">{attribute.dataType}</Badge>
+        <Badge variant="secondary">{attribute.data_type}</Badge>
       </div>
       <div className="w-12">
         <Badge variant="outline">{readWriteSupportLabel}</Badge>
@@ -79,10 +79,10 @@ const DriverDetails: FC<{
       <Card className="py-4">
         <CardContent>
           <TypographyH3>Informations générales</TypographyH3>
-          {driver.imageSrc && (
+          {driver.image_src && (
             <div className="my-4">
               <img
-                src={driver.imageSrc}
+                src={driver.image_src}
                 alt={driver.id}
                 className="h-40 w-40 rounded-lg object-cover"
               />
@@ -104,14 +104,20 @@ const DriverDetails: FC<{
             />
             <LabelledProperty
               label={t("fields.type")}
-              value={<DeviceTypeChip type={driver.type} />}
+              value={<DeviceTypeChip type={driver.type ?? null} />}
             />
           </div>
           <TypographyH3>{t("fields.updateStrategy")}</TypographyH3>
           <div className="flex justify-start gap-16 my-4">
-            {Object.entries(driver.updateStrategy).map(([key, value]) => (
-              <LabelledProperty key={key} label={toLabel(key)} value={value} />
-            ))}
+            {Object.entries(driver.update_strategy ?? {}).map(
+              ([key, value]) => (
+                <LabelledProperty
+                  key={key}
+                  label={toLabel(key)}
+                  value={value}
+                />
+              ),
+            )}
           </div>
           <div className="my-4">
             <TypographyH3>{t("fields.deviceConfig")}</TypographyH3>
@@ -119,8 +125,8 @@ const DriverDetails: FC<{
               {t("fields.deviceConfigDescription")}
             </TypographySmall>
             <TypographyP>
-              {driver.deviceConfig.length > 0 ? (
-                <b>{driver.deviceConfig.map(({ name }) => name).join(", ")}</b>
+              {driver.device_config.length > 0 ? (
+                <b>{driver.device_config.map(({ name }) => name).join(", ")}</b>
               ) : (
                 t("fields.none")
               )}

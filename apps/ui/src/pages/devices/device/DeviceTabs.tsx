@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Gauge, History, Settings2, Terminal } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 
 /** Route-linked tab bar for the device frame. Uses the shared underline Tabs
  *  styling, but each trigger is a NavLink (`asChild`) so tabs are real links

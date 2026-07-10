@@ -9,8 +9,8 @@ import {
   Snowflake,
   Sun,
 } from "lucide-react";
-import { DeviceType } from "@/api/devices";
-import type { Severity } from "@/api/severity";
+import { DeviceType } from "@/lib/devices";
+import type { Severity } from "@/lib/severity";
 import { formatValue, type CellValue } from "@/lib/formatValue";
 import {
   lookupSemanticColor,

@@ -7,7 +7,9 @@ import { ExternalLink } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { getTemplate, type CommandTemplate } from "@/api/commands";
+import type { CommandTemplateResponse } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { TargetPresenter } from "@/pages/devices/commands/presenters/TargetPresenter";
 import { WritePresenter } from "@/pages/devices/commands/presenters/WritePresenter";
@@ -16,9 +18,10 @@ const CommandTemplatePresenter: FC<{ templateId: string }> = ({
   templateId,
 }) => {
   const { t } = useTranslation("automations");
+  const client = useGridoneClient();
   const { data: template, isLoading } = useQuery({
     queryKey: ["command-templates", templateId],
-    queryFn: () => getTemplate(templateId),
+    queryFn: () => client.devices.commandTemplates.get(templateId),
     enabled: !!templateId,
   });
 
@@ -31,7 +34,10 @@ const CommandTemplatePresenter: FC<{ templateId: string }> = ({
     <div className="space-y-5">
       {template.name && <TemplateName template={template} t={t} />}
       <div className="space-y-4">
-        <TargetPresenter target={template.target} assetsById={assetsById} />
+        <TargetPresenter
+          target={template.target as DevicesFilter}
+          assetsById={assetsById}
+        />
         <WritePresenter write={template.write} />
       </div>
     </div>
@@ -42,7 +48,7 @@ function TemplateName({
   template,
   t,
 }: {
-  template: CommandTemplate;
+  template: CommandTemplateResponse;
   t: TFunction<"automations">;
 }) {
   return (

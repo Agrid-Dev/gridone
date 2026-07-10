@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
 import * as z from "zod";
-import type { TriggerSchema } from "@/api/automations";
+
+/** One provider's JSON schema, as served by ``GET /automations/triggers``. */
+export type TriggerSchema = Record<string, unknown>;
 
 type FormValues = Record<string, unknown>;
 

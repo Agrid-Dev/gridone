@@ -6,8 +6,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SEVERITIES } from "@/api/severity";
-import type { Severity } from "@/api/severity";
+import { SEVERITIES } from "@/lib/severity";
+import type { Severity } from "@/lib/severity";
 
 type StatusFilter = "all" | "unread" | "dismissed";
 

@@ -1,11 +1,20 @@
-import type { AssetTreeNode } from "@/api/assets";
-import type {
-  AttributeValue,
-  Device,
-  DeviceAttribute,
-  DevicesFilter,
-} from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { AssetTreeNode } from "@/lib/assets";
+import {
+  deviceAttributes,
+  type AttributeValue,
+  type DeviceAttribute,
+  type DevicesFilter,
+} from "@/lib/devices";
 import type { AttributeDataType, WritableAttribute } from "./types";
+
+/** Attribute maps are untyped on the wire (`Record<string, unknown>`), so the
+ *  field reads below narrow at the access site. */
+function isWritable(attr: DeviceAttribute): boolean {
+  return ((attr.read_write_modes as string[] | undefined) ?? []).includes(
+    "write",
+  );
+}
 
 /** Intersection of writable attributes across a set of devices. An attribute
  *  is included only if every device in the list exposes it as writable with
@@ -17,27 +26,25 @@ export function intersectWritableAttributes(
 ): WritableAttribute[] {
   if (devices.length === 0) return [];
 
-  const writablesOfFirst = Object.values(devices[0].attributes).filter(
-    (a: DeviceAttribute) => a.readWriteModes.includes("write"),
+  const writablesOfFirst = Object.values(deviceAttributes(devices[0])).filter(
+    isWritable,
   );
 
   return writablesOfFirst
     .filter((attr) =>
       devices.every((d) => {
-        const match = Object.values(d.attributes).find(
+        const match = Object.values(deviceAttributes(d)).find(
           (a: DeviceAttribute) => a.name === attr.name,
         );
         return (
-          !!match &&
-          match.readWriteModes.includes("write") &&
-          match.dataType === attr.dataType
+          !!match && isWritable(match) && match.data_type === attr.data_type
         );
       }),
     )
     .map((attr) => ({
-      name: attr.name,
-      dataType: attr.dataType as AttributeDataType,
-      valueOptions: intersectValueOptions(devices, attr.name),
+      name: attr.name as string,
+      dataType: attr.data_type as AttributeDataType,
+      valueOptions: intersectValueOptions(devices, attr.name as string),
     }));
 }
 
@@ -47,8 +54,8 @@ function intersectValueOptions(
 ): AttributeValue[] | undefined {
   const optionSets = devices.map(
     (d) =>
-      Object.values(d.attributes).find((a) => a.name === attrName)
-        ?.valueOptions ?? null,
+      (Object.values(deviceAttributes(d)).find((a) => a.name === attrName)
+        ?.value_options as AttributeValue[] | undefined) ?? null,
   );
   const first = optionSets[0];
   if (!first || first.length === 0) return undefined;
@@ -70,9 +77,9 @@ export function currentValueFor(
 ): AttributeValue | undefined {
   const first = devices[0];
   if (!first) return undefined;
-  const value = Object.values(first.attributes).find(
+  const value = Object.values(deviceAttributes(first)).find(
     (a) => a.name === attributeName,
-  )?.currentValue;
+  )?.current_value as AttributeValue | null | undefined;
   return value ?? undefined;
 }
 
@@ -89,7 +96,7 @@ export function deviceMatchesFilter(
       return false;
     }
   }
-  if (filter.assetId && device.tags.assetId !== filter.assetId) {
+  if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
     return false;
   }
   return true;
@@ -109,7 +116,7 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
   return (
     !(filter.ids && filter.ids.length > 0) &&
     !(filter.types && filter.types.length > 0) &&
-    !filter.assetId
+    !filter.asset_id
   );
 }
 

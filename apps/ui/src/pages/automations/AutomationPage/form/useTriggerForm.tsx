@@ -1,19 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import {
-  listTriggerSchemas,
-  type Trigger,
-  type TriggerSchema,
-} from "@/api/automations";
+import type { ProviderSchemas, Trigger } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export function useTriggerForm(initialValue?: Trigger) {
-  const { data: schemas, isLoading } = useQuery<Record<string, TriggerSchema>>({
+  const client = useGridoneClient();
+  const { data: schemas, isLoading } = useQuery<ProviderSchemas>({
     queryKey: ["automations-trigger-schemas"],
-    queryFn: listTriggerSchemas,
+    queryFn: () => client.automations.getTriggerSchemas(),
   });
 
   const [type, setType] = useState<string | undefined>(
-    initialValue?.providerId,
+    initialValue?.provider_id,
   );
 
   const schema = type && schemas ? schemas[type] : undefined;
@@ -26,7 +24,7 @@ export function useTriggerForm(initialValue?: Trigger) {
     clearType: () => setType(undefined),
     schema,
     initialValueForType:
-      initialValue && initialValue.providerId === type
+      initialValue && initialValue.provider_id === type
         ? initialValue
         : undefined,
   };

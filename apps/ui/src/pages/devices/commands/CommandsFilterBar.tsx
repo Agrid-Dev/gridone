@@ -11,9 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { toLabel } from "@/lib/textFormat";
-import type { CommandTemplate } from "@/api/commands";
-import type { Device } from "@/api/devices";
-import type { User } from "@/api/users";
+import type { CommandTemplateResponse, Device, User } from "@gridone/sdk";
 
 const ALL = "__all__";
 
@@ -26,7 +24,7 @@ type CommandsFilterBarProps = {
   attributeOptions: string[];
   devices: Device[];
   users: User[] | undefined;
-  templates: CommandTemplate[];
+  templates: CommandTemplateResponse[];
   onFilterChange: (key: string, value: string | undefined) => void;
   isDeviceFixed?: boolean;
   /** Primary action (e.g. New command), rendered flush-right on the bar. */

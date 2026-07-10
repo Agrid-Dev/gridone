@@ -3,7 +3,7 @@ import { Zap } from "lucide-react";
 import {
   isElectricityMeter,
   readElectricityMeterAttributes,
-} from "@/api/devices";
+} from "@/lib/devices";
 import { ControlPanel } from "../ControlPanel";
 import type { StandardControlProps } from "../types";
 

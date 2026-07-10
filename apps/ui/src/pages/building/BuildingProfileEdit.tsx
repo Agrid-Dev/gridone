@@ -2,7 +2,6 @@ import { FC } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import snakecaseKeys from "snakecase-keys";
 import { TypographyH2 } from "@/components/ui/typography";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEditBuildingProfile } from "@/hooks/useBuildingProfile";
@@ -27,11 +26,8 @@ const BuildingProfileEdit: FC = () => {
     return <p className="text-sm text-muted-foreground">{t("loadError")}</p>;
   }
 
-  // Form fields are schema-native (snake_case); the profile is camelCase.
-  const defaultValues = snakecaseKeys(
-    (profile.data ?? {}) as Record<string, unknown>,
-    { deep: true },
-  );
+  // Form fields are schema-native (snake_case), same as the SDK wire format.
+  const defaultValues = (profile.data ?? {}) as Record<string, unknown>;
 
   const handleSubmit = (values: Record<string, unknown>) => {
     save.mutate(values, {

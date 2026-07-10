@@ -1,21 +1,21 @@
-import type { FaultAttribute } from "@/api/devices";
+import type { FaultAttribute } from "@/lib/faults";
 import { toLabel } from "./textFormat";
 
 type FaultLabelInput = Pick<
   FaultAttribute,
-  "name" | "dataType" | "currentValue"
+  "name" | "data_type" | "current_value"
 >;
 
 export function faultLabel({
   name,
-  dataType,
-  currentValue,
+  data_type,
+  current_value,
 }: FaultLabelInput): string {
-  switch (dataType) {
+  switch (data_type) {
     case "str":
-      return currentValue == null ? toLabel(name) : String(currentValue);
+      return current_value == null ? toLabel(name) : String(current_value);
     case "int":
-      return `${toLabel(name)}: ${currentValue ?? ""}`;
+      return `${toLabel(name)}: ${current_value ?? ""}`;
     case "bool":
     default:
       return toLabel(name);

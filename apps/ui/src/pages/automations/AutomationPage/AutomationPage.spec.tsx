@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
-import type { Automation, AutomationExecution } from "@/api/automations";
+import type { Automation, AutomationExecution } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 const {
@@ -38,24 +38,25 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@/api/automations", () => ({
-  getAutomation: vi.fn(),
-  listExecutions: vi.fn(),
-  listTriggerSchemas: vi.fn(),
-  enableAutomation: vi.fn(),
-  disableAutomation: vi.fn(),
-  deleteAutomation: () => mockDeleteAutomation(),
-  updateAutomation: (id: string, payload: unknown) =>
-    mockUpdateAutomation(id, payload),
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    automations: {
+      get: vi.fn(),
+      listExecutions: vi.fn(),
+      getTriggerSchemas: vi.fn(),
+      enable: vi.fn(),
+      disable: vi.fn(),
+      delete: () => mockDeleteAutomation(),
+      update: (id: string, payload: unknown) =>
+        mockUpdateAutomation(id, payload),
+    },
+    users: { get: vi.fn() },
+    devices: { commandTemplates: { get: vi.fn() } },
+    assets: { getTreeWithDevices: vi.fn() },
+  }),
 }));
 
-vi.mock("@/api/users", () => ({
-  getUser: vi.fn().mockResolvedValue({ id: "user-01", username: "alice" }),
-}));
-
-vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
-vi.mock("@/api/assets", () => ({
-  getAssetTreeWithDevices: vi.fn(),
+vi.mock("@/lib/assets", () => ({
   flattenAssetTree: () => [],
   flattenAssetTreeById: () => ({}),
 }));
@@ -73,8 +74,8 @@ vi.mock("@/pages/devices/commands/presenters/WritePresenter", () => ({
 }));
 
 vi.mock("./presenters/TriggerPresenter", () => ({
-  TriggerPresenter: ({ trigger }: { trigger: { providerId: string } }) => (
-    <div data-testid="trigger-presenter">type={trigger.providerId}</div>
+  TriggerPresenter: ({ trigger }: { trigger: { provider_id: string } }) => (
+    <div data-testid="trigger-presenter">type={trigger.provider_id}</div>
   ),
 }));
 
@@ -141,23 +142,23 @@ const automation: Automation = {
   description: "Boost heating before occupants arrive",
   enabled: true,
   action: {
-    providerId: "command_template",
-    params: { templateId: "tpl-9f12" },
+    provider_id: "command_template",
+    params: { template_id: "tpl-9f12" },
   },
-  trigger: { providerId: "schedule", params: { cron: "0 6 * * *" } },
-  createdAt: "2026-01-01T10:00:00Z",
-  updatedAt: "2026-01-01T10:00:00Z",
-  createdBy: "user-01",
+  trigger: { provider_id: "schedule", params: { cron: "0 6 * * *" } },
+  created_at: "2026-01-01T10:00:00Z",
+  updated_at: "2026-01-01T10:00:00Z",
+  created_by: "user-01",
 };
 
 const execution: AutomationExecution = {
   id: "ex1",
-  automationId: "a1",
-  triggeredAt: "2026-04-25T06:00:00Z",
-  executedAt: "2026-04-25T06:00:01Z",
+  automation_id: "a1",
+  triggered_at: "2026-04-25T06:00:00Z",
+  executed_at: "2026-04-25T06:00:01Z",
   status: "success",
   error: null,
-  outputId: "batch-abc",
+  output_id: "batch-abc",
 };
 
 function setQueryResults(executions: AutomationExecution[] = []) {
@@ -174,10 +175,10 @@ function setQueryResults(executions: AutomationExecution[] = []) {
           write: {
             attribute: "temperature_setpoint",
             value: 22,
-            dataType: "float",
+            data_type: "float",
           },
-          createdAt: "2026-01-01T00:00:00Z",
-          createdBy: "user1",
+          created_at: "2026-01-01T00:00:00Z",
+          created_by: "user1",
         },
         isLoading: false,
       };
@@ -283,10 +284,10 @@ describe("AutomationPage", () => {
               write: {
                 attribute: "temperature_setpoint",
                 value: 22,
-                dataType: "float",
+                data_type: "float",
               },
-              createdAt: "2026-01-01T00:00:00Z",
-              createdBy: "user1",
+              created_at: "2026-01-01T00:00:00Z",
+              created_by: "user1",
             },
             isLoading: false,
           };
@@ -296,7 +297,7 @@ describe("AutomationPage", () => {
         return {
           data: {
             ...automation,
-            updatedAt: "2026-03-01T12:00:00Z",
+            updated_at: "2026-03-01T12:00:00Z",
           },
           isLoading: false,
         };
@@ -314,7 +315,7 @@ describe("AutomationPage", () => {
         id: "ex2",
         status: "failed",
         error: "Timeout waiting for device",
-        outputId: null,
+        output_id: null,
       },
     ]);
     renderDetail();

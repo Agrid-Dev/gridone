@@ -1,9 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Device, DevicesFilter, listDevices } from "../api/devices";
+import type { Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 
 export function useDevicesList(filter?: DevicesFilter) {
   const { t } = useTranslation("devices");
+  const client = useGridoneClient();
 
   const {
     data,
@@ -11,7 +14,7 @@ export function useDevicesList(filter?: DevicesFilter) {
     error: queryError,
   } = useQuery<Device[]>({
     queryKey: ["devices", filter],
-    queryFn: () => listDevices(filter),
+    queryFn: () => client.devices.list(devicesFilterToListParams(filter)),
     refetchInterval: 10_000,
   });
 

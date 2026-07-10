@@ -1,10 +1,19 @@
-import type { Severity } from "@/api/severity";
+import type { Severity } from "@gridone/sdk";
 import {
   SEMANTIC_BG_CLASS,
   SEMANTIC_HOVER_TEXT_CLASS,
   SEMANTIC_TEXT_CLASS,
   SEVERITY_LEVEL,
 } from "@/lib/semanticColors";
+
+export type { Severity };
+
+/** Every severity, mildest first — e.g. for building filter options. */
+export const SEVERITIES = [
+  "info",
+  "warning",
+  "alert",
+] as const satisfies readonly Severity[];
 
 /** Higher wins when picking the most severe of a set: alert > warning > info. */
 const SEVERITY_RANK: Record<Severity, number> = {

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Action } from "@/api/automations";
+import type { Action } from "@gridone/sdk";
 import { getActionDescriptor } from "./actionRegistry";
 import BasePresenter from "./BasePresenter";
 
@@ -8,12 +8,12 @@ import BasePresenter from "./BasePresenter";
  *  and renders its Presenter inside the shared bordered shell. */
 export function ActionPresenter({ action }: { action: Action }) {
   const { t } = useTranslation("automations");
-  const descriptor = getActionDescriptor(action.providerId);
+  const descriptor = getActionDescriptor(action.provider_id);
 
   return (
     <BasePresenter
-      title={t(`actions.types.${action.providerId}`, {
-        defaultValue: action.providerId,
+      title={t(`actions.types.${action.provider_id}`, {
+        defaultValue: action.provider_id,
       })}
       icon={descriptor.icon}
     >

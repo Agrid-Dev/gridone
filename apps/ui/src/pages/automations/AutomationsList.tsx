@@ -22,26 +22,23 @@ import {
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
-import {
-  disableAutomation,
-  enableAutomation,
-  listAutomations,
-  type Automation,
-} from "@/api/automations";
+import type { Automation } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AutomationStatusBadge } from "./components/AutomationStatusBadge";
 
 export default function AutomationsList() {
   const { t } = useTranslation("automations");
   const can = usePermissions();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
 
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automations"],
-    queryFn: () => listAutomations(),
+    queryFn: () => client.automations.list(),
   });
 
   const enableMutation = useMutation({
-    mutationFn: (id: string) => enableAutomation(id),
+    mutationFn: (id: string) => client.automations.enable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.enabled"));
@@ -50,7 +47,7 @@ export default function AutomationsList() {
   });
 
   const disableMutation = useMutation({
-    mutationFn: (id: string) => disableAutomation(id),
+    mutationFn: (id: string) => client.automations.disable(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.disabled"));
@@ -121,8 +118,8 @@ export default function AutomationsList() {
                 isMutating={isMutating}
                 onToggle={() =>
                   automation.enabled
-                    ? disableMutation.mutate(automation.id)
-                    : enableMutation.mutate(automation.id)
+                    ? disableMutation.mutate(automation.id!)
+                    : enableMutation.mutate(automation.id!)
                 }
               />
             ))}
@@ -158,12 +155,12 @@ function AutomationRow({
         )}
       </TableCell>
       <TableCell>
-        {t(`triggers.types.${automation.trigger.providerId}`, {
-          defaultValue: automation.trigger.providerId,
+        {t(`triggers.types.${automation.trigger.provider_id}`, {
+          defaultValue: automation.trigger.provider_id,
         })}
       </TableCell>
       <TableCell>
-        <AutomationStatusBadge enabled={automation.enabled} />
+        <AutomationStatusBadge enabled={automation.enabled ?? true} />
       </TableCell>
       {canWrite && (
         <TableCell className="text-right">

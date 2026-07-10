@@ -90,12 +90,12 @@ describe("NotificationActionForm", () => {
     // Adding a recipient completes the draft.
     fireEvent.click(screen.getByTestId("pick-user"));
     expect(onChange).toHaveBeenLastCalledWith({
-      providerId: "notification",
+      provider_id: "notification",
       params: {
         title: "Someone wants to be warm",
         body: "",
         severity: "info",
-        userIds: ["u1"],
+        user_ids: ["u1"],
       },
     } satisfies ActionFormResult);
   });
@@ -116,12 +116,12 @@ describe("NotificationActionForm", () => {
     fireEvent.click(screen.getByTestId("pick-user"));
 
     expect(onChange).toHaveBeenLastCalledWith({
-      providerId: "notification",
+      provider_id: "notification",
       params: {
         title: "Heat alert",
         body: "la la la la",
         severity: "warning",
-        userIds: ["u1"],
+        user_ids: ["u1"],
       },
     });
   });
@@ -130,12 +130,12 @@ describe("NotificationActionForm", () => {
     render(
       <NotificationActionForm
         initialValue={{
-          providerId: "notification",
+          provider_id: "notification",
           params: {
             title: "Existing",
             body: "old body",
             severity: "alert",
-            userIds: ["u1"],
+            user_ids: ["u1"],
           },
         }}
         onChange={() => {}}

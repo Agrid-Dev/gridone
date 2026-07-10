@@ -9,41 +9,41 @@ describe("faultLabel", () => {
   }> = [
     {
       title: "bool: snake_case name is Title Cased",
-      input: { name: "filter_alarm", dataType: "bool", currentValue: true },
+      input: { name: "filter_alarm", data_type: "bool", current_value: true },
       expected: "Filter Alarm",
     },
     {
       title: "bool: camelCase name is Title Cased",
-      input: { name: "filterAlarm", dataType: "bool", currentValue: false },
+      input: { name: "filterAlarm", data_type: "bool", current_value: false },
       expected: "Filter Alarm",
     },
     {
-      title: "str: returns currentValue verbatim",
+      title: "str: returns current_value verbatim",
       input: {
         name: "error_state",
-        dataType: "str",
-        currentValue: "High pressure",
+        data_type: "str",
+        current_value: "High pressure",
       },
       expected: "High pressure",
     },
     {
-      title: "str: falls back to Title Case name when currentValue is null",
-      input: { name: "error_state", dataType: "str", currentValue: null },
+      title: "str: falls back to Title Case name when current_value is null",
+      input: { name: "error_state", data_type: "str", current_value: null },
       expected: "Error State",
     },
     {
       title: "int: combines Title Case name and value",
-      input: { name: "error_code", dataType: "int", currentValue: 42 },
+      input: { name: "error_code", data_type: "int", current_value: 42 },
       expected: "Error Code: 42",
     },
     {
-      title: "int: null currentValue renders empty suffix",
-      input: { name: "error_code", dataType: "int", currentValue: null },
+      title: "int: null current_value renders empty suffix",
+      input: { name: "error_code", data_type: "int", current_value: null },
       expected: "Error Code: ",
     },
     {
       title: "unknown dataType falls through to the bool branch",
-      input: { name: "mystery_field", dataType: "float", currentValue: 1.2 },
+      input: { name: "mystery_field", data_type: "float", current_value: 1.2 },
       expected: "Mystery Field",
     },
   ];

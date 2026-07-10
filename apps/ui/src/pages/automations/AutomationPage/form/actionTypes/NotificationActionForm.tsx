@@ -12,7 +12,7 @@ import {
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import UserPicker from "@/components/forms/resourcePickers/UserPicker";
 import { SeverityChip } from "@/components/SeverityChip";
-import { SEVERITIES, type Severity } from "@/api/severity";
+import { SEVERITIES, type Severity } from "@/lib/severity";
 import type { CustomActionFormProps } from "../../presenters/types";
 
 type NotificationDraft = {
@@ -34,8 +34,13 @@ const DEFAULT_DRAFT: NotificationDraft = {
 function readInitialDraft(
   initialValue: CustomActionFormProps["initialValue"],
 ): NotificationDraft {
-  if (initialValue?.providerId !== "notification") return DEFAULT_DRAFT;
-  const { title, body, severity, userIds } = initialValue.params;
+  if (initialValue?.provider_id !== "notification") return DEFAULT_DRAFT;
+  const {
+    title,
+    body,
+    severity,
+    user_ids: userIds,
+  } = initialValue.params ?? {};
   return {
     title: typeof title === "string" ? title : "",
     body: typeof body === "string" ? body : "",
@@ -53,12 +58,12 @@ function readInitialDraft(
 function toResult(draft: NotificationDraft) {
   if (!draft.title.trim() || draft.userIds.length === 0) return null;
   return {
-    providerId: "notification" as const,
+    provider_id: "notification" as const,
     params: {
       title: draft.title,
       body: draft.body,
       severity: draft.severity,
-      userIds: draft.userIds,
+      user_ids: draft.userIds,
     },
   };
 }

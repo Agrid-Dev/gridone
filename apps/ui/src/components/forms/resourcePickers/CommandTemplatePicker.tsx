@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { listTemplates, CommandTemplate } from "@/api/commands";
+import type { CommandTemplateResponse } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { FieldShell } from "../controllers/FieldShell";
 import {
   Select,
@@ -12,19 +13,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FC, ComponentProps } from "react";
 import { useTranslation } from "react-i18next";
 
-const useCommandTemplates = () =>
-  useQuery({
+const useCommandTemplates = () => {
+  const client = useGridoneClient();
+  return useQuery({
     queryKey: ["command-templates"],
-    queryFn: () => listTemplates(),
+    queryFn: () => client.devices.commandTemplates.list(),
   });
+};
 
 interface SelectPickerProps extends Pick<
   ComponentProps<typeof FieldShell>,
   "label"
 > {
-  templates: CommandTemplate[];
+  templates: CommandTemplateResponse[];
   value?: string;
-  onSelect: (t: CommandTemplate) => void;
+  onSelect: (t: CommandTemplateResponse) => void;
 }
 
 const TemplatePicker: FC<SelectPickerProps> = ({

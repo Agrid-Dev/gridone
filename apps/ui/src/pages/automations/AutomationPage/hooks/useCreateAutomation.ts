@@ -3,11 +3,8 @@ import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import {
-  createAutomation,
-  type Automation,
-  type Trigger,
-} from "@/api/automations";
+import type { Automation, Trigger } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { type MetadataFormValues } from "../form/MetadataForm";
 import type { ActionFormResult } from "../presenters/types";
 
@@ -29,6 +26,7 @@ export function useCreateAutomation() {
   const { t } = useTranslation("automations");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const [currentStep, setCurrentStep] = useState<WizardStep>("metadata");
   const [metadata, setMetadata] = useState<MetadataFormValues | null>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
@@ -44,7 +42,7 @@ export function useCreateAutomation() {
       triggerValue: Trigger;
       actionValue: ActionFormResult;
     }) =>
-      createAutomation({
+      client.automations.create({
         name: values.name,
         description: values.description,
         enabled: values.enabled,

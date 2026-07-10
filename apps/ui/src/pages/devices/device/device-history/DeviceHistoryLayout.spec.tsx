@@ -5,8 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
-import { type Device } from "@/api/devices";
-import type { TimeSeries } from "@/api/timeseries";
+import type { Device, TimeSeries } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const { mockListSeries, mockGetSeriesPoints } = vi.hoisted(() => ({
@@ -14,19 +13,16 @@ const { mockListSeries, mockGetSeriesPoints } = vi.hoisted(() => ({
   mockGetSeriesPoints: vi.fn(),
 }));
 
-vi.mock("@/api/timeseries", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/api/timeseries")>(
-      "@/api/timeseries",
-    );
-  return {
-    ...actual,
-    listSeries: (...args: unknown[]) => mockListSeries(...args),
-    getSeriesPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
-    exportCsv: vi.fn(),
-    exportPng: vi.fn(),
-  };
-});
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    timeseries: {
+      list: (...args: unknown[]) => mockListSeries(...args),
+      getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
+      exportCsv: vi.fn(),
+      exportPng: vi.fn(),
+    },
+  }),
+}));
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -86,8 +82,8 @@ function setupDevice(count: number) {
     name: "AHU-1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes: Object.fromEntries(
       names.map((name) => [
@@ -95,24 +91,24 @@ function setupDevice(count: number) {
         {
           kind: "standard",
           name,
-          dataType: "float",
-          readWriteModes: ["read"],
-          currentValue: null,
-          lastUpdated: null,
-          lastChanged: null,
+          data_type: "float",
+          read_write_modes: ["read"],
+          current_value: null,
+          last_updated: null,
+          last_changed: null,
         },
       ]),
     ),
-    isFaulty: false,
+    is_faulty: false,
   } satisfies Device;
 
   const series: TimeSeries[] = names.map((metric) => ({
     id: `s-${metric}`,
-    dataType: "float",
-    ownerId: "d1",
+    data_type: "float",
+    owner_id: "d1",
     metric,
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
   }));
   mockListSeries.mockResolvedValue(series);
 }

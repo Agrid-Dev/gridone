@@ -26,22 +26,28 @@ import {
 } from "@/components/ui/empty";
 import { FileSearchCorner } from "lucide-react";
 import { ErrorFallback } from "@/components/fallbacks/Error";
-import type { Asset } from "@/api/assets";
-import { listTemplates, type CommandTemplate } from "@/api/commands";
+import type { Asset, CommandTemplateResponse } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { usePermissions } from "@/contexts/AuthContext";
-import { toSearchString } from "@/api/pagination";
+import { toSearchString } from "@/lib/pagination";
 import { TargetPresenter } from "../presenters/TargetPresenter";
 import { WritePresenter } from "../presenters/WritePresenter";
 
 export default function TemplatesListPage() {
   const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
+  const client = useGridoneClient();
   const [searchParams] = useSearchParams();
 
   const query = useQuery({
     queryKey: ["command-templates", searchParams.toString()],
-    queryFn: () => listTemplates(searchParams),
+    queryFn: () =>
+      client.devices.commandTemplates.list({
+        page: numberParam(searchParams, "page"),
+        size: numberParam(searchParams, "size"),
+      }),
   });
 
   const { assetsById } = useAssetTree();
@@ -186,11 +192,16 @@ export default function TemplatesListPage() {
   );
 }
 
+function numberParam(params: URLSearchParams, key: string): number | undefined {
+  const raw = params.get(key);
+  return raw === null ? undefined : Number(raw);
+}
+
 function TemplateRow({
   template,
   assetsById,
 }: {
-  template: CommandTemplate;
+  template: CommandTemplateResponse;
   assetsById: Record<string, Asset>;
 }) {
   return (
@@ -204,16 +215,19 @@ function TemplateRow({
         </Link>
       </TableCell>
       <TableCell>
-        <TargetPresenter target={template.target} assetsById={assetsById} />
+        <TargetPresenter
+          target={template.target as DevicesFilter}
+          assetsById={assetsById}
+        />
       </TableCell>
       <TableCell>
         <WritePresenter write={template.write} />
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
-        {template.createdBy}
+        {template.created_by}
       </TableCell>
       <TableCell className="text-sm text-muted-foreground">
-        {new Date(template.createdAt).toLocaleString()}
+        {new Date(template.created_at).toLocaleString()}
       </TableCell>
     </TableRow>
   );

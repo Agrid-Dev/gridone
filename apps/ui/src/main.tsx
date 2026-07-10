@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { GridoneClientProvider } from "./contexts/GridoneClientContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DeviceProvider } from "./contexts/DeviceContext";
 import "./index.css";
@@ -23,11 +24,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <AuthProvider>
-            <DeviceProvider>
-              <App />
-            </DeviceProvider>
-          </AuthProvider>
+          <GridoneClientProvider>
+            <AuthProvider>
+              <DeviceProvider>
+                <App />
+              </DeviceProvider>
+            </AuthProvider>
+          </GridoneClientProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>

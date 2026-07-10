@@ -1,4 +1,4 @@
-import { isAhuSingleFlux, readAhuSingleFluxAttributes } from "@/api/devices";
+import { isAhuSingleFlux, readAhuSingleFluxAttributes } from "@/lib/devices";
 import { AhuPreviewBody } from "../ahu-shared";
 import type { StandardPreviewProps } from "../types";
 

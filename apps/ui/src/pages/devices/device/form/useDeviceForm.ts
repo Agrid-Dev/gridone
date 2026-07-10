@@ -3,20 +3,20 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { ApiError } from "@/api/apiError";
 import {
-  createDevice,
-  updateDevice,
+  isGridoneError,
   type Device,
-  type DeviceCreatePayload,
-} from "@/api/devices";
-import type { Transport, TransportProtocol } from "@/api/transports";
+  type DeviceCreate,
+  type DeviceUpdate,
+  type Transport,
+} from "@gridone/sdk";
+import type { FormProtocol } from "@/pages/transports/form/useTransportForm";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useDrivers } from "@/pages/drivers/useDrivers";
 import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
 import { useTranslation } from "react-i18next";
 import { useDeviceDiscovery } from "@/hooks/useDeviceDiscovery";
-import snakecaseKeys from "snakecase-keys";
 
 type BaseFormData = {
   name: string;
@@ -27,13 +27,14 @@ type BaseFormData = {
 type ConfigFormData = Record<string, string>;
 
 export type NetworkModalState =
-  | { mode: "create"; protocol: TransportProtocol }
+  | { mode: "create"; protocol: FormProtocol }
   | { mode: "edit"; transport: Transport }
   | null;
 
 export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const isCreate = device === undefined;
   const { t } = useTranslation("devices");
   const { driversListQuery: driversQuery } = useDrivers();
@@ -43,16 +44,17 @@ export const useDeviceForm = (device?: Device) => {
   const baseFormMethods = useForm<BaseFormData>({
     defaultValues: {
       name: device?.name || "",
-      driverId: device?.driverId || "",
-      transportId: device?.transportId || "",
+      driverId: device?.driver_id || "",
+      transportId: device?.transport_id || "",
     },
     mode: "onChange",
   });
 
   const configFormMethods = useForm<ConfigFormData>({
     mode: "onChange",
+    // Config keys arrive in wire format (snake_case) — use them verbatim.
     defaultValues: device?.config
-      ? (snakecaseKeys(device.config) as ConfigFormData)
+      ? (device.config as ConfigFormData)
       : undefined,
   });
 
@@ -77,7 +79,7 @@ export const useDeviceForm = (device?: Device) => {
   // Reset config form and transport when driver changes
   useEffect(() => {
     configFormMethods.reset();
-    baseFormMethods.setValue("transportId", device?.transportId || "", {
+    baseFormMethods.setValue("transportId", device?.transport_id || "", {
       shouldDirty: true,
       shouldValidate: true,
     });
@@ -128,7 +130,7 @@ export const useDeviceForm = (device?: Device) => {
   const requiredConfigFields = useMemo(
     () =>
       new Set(
-        selectedDriver?.deviceConfig
+        selectedDriver?.device_config
           .filter((field) => field.required)
           .map((field) => field.name) ?? [],
       ),
@@ -138,7 +140,7 @@ export const useDeviceForm = (device?: Device) => {
   // Get config fields with labels
   const configFields = useMemo(
     () =>
-      selectedDriver?.deviceConfig.map((field) => ({
+      selectedDriver?.device_config.map((field) => ({
         name: field.name,
         label: toLabel(field.name),
         required: requiredConfigFields.has(field.name),
@@ -162,7 +164,7 @@ export const useDeviceForm = (device?: Device) => {
     if (!selectedDriver) return;
     setNetworkModalState({
       mode: "create",
-      protocol: selectedDriver.transport,
+      protocol: selectedDriver.transport as FormProtocol,
     });
   };
 
@@ -182,13 +184,13 @@ export const useDeviceForm = (device?: Device) => {
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (payload: DeviceCreatePayload) => createDevice(payload),
+    mutationFn: (payload: DeviceCreate) => client.devices.create(payload),
     onSuccess: async (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices"] });
       try {
         await discovery.flush({
-          transportId: device.transportId,
-          driverId: device.driverId,
+          transportId: device.transport_id,
+          driverId: device.driver_id,
         });
       } catch {
         // Toast is surfaced inside useDeviceDiscovery's mutation onError.
@@ -204,16 +206,17 @@ export const useDeviceForm = (device?: Device) => {
     mutationFn: ({
       deviceId,
       ...payload
-    }: Partial<Device> & { deviceId: string }) =>
-      updateDevice(deviceId, payload),
+    }: DeviceUpdate & { deviceId: string }) =>
+      client.devices.update(deviceId, payload),
     onSuccess: (device: Device) => {
       queryClient.refetchQueries({ queryKey: ["devices", device.id] });
       toast.success(t("devices.feedback.updated"));
       navigate(`..`, { relative: "path" });
     },
     onError: (err: Error) => {
-      const detail =
-        err instanceof ApiError ? err.details || err.message : err.message;
+      const detail = isGridoneError(err)
+        ? err.detail || err.message
+        : err.message;
       toast.error(`${t("devices.feedback.updateError")}: ${detail}`);
     },
   });
@@ -227,17 +230,24 @@ export const useDeviceForm = (device?: Device) => {
 
     if (!baseValid || !configValid) return;
 
+    const { name, driverId, transportId } = baseFormMethods.getValues();
+    const config = configFormMethods.getValues();
+
     if (!isCreate && device) {
       // update — success/error surfaced via the mutation's toast callbacks
       updateMutation.mutate({
-        ...baseFormMethods.getValues(),
-        config: configFormMethods.getValues(),
         deviceId: device.id,
+        name,
+        driver_id: driverId,
+        transport_id: transportId,
+        config,
       });
     } else {
       await createMutation.mutateAsync({
-        ...baseFormMethods.getValues(),
-        config: configFormMethods.getValues(),
+        name,
+        driver_id: driverId,
+        transport_id: transportId,
+        config,
       });
     }
   };

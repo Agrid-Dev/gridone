@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { toSearchString } from "@/api/pagination";
-import type { Severity } from "@/api/severity";
+import { toSearchString } from "@/lib/pagination";
+import type { Severity } from "@/lib/severity";
 import { useNotifications } from "./useNotifications";
 
 type StatusFilter = "all" | "unread" | "dismissed";
@@ -68,7 +68,7 @@ export function useNotificationsPage() {
   function toggleSelectAll() {
     const undismissed =
       data?.items
-        .filter((d) => d.dismissedAt === null)
+        .filter((d) => d.dismissed_at === null)
         .map((d) => d.notification.id) ?? [];
     const allSelected = undismissed.every((id) => selected.has(id));
     setSelected(allSelected ? new Set() : new Set(undismissed));
@@ -91,14 +91,14 @@ export function useNotificationsPage() {
 
   const undismissedOnPage =
     data?.items
-      .filter((d) => d.dismissedAt === null)
+      .filter((d) => d.dismissed_at === null)
       .map((d) => d.notification.id) ?? [];
   const allSelected =
     undismissedOnPage.length > 0 &&
     undismissedOnPage.every((id) => selected.has(id));
 
-  const prevHref = data ? toSearchString(data.links.prev) : undefined;
-  const nextHref = data ? toSearchString(data.links.next) : undefined;
+  const prevHref = data ? toSearchString(data.links.prev ?? null) : undefined;
+  const nextHref = data ? toSearchString(data.links.next ?? null) : undefined;
 
   return {
     data,

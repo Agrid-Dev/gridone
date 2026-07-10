@@ -1,9 +1,9 @@
 import { type FC } from "react";
 import { useTranslation } from "react-i18next";
-import type { Action } from "@/api/automations";
+import type { Action } from "@gridone/sdk";
 import { useUsers } from "@/hooks/useUsers";
 import { SeverityChip, type Severity } from "@/components/SeverityChip";
-import { SEVERITIES } from "@/api/severity";
+import { SEVERITIES } from "@/lib/severity";
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -25,10 +25,11 @@ export const NotificationPresenter: FC<{ action: Action }> = ({ action }) => {
   const { t } = useTranslation("automations");
   const { usersMap } = useUsers();
 
-  const title = asString(action.params.title);
-  const body = asString(action.params.body);
-  const severity = asSeverity(action.params.severity);
-  const userIds = asUserIds(action.params.userIds);
+  const params = action.params ?? {};
+  const title = asString(params.title);
+  const body = asString(params.body);
+  const severity = asSeverity(params.severity);
+  const userIds = asUserIds(params.user_ids);
 
   const recipients = userIds
     .map((id) => usersMap.get(id)?.name || usersMap.get(id)?.username || id)

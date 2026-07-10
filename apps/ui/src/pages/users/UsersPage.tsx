@@ -3,16 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Ban, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import {
-  listUsers,
-  createUser,
-  updateUser,
-  deleteUser,
-  blockUser,
-  unblockUser,
-} from "@/api/users";
-import type { User, UserCreatePayload, UserUpdatePayload } from "@/api/users";
-import type { UserRole } from "@/api/auth";
+import type {
+  Role,
+  User,
+  UserCreateRequest,
+  UserUpdateRequest,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
@@ -32,7 +29,7 @@ import { Input } from "@/components/ui/input";
 type UserFormData = {
   username: string;
   password: string;
-  role: UserRole;
+  role: Role;
   name: string;
   email: string;
   title: string;
@@ -61,12 +58,14 @@ function getUserInitials(name: string, username: string): string {
 export default function UsersPage() {
   const { t } = useTranslation(["users", "common"]);
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const { state } = useAuth();
   const currentUserId = state.status === "authenticated" ? state.user.id : null;
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
-    queryFn: listUsers,
+    // This page is admin-only, so the API returns full `User` objects.
+    queryFn: () => client.users.list() as Promise<User[]>,
   });
 
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
@@ -74,7 +73,7 @@ export default function UsersPage() {
   const [form, setForm] = useState<UserFormData>(emptyForm);
 
   const createMutation = useMutation({
-    mutationFn: (data: UserCreatePayload) => createUser(data),
+    mutationFn: (data: UserCreateRequest) => client.users.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setDialogMode(null);
@@ -84,8 +83,8 @@ export default function UsersPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UserUpdatePayload }) =>
-      updateUser(id, data),
+    mutationFn: ({ id, data }: { id: string; data: UserUpdateRequest }) =>
+      client.users.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setDialogMode(null);
@@ -95,7 +94,7 @@ export default function UsersPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteUser(id),
+    mutationFn: (id: string) => client.users.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("deleted"));
@@ -104,7 +103,7 @@ export default function UsersPage() {
   });
 
   const blockMutation = useMutation({
-    mutationFn: (id: string) => blockUser(id),
+    mutationFn: (id: string) => client.users.block(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("blocked"));
@@ -113,7 +112,7 @@ export default function UsersPage() {
   });
 
   const unblockMutation = useMutation({
-    mutationFn: (id: string) => unblockUser(id),
+    mutationFn: (id: string) => client.users.unblock(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("unblocked"));
@@ -131,10 +130,10 @@ export default function UsersPage() {
     setForm({
       username: user.username,
       password: "",
-      role: user.role,
-      name: user.name,
-      email: user.email,
-      title: user.title,
+      role: user.role ?? "operator",
+      name: user.name ?? "",
+      email: user.email ?? "",
+      title: user.title ?? "",
     });
     setEditingUser(user);
     setDialogMode("edit");
@@ -152,7 +151,7 @@ export default function UsersPage() {
         title: form.title,
       });
     } else if (dialogMode === "edit" && editingUser) {
-      const payload: UserUpdatePayload = {
+      const payload: UserUpdateRequest = {
         username: form.username || undefined,
         role: form.role,
         name: form.name,
@@ -193,7 +192,7 @@ export default function UsersPage() {
               <CardContent className="pt-6">
                 <div className="flex items-start gap-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 font-mono text-sm font-medium text-primary">
-                    {getUserInitials(user.name, user.username)}
+                    {getUserInitials(user.name ?? "", user.username)}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -216,9 +215,9 @@ export default function UsersPage() {
                     )}
                     <div className="mt-2 flex gap-1.5">
                       <Badge variant="secondary">
-                        {t(`users:roles.${user.role}`)}
+                        {t(`users:roles.${user.role ?? "viewer"}`)}
                       </Badge>
-                      {user.isBlocked && (
+                      {user.is_blocked && (
                         <Badge variant="destructive">{t("blockedBadge")}</Badge>
                       )}
                     </div>
@@ -232,7 +231,7 @@ export default function UsersPage() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  {user.id !== currentUserId && !user.isBlocked && (
+                  {user.id !== currentUserId && !user.is_blocked && (
                     <ConfirmButton
                       variant="outline"
                       size="sm"
@@ -247,7 +246,7 @@ export default function UsersPage() {
                       <Ban className="h-3.5 w-3.5" />
                     </ConfirmButton>
                   )}
-                  {user.id !== currentUserId && user.isBlocked && (
+                  {user.id !== currentUserId && user.is_blocked && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -354,7 +353,7 @@ export default function UsersPage() {
               <select
                 value={form.role}
                 onChange={(e) =>
-                  setForm({ ...form, role: e.target.value as UserRole })
+                  setForm({ ...form, role: e.target.value as Role })
                 }
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >

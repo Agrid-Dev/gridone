@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { AttributeValue } from "./AttributeValue";
-import { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/lib/devices";
 
 afterEach(cleanup);
 

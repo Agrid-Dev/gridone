@@ -1,16 +1,18 @@
 import { useMemo } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
-import { listSeries, getSeriesPoints } from "../api/timeseries";
 import type {
   DataPoint,
-  SeriesPointsResult,
+  FetchPointsResultResponse,
   TimeSeries,
-} from "../api/timeseries";
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export function useDeviceSeries(deviceId: string | undefined) {
+  const client = useGridoneClient();
+
   const seriesQuery = useQuery<TimeSeries[]>({
     queryKey: ["timeseries", "series", deviceId],
-    queryFn: () => listSeries(deviceId!),
+    queryFn: () => client.timeseries.list(deviceId!),
     enabled: !!deviceId,
   });
 
@@ -29,15 +31,17 @@ export function useSeriesPoints(
   end?: string,
   last?: string,
 ) {
+  const client = useGridoneClient();
+
   const pointsQueries = useQueries({
     queries: seriesList.map((series) => ({
       queryKey: ["timeseries", "points", series.id, start, end, last],
-      queryFn: (): Promise<SeriesPointsResult> =>
-        getSeriesPoints(series.ownerId, series.metric, {
+      queryFn: (): Promise<FetchPointsResultResponse> =>
+        client.timeseries.getPoints(series.owner_id, series.metric, {
           start,
           end,
           last,
-          carryForward: true,
+          carry_forward: true,
         }),
     })),
   });

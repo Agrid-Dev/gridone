@@ -10,11 +10,9 @@ import { MemoryRouter } from "react-router";
 import { TooltipProvider } from "@/components/ui";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
-import {
-  type Device,
-  type DeviceAttribute,
-  type FaultAttribute,
-} from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
+import type { AttributeFields, FaultAttribute } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -38,14 +36,14 @@ vi.mock("react-i18next", () =>
 const NOW = "2026-04-22T10:00:00Z";
 
 const attr = (
-  over: Partial<DeviceAttribute> & { name: string },
-): DeviceAttribute => ({
+  over: Partial<AttributeFields> & { name: string },
+): AttributeFields => ({
   kind: "standard",
-  dataType: "float",
-  readWriteModes: ["read"],
-  currentValue: 21.5,
-  lastUpdated: "2026-04-22T09:58:00Z", // 2m ago
-  lastChanged: "2026-04-22T09:00:00Z", // 1h ago
+  data_type: "float",
+  read_write_modes: ["read"],
+  current_value: 21.5,
+  last_updated: "2026-04-22T09:58:00Z", // 2m ago
+  last_changed: "2026-04-22T09:00:00Z", // 1h ago
   ...over,
 });
 
@@ -53,15 +51,15 @@ const faultAttr = (
   over: Partial<FaultAttribute> & {
     name: string;
     severity: FaultAttribute["severity"];
-    isFaulty: boolean;
+    is_faulty: boolean;
   },
 ): FaultAttribute => ({
   kind: "fault",
-  dataType: "bool",
-  readWriteModes: ["read"],
-  currentValue: true,
-  lastUpdated: "2026-04-22T09:55:00Z",
-  lastChanged: "2026-04-22T09:55:00Z", // 5m ago
+  data_type: "bool",
+  read_write_modes: ["read"],
+  current_value: true,
+  last_updated: "2026-04-22T09:55:00Z",
+  last_changed: "2026-04-22T09:55:00Z", // 5m ago
   ...over,
 });
 
@@ -71,11 +69,11 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     name: "Device 1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes,
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
@@ -105,16 +103,16 @@ describe("DeviceAttributePanes", () => {
     renderPanes(
       makeDevice({
         temperature: attr({ name: "temperature" }),
-        highTempAlarm: faultAttr({
+        high_temp_alarm: faultAttr({
           name: "high_temp_alarm",
           severity: "alert",
-          isFaulty: true,
+          is_faulty: true,
         }),
-        connectionStatus: attr({
-          name: "connectionStatus",
+        connection_status: attr({
+          name: "connection_status",
           kind: "internal",
-          dataType: "str",
-          currentValue: "ok",
+          data_type: "str",
+          current_value: "ok",
         }),
       }),
     );
@@ -138,7 +136,7 @@ describe("DeviceAttributePanes", () => {
   it("shows name + value with a last-change indicator, keeping type/access off the row", () => {
     renderPanes(
       makeDevice({
-        temperature: attr({ name: "temperature", currentValue: 21.5 }),
+        temperature: attr({ name: "temperature", current_value: 21.5 }),
       }),
     );
 
@@ -158,7 +156,7 @@ describe("DeviceAttributePanes", () => {
         alarm: faultAttr({
           name: "high_temp_alarm",
           severity: "alert",
-          isFaulty: true,
+          is_faulty: true,
         }),
       }),
     );
@@ -169,15 +167,13 @@ describe("DeviceAttributePanes", () => {
   });
 
   it("renders connection status as a green value when OK", () => {
-    // The map key is camelCased by the API client, but `name` keeps the
-    // backend's snake_case value — the row must still recognise it.
     renderPanes(
       makeDevice({
-        connectionStatus: attr({
+        connection_status: attr({
           name: "connection_status",
           kind: "internal",
-          dataType: "str",
-          currentValue: "ok",
+          data_type: "str",
+          current_value: "ok",
         }),
       }),
     );
@@ -190,7 +186,10 @@ describe("DeviceAttributePanes", () => {
   it("links writable rows to the command form pre-targeted to the attribute", () => {
     renderPanes(
       makeDevice({
-        setpoint: attr({ name: "setpoint", readWriteModes: ["read", "write"] }),
+        setpoint: attr({
+          name: "setpoint",
+          read_write_modes: ["read", "write"],
+        }),
       }),
     );
 

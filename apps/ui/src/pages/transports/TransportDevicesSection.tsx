@@ -12,7 +12,7 @@ export const TransportDevicesSection: FC<{ transportId: string }> = ({
   transportId,
 }) => {
   const { t } = useTranslation("transports");
-  const filter = useMemo(() => ({ transportId }), [transportId]);
+  const filter = useMemo(() => ({ transport_id: transportId }), [transportId]);
   const { devices, loading, error } = useDevicesList(filter);
 
   const sorted = useMemo(() => sortedByName(devices), [devices]);

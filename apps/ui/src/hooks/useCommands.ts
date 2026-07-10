@@ -3,11 +3,16 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useReactTable, getCoreRowModel } from "@tanstack/react-table";
-import { getCommands, getDeviceCommands, listTemplates } from "@/api/commands";
-import type { Page } from "@/api/pagination";
-import { toSearchString } from "@/api/pagination";
-import type { CommandTemplate, DeviceCommand } from "@/api/commands";
-import type { Device } from "@/api/devices";
+import type {
+  CommandListParams,
+  CommandTemplateResponse,
+  Device,
+  Page,
+  UnitCommand,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { deviceAttributes } from "@/lib/devices";
+import { toSearchString } from "@/lib/pagination";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
@@ -42,6 +47,28 @@ function buildApiParams(searchParams: URLSearchParams): URLSearchParams {
   return api;
 }
 
+/** Map the URL-derived search params onto the SDK's typed query object. */
+function toCommandListParams(api: URLSearchParams): CommandListParams {
+  const str = (key: string) => api.get(key) ?? undefined;
+  const num = (key: string) => {
+    const raw = api.get(key);
+    return raw === null ? undefined : Number(raw);
+  };
+  return {
+    device_id: str("device_id"),
+    attribute: str("attribute"),
+    user_id: str("user_id"),
+    batch_id: str("batch_id"),
+    template_id: str("template_id"),
+    start: str("start"),
+    end: str("end"),
+    last: str("last"),
+    sort: str("sort") as CommandListParams["sort"],
+    page: num("page"),
+    size: num("size"),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -56,11 +83,13 @@ function useAttributeOptions(devices: Device[], deviceId: string | undefined) {
     if (!deviceId) return [];
     const device = devices.find((d) => d.id === deviceId);
     if (!device) return [];
-    // Use attribute.name (original snake_case) rather than the object key
-    // which has been camelCased by the API response transform.
-    return Object.values(device.attributes)
-      .filter((attr) => attr.readWriteModes.includes("write"))
-      .map((attr) => attr.name);
+    return Object.values(deviceAttributes(device))
+      .filter((attr) =>
+        ((attr.read_write_modes as string[] | undefined) ?? []).includes(
+          "write",
+        ),
+      )
+      .map((attr) => attr.name as string);
   }, [devices, deviceId]);
 }
 
@@ -69,6 +98,7 @@ export function useCommands({
 }: UseCommandsOptions = {}) {
   const { t } = useTranslation(["devices", "common"]);
   const [searchParams, setSearchParams] = useSearchParams();
+  const client = useGridoneClient();
 
   // Read filter values from URL (already in API format)
   const deviceId = fixedDeviceId ?? searchParams.get("device_id") ?? undefined;
@@ -85,9 +115,9 @@ export function useCommands({
   // Templates list — used for both the filter dropdown and the table column
   // name lookup. Low cardinality (user-saved only), so one cached fetch is
   // plenty for both the list and the detail pages.
-  const { data: templatesPage } = useQuery<Page<CommandTemplate>>({
+  const { data: templatesPage } = useQuery<Page<CommandTemplateResponse>>({
     queryKey: ["command-templates"],
-    queryFn: () => listTemplates(),
+    queryFn: () => client.devices.commandTemplates.list(),
     staleTime: 30_000,
   });
   const templates = templatesPage?.items ?? [];
@@ -104,13 +134,15 @@ export function useCommands({
   // Fetch commands. Polling is always on: fast when any row is still pending,
   // slow otherwise. The function form lets it self-adjust as rows transition.
   const { data, isLoading, isPlaceholderData, error } = useQuery<
-    Page<DeviceCommand>
+    Page<UnitCommand>
   >({
     queryKey: ["commands", fixedDeviceId ?? "all", queryKey],
     queryFn: () =>
-      fixedDeviceId
-        ? getDeviceCommands(fixedDeviceId, apiParams)
-        : getCommands(apiParams),
+      client.devices.listCommands(
+        fixedDeviceId
+          ? { ...toCommandListParams(apiParams), device_id: fixedDeviceId }
+          : toCommandListParams(apiParams),
+      ),
     placeholderData: keepPreviousData,
     staleTime: 5000,
     refetchInterval: (query) => {
@@ -118,7 +150,7 @@ export function useCommands({
       const pending = items.filter((c) => c.status === "pending");
       if (pending.length === 0) return POLL_SLOW_MS;
       const oldestPendingMs = Math.min(
-        ...pending.map((c) => new Date(c.createdAt).getTime()),
+        ...pending.map((c) => new Date(c.created_at).getTime()),
       );
       const age = Date.now() - oldestPendingMs;
       return age > POLL_FAST_CAP_MS ? POLL_SLOW_MS : POLL_FAST_MS;
@@ -163,7 +195,7 @@ export function useCommands({
     columns,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
-    pageCount: data?.totalPages ?? 0,
+    pageCount: data?.total_pages ?? 0,
   });
 
   // Pagination link hrefs (extracted from API response)

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import {
   AhuSetpointsSection,

@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useDrivers } from "./useDrivers";
-import { Driver } from "@/api/drivers";
+import type { Driver } from "@gridone/sdk";
 import { Card } from "@/components/ui";
 import { Link, useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -22,15 +22,15 @@ const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
       <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
         <div>
           <div className="flex items-center gap-1.5">
-            {driver.imageSrc && (
+            {driver.image_src && (
               <img
-                src={driver.imageSrc}
+                src={driver.image_src}
                 alt={driver.id}
                 className="h-10 w-10 rounded object-cover"
               />
             )}
             <span className="ml-auto">
-              <DeviceTypeChip type={driver.type} />
+              <DeviceTypeChip type={driver.type ?? null} />
             </span>
           </div>
           <h2 className="mt-0.5 min-w-0 truncate font-display text-base font-semibold text-card-foreground">

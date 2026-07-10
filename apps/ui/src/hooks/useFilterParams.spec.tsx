@@ -26,18 +26,18 @@ describe("useFilterParams", () => {
     expect(result.current).toEqual({ types: ["thermostat"] });
   });
 
-  it("maps ?health=faulty to { isFaulty: true }", () => {
+  it("maps ?health=faulty to { is_faulty: true }", () => {
     const { result } = renderHook(() => useFilterParams(), {
       wrapper: wrapperFor(["/?health=faulty"]),
     });
-    expect(result.current).toEqual({ isFaulty: true });
+    expect(result.current).toEqual({ is_faulty: true });
   });
 
-  it("maps ?health=healthy to { isFaulty: false }", () => {
+  it("maps ?health=healthy to { is_faulty: false }", () => {
     const { result } = renderHook(() => useFilterParams(), {
       wrapper: wrapperFor(["/?health=healthy"]),
     });
-    expect(result.current).toEqual({ isFaulty: false });
+    expect(result.current).toEqual({ is_faulty: false });
   });
 
   it("returns undefined when ?health=all (treated as no filter)", () => {
@@ -60,7 +60,7 @@ describe("useFilterParams", () => {
     });
     expect(result.current).toEqual({
       types: ["thermostat"],
-      isFaulty: true,
+      is_faulty: true,
     });
   });
 

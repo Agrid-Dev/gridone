@@ -1,15 +1,15 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { ApiError } from "@/api/apiError";
+import { GridoneError, type Asset, type Device } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Controller } from "react-hook-form";
-import type { Asset, AssetTreeNode } from "@/api/assets";
-import type { Device, DevicesFilter } from "@/api/devices";
+import type { AssetTreeNode } from "@/lib/assets";
+import type { DevicesFilter } from "@/lib/devices";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
 import { StepSection } from "./StepSection";
@@ -69,7 +69,7 @@ export function CommandWizard(props: CommandWizardProps) {
   useEffect(() => {
     if (!commitError) return;
     const detail =
-      commitError instanceof ApiError
+      commitError instanceof GridoneError
         ? commitError.detail || commitError.message
         : commitError.message;
     toast.error(String(detail));

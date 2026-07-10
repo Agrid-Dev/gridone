@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
-import type { Transport } from "@/api/transports";
+import type { Transport } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useTransports } from "./useTransports";
 import { TransportStatusBadge } from "./TransportStatusBadge";
@@ -25,7 +25,7 @@ const TransportCard: FC<{ transport: Transport; deviceCount: number }> = ({
           <h2 className="min-w-0 truncate font-display text-base font-semibold text-card-foreground">
             {transport.name}
           </h2>
-          <TransportStatusBadge state={transport.connectionState} />
+          <TransportStatusBadge state={transport.connection_state} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="info">
@@ -75,7 +75,10 @@ const TransportsList: FC = () => {
   const deviceCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const device of devices) {
-      counts.set(device.transportId, (counts.get(device.transportId) ?? 0) + 1);
+      counts.set(
+        device.transport_id,
+        (counts.get(device.transport_id) ?? 0) + 1,
+      );
     }
     return counts;
   }, [devices]);

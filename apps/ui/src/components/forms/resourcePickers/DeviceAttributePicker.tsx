@@ -1,12 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FC, useId, useMemo } from "react";
+import type { Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
-  getDevice,
-  type Device,
+  deviceAttributes,
   type DeviceAttribute,
   type DevicesFilter,
-} from "@/api/devices";
+} from "@/lib/devices";
+import type { AttributeFields } from "@/lib/faults";
 import { FieldShell } from "../controllers/FieldShell";
 import {
   Select,
@@ -43,13 +45,14 @@ export const DeviceAttributePicker: FC<DeviceAttributePickerProps> = ({
   disabled,
 }) => {
   const { t } = useTranslation("common");
+  const client = useGridoneClient();
   const attributeFieldId = useId();
 
   // Singular key — `["devices", undefined]` collides with `useDevicesList`'s
   // cache, and `enabled: false` doesn't prevent reading existing cached data.
   const { data: device } = useQuery({
     queryKey: ["device", deviceId],
-    queryFn: () => getDevice(deviceId!),
+    queryFn: () => client.devices.get(deviceId!),
     enabled: !!deviceId,
   });
 
@@ -114,17 +117,19 @@ export const DeviceAttributePicker: FC<DeviceAttributePickerProps> = ({
 function filterAttributes(
   device: Device | undefined,
   attributeFilter: ((a: DeviceAttribute) => boolean) | undefined,
-): DeviceAttribute[] {
+): AttributeFields[] {
   if (!device) return [];
-  const all = Object.values(device.attributes);
-  return attributeFilter ? all.filter(attributeFilter) : all;
+  const all = Object.values(deviceAttributes(device));
+  return (
+    attributeFilter ? all.filter(attributeFilter) : all
+  ) as AttributeFields[];
 }
 
 interface AttributeSelectBodyProps {
   deviceId: string | undefined;
   device: Device | undefined;
   attribute: string | undefined;
-  attributes: DeviceAttribute[];
+  attributes: AttributeFields[];
   onChange: (next: string) => void;
   fieldId: string;
   disabled?: boolean;
@@ -172,7 +177,7 @@ const AttributeSelectBody: FC<AttributeSelectBodyProps> = ({
           <SelectItem key={attr.name} value={attr.name}>
             <span>{toLabel(attr.name)}</span>
             <span className="ml-2 text-xs text-muted-foreground">
-              ({attr.dataType})
+              ({attr.data_type})
             </span>
           </SelectItem>
         ))}

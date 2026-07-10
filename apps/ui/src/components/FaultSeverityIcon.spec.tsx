@@ -2,7 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { FaultSeverityIcon } from "./FaultSeverityIcon";
-import type { Severity } from "@/api/severity";
+import type { Severity } from "@/lib/severity";
 
 vi.mock("react-i18next", () =>
   createI18nMock({

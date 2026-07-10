@@ -1,7 +1,7 @@
 import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery, mockListDevices } = vi.hoisted(() => ({
@@ -13,14 +13,11 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
 }));
 
-vi.mock("@/api/devices", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/api/devices")>("@/api/devices");
-  return {
-    ...actual,
-    listDevices: (...args: unknown[]) => mockListDevices(...args),
-  };
-});
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: { list: mockListDevices },
+  }),
+}));
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -78,22 +75,22 @@ const devices: Device[] = [
     name: "Lobby thermostat",
     type: null,
     tags: {},
-    driverId: "drv-1",
-    transportId: "tp-1",
+    driver_id: "drv-1",
+    transport_id: "tp-1",
     config: {},
     attributes: {},
-    isFaulty: false,
+    is_faulty: false,
   },
   {
     id: "d2",
     name: "Boiler",
     type: null,
     tags: {},
-    driverId: "drv-2",
-    transportId: "tp-1",
+    driver_id: "drv-2",
+    transport_id: "tp-1",
     config: {},
     attributes: {},
-    isFaulty: false,
+    is_faulty: false,
   },
 ];
 

@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { FaultView, listFaults } from "../api/faults";
+import type { FaultView } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export function useFaultsList() {
   const { t } = useTranslation("faults");
+  const client = useGridoneClient();
 
   const {
     data,
@@ -11,7 +13,7 @@ export function useFaultsList() {
     error: queryError,
   } = useQuery<FaultView[]>({
     queryKey: ["faults"],
-    queryFn: listFaults,
+    queryFn: () => client.devices.listFaults(),
     refetchInterval: 10_000,
   });
 

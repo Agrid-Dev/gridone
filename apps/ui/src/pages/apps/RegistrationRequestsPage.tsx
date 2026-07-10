@@ -11,12 +11,8 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { usePermissions } from "@/contexts/AuthContext";
-import {
-  listRegistrationRequests,
-  acceptRegistrationRequest,
-  discardRegistrationRequest,
-} from "@/api/apps";
-import type { RegistrationRequest } from "@/api/apps";
+import type { RegistrationRequestResponse } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 const statusStyles: Record<string, string> = {
   pending: "border-amber-200 bg-amber-100 text-amber-800",
@@ -37,8 +33,8 @@ function RequestsTable({
   requests,
   renderRow,
 }: {
-  requests: RegistrationRequest[];
-  renderRow: (req: RegistrationRequest) => React.ReactNode;
+  requests: RegistrationRequestResponse[];
+  renderRow: (req: RegistrationRequestResponse) => React.ReactNode;
 }) {
   const { t } = useTranslation("apps");
   const can = usePermissions();
@@ -73,16 +69,17 @@ function RequestsTable({
 export default function RegistrationRequestsPage() {
   const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const can = usePermissions();
   const navigate = useNavigate();
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["registration-requests"],
-    queryFn: listRegistrationRequests,
+    queryFn: () => client.apps.registrationRequests.list(),
   });
 
   const acceptMutation = useMutation({
-    mutationFn: (id: string) => acceptRegistrationRequest(id),
+    mutationFn: (id: string) => client.apps.registrationRequests.accept(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
       queryClient.invalidateQueries({ queryKey: ["apps"] });
@@ -93,7 +90,7 @@ export default function RegistrationRequestsPage() {
   });
 
   const discardMutation = useMutation({
-    mutationFn: (id: string) => discardRegistrationRequest(id),
+    mutationFn: (id: string) => client.apps.registrationRequests.discard(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
       toast.success(t("requests.discardedToast"));
@@ -101,7 +98,7 @@ export default function RegistrationRequestsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const renderRow = (req: RegistrationRequest) => {
+  const renderRow = (req: RegistrationRequestResponse) => {
     const configName = parseConfigName(req.config);
     return (
       <tr key={req.id} className="hover:bg-muted/50">
@@ -115,7 +112,7 @@ export default function RegistrationRequestsPage() {
           <RequestStatusBadge status={req.status} />
         </td>
         <td className="px-4 py-3 text-sm text-muted-foreground">
-          {new Date(req.createdAt).toLocaleDateString()}
+          {new Date(req.created_at).toLocaleDateString()}
         </td>
         {can("users:write") && req.status === "pending" && (
           <td className="px-4 py-3 text-right">

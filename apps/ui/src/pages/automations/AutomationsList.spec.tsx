@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { Automation } from "@/api/automations";
+import type { Automation } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery } = vi.hoisted(() => ({
@@ -17,10 +17,10 @@ vi.mock("@tanstack/react-query", () => ({
   }),
 }));
 
-vi.mock("@/api/automations", () => ({
-  listAutomations: vi.fn(),
-  enableAutomation: vi.fn(),
-  disableAutomation: vi.fn(),
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    automations: { list: vi.fn(), enable: vi.fn(), disable: vi.fn() },
+  }),
 }));
 
 vi.mock("react-i18next", () =>
@@ -66,13 +66,13 @@ function makeAutomation(
     description,
     enabled,
     action: {
-      providerId: "command_template",
-      params: { templateId: `tpl-${id}` },
+      provider_id: "command_template",
+      params: { template_id: `tpl-${id}` },
     },
-    trigger: { providerId: triggerType, params: {} },
-    createdAt: "2026-01-01T00:00:00Z",
-    updatedAt: "2026-01-01T00:00:00Z",
-    createdBy: "",
+    trigger: { provider_id: triggerType, params: {} },
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    created_by: "",
   };
 }
 

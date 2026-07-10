@@ -1,16 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  dismissNotification,
-  listNotifications,
-  type NotificationDispatch,
-  type NotificationsFilter,
-} from "@/api/notifications";
-import type { Page } from "@/api/pagination";
+import type {
+  NotificationDispatch,
+  NotificationListParams,
+  Page,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
-export function useNotifications(filter?: NotificationsFilter) {
+export function useNotifications(filter?: NotificationListParams) {
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const { t } = useTranslation("notifications");
 
   const {
@@ -19,20 +19,22 @@ export function useNotifications(filter?: NotificationsFilter) {
     error: queryError,
   } = useQuery<Page<NotificationDispatch>>({
     queryKey: ["notifications", filter],
-    queryFn: () => listNotifications(filter),
+    queryFn: () => client.notifications.list(filter),
     refetchInterval: 10_000,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
   });
 
   const { mutate: dismiss } = useMutation({
-    mutationFn: dismissNotification,
+    mutationFn: (id: string) => client.notifications.dismiss(id),
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
 
   async function dismissMany(ids: string[]) {
-    const results = await Promise.allSettled(ids.map(dismissNotification));
+    const results = await Promise.allSettled(
+      ids.map((id) => client.notifications.dismiss(id)),
+    );
     queryClient.invalidateQueries({ queryKey: ["notifications"] });
     const failed = results.filter((r) => r.status === "rejected").length;
     if (failed > 0) {

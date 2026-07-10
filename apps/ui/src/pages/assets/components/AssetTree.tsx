@@ -27,8 +27,8 @@ import {
   Cpu,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { AssetTreeNode } from "@/api/assets";
-import { ASSET_TYPES } from "@/api/assets";
+import type { AssetTreeNode } from "@/lib/assets";
+import { ASSET_TYPES } from "@/lib/assets";
 import { sortedByName } from "@/lib/sortByName";
 
 const typeIcons: Record<string, typeof Building2> = {
@@ -240,7 +240,7 @@ function TreeNode({
   const isExpandable = hasChildren || hasDevices || addingChildOf === node.id;
   const Icon = typeIcons[node.type] ?? Building2;
 
-  const isRoot = node.parentId === null;
+  const isRoot = !node.parent_id;
   const isDragging = activeId === node.id;
   const isInvalidDrop = invalidDropIds.has(node.id);
 
@@ -540,8 +540,8 @@ export function AssetTree({
 
     // Same parent → sibling reorder
     if (
-      draggedNode.parentId &&
-      draggedNode.parentId === targetNode.parentId &&
+      draggedNode.parent_id &&
+      draggedNode.parent_id === targetNode.parent_id &&
       onReorder
     ) {
       const siblings = siblingMap.get(draggedId) ?? [];
@@ -549,7 +549,7 @@ export function AssetTree({
       const newIndex = siblings.indexOf(targetId);
       if (oldIndex !== -1 && newIndex !== -1) {
         const newOrder = arrayMove(siblings, oldIndex, newIndex);
-        onReorder(draggedNode.parentId, newOrder);
+        onReorder(draggedNode.parent_id, newOrder);
       }
       return;
     }

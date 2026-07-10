@@ -12,7 +12,9 @@ import {
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import CommandTemplatePicker from "@/components/forms/resourcePickers/CommandTemplatePicker";
-import { getTemplate, type CommandTemplate } from "@/api/commands";
+import type { CommandTemplateResponse } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { CommandWizard } from "@/pages/devices/commands/new/CommandWizard";
@@ -26,38 +28,37 @@ type Mode = "pick" | "compose";
 function readInitialTemplateId(
   initialValue: CustomActionFormProps["initialValue"],
 ): string | undefined {
-  if (initialValue?.providerId !== "command_template") return undefined;
-  const id = initialValue.params.templateId;
+  if (initialValue?.provider_id !== "command_template") return undefined;
+  const id = initialValue.params?.template_id;
   return typeof id === "string" ? id : undefined;
 }
 
 /** Map a saved template back into the wizard's form-state shape so
  *  ``InlineWizard`` can pre-populate when editing. ``targetMode`` mirrors
  *  the original target's flavour: a bare id list opens the picker in
- *  "devices" mode; anything else (assetId / types) opens in "filters". */
+ *  "devices" mode; anything else (asset_id / types) opens in "filters". */
 function templateToFormValues(
-  template: CommandTemplate,
+  template: CommandTemplateResponse,
 ): Partial<WizardFormValues> {
+  const target = template.target as DevicesFilter;
   const usingIdsOnly =
-    !!template.target.ids?.length &&
-    !template.target.assetId &&
-    !template.target.types?.length;
+    !!target.ids?.length && !target.asset_id && !target.types?.length;
   return {
     targetMode: usingIdsOnly ? "devices" : "filters",
-    deviceIds: template.target.ids ?? [],
+    deviceIds: target.ids ?? [],
     targetFilter: {
-      assetId: template.target.assetId,
-      types: template.target.types,
+      assetId: target.asset_id ?? undefined,
+      types: target.types ?? undefined,
     },
     attribute: template.write.attribute,
-    attributeDataType: template.write.dataType,
+    attributeDataType: template.write.data_type,
     value: template.write.value,
     templateName: template.name ?? "",
   };
 }
 
 type InlineWizardProps = {
-  template?: CommandTemplate;
+  template?: CommandTemplateResponse;
   onCancel: () => void;
   onCommitted: (templateId: string) => void;
 };
@@ -111,6 +112,7 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
   onChange,
 }) => {
   const { t } = useTranslation("automations");
+  const client = useGridoneClient();
   const initialId = readInitialTemplateId(initialValue);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<
@@ -123,12 +125,12 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
   // mode switch via the Source select clears this so ``Define a new
   // command`` always starts from a clean slate.
   const [composeFromTemplate, setComposeFromTemplate] = useState<
-    CommandTemplate | undefined
+    CommandTemplateResponse | undefined
   >(undefined);
 
   const { data: selectedTemplate } = useQuery({
     queryKey: ["command-templates", selectedTemplateId],
-    queryFn: () => getTemplate(selectedTemplateId!),
+    queryFn: () => client.devices.commandTemplates.get(selectedTemplateId!),
     enabled: !!selectedTemplateId,
   });
 
@@ -207,8 +209,8 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
           onSelect={(template) => {
             setSelectedTemplateId(template.id);
             onChange({
-              providerId: "command_template",
-              params: { templateId: template.id },
+              provider_id: "command_template",
+              params: { template_id: template.id },
             });
           }}
         />
@@ -219,8 +221,8 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
           onCommitted={(templateId) => {
             setSelectedTemplateId(templateId);
             onChange({
-              providerId: "command_template",
-              params: { templateId },
+              provider_id: "command_template",
+              params: { template_id: templateId },
             });
           }}
         />

@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ApiError } from "@/api/apiError";
+import { GridoneError } from "@gridone/sdk";
 import { ResourceNotFoundError } from "@/lib/errors";
 import { createI18nMock } from "@/test/i18nMock";
 
@@ -56,13 +56,13 @@ describe("ResourceBoundary", () => {
     expect(screen.getByText("Not found")).toBeInTheDocument();
   });
 
-  it("maps an ApiError(404) to the not-found fallback", () => {
-    renderWithBoundary(<Throw error={new ApiError(404, "Not Found", "")} />);
+  it("maps a GridoneError(404) to the not-found fallback", () => {
+    renderWithBoundary(<Throw error={new GridoneError(404, "Not Found")} />);
     expect(screen.getByText("Not found")).toBeInTheDocument();
   });
 
-  it("maps a non-404 ApiError to the generic error fallback", () => {
-    renderWithBoundary(<Throw error={new ApiError(500, "Server Error", "")} />);
+  it("maps a non-404 GridoneError to the generic error fallback", () => {
+    renderWithBoundary(<Throw error={new GridoneError(500, "Server Error")} />);
     expect(screen.getByText("Something went wrong")).toBeInTheDocument();
   });
 

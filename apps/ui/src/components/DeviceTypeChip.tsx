@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
-import { DeviceType } from "@/api/devices";
+import { DeviceType } from "@/lib/devices";
 
 export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
   [DeviceType.Thermostat]: Thermometer,
@@ -29,7 +29,7 @@ export function deviceTypeIcon(
 }
 
 type DeviceTypeChipProps = {
-  type: DeviceType | string | null;
+  type: DeviceType | string | null | undefined;
 };
 
 export function DeviceTypeChip({ type }: DeviceTypeChipProps) {

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
-import type { AttributeValue, AttributeWrite } from "@/api/commands";
-import type { Device, DevicesFilter } from "@/api/devices";
+import type { AttributeWritePayload, Device } from "@gridone/sdk";
+import type { AttributeValue, DevicesFilter } from "@/lib/devices";
 import {
   currentValueFor,
   intersectWritableAttributes,
@@ -14,7 +14,7 @@ import { useCommandTemplate } from "./useCommandTemplate";
 
 type CommandPayload = {
   target: DevicesFilter;
-  write: AttributeWrite;
+  write: AttributeWritePayload;
 };
 
 export type UseCommandWizardArgs = {
@@ -219,7 +219,7 @@ export function useCommandWizard({
       write: {
         attribute: v.attribute,
         value: v.value as AttributeValue,
-        dataType: v.attributeDataType,
+        data_type: v.attributeDataType,
       },
     };
   };
@@ -326,7 +326,7 @@ function buildTarget(
   }
   if (values.targetMode === "filters") {
     return {
-      assetId: values.targetFilter?.assetId,
+      asset_id: values.targetFilter?.assetId,
       types: values.targetFilter?.types,
     };
   }

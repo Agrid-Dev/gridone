@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Thermometer, Wind, Droplets, Navigation2 } from "lucide-react";
-import { isWeatherSensor, readWeatherSensorAttributes } from "@/api/devices";
+import { isWeatherSensor, readWeatherSensorAttributes } from "@/lib/devices";
 import { ControlPanel } from "../ControlPanel";
 import { getWeatherCode } from "./weatherCodes";
 import { degreesToCompass } from "./compass";

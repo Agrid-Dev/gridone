@@ -1,15 +1,16 @@
 import { ArrowRight } from "lucide-react";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { AttributeWrite } from "@/api/commands";
+import type { AttributeWritePayload } from "@gridone/sdk";
 
 type WritePresenterProps = {
-  write: AttributeWrite;
+  write: AttributeWritePayload;
   className?: string;
 };
 
-/** Compact inline summary of an ``AttributeWrite``: "attribute → value". Used
- *  anywhere a template or batch's payload appears. */
+/** Compact inline summary of an ``AttributeWritePayload``:
+ *  "attribute → value". Used anywhere a template or batch's payload
+ *  appears. */
 export function WritePresenter({ write, className }: WritePresenterProps) {
   return (
     <span
@@ -18,7 +19,7 @@ export function WritePresenter({ write, className }: WritePresenterProps) {
       <span className="font-medium">{toLabel(write.attribute)}</span>
       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="font-mono tabular-nums">
-        {formatValue(write.value, write.dataType)}
+        {formatValue(write.value, write.data_type)}
       </span>
     </span>
   );

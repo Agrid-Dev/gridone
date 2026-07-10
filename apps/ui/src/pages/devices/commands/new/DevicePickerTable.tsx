@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 
 type DevicePickerTableProps = {
   devices: Device[];

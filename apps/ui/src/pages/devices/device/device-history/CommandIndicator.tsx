@@ -7,12 +7,11 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatValue } from "@/lib/formatValue";
-import type { DeviceCommand } from "@/api/commands";
-import type { User } from "@/api/users";
+import type { UnitCommand, User } from "@gridone/sdk";
 import type { CellValue } from "./mergeTimeSeries";
 
 type CommandIndicatorProps = {
-  command: DeviceCommand;
+  command: UnitCommand;
   user?: User;
   previousValue?: CellValue;
   newValue?: CellValue;
@@ -54,12 +53,14 @@ export function CommandIndicator({
       <PopoverContent className="w-56 space-y-2 p-3 text-sm" side="top">
         <div>
           <p className="font-medium">
-            {user?.name || user?.username || command.userId}
+            {user?.name || user?.username || command.user_id}
           </p>
           {user?.title && <p className="text-muted-foreground">{user.title}</p>}
-          <p className="text-xs text-muted-foreground mt-1">
-            {new Date(command.executedAt).toLocaleString()}
-          </p>
+          {command.executed_at && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {new Date(command.executed_at).toLocaleString()}
+            </p>
+          )}
         </div>
         {previousValue !== undefined && newValue !== undefined && (
           <div className="flex items-center gap-1.5 text-xs">
@@ -87,8 +88,8 @@ export function CommandIndicator({
             </span>
           </p>
 
-          {command.statusDetails && (
-            <p className="text-destructive">{command.statusDetails}</p>
+          {command.status_details && (
+            <p className="text-destructive">{command.status_details}</p>
           )}
         </div>
       </PopoverContent>

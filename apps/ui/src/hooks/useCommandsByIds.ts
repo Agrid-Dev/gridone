@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getCommandsByIds, type DeviceCommand } from "@/api/commands";
+import type { UnitCommand } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export function useCommandsByIds(ids: number[]) {
+  const client = useGridoneClient();
   const sortedKey = useMemo(() => [...ids].sort((a, b) => a - b), [ids]);
 
   const query = useQuery({
     queryKey: ["commands", "byIds", sortedKey],
-    queryFn: () => getCommandsByIds(sortedKey),
+    queryFn: () => client.devices.listCommands({ ids: sortedKey }),
     enabled: sortedKey.length > 0,
     staleTime: 60_000,
   });
@@ -15,7 +17,7 @@ export function useCommandsByIds(ids: number[]) {
   const commandsMap = useMemo(
     () =>
       new Map(
-        (query.data?.items ?? []).map((cmd: DeviceCommand) => [cmd.id, cmd]),
+        (query.data?.items ?? []).map((cmd: UnitCommand) => [cmd.id, cmd]),
       ),
     [query.data],
   );

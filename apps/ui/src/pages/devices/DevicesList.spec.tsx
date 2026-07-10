@@ -8,7 +8,8 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { type Device, type DevicesFilter } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DevicesFilter } from "@/lib/devices";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -52,11 +53,11 @@ function makeDevice(id: string, name: string, isFaulty: boolean): Device {
     name,
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes: {},
-    isFaulty,
+    is_faulty: isFaulty,
   };
 }
 
@@ -109,26 +110,26 @@ describe("DevicesList — health filter wiring", () => {
 
   it("passes isFaulty=true when ?health=faulty", () => {
     renderAt(["/devices?health=faulty"]);
-    expect(lastFilter()).toEqual({ isFaulty: true });
+    expect(lastFilter()).toEqual({ is_faulty: true });
   });
 
   it("passes isFaulty=false when ?health=healthy", () => {
     renderAt(["/devices?health=healthy"]);
-    expect(lastFilter()).toEqual({ isFaulty: false });
+    expect(lastFilter()).toEqual({ is_faulty: false });
   });
 
   it("combines type and health filters", () => {
     renderAt(["/devices?type=thermostat&health=faulty"]);
     expect(lastFilter()).toEqual({
       types: ["thermostat"],
-      isFaulty: true,
+      is_faulty: true,
     });
   });
 
   it("updates the filter when a health tab is clicked", async () => {
     renderAt();
     await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
-    expect(lastFilter()).toEqual({ isFaulty: true });
+    expect(lastFilter()).toEqual({ is_faulty: true });
   });
 
   it("clears the filter when returning to 'All'", async () => {

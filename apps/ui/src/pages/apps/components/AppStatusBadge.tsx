@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import type { AppStatus } from "@/api/apps";
+import type { AppStatus } from "@gridone/sdk";
 
 const statusStyles: Record<AppStatus, string> = {
   healthy: "border-green-200 bg-green-100 text-green-800",

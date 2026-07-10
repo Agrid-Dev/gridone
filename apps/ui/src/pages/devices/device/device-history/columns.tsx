@@ -1,8 +1,7 @@
 import { TFunction } from "i18next";
 import { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import type { DeviceCommand } from "@/api/commands";
-import type { User } from "@/api/users";
+import type { UnitCommand, User } from "@gridone/sdk";
 import { Button } from "@/components/ui";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
@@ -24,7 +23,7 @@ export function buildColumns(
   attributes: string[],
   dataTypes: Record<string, string>,
   t: TFunction<readonly ["devices", "common"]>,
-  commandsMap: Map<number, DeviceCommand>,
+  commandsMap: Map<number, UnitCommand>,
   usersMap: Map<string, User>,
 ): ColumnDef<MergedRow>[] {
   const timestampCol: ColumnDef<MergedRow> = {
@@ -57,7 +56,7 @@ export function buildColumns(
       const commandId = row.original.commandIds[attr];
       const command =
         commandId != null ? commandsMap.get(commandId) : undefined;
-      const user = command ? usersMap.get(command.userId) : undefined;
+      const user = command ? usersMap.get(command.user_id) : undefined;
       const dt = dataTypes[attr];
       const formatted = formatValue(value, dt);
       const recent = isNew && isRecent(row.original.timestamp);

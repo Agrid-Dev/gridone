@@ -1,6 +1,10 @@
-import type { DeviceCommand } from "@/api/commands";
-import { exportCsv, exportPng, type TimeSeries } from "@/api/timeseries";
-import type { User } from "@/api/users";
+import type {
+  TimeSeries,
+  TimeseriesExportParams,
+  UnitCommand,
+  User,
+} from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
 import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
 import { useUsers } from "@/hooks/useUsers";
@@ -44,6 +48,16 @@ function writeVisibility(deviceId: string, state: VisibilityState) {
   }
 }
 
+/** Trigger a browser download of *blob* under *filename*. */
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 type DeviceHistoryContextValue = {
   series: TimeSeries[];
   availableAttributes: string[];
@@ -57,7 +71,7 @@ type DeviceHistoryContextValue = {
   allRows: MergedRow[];
   visibleAttributes: string[];
   filteredRows: MergedRow[];
-  commandsMap: Map<number, DeviceCommand>;
+  commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
   error: Error | null;
@@ -81,6 +95,7 @@ export function DeviceHistoryProvider({
   children,
 }: DeviceHistoryProviderProps) {
   const { t } = useTranslation("devices");
+  const client = useGridoneClient();
   const [searchParams] = useSearchParams();
 
   const timeRange = useMemo(
@@ -102,7 +117,7 @@ export function DeviceHistoryProvider({
   );
 
   const dataTypes = useMemo(
-    () => Object.fromEntries(series.map((s) => [s.metric, s.dataType])),
+    () => Object.fromEntries(series.map((s) => [s.metric, s.data_type])),
     [series],
   );
 
@@ -271,17 +286,19 @@ export function DeviceHistoryProvider({
   const handleDownload = useCallback(
     async (format: "csv" | "png") => {
       setIsDownloading(true);
-      const options = {
+      const params: TimeseriesExportParams = {
+        series_ids: visibleSeriesIds,
         start: resolved.start,
         end: resolved.end,
         last: resolved.last,
       };
       try {
         if (format === "png") {
-          await exportPng(visibleSeriesIds, options);
+          downloadBlob(await client.timeseries.exportPng(params), "export.png");
           toast.success(t("deviceDetails.downloadPngSuccess"));
         } else {
-          await exportCsv(visibleSeriesIds, options);
+          const csv = await client.timeseries.exportCsv(params);
+          downloadBlob(new Blob([csv], { type: "text/csv" }), "export.csv");
         }
       } catch {
         if (format === "png") toast.error(t("deviceDetails.downloadPngError"));
@@ -289,7 +306,7 @@ export function DeviceHistoryProvider({
         setIsDownloading(false);
       }
     },
-    [visibleSeriesIds, resolved, t],
+    [client, visibleSeriesIds, resolved, t],
   );
 
   const value = useMemo<DeviceHistoryContextValue>(

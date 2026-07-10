@@ -1,22 +1,26 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { deleteDevice } from "@/api/devices";
+import { isGridoneError } from "@gridone/sdk";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { ApiError } from "@/api/apiError";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export const useDeleteDevice = () => {
   const navigate = useNavigate();
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
   const { t } = useTranslation(["devices", "common"]);
   const deleteMutation = useMutation({
-    mutationFn: deleteDevice,
+    mutationFn: (deviceId: string) => client.devices.delete(deviceId),
     onSuccess: () => {
       navigate("/devices");
       toast.success(t("devices.feedback.deleted"));
     },
-    onError: (err: ApiError) => {
-      const errorMessage = `${t("common:errors.default")}: ${err.details || err.message}`;
+    onError: (err: Error) => {
+      const detail = isGridoneError(err)
+        ? err.detail || err.message
+        : err.message;
+      const errorMessage = `${t("common:errors.default")}: ${detail}`;
       toast.error(errorMessage);
     },
     onSettled: () => {

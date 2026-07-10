@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FC, useId } from "react";
-import { listDevices, type Device, type DevicesFilter } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { FieldShell } from "../controllers/FieldShell";
 import {
   Select,
@@ -36,12 +38,13 @@ export const DevicePicker: FC<DevicePickerProps> = ({
   id,
 }) => {
   const { t } = useTranslation("common");
+  const client = useGridoneClient();
   const reactId = useId();
   const fieldId = id ?? reactId;
 
   const { data: devices, isLoading } = useQuery({
     queryKey: ["devices", filter],
-    queryFn: () => listDevices(filter),
+    queryFn: () => client.devices.list(devicesFilterToListParams(filter)),
   });
 
   const resolvedLabel = label ?? t("pickers.device.label");

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Fan, Wind, Droplets, ArrowRight, Thermometer } from "lucide-react";
-import { DeviceType, isAwhp, readAwhpAttributes } from "@/api/devices";
+import { DeviceType, isAwhp, readAwhpAttributes } from "@/lib/devices";
 import { Badge } from "@/components/ui/badge";
 import { AttributeValue } from "@/components/AttributeValue";
 import { ControlPanel } from "../ControlPanel";

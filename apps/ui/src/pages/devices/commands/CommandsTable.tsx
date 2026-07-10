@@ -21,12 +21,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { cn } from "@/lib/utils";
-import type { DeviceCommand } from "@/api/commands";
-import type { Page } from "@/api/pagination";
+import type { Page, UnitCommand } from "@gridone/sdk";
 
 type CommandsTableProps = {
-  table: TTable<DeviceCommand>;
-  data: Page<DeviceCommand> | undefined;
+  table: TTable<UnitCommand>;
+  data: Page<UnitCommand> | undefined;
   isLoading: boolean;
   isPlaceholderData: boolean;
   error: Error | null;
@@ -83,7 +82,7 @@ export function CommandsTable({
     );
   }
 
-  const { total, page, size, totalPages } = data;
+  const { total, page, size, total_pages: totalPages } = data;
   const linkClasses = cn(
     buttonVariants({ variant: "outline", size: "icon" }),
     "h-8 w-8",

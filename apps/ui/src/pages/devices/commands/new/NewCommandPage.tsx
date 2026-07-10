@@ -3,9 +3,9 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { getAsset } from "@/api/assets";
-import type { Asset } from "@/api/assets";
-import type { DevicesFilter } from "@/api/devices";
+import type { Asset } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import type { DevicesFilter } from "@/lib/devices";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { COMMANDS_CRUMB } from "@/lib/breadcrumbTrail";
@@ -28,6 +28,7 @@ export default function NewCommandPage() {
   const { t } = useTranslation(["devices", "common", "assets"]);
   const can = usePermissions();
   const navigate = useNavigate();
+  const client = useGridoneClient();
   const { deviceId, assetId } = useParams<{
     deviceId?: string;
     assetId?: string;
@@ -40,7 +41,7 @@ export default function NewCommandPage() {
   //   /devices/commands/new           → user picks in step 1
   const predefinedTarget: DevicesFilter | undefined = useMemo(() => {
     if (deviceId) return { ids: [deviceId] };
-    if (assetId) return { assetId };
+    if (assetId) return { asset_id: assetId };
     return undefined;
   }, [deviceId, assetId]);
 
@@ -57,7 +58,7 @@ export default function NewCommandPage() {
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],
-    queryFn: () => getAsset(assetId!),
+    queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
   });
 

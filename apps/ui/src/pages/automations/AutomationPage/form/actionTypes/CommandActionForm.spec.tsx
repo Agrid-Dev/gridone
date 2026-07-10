@@ -10,7 +10,7 @@ import {
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import type { CommandTemplate } from "@/api/commands";
+import type { CommandTemplateResponse } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -57,7 +57,19 @@ vi.mock("@/components/ui/select", () => ({
   }) => <option value={value}>{children}</option>,
 }));
 
-vi.mock("@/api/commands", () => ({ getTemplate: vi.fn() }));
+const { mockedGetTemplate } = vi.hoisted(() => ({
+  mockedGetTemplate: vi.fn(),
+}));
+
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: {
+      commandTemplates: {
+        get: (...args: unknown[]) => mockedGetTemplate(...args),
+      },
+    },
+  }),
+}));
 vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: () => ({ devices: [], loading: false }),
 }));
@@ -84,18 +96,15 @@ vi.mock("@/pages/devices/commands/new/CommandWizard", () => ({
   }) => <div data-testid="wizard">wizard:{dispatchSubmit.label}</div>,
 }));
 
-import { getTemplate } from "@/api/commands";
 import { CommandActionForm } from "./CommandActionForm";
 
-const mockedGetTemplate = vi.mocked(getTemplate);
-
-const ephemeralTemplate: CommandTemplate = {
+const ephemeralTemplate: CommandTemplateResponse = {
   id: "t-eph",
   name: null,
   target: { ids: ["d1"] },
-  write: { attribute: "mode", value: "auto", dataType: "str" },
-  createdAt: "2026-01-01T00:00:00Z",
-  createdBy: "u1",
+  write: { attribute: "mode", value: "auto", data_type: "str" },
+  created_at: "2026-01-01T00:00:00Z",
+  created_by: "u1",
 };
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -142,8 +151,8 @@ describe("CommandActionForm", () => {
     render(
       <CommandActionForm
         initialValue={{
-          providerId: "command_template",
-          params: { templateId: "t-eph" },
+          provider_id: "command_template",
+          params: { template_id: "t-eph" },
         }}
         onChange={() => {}}
       />,

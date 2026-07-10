@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { dispatchTemplate } from "@/api/commands";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export type DispatchResult = { batchId: string };
 
@@ -8,12 +8,13 @@ export type DispatchResult = { batchId: string };
  *  templateId — the standalone wizard's "Dispatch" path commits as
  *  ephemeral first and then fires this. */
 export function useCommandMutations() {
+  const client = useGridoneClient();
   const queryClient = useQueryClient();
 
   const dispatch = useMutation<DispatchResult, Error, string>({
     mutationFn: async (templateId) => {
-      const res = await dispatchTemplate(templateId);
-      return { batchId: res.batchId };
+      const res = await client.devices.commandTemplates.dispatch(templateId);
+      return { batchId: res.batch_id };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["commands"] });

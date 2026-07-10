@@ -6,9 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { TriangleAlert } from "lucide-react";
+import { isGridoneError, NetworkError } from "@gridone/sdk";
 import { useAuth } from "@/contexts/AuthContext";
-import { ApiError } from "@/api/apiError";
-import { getAuthSchema } from "@/api/authValidation";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { getAuthSchema } from "@/lib/authSchema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -29,6 +30,7 @@ const FALLBACK_SCHEMA = z.object({
 export default function LoginPage() {
   const { t } = useTranslation();
   const { login } = useAuth();
+  const client = useGridoneClient();
   const navigate = useNavigate();
 
   const {
@@ -39,7 +41,7 @@ export default function LoginPage() {
     refetch: refetchSchema,
   } = useQuery({
     queryKey: ["auth-schema"],
-    queryFn: getAuthSchema,
+    queryFn: () => getAuthSchema(client),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -65,12 +67,12 @@ export default function LoginPage() {
       await login(values.username, values.password);
       navigate("/", { replace: true });
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (isGridoneError(err) && !(err instanceof NetworkError)) {
         form.setError("root", {
-          message: err.detail || err.details || t("auth.login.error"),
+          message: err.detail || t("auth.login.error"),
         });
       } else {
-        // A non-ApiError means the request never completed (transport/network
+        // A NetworkError means the request never completed (transport/network
         // failure): the backend is unreachable, not a credentials problem.
         form.setError("root", {
           message: t("auth.login.unreachable"),

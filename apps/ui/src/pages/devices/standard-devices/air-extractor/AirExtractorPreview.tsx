@@ -1,6 +1,6 @@
 import { Fan } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { isAirExtractor, readAirExtractorAttributes } from "@/api/devices";
+import { isAirExtractor, readAirExtractorAttributes } from "@/lib/devices";
 import { fmt } from "../synoptic";
 import { FAN_STATUS_DOT_CLASS, fanIsSpinning, fanStatus } from "./fan";
 import { useAirExtractorLabel } from "./labels";

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { CommandStatus, DeviceCommand } from "@/api/commands";
+import type { CommandStatus, UnitCommand } from "@gridone/sdk";
 
 const STATUS_STYLES: Record<CommandStatus, string> = {
   pending: "border-amber-200 text-amber-700",
@@ -36,26 +36,26 @@ type Lookups = {
 export function buildCommandColumns(
   t: TFunction<readonly ["devices", "common"]>,
   lookups: Lookups,
-): ColumnDef<DeviceCommand>[] {
+): ColumnDef<UnitCommand>[] {
   const { showDevice = true, showTemplate = true } = lookups;
 
   return [
     {
-      accessorKey: "createdAt",
+      accessorKey: "created_at",
       header: () => t("common:common.timestamp"),
       cell: ({ row }) => (
         <span className="whitespace-nowrap">
-          {new Date(row.getValue<string>("createdAt")).toLocaleString()}
+          {new Date(row.getValue<string>("created_at")).toLocaleString()}
         </span>
       ),
     },
     ...(showDevice
       ? [
           {
-            accessorKey: "deviceId",
+            accessorKey: "device_id",
             header: () => t("commands.device"),
             cell: ({ row }: { row: { getValue: <T>(key: string) => T } }) => {
-              const deviceId = row.getValue<string>("deviceId");
+              const deviceId = row.getValue<string>("device_id");
               return (
                 <Link
                   to={`/devices/${deviceId}`}
@@ -65,16 +65,16 @@ export function buildCommandColumns(
                 </Link>
               );
             },
-          } satisfies ColumnDef<DeviceCommand>,
+          } satisfies ColumnDef<UnitCommand>,
         ]
       : []),
     ...(showTemplate
       ? [
           {
-            accessorKey: "templateId",
+            accessorKey: "template_id",
             header: () => t("commands.template"),
-            cell: ({ row }: { row: { original: DeviceCommand } }) => {
-              const { templateId } = row.original;
+            cell: ({ row }: { row: { original: UnitCommand } }) => {
+              const { template_id: templateId } = row.original;
               const name = templateId
                 ? lookups.templateNames[templateId]
                 : null;
@@ -88,7 +88,7 @@ export function buildCommandColumns(
                 </Link>
               );
             },
-          } satisfies ColumnDef<DeviceCommand>,
+          } satisfies ColumnDef<UnitCommand>,
         ]
       : []),
     {
@@ -101,7 +101,7 @@ export function buildCommandColumns(
       header: () => t("commands.value"),
       cell: ({ row }) => {
         const value = row.original.value;
-        const dataType = row.original.dataType;
+        const dataType = row.original.data_type;
         return (
           <span className="tabular-nums font-mono">
             {formatValue(value, dataType)}
@@ -110,10 +110,10 @@ export function buildCommandColumns(
       },
     },
     {
-      accessorKey: "userId",
+      accessorKey: "user_id",
       header: () => t("commands.user"),
       cell: ({ row }) => {
-        const uid = row.getValue<string>("userId");
+        const uid = row.getValue<string>("user_id");
         return lookups.userNames[uid] ?? uid;
       },
     },
@@ -131,10 +131,10 @@ export function buildCommandColumns(
       },
     },
     {
-      accessorKey: "statusDetails",
+      accessorKey: "status_details",
       header: () => t("commands.details"),
       cell: ({ row }) => {
-        const details = row.getValue<string | null>("statusDetails");
+        const details = row.getValue<string | null>("status_details");
         if (!details) return null;
         return (
           <Popover>

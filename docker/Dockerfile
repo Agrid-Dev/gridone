@@ -3,6 +3,14 @@
 # =============================================================================
 FROM node:22-alpine AS ui-build
 
+# Build the local SDK first: the UI depends on it via file:../../sdk/ts and
+# its entry points live in its (gitignored) dist/ directory.
+WORKDIR /build/sdk/ts
+COPY sdk/ts/package.json sdk/ts/package-lock.json ./
+RUN npm ci
+COPY sdk/ts/ ./
+RUN npm run build
+
 WORKDIR /build/apps/ui
 
 # Install dependencies first (layer cache)

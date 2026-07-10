@@ -1,9 +1,9 @@
-import { isNotFound } from "@/api/apiError";
+import { isNotFound } from "@gridone/sdk";
 
 /**
  * Thrown by resource hooks/components when a resource is missing on the client
  * side — e.g. a lookup that yields nothing. Server-side 404s arrive as
- * `ApiError(404)` instead; both are treated as "not found" by the resource
+ * `GridoneError(404)` instead; both are treated as "not found" by the resource
  * boundary.
  */
 export class ResourceNotFoundError extends Error {
@@ -13,7 +13,7 @@ export class ResourceNotFoundError extends Error {
   }
 }
 
-/** True for a `ResourceNotFoundError` or an `ApiError` with a 404 status. */
+/** True for a `ResourceNotFoundError` or a `GridoneError` with a 404 status. */
 export function isResourceNotFound(error: unknown): boolean {
   return error instanceof ResourceNotFoundError || isNotFound(error);
 }

@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { CurrentUser } from "@/api/auth";
+import type { MeResponse } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -56,7 +56,7 @@ const { mockUpdateUser, mockRefreshMe } = vi.hoisted(() => ({
   mockRefreshMe: vi.fn(),
 }));
 
-let currentUser: CurrentUser;
+let currentUser: MeResponse;
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
@@ -65,11 +65,13 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
-vi.mock("@/api/users", () => ({
-  updateUser: (...args: unknown[]) => mockUpdateUser(...args),
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    users: { update: (...args: unknown[]) => mockUpdateUser(...args) },
+  }),
 }));
 
-vi.mock("@/api/authValidation", () => ({
+vi.mock("@/lib/authSchema", () => ({
   getAuthSchema: vi.fn().mockResolvedValue({ properties: {} }),
 }));
 
@@ -79,7 +81,7 @@ vi.mock("sonner", () => ({
 
 import SettingsPage from "./SettingsPage";
 
-function makeUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
+function makeUser(overrides: Partial<MeResponse> = {}): MeResponse {
   return {
     id: "u1",
     username: "alice",
@@ -87,8 +89,7 @@ function makeUser(overrides: Partial<CurrentUser> = {}): CurrentUser {
     name: "Alice",
     email: "alice@example.com",
     title: "Operator",
-    mustChangePassword: false,
-    isBlocked: false,
+    must_change_password: false,
     permissions: [],
     ...overrides,
   };
@@ -138,7 +139,7 @@ describe("SettingsPage", () => {
   });
 
   it("shows a prominent must-change-password warning when required", () => {
-    currentUser = makeUser({ mustChangePassword: true });
+    currentUser = makeUser({ must_change_password: true });
     renderPage();
 
     const alert = screen.getByRole("alert");

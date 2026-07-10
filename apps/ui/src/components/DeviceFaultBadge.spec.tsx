@@ -2,11 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceFaultBadge } from "./DeviceFaultBadge";
-import {
-  type Device,
-  type DeviceAttribute,
-  type FaultAttribute,
-} from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { DeviceAttribute } from "@/lib/devices";
+import type { AttributeFields, FaultAttribute } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -18,14 +16,14 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const plain: DeviceAttribute = {
+const plain: AttributeFields = {
   kind: "standard",
   name: "temperature",
-  dataType: "float",
-  readWriteModes: ["read"],
-  currentValue: 21.5,
-  lastUpdated: null,
-  lastChanged: null,
+  data_type: "float",
+  read_write_modes: ["read"],
+  current_value: 21.5,
+  last_updated: null,
+  last_changed: null,
 };
 
 function fault(
@@ -36,13 +34,13 @@ function fault(
   return {
     kind: "fault",
     name,
-    dataType: "bool",
-    readWriteModes: ["read"],
-    currentValue: isFaulty,
-    lastUpdated: null,
-    lastChanged: null,
+    data_type: "bool",
+    read_write_modes: ["read"],
+    current_value: isFaulty,
+    last_updated: null,
+    last_changed: null,
     severity,
-    isFaulty,
+    is_faulty: isFaulty,
   };
 }
 
@@ -52,11 +50,11 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
     name: "Device 1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes,
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 

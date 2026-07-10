@@ -1,7 +1,8 @@
 import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { type Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { AttributeFields } from "@/lib/faults";
 import { createI18nMock } from "@/test/i18nMock";
 
 function flattenToText(node: React.ReactNode): string {
@@ -26,15 +27,11 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
 }));
 
-vi.mock("@/api/devices", async () => {
-  const actual =
-    await vi.importActual<typeof import("@/api/devices")>("@/api/devices");
-  return {
-    ...actual,
-    listDevices: (...args: unknown[]) => mockListDevices(...args),
-    getDevice: (...args: unknown[]) => mockGetDevice(...args),
-  };
-});
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: { list: mockListDevices, get: mockGetDevice },
+  }),
+}));
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -93,51 +90,51 @@ const devices: Device[] = [
     name: "Thermostat A",
     type: null,
     tags: {},
-    driverId: "drv-1",
-    transportId: "tp-1",
+    driver_id: "drv-1",
+    transport_id: "tp-1",
     config: {},
     attributes: {
       temperature: {
         kind: "standard",
         name: "temperature",
-        dataType: "float",
-        readWriteModes: ["read"],
-        currentValue: 21.5,
-        lastUpdated: null,
-        lastChanged: null,
+        data_type: "float",
+        read_write_modes: ["read"],
+        current_value: 21.5,
+        last_updated: null,
+        last_changed: null,
       },
-      temperatureSetpoint: {
+      temperature_setpoint: {
         kind: "standard",
-        name: "temperatureSetpoint",
-        dataType: "float",
-        readWriteModes: ["read", "write"],
-        currentValue: 22,
-        lastUpdated: null,
-        lastChanged: null,
+        name: "temperature_setpoint",
+        data_type: "float",
+        read_write_modes: ["read", "write"],
+        current_value: 22,
+        last_updated: null,
+        last_changed: null,
       },
     },
-    isFaulty: false,
+    is_faulty: false,
   },
   {
     id: "d2",
     name: "Boiler",
     type: null,
     tags: {},
-    driverId: "drv-2",
-    transportId: "tp-1",
+    driver_id: "drv-2",
+    transport_id: "tp-1",
     config: {},
     attributes: {
-      onoffState: {
+      onoff_state: {
         kind: "standard",
-        name: "onoffState",
-        dataType: "bool",
-        readWriteModes: ["read", "write"],
-        currentValue: true,
-        lastUpdated: null,
-        lastChanged: null,
+        name: "onoff_state",
+        data_type: "bool",
+        read_write_modes: ["read", "write"],
+        current_value: true,
+        last_updated: null,
+        last_changed: null,
       },
     },
-    isFaulty: false,
+    is_faulty: false,
   },
 ];
 
@@ -214,7 +211,7 @@ describe("DeviceAttributePicker", () => {
     render(
       <DeviceAttributePicker
         deviceId="d1"
-        attribute="temperatureSetpoint"
+        attribute="temperature_setpoint"
         onChange={onChange}
       />,
     );
@@ -229,12 +226,12 @@ describe("DeviceAttributePicker", () => {
     setupQueries(devices[0]);
     const onChange = vi.fn();
 
-    // Both d1 and d2 happen to have onoffState in this test — wire d1 to also
+    // Both d1 and d2 happen to have onoff_state in this test — wire d1 to also
     // expose it so we can verify preservation.
-    const sharedAttr = devices[1].attributes.onoffState;
+    const sharedAttr = devices[1].attributes!.onoff_state;
     const d1WithOnoff: Device = {
       ...devices[0],
-      attributes: { ...devices[0].attributes, onoffState: sharedAttr },
+      attributes: { ...devices[0].attributes, onoff_state: sharedAttr },
     };
     mockUseQuery.mockImplementation(
       (opts: { queryKey: unknown[]; enabled?: boolean }) => {
@@ -255,7 +252,7 @@ describe("DeviceAttributePicker", () => {
     render(
       <DeviceAttributePicker
         deviceId="d1"
-        attribute="onoffState"
+        attribute="onoff_state"
         onChange={onChange}
       />,
     );
@@ -266,7 +263,7 @@ describe("DeviceAttributePicker", () => {
 
     expect(onChange).toHaveBeenCalledWith({
       deviceId: "d2",
-      attribute: "onoffState",
+      attribute: "onoff_state",
     });
   });
 
@@ -278,7 +275,9 @@ describe("DeviceAttributePicker", () => {
         deviceId="d1"
         attribute={undefined}
         onChange={vi.fn()}
-        attributeFilter={(a) => a.readWriteModes.includes("write")}
+        attributeFilter={(a) =>
+          (a as AttributeFields).read_write_modes.includes("write")
+        }
       />,
     );
 

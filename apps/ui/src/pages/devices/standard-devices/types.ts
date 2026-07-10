@@ -1,4 +1,4 @@
-import type { Device } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
 import type { Feedback } from "@/hooks/useDeviceDetails";
 
 /** Props passed to every standard device preview (card content slot). */

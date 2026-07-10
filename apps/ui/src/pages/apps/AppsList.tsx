@@ -10,34 +10,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
-import { listApps, enableApp, disableApp } from "@/api/apps";
-import { listUsers } from "@/api/users";
+import type { User } from "@gridone/sdk";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 
 export default function AppsList() {
   const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
+  const client = useGridoneClient();
   const can = usePermissions();
 
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ["apps"],
-    queryFn: listApps,
+    queryFn: () => client.apps.list(),
     refetchInterval: 3_000,
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ["users"],
-    queryFn: listUsers,
+    // Admin-only view: the API returns full `User` objects here.
+    queryFn: () => client.users.list() as Promise<User[]>,
     enabled: apps.length > 0,
   });
 
   const blockedUserIds = useMemo(
-    () => new Set(users.filter((u) => u.isBlocked).map((u) => u.id)),
+    () => new Set(users.filter((u) => u.is_blocked).map((u) => u.id)),
     [users],
   );
 
   const enableMutation = useMutation({
-    mutationFn: (appId: string) => enableApp(appId),
+    mutationFn: (appId: string) => client.apps.enable(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -47,7 +49,7 @@ export default function AppsList() {
   });
 
   const disableMutation = useMutation({
-    mutationFn: (appId: string) => disableApp(appId),
+    mutationFn: (appId: string) => client.apps.disable(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       queryClient.invalidateQueries({ queryKey: ["users"] });
@@ -91,7 +93,7 @@ export default function AppsList() {
       ) : apps.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {apps.map((app) => {
-            const disabled = isAppDisabled(app.userId);
+            const disabled = isAppDisabled(app.user_id);
             return (
               <Card key={app.id}>
                 <CardContent className="pt-6">
@@ -110,7 +112,7 @@ export default function AppsList() {
                         {app.description}
                       </p>
                       <div className="mt-2">
-                        <AppStatusBadge status={app.status} />
+                        <AppStatusBadge status={app.status ?? "registered"} />
                       </div>
                     </div>
                   </div>
@@ -120,7 +122,7 @@ export default function AppsList() {
                         <Button
                           size="sm"
                           className="bg-green-600 text-white hover:bg-green-700"
-                          onClick={() => handleToggle(app.id, app.userId)}
+                          onClick={() => handleToggle(app.id, app.user_id)}
                           disabled={
                             enableMutation.isPending ||
                             disableMutation.isPending
@@ -133,7 +135,7 @@ export default function AppsList() {
                           variant="outline"
                           size="sm"
                           className="border-red-300 text-red-600 hover:bg-red-50"
-                          onClick={() => handleToggle(app.id, app.userId)}
+                          onClick={() => handleToggle(app.id, app.user_id)}
                           disabled={
                             enableMutation.isPending ||
                             disableMutation.isPending

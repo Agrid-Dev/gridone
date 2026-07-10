@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
-import { type Device, type DeviceAttribute } from "@/api/devices";
+import type { Device } from "@gridone/sdk";
+import type { AttributeFields } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -23,15 +24,15 @@ vi.mock("@/pages/devices/commands/CommandsPage", () => ({
 
 import DeviceCommandsPage from "./DeviceCommandsPage";
 
-function attr(readWriteModes: string[]): DeviceAttribute {
+function attr(readWriteModes: string[]): AttributeFields {
   return {
     kind: "standard",
     name: "a",
-    dataType: "float",
-    readWriteModes,
-    currentValue: null,
-    lastUpdated: null,
-    lastChanged: null,
+    data_type: "float",
+    read_write_modes: readWriteModes,
+    current_value: null,
+    last_updated: null,
+    last_changed: null,
   };
 }
 
@@ -41,11 +42,11 @@ function makeDevice(readWriteModes: string[]): Device {
     name: "d1",
     type: null,
     tags: {},
-    driverId: "drv",
-    transportId: "tr",
+    driver_id: "drv",
+    transport_id: "tr",
     config: {},
     attributes: { a: attr(readWriteModes) },
-    isFaulty: false,
+    is_faulty: false,
   };
 }
 
