@@ -14,7 +14,6 @@ from .device import (
     AttributeListener,
     CoreDevice,
     DeviceBase,
-    snapshot_attribute_state,
 )
 from .device_filters import DeviceFilters
 
@@ -186,15 +185,11 @@ class DeviceRegistry:
 
         Preserves existing attribute values and tags.
         """
-        initial_values, restored_timestamps = snapshot_attribute_state(
-            device.attributes
-        )
         new_device = CoreDevice.from_base(
             DeviceBase(id=device.id, name=device.name, config=device.config),
             driver=driver,
             transport=transport,
-            initial_values=initial_values,
-            restored_timestamps=restored_timestamps,
+            restored_attributes=device.attributes,
             on_update=self._on_attribute_update,
         )
         new_device.tags = device.tags

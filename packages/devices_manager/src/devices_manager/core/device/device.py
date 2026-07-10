@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
@@ -53,60 +53,41 @@ AttributeListener = Callable[
 ]
 
 
-class AttributeTimestamps(NamedTuple):
-    last_updated: datetime
-    last_changed: datetime
-
-
-def snapshot_attribute_state(
-    attributes: dict[str, Attribute],
-) -> tuple[dict[str, AttributeValueType], dict[str, AttributeTimestamps]]:
-    """Extract (values, timestamps) for attributes carrying a current value.
-
-    Used to carry attribute state across a CoreDevice rebuild — on load from
-    storage or when a device's driver/transport changes — without resetting
-    last_updated/last_changed to the rebuild time.
-    """
-    values: dict[str, AttributeValueType] = {}
-    timestamps: dict[str, AttributeTimestamps] = {}
-    for name, attr in attributes.items():
-        if attr.current_value is None:
-            continue
-        values[name] = attr.current_value
-        if attr.last_updated is not None and attr.last_changed is not None:
-            timestamps[name] = AttributeTimestamps(
-                last_updated=attr.last_updated, last_changed=attr.last_changed
-            )
-    return values, timestamps
-
-
 def _build_attribute(
     attribute_driver: AttributeDriver,
     initial_value: AttributeValueType | None,
     *,
-    restored: AttributeTimestamps | None = None,
+    restored: Attribute | None = None,
 ) -> Attribute:
     """Construct the runtime Attribute that matches the driver's kind.
 
     FaultAttributeDriver → FaultAttribute (carries healthy_values +
     severity so the is_faulty computed property has what it needs).
 
-    `restored` carries this attribute's persisted timestamps to resume from;
-    when absent, a non-None initial_value is stamped with the current time
-    (a genuinely new value, e.g. from discovery).
+    `restored` carries this attribute's previous runtime state (e.g. from
+    storage or a pre-rebuild device) to resume from verbatim — value and
+    both timestamps copied as-is, even if only one timestamp is set. When
+    absent, a non-None initial_value is a genuinely new value (e.g. from
+    discovery) and gets stamped with the current time.
     """
     modes: set[ReadWriteMode] = (
         {"read", "write"} if attribute_driver.write is not None else {"read"}
     )
-    now = datetime.now(UTC) if initial_value is not None else None
-    last_updated = restored.last_updated if restored is not None else now
-    last_changed = restored.last_changed if restored is not None else now
+    if restored is not None:
+        current_value = restored.current_value
+        last_updated = restored.last_updated
+        last_changed = restored.last_changed
+    else:
+        now = datetime.now(UTC) if initial_value is not None else None
+        current_value = initial_value
+        last_updated = now
+        last_changed = now
     if isinstance(attribute_driver, FaultAttributeDriver):
         return FaultAttribute(
             name=attribute_driver.name,
             data_type=attribute_driver.data_type,
             read_write_modes=modes,
-            current_value=initial_value,
+            current_value=current_value,
             last_updated=last_updated,
             last_changed=last_changed,
             healthy_values=attribute_driver.healthy_values,
@@ -116,7 +97,7 @@ def _build_attribute(
         name=attribute_driver.name,
         data_type=attribute_driver.data_type,
         read_write_modes=modes,
-        current_value=initial_value,
+        current_value=current_value,
         last_updated=last_updated,
         last_changed=last_changed,
         value_options=attribute_driver.value_options,
@@ -191,12 +172,8 @@ class CoreDevice:
         value) starts at None.
         """
         existing = self.attributes.get(attribute_driver.name)
-        existing_by_name = {existing.name: existing} if existing is not None else {}
-        values, timestamps = snapshot_attribute_state(existing_by_name)
         self.attributes[attribute_driver.name] = _build_attribute(
-            attribute_driver,
-            values.get(attribute_driver.name),
-            restored=timestamps.get(attribute_driver.name),
+            attribute_driver, None, restored=existing
         )
 
     def delete_attribute(self, attribute_name: str) -> None:
@@ -217,11 +194,11 @@ class CoreDevice:
         transport: TransportClient,
         driver: Driver,
         initial_values: dict[str, AttributeValueType] | None = None,
-        restored_timestamps: dict[str, AttributeTimestamps] | None = None,
+        restored_attributes: dict[str, Attribute] | None = None,
         on_update: AttributeListener | None = None,
     ) -> CoreDevice:
         initial = initial_values or {}
-        timestamps = restored_timestamps or {}
+        restored = restored_attributes or {}
         return cls(
             id=base.id,
             name=base.name,
@@ -232,13 +209,13 @@ class CoreDevice:
             attributes={
                 **{
                     a.name: _build_attribute(
-                        a, initial.get(a.name), restored=timestamps.get(a.name)
+                        a, initial.get(a.name), restored=restored.get(a.name)
                     )
                     for a in driver.attributes.values()
                 },
                 CONNECTION_STATUS_ATTR: build_cs_attribute(
                     initial.get(CONNECTION_STATUS_ATTR),  # type: ignore[arg-type]
-                    restored=timestamps.get(CONNECTION_STATUS_ATTR),
+                    restored=restored.get(CONNECTION_STATUS_ATTR),
                 ),
             },
         )
