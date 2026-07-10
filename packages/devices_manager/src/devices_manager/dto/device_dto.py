@@ -103,16 +103,11 @@ def dto_to_core(
     """Reconstruct a Device domain object from a stored Device."""
     driver = drivers[dto.driver_id]
     transport = transports[dto.transport_id]
-    initial_values = {
-        name: attr.current_value
-        for name, attr in dto.attributes.items()
-        if attr.current_value is not None
-    }
     device = CoreDevice.from_base(
         DeviceBase(id=dto.id, name=dto.name, config=dto.config),
         driver=driver,
         transport=transport,
-        initial_values=initial_values or None,
+        restored_attributes=dto.attributes,
         on_update=on_update,
     )
     device.tags = dto.tags

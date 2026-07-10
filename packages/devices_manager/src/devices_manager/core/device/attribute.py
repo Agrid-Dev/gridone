@@ -98,12 +98,14 @@ class Attribute(BaseModel):
         value: AttributeValueType | None = None,
         value_options: list[AttributeValueType] | None = None,
     ) -> "Attribute":
+        now = datetime.now(UTC) if value is not None else None
         return cls(
             name=name,
             data_type=data_type,
             read_write_modes=read_write_modes,
             current_value=value,
-            last_updated=datetime.now(UTC) if value is not None else None,
+            last_updated=now,
+            last_changed=now,
             value_options=value_options,
         )
 

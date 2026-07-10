@@ -56,32 +56,50 @@ AttributeListener = Callable[
 def _build_attribute(
     attribute_driver: AttributeDriver,
     initial_value: AttributeValueType | None,
+    *,
+    restored: Attribute | None = None,
 ) -> Attribute:
     """Construct the runtime Attribute that matches the driver's kind.
 
     FaultAttributeDriver → FaultAttribute (carries healthy_values +
     severity so the is_faulty computed property has what it needs).
+
+    `restored` carries this attribute's previous runtime state (e.g. from
+    storage or a pre-rebuild device) to resume from verbatim — value and
+    both timestamps copied as-is, even if only one timestamp is set. When
+    absent, a non-None initial_value is a genuinely new value (e.g. from
+    discovery) and gets stamped with the current time.
     """
     modes: set[ReadWriteMode] = (
         {"read", "write"} if attribute_driver.write is not None else {"read"}
     )
-    now = datetime.now(UTC) if initial_value is not None else None
+    if restored is not None:
+        current_value = restored.current_value
+        last_updated = restored.last_updated
+        last_changed = restored.last_changed
+    else:
+        now = datetime.now(UTC) if initial_value is not None else None
+        current_value = initial_value
+        last_updated = now
+        last_changed = now
     if isinstance(attribute_driver, FaultAttributeDriver):
         return FaultAttribute(
             name=attribute_driver.name,
             data_type=attribute_driver.data_type,
             read_write_modes=modes,
-            current_value=initial_value,
-            last_updated=now,
-            last_changed=now,
+            current_value=current_value,
+            last_updated=last_updated,
+            last_changed=last_changed,
             healthy_values=attribute_driver.healthy_values,
             severity=attribute_driver.severity,
         )
-    return Attribute.create(
-        attribute_driver.name,
-        attribute_driver.data_type,
-        modes,
-        initial_value,
+    return Attribute(
+        name=attribute_driver.name,
+        data_type=attribute_driver.data_type,
+        read_write_modes=modes,
+        current_value=current_value,
+        last_updated=last_updated,
+        last_changed=last_changed,
         value_options=attribute_driver.value_options,
     )
 
@@ -149,13 +167,13 @@ class CoreDevice:
     def rebuild_attribute(self, attribute_driver: AttributeDriver) -> None:
         """Add or rebuild a single runtime attribute from its driver spec.
 
-        Preserves the attribute's current_value so live telemetry is not lost;
-        a new attribute (no prior value) starts at None.
+        Preserves the attribute's current_value and timestamps so live
+        telemetry and fault age are not lost; a new attribute (no prior
+        value) starts at None.
         """
         existing = self.attributes.get(attribute_driver.name)
-        current_value = existing.current_value if existing is not None else None
         self.attributes[attribute_driver.name] = _build_attribute(
-            attribute_driver, current_value
+            attribute_driver, None, restored=existing
         )
 
     def delete_attribute(self, attribute_name: str) -> None:
@@ -169,16 +187,18 @@ class CoreDevice:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
 
     @classmethod
-    def from_base(
+    def from_base(  # noqa: PLR0913
         cls,
         base: DeviceBase,
         *,
         transport: TransportClient,
         driver: Driver,
         initial_values: dict[str, AttributeValueType] | None = None,
+        restored_attributes: dict[str, Attribute] | None = None,
         on_update: AttributeListener | None = None,
     ) -> CoreDevice:
         initial = initial_values or {}
+        restored = restored_attributes or {}
         return cls(
             id=base.id,
             name=base.name,
@@ -188,11 +208,14 @@ class CoreDevice:
             on_update=on_update,
             attributes={
                 **{
-                    a.name: _build_attribute(a, initial.get(a.name))
+                    a.name: _build_attribute(
+                        a, initial.get(a.name), restored=restored.get(a.name)
+                    )
                     for a in driver.attributes.values()
                 },
                 CONNECTION_STATUS_ATTR: build_cs_attribute(
-                    initial.get(CONNECTION_STATUS_ATTR)  # type: ignore[arg-type]
+                    initial.get(CONNECTION_STATUS_ATTR),  # type: ignore[arg-type]
+                    restored=restored.get(CONNECTION_STATUS_ATTR),
                 ),
             },
         )

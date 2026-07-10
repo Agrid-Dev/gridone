@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -657,6 +658,138 @@ class TestCoreDeviceAttributeFactory:
         assert isinstance(alarm, FaultAttribute)
         assert alarm.current_value is None
         assert alarm.is_faulty is False
+
+    def test_restored_timestamps_are_used_instead_of_now(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        """Regression AGR-887: from_base must not stamp restored state with now()."""
+        old = datetime(2020, 1, 1, tzinfo=UTC)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            restored_attributes={
+                "temperature": Attribute(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_modes={"read"},
+                    current_value=21.0,
+                    last_updated=old,
+                    last_changed=old,
+                )
+            },
+        )
+        temp = device.attributes["temperature"]
+        assert temp.current_value == 21.0
+        assert temp.last_updated == old
+        assert temp.last_changed == old
+
+    def test_partial_restored_timestamps_are_not_dropped(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        """Regression AGR-887: a restored attribute with only one timestamp set
+        (e.g. never changed since first update) must not be re-stamped with
+        now() for either field."""
+        old = datetime(2020, 1, 1, tzinfo=UTC)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            restored_attributes={
+                "temperature": Attribute(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_modes={"read"},
+                    current_value=21.0,
+                    last_updated=old,
+                    last_changed=None,
+                )
+            },
+        )
+        temp = device.attributes["temperature"]
+        assert temp.current_value == 21.0
+        assert temp.last_updated == old
+        assert temp.last_changed is None
+
+    def test_no_restored_timestamps_stamps_now(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        """A genuinely new value (no restore data) still gets stamped now()."""
+        before = datetime.now(UTC)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            initial_values={"temperature": 21.0},
+        )
+        temp = device.attributes["temperature"]
+        assert temp.last_updated is not None
+        assert temp.last_updated >= before
+
+    def test_fault_attribute_restores_timestamps(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        """Regression AGR-887: the FaultAttribute branch restores timestamps too —
+        this is the ticket's reproduction scenario (fault age lost on reboot)."""
+        old = datetime(2020, 1, 1, tzinfo=UTC)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            restored_attributes={
+                "alarm": FaultAttribute(
+                    name="alarm",
+                    data_type=DataType.BOOL,
+                    read_write_modes={"read"},
+                    current_value=True,
+                    last_updated=old,
+                    last_changed=old,
+                    healthy_values=[False],
+                    severity=Severity.ALERT,
+                )
+            },
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.current_value is True
+        assert alarm.last_updated == old
+        assert alarm.last_changed == old
+
+
+class TestCoreDeviceRebuildAttribute:
+    """CoreDevice.rebuild_attribute preserves value and timestamps."""
+
+    def test_preserves_value_and_timestamps(self, device: CoreDevice):
+        device.attributes["temperature"].update_value(25.5)
+        original = device.attributes["temperature"]
+        attribute_driver = device.driver.attributes["temperature"]
+
+        device.rebuild_attribute(attribute_driver)
+
+        rebuilt = device.attributes["temperature"]
+        assert rebuilt.current_value == 25.5
+        assert rebuilt.last_updated == original.last_updated
+        assert rebuilt.last_changed == original.last_changed
+
+    def test_new_attribute_has_no_timestamps(self, device: CoreDevice):
+        """An attribute with no prior state starts fresh (no backdating)."""
+        attribute_driver = device.driver.attributes["temperature"]
+        device.delete_attribute("temperature")
+
+        device.rebuild_attribute(attribute_driver)
+
+        rebuilt = device.attributes["temperature"]
+        assert rebuilt.current_value is None
+        assert rebuilt.last_updated is None
+        assert rebuilt.last_changed is None
 
 
 class TestCoreDeviceWaiters:

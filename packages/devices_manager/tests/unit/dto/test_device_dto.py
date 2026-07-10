@@ -16,6 +16,7 @@ from devices_manager.dto.device_dto import (
     Device,
     DeviceCreate,
     core_to_dto,
+    dto_to_core,
 )
 from devices_manager.types import DataType
 from models.types import Severity
@@ -108,6 +109,57 @@ class TestCoreDeviceToDto:
             },
         )
         assert core_to_dto(device).is_faulty is False
+
+
+class TestDtoToCoreRestoresTimestamps:
+    """Regression AGR-887: loading a device from storage must resume each
+    attribute's last_updated/last_changed, not reset them to load time."""
+
+    _OLD = datetime(2020, 1, 1, tzinfo=UTC)
+
+    def test_restores_persisted_timestamps(self, driver, mock_transport_client):
+        dto = Device(
+            id="d1",
+            name="D1",
+            config={},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+            attributes={
+                "temperature": Attribute(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_modes={"read"},
+                    current_value=21.0,
+                    last_updated=self._OLD,
+                    last_changed=self._OLD,
+                )
+            },
+        )
+        device = dto_to_core(
+            dto, {driver.id: driver}, {mock_transport_client.id: mock_transport_client}
+        )
+        restored = device.attributes["temperature"]
+        assert restored.current_value == 21.0
+        assert restored.last_updated == self._OLD
+        assert restored.last_changed == self._OLD
+
+    def test_fresh_attribute_with_no_stored_value_is_not_backdated(
+        self, driver, mock_transport_client
+    ):
+        dto = Device(
+            id="d1",
+            name="D1",
+            config={},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+            attributes={},
+        )
+        device = dto_to_core(
+            dto, {driver.id: driver}, {mock_transport_client.id: mock_transport_client}
+        )
+        assert device.attributes["temperature"].current_value is None
+        assert device.attributes["temperature"].last_updated is None
+        assert device.attributes["temperature"].last_changed is None
 
 
 class TestDeviceAttributeSerialization:
