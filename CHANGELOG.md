@@ -1,3 +1,9 @@
+## v0.153.4 (2026-07-10)
+
+### Refactor
+
+- **ui**: use @gridone/client ts sdk
+
 ## v0.153.3 (2026-07-10)
 
 ### Fix
