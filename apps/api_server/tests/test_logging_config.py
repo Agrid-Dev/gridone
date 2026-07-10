@@ -3,7 +3,7 @@ import logging
 import logging.config
 import sys
 
-from logging_config import PROD_LOGGING_CONFIG, JsonFormatter
+from logging_config import DEV_LOGGING_CONFIG, PROD_LOGGING_CONFIG, JsonFormatter
 
 
 def _record(
@@ -63,8 +63,39 @@ def test_serializes_exception():
     assert "ValueError" in payload["exception"]
 
 
+def test_forwards_extra_fields_into_payload():
+    record = _record()
+    record.event = "read"
+    record.status = "ok"
+    record.duration_ms = 12.5
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["event"] == "read"
+    assert payload["status"] == "ok"
+    assert payload["duration_ms"] == 12.5
+
+
+def test_extra_fields_do_not_override_reserved_keys():
+    record = _record()
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["message"] == "hello world"
+    assert payload["logger"] == "gridone.test"
+    assert set(payload.keys()) == {"timestamp", "level", "logger", "message"}
+
+
 def test_prod_config_is_valid_and_uses_json_formatter():
     # dictConfig resolves the "()" factory path, proving it is importable.
     logging.config.dictConfig(PROD_LOGGING_CONFIG)
 
     assert PROD_LOGGING_CONFIG["handlers"]["console"]["formatter"] == "json"
+
+
+def test_dev_config_keeps_observability_logs_off_the_console():
+    loggers = DEV_LOGGING_CONFIG["loggers"]
+    observability_logger = loggers["devices_manager.observability"]
+
+    assert "console" not in observability_logger["handlers"]
+    assert observability_logger["propagate"] is False

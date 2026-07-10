@@ -1,3 +1,5 @@
+import logging
+import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -8,6 +10,8 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from .attribute import Attribute
+
+_observability_logger = logging.getLogger("devices_manager.observability")
 
 
 class EventType(StrEnum):
@@ -65,18 +69,37 @@ def log_event(
             attribute = self.attributes.get(attribute_name)
             if attribute is None:
                 return await fn(self, attribute_name, *args, **kwargs)
+            start = time.perf_counter()
+            status: Literal["ok", "error"] = "ok"
             try:
                 result = await fn(
                     self, attribute_name, *args, _log_attribute=attribute, **kwargs
                 )
                 attribute.append_log(_ok_entry(event_type))
             except Exception as e:
+                status = "error"
                 attribute.append_log(_error_entry(event_type, e))
                 raise
             else:
                 return result
             finally:
                 self._on_log_append()
+                _observability_logger.info(
+                    "device %s %s",
+                    event_type,
+                    status,
+                    extra={
+                        "event": event_type,
+                        "status": status,
+                        "duration_ms": (time.perf_counter() - start) * 1000,
+                        "attribute": attribute_name,
+                        "device_id": getattr(self, "id", None),
+                        "driver_id": getattr(self, "driver_id", None),
+                        "protocol": getattr(
+                            getattr(self, "transport", None), "protocol", None
+                        ),
+                    },
+                )
 
         return wrapper
 
