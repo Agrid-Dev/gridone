@@ -5,6 +5,12 @@ from typing import Any
 _COMMON_FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 _COMMON_DATEFMT = "%Y-%m-%dT%H:%M:%S"
 
+# Attributes present on every LogRecord, used to tell built-ins apart from
+# fields passed via `extra={}` when merging the latter into the JSON payload.
+_STANDARD_RECORD_ATTRS = frozenset(
+    logging.LogRecord("", 0, "", 0, "", (), None).__dict__.keys()
+) | {"otelTraceID", "otelSpanID"}
+
 
 class JsonFormatter(logging.Formatter):
     """Render log records as single-line JSON for structured log ingestion.
@@ -30,6 +36,13 @@ class JsonFormatter(logging.Formatter):
             payload["span_id"] = getattr(record, "otelSpanID", None)
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
+        payload.update(
+            {
+                key: value
+                for key, value in record.__dict__.items()
+                if key not in _STANDARD_RECORD_ATTRS
+            }
+        )
         return json.dumps(payload)
 
 
@@ -84,6 +97,11 @@ DEV_LOGGING_CONFIG: dict[str, Any] = {
         },
         "uvicorn.access": {
             "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "devices_manager.observability": {
+            "handlers": ["file"],
             "level": "INFO",
             "propagate": False,
         },
