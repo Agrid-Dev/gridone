@@ -82,7 +82,7 @@ class MockTransportClient(PullTransportClient[MockTransportAddress]):
             return MockTransportAddress(raw_address.format(**(context or {})))
         return MockTransportAddress(str(raw_address))
 
-    async def read(self, address: MockTransportAddress):  # noqa: ANN201, ARG002
+    async def _read(self, address: MockTransportAddress) -> str:  # noqa: ARG002
         return "default_value"
 
     async def write(
@@ -148,7 +148,7 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
     ) -> MockPushTransportAddress:
         return MockPushTransportAddress.from_raw(raw_address, context)
 
-    async def read(self, address: MockPushTransportAddress):  # noqa: ANN201, ARG002
+    async def _read(self, address: MockPushTransportAddress) -> str:  # noqa: ARG002
         return "default_value"
 
     async def write(

@@ -170,8 +170,8 @@ class _FakeModbusClient:
 
     instances: list["_FakeModbusClient"] = []  # noqa: RUF012
 
-    def __init__(self, host: str, port: int) -> None:
-        self.host, self.port = host, port
+    def __init__(self, host: str, port: int, timeout: float) -> None:
+        self.host, self.port, self.timeout = host, port, timeout
         self.connected = False
         self.closed = False
         _FakeModbusClient.instances.append(self)

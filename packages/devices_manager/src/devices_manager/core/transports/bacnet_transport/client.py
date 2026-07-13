@@ -108,6 +108,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     config: BacnetTransportConfig
     _application: NormalApplication | ForeignApplication
     _known_devices: DevicesDict
+    _serialize_reads = True
 
     def __init__(
         self, metadata: TransportMetadata, config: BacnetTransportConfig
@@ -191,9 +192,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             raise TypeError(msg)
         return to_native(response.propertyValue.cast_out(AnyAtomic).get_value())
 
-    async def read(self, address: BacnetAddress) -> AttributeValueType:
-        """Read a value from the transport."""
-
+    async def _read(self, address: BacnetAddress) -> AttributeValueType:
         return await self._read_bacnet(address)
 
     @connected

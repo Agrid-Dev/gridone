@@ -31,6 +31,7 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
     address_builder = KNXAddress
     config: KNXTransportConfig
     _xknx_instance: XKNX | None = None
+    _serialize_reads = True
 
     @property
     def _xknx(self) -> XKNX:
@@ -84,7 +85,7 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
         self._handlers_registry.remove(callback_id, topic)
 
     @connected
-    async def read(self, address: KNXAddress) -> AttributeValueType:
+    async def _read(self, address: KNXAddress) -> AttributeValueType:
         """Send GroupValueRead and await GroupValueResponse via xknx ValueReader.
 
         Returns the raw wire value (bool, int, or list[int] for multi-byte DPTs).

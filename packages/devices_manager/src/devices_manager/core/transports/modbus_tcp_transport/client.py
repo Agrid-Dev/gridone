@@ -20,6 +20,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
     protocol = TransportProtocols.MODBUS_TCP
     address_builder = ModbusAddress
     config: ModbusTCPTransportConfig
+    _serialize_reads = True
 
     def __init__(
         self, metadata: TransportMetadata, config: ModbusTCPTransportConfig
@@ -40,7 +41,9 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
             if client is not None:
                 client.close()
             self._client = AsyncModbusTcpClient(
-                host=self.config.host, port=self.config.port
+                host=self.config.host,
+                port=self.config.port,
+                timeout=self.config.read_timeout,
             )
             await self._client.connect()
             await super().connect()
@@ -156,7 +159,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         msg = f"Unknown address type: {modbus_address.type}"
         raise ValueError(msg)
 
-    async def read(
+    async def _read(
         self,
         address: ModbusAddress,
     ) -> AttributeValueType:
