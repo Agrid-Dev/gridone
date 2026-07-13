@@ -1,3 +1,9 @@
+## v0.155.0 (2026-07-13)
+
+### Feat
+
+- **devices-manager**: serialize reads on shared serial-bus transports (#453)
+
 ## v0.154.0 (2026-07-10)
 
 ### Feat
