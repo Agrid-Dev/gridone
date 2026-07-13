@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Lock, Task, create_task
+from contextlib import AbstractAsyncContextManager, nullcontext
 from typing import ClassVar, TypeVar
 
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
@@ -25,11 +26,13 @@ class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
+    _serialize_reads: ClassVar[bool] = False
     config: BaseTransportConfig
     metadata: TransportMetadata
     connection_state: TransportConnectionState
     address_builder: type[T_TransportAddress]
     _connection_lock: Lock
+    _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
 
     def __init__(
@@ -37,6 +40,7 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         self._handlers_registry = ListenerRegistry()
         self._connection_lock = Lock()
+        self._read_lock = Lock() if self._serialize_reads else nullcontext()
         self.connection_state = TransportConnectionState.idle()
         self.config = config
         self.metadata = metadata
@@ -65,9 +69,14 @@ class TransportClient[T_TransportAddress](ABC):
         self.connection_state = TransportConnectionState.closed()
         logger.info("Transport client %s closed", self.protocol)
 
-    @abstractmethod
     async def read(self, address: T_TransportAddress) -> AttributeValueType:
         """Read a value from the transport."""
+        async with self._read_lock:
+            return await self._read(address)
+
+    @abstractmethod
+    async def _read(self, address: T_TransportAddress) -> AttributeValueType:
+        """Perform the actual read, without lock handling."""
         ...
 
     @abstractmethod

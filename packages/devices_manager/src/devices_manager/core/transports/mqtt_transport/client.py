@@ -166,7 +166,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                         pass
 
     @connected
-    async def read(
+    async def _read(
         self,
         address: MqttAddress,
     ) -> AttributeValueType:

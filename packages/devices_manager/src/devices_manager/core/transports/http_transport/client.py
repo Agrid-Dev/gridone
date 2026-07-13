@@ -46,7 +46,7 @@ class HTTPTransportClient(PullTransportClient[HttpAddress]):
         await super().close()
 
     @connected
-    async def read(
+    async def _read(
         self,
         address: HttpAddress,
     ) -> AttributeValueType:

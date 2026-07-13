@@ -58,34 +58,44 @@ def test_mismatched_transport_config_raises(mock_transport_metadata):
 
 
 @pytest.mark.parametrize(
-    ("protocol", "config", "expected_class"),
+    ("protocol", "config", "expected_class", "expected_serialize_reads"),
     (
         [
-            (TransportProtocols.HTTP, HttpTransportConfig(), HTTPTransportClient),
+            (
+                TransportProtocols.HTTP,
+                HttpTransportConfig(),
+                HTTPTransportClient,
+                False,
+            ),
             (
                 TransportProtocols.MQTT,
                 MqttTransportConfig(host="localhost"),
                 MqttTransportClient,
+                False,
             ),
             (
                 TransportProtocols.MODBUS_TCP,
                 ModbusTCPTransportConfig(host="localhost"),
                 ModbusTCPTransportClient,
+                True,
             ),
             (
                 TransportProtocols.MBUS,
                 MBusTransportConfig(host="localhost", port=10001),
                 MBusTransportClient,
+                True,
             ),
             (
                 TransportProtocols.BACNET,
                 BacnetTransportConfig(ip_with_mask="127.0.0.1/24"),
                 BacnetTransportClient,
+                True,
             ),
             (
                 TransportProtocols.KNX,
                 KNXTransportConfig(gateway_ip="localhost"),
                 KNXTransportClient,
+                True,
             ),
         ]
     ),
@@ -95,6 +105,8 @@ def test_make_transport_client(
     protocol: TransportProtocols,
     config: BaseTransportConfig,
     expected_class: type[TransportClient],
+    expected_serialize_reads: bool,
 ):
     client = make_transport_client(protocol, config, mock_transport_metadata)
     assert isinstance(client, expected_class)
+    assert client._serialize_reads is expected_serialize_reads  # noqa: SLF001

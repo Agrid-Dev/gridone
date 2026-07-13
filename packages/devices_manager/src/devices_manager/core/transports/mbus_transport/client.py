@@ -26,6 +26,7 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
     config: MBusTransportConfig
     _serial: serial.SerialBase
     _telegram_cache: dict[int, tuple[float, meterbus.TelegramLong]]
+    _serialize_reads = True
 
     def __init__(
         self, metadata: TransportMetadata, config: MBusTransportConfig
@@ -103,7 +104,7 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
             raise IndexError(msg)
         return float(records[address.record_index].parsed_value)
 
-    async def read(self, address: MBusAddress) -> AttributeValueType:
+    async def _read(self, address: MBusAddress) -> AttributeValueType:
         return await self._read_mbus(address)
 
     async def write(
