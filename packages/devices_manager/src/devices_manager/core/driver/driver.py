@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
@@ -18,8 +17,6 @@ from .update_strategy import UpdateStrategy
 _attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
     AttributeDriver
 )
-
-logger = logging.getLogger(__name__)
 
 
 def validate_polling_groups(
@@ -56,15 +53,6 @@ class Driver:
         validate_polling_groups(self.update_strategy, self.attributes.values())
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))
-        if (
-            self.healthcheck.expected_push_interval is None
-            and self.update_strategy.expected_push_interval is not None
-        ):
-            logger.warning(
-                "Driver %s uses deprecated `update_strategy.expected_push_interval`;"
-                " move it to `healthcheck.expected_push_interval`.",
-                self.id,
-            )
 
     @property
     def name(self) -> str:
@@ -73,18 +61,6 @@ class Driver:
     @property
     def id(self) -> str:
         return self.metadata.id
-
-    @property
-    def effective_expected_push_interval(self) -> int | None:
-        """Resolve the expected push interval for silence detection.
-
-        Prefers `healthcheck.expected_push_interval`; falls back to the
-        deprecated `update_strategy.expected_push_interval` so drivers not
-        yet migrated to the healthcheck block keep working.
-        """
-        if self.healthcheck.expected_push_interval is not None:
-            return self.healthcheck.expected_push_interval
-        return self.update_strategy.expected_push_interval
 
     @property
     def discovery_listener(self) -> DiscoveryListener | None:
