@@ -10,6 +10,7 @@ from devices_manager.core.driver import (
     Driver,
     DriverMetadata,
     FaultAttributeDriver,
+    HealthCheck,
     UpdateStrategy,
 )
 from devices_manager.core.transports import RawTransportAddress
@@ -45,6 +46,7 @@ class DriverSpec(BaseModel):
     transport: TransportProtocols
     env: Annotated[dict, Field(default_factory=dict)]
     update_strategy: UpdateStrategy = Field(default_factory=UpdateStrategy)
+    healthcheck: HealthCheck = Field(default_factory=HealthCheck)
     device_config: list[DeviceConfigField]
     attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
@@ -72,8 +74,9 @@ class DriverPatch(BaseModel):
     type: str | None = None
     env: dict | None = None
     update_strategy: UpdateStrategy | None = None
+    healthcheck: HealthCheck | None = None
 
-    @field_validator("env", "update_strategy", mode="before")
+    @field_validator("env", "update_strategy", "healthcheck", mode="before")
     @classmethod
     def _not_null(cls, v: Any) -> Any:  # noqa: ANN401
         if v is None:
@@ -122,6 +125,7 @@ def core_to_dto(driver: Driver) -> DriverSpec:
         transport=driver.transport,
         env=driver.env,
         update_strategy=driver.update_strategy,
+        healthcheck=driver.healthcheck,
         device_config=driver.device_config_required,
         discovery=driver.discovery_schema,
         attributes=list(driver.attributes.values()),
@@ -136,6 +140,7 @@ def dto_to_core(dto: DriverSpec) -> Driver:
         env=dto.env,
         device_config_required=dto.device_config,
         update_strategy=dto.update_strategy,
+        healthcheck=dto.healthcheck,
         attributes={a.name: a for a in dto.attributes},
         discovery_schema=dto.discovery,
         type=dto.type,

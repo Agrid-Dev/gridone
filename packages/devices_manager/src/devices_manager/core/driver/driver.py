@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import TypeAdapter
 
@@ -10,6 +10,7 @@ from .attribute_driver import AttributeDriver
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
+from .healthcheck import HealthCheck
 from .update_strategy import UpdateStrategy
 
 _attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
@@ -30,6 +31,7 @@ class Driver:
     discovery_schema: dict | None = None
     type: str | None = None
     image_src: str | None = None
+    healthcheck: HealthCheck = field(default_factory=HealthCheck)
 
     def __post_init__(self) -> None:
         if self.type is not None:
@@ -64,6 +66,7 @@ class Driver:
             update_strategy=UpdateStrategy.model_validate(
                 data.get("update_strategy", {})
             ),
+            healthcheck=HealthCheck.model_validate(data.get("healthcheck", {})),
             attributes={
                 a["name"]: _attribute_driver_spec_adapter.validate_python(a)
                 for a in data["attributes"]
