@@ -120,11 +120,27 @@ class TestExpectedInterval:
         self,
         push_driver_with_interval: Driver,
         mock_push_transport_client,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
+        assert device.expected_interval == float(WATCHDOG_INTERVAL)
+
+    def test_deprecated_update_strategy_interval_warns_once_at_driver_load(
+        self,
+        push_only_attributes: list[AttributeDriver],
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
         with caplog.at_level(logging.WARNING):
-            assert device.expected_interval == float(WATCHDOG_INTERVAL)
+            Driver(
+                metadata=DriverMetadata(id="push_driver_interval"),
+                env={},
+                device_config_required=[],
+                transport=TransportProtocols.MQTT,
+                update_strategy=UpdateStrategy(
+                    polling_enabled=False,
+                    expected_push_interval=WATCHDOG_INTERVAL,
+                ),
+                attributes={a.name: a for a in push_only_attributes},
+            )
         assert "deprecated" in caplog.text
 
     def test_healthcheck_interval_takes_precedence_over_legacy(
