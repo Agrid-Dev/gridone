@@ -5,6 +5,7 @@ from devices_manager.types import ConnectionStatus
 from .base import PullTransportClient, PushTransportClient, TransportClient
 from .base_transport_config import BaseTransportConfig
 from .factory import make_transport_client, make_transport_config
+from .read_result import ReadError, ReadOk, ReadResult
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
@@ -22,6 +23,9 @@ __all__ = [
     "PushTransportAddress",
     "PushTransportClient",
     "RawTransportAddress",
+    "ReadError",
+    "ReadOk",
+    "ReadResult",
     "Transport",
     "Transport",
     "TransportAddress",

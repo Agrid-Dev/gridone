@@ -1,6 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Lock, Task, create_task
+from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, nullcontext
 from typing import ClassVar, TypeVar
 
@@ -8,6 +9,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols, Transp
 
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
+from .read_result import ReadError, ReadOk, ReadResult
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
@@ -20,6 +22,11 @@ T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
 
 
 logger = logging.getLogger(__name__)
+
+
+def dedupe_addresses[T: TransportAddress](addresses: list[T]) -> dict[str, T]:
+    """Collapse addresses sharing the same ``.id`` to one entry, keyed by id."""
+    return {address.id: address for address in addresses}
 
 
 class TransportClient[T_TransportAddress](ABC):
@@ -103,6 +110,45 @@ class TransportClient[T_TransportAddress](ABC):
     async def _read(self, address: T_TransportAddress) -> AttributeValueType:
         """Perform the actual read, without lock handling."""
         ...
+
+    async def _read_one(
+        self,
+        address: T_TransportAddress,
+        correlation_id: str | None,
+    ) -> ReadResult:
+        """Read a single address, wrapping the outcome instead of raising."""
+        try:
+            value = await self.read(address, correlation_id)
+        except Exception as e:  # noqa: BLE001
+            return ReadError(address.id, e)  # ty: ignore[unresolved-attribute]
+        return ReadOk(address.id, value)  # ty: ignore[unresolved-attribute]
+
+    async def read_many(
+        self,
+        addresses: list[T_TransportAddress],
+        correlation_id: str | None = None,
+    ) -> AsyncGenerator[ReadResult]:
+        """Read each address in turn, yielding a result as each one lands.
+
+        Base default: sequential, via :meth:`read` (cache + lock included).
+        Transports that can fetch concurrently or batch addresses into one
+        transaction override this with a different strategy.
+        """
+        for address in dedupe_addresses(addresses).values():  # ty: ignore[invalid-argument-type]
+            yield await self._read_one(address, correlation_id)
+
+    async def collect(
+        self,
+        addresses: list[T_TransportAddress],
+        correlation_id: str | None = None,
+    ) -> dict[str, AttributeValueType | Exception]:
+        """Gather :meth:`read_many` into a ``{address_id: value | error}`` dict."""
+        return {
+            result.address_id: result.value
+            if isinstance(result, ReadOk)
+            else result.error
+            async for result in self.read_many(addresses, correlation_id)
+        }
 
     @abstractmethod
     async def write(
