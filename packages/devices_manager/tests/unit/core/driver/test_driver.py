@@ -122,3 +122,57 @@ class TestDriverStandardSchemaValidation:
             pytest.raises(InvalidError),
         ):
             _make_driver(driver_type="my_type")
+
+
+class TestDriverPollingGroupValidation:
+    def test_undeclared_polling_group_raises(self):
+        attrs = {
+            "temp": AttributeDriver(
+                name="temp",
+                data_type=DataType.FLOAT,
+                read="GET /test",
+                codecs=[],
+                polling_group="core",
+            ),
+        }
+        with pytest.raises(InvalidError, match="undeclared polling_group 'core'"):
+            Driver(
+                metadata=DriverMetadata(id="test"),
+                transport=TransportProtocols.HTTP,
+                env={},
+                device_config_required=[],
+                update_strategy=UpdateStrategy(),
+                attributes=attrs,
+            )
+
+    def test_declared_polling_group_is_accepted(self):
+        attrs = {
+            "temp": AttributeDriver(
+                name="temp",
+                data_type=DataType.FLOAT,
+                read="GET /test",
+                codecs=[],
+                polling_group="core",
+            ),
+        }
+        driver = Driver(
+            metadata=DriverMetadata(id="test"),
+            transport=TransportProtocols.HTTP,
+            env={},
+            device_config_required=[],
+            update_strategy=UpdateStrategy(polling_groups={"core": 5}),
+            attributes=attrs,
+        )
+        assert driver.attributes["temp"].polling_group == "core"
+
+    def test_no_polling_group_is_accepted_regardless_of_declared_groups(self):
+        attrs = {"temp": _make_attribute("temp")}
+        driver = Driver(
+            metadata=DriverMetadata(id="test"),
+            transport=TransportProtocols.HTTP,
+            env={},
+            device_config_required=[],
+            update_strategy=UpdateStrategy(polling_groups={"core": 5}),
+            attributes=attrs,
+        )
+        assert driver.attributes["temp"].polling_group is None

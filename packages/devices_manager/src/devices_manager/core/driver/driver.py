@@ -1,10 +1,12 @@
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from pydantic import TypeAdapter
 
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import TransportProtocols
+from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
 from .device_config_field import DeviceConfigField
@@ -17,6 +19,23 @@ _attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def validate_polling_groups(
+    update_strategy: UpdateStrategy, attributes: Iterable[AttributeDriver]
+) -> None:
+    """Reject attributes referencing a polling_group not declared in
+    update_strategy.polling_groups."""
+    for attribute in attributes:
+        if (
+            attribute.polling_group is not None
+            and attribute.polling_group not in update_strategy.polling_groups
+        ):
+            msg = (
+                f"Attribute '{attribute.name}' references undeclared polling_group "
+                f"'{attribute.polling_group}'"
+            )
+            raise InvalidError(msg)
 
 
 @dataclass
@@ -32,6 +51,7 @@ class Driver:
     image_src: str | None = None
 
     def __post_init__(self) -> None:
+        validate_polling_groups(self.update_strategy, self.attributes.values())
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))
 

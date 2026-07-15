@@ -25,6 +25,18 @@ def test_attribute_schema_from_dict() -> None:
     assert attribute_dto.codecs[0].argument == "/current_weather/temperature"
     assert attribute_dto.read == data["read"]
     assert attribute_dto.write is None
+    assert attribute_dto.polling_group is None
+
+
+def test_attribute_schema_polling_group() -> None:
+    data = {
+        "name": "temperature",
+        "data_type": "float",
+        "read": "GET /temperature",
+        "polling_group": "core",
+    }
+    attribute_dto = AttributeDriver.model_validate(data)
+    assert attribute_dto.polling_group == "core"
 
 
 mock_address = (
