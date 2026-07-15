@@ -33,6 +33,8 @@ class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
+    # Gates read()'s lock. Concurrent transports also need ConcurrentReadMixin
+    # (concurrent_read.py) for read_many() — keep both in sync, never both True.
     _serialize_reads: ClassVar[bool] = False
     config: BaseTransportConfig
     metadata: TransportMetadata
