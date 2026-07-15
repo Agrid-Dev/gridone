@@ -1,3 +1,9 @@
+## v0.156.0 (2026-07-15)
+
+### Feat
+
+- **devices-manager**: per-sweep correlation-id read caching (#454)
+
 ## v0.155.0 (2026-07-13)
 
 ### Feat
