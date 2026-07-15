@@ -15,7 +15,7 @@ update_strategy:
 |---|---|---|---|---|
 | `polling_interval` | `polling` | duration or integer | `10` (seconds) | How often attributes are read from the device. Must be positive. |
 | `read_timeout` | `timeout` | duration or integer or `null` | `10` (seconds) | Maximum time to wait for a device response. Must be between 1 and 60 seconds, or `null` to disable. |
-| `expected_push_interval` | `expected_push` | duration or integer or `null` | `null` | Expected interval between push emissions. When set alongside `polling: disable`, enables silence detection (see below). |
+| `expected_push_interval` | `expected_push` | duration or integer or `null` | `null` | **Deprecated** — moved to the [health check](healthcheck.md) block. Still read as a fallback, with a deprecation warning. |
 
 ## Duration format
 
@@ -42,25 +42,7 @@ update_strategy:
 
 ## Silence detection for push devices
 
-When a push device stops emitting data, there is no failed poll to detect it. Setting `expected_push_interval` alongside `polling: disable` enables a watchdog that monitors the time since the last received push and updates `connection_status` automatically.
-
-```yaml
-update_strategy:
-  polling: disable
-  expected_push_interval: 30s
-```
-
-The watchdog escalates `connection_status` based on how long the device has been silent relative to the declared interval:
-
-| Silence duration | `connection_status` |
-|---|---|
-| < 2× interval | `ok` (within grace period) |
-| ≥ 2× interval | `degraded` |
-| ≥ 3× interval | `error` |
-
-The clock resets every time a push message is successfully received. On service restart it resets to the current time, giving the device one full grace period to re-emit before any escalation.
-
-This field has no effect on pull devices. Pull devices track connection health through accumulated read outcomes.
+Silence detection for push devices is now configured under the [health check](healthcheck.md) block via `expected_push_interval`.
 
 ## Examples
 
