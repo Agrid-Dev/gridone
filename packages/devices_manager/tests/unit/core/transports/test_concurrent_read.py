@@ -14,6 +14,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttAddress
+from devices_manager.core.transports.read_result import ReadOk
 from devices_manager.types import AttributeValueType
 
 from ..fixtures.recording_transport import ConcurrentRecordingTransportClient
@@ -45,6 +46,29 @@ class TestConcurrentReadMixin:
         assert client.read_calls == 1
         assert len(results) == 1
         assert results[0].address_id == "a"
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_network_read_alongside_concurrent_fetches(
+        self,
+    ) -> None:
+        client = ConcurrentRecordingTransportClient()
+        cached_address = MockTransportAddress("cached")
+        fresh_addresses = [MockTransportAddress(x) for x in ("a", "b")]
+        await client.read(cached_address, "sweep-1")
+        assert client.read_calls == 1
+
+        results = {
+            r.address_id: r
+            async for r in client.read_many(
+                [cached_address, *fresh_addresses], "sweep-1"
+            )
+        }
+
+        assert client.read_calls == 3  # only the two fresh addresses hit the network
+        assert client.max_concurrent_reads > 1  # fresh addresses still ran concurrently
+        cached_result = results["cached"]
+        assert isinstance(cached_result, ReadOk)
+        assert cached_result.value == cached_address
 
     @pytest.mark.asyncio
     async def test_early_exit_cancels_pending_reads(self) -> None:
