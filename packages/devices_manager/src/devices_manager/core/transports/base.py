@@ -34,6 +34,8 @@ class TransportClient[T_TransportAddress](ABC):
     _connection_lock: Lock
     _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
+    _read_cache: dict[str, tuple[str, AttributeValueType]]
+    _cache_epoch: int
 
     def __init__(
         self, metadata: TransportMetadata, config: BaseTransportConfig
@@ -45,6 +47,8 @@ class TransportClient[T_TransportAddress](ABC):
         self.config = config
         self.metadata = metadata
         self._background_tasks = set()
+        self._read_cache = {}
+        self._cache_epoch = 0
 
     @property
     def id(self) -> str:
@@ -67,12 +71,33 @@ class TransportClient[T_TransportAddress](ABC):
     async def close(self) -> None:
         """Close the connection and release resources."""
         self.connection_state = TransportConnectionState.closed()
+        self._read_cache.clear()
+        self._cache_epoch += 1
         logger.info("Transport client %s closed", self.protocol)
 
-    async def read(self, address: T_TransportAddress) -> AttributeValueType:
-        """Read a value from the transport."""
+    async def read(
+        self,
+        address: T_TransportAddress,
+        correlation_id: str | None = None,
+    ) -> AttributeValueType:
+        """Read a value from the transport.
+
+        With a ``correlation_id``, the value is cached per ``address.id`` and
+        reused for later reads sharing that id (one sweep). ``None`` always hits
+        the network and never touches the cache.
+        """
+        if correlation_id is not None:
+            cached = self._read_cache.get(address.id)  # ty: ignore[unresolved-attribute]
+            if cached is not None and cached[0] == correlation_id:
+                return cached[1]
         async with self._read_lock:
-            return await self._read(address)
+            epoch = self._cache_epoch
+            value = await self._read(address)
+            # Skip the store if a close()/reconnect cleared the cache while the
+            # network read was in flight — otherwise a stale entry would survive.
+            if correlation_id is not None and self._cache_epoch == epoch:
+                self._read_cache[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]
+            return value
 
     @abstractmethod
     async def _read(self, address: T_TransportAddress) -> AttributeValueType:

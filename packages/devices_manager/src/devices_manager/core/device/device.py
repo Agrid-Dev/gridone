@@ -12,6 +12,7 @@ from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.utils.templating.render import render_struct
 from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.ids import gen_id
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
 from .connection_status import (
@@ -377,6 +378,7 @@ class CoreDevice:
         self,
         attribute_name: str,
         *,
+        correlation_id: str | None = None,
         _log_attribute: Attribute | None = None,
     ) -> AttributeValueType:
         attribute = _log_attribute or self.get_attribute(attribute_name)
@@ -391,7 +393,7 @@ class CoreDevice:
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
-        raw_value = await self.transport.read(address)
+        raw_value = await self.transport.read(address, correlation_id)
         codec = attribute_driver.codec
         decoded_value = codec.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
@@ -433,14 +435,20 @@ class CoreDevice:
         The transport must already be open. A failed read is logged and yields
         ``None`` for that attribute so a single unreachable register never aborts
         the whole sweep.
+
+        A single ``correlation_id`` is minted for the sweep so attributes that
+        render to the same transport address share one network read.
         """
+        correlation_id = gen_id()
         for attr_name, attr in self.attributes.items():
             if "read" not in attr.read_write_modes:
                 continue
             if attr.kind == AttributeKind.INTERNAL:
                 continue
             try:
-                value = await self.read_attribute_value(attr_name)
+                value = await self.read_attribute_value(
+                    attr_name, correlation_id=correlation_id
+                )
                 logger.debug(
                     "[Device %s] Read attribute %s with value %s",
                     self.id,
