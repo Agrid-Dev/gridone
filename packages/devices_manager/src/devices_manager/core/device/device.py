@@ -155,7 +155,16 @@ class CoreDevice:
 
     @property
     def expected_interval(self) -> float | None:
-        push_interval = self.driver.update_strategy.expected_push_interval
+        push_interval = self.driver.healthcheck.expected_push_interval
+        if push_interval is None:
+            push_interval = self.driver.update_strategy.expected_push_interval
+            if push_interval is not None:
+                logger.warning(
+                    "Driver %s uses deprecated"
+                    " `update_strategy.expected_push_interval`;"
+                    " move it to `healthcheck.expected_push_interval`.",
+                    self.driver_id,
+                )
         return float(push_interval) if push_interval is not None else None
 
     @property
