@@ -29,17 +29,6 @@ class UpdateStrategy(BaseModel):
         validation_alias=AliasChoices("polling_interval", "polling"),
     )
 
-    expected_push_interval: Annotated[
-        PositiveInt | None,
-        BeforeValidator(lambda v: parse_duration(v) if isinstance(v, str) else v),
-    ] = Field(
-        default=None,
-        description=(
-            "Deprecated: use the driver's `healthcheck.expected_push_interval` instead."
-        ),
-        validation_alias=AliasChoices("expected_push_interval", "expected_push"),
-    )
-
     read_timeout: Annotated[
         PositiveInt | None,
         BeforeValidator(lambda v: parse_duration(v) if isinstance(v, str) else v),
