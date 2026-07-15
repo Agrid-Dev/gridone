@@ -8,6 +8,7 @@ import pytest
 from devices_manager.core.device.attribute import Attribute
 from devices_manager.core.device.event_log import (
     EventType,
+    build_entry,
     log_event,
     wrap_listen,
 )
@@ -234,3 +235,23 @@ class TestWrapListen:
         assert len(attr.logs.listen) == 1
         assert attr.logs.listen[0].status == "ok"
         on_data.assert_called_once()
+
+
+class TestBuildEntry:
+    """`build_entry` is the shared entry-builder callers outside this module
+    use (e.g. CoreDevice's group-poll path, which can't go through the
+    `log_event` decorator) so ok/error entries are built in one place."""
+
+    def test_no_error_builds_ok_entry(self) -> None:
+        entry = build_entry(EventType.READ)
+
+        assert entry.event_type == EventType.READ
+        assert entry.status == "ok"
+        assert entry.message is None
+
+    def test_error_builds_error_entry_with_message(self) -> None:
+        entry = build_entry(EventType.READ, RuntimeError("boom"))
+
+        assert entry.event_type == EventType.READ
+        assert entry.status == "error"
+        assert entry.message == "boom"

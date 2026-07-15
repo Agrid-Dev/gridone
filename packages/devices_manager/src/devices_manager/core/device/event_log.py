@@ -48,6 +48,20 @@ def _error_entry(event_type: EventType, exc: Exception) -> AttributeEventLog:
     )
 
 
+def build_entry(
+    event_type: EventType, error: Exception | None = None
+) -> AttributeEventLog:
+    """Build an ok/error AttributeEventLog for `event_type`.
+
+    Shared entry point for callers outside this module (e.g. a read path
+    that can't go through the `log_event` decorator) so there's one place
+    that decides what an ok/error log entry looks like.
+    """
+    if error is not None:
+        return _error_entry(event_type, error)
+    return _ok_entry(event_type)
+
+
 def log_event(
     event_type: EventType,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:

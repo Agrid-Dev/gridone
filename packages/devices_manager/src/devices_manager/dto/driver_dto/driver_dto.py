@@ -93,6 +93,7 @@ class AttributePatch(BaseModel):
     kind: AttributeKind | None = None
     severity: Severity | None = None
     healthy_values: list[AttributeValueType] | None = None
+    polling_group: str | None = None  # null falls back to the default polling_interval
 
     @field_validator(
         "read", "codecs", "kind", "severity", "healthy_values", mode="before"

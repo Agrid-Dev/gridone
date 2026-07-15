@@ -1315,6 +1315,37 @@ class TestDevicesServiceRestartSync:
         await dm.stop()
 
     @pytest.mark.asyncio
+    async def test_patch_driver_rebuilds_poll_groups_after_restart(
+        self, driver, mock_transport_client
+    ):
+        """Per-group poll tasks are rebuilt on driver update via the
+        existing synchronous device restart."""
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+        assert set(device._poll_tasks) == {None}  # noqa: SLF001
+
+        await dm.patch_driver(
+            driver.id,
+            DriverPatch(update_strategy=UpdateStrategy(polling_groups={"core": 5})),
+        )
+        await dm.patch_driver_attribute(
+            driver.id, "temperature", AttributePatch(polling_group="core")
+        )
+
+        assert set(device._poll_tasks) == {"core", None}  # noqa: SLF001
+        assert device._poll_tasks["core"] is not None  # noqa: SLF001
+        await dm.stop()
+
+    @pytest.mark.asyncio
     async def test_patch_driver_attribute_rebuilds_kind_in_live_devices(
         self, driver, mock_transport_client
     ):

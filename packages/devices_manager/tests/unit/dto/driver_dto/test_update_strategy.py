@@ -69,3 +69,18 @@ def test_expected_push_interval_independent_of_polling():
     strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
     assert not strategy.polling_enabled
     assert strategy.expected_push_interval == 300
+
+
+def test_polling_groups_defaults_to_empty_dict():
+    assert UpdateStrategy().polling_groups == {}
+
+
+def test_polling_groups_parses_duration_strings():
+    raw = {"polling_groups": {"core": "5s", "config": "1h"}}
+    strategy = UpdateStrategy(**raw)  # ty:ignore[invalid-argument-type]
+    assert strategy.polling_groups == {"core": 5, "config": 3600}
+
+
+def test_polling_groups_accepts_ints():
+    strategy = UpdateStrategy(polling_groups={"core": 5})
+    assert strategy.polling_groups == {"core": 5}

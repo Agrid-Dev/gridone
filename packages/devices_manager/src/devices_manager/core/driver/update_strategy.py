@@ -48,6 +48,27 @@ class UpdateStrategy(BaseModel):
         le=MAX_TIMEOUT,
     )
 
+    polling_groups: Annotated[
+        dict[str, PositiveInt],
+        BeforeValidator(
+            lambda v: (
+                {
+                    name: (
+                        parse_duration(interval)
+                        if isinstance(interval, str)
+                        else interval
+                    )
+                    for name, interval in v.items()
+                }
+                if isinstance(v, dict)
+                else v
+            )
+        ),
+    ] = Field(
+        default_factory=dict,
+        description="Named polling groups: group name -> interval in seconds.",
+    )
+
     @model_validator(mode="before")
     @classmethod
     def handle_disabled_polling(cls, values: dict[str, Any]) -> dict[str, Any]:
