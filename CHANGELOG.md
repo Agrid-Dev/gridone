@@ -1,3 +1,9 @@
+## v0.160.0 (2026-07-15)
+
+### Feat
+
+- **devices-manager**: drop deprecated update_strategy.expected_push_interval (#458)
+
 ## v0.159.0 (2026-07-15)
 
 ### Feat
