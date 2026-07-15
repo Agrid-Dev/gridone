@@ -1,9 +1,8 @@
-import logging
 from unittest.mock import patch
 
 import pytest
 
-from devices_manager.core.driver import Driver, HealthCheck
+from devices_manager.core.driver import Driver
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.driver.update_strategy import UpdateStrategy
@@ -202,81 +201,3 @@ class TestDriverPollingGroupValidation:
             attributes=attrs,
         )
         assert driver.attributes["temp"].polling_group is None
-
-
-class TestDriverEffectiveExpectedPushInterval:
-    def test_healthcheck_only(self):
-        driver = Driver(
-            metadata=DriverMetadata(id="test"),
-            transport=TransportProtocols.HTTP,
-            env={},
-            device_config_required=[],
-            update_strategy=UpdateStrategy(),
-            healthcheck=HealthCheck(expected_push_interval=30),
-            attributes={},
-        )
-        assert driver.effective_expected_push_interval == 30
-
-    def test_legacy_update_strategy_only(self):
-        driver = Driver(
-            metadata=DriverMetadata(id="test"),
-            transport=TransportProtocols.HTTP,
-            env={},
-            device_config_required=[],
-            update_strategy=UpdateStrategy(expected_push_interval=30),
-            attributes={},
-        )
-        assert driver.effective_expected_push_interval == 30
-
-    def test_healthcheck_takes_precedence_over_legacy(self):
-        driver = Driver(
-            metadata=DriverMetadata(id="test"),
-            transport=TransportProtocols.HTTP,
-            env={},
-            device_config_required=[],
-            update_strategy=UpdateStrategy(expected_push_interval=300),
-            healthcheck=HealthCheck(expected_push_interval=30),
-            attributes={},
-        )
-        assert driver.effective_expected_push_interval == 30
-
-    def test_neither_set_returns_none(self):
-        driver = Driver(
-            metadata=DriverMetadata(id="test"),
-            transport=TransportProtocols.HTTP,
-            env={},
-            device_config_required=[],
-            update_strategy=UpdateStrategy(),
-            attributes={},
-        )
-        assert driver.effective_expected_push_interval is None
-
-    def test_legacy_only_warns_once_at_construction(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        with caplog.at_level(logging.WARNING):
-            Driver(
-                metadata=DriverMetadata(id="legacy_driver"),
-                transport=TransportProtocols.HTTP,
-                env={},
-                device_config_required=[],
-                update_strategy=UpdateStrategy(expected_push_interval=30),
-                attributes={},
-            )
-        assert "deprecated" in caplog.text
-        assert "legacy_driver" in caplog.text
-
-    def test_healthcheck_set_does_not_warn(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        with caplog.at_level(logging.WARNING):
-            Driver(
-                metadata=DriverMetadata(id="test"),
-                transport=TransportProtocols.HTTP,
-                env={},
-                device_config_required=[],
-                update_strategy=UpdateStrategy(expected_push_interval=300),
-                healthcheck=HealthCheck(expected_push_interval=30),
-                attributes={},
-            )
-        assert "deprecated" not in caplog.text
