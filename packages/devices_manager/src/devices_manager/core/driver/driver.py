@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pydantic import TypeAdapter
 
@@ -12,6 +12,7 @@ from .attribute_driver import AttributeDriver
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
+from .healthcheck import HealthCheck
 from .update_strategy import UpdateStrategy
 
 _attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
@@ -49,11 +50,21 @@ class Driver:
     discovery_schema: dict | None = None
     type: str | None = None
     image_src: str | None = None
+    healthcheck: HealthCheck = field(default_factory=HealthCheck)
 
     def __post_init__(self) -> None:
         validate_polling_groups(self.update_strategy, self.attributes.values())
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))
+        if (
+            self.healthcheck.expected_push_interval is None
+            and self.update_strategy.expected_push_interval is not None
+        ):
+            logger.warning(
+                "Driver %s uses deprecated `update_strategy.expected_push_interval`;"
+                " move it to `healthcheck.expected_push_interval`.",
+                self.id,
+            )
 
     @property
     def name(self) -> str:
@@ -62,6 +73,18 @@ class Driver:
     @property
     def id(self) -> str:
         return self.metadata.id
+
+    @property
+    def effective_expected_push_interval(self) -> int | None:
+        """Resolve the expected push interval for silence detection.
+
+        Prefers `healthcheck.expected_push_interval`; falls back to the
+        deprecated `update_strategy.expected_push_interval` so drivers not
+        yet migrated to the healthcheck block keep working.
+        """
+        if self.healthcheck.expected_push_interval is not None:
+            return self.healthcheck.expected_push_interval
+        return self.update_strategy.expected_push_interval
 
     @property
     def discovery_listener(self) -> DiscoveryListener | None:
@@ -84,6 +107,7 @@ class Driver:
             update_strategy=UpdateStrategy.model_validate(
                 data.get("update_strategy", {})
             ),
+            healthcheck=HealthCheck.model_validate(data.get("healthcheck", {})),
             attributes={
                 a["name"]: _attribute_driver_spec_adapter.validate_python(a)
                 for a in data["attributes"]

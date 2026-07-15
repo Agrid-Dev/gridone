@@ -54,6 +54,17 @@ def test_from_dict_empty_update_strategy(driver_schema_raw: dict):
     assert dto.update_strategy.read_timeout == DEFAULT_READ_TIMEOUT
 
 
+def test_from_dict_healthcheck(driver_schema_raw: dict):
+    driver_schema_raw["healthcheck"] = {"expected_push_interval": "30s"}
+    dto = DriverSpec.model_validate(driver_schema_raw)
+    assert dto.healthcheck.expected_push_interval == 30
+
+
+def test_from_dict_missing_healthcheck_defaults_to_none(driver_schema_raw: dict):
+    dto = DriverSpec.model_validate(driver_schema_raw)
+    assert dto.healthcheck.expected_push_interval is None
+
+
 def test_existing_driver_schema_parses_without_fault_keys(driver_schema_raw: dict):
     """Non-fault drivers (no kind: key anywhere) must parse identically."""
     dto = DriverSpec.model_validate(driver_schema_raw)

@@ -23,6 +23,9 @@ device_config:                # (optional) parameters the user must supply per d
 update_strategy:              # (optional) controls how often attributes are polled
   polling_interval: 30s       # or: polling: disable
 
+healthcheck:                  # (optional) controls how device liveness is assessed
+  expected_push_interval: 30s
+
 attributes:                   # (required) list of attribute drivers
   - name: temperature         # attribute identifier
     data_type: float          # float | int | bool | str
@@ -51,6 +54,7 @@ attributes:                   # (required) list of attribute drivers
 | `env` | no | Driver-scoped constants |
 | `device_config` | no | Per-instance parameters (e.g. `ip`, `device_id`). See [Device config](../glossary.md#device-config) |
 | `update_strategy` | no | Polling frequency configuration. See [Update strategy](../glossary.md#update-strategy) |
+| `healthcheck` | no | Device liveness configuration. See [Health check](../glossary.md#health-check) |
 | `attributes` | yes | List of readable/writable [attributes](../glossary.md#attribute) |
 | `discovery` | no | Auto-[discovery](../glossary.md#discovery) configuration (protocol-dependent) |
 

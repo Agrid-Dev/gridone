@@ -1339,6 +1339,8 @@ export interface components {
       write?: components["schemas"]["RawTransportAddress"] | null;
       /** Codecs */
       codecs?: components["schemas"]["CodecSpec"][];
+      /** Polling Group */
+      polling_group?: string | null;
     };
     /** AttributeEventLog */
     AttributeEventLog: {
@@ -1387,6 +1389,8 @@ export interface components {
       severity?: components["schemas"]["Severity"] | null;
       /** Healthy Values */
       healthy_values?: (number | string | boolean)[] | null;
+      /** Polling Group */
+      polling_group?: string | null;
     };
     /**
      * AttributeRename
@@ -1892,6 +1896,7 @@ export interface components {
         [key: string]: unknown;
       } | null;
       update_strategy?: components["schemas"]["UpdateStrategy"] | null;
+      healthcheck?: components["schemas"]["HealthCheck"] | null;
     };
     /** DriverSpec */
     "DriverSpec-Input": {
@@ -1911,6 +1916,7 @@ export interface components {
         [key: string]: unknown;
       };
       update_strategy?: components["schemas"]["UpdateStrategy"];
+      healthcheck?: components["schemas"]["HealthCheck"];
       /** Device Config */
       device_config: components["schemas"]["DeviceConfigField"][];
       /** Attributes */
@@ -1943,6 +1949,7 @@ export interface components {
         [key: string]: unknown;
       };
       update_strategy?: components["schemas"]["UpdateStrategy"];
+      healthcheck?: components["schemas"]["HealthCheck"];
       /** Device Config */
       device_config: components["schemas"]["DeviceConfigField"][];
       /** Attributes */
@@ -1990,6 +1997,8 @@ export interface components {
       write?: components["schemas"]["RawTransportAddress"] | null;
       /** Codecs */
       codecs?: components["schemas"]["CodecSpec"][];
+      /** Polling Group */
+      polling_group?: string | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -2031,6 +2040,14 @@ export interface components {
     HTTPValidationError: {
       /** Detail */
       detail?: components["schemas"]["ValidationError"][];
+    };
+    /** HealthCheck */
+    HealthCheck: {
+      /**
+       * Expected Push Interval
+       * @description Expected emission interval (seconds) for push devices.
+       */
+      expected_push_interval?: number | null;
     };
     /** HealthResponse */
     HealthResponse: {
@@ -2216,6 +2233,11 @@ export interface components {
        * @default 502
        */
       port?: number;
+      /**
+       * Read Timeout
+       * @default 3
+       */
+      read_timeout?: number;
     };
     /** ModbusTcpTransport */
     ModbusTcpTransport: {
@@ -2624,7 +2646,7 @@ export interface components {
       polling_interval?: number;
       /**
        * Expected Push Interval
-       * @description Expected emission interval (seconds) for push devices.
+       * @description Deprecated: use the driver's `healthcheck.expected_push_interval` instead.
        */
       expected_push_interval?: number | null;
       /**
@@ -2633,6 +2655,13 @@ export interface components {
        * @default 10
        */
       read_timeout?: number | null;
+      /**
+       * Polling Groups
+       * @description Named polling groups: group name -> interval in seconds.
+       */
+      polling_groups?: {
+        [key: string]: number;
+      };
     };
     /**
      * User

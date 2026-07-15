@@ -161,7 +161,7 @@ class CoreDevice:
 
     @property
     def expected_interval(self) -> float | None:
-        push_interval = self.driver.update_strategy.expected_push_interval
+        push_interval = self.driver.effective_expected_push_interval
         return float(push_interval) if push_interval is not None else None
 
     @property

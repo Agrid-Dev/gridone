@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -15,6 +16,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
     DriverMetadata,
+    HealthCheck,
     UpdateStrategy,
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
@@ -47,6 +49,21 @@ def push_driver_with_interval(push_only_attributes: list[AttributeDriver]) -> Dr
             polling_enabled=False,
             expected_push_interval=WATCHDOG_INTERVAL,
         ),
+        attributes={a.name: a for a in push_only_attributes},
+    )
+
+
+@pytest.fixture
+def push_driver_with_healthcheck_interval(
+    push_only_attributes: list[AttributeDriver],
+) -> Driver:
+    return Driver(
+        metadata=DriverMetadata(id="push_driver_healthcheck_interval"),
+        env={},
+        device_config_required=[],
+        transport=TransportProtocols.MQTT,
+        update_strategy=UpdateStrategy(polling_enabled=False),
+        healthcheck=HealthCheck(expected_push_interval=WATCHDOG_INTERVAL),
         attributes={a.name: a for a in push_only_attributes},
     )
 
@@ -89,10 +106,60 @@ def _silence(device: CoreDevice, multiplier: float) -> None:
 
 
 class TestExpectedInterval:
-    def test_push_with_declared_interval(
-        self, push_driver_with_interval: Driver, mock_push_transport_client
+    def test_push_with_healthcheck_interval(
+        self,
+        push_driver_with_healthcheck_interval: Driver,
+        mock_push_transport_client,
+    ) -> None:
+        device = _make_device(
+            push_driver_with_healthcheck_interval, mock_push_transport_client
+        )
+        assert device.expected_interval == float(WATCHDOG_INTERVAL)
+
+    def test_push_with_deprecated_update_strategy_interval_falls_back(
+        self,
+        push_driver_with_interval: Driver,
+        mock_push_transport_client,
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
+        assert device.expected_interval == float(WATCHDOG_INTERVAL)
+
+    def test_deprecated_update_strategy_interval_warns_once_at_driver_load(
+        self,
+        push_only_attributes: list[AttributeDriver],
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        with caplog.at_level(logging.WARNING):
+            Driver(
+                metadata=DriverMetadata(id="push_driver_interval"),
+                env={},
+                device_config_required=[],
+                transport=TransportProtocols.MQTT,
+                update_strategy=UpdateStrategy(
+                    polling_enabled=False,
+                    expected_push_interval=WATCHDOG_INTERVAL,
+                ),
+                attributes={a.name: a for a in push_only_attributes},
+            )
+        assert "deprecated" in caplog.text
+
+    def test_healthcheck_interval_takes_precedence_over_legacy(
+        self,
+        push_only_attributes: list[AttributeDriver],
+        mock_push_transport_client,
+    ) -> None:
+        driver = Driver(
+            metadata=DriverMetadata(id="push_driver_both_intervals"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.MQTT,
+            update_strategy=UpdateStrategy(
+                polling_enabled=False, expected_push_interval=WATCHDOG_INTERVAL * 10
+            ),
+            healthcheck=HealthCheck(expected_push_interval=WATCHDOG_INTERVAL),
+            attributes={a.name: a for a in push_only_attributes},
+        )
+        device = _make_device(driver, mock_push_transport_client)
         assert device.expected_interval == float(WATCHDOG_INTERVAL)
 
     def test_push_only_no_declared_interval_returns_none(

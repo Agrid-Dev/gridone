@@ -75,6 +75,12 @@ A special type of [attribute](#attribute) that some [devices](#device) expose to
 
 ---
 
+## Health check
+
+Configuration in a [driver](#driver) that declares how Gridone should assess whether a [device](#device) is still alive, independent of how its data is fetched. Currently covers the expected interval between emissions for push-based devices, used to drive silence detection.
+
+---
+
 ## Driver
 
 A driver is the declaration of _how_ Gridone should communicate with a specific device: its attributes, how to read and write them, and which protocol it uses. One driver covers all physical units of the same vendor and model — write it once and reuse it across many devices. Drivers are packaged as YAML files, a format that ensures both readability and portability. See [Write a driver](../guides/drivers/write-driver.md).

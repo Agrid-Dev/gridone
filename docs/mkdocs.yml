@@ -91,6 +91,7 @@ nav:
       - Transport Addresses: reference/driver-schema/transport-addresses.md
       - Codecs: reference/driver-schema/codecs.md
       - Update Strategy: reference/driver-schema/update-strategy.md
+      - Health Check: reference/driver-schema/healthcheck.md
     - Devices: reference/devices.md
     - Standard Devices: reference/standard-devices.md
     - Transports: reference/transports.md

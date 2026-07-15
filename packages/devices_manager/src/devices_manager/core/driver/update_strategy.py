@@ -34,7 +34,9 @@ class UpdateStrategy(BaseModel):
         BeforeValidator(lambda v: parse_duration(v) if isinstance(v, str) else v),
     ] = Field(
         default=None,
-        description="Expected emission interval (seconds) for push devices.",
+        description=(
+            "Deprecated: use the driver's `healthcheck.expected_push_interval` instead."
+        ),
         validation_alias=AliasChoices("expected_push_interval", "expected_push"),
     )
 
