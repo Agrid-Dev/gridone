@@ -886,3 +886,79 @@ class TestCoreDeviceWaiters:
                 "/xx/temperature", {"payload": {"temperature": 22}}
             )
             assert event.is_set()
+
+
+@pytest.fixture
+def shared_address_driver() -> Driver:
+    shared_read = "GET /shared"
+    attrs = [
+        AttributeDriver(
+            name="a",
+            data_type=DataType.FLOAT,
+            read=shared_read,
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+        ),
+        AttributeDriver(
+            name="b",
+            data_type=DataType.FLOAT,
+            read=shared_read,
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+        ),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="shared_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={attr.name: attr for attr in attrs},
+    )
+
+
+class TestSweepReadCache:
+    @pytest.mark.asyncio
+    async def test_shared_address_reads_once_per_sweep(
+        self, mock_transport_client, shared_address_driver
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="shared", config={}),
+            driver=shared_address_driver,
+            transport=mock_transport_client,
+        )
+        read_spy = AsyncMock(return_value=1.0)
+        mock_transport_client._read = read_spy  # noqa: SLF001
+
+        await device.update_attributes()
+        assert read_spy.call_count == 1
+
+        await device.update_attributes()
+        assert read_spy.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_confirm_read_back_bypasses_sweep_cache(
+        self, device: CoreDevice, mock_transport_client
+    ):
+        correlation_ids: list[str | None] = []
+
+        async def recording_read(
+            address: MockTransportAddress, correlation_id: str | None = None
+        ) -> object:
+            correlation_ids.append(correlation_id)
+            return await TransportClient.read(
+                mock_transport_client, address, correlation_id
+            )
+
+        mock_transport_client.read = recording_read
+
+        mock_transport_client._read = AsyncMock(return_value=10)  # noqa: SLF001
+        await device.update_attributes()
+
+        mock_transport_client.write = AsyncMock()
+        mock_transport_client._read = AsyncMock(return_value=20)  # noqa: SLF001
+        await device.write_attribute_value("temperature_setpoint", 20, confirm=True)
+
+        assert device.get_attribute_value("temperature_setpoint") == 20
+        assert None in correlation_ids
+        assert any(cid is not None for cid in correlation_ids)
