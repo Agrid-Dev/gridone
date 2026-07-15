@@ -114,7 +114,16 @@ const DriverDetails: FC<{
                 <LabelledProperty
                   key={key}
                   label={toLabel(key)}
-                  value={value}
+                  value={
+                    typeof value === "object" && value !== null
+                      ? Object.entries(value)
+                          .map(
+                            ([groupName, interval]) =>
+                              `${groupName}: ${interval}s`,
+                          )
+                          .join(", ")
+                      : value
+                  }
                 />
               ),
             )}
