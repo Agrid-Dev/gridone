@@ -57,6 +57,31 @@ class TestDriverFromDict:
 
         assert driver.env == {}
 
+    def test_from_dict_with_healthcheck(self):
+        data = {
+            "id": "test_driver",
+            "transport": "http",
+            "device_config": [],
+            "healthcheck": {"expected_push_interval": 30},
+            "attributes": [],
+        }
+
+        driver = Driver.from_dict(data)
+
+        assert driver.healthcheck.expected_push_interval == 30
+
+    def test_from_dict_missing_healthcheck_defaults_to_none(self):
+        data = {
+            "id": "test_driver",
+            "transport": "http",
+            "device_config": [],
+            "attributes": [],
+        }
+
+        driver = Driver.from_dict(data)
+
+        assert driver.healthcheck.expected_push_interval is None
+
     def test_from_dict_missing_name(self):
         data = {
             "transport": "http",

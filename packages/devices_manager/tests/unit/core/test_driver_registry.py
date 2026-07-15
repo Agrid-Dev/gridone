@@ -8,6 +8,7 @@ from devices_manager.core.driver.attribute_driver import (
     AttributeDriver,
     FaultAttributeDriver,
 )
+from devices_manager.core.driver.healthcheck import HealthCheck
 from devices_manager.core.driver.update_strategy import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.dto import (
@@ -154,6 +155,16 @@ class TestDriverRegistryPatch:
         assert result.update_strategy.polling_enabled == original_enabled
         assert result.update_strategy.read_timeout == original_timeout
         assert isinstance(driver.update_strategy, UpdateStrategy)
+
+    @pytest.mark.asyncio
+    async def test_patch_healthcheck(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.patch(
+            driver.id,
+            DriverPatch(healthcheck=HealthCheck(expected_push_interval=30)),
+        )
+        assert result.healthcheck.expected_push_interval == 30
+        assert isinstance(driver.healthcheck, HealthCheck)
 
     @pytest.mark.asyncio
     async def test_patch_image_src(self, driver):
