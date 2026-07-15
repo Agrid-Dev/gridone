@@ -1,3 +1,9 @@
+## v0.159.0 (2026-07-15)
+
+### Feat
+
+- **devices-manager**: extract expected_push_interval to healthcheck block (#457)
+
 ## v0.158.0 (2026-07-15)
 
 ### Feat
