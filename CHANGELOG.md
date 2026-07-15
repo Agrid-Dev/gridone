@@ -1,3 +1,9 @@
+## v0.157.0 (2026-07-15)
+
+### Feat
+
+- **devices-manager**: add read_many streaming contract (#455)
+
 ## v0.156.0 (2026-07-15)
 
 ### Feat
