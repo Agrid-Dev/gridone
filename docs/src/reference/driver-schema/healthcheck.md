@@ -49,7 +49,3 @@ The watchdog escalates `connection_status` based on how long the device has been
 The clock resets every time a push message is successfully received. On service restart it resets to the current time, giving the device one full grace period to re-emit before any escalation.
 
 This field has no effect on pull devices. Pull devices track connection health through accumulated read outcomes.
-
-## Migrating from `update_strategy.expected_push_interval`
-
-`expected_push_interval` under `update_strategy` is deprecated. Drivers that still declare it there keep working — Gridone falls back to it and logs a deprecation warning — but new and updated drivers should declare it under `healthcheck` instead.

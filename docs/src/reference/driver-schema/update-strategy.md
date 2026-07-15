@@ -15,7 +15,6 @@ update_strategy:
 |---|---|---|---|---|
 | `polling_interval` | `polling` | duration or integer | `10` (seconds) | How often attributes are read from the device. Must be positive. |
 | `read_timeout` | `timeout` | duration or integer or `null` | `10` (seconds) | Maximum time to wait for a device response. Must be between 1 and 60 seconds, or `null` to disable. |
-| `expected_push_interval` | `expected_push` | duration or integer or `null` | `null` | **Deprecated** — moved to the [health check](healthcheck.md) block. Still read as a fallback, with a deprecation warning. |
 
 ## Duration format
 
