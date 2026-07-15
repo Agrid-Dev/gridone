@@ -2645,11 +2645,6 @@ export interface components {
        */
       polling_interval?: number;
       /**
-       * Expected Push Interval
-       * @description Deprecated: use the driver's `healthcheck.expected_push_interval` instead.
-       */
-      expected_push_interval?: number | null;
-      /**
        * Read Timeout
        * @description Read timeout in seconds.
        * @default 10
