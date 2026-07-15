@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from devices_manager.core.driver import FaultAttributeDriver
-from devices_manager.core.transports import PushTransportClient
+from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.ids import gen_id
@@ -20,13 +20,17 @@ from .connection_status import (
     build_cs_attribute,
     compute_connection_status,
 )
-from .event_log import EventType, log_event, wrap_listen
+from .event_log import EventType, build_entry, log_event, wrap_listen
 from .watchdog import SilenceWatchdog
 
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
-    from devices_manager.core.transports import TransportClient
+    from devices_manager.core.transports import (
+        ReadResult,
+        TransportAddress,
+        TransportClient,
+    )
     from devices_manager.types import (
         AttributeValueType,
         ConnectionStatus,
@@ -120,7 +124,9 @@ class CoreDevice:
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
     )
-    _poll_task: asyncio.Task[None] | None = field(init=False, default=None, repr=False)
+    _poll_tasks: dict[str | None, asyncio.Task[None]] = field(
+        init=False, default_factory=dict, repr=False
+    )
     _watchdog: SilenceWatchdog | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
@@ -297,8 +303,13 @@ class CoreDevice:
     async def start_sync(self) -> None:
         """Start listeners, polling, and silence watchdog for this device."""
         await self.init_listeners()
-        if self.polling_enabled and (self._poll_task is None or self._poll_task.done()):
-            self._poll_task = asyncio.create_task(self._poll_loop())
+        if self.polling_enabled:
+            for group_name, (interval, names) in self._polling_groups().items():
+                task = self._poll_tasks.get(group_name)
+                if task is None or task.done():
+                    self._poll_tasks[group_name] = asyncio.create_task(
+                        self._poll_loop(interval, names)
+                    )
         interval = self.expected_interval
         if interval is not None:
             self._watchdog = SilenceWatchdog(interval, self._set_watchdog_status)
@@ -307,26 +318,145 @@ class CoreDevice:
 
     async def stop_sync(self) -> None:
         """Cancel polling, watchdog, and mark as not syncing."""
-        if self._poll_task is not None and not self._poll_task.done():
-            self._poll_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._poll_task
-        self._poll_task = None
+        for task in self._poll_tasks.values():
+            if not task.done():
+                task.cancel()
+        for task in self._poll_tasks.values():
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                logger.exception(
+                    "[Device %s] poll group task ended with an error", self.id
+                )
+        self._poll_tasks.clear()
         if self._watchdog is not None:
             await self._watchdog.stop()
             self._watchdog = None
         self._syncing = False
 
-    async def _poll_loop(self) -> None:
-        interval = self.poll_interval
-        if interval is None:
-            return
+    def _polling_groups(self) -> dict[str | None, tuple[float, list[str]]]:
+        """Bucket readable, non-internal attributes by polling group.
+
+        Attributes with no `polling_group` fall into an implicit ``None``
+        bucket, polled at the driver's `polling_interval`.
+        """
+        names_by_group: dict[str | None, list[str]] = {}
+        for attr_name, attr in self.attributes.items():
+            if (
+                "read" not in attr.read_write_modes
+                or attr.kind == AttributeKind.INTERNAL
+            ):
+                continue
+            group_name = self.driver.attributes[attr_name].polling_group
+            names_by_group.setdefault(group_name, []).append(attr_name)
+        polling_groups = self.driver.update_strategy.polling_groups
+        default_interval = self.poll_interval
+        result: dict[str | None, tuple[float, list[str]]] = {}
+        for group_name, names in names_by_group.items():
+            if group_name is not None:
+                result[group_name] = (polling_groups[group_name], names)
+            elif default_interval is not None:
+                result[group_name] = (default_interval, names)
+        return result
+
+    async def _poll_loop(self, interval: float, attribute_names: list[str]) -> None:
         try:
             while True:
-                await self.update_attributes()
+                await self._read_group(attribute_names)
                 await asyncio.sleep(interval)
         except asyncio.CancelledError:
             return
+
+    async def _read_group(self, attribute_names: list[str]) -> None:
+        """One polling-group sweep: a single ``read_many`` call sharing one
+        ``correlation_id``, with each result applied as it streams in.
+
+        Building one attribute's address must never abort the sweep for its
+        siblings, so failures here are isolated per attribute — mirroring how
+        ``read_many`` already isolates failures per network read.
+        """
+        correlation_id = gen_id()
+        context = {**self.driver.env, **self.config}
+        addresses: list[TransportAddress] = []
+        attr_names_by_address_id: dict[str, list[str]] = {}
+        for attr_name in attribute_names:
+            # The group's attribute list is snapshotted at task-start; a driver
+            # patch can rename/delete an attribute before the device restarts
+            # to pick up the change, so a stale name is skipped, not fatal.
+            attribute_driver = self.driver.attributes.get(attr_name)
+            if attribute_driver is None:
+                continue
+            try:
+                address = self.transport.build_address(
+                    render_struct(attribute_driver.read, context), context
+                )
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Device %s] failed to build address for %s — %s: %s",
+                    self.id,
+                    attr_name,
+                    type(e).__name__,
+                    e,
+                )
+                continue
+            addresses.append(address)
+            attr_names_by_address_id.setdefault(address.id, []).append(attr_name)
+        # read_many() dedupes addresses by .id internally; no need to do it here too.
+        async for result in self.transport.read_many(addresses, correlation_id):
+            for attr_name in attr_names_by_address_id.get(result.address_id, []):
+                self._apply_read_result(attr_name, result)
+
+    def _log_read_outcome(self, attribute: Attribute, error: Exception | None) -> None:
+        """Record a read/decode outcome in the attribute's event log and
+        recompute connection_status from it — the same bookkeeping
+        ``read_attribute_value``'s ``@log_event`` decorator performs, needed
+        here too since group sweeps update attributes without going through
+        that decorator."""
+        attribute.append_log(build_entry(EventType.READ, error))
+        self._on_log_append()
+
+    def _apply_read_result(self, attr_name: str, result: ReadResult) -> None:
+        attribute = self.attributes.get(attr_name)
+        if attribute is None:
+            return
+        if isinstance(result, ReadError):
+            self._log_read_outcome(attribute, result.error)
+            logger.warning(
+                "[Device %s] poll read failed for %s — %s: %s",
+                self.id,
+                attr_name,
+                type(result.error).__name__,
+                result.error,
+            )
+            return
+        attribute_driver = self.driver.attributes.get(attr_name)
+        if attribute_driver is None:
+            return
+        try:
+            decoded_value = attribute_driver.codec.decode(result.value)
+        except Exception as e:  # noqa: BLE001
+            self._log_read_outcome(attribute, e)
+            logger.warning(
+                "[Device %s] failed to decode attribute %s — %s: %s",
+                self.id,
+                attr_name,
+                type(e).__name__,
+                e,
+            )
+            return
+        self._log_read_outcome(attribute, None)
+        try:
+            self._update_attribute(attribute, decoded_value)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "[Device %s] on_update listener failed for %s — %s: %s",
+                self.id,
+                attr_name,
+                type(e).__name__,
+                e,
+            )
 
     async def _poll_attribute(self, attribute_name: str) -> None:
         """Poll attribute_name with exponential backoff until cancelled."""

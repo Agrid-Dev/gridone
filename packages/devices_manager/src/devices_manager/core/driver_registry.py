@@ -8,6 +8,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.driver.driver import validate_polling_groups
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.dto import (
@@ -143,13 +144,22 @@ class DriverRegistry:
                 lambda e: f"Cannot set driver type to '{patch.type}': {e}",
                 type_override=patch.type,
             )
+        merged_strategy = None
+        if patch.update_strategy is not None:
+            merged_strategy = driver.update_strategy.model_copy(
+                update=patch.update_strategy.model_dump(exclude_unset=True)
+            )
+            validate_polling_groups(merged_strategy, driver.attributes.values())
         metadata_fields = DriverMetadata.model_fields
         for field in patch.model_fields_set:
-            value = getattr(patch, field)
-            if isinstance(value, BaseModel):
-                value = getattr(driver, field).model_copy(
-                    update=value.model_dump(exclude_unset=True)
-                )
+            if field == "update_strategy" and merged_strategy is not None:
+                value = merged_strategy
+            else:
+                value = getattr(patch, field)
+                if isinstance(value, BaseModel):
+                    value = getattr(driver, field).model_copy(
+                        update=value.model_dump(exclude_unset=True)
+                    )
             target = driver.metadata if field in metadata_fields else driver
             setattr(target, field, value)
         dto = driver_to_public(driver)
@@ -174,6 +184,7 @@ class DriverRegistry:
                 f"type {driver.type!r}: {e}"
             ),
         )
+        validate_polling_groups(driver.update_strategy, [attribute])
         driver.attributes[attribute.name] = attribute
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
@@ -202,6 +213,7 @@ class DriverRegistry:
             )
             msg = "Invalid attribute configuration"
             raise InvalidError(msg) from None
+        validate_polling_groups(driver.update_strategy, [updated])
         driver.attributes[attribute_id] = updated
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)

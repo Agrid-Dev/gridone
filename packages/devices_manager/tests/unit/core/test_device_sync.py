@@ -3,19 +3,73 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
 
+from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
-from devices_manager.core.driver import UpdateStrategy
+from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.driver import (
+    AttributeDriver,
+    Driver,
+    DriverMetadata,
+    UpdateStrategy,
+)
+from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 
-if TYPE_CHECKING:
-    from devices_manager.core.driver import Driver
+
+@pytest.fixture
+def grouped_driver() -> Driver:
+    """core (fast) + config (slow) named groups, plus one ungrouped attribute
+    that should fall back to the driver-level polling_interval."""
+    attrs = [
+        AttributeDriver(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read="GET /temperature",
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+            polling_group="core",
+        ),
+        AttributeDriver(
+            name="install_date",
+            data_type=DataType.STRING,
+            read="GET /install_date",
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+            polling_group="config",
+        ),
+        AttributeDriver(
+            name="humidity",
+            data_type=DataType.FLOAT,
+            read="GET /humidity",
+            write=None,
+            codecs=[CodecSpec(name="identity", argument="")],
+        ),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="grouped_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(
+            polling_interval=30, polling_groups={"core": 5, "config": 3600}
+        ),
+        attributes={a.name: a for a in attrs},
+    )
+
+
+@pytest.fixture
+def grouped_device(grouped_driver: Driver, mock_transport_client) -> CoreDevice:
+    return CoreDevice.from_base(
+        DeviceBase(id="gd", name="Grouped device", config={}),
+        driver=grouped_driver,
+        transport=mock_transport_client,
+    )
 
 
 class TestCoreDeviceSync:
@@ -33,27 +87,27 @@ class TestCoreDeviceSync:
 
     @pytest.mark.asyncio
     async def test_start_sync_spawns_poll_task(self, device: CoreDevice):
-        assert device._poll_task is None  # noqa: SLF001
+        assert device._poll_tasks == {}  # noqa: SLF001
         await device.start_sync()
-        assert device._poll_task is not None  # noqa: SLF001
-        assert not device._poll_task.done()  # noqa: SLF001
+        assert list(device._poll_tasks.values())  # noqa: SLF001
+        assert not next(iter(device._poll_tasks.values())).done()  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio
     async def test_stop_sync_cancels_poll_task(self, device: CoreDevice):
         await device.start_sync()
-        task = device._poll_task  # noqa: SLF001
+        tasks = list(device._poll_tasks.values())  # noqa: SLF001
         await device.stop_sync()
-        assert device._poll_task is None  # noqa: SLF001
-        assert task is not None
-        assert task.done()
+        assert device._poll_tasks == {}  # noqa: SLF001
+        assert tasks
+        assert all(task.done() for task in tasks)
 
     @pytest.mark.asyncio
     async def test_start_sync_idempotent(self, device: CoreDevice):
         await device.start_sync()
-        first_task = device._poll_task  # noqa: SLF001
+        first_tasks = dict(device._poll_tasks)  # noqa: SLF001
         await device.start_sync()
-        assert device._poll_task is first_task  # noqa: SLF001
+        assert device._poll_tasks == first_tasks  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio
@@ -75,11 +129,11 @@ class TestCoreDeviceSync:
         )
         await device.start_sync()
         assert device.syncing is True
-        assert device._poll_task is None  # noqa: SLF001
+        assert device._poll_tasks == {}  # noqa: SLF001
         await device.stop_sync()
 
     @pytest.mark.asyncio
-    async def test_poll_loop_calls_update_attributes(
+    async def test_poll_loop_reads_attributes(
         self,
         device: CoreDevice,
         mock_transport_client,
@@ -89,3 +143,196 @@ class TestCoreDeviceSync:
         await asyncio.sleep(0.1)
         await device.stop_sync()
         assert mock_transport_client.read.called
+
+
+class TestCoreDevicePollingGroups:
+    def test_polling_groups_buckets_by_group(self, grouped_device: CoreDevice):
+        groups = grouped_device._polling_groups()  # noqa: SLF001
+        assert groups == {
+            "core": (5, ["temperature"]),
+            "config": (3600, ["install_date"]),
+            None: (30, ["humidity"]),
+        }
+
+    def test_polling_groups_excludes_internal_and_unreadable(
+        self, grouped_device: CoreDevice
+    ):
+        # connection_status is added automatically as an INTERNAL attribute
+        # and must never be scheduled for polling.
+        groups = grouped_device._polling_groups()  # noqa: SLF001
+        all_names = {name for _, names in groups.values() for name in names}
+        assert "connection_status" not in all_names
+
+    @pytest.mark.asyncio
+    async def test_start_sync_spawns_one_task_per_group(
+        self, grouped_device: CoreDevice
+    ):
+        await grouped_device.start_sync()
+        assert set(grouped_device._poll_tasks) == {"core", "config", None}  # noqa: SLF001
+        await grouped_device.stop_sync()
+
+    @pytest.mark.asyncio
+    async def test_stop_sync_cancels_all_group_tasks(self, grouped_device: CoreDevice):
+        await grouped_device.start_sync()
+        tasks = list(grouped_device._poll_tasks.values())  # noqa: SLF001
+        await grouped_device.stop_sync()
+        assert all(task.done() for task in tasks)
+
+    @pytest.mark.asyncio
+    async def test_read_group_shares_one_correlation_id_per_sweep(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        correlation_ids: list[str | None] = []
+        real_read = mock_transport_client.read
+
+        async def recording_read(address, correlation_id: str | None = None) -> str:
+            correlation_ids.append(correlation_id)
+            return await real_read(address, correlation_id)
+
+        mock_transport_client.read = recording_read
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
+
+        assert len(correlation_ids) == 2
+        assert correlation_ids[0] is not None
+        assert correlation_ids[0] == correlation_ids[1]
+
+    @pytest.mark.asyncio
+    async def test_read_group_only_reads_its_own_attributes(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        assert grouped_device.get_attribute_value("temperature") == 20.0
+        assert grouped_device.get_attribute_value("install_date") is None
+        assert grouped_device.get_attribute_value("humidity") is None
+
+    @pytest.mark.asyncio
+    async def test_read_group_applies_results_incrementally_despite_one_failure(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        """One bad read/decode in the sweep must not block the others."""
+
+        async def flaky_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+            if address.id == "GET /temperature":
+                raise ConnectionError("boom")
+            return "20.0"
+
+        mock_transport_client.read = flaky_read
+
+        await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
+
+        assert grouped_device.get_attribute_value("temperature") is None
+        assert grouped_device.get_attribute_value("humidity") == 20.0
+
+    @pytest.mark.asyncio
+    async def test_read_group_skips_stale_attribute_name(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        """A name captured at task-start that got deleted from the driver by a
+        concurrent patch (before the device restarts) must not crash the sweep."""
+        del grouped_device.driver.attributes["temperature"]
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
+
+        assert grouped_device.get_attribute_value("humidity") == 20.0
+
+    @pytest.mark.asyncio
+    async def test_read_group_isolates_address_build_failure(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        """One attribute whose address can't be built (e.g. a template
+        referencing a missing context key) must not stop siblings in the
+        same group from being read."""
+        bad_driver = grouped_device.driver.attributes["temperature"].model_copy(
+            update={"read": "GET /{missing}"}
+        )
+        grouped_device.driver.attributes["temperature"] = bad_driver
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
+
+        assert grouped_device.get_attribute_value("temperature") is None
+        assert grouped_device.get_attribute_value("humidity") == 20.0
+
+    @pytest.mark.asyncio
+    async def test_read_group_updates_connection_status_on_success(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        assert (
+            grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.IDLE
+        )
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        assert (
+            grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.OK
+        )
+
+    @pytest.mark.asyncio
+    async def test_read_group_updates_connection_status_on_read_error(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        async def failing_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+            raise ConnectionError("boom")
+
+        mock_transport_client.read = failing_read
+
+        await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        assert (
+            grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.ERROR
+        )
+
+    @pytest.mark.asyncio
+    async def test_apply_read_result_on_update_failure_is_not_mislabeled(
+        self, grouped_device: CoreDevice, mock_transport_client, caplog
+    ):
+        """A raising on_update listener must be logged under its own message,
+        not folded into the decode-failure log line, and the read/decode
+        itself must still count as a successful outcome."""
+        grouped_device.on_update = lambda *args: (_ for _ in ()).throw(  # noqa: ARG005
+            RuntimeError("listener boom")
+        )
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        with caplog.at_level("WARNING"):
+            await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        # The value was applied before the listener raised: decode/update
+        # succeeded, only the downstream listener misbehaved.
+        assert grouped_device.get_attribute_value("temperature") == 20.0
+        assert "on_update listener failed" in caplog.text
+        assert "failed to decode" not in caplog.text
+        assert (
+            grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.OK
+        )
+
+    @pytest.mark.asyncio
+    async def test_stop_sync_survives_a_poll_task_that_died(
+        self, grouped_device: CoreDevice
+    ):
+        """A group task that ends with an unhandled exception must not make
+        stop_sync() raise, since that would abort cleanup for every other
+        group (and, via restart_devices, every other device)."""
+
+        async def dying_loop() -> None:
+            raise RuntimeError("boom")
+
+        await grouped_device.init_listeners()
+        grouped_device._poll_tasks["core"] = asyncio.create_task(dying_loop())  # noqa: SLF001
+        await asyncio.sleep(0)  # let the task actually run and finish
+
+        await grouped_device.stop_sync()
+
+        assert grouped_device._poll_tasks == {}  # noqa: SLF001
+        assert grouped_device.syncing is False

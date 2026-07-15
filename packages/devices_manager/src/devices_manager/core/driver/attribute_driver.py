@@ -29,6 +29,7 @@ class AttributeDriver(BaseModel):
     read: RawTransportAddress
     write: RawTransportAddress | None = None
     codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
+    polling_group: str | None = None
 
     @cached_property
     def codec(self) -> FnCodec:

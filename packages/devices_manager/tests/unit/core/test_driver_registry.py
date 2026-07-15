@@ -207,6 +207,32 @@ class TestDriverRegistryPatch:
         await registry.patch(driver.id, DriverPatch(vendor="Acme"))
         storage.write.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_patch_update_strategy_removing_referenced_group_rejected(
+        self, driver
+    ):
+        registry = DriverRegistry({driver.id: driver})
+        driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
+        driver.attributes["temperature"] = driver.attributes["temperature"].model_copy(
+            update={"polling_group": "core"}
+        )
+        with pytest.raises(InvalidError):
+            await registry.patch(
+                driver.id,
+                DriverPatch(update_strategy=UpdateStrategy(polling_groups={})),
+            )
+        # rejected before mutating: the driver keeps its original polling_groups
+        assert driver.update_strategy.polling_groups == {"core": 5}
+
+    @pytest.mark.asyncio
+    async def test_patch_update_strategy_new_polling_group_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        result = await registry.patch(
+            driver.id,
+            DriverPatch(update_strategy=UpdateStrategy(polling_groups={"core": 5})),
+        )
+        assert result.update_strategy.polling_groups == {"core": 5}
+
 
 class TestDriverRegistryCreateAttribute:
     @pytest.mark.asyncio
@@ -275,6 +301,34 @@ class TestDriverRegistryCreateAttribute:
         with pytest.raises(InvalidError):
             await registry.create_driver_attribute(driver.id, new_attr)
         assert "Temperature" not in driver.attributes
+
+    @pytest.mark.asyncio
+    async def test_create_undeclared_polling_group_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        new_attr = AttributeDriver(
+            name="pressure",
+            data_type=DataType.FLOAT,
+            read="GET /pressure",
+            codecs=[],
+            polling_group="core",
+        )
+        with pytest.raises(InvalidError):
+            await registry.create_driver_attribute(driver.id, new_attr)
+        assert "pressure" not in driver.attributes
+
+    @pytest.mark.asyncio
+    async def test_create_declared_polling_group_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
+        new_attr = AttributeDriver(
+            name="pressure",
+            data_type=DataType.FLOAT,
+            read="GET /pressure",
+            codecs=[],
+            polling_group="core",
+        )
+        result = await registry.create_driver_attribute(driver.id, new_attr)
+        assert result.polling_group == "core"
 
 
 class TestDriverRegistryPatchAttribute:
@@ -362,6 +416,36 @@ class TestDriverRegistryPatchAttribute:
             driver.id, "temperature", AttributePatch(read="GET /temp/v2")
         )
         storage.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_patch_undeclared_polling_group_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError):
+            await registry.patch_driver_attribute(
+                driver.id, "temperature", AttributePatch(polling_group="core")
+            )
+        assert driver.attributes["temperature"].polling_group is None
+
+    @pytest.mark.asyncio
+    async def test_patch_declared_polling_group_ok(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
+        result = await registry.patch_driver_attribute(
+            driver.id, "temperature", AttributePatch(polling_group="core")
+        )
+        assert result.polling_group == "core"
+
+    @pytest.mark.asyncio
+    async def test_patch_polling_group_null_clears_it(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
+        await registry.patch_driver_attribute(
+            driver.id, "temperature", AttributePatch(polling_group="core")
+        )
+        result = await registry.patch_driver_attribute(
+            driver.id, "temperature", AttributePatch(polling_group=None)
+        )
+        assert result.polling_group is None
 
 
 class TestDriverRegistryDeleteAttribute:
