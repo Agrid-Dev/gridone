@@ -22,6 +22,10 @@ device_config:                # (optional) parameters the user must supply per d
 
 update_strategy:              # (optional) controls how often attributes are polled
   polling_interval: 30s       # or: polling: disable
+  # or, named polling groups with per-group intervals:
+  # polling_groups:
+  #   core: 10s
+  #   config: 1h
 
 healthcheck:                  # (optional) controls how device liveness is assessed
   expected_push_interval: 30s
@@ -33,6 +37,7 @@ attributes:                   # (required) list of attribute drivers
     write: ...                # transport address for writing — omit if read-only
     # or:
     read_write: ...           # shorthand when read and write share the same address
+    polling_group: core       # (optional) which update_strategy.polling_groups entry polls this attribute
 
     # Codecs (optional) — applied in order on read, reversed on write, if reversible
     codecs:

@@ -15,6 +15,7 @@ update_strategy:
 |---|---|---|---|---|
 | `polling_interval` | `polling` | duration or integer | `10` (seconds) | How often attributes are read from the device. Must be positive. |
 | `read_timeout` | `timeout` | duration or integer or `null` | `10` (seconds) | Maximum time to wait for a device response. Must be between 1 and 60 seconds, or `null` to disable. |
+| `polling_groups` | — | map of name to duration or integer | `{}` | Named polling groups, each with its own interval. See [Polling groups](#polling-groups). |
 
 ## Duration format
 
@@ -38,6 +39,37 @@ This can be especially useful for _push transport based devices_, like mqtt, knx
 update_strategy:
   polling: disable
 ```
+
+## Polling groups
+
+Some devices expose many attributes that don't all need to be read at the same rate — a
+temperature reading might be worth polling every 10 seconds, while a rarely-changing
+configuration value only needs an hourly check. `polling_groups` declares named groups with
+their own interval, and each attribute is assigned to one via its `polling_group` field:
+
+```yaml
+update_strategy:
+  polling_groups:
+    core: 10s
+    realtime_other: 1min
+    config: 1h
+
+attributes:
+  - name: temperature
+    polling_group: core
+    ...
+  - name: fan_speed
+    polling_group: realtime_other
+    ...
+  - name: temperature_setpoint_min
+    polling_group: config
+    ...
+```
+
+Each group polls on its own schedule, and all attributes in a group are read together in a
+single batch request per sweep. Attributes with no `polling_group` fall back to the driver's
+`polling_interval` instead. Every `polling_group` referenced by an attribute must be declared
+in `polling_groups` — an undeclared reference is rejected when the driver is loaded.
 
 ## Silence detection for push devices
 
