@@ -319,7 +319,9 @@ def _build_devices_app() -> FastAPI:
     dm.list_active_faults.return_value = []
     dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
     dm.refresh_device_attribute = AsyncMock(
-        return_value=Attribute.create("temperature", DataType.FLOAT, {"read"}, 23.5)
+        return_value=Attribute.create(
+            "temperature", DataType.FLOAT, {"read"}, value=23.5
+        )
     )
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
