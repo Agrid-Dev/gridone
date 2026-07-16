@@ -26,6 +26,11 @@ BIT_MODBUS_ADDRESS_TYPES = {
     ModbusAddressType.DISCRETE_INPUT,
 }
 
+REGISTER_MODBUS_ADDRESS_TYPES = {
+    ModbusAddressType.HOLDING_REGISTER,
+    ModbusAddressType.INPUT_REGISTER,
+}
+
 address_type_regex = r"^(" + "|".join(list(ModbusAddressType)) + r")"
 
 
@@ -54,10 +59,7 @@ class ModbusAddress(BaseModel, TransportAddress):
         address_type = ModbusAddressType(type_match.group(1))
         remainder = trimmed_address[len(address_type.value) :].strip()
 
-        if address_type in {
-            ModbusAddressType.HOLDING_REGISTER,
-            ModbusAddressType.INPUT_REGISTER,
-        }:
+        if address_type in REGISTER_MODBUS_ADDRESS_TYPES:
             # HR/IR can have optional count: "4", "4:2", "4x2", "4-2", plus
             match = re.fullmatch(
                 r"[\s:-]*(\d+)(?:\s*[:x-]\s*(\d+))?\s*$",
@@ -71,10 +73,7 @@ class ModbusAddress(BaseModel, TransportAddress):
             raise ValueError(msg)
 
         instance = int(match.group(1))
-        if address_type in {
-            ModbusAddressType.HOLDING_REGISTER,
-            ModbusAddressType.INPUT_REGISTER,
-        }:
+        if address_type in REGISTER_MODBUS_ADDRESS_TYPES:
             count_str = match.group(2)
             count = int(count_str) if count_str is not None else 1
         else:
@@ -84,14 +83,7 @@ class ModbusAddress(BaseModel, TransportAddress):
             msg = f"Invalid Modbus address count ({count}) for {address_str}"
             raise ValueError(msg)
 
-        if (
-            address_type
-            not in {
-                ModbusAddressType.HOLDING_REGISTER,
-                ModbusAddressType.INPUT_REGISTER,
-            }
-            and count != 1
-        ):
+        if address_type not in REGISTER_MODBUS_ADDRESS_TYPES and count != 1:
             msg = (
                 f"Count is only supported for HR/IR addresses, "
                 f"got {address_type} with count={count}"
@@ -134,14 +126,7 @@ class ModbusAddress(BaseModel, TransportAddress):
             msg = f"Invalid Modbus address count ({count}) for dict address"
             raise ValueError(msg)
 
-        if (
-            parsed_type
-            not in {
-                ModbusAddressType.HOLDING_REGISTER,
-                ModbusAddressType.INPUT_REGISTER,
-            }
-            and count != 1
-        ):
+        if parsed_type not in REGISTER_MODBUS_ADDRESS_TYPES and count != 1:
             msg = (
                 "Count is only supported for HR/IR addresses in dict form, "
                 f"got {parsed_type} with count={count}"
