@@ -607,9 +607,14 @@ class CoreDevice:
             await self.update_attributes()
 
     async def refresh_attribute(self, attribute_name: str) -> Attribute:
-        """Open transport, force a fresh read of one attribute, then close."""
-        async with self.transport:
-            await self.read_attribute_value(attribute_name)
+        """Force a fresh read of one attribute, on demand.
+
+        Reads directly through the transport (auto-connecting via its
+        ``@connected`` guard) rather than opening/closing it — the transport
+        may be shared with other devices or polling groups still relying on
+        it, and closing it here would disconnect them too.
+        """
+        await self.read_attribute_value(attribute_name)
         return self.get_attribute(attribute_name)
 
     async def stream_read(
