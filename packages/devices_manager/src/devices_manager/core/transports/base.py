@@ -95,18 +95,43 @@ class TransportClient[T_TransportAddress](ABC):
         reused for later reads sharing that id (one sweep). ``None`` always hits
         the network and never touches the cache.
         """
-        if correlation_id is not None:
-            cached = self._read_cache.get(address.id)  # ty: ignore[unresolved-attribute]
-            if cached is not None and cached[0] == correlation_id:
-                return cached[1]
+        cached = self._cache_get(address, correlation_id)
+        if cached is not None:
+            return cached
         async with self._read_lock:
             epoch = self._cache_epoch
             value = await self._read(address)
-            # Skip the store if a close()/reconnect cleared the cache while the
-            # network read was in flight — otherwise a stale entry would survive.
-            if correlation_id is not None and self._cache_epoch == epoch:
-                self._read_cache[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]
+            self._cache_put(address, correlation_id, value, epoch)
             return value
+
+    def _cache_get(
+        self, address: T_TransportAddress, correlation_id: str | None
+    ) -> AttributeValueType | None:
+        """Return the value cached for this sweep, or ``None`` on a miss.
+
+        ``None`` is an unambiguous miss: ``AttributeValueType`` never includes it.
+        """
+        if correlation_id is None:
+            return None
+        cached = self._read_cache.get(address.id)  # ty: ignore[unresolved-attribute]
+        if cached is None or cached[0] != correlation_id:
+            return None
+        return cached[1]
+
+    def _cache_put(
+        self,
+        address: T_TransportAddress,
+        correlation_id: str | None,
+        value: AttributeValueType,
+        epoch: int,
+    ) -> None:
+        """Cache a value for this sweep.
+
+        Skipped if a close()/reconnect cleared the cache while the network read
+        was in flight — otherwise a stale entry would survive it.
+        """
+        if correlation_id is not None and self._cache_epoch == epoch:
+            self._read_cache[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]
 
     @abstractmethod
     async def _read(self, address: T_TransportAddress) -> AttributeValueType:
