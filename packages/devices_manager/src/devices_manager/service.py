@@ -360,6 +360,12 @@ class DevicesService(Service):
         await device.update_once()
         return device_to_public(device)
 
+    async def refresh_device_attribute(
+        self, device_id: str, attribute_name: str
+    ) -> Attribute:
+        """Force a fresh read of a single attribute, on demand."""
+        return await self._device_registry.refresh_attribute(device_id, attribute_name)
+
     def stream_device_read(
         self, device_id: str
     ) -> AsyncIterator[tuple[str, AttributeValueType | None]]:
