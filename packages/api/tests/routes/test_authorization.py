@@ -28,7 +28,9 @@ from api.routes.notifications_router import router as notifications_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.types import DataType
 from models.pagination import Page
 from models.types import Severity
 from notifications import (
@@ -316,6 +318,9 @@ def _build_devices_app() -> FastAPI:
     dm = MagicMock()
     dm.list_active_faults.return_value = []
     dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
+    dm.refresh_device_attribute = AsyncMock(
+        return_value=Attribute.create("temperature", DataType.FLOAT, {"read"}, 23.5)
+    )
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     ts_mock = AsyncMock(default_timezone="UTC")
@@ -422,6 +427,34 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "GET", "/devices/any-id/temperature/logs", None, 401, id="logs-no-auth"
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/attributes/temperature/refresh",
+        "admin",
+        200,
+        id="refresh-attribute-admin",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/attributes/temperature/refresh",
+        "operator",
+        200,
+        id="refresh-attribute-operator",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/attributes/temperature/refresh",
+        "viewer",
+        200,
+        id="refresh-attribute-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/attributes/temperature/refresh",
+        None,
+        401,
+        id="refresh-attribute-no-auth",
     ),
 ]
 

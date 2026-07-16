@@ -150,6 +150,11 @@ def _make_dm(
         return_value=_DEVICE.model_copy(update={"tags": {}})
     )
     mock.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
+    mock.refresh_device_attribute = AsyncMock(
+        return_value=Attribute.create(
+            "temperature", DataType.FLOAT, {"read"}, value=23.5
+        )
+    )
     return mock
 
 
@@ -1154,6 +1159,33 @@ class TestDeviceTags:
     ):
         dm.delete_device_tag.side_effect = NotFoundError("Device unknown not found")
         response = client.delete("/unknown/tags/asset_id")
+        assert response.status_code == 404
+
+
+class TestRefreshDeviceAttribute:
+    def test_returns_fresh_attribute(self, client: TestClient):
+        response = client.post("/device1/attributes/temperature/refresh")
+        assert response.status_code == 200
+        assert response.json()["current_value"] == 23.5
+
+    def test_calls_service_with_correct_args(self, client: TestClient, dm: MagicMock):
+        client.post("/device1/attributes/temperature/refresh")
+        dm.refresh_device_attribute.assert_called_once_with("device1", "temperature")
+
+    def test_unknown_device_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.refresh_device_attribute = AsyncMock(
+            side_effect=NotFoundError("Device unknown not found")
+        )
+        response = client.post("/unknown/attributes/temperature/refresh")
+        assert response.status_code == 404
+
+    def test_unknown_attribute_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.refresh_device_attribute = AsyncMock(
+            side_effect=NotFoundError(
+                "Attribute 'nonexistent' not found in device 'device1'"
+            )
+        )
+        response = client.post("/device1/attributes/nonexistent/refresh")
         assert response.status_code == 404
 
 
