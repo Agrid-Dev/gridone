@@ -28,20 +28,19 @@ class ModbusBlock:
         for a single register, a list of ints for count > 1.
         """
         offset = address.instance - self.start
-        if self.is_bit:
-            return payload[offset]
-        registers = list(payload[offset : offset + address.count])
-        if len(registers) != address.count:
-            # Truncating instead would hand the codec fewer registers than its
-            # type needs, decoding to garbage rather than failing the read.
+        items = list(payload[offset : offset + address.count])
+        if len(items) != address.count:
+            # Truncating instead would hand the codec fewer items than its type
+            # needs, decoding to garbage rather than failing the read.
             msg = (
                 f"Block {self.type.value}{self.start}:{self.count} returned "
                 f"{len(payload)} items, too short for {address.id}"
             )
             raise ValueError(msg)
+        # C/DI are always count=1, so a bit returns here rather than as a list.
         if address.count == 1:
-            return registers[0]
-        return registers
+            return items[0]
+        return items
 
 
 def _span_end(address: ModbusAddress) -> int:

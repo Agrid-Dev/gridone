@@ -197,6 +197,21 @@ class TestExtract:
         with pytest.raises(ValueError, match="too short"):
             block.extract(address, [100, 101])
 
+    @pytest.mark.parametrize("address_type", [COIL, DI])
+    def test_short_bit_payload_raises_the_same_way(
+        self, address_type: ModbusAddressType
+    ) -> None:
+        """A short bit payload must fail like a short register one, naming the
+        block and address, rather than falling out as a bare IndexError."""
+        address = addr(12, address_type=address_type)
+        block = plan_blocks(
+            [addr(10, address_type=address_type), address],
+            max_block=MAX_BLOCK,
+            max_gap=8,
+        )[0]
+        with pytest.raises(ValueError, match="too short"):
+            block.extract(address, [False])
+
     def test_extract_across_a_bridged_gap(self) -> None:
         address = addr(14)
         block = plan_blocks([addr(10), address], max_block=MAX_BLOCK, max_gap=8)[0]
