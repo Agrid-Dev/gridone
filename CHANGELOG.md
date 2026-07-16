@@ -1,3 +1,9 @@
+## v0.161.0 (2026-07-16)
+
+### Feat
+
+- **api**: on-demand attribute read endpoint (#460)
+
 ## v0.160.0 (2026-07-15)
 
 ### Feat
