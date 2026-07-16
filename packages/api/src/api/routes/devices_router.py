@@ -22,6 +22,7 @@ from api.schemas.device import (
     TimeseriesSingleAttrPushRequest,
 )
 from devices_manager import DevicesServiceInterface
+from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
@@ -113,6 +114,18 @@ def get_attribute_logs(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> AttributeLogs:
     return dm.get_attribute_logs(device_id, attr_name)
+
+
+@router.post(
+    "/{device_id}/attributes/{attr_name}/refresh",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+async def refresh_device_attribute(
+    device_id: str,
+    attr_name: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> Attribute:
+    return await dm.refresh_device_attribute(device_id, attr_name)
 
 
 @router.get(

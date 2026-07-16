@@ -548,6 +548,26 @@ class TestDeviceRegistryWriteAttribute:
             )
 
 
+class TestDeviceRegistryRefreshAttribute:
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_returns_fresh_value(
+        self, device_registry, device, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=23.5)
+        result = await device_registry.refresh_attribute(device.id, "temperature")
+        assert result.current_value == 23.5
+
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_device_not_found(self, device_registry):
+        with pytest.raises(NotFoundError):
+            await device_registry.refresh_attribute("unknown", "temperature")
+
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_attribute_not_found(self, device_registry, device):
+        with pytest.raises(NotFoundError):
+            await device_registry.refresh_attribute(device.id, "nonexistent")
+
+
 class TestDeviceRegistryRebuild:
     def test_rebuild_device(
         self,

@@ -23,7 +23,7 @@ from devices_manager.core.driver import (
     UpdateStrategy,
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
-from models.errors import ConfirmationError
+from models.errors import ConfirmationError, NotFoundError
 from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -151,6 +151,20 @@ class TestDeviceRead:
     def test_handle_transport_error(self, device: CoreDevice):
         """@TODO: check that a transport error is raised
         if an error occurs in transport"""
+
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_returns_fresh_value(
+        self, device: CoreDevice, mock_transport_client
+    ):
+        mock_transport_client.read = AsyncMock(return_value=23.5)
+        attribute = await device.refresh_attribute("temperature")
+        assert attribute.current_value == 23.5
+        assert device.get_attribute("temperature").current_value == 23.5
+
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_unknown_name_raises(self, device: CoreDevice):
+        with pytest.raises(NotFoundError):
+            await device.refresh_attribute("unknown")
 
 
 class TestDeviceWrite:

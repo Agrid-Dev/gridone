@@ -864,6 +864,7 @@ def _mock_device_registry(
     registry.remove = AsyncMock()
     registry.register = AsyncMock()
     registry.write_attribute = AsyncMock()
+    registry.refresh_attribute = AsyncMock()
     return registry
 
 
@@ -1068,6 +1069,19 @@ class TestDevicesServiceDeviceDelegation:
         mock_reg.write_attribute.assert_called_once_with(
             "d1", "value", 42.0, confirm=True
         )
+        assert result is mock_attr
+
+    @pytest.mark.asyncio
+    async def test_refresh_device_attribute_delegates_to_registry(self):
+        mock_reg = _mock_device_registry()
+        mock_attr = Attribute.create("value", DataType.FLOAT, {"read", "write"}, 42.0)
+        mock_reg.refresh_attribute.return_value = mock_attr
+
+        dm = await _dm_with_mock_registry(mock_reg)
+
+        result = await dm.refresh_device_attribute("d1", "value")
+
+        mock_reg.refresh_attribute.assert_called_once_with("d1", "value")
         assert result is mock_attr
 
     @pytest.mark.asyncio

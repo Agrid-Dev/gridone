@@ -1,0 +1,16 @@
+meta {
+  name: refresh device attribute
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{BASE_URL}}/devices/:device_id/attributes/:attribute/refresh
+  body: none
+  auth: inherit
+}
+
+params:path {
+  device_id: 03b5cffb01b5494c
+  attribute: temperature
+}

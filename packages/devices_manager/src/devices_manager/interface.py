@@ -153,6 +153,10 @@ class DevicesServiceInterface(Protocol):
 
     async def read_device(self, device_id: str) -> Device: ...
 
+    async def refresh_device_attribute(
+        self, device_id: str, attribute_name: str
+    ) -> Attribute: ...
+
     def stream_device_read(
         self, device_id: str
     ) -> AsyncIterator[tuple[str, AttributeValueType | None]]: ...
