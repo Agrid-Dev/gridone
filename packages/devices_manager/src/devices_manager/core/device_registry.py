@@ -308,3 +308,7 @@ class DeviceRegistry:
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
         return device.get_attribute(attribute_name).logs
+
+    async def refresh_attribute(self, device_id: str, attribute_name: str) -> Attribute:
+        device = self._get_or_raise(device_id)
+        return await device.refresh_attribute(attribute_name)

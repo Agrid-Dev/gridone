@@ -606,6 +606,12 @@ class CoreDevice:
         async with self.transport:
             await self.update_attributes()
 
+    async def refresh_attribute(self, attribute_name: str) -> Attribute:
+        """Open transport, force a fresh read of one attribute, then close."""
+        async with self.transport:
+            await self.read_attribute_value(attribute_name)
+        return self.get_attribute(attribute_name)
+
     async def stream_read(
         self,
     ) -> AsyncIterator[tuple[str, AttributeValueType | None]]:
