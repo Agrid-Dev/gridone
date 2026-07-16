@@ -21,6 +21,11 @@ WRITABLE_MODBUS_ADDRESS_TYPES = {
     ModbusAddressType.HOLDING_REGISTER,
 }
 
+BIT_MODBUS_ADDRESS_TYPES = {
+    ModbusAddressType.COIL,
+    ModbusAddressType.DISCRETE_INPUT,
+}
+
 address_type_regex = r"^(" + "|".join(list(ModbusAddressType)) + r")"
 
 
