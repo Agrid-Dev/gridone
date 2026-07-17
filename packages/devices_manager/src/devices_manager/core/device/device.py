@@ -614,7 +614,17 @@ class CoreDevice:
         may be shared with other devices or polling groups still relying on
         it, and closing it here would disconnect them too.
         """
-        await self.read_attribute_value(attribute_name)
+        try:
+            await self.read_attribute_value(attribute_name)
+        except Exception as e:
+            logger.warning(
+                "[Device %s] on-demand refresh failed for %s — %s: %s",
+                self.id,
+                attribute_name,
+                type(e).__name__,
+                e,
+            )
+            raise
         return self.get_attribute(attribute_name)
 
     async def stream_read(

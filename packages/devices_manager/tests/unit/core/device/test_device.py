@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -147,10 +148,24 @@ class TestDeviceRead:
         assert value == 23.5
         mock_transport_client.read.assert_called_once()
 
-    @pytest.mark.skip
-    def test_handle_transport_error(self, device: CoreDevice):
-        """@TODO: check that a transport error is raised
-        if an error occurs in transport"""
+    @pytest.mark.asyncio
+    async def test_handle_transport_error(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        mock_transport_client.read = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with (
+            caplog.at_level(
+                logging.WARNING, logger="devices_manager.core.device.device"
+            ),
+            pytest.raises(RuntimeError, match="boom"),
+        ):
+            await device.refresh_attribute("temperature")
+
+        assert "on-demand refresh failed" in caplog.text
 
     @pytest.mark.asyncio
     async def test_refresh_attribute_returns_fresh_value(

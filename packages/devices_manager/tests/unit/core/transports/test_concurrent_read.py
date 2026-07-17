@@ -4,10 +4,7 @@ from collections.abc import Callable
 import pytest
 
 from devices_manager.core.transports import TransportMetadata
-from devices_manager.core.transports.http_transport import (
-    HTTPTransportClient,
-    HttpTransportConfig,
-)
+from devices_manager.core.transports.http_transport import HTTPTransportClient
 from devices_manager.core.transports.http_transport.http_address import HttpAddress
 from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
@@ -18,7 +15,10 @@ from devices_manager.core.transports.read_result import ReadOk
 from devices_manager.types import AttributeValueType
 
 from ..fixtures.recording_transport import ConcurrentRecordingTransportClient
-from ..fixtures.transport_clients import MockTransportAddress
+from ..fixtures.transport_clients import (
+    MockTransportAddress,
+    make_http_transport_client,
+)
 
 
 class TestConcurrentReadMixin:
@@ -121,12 +121,6 @@ async def _read_concurrently(
     return in_flight["max"], {r.address_id for r in results}
 
 
-def _make_http_client() -> HTTPTransportClient:
-    return HTTPTransportClient(
-        TransportMetadata(id="http-1", name="http"), HttpTransportConfig()
-    )
-
-
 def _make_mqtt_client() -> MqttTransportClient:
     return MqttTransportClient(
         TransportMetadata(id="mqtt-1", name="mqtt"),
@@ -146,7 +140,7 @@ class TestConcreteTransportsUseConcurrentStrategy:
         ("make_client", "addresses"),
         [
             (
-                _make_http_client,
+                make_http_transport_client,
                 [HttpAddress(method="GET", path=f"host/{x}") for x in ("a", "b", "c")],
             ),
             (_make_mqtt_client, [MqttAddress(topic=x) for x in ("a", "b", "c")]),
