@@ -13,7 +13,10 @@ from devices_manager.core.transports import (
     TransportMetadata,
 )
 from devices_manager.core.transports.factory import make_transport_config
-from devices_manager.core.transports.http_transport import HttpTransportConfig
+from devices_manager.core.transports.http_transport import (
+    HTTPTransportClient,
+    HttpTransportConfig,
+)
 from devices_manager.core.transports.listener_registry import (
     ListenerCallback,
     ListenerRegistry,
@@ -25,6 +28,14 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 mock_metadata = TransportMetadata(id="my-transport", name="My Transport")
+
+
+def make_http_transport_client() -> HTTPTransportClient:
+    """Build a real (non-mock) HTTPTransportClient for tests exercising its
+    own I/O handling, e.g. status-code or concurrency behavior."""
+    return HTTPTransportClient(
+        TransportMetadata(id="http-1", name="http"), HttpTransportConfig()
+    )
 
 
 class MockTransportAddress(TransportAddress):
