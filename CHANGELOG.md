@@ -1,3 +1,9 @@
+## v0.161.1 (2026-07-17)
+
+### Perf
+
+- **devices-manager**: read modbus attributes in coalesced block reads (#461)
+
 ## v0.161.0 (2026-07-16)
 
 ### Feat
