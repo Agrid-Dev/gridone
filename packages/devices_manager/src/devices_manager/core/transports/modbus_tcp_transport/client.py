@@ -1,17 +1,26 @@
+import logging
+from collections.abc import AsyncGenerator, Awaitable, Callable
+from typing import Any
+
 from pymodbus.client import AsyncModbusTcpClient
 
 from devices_manager.core.transports import PullTransportClient
+from devices_manager.core.transports.base import dedupe_addresses
 from devices_manager.core.transports.connected import connected
+from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.cast.bool import cast_as_bool
 from devices_manager.types import AttributeValueType, TransportProtocols
 
+from .block_plan import ModbusBlock, plan_blocks
 from .modbus_address import (
     WRITABLE_MODBUS_ADDRESS_TYPES,
     ModbusAddress,
     ModbusAddressType,
 )
 from .transport_config import ModbusTCPTransportConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
@@ -54,47 +63,95 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
                 self._client.close()
                 await super().close()
 
+    def _reader(self, address_type: ModbusAddressType) -> Callable[..., Awaitable[Any]]:
+        """Map an address type to the pymodbus call that reads it."""
+        if address_type == ModbusAddressType.COIL:
+            return self._client.read_coils
+        if address_type == ModbusAddressType.DISCRETE_INPUT:
+            return self._client.read_discrete_inputs
+        if address_type == ModbusAddressType.HOLDING_REGISTER:
+            return self._client.read_holding_registers
+        if address_type == ModbusAddressType.INPUT_REGISTER:
+            return self._client.read_input_registers
+        msg = f"Unknown address type: {address_type}"
+        raise ValueError(msg)
+
     @connected
-    async def _read_modbus(
-        self, modbus_address: ModbusAddress
-    ) -> bool | int | list[int]:
+    async def _fetch_block(self, block: ModbusBlock) -> list[int] | list[bool]:
+        """Issue one request for a whole block and return its raw payload."""
         if not self._client.connected:
             await self.connect()
+        result = await self._reader(block.type)(
+            block.start,
+            count=block.count,
+            device_id=block.device_id,
+        )
+        return result.bits if block.is_bit else result.registers
 
-        if modbus_address.type == ModbusAddressType.COIL:
-            result = await self._client.read_coils(
-                modbus_address.instance,
-                count=1,
-                device_id=modbus_address.device_id,
+    async def _read_block(
+        self, block: ModbusBlock, correlation_id: str | None
+    ) -> list[ReadResult]:
+        """Fetch one block and split it back into a result per member address.
+
+        The lock is held for the transaction only, then released before the
+        results are handed on, so one long sweep cannot starve another read.
+        A block that fails marks its own members failed and nothing else.
+        """
+        async with self._read_lock:
+            epoch = self._cache_epoch
+            try:
+                payload = await self._fetch_block(block)
+                values = [
+                    (address, block.extract(address, payload))
+                    for address in block.addresses
+                ]
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Transport %s] block read %s%d:%d failed — %s: %s",
+                    self.id,
+                    block.type.value,
+                    block.start,
+                    block.count,
+                    type(e).__name__,
+                    e,
+                )
+                return [ReadError(address.id, e) for address in block.addresses]
+        for address, value in values:
+            self._cache_put(address, correlation_id, value, epoch)  # ty: ignore[invalid-argument-type]
+        return [ReadOk(address.id, value) for address, value in values]  # ty: ignore[invalid-argument-type]
+
+    async def read_many(
+        self,
+        addresses: list[ModbusAddress],
+        correlation_id: str | None = None,
+    ) -> AsyncGenerator[ReadResult]:
+        """Read addresses as coalesced block reads — one request per contiguous
+        run of registers/bits rather than one per address.
+        """
+        pending: list[ModbusAddress] = []
+        for address in dedupe_addresses(addresses).values():
+            cached = self._cache_get(address, correlation_id)
+            if cached is None:
+                pending.append(address)
+            else:
+                yield ReadOk(address.id, cached)
+
+        blocks = plan_blocks(
+            pending,
+            max_block=self.config.max_block,
+            max_gap=self.config.max_gap,
+        )
+        if blocks:
+            logger.debug(
+                "[Transport %s] %d address(es) coalesced into %d block read(s): %s",
+                self.id,
+                len(pending),
+                len(blocks),
+                [f"{b.type.value}{b.start}:{b.count}" for b in blocks],
             )
-            return result.bits[0]
-        if modbus_address.type == ModbusAddressType.DISCRETE_INPUT:
-            result = await self._client.read_discrete_inputs(
-                modbus_address.instance,
-                count=1,
-                device_id=modbus_address.device_id,
-            )
-            return result.bits[0]
-        if modbus_address.type == ModbusAddressType.HOLDING_REGISTER:
-            result = await self._client.read_holding_registers(
-                modbus_address.instance,
-                count=modbus_address.count,
-                device_id=modbus_address.device_id,
-            )
-            if modbus_address.count == 1:
-                return result.registers[0]
-            return result.registers
-        if modbus_address.type == ModbusAddressType.INPUT_REGISTER:
-            result = await self._client.read_input_registers(
-                modbus_address.instance,
-                count=modbus_address.count,
-                device_id=modbus_address.device_id,
-            )
-            if modbus_address.count == 1:
-                return result.registers[0]
-            return result.registers
-        msg = f"Unknown address type: {modbus_address.type}"
-        raise ValueError(msg)
+        for block in blocks:
+            for result in await self._read_block(block, correlation_id):
+                yield result
 
     def _validate_holding_register_value(
         self,
@@ -163,7 +220,15 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         self,
         address: ModbusAddress,
     ) -> AttributeValueType:
-        return await self._read_modbus(address)  # ty: ignore[invalid-return-type]
+        """A single read is just a one-block read, so both paths share the same
+        request dispatch and the same raw-shape rule."""
+        block = plan_blocks(
+            [address],
+            max_block=self.config.max_block,
+            max_gap=self.config.max_gap,
+        )[0]
+        payload = await self._fetch_block(block)
+        return block.extract(address, payload)  # ty: ignore[invalid-return-type]
 
     async def write(
         self,
