@@ -1,3 +1,9 @@
+## v0.161.2 (2026-07-17)
+
+### Fix
+
+- **devices-manager**: treat non-2xx HTTP responses as read failures (#462)
+
 ## v0.161.1 (2026-07-17)
 
 ### Perf
