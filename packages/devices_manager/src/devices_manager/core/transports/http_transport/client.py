@@ -70,6 +70,7 @@ class HTTPTransportClient(
             data=data,
             content=content,
         )
+        response.raise_for_status()
         return response.json()
 
     @connected
