@@ -1,3 +1,9 @@
+## v0.161.3 (2026-07-20)
+
+### Fix
+
+- **devices-manager**: emit observability logs for polling-group reads (#466)
+
 ## v0.161.2 (2026-07-17)
 
 ### Fix
