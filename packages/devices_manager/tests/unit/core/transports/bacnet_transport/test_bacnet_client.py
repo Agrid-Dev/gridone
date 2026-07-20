@@ -182,7 +182,8 @@ def test_encode_present_value_uses_the_object_types_datatype(
 
 class _FakeRequestApp:
     """Stands in for a bacpypes Application's ``request()``: returns scripted
-    responses in order and records every request sent."""
+    responses (or raises a scripted exception) in order, and records every
+    request sent."""
 
     def __init__(self) -> None:
         self.requests: list[object] = []
@@ -193,7 +194,10 @@ class _FakeRequestApp:
 
     async def request(self, request: object) -> object:
         self.requests.append(request)
-        return self.responses.pop(0)
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 def _addr(
@@ -352,6 +356,23 @@ class TestReadManyRpm:
         app = _FakeRequestApp()
         addresses = [_addr(1, 0)]
         app.responses = [AbortPDU(reason="other"), _read_property_ack(21.5)]
+        client = _connected_client(app)
+
+        results = [r async for r in client.read_many(addresses)]
+
+        assert client._rpm_supported[1] is False  # noqa: SLF001
+        assert isinstance(results[0], ReadOk)
+
+    @pytest.mark.asyncio
+    async def test_timeout_falls_back_and_disables_rpm_for_the_device(self) -> None:
+        """A device that never responds to RPM at all (rather than sending a
+        proper RejectPDU/AbortPDU) must be treated as RPM-unsupported too —
+        some devices signal an unrecognized service by silently dropping the
+        request. Regression test for a device that timed out on every RPM
+        attempt, forever, instead of falling back after the first one."""
+        app = _FakeRequestApp()
+        addresses = [_addr(1, 0)]
+        app.responses = [TimeoutError(), _read_property_ack(21.5)]
         client = _connected_client(app)
 
         results = [r async for r in client.read_many(addresses)]

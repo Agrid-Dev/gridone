@@ -337,10 +337,14 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> list[ReadResult] | None:
         """Issue one RPM request and split its ACK into a result per address.
 
-        Returns ``None`` when the device rejected the service itself
-        (``BacnetServiceRejectedError``) — the caller falls back to per-property
-        reads for this request's addresses. Any other failure marks every
-        member address failed, mirroring Modbus's per-block isolation.
+        Returns ``None`` when the device doesn't support the service —
+        either it rejected it outright (``BacnetServiceRejectedError``) or
+        it never responded at all (``TimeoutError``: some devices signal an
+        unsupported service by silently dropping the request rather than
+        sending a proper Reject/Abort) — the caller falls back to
+        per-property reads for this request's addresses. Any other failure
+        marks every member address failed, mirroring Modbus's per-block
+        isolation.
 
         The lock is held for the transaction only, then released before
         results are handed on, so one long RPM sweep cannot starve another
@@ -351,13 +355,14 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             try:
                 ack = await self._read_rpm(rpm_request)
                 values = _decode_rpm(rpm_request, ack)
-            except BacnetServiceRejectedError as e:
+            except (BacnetServiceRejectedError, TimeoutError) as e:
                 logger.warning(
                     "[Transport %s] device %d does not support "
                     "ReadPropertyMultiple — falling back to per-property "
-                    "reads (%s)",
+                    "reads (%s: %s)",
                     self.id,
                     rpm_request.device_instance,
+                    type(e).__name__,
                     e,
                 )
                 self._rpm_supported[rpm_request.device_instance] = False
@@ -425,8 +430,9 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced ReadPropertyMultiple requests, one per
         device instance's Max-APDU-sized chunk. A device that has already
-        shown (RejectPDU/AbortPDU) it doesn't support RPM falls back to
-        sequential ReadProperty for the rest of the session.
+        shown (RejectPDU/AbortPDU, or simply never responding) it doesn't
+        support RPM falls back to sequential ReadProperty for the rest of
+        the session.
         """
         pending: list[BacnetAddress] = []
         for address in dedupe_addresses(addresses).values():
