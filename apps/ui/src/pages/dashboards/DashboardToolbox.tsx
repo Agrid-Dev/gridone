@@ -42,32 +42,32 @@ export const DashboardToolbox: FC<{
   const { deleteDashboard } = useDeleteDashboard();
 
   const handleRename = async (values: DashboardFormValues) => {
-    const ok = await updateDashboard(dashboard.id, {
-      name: values.name,
-      description: values.description,
-    })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) {
+    // Awaited so the form's submit stays disabled while in flight; a rejection
+    // is swallowed here (the mutation's onError already toasts it).
+    try {
+      await updateDashboard(dashboard.id, {
+        name: values.name,
+        description: values.description,
+      });
       setRenameOpen(false);
+    } catch {
+      /* handled by the mutation's onError */
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     // After removing the active dashboard, the item that shifts into its slot
     // is the "next"; if it was last, fall back to the new last (previous).
     const idx = summaries.findIndex((s) => s.id === dashboard.id);
     const remaining = summaries.filter((s) => s.id !== dashboard.id);
     const target = remaining[idx] ?? remaining[remaining.length - 1];
 
-    const ok = await deleteDashboard(dashboard.id)
-      .then(() => true)
-      .catch(() => false);
-    if (!ok) {
-      return;
-    }
-    setDeleteOpen(false);
-    navigate(target ? `/dashboards/${target.id}` : "/dashboards");
+    deleteDashboard(dashboard.id, {
+      onSuccess: () => {
+        setDeleteOpen(false);
+        navigate(target ? `/dashboards/${target.id}` : "/dashboards");
+      },
+    });
   };
 
   return (

@@ -23,14 +23,14 @@ export const AddWidgetButton: FC<{ dashboardId: string }> = ({
   const { data: schemas } = useWidgetSchemas();
 
   const handleAdd = async (values: WidgetFormValues) => {
-    const ok = await addWidget({
-      config: values.config as WidgetCreateBody["config"],
-      title: values.title || undefined,
-    })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) {
+    try {
+      await addWidget({
+        config: values.config as WidgetCreateBody["config"],
+        title: values.title || undefined,
+      });
       setOpen(false);
+    } catch {
+      /* handled by the mutation's onError */
     }
   };
 

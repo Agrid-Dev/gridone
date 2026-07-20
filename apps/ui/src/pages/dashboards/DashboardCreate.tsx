@@ -21,9 +21,11 @@ const DashboardCreate: FC = () => {
         formId="dashboard-create-form"
         submitLabel={t("create.submit")}
         onSubmit={async (values) => {
-          const created = await createDashboard(values).catch(() => null);
-          if (created) {
+          try {
+            const created = await createDashboard(values);
             navigate(`../${created.id}`);
+          } catch {
+            /* handled by the mutation's onError */
           }
         }}
         onCancel={() => navigate("..")}

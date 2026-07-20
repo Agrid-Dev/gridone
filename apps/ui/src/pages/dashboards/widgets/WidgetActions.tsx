@@ -47,24 +47,22 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
   const { data: schemas } = useWidgetSchemas();
 
   const handleEdit = async (values: WidgetFormValues) => {
-    const ok = await updateWidget(widget.id, {
-      title: values.title,
-      config: values.config as WidgetUpdateBody["config"],
-    })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) {
+    // Awaited so the form's submit stays disabled while in flight; a rejection
+    // is swallowed here (the mutation's onError already toasts it) and just
+    // keeps the dialog open.
+    try {
+      await updateWidget(widget.id, {
+        title: values.title,
+        config: values.config as WidgetUpdateBody["config"],
+      });
       setEditOpen(false);
+    } catch {
+      /* handled by the mutation's onError */
     }
   };
 
-  const handleDelete = async () => {
-    const ok = await removeWidget(widget.id)
-      .then(() => true)
-      .catch(() => false);
-    if (ok) {
-      setDeleteOpen(false);
-    }
+  const handleDelete = () => {
+    removeWidget(widget.id, { onSuccess: () => setDeleteOpen(false) });
   };
 
   return (

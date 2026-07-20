@@ -138,7 +138,10 @@ export function useDeleteDashboard() {
     onError: onApiError,
   });
 
-  const deleteDashboard = (id: string) => mutation.mutateAsync(id);
+  const deleteDashboard = (
+    id: string,
+    options?: Parameters<typeof mutation.mutate>[1],
+  ) => mutation.mutate(id, options);
 
   return { deleteDashboard };
 }

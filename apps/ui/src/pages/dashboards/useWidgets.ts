@@ -96,5 +96,10 @@ export function useRemoveWidget(dashboardId: string) {
     onError,
   });
 
-  return { removeWidget: (id: string) => mutation.mutateAsync(id) };
+  return {
+    removeWidget: (
+      id: string,
+      options?: Parameters<typeof mutation.mutate>[1],
+    ) => mutation.mutate(id, options),
+  };
 }
