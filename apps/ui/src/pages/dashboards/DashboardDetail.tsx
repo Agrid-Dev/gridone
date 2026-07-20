@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DashboardActions } from "./DashboardActions";
@@ -13,6 +14,8 @@ const DashboardDetailContent: FC = () => {
   const { t } = useTranslation("dashboards");
   const summaries = useDashboards();
   const dashboard = useDashboardFromRoute();
+
+  useBreadcrumb([{ to: `/dashboards/${dashboard.id}`, label: dashboard.name }]);
 
   return (
     <div className="flex flex-col gap-6">
