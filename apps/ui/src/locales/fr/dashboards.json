@@ -1,6 +1,14 @@
 {
+  "resourceName": "tableau de bord",
+  "tabs": {
+    "label": "Tableaux de bord",
+    "new": "Nouveau tableau de bord"
+  },
+  "body": {
+    "placeholder": "Les widgets apparaîtront ici dans un prochain jalon."
+  },
   "placeholder": {
-    "heading": "Tableaux de bord",
-    "body": "La navigation et la gestion des tableaux de bord sont en cours de construction ici. Les widgets arriveront dans un prochain jalon."
+    "heading": "Nouveau tableau de bord",
+    "body": "Le formulaire de création est en cours de construction ici (étape 3)."
   }
 }

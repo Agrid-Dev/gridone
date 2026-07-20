@@ -1,0 +1,38 @@
+import type { FC } from "react";
+import { NavLink } from "react-router";
+import { useTranslation } from "react-i18next";
+import { Plus } from "lucide-react";
+import type { DashboardSummary } from "@gridone/sdk";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+/** Route-linked tab bar over the dashboards. Each trigger is a `NavLink`
+ *  (`asChild`) so tabs are real deep-links and the active tab is the one in the
+ *  URL; a trailing "+" links to the create form. */
+export const DashboardTabs: FC<{
+  summaries: DashboardSummary[];
+  activeId: string;
+}> = ({ summaries, activeId }) => {
+  const { t } = useTranslation("dashboards");
+
+  return (
+    <div className="flex items-center gap-2">
+      <Tabs value={activeId} className="min-w-0 flex-1">
+        <TabsList aria-label={t("tabs.label")} className="w-full">
+          {summaries.map((dashboard) => (
+            <TabsTrigger key={dashboard.id} value={dashboard.id} asChild>
+              <NavLink to={`/dashboards/${dashboard.id}`}>
+                {dashboard.name}
+              </NavLink>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      <Button variant="ghost" size="icon" asChild>
+        <NavLink to="/dashboards/new" aria-label={t("tabs.new")}>
+          <Plus className="h-4 w-4" />
+        </NavLink>
+      </Button>
+    </div>
+  );
+};

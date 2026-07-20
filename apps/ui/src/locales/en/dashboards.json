@@ -1,6 +1,14 @@
 {
+  "resourceName": "dashboard",
+  "tabs": {
+    "label": "Dashboards",
+    "new": "New dashboard"
+  },
+  "body": {
+    "placeholder": "Widgets will appear here in a later milestone."
+  },
   "placeholder": {
-    "heading": "Dashboards",
-    "body": "Dashboard navigation and management are being built here. Widgets arrive in a later milestone."
+    "heading": "New dashboard",
+    "body": "The create form is being built here (step 3)."
   }
 }
