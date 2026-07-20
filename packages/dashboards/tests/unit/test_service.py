@@ -71,9 +71,7 @@ async def test_create_stamps_id_and_timestamps(service: DashboardsService):
     assert dashboard.name == "Ops"
     assert dashboard.description == "d"
     assert dashboard.widgets == []
-    assert dashboard.metadata.created_at == dashboard.metadata.updated_at
-    assert dashboard.metadata.created_by is None
-    assert dashboard.metadata.updated_by is None
+    assert dashboard.metadata.updated_at >= dashboard.metadata.created_at
 
 
 async def test_get_returns_full_document(service: DashboardsService):

@@ -12,7 +12,6 @@ from dashboards.models import (
 )
 from dashboards.service import DashboardsService
 from dashboards.widgets import (
-    HEX_COLOR_PATTERN,
     TextWidgetConfig,
     WidgetConfig,
     WidgetRegistry,
@@ -22,7 +21,6 @@ from dashboards.widgets import (
 )
 
 __all__ = [
-    "HEX_COLOR_PATTERN",
     "Dashboard",
     "DashboardCreate",
     "DashboardPatch",

@@ -11,7 +11,7 @@ from dashboards.widgets import (
 )
 from dashboards.widgets.registry import WidgetRegistry
 
-from models.errors import InvalidError
+from models.errors import InvalidError, NotFoundError
 
 
 def test_default_registry_registers_text():
@@ -53,8 +53,17 @@ def test_validate_config_rejects_invalid(raw: dict):
 def test_get_unknown_type_raises():
     registry = build_default_registry()
 
-    with pytest.raises(InvalidError, match="Unknown widget type"):
+    with pytest.raises(NotFoundError, match="Unknown widget type"):
         registry.get("kpi")
+
+
+def test_validate_config_translates_unknown_type_to_invalid():
+    # A direct registry miss is NotFound, but validating *user input* with an
+    # unknown type is a bad request (InvalidError -> 422), not a 404.
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError, match="Unknown widget type"):
+        registry.validate_config({"type": "kpi"})
 
 
 def test_register_duplicate_type_raises():

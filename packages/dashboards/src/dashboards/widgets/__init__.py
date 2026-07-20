@@ -5,10 +5,9 @@ from dashboards.widgets.registry import (
     WidgetType,
     build_default_registry,
 )
-from dashboards.widgets.text import HEX_COLOR_PATTERN, TextWidgetConfig
+from dashboards.widgets.text import TextWidgetConfig
 
 __all__ = [
-    "HEX_COLOR_PATTERN",
     "TextWidgetConfig",
     "WidgetConfig",
     "WidgetRegistry",

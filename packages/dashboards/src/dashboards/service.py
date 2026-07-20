@@ -68,13 +68,12 @@ class DashboardsService(DashboardsServiceInterface, Service):
     # ------------------------------------------------------------------
 
     async def create(self, params: DashboardCreate) -> Dashboard:
-        now = _now()
         dashboard = Dashboard(
             id=gen_id(),
             name=params.name,
             description=params.description,
             widgets=[],
-            metadata=Metadata(created_at=now, updated_at=now),
+            metadata=Metadata(),
         )
         return await self._storage.create(dashboard)
 
@@ -132,17 +131,16 @@ class DashboardsService(DashboardsServiceInterface, Service):
         and is validated against the registry before anything is persisted."""
         dashboard = await self.get(dashboard_id)
         widget_config = self._registry.validate_config(config)
-        now = _now()
         widget = Widget(
             id=gen_id(),
             title=title,
             description=description,
             config=widget_config,
             layout=self._bottom_placement(dashboard, widget_config.type),
-            metadata=Metadata(created_at=now, updated_at=now),
+            metadata=Metadata(),
         )
         dashboard.widgets.append(widget)
-        dashboard.metadata.updated_at = now
+        dashboard.metadata.updated_at = _now()
         updated = await self._storage.update(dashboard)
         return self._find_widget(updated, widget.id)
 

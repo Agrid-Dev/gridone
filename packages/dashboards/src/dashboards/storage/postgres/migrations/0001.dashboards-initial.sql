@@ -12,9 +12,7 @@ CREATE TABLE IF NOT EXISTS dashboards (
     description TEXT,
     widgets     JSONB        NOT NULL DEFAULT '[]'::jsonb,
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    created_by  TEXT,
-    updated_by  TEXT
+    updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
 -- The dashboard index (``list``) orders by creation time.

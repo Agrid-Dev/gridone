@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TC003
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,18 +8,21 @@ from pydantic import BaseModel, ConfigDict, Field
 from dashboards.widgets.config import WidgetConfig  # noqa: TC001
 
 
-class Metadata(BaseModel):
-    """Auditability payload carried by every read model (AGR-933).
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
-    ``created_by`` / ``updated_by`` stay ``None`` until caller identity is
-    threaded through from the controller layer; timestamps are stamped by the
-    service on create and every mutation.
+
+class Metadata(BaseModel):
+    """Auditability timestamps carried by every read model (AGR-933).
+
+    Both timestamps default to construction time, so the common "new resource"
+    case needs no explicit stamping; the service bumps ``updated_at`` on each
+    mutation. (User attribution — ``created_by`` / ``updated_by`` — was dropped
+    from AGR-933's scope.)
     """
 
-    created_at: datetime
-    updated_at: datetime
-    created_by: str | None = None
-    updated_by: str | None = None
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
 
 class WidgetLayout(BaseModel):

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from dashboards.widgets.text import TextWidgetConfig
-from models.errors import InvalidError
+from models.errors import InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -52,25 +52,33 @@ class WidgetRegistry:
         self._types[widget_type.type] = widget_type
 
     def get(self, type_: str) -> WidgetType:
+        """Look up a registered widget type. Raises :class:`NotFoundError`
+        when the type is not registered."""
         widget_type = self._types.get(type_)
         if widget_type is None:
             msg = f"Unknown widget type {type_!r}"
-            raise InvalidError(msg)
+            raise NotFoundError(msg)
         return widget_type
 
     def validate_config(self, raw: Mapping[str, Any]) -> WidgetConfig:
         """Validate a raw config mapping into its concrete config model.
 
         The ``type`` key selects the model; the rest is validated against it.
-        Raises :class:`InvalidError` for a missing/unknown ``type`` or any
-        schema violation — the underlying pydantic error is chained for the
-        server log but kept out of the raised message.
+        Every failure — missing/unknown ``type`` or a schema violation — is
+        surfaced as :class:`InvalidError` because this validates *user input*
+        (an unknown ``type`` here is a bad request, not a missing resource).
+        The underlying pydantic error is chained for the server log but kept
+        out of the raised message.
         """
         type_ = raw.get("type")
         if not isinstance(type_, str):
             msg = "Widget config must carry a string 'type'"
             raise InvalidError(msg)
-        widget_type = self.get(type_)
+        try:
+            widget_type = self.get(type_)
+        except NotFoundError as exc:
+            msg = f"Unknown widget type {type_!r}"
+            raise InvalidError(msg) from exc
         try:
             return widget_type.config_model.model_validate(dict(raw))
         except ValidationError as exc:

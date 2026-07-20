@@ -57,8 +57,6 @@ class PostgresDashboardsStorage:
         return Metadata(
             created_at=row["created_at"],
             updated_at=row["updated_at"],
-            created_by=row["created_by"],
-            updated_by=row["updated_by"],
         )
 
     def _row_to_dashboard(self, row: asyncpg.Record) -> Dashboard:
@@ -82,9 +80,8 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             INSERT INTO dashboards
-                (id, name, description, widgets,
-                 created_at, updated_at, created_by, updated_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, name, description, widgets, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
             """,
             dashboard.id,
@@ -93,8 +90,6 @@ class PostgresDashboardsStorage:
             [_widget_to_jsonb(w) for w in dashboard.widgets],
             dashboard.metadata.created_at,
             dashboard.metadata.updated_at,
-            dashboard.metadata.created_by,
-            dashboard.metadata.updated_by,
         )
         return self._row_to_dashboard(row)
 
@@ -110,8 +105,8 @@ class PostgresDashboardsStorage:
         self, *, limit: int | None = None, offset: int | None = None
     ) -> list[DashboardSummary]:
         query = (
-            "SELECT id, name, description, created_at, updated_at, "
-            "created_by, updated_by FROM dashboards ORDER BY created_at"
+            "SELECT id, name, description, created_at, updated_at "
+            "FROM dashboards ORDER BY created_at"
         )
         params: list[object] = []
         idx = 1
@@ -132,8 +127,7 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             UPDATE dashboards
-            SET name = $2, description = $3, widgets = $4,
-                updated_at = $5, updated_by = $6
+            SET name = $2, description = $3, widgets = $4, updated_at = $5
             WHERE id = $1
             RETURNING *
             """,
@@ -142,7 +136,6 @@ class PostgresDashboardsStorage:
             dashboard.description,
             [_widget_to_jsonb(w) for w in dashboard.widgets],
             dashboard.metadata.updated_at,
-            dashboard.metadata.updated_by,
         )
         if row is None:
             msg = f"Dashboard {dashboard.id!r} not found"

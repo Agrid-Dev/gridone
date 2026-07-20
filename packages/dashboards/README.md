@@ -37,8 +37,6 @@ classDiagram
     class Metadata {
         +datetime created_at
         +datetime updated_at
-        +string? created_by
-        +string? updated_by
     }
 
     Dashboard "1" *-- "N" Widget : widgets
@@ -116,4 +114,4 @@ All business logic lives in the service; storage just stores and returns aggrega
 - **Service shape.** Follows `models.service.Service`: `__init__(storage_url, registry=None)`, `async start` / `async stop`. Unsupported URL schemes raise `UnsupportedStorageError`; backend failures raise `StorageConnectionError`.
 - **No controller framework.** No FastAPI here — the HTTP layer lives in `packages/api` and wraps this service.
 - **16-hex ids** via `models.ids.gen_id()` for dashboards and widgets.
-- **Metadata** (AGR-933): `created_at` / `updated_at` are stamped by the service; `created_by` / `updated_by` are reserved (nullable) until caller identity is threaded through.
+- **Metadata** (AGR-933): `created_at` / `updated_at` are self-defaulting on the `Metadata` model; the service bumps `updated_at` on each mutation. User attribution (`created_by` / `updated_by`) was dropped from AGR-933's scope.
