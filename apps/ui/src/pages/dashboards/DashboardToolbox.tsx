@@ -2,15 +2,9 @@ import { useState } from "react";
 import type { FC } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { PencilLine, Trash2, Wand2 } from "lucide-react";
 import type { Dashboard, DashboardSummary } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -28,15 +22,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
+import { AddWidgetButton } from "./widgets/AddWidgetButton";
 import { useDeleteDashboard, useUpdateDashboard } from "./useDashboards";
 
-/** Header actions (⋮) for the active dashboard: rename (dialog reusing the
- *  shared form) and delete (confirmation). Deleting the active dashboard lands
- *  on the next one, or the empty state when it was the last. */
-export const DashboardActions: FC<{
+/** Opt-in toolbox row: every edition action for the active dashboard in one
+ *  place (rename, add widget, edit layout, delete), kept out of the navigation
+ *  row so the two concerns don't mix and the grid only shifts when it's open. */
+export const DashboardToolbox: FC<{
   dashboard: Dashboard;
   summaries: DashboardSummary[];
-}> = ({ dashboard, summaries }) => {
+  hasWidgets: boolean;
+  onEditLayout: () => void;
+}> = ({ dashboard, summaries, hasWidgets, onEditLayout }) => {
   const { t } = useTranslation(["dashboards", "common"]);
   const navigate = useNavigate();
   const [renameOpen, setRenameOpen] = useState(false);
@@ -74,32 +71,27 @@ export const DashboardActions: FC<{
   };
 
   return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            aria-label={t("actions.label")}
-          >
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
-            <Pencil className="h-4 w-4" />
-            {t("actions.rename")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onSelect={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t("actions.delete")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
+      <Button variant="outline" size="sm" onClick={() => setRenameOpen(true)}>
+        <PencilLine className="h-4 w-4" />
+        {t("actions.rename")}
+      </Button>
+      <AddWidgetButton dashboardId={dashboard.id} />
+      {hasWidgets && (
+        <Button variant="outline" size="sm" onClick={onEditLayout}>
+          <Wand2 className="h-4 w-4" />
+          {t("layout.edit")}
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className="ml-auto text-destructive hover:text-destructive"
+        onClick={() => setDeleteOpen(true)}
+      >
+        <Trash2 className="h-4 w-4" />
+        {t("actions.delete")}
+      </Button>
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
@@ -138,6 +130,6 @@ export const DashboardActions: FC<{
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 };

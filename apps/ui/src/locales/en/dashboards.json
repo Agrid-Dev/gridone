@@ -5,6 +5,10 @@
     "label": "Dashboards",
     "new": "New dashboard"
   },
+  "toolbox": {
+    "show": "Toolbox",
+    "hide": "Close toolbox"
+  },
   "layout": {
     "edit": "Edit layout",
     "save": "Save",

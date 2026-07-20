@@ -5,6 +5,10 @@
     "label": "Tableaux de bord",
     "new": "Nouveau tableau de bord"
   },
+  "toolbox": {
+    "show": "Boîte à outils",
+    "hide": "Fermer la boîte à outils"
+  },
   "layout": {
     "edit": "Modifier la disposition",
     "save": "Enregistrer",
