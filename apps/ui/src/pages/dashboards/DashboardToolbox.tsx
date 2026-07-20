@@ -76,13 +76,14 @@ export const DashboardToolbox: FC<{
         <PencilLine className="h-4 w-4" />
         {t("actions.rename")}
       </Button>
-      <AddWidgetButton dashboardId={dashboard.id} />
       {hasWidgets && (
         <Button variant="outline" size="sm" onClick={onEditLayout}>
           <Wand2 className="h-4 w-4" />
           {t("layout.edit")}
         </Button>
       )}
+      {/* Add widget is the primary action — kept rightmost of the first three. */}
+      <AddWidgetButton dashboardId={dashboard.id} />
       <Button
         variant="outline"
         size="sm"

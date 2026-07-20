@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FC } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Wrench } from "lucide-react";
+import { Settings2, X } from "lucide-react";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -40,39 +40,52 @@ const DashboardDetailContent: FC = () => {
             activeId={dashboard.id}
             disabled={editing}
           />
-          <div className="ml-auto flex items-center gap-2">
-            {editing ? (
-              <>
-                <span className="text-sm text-muted-foreground">
-                  {dirty ? t("layout.unsaved") : t("layout.editing")}
-                </span>
-                <Button variant="outline" size="sm" onClick={cancel}>
-                  {t("layout.cancel")}
-                </Button>
-                <Button size="sm" onClick={() => void save()} disabled={!dirty}>
-                  {t("layout.save")}
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant={toolboxOpen ? "secondary" : "ghost"}
-                size="sm"
-                aria-pressed={toolboxOpen}
-                onClick={() => setToolboxOpen((open) => !open)}
-              >
-                <Wrench className="h-4 w-4" />
-                {toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
-              </Button>
-            )}
-          </div>
+          {/* The toggle is hidden while editing — the toolbox row is locked to
+              the layout Save/Cancel controls until you exit. */}
+          {!editing && (
+            <Button
+              variant={toolboxOpen ? "secondary" : "ghost"}
+              size="icon"
+              className="ml-auto"
+              aria-pressed={toolboxOpen}
+              aria-label={toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
+              onClick={() => setToolboxOpen((open) => !open)}
+            >
+              {toolboxOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Settings2 className="h-4 w-4" />
+              )}
+            </Button>
+          )}
         </div>
-        {toolboxOpen && !editing && (
-          <DashboardToolbox
-            dashboard={dashboard}
-            summaries={summaries}
-            hasWidgets={hasWidgets}
-            onEditLayout={enter}
-          />
+        {editing ? (
+          // Same toolbox container, content switched to the layout edit form.
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
+            <span className="text-sm text-muted-foreground">
+              {dirty ? t("layout.unsaved") : t("layout.editing")}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              onClick={cancel}
+            >
+              {t("layout.cancel")}
+            </Button>
+            <Button size="sm" onClick={() => void save()} disabled={!dirty}>
+              {t("layout.save")}
+            </Button>
+          </div>
+        ) : (
+          toolboxOpen && (
+            <DashboardToolbox
+              dashboard={dashboard}
+              summaries={summaries}
+              hasWidgets={hasWidgets}
+              onEditLayout={enter}
+            />
+          )
         )}
         {dashboard.description && (
           <p className="pl-4 text-sm text-muted-foreground">
