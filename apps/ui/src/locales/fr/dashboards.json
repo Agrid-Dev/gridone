@@ -7,8 +7,16 @@
   "body": {
     "placeholder": "Les widgets apparaîtront ici dans un prochain jalon."
   },
-  "placeholder": {
-    "heading": "Nouveau tableau de bord",
-    "body": "Le formulaire de création est en cours de construction ici (étape 3)."
+  "fields": {
+    "name": "Nom",
+    "description": "Description"
+  },
+  "validation": {
+    "nameRequired": "Le nom est requis"
+  },
+  "create": {
+    "title": "Nouveau tableau de bord",
+    "submit": "Créer le tableau de bord",
+    "success": "Tableau de bord « {{name}} » créé"
   }
 }

@@ -7,8 +7,16 @@
   "body": {
     "placeholder": "Widgets will appear here in a later milestone."
   },
-  "placeholder": {
-    "heading": "New dashboard",
-    "body": "The create form is being built here (step 3)."
+  "fields": {
+    "name": "Name",
+    "description": "Description"
+  },
+  "validation": {
+    "nameRequired": "Name is required"
+  },
+  "create": {
+    "title": "New dashboard",
+    "submit": "Create dashboard",
+    "success": "Dashboard \"{{name}}\" created"
   }
 }

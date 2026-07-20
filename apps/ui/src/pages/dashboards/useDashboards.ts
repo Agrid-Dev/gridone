@@ -1,6 +1,17 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useParams } from "react-router";
-import type { Dashboard, DashboardSummary } from "@gridone/sdk";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import {
+  isGridoneError,
+  type Dashboard,
+  type DashboardCreate,
+  type DashboardSummary,
+} from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 /** Query key for the dashboard summaries list (feeds the tab bar). */
@@ -43,4 +54,32 @@ export function useDashboardFromRoute(): Dashboard {
     queryFn: () => client.dashboards.get(dashboardId),
   });
   return data;
+}
+
+/**
+ * Create a dashboard. On success the summaries list is invalidated (so the tab
+ * bar picks up the new dashboard) and the created document is returned so the
+ * caller can navigate to it. Errors surface as a toast.
+ */
+export function useCreateDashboard() {
+  const { t } = useTranslation(["dashboards", "common"]);
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (params: DashboardCreate) => client.dashboards.create(params),
+    onSuccess: async (created: Dashboard) => {
+      await queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY });
+      toast.success(t("create.success", { name: created.name }));
+    },
+    onError: (error: Error) => {
+      const detail = isGridoneError(error) ? error.detail : error.message;
+      toast.error(`${t("common:errors.default")}: ${detail}`);
+    },
+  });
+
+  const createDashboard = (params: DashboardCreate) =>
+    mutation.mutateAsync(params);
+
+  return { createDashboard };
 }
