@@ -1,6 +1,7 @@
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from functools import wraps
@@ -62,6 +63,50 @@ def build_entry(
     return _ok_entry(event_type)
 
 
+@dataclass(frozen=True, slots=True)
+class DeviceIdentity:
+    """The device_id/driver_id/protocol triple an observability log is tagged
+    with — always sourced and passed together, so callers build one of these
+    instead of threading three separate parameters."""
+
+    device_id: str | None
+    driver_id: str | None
+    protocol: str | None
+
+
+def log_observability(
+    event_type: EventType,
+    status: Literal["ok", "error"],
+    duration_ms: float,
+    *,
+    attribute_name: str,
+    identity: DeviceIdentity,
+) -> None:
+    """Emit the ``devices_manager.observability`` structured log line.
+
+    Shared by the single-attribute ``log_event`` decorator and the
+    polling-group read path, so both emit the same event/duration_ms/attribute
+    shape regardless of which one performed the read. ``duration_ms`` is
+    measured from whatever the caller considers this outcome's start (e.g.
+    the decorated call's own start, or the previous result's arrival in a
+    batch sweep) — it is not guaranteed to isolate network time alone.
+    """
+    _observability_logger.info(
+        "device %s %s",
+        event_type,
+        status,
+        extra={
+            "event": event_type,
+            "status": status,
+            "duration_ms": duration_ms,
+            "attribute": attribute_name,
+            "device_id": identity.device_id,
+            "driver_id": identity.driver_id,
+            "protocol": identity.protocol,
+        },
+    )
+
+
 def log_event(
     event_type: EventType,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -98,21 +143,18 @@ def log_event(
                 return result
             finally:
                 self._on_log_append()
-                _observability_logger.info(
-                    "device %s %s",
+                log_observability(
                     event_type,
                     status,
-                    extra={
-                        "event": event_type,
-                        "status": status,
-                        "duration_ms": (time.perf_counter() - start) * 1000,
-                        "attribute": attribute_name,
-                        "device_id": getattr(self, "id", None),
-                        "driver_id": getattr(self, "driver_id", None),
-                        "protocol": getattr(
+                    (time.perf_counter() - start) * 1000,
+                    attribute_name=attribute_name,
+                    identity=DeviceIdentity(
+                        device_id=getattr(self, "id", None),
+                        driver_id=getattr(self, "driver_id", None),
+                        protocol=getattr(
                             getattr(self, "transport", None), "protocol", None
                         ),
-                    },
+                    ),
                 )
 
         return wrapper
