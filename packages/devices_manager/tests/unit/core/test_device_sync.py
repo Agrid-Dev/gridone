@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock
 
 import pytest
@@ -61,6 +62,12 @@ def grouped_driver() -> Driver:
         ),
         attributes={a.name: a for a in attrs},
     )
+
+
+def _observability_records(
+    caplog: pytest.LogCaptureFixture,
+) -> list[logging.LogRecord]:
+    return [r for r in caplog.records if r.name == "devices_manager.observability"]
 
 
 @pytest.fixture
@@ -316,6 +323,78 @@ class TestCoreDevicePollingGroups:
             grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)
             == ConnectionStatus.OK
         )
+
+    @pytest.mark.asyncio
+    async def test_read_group_emits_observability_log_on_success(
+        self, grouped_device: CoreDevice, mock_transport_client, caplog
+    ):
+        """The group-read path must emit the same devices_manager.observability
+        log line the single-attribute @log_event decorator emits, not just
+        update the attribute's internal event log."""
+        mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
+
+        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
+            await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        records = _observability_records(caplog)
+        assert len(records) == 1
+        fields = records[0].__dict__
+        assert fields["event"] == "read"
+        assert fields["status"] == "ok"
+        assert fields["attribute"] == "temperature"
+        assert fields["device_id"] == "gd"
+        assert fields["driver_id"] == "grouped_driver"
+        assert fields["protocol"] == TransportProtocols.HTTP
+        assert isinstance(fields["duration_ms"], float)
+        assert fields["duration_ms"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_read_group_emits_observability_log_on_error(
+        self, grouped_device: CoreDevice, mock_transport_client, caplog
+    ):
+        async def failing_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+            raise ConnectionError("boom")
+
+        mock_transport_client.read = failing_read
+
+        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
+            await grouped_device._read_group(["temperature"])  # noqa: SLF001
+
+        records = _observability_records(caplog)
+        assert len(records) == 1
+        fields = records[0].__dict__
+        assert fields["event"] == "read"
+        assert fields["status"] == "error"
+        assert fields["attribute"] == "temperature"
+
+    @pytest.mark.asyncio
+    async def test_read_group_reports_per_result_duration_not_cumulative(
+        self, grouped_device: CoreDevice, mock_transport_client, caplog
+    ):
+        """Regression test: duration_ms must reflect the time since the
+        previous result in the sweep, not the whole sweep so far, so a slow
+        read ahead of it in the stream doesn't inflate a fast attribute's
+        reported duration."""
+
+        async def slow_then_fast_read(
+            address,
+            correlation_id: str | None = None,  # noqa: ARG001
+        ) -> str:
+            if address.id == "GET /temperature":
+                await asyncio.sleep(0.05)
+            return "20.0"
+
+        mock_transport_client.read = slow_then_fast_read
+
+        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
+            await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
+
+        records = {
+            r.__dict__["attribute"]: r.__dict__["duration_ms"]
+            for r in _observability_records(caplog)
+        }
+        assert records["temperature"] >= 40
+        assert records["humidity"] < 25
 
     @pytest.mark.asyncio
     async def test_stop_sync_survives_a_poll_task_that_died(
