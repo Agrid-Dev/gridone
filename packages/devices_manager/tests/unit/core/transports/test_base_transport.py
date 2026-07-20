@@ -60,8 +60,13 @@ class TestReadLock:
 class _CoordinatedCloseTransportClient(SerializedTransportClient):
     """Mimics the real transports' close(): read_lock before connection_lock."""
 
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        *,
+        read_delay: float = 0.02,
+        shared_state: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(read_delay=read_delay, shared_state=shared_state)
         self.closed = False
 
     async def close(self) -> None:
@@ -74,8 +79,13 @@ class _ReconnectingCoordinatedTransportClient(_CoordinatedCloseTransportClient):
     """Like the real @connected transports: _read reconnects if not connected,
     from inside read()'s held _read_lock."""
 
-    def __init__(self, **kwargs: object) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        *,
+        read_delay: float = 0.02,
+        shared_state: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(read_delay=read_delay, shared_state=shared_state)
         self.connect_calls = 0
         self._is_connected = False
 
