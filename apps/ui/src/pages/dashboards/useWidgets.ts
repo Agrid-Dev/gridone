@@ -1,13 +1,26 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   isGridoneError,
   type WidgetCreateBody,
+  type WidgetSchemas,
   type WidgetUpdateBody,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { dashboardKey } from "./useDashboards";
+
+/** JSON Schemas of the registered widget types (backend is the source of
+ *  truth). Drives the widget config form; cached indefinitely — the registry
+ *  is static for a running server. */
+export function useWidgetSchemas() {
+  const client = useGridoneClient();
+  return useQuery<WidgetSchemas>({
+    queryKey: ["dashboards", "widget-schemas"],
+    queryFn: () => client.dashboards.getWidgetSchemas(),
+    staleTime: Infinity,
+  });
+}
 
 function useWidgetErrorToast() {
   const { t } = useTranslation("common");

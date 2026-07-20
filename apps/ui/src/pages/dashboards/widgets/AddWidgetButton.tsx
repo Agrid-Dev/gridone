@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
+import type { WidgetCreateBody } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,22 +10,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TextWidgetForm, type TextWidgetFormValues } from "./TextWidgetForm";
-import { useAddWidget } from "../useWidgets";
+import { WidgetForm, type WidgetFormValues } from "./WidgetForm";
+import { useAddWidget, useWidgetSchemas } from "../useWidgets";
 
-/** Adds a widget to the dashboard. Only the `text` type exists today, so the
- *  button opens the text widget form directly (a type picker arrives with more
- *  widget types). */
+/** Adds a widget: pick a type, then fill its schema-driven config form. */
 export const AddWidgetButton: FC<{ dashboardId: string }> = ({
   dashboardId,
 }) => {
-  const { t } = useTranslation("dashboards");
+  const { t } = useTranslation(["dashboards", "common"]);
   const [open, setOpen] = useState(false);
   const { addWidget } = useAddWidget(dashboardId);
+  const { data: schemas } = useWidgetSchemas();
 
-  const handleAdd = async (values: TextWidgetFormValues) => {
+  const handleAdd = async (values: WidgetFormValues) => {
     const ok = await addWidget({
-      config: { type: "text", text: values.text, color: values.color },
+      config: values.config as WidgetCreateBody["config"],
+      title: values.title || undefined,
     })
       .then(() => true)
       .catch(() => false);
@@ -44,11 +45,18 @@ export const AddWidgetButton: FC<{ dashboardId: string }> = ({
           <DialogHeader>
             <DialogTitle>{t("widgets.addTitle")}</DialogTitle>
           </DialogHeader>
-          <TextWidgetForm
-            submitLabel={t("widgets.addSubmit")}
-            onSubmit={handleAdd}
-            onCancel={() => setOpen(false)}
-          />
+          {schemas ? (
+            <WidgetForm
+              schemas={schemas}
+              submitLabel={t("widgets.addSubmit")}
+              onSubmit={handleAdd}
+              onCancel={() => setOpen(false)}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("common:common.loading")}
+            </p>
+          )}
         </DialogContent>
       </Dialog>
     </>

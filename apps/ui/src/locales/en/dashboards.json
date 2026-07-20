@@ -16,12 +16,8 @@
     "updateSuccess": "Widget updated",
     "deleteSuccess": "Widget deleted",
     "fields": {
-      "text": "Text",
-      "color": "Color"
-    },
-    "validation": {
-      "textRequired": "Text is required",
-      "colorInvalid": "Enter a valid hex color"
+      "type": "Type",
+      "title": "Title"
     },
     "actions": {
       "label": "Widget actions",

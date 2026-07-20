@@ -16,12 +16,8 @@
     "updateSuccess": "Widget mis à jour",
     "deleteSuccess": "Widget supprimé",
     "fields": {
-      "text": "Texte",
-      "color": "Couleur"
-    },
-    "validation": {
-      "textRequired": "Le texte est requis",
-      "colorInvalid": "Saisissez une couleur hexadécimale valide"
+      "type": "Type",
+      "title": "Titre"
     },
     "actions": {
       "label": "Actions du widget",
