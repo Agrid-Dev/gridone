@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FC } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Settings2, X } from "lucide-react";
+import { Info, Settings2, X } from "lucide-react";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -88,9 +88,10 @@ const DashboardDetailContent: FC = () => {
           )
         )}
         {dashboard.description && (
-          <p className="pl-4 text-sm text-muted-foreground">
-            {dashboard.description}
-          </p>
+          <div className="flex items-start gap-2 border-l-2 border-primary/40 pl-3 text-sm text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
+            <p>{dashboard.description}</p>
+          </div>
         )}
       </div>
 
