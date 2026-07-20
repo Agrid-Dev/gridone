@@ -5,6 +5,13 @@
     "label": "Dashboards",
     "new": "New dashboard"
   },
+  "layout": {
+    "edit": "Edit layout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editing": "Drag or resize widgets, then save.",
+    "unsaved": "Unsaved changes"
+  },
   "widgets": {
     "empty": "This dashboard has no widgets yet.",
     "add": "Add widget",

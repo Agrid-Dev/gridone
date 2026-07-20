@@ -5,6 +5,13 @@
     "label": "Tableaux de bord",
     "new": "Nouveau tableau de bord"
   },
+  "layout": {
+    "edit": "Modifier la disposition",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "editing": "Déplacez ou redimensionnez les widgets, puis enregistrez.",
+    "unsaved": "Modifications non enregistrées"
+  },
   "widgets": {
     "empty": "Ce tableau de bord n'a pas encore de widget.",
     "add": "Ajouter un widget",
