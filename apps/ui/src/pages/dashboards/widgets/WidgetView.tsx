@@ -11,10 +11,17 @@ function contrastText(hex: string): string {
   return luminance > 0.6 ? "#000000" : "#ffffff";
 }
 
+// Soften the placeholder text widget's background (8-digit hex alpha) so the
+// colored blocks read as tinted panels rather than full-saturation swatches.
+const BACKGROUND_ALPHA = "D9"; // ~85%
+
 const TextWidgetView: FC<{ config: TextWidgetConfig }> = ({ config }) => (
   <div
     className="flex h-full w-full items-center justify-center p-4"
-    style={{ backgroundColor: config.color, color: contrastText(config.color) }}
+    style={{
+      backgroundColor: `${config.color}${BACKGROUND_ALPHA}`,
+      color: contrastText(config.color),
+    }}
   >
     <span className="break-words text-center text-sm font-medium">
       {config.text}

@@ -30,48 +30,45 @@ const DashboardDetailContent: FC = () => {
           second header) with the switcher row below it. */}
       <ResourceHeader title={t("title")} />
       <div className="flex flex-col gap-2">
+        {/* Single action row: tabs on the left, a unified action cluster on
+            the right (or the layout Save/Cancel controls while editing). */}
         <div className="flex items-center gap-2">
           <DashboardTabs
             summaries={summaries}
             activeId={dashboard.id}
             disabled={editing}
           />
-          {!editing && (
-            <div className="ml-auto">
-              <DashboardActions dashboard={dashboard} summaries={summaries} />
-            </div>
-          )}
+          <div className="ml-auto flex items-center gap-2">
+            {editing ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {dirty ? t("layout.unsaved") : t("layout.editing")}
+                </span>
+                <Button variant="outline" size="sm" onClick={cancel}>
+                  {t("layout.cancel")}
+                </Button>
+                <Button size="sm" onClick={() => void save()} disabled={!dirty}>
+                  {t("layout.save")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <AddWidgetButton dashboardId={dashboard.id} />
+                {hasWidgets && (
+                  <Button variant="outline" size="sm" onClick={enter}>
+                    <Pencil className="h-4 w-4" />
+                    {t("layout.edit")}
+                  </Button>
+                )}
+                <DashboardActions dashboard={dashboard} summaries={summaries} />
+              </>
+            )}
+          </div>
         </div>
         {dashboard.description && (
           <p className="pl-4 text-sm text-muted-foreground">
             {dashboard.description}
           </p>
-        )}
-      </div>
-
-      <div className="flex items-center justify-end gap-2">
-        {editing ? (
-          <>
-            <span className="mr-auto text-sm text-muted-foreground">
-              {dirty ? t("layout.unsaved") : t("layout.editing")}
-            </span>
-            <Button variant="outline" onClick={cancel}>
-              {t("layout.cancel")}
-            </Button>
-            <Button onClick={() => void save()} disabled={!dirty}>
-              {t("layout.save")}
-            </Button>
-          </>
-        ) : (
-          <>
-            {hasWidgets && (
-              <Button variant="outline" size="sm" onClick={enter}>
-                <Pencil className="h-4 w-4" />
-                {t("layout.edit")}
-              </Button>
-            )}
-            <AddWidgetButton dashboardId={dashboard.id} />
-          </>
         )}
       </div>
 
