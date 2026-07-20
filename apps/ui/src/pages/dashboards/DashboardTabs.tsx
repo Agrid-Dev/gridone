@@ -17,8 +17,8 @@ export const DashboardTabs: FC<{
 
   return (
     <div className="flex items-center gap-2">
-      <Tabs value={activeId} className="min-w-0 flex-1">
-        <TabsList aria-label={t("tabs.label")} className="w-full">
+      <Tabs value={activeId} variant="pill">
+        <TabsList aria-label={t("tabs.label")}>
           {summaries.map((dashboard) => (
             <TabsTrigger key={dashboard.id} value={dashboard.id} asChild>
               <NavLink to={`/dashboards/${dashboard.id}`}>
