@@ -67,16 +67,18 @@ export function useLayoutEditor(dashboard: Dashboard) {
 
   const enter = useCallback(() => {
     setSearchParams((prev) => {
-      prev.set(EDIT_PARAM, EDIT_VALUE);
-      return prev;
+      const next = new URLSearchParams(prev);
+      next.set(EDIT_PARAM, EDIT_VALUE);
+      return next;
     });
   }, [setSearchParams]);
 
   const exit = useCallback(() => {
     setSearchParams(
       (prev) => {
-        prev.delete(EDIT_PARAM);
-        return prev;
+        const next = new URLSearchParams(prev);
+        next.delete(EDIT_PARAM);
+        return next;
       },
       { replace: true },
     );

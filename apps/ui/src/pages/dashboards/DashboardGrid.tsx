@@ -11,8 +11,9 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 // Desktop-first: one authored 12-column layout. Below the `lg` width the grid
 // collapses to a single column, stacked in layout order (react-grid-layout
 // generates the 1-column layout from the authored one). No per-breakpoint
-// editing in v0. `compactType={null}` keeps widgets at their authored
-// positions (WYSIWYG) instead of auto-reflowing.
+// editing in v0. Vertical compaction keeps widgets flushed to the top with no
+// vertical gaps.
+const COMPACT_TYPE = "vertical";
 const COLS = { lg: 12, xs: 1 };
 const BREAKPOINTS = { lg: 768, xs: 0 };
 const ROW_HEIGHT = 72;
@@ -45,7 +46,7 @@ export const DashboardGrid: FC<DashboardGridProps> = ({
       cols={COLS}
       rowHeight={ROW_HEIGHT}
       margin={[16, 16]}
-      compactType={null}
+      compactType={COMPACT_TYPE}
       isDraggable={editing}
       isResizable={editing}
       onLayoutChange={(current, all) => onLayoutChange(all.lg ?? current)}
