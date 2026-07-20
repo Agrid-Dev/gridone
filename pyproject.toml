@@ -23,6 +23,7 @@ gridone-automations = { workspace = true }
 gridone-commands = { workspace = true }
 gridone-migrations = { workspace = true }
 gridone-notifications = { workspace = true }
+gridone-dashboards = { workspace = true }
 
 
 
@@ -42,6 +43,7 @@ members = [
     "packages/commands",
     "packages/models",
     "packages/notifications",
+    "packages/dashboards",
 ]
 
 [dependency-groups]
