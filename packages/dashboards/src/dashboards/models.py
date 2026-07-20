@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, computed_field
 
 from dashboards.widgets.config import WidgetConfig  # noqa: TC001
 
@@ -64,7 +64,11 @@ class Widget(BaseModel):
     id: str
     title: str | None = None
     description: str | None = None
-    config: WidgetConfig
+    # ``SerializeAsAny`` so the concrete config subclass's fields (e.g. a text
+    # widget's ``text`` / ``color``) survive serialization. Pydantic v2 would
+    # otherwise serialize against the declared base ``WidgetConfig`` and drop
+    # every type-specific field from HTTP responses.
+    config: SerializeAsAny[WidgetConfig]
     layout: WidgetLayout
     metadata: Metadata
 

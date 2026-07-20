@@ -97,9 +97,11 @@ class TestDashboardCrud:
             resp = await c.get("/d1")
         assert resp.status_code == 200
         body = resp.json()
-        # Full document exposes widgets, each with a projected `type`,
-        # and the derived react-grid-layout array.
-        assert body["widgets"][0]["type"] == "text"
+        # Full document exposes widgets, each with a projected `type`, its
+        # concrete config fields, and the derived react-grid-layout array.
+        widget = body["widgets"][0]
+        assert widget["type"] == "text"
+        assert widget["config"] == {"type": "text", "text": "hi", "color": "#1a2b3c"}
         assert body["layout"] == [{"i": "w1", "x": 0, "y": 0, "w": 4, "h": 2}]
 
     async def test_get_missing_returns_404(self, client, svc):
@@ -130,7 +132,10 @@ class TestWidgets:
                 "/d1/widgets", json={"config": _TEXT_CONFIG, "title": "Note"}
             )
         assert resp.status_code == 201
-        assert resp.json()["type"] == "text"
+        body = resp.json()
+        assert body["type"] == "text"
+        # The concrete config fields must survive serialization, not just `type`.
+        assert body["config"] == {"type": "text", "text": "hi", "color": "#1a2b3c"}
         svc.add_widget.assert_awaited_once_with(
             "d1", config=_TEXT_CONFIG, title="Note", description=None
         )
