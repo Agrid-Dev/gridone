@@ -14,6 +14,7 @@
   },
   "widgets": {
     "empty": "This dashboard has no widgets yet.",
+    "renderError": "This widget failed to render.",
     "add": "Add widget",
     "addTitle": "Add widget",
     "addSubmit": "Add widget",
