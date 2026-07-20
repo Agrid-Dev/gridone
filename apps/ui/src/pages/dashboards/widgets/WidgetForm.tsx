@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toLabel } from "@/lib/textFormat";
-import { SchemaField, type JsonSchema } from "./SchemaField";
+import { SchemaField, type JsonSchema } from "@/components/forms/SchemaField";
 
 export interface WidgetFormValues {
   title: string;

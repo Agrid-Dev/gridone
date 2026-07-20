@@ -28,8 +28,13 @@ interface SchemaFieldProps {
 }
 
 /** Renders one config property from its JSON Schema, mapping the primitive
- *  type/enum to the matching form control. This is the generic bridge that
- *  lets each registered widget type drive its own config form. */
+ *  type/enum to the matching form control — the generic bridge for any
+ *  backend-schema-driven form (pairs with `z.fromJSONSchema` for validation).
+ *
+ *  The same "iterate properties → controller by type" logic is currently
+ *  inlined per feature (automations `GenericTriggerFormBody`, transports/apps
+ *  config forms). Those should consolidate onto this component as part of the
+ *  shared SchemaFields builder (AGR-919). */
 export function SchemaField({
   name,
   propName,
