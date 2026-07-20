@@ -6,7 +6,33 @@
     "new": "Nouveau tableau de bord"
   },
   "widgets": {
-    "empty": "Ce tableau de bord n'a pas encore de widget."
+    "empty": "Ce tableau de bord n'a pas encore de widget.",
+    "add": "Ajouter un widget",
+    "addTitle": "Ajouter un widget",
+    "addSubmit": "Ajouter le widget",
+    "addSuccess": "Widget ajouté",
+    "editTitle": "Modifier le widget",
+    "editSubmit": "Enregistrer",
+    "updateSuccess": "Widget mis à jour",
+    "deleteSuccess": "Widget supprimé",
+    "fields": {
+      "text": "Texte",
+      "color": "Couleur"
+    },
+    "validation": {
+      "textRequired": "Le texte est requis",
+      "colorInvalid": "Saisissez une couleur hexadécimale valide"
+    },
+    "actions": {
+      "label": "Actions du widget",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "delete": {
+      "title": "Supprimer le widget ?",
+      "details": "Ce widget sera définitivement retiré du tableau de bord.",
+      "confirm": "Supprimer"
+    }
   },
   "fields": {
     "name": "Nom",

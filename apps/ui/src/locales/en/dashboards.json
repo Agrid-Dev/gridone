@@ -6,7 +6,33 @@
     "new": "New dashboard"
   },
   "widgets": {
-    "empty": "This dashboard has no widgets yet."
+    "empty": "This dashboard has no widgets yet.",
+    "add": "Add widget",
+    "addTitle": "Add widget",
+    "addSubmit": "Add widget",
+    "addSuccess": "Widget added",
+    "editTitle": "Edit widget",
+    "editSubmit": "Save changes",
+    "updateSuccess": "Widget updated",
+    "deleteSuccess": "Widget deleted",
+    "fields": {
+      "text": "Text",
+      "color": "Color"
+    },
+    "validation": {
+      "textRequired": "Text is required",
+      "colorInvalid": "Enter a valid hex color"
+    },
+    "actions": {
+      "label": "Widget actions",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "delete": {
+      "title": "Delete widget?",
+      "details": "This widget will be permanently removed from the dashboard.",
+      "confirm": "Delete"
+    }
   },
   "fields": {
     "name": "Name",

@@ -6,6 +6,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { DashboardActions } from "./DashboardActions";
 import { DashboardGrid } from "./DashboardGrid";
 import { DashboardTabs } from "./DashboardTabs";
+import { AddWidgetButton } from "./widgets/AddWidgetButton";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
 
 const DashboardDetailContent: FC = () => {
@@ -30,6 +31,9 @@ const DashboardDetailContent: FC = () => {
             {dashboard.description}
           </p>
         )}
+      </div>
+      <div className="flex justify-end">
+        <AddWidgetButton dashboardId={dashboard.id} />
       </div>
       {(dashboard.widgets ?? []).length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

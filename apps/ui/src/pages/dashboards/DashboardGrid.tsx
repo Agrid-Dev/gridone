@@ -44,7 +44,7 @@ export const DashboardGrid: FC<{ dashboard: Dashboard }> = ({ dashboard }) => {
     >
       {widgets.map((widget) => (
         <div key={widget.id}>
-          <WidgetCard widget={widget} />
+          <WidgetCard dashboardId={dashboard.id} widget={widget} />
         </div>
       ))}
     </ResponsiveGridLayout>
