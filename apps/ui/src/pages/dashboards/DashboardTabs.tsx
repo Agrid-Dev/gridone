@@ -21,7 +21,10 @@ export const DashboardTabs: FC<{
         <TabsList aria-label={t("tabs.label")}>
           {summaries.map((dashboard) => (
             <TabsTrigger key={dashboard.id} value={dashboard.id} asChild>
-              <NavLink to={`/dashboards/${dashboard.id}`}>
+              <NavLink
+                to={`/dashboards/${dashboard.id}`}
+                title={dashboard.description ?? undefined}
+              >
                 {dashboard.name}
               </NavLink>
             </TabsTrigger>

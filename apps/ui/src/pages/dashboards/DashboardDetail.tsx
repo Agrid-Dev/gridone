@@ -14,14 +14,15 @@ const DashboardDetailContent: FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <DashboardTabs summaries={summaries} activeId={dashboard.id} />
-      <ResourceHeader
-        title={dashboard.name}
-        caption={dashboard.description || undefined}
-        actions={
+      {/* Constant section title (the active dashboard's name is its tab, not a
+          second header) with the switcher row below it. */}
+      <ResourceHeader title={t("title")} />
+      <div className="flex items-center gap-2">
+        <DashboardTabs summaries={summaries} activeId={dashboard.id} />
+        <div className="ml-auto">
           <DashboardActions dashboard={dashboard} summaries={summaries} />
-        }
-      />
+        </div>
+      </div>
       {/* Widget grid lands in a later milestone (AGR-875+). */}
       <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
         {t("body.placeholder")}
