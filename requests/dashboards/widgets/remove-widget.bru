@@ -1,17 +1,18 @@
 meta {
-  name: delete dashboard
+  name: remove widget
   type: http
-  seq: 10
+  seq: 4
 }
 
 delete {
-  url: {{BASE_URL}}/dashboards/:dashboard_id
+  url: {{BASE_URL}}/dashboards/:dashboard_id/widgets/:widget_id
   body: none
   auth: inherit
 }
 
 params:path {
   dashboard_id: {{dashboard_id}}
+  widget_id: {{widget_id}}
 }
 
 assert {

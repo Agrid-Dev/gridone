@@ -5,8 +5,12 @@ meta {
 }
 
 get {
-  url: {{BASE_URL}}/dashboards/{{dashboard_id}}
+  url: {{BASE_URL}}/dashboards/:dashboard_id
   auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
 }
 
 assert {

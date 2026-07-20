@@ -5,9 +5,13 @@ meta {
 }
 
 put {
-  url: {{BASE_URL}}/dashboards/{{dashboard_id}}
+  url: {{BASE_URL}}/dashboards/:dashboard_id
   body: json
   auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
 }
 
 body:json {
