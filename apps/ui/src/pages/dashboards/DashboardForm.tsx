@@ -7,10 +7,12 @@ import { InputController } from "@/components/forms/controllers/InputController"
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui/button";
 
-/** Values handed to the caller's submit handler (empty description → omitted). */
+/** Values handed to the caller's submit handler. `description` is the trimmed
+ *  string (possibly empty); the caller decides whether an empty string means
+ *  "omit" (create) or "clear" (update). */
 export interface DashboardFormValues {
   name: string;
-  description?: string;
+  description: string;
 }
 
 interface DashboardFormProps {
@@ -55,7 +57,7 @@ export function DashboardForm({
   const submit = form.handleSubmit(async (values) => {
     await onSubmit({
       name: values.name.trim(),
-      description: values.description.trim() || undefined,
+      description: values.description.trim(),
     });
   });
 

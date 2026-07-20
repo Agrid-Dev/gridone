@@ -18,5 +18,21 @@
     "title": "New dashboard",
     "submit": "Create dashboard",
     "success": "Dashboard \"{{name}}\" created"
+  },
+  "actions": {
+    "label": "Dashboard actions",
+    "rename": "Rename",
+    "delete": "Delete"
+  },
+  "rename": {
+    "title": "Rename dashboard",
+    "submit": "Save changes",
+    "success": "Dashboard \"{{name}}\" updated"
+  },
+  "delete": {
+    "title": "Delete dashboard?",
+    "details": "\"{{name}}\" will be permanently deleted. This cannot be undone.",
+    "confirm": "Delete",
+    "success": "Dashboard deleted"
   }
 }

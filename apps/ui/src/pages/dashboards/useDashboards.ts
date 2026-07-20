@@ -10,6 +10,7 @@ import {
   isGridoneError,
   type Dashboard,
   type DashboardCreate,
+  type DashboardPatch,
   type DashboardSummary,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -82,4 +83,61 @@ export function useCreateDashboard() {
     mutation.mutateAsync(params);
 
   return { createDashboard };
+}
+
+function useApiErrorToast() {
+  const { t } = useTranslation("common");
+  return (error: Error) => {
+    const detail = isGridoneError(error) ? error.detail : error.message;
+    toast.error(`${t("errors.default")}: ${detail}`);
+  };
+}
+
+/** Rename / re-describe a dashboard (PUT name/description). Invalidates the
+ *  summaries (tab labels) and the dashboard document. */
+export function useUpdateDashboard() {
+  const { t } = useTranslation("dashboards");
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+  const onApiError = useApiErrorToast();
+
+  const mutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: DashboardPatch }) =>
+      client.dashboards.update(id, patch),
+    onSuccess: async (updated: Dashboard) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY }),
+        queryClient.invalidateQueries({ queryKey: dashboardKey(updated.id) }),
+      ]);
+      toast.success(t("rename.success", { name: updated.name }));
+    },
+    onError: onApiError,
+  });
+
+  const updateDashboard = (id: string, patch: DashboardPatch) =>
+    mutation.mutateAsync({ id, patch });
+
+  return { updateDashboard };
+}
+
+/** Delete a dashboard. Invalidates the summaries; the caller navigates to the
+ *  next dashboard (or the empty state). */
+export function useDeleteDashboard() {
+  const { t } = useTranslation("dashboards");
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+  const onApiError = useApiErrorToast();
+
+  const mutation = useMutation({
+    mutationFn: (id: string) => client.dashboards.delete(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY });
+      toast.success(t("delete.success"));
+    },
+    onError: onApiError,
+  });
+
+  const deleteDashboard = (id: string) => mutation.mutateAsync(id);
+
+  return { deleteDashboard };
 }

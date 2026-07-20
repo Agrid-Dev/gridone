@@ -3,6 +3,7 @@ import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { DashboardActions } from "./DashboardActions";
 import { DashboardTabs } from "./DashboardTabs";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
 
@@ -17,6 +18,9 @@ const DashboardDetailContent: FC = () => {
       <ResourceHeader
         title={dashboard.name}
         caption={dashboard.description || undefined}
+        actions={
+          <DashboardActions dashboard={dashboard} summaries={summaries} />
+        }
       />
       {/* Widget grid lands in a later milestone (AGR-875+). */}
       <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">

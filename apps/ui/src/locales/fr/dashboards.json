@@ -18,5 +18,21 @@
     "title": "Nouveau tableau de bord",
     "submit": "Créer le tableau de bord",
     "success": "Tableau de bord « {{name}} » créé"
+  },
+  "actions": {
+    "label": "Actions du tableau de bord",
+    "rename": "Renommer",
+    "delete": "Supprimer"
+  },
+  "rename": {
+    "title": "Renommer le tableau de bord",
+    "submit": "Enregistrer",
+    "success": "Tableau de bord « {{name}} » mis à jour"
+  },
+  "delete": {
+    "title": "Supprimer le tableau de bord ?",
+    "details": "« {{name}} » sera définitivement supprimé. Cette action est irréversible.",
+    "confirm": "Supprimer",
+    "success": "Tableau de bord supprimé"
   }
 }
