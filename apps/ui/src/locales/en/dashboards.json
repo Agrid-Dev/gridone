@@ -5,8 +5,8 @@
     "label": "Dashboards",
     "new": "New dashboard"
   },
-  "body": {
-    "placeholder": "Widgets will appear here in a later milestone."
+  "widgets": {
+    "empty": "This dashboard has no widgets yet."
   },
   "fields": {
     "name": "Name",

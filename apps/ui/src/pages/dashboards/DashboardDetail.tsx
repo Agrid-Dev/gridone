@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DashboardActions } from "./DashboardActions";
+import { DashboardGrid } from "./DashboardGrid";
 import { DashboardTabs } from "./DashboardTabs";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
 
@@ -30,10 +31,13 @@ const DashboardDetailContent: FC = () => {
           </p>
         )}
       </div>
-      {/* Widget grid lands in a later milestone (AGR-875+). */}
-      <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-        {t("body.placeholder")}
-      </div>
+      {(dashboard.widgets ?? []).length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          {t("widgets.empty")}
+        </div>
+      ) : (
+        <DashboardGrid dashboard={dashboard} />
+      )}
     </div>
   );
 };

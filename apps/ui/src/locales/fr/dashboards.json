@@ -5,8 +5,8 @@
     "label": "Tableaux de bord",
     "new": "Nouveau tableau de bord"
   },
-  "body": {
-    "placeholder": "Les widgets apparaîtront ici dans un prochain jalon."
+  "widgets": {
+    "empty": "Ce tableau de bord n'a pas encore de widget."
   },
   "fields": {
     "name": "Nom",
