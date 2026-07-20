@@ -32,6 +32,8 @@ export type {
 } from "./resources/automations";
 export { CommandTemplatesResource } from "./resources/commandTemplates";
 export type { CommandTemplateListParams } from "./resources/commandTemplates";
+export { DashboardsResource } from "./resources/dashboards";
+export type { WidgetSchemas } from "./resources/dashboards";
 export { DevicesResource } from "./resources/devices";
 export type {
   CommandListParams,

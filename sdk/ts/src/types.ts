@@ -213,6 +213,20 @@ export type NotificationDispatch = Schemas["NotificationDispatch"];
 export type DispatchNotificationRequest =
   Schemas["DispatchNotificationRequest"];
 
+// Dashboards
+export type Dashboard = Schemas["Dashboard"];
+export type DashboardSummary = Schemas["DashboardSummary"];
+export type DashboardCreate = Schemas["DashboardCreate"];
+export type DashboardPatch = Schemas["DashboardPatch"];
+export type DashboardMetadata = Schemas["Metadata"];
+export type Widget = Schemas["Widget"];
+export type WidgetConfig = Schemas["WidgetConfig"];
+export type TextWidgetConfig = Schemas["TextWidgetConfig"];
+export type WidgetLayout = Schemas["WidgetLayout"];
+export type LayoutItem = Schemas["LayoutItem"];
+export type WidgetCreateBody = Schemas["WidgetCreateBody"];
+export type WidgetUpdateBody = Schemas["WidgetUpdateBody"];
+
 // Validation errors (422 payloads)
 export type HTTPValidationError = Schemas["HTTPValidationError"];
 export type ValidationError = Schemas["ValidationError"];

@@ -11,6 +11,7 @@ dependencies = [
     "gridone-assets",
     "gridone-automations",
     "gridone-commands",
+    "gridone-dashboards",
     "gridone-notifications",
     "fastapi>=0.123.8",
     "gridone-users",
@@ -33,4 +34,4 @@ module-name = "api"
 module-root = "src"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../devices_manager/src", "../timeseries/src", "../notifications/src"]
+pythonpath = ["src", "../models/src", "../users/src", "../apps/src", "../assets/src", "../automations/src", "../commands/src", "../dashboards/src", "../devices_manager/src", "../timeseries/src", "../notifications/src"]

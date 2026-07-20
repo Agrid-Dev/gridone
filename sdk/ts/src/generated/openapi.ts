@@ -494,6 +494,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/{device_id}/attributes/{attr_name}/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Refresh Device Attribute */
+    post: operations["refresh_device_attribute_devices__device_id__attributes__attr_name__refresh_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}": {
     parameters: {
       query?: never;
@@ -1041,6 +1058,112 @@ export interface paths {
     put?: never;
     /** Dismiss Notification */
     post: operations["dismiss_notification_notifications__notification_id__dismiss_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/widget-schemas": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Widget Schemas */
+    get: operations["get_widget_schemas_dashboards_widget_schemas_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Dashboards */
+    get: operations["list_dashboards_dashboards__get"];
+    put?: never;
+    /** Create Dashboard */
+    post: operations["create_dashboard_dashboards__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/{dashboard_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Dashboard */
+    get: operations["get_dashboard_dashboards__dashboard_id__get"];
+    /** Update Dashboard */
+    put: operations["update_dashboard_dashboards__dashboard_id__put"];
+    post?: never;
+    /** Delete Dashboard */
+    delete: operations["delete_dashboard_dashboards__dashboard_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/{dashboard_id}/widgets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Add Widget */
+    post: operations["add_widget_dashboards__dashboard_id__widgets_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/{dashboard_id}/widgets/{widget_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Update Widget */
+    put: operations["update_widget_dashboards__dashboard_id__widgets__widget_id__put"];
+    post?: never;
+    /** Remove Widget */
+    delete: operations["remove_widget_dashboards__dashboard_id__widgets__widget_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/dashboards/{dashboard_id}/layout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Update Layout */
+    put: operations["update_layout_dashboards__dashboard_id__layout_put"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1735,6 +1858,64 @@ export interface components {
      * @enum {string}
      */
     ConnectionStatus: "idle" | "ok" | "degraded" | "error";
+    /**
+     * Dashboard
+     * @description A dashboard document: metadata envelope plus its widgets.
+     *
+     *     The react-grid-layout ``layout`` is derived from each widget's geometry, so
+     *     it is never stored separately — read it via :attr:`layout`.
+     */
+    Dashboard: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /** Widgets */
+      widgets?: components["schemas"]["Widget"][];
+      metadata: components["schemas"]["Metadata"];
+      /** Layout */
+      readonly layout: components["schemas"]["LayoutItem"][];
+    };
+    /**
+     * DashboardCreate
+     * @description Inputs for creating a dashboard.
+     */
+    DashboardCreate: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+    };
+    /**
+     * DashboardPatch
+     * @description Partial update for a dashboard's envelope.
+     *
+     *     ``model_fields_set`` drives the diff so an omitted field is left as-is; a
+     *     field present with a value is applied. ``name`` is required on the resource,
+     *     so setting it to ``None`` is rejected by the service.
+     */
+    DashboardPatch: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+    };
+    /**
+     * DashboardSummary
+     * @description Lightweight dashboard read model returned by ``list`` — no widgets or
+     *     layout, just the envelope needed to render a dashboard index.
+     */
+    DashboardSummary: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      metadata: components["schemas"]["Metadata"];
+    };
     /** DataPointResponse */
     DataPointResponse: {
       /**
@@ -2158,6 +2339,26 @@ export interface components {
       protocol: "knx";
       config: components["schemas"]["KNXTransportConfig"];
     };
+    /**
+     * LayoutItem
+     * @description A widget's geometry tagged with its widget id (``i``).
+     *
+     *     This is exactly react-grid-layout's ``Layout`` element shape
+     *     (``{i, x, y, w, h}``) — serializable as-is to/from RGL. It is the input
+     *     shape for ``update_layout`` and the element type of ``Dashboard.layout``.
+     */
+    LayoutItem: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /** W */
+      w: number;
+      /** H */
+      h: number;
+      /** I */
+      i: string;
+    };
     /** MBusTransportConfig */
     MBusTransportConfig: {
       /**
@@ -2218,6 +2419,27 @@ export interface components {
       /** Permissions */
       permissions: string[];
     };
+    /**
+     * Metadata
+     * @description Auditability timestamps carried by every read model (AGR-933).
+     *
+     *     Both timestamps default to construction time, so the common "new resource"
+     *     case needs no explicit stamping; the service bumps ``updated_at`` on each
+     *     mutation. (User attribution — ``created_by`` / ``updated_by`` — was dropped
+     *     from AGR-933's scope.)
+     */
+    Metadata: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
+    };
     /** ModbusTCPTransportConfig */
     ModbusTCPTransportConfig: {
       /**
@@ -2238,6 +2460,18 @@ export interface components {
        * @default 3
        */
       read_timeout?: number;
+      /**
+       * Max Block
+       * @description Largest contiguous run of registers/bits fetched in one read. Lower it for gateways that reject full-size requests.
+       * @default 100
+       */
+      max_block?: number;
+      /**
+       * Max Gap
+       * @description Largest hole between two attributes' addresses that is read and discarded to keep them in one request. 0 merges only strictly contiguous addresses.
+       * @default 0
+       */
+      max_gap?: number;
     };
     /** ModbusTcpTransport */
     ModbusTcpTransport: {
@@ -2510,6 +2744,26 @@ export interface components {
       /** Value */
       value: string;
     };
+    /**
+     * TextWidgetConfig
+     * @description Placeholder widget: a block of text in a chosen color.
+     *
+     *     Deliberately trivial — it exists so the union/registry/schema mechanics
+     *     (including the hex-pattern constraint flowing into JSON Schema) ship and are
+     *     testable before richer widget types arrive.
+     */
+    TextWidgetConfig: {
+      /**
+       * Type
+       * @default text
+       * @constant
+       */
+      type?: "text";
+      /** Text */
+      text: string;
+      /** Color */
+      color: string;
+    };
     /** TimeSeriesResponse */
     TimeSeriesResponse: {
       /** Id */
@@ -2761,6 +3015,93 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /**
+     * Widget
+     * @description A widget on a dashboard: a common envelope plus a per-type ``config``.
+     *
+     *     ``config`` is a concrete :class:`WidgetConfig` subclass selected by its
+     *     ``type`` discriminator; ``type`` is exposed as a read-only projection of
+     *     ``config.type`` and is immutable after creation.
+     */
+    Widget: {
+      /** Id */
+      id: string;
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      config: components["schemas"]["WidgetConfig"];
+      layout: components["schemas"]["WidgetLayout"];
+      metadata: components["schemas"]["Metadata"];
+      /** Type */
+      readonly type: string;
+    };
+    /**
+     * WidgetConfig
+     * @description Base class for every widget type's config model.
+     *
+     *     Each concrete widget type subclasses this and pins ``type`` to a
+     *     ``Literal`` so it acts as the discriminator of the widget-config union and
+     *     flows into the generated JSON Schema. ``extra="forbid"`` turns unknown keys
+     *     into a validation error, so a malformed config is rejected before anything
+     *     is persisted.
+     *
+     *     The service never types a field as a concrete config; it holds a
+     *     ``WidgetConfig`` and lets the registry validate raw input into the right
+     *     subclass. Concrete instances round-trip losslessly because serialization
+     *     calls ``model_dump`` on the instance (not on this base), and pydantic
+     *     accepts an already-built subclass instance without revalidating it away.
+     */
+    WidgetConfig: {
+      /** Type */
+      type: string;
+    };
+    /**
+     * WidgetCreateBody
+     * @description Request body for ``POST /dashboards/{id}/widgets``.
+     */
+    WidgetCreateBody: {
+      config: components["schemas"]["TextWidgetConfig"];
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+    };
+    /**
+     * WidgetLayout
+     * @description Grid geometry of a single widget, in react-grid-layout cell units.
+     *
+     *     Geometry lives on the widget (not in a separate dashboard-level array) so
+     *     the "one layout item per widget" and "removing a widget removes its layout
+     *     item" invariants are impossible to violate. The dashboard-level RGL
+     *     ``layout`` array is projected from these at read time.
+     */
+    WidgetLayout: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /** W */
+      w: number;
+      /** H */
+      h: number;
+    };
+    /**
+     * WidgetUpdateBody
+     * @description Request body for ``PUT /dashboards/{id}/widgets/{widget_id}``.
+     *
+     *     All fields optional. ``model_fields_set`` lets the service tell an omitted
+     *     field from one explicitly set to ``null`` (e.g. clearing a description). A
+     *     widget's ``type`` is immutable, so a ``config`` with a different ``type`` is
+     *     rejected by the service.
+     */
+    WidgetUpdateBody: {
+      /** Title */
+      title?: string | null;
+      /** Description */
+      description?: string | null;
+      config?: components["schemas"]["TextWidgetConfig"] | null;
     };
   };
   responses: never;
@@ -3984,6 +4325,38 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AttributeLogs"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  refresh_device_attribute_devices__device_id__attributes__attr_name__refresh_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        device_id: string;
+        attr_name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Attribute"];
         };
       };
       /** @description Validation Error */
@@ -5587,6 +5960,314 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["NotificationDispatch"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_widget_schemas_dashboards_widget_schemas_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  list_dashboards_dashboards__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardSummary"][];
+        };
+      };
+    };
+  };
+  create_dashboard_dashboards__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DashboardCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_dashboard_dashboards__dashboard_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_dashboard_dashboards__dashboard_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DashboardPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_dashboard_dashboards__dashboard_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_widget_dashboards__dashboard_id__widgets_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WidgetCreateBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Widget"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_widget_dashboards__dashboard_id__widgets__widget_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+        widget_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WidgetUpdateBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Widget"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_widget_dashboards__dashboard_id__widgets__widget_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+        widget_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_layout_dashboards__dashboard_id__layout_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        dashboard_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LayoutItem"][];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Dashboard"];
         };
       };
       /** @description Validation Error */

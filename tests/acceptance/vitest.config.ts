@@ -35,6 +35,12 @@ export default defineConfig({
           include: ["suites/transports/**/*.spec.ts"],
         },
       },
+      {
+        test: {
+          name: "dashboards",
+          include: ["suites/dashboards/**/*.spec.ts"],
+        },
+      },
     ],
   },
 });

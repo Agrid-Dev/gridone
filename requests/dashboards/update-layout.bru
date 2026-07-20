@@ -1,0 +1,21 @@
+meta {
+  name: update layout
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{BASE_URL}}/dashboards/{{dashboard_id}}/layout
+  body: json
+  auth: inherit
+}
+
+body:json {
+  [
+    { "i": "{{widget_id}}", "x": 2, "y": 3, "w": 6, "h": 4 }
+  ]
+}
+
+assert {
+  res.status: eq 200
+}

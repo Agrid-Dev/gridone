@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from dashboards.widgets.config import WidgetConfig  # noqa: TC001
 
@@ -68,6 +68,7 @@ class Widget(BaseModel):
     layout: WidgetLayout
     metadata: Metadata
 
+    @computed_field  # projected into the serialized output as a top-level field
     @property
     def type(self) -> str:
         return self.config.type
@@ -86,6 +87,7 @@ class Dashboard(BaseModel):
     widgets: list[Widget] = Field(default_factory=list)
     metadata: Metadata
 
+    @computed_field  # the react-grid-layout array, projected from widget geometry
     @property
     def layout(self) -> list[LayoutItem]:
         return [
