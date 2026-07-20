@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from typing import NoReturn
 
 from bacpypes3.apdu import (
+    APDU,
     AbortPDU,
     Error,
     ReadPropertyACK,
@@ -292,6 +293,24 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             raise KeyError(msg)
         return device_address
 
+    async def _request(
+        self, request: APDU, *, target: str, action: str, request_timeout: float
+    ) -> APDU | None:
+        """Send a confirmed-service request, normalizing both ways bacpypes3
+        can deliver a device's Error/RejectPDU/AbortPDU: returned as the
+        awaited call's result, or raised directly. Both are ``BaseException``
+        subclasses (not ``Exception``), so a raised one would otherwise slip
+        past every ``except Exception`` up the call chain uncaught — routing
+        it through ``_raise_for_response`` here means callers only ever see
+        the ACK they asked for, or an already-classified normal exception.
+        """
+        try:
+            return await asyncio.wait_for(
+                self._application.request(request), timeout=request_timeout
+            )
+        except (Error, RejectPDU, AbortPDU) as e:
+            _raise_for_response(e, target=target, action=action)
+
     @connected
     async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
         obj_id = ObjectIdentifier(f"{address.object_type},{address.object_instance}")
@@ -300,14 +319,16 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             propertyIdentifier=address.property_name,
         )
         request.pduDestination = self._device_address(address)
-        response = await asyncio.wait_for(
-            self._application.request(request),
-            timeout=self.config.read_property_timeout,
+        target = f"{obj_id} {address.property_name}"
+        response = await self._request(
+            request,
+            target=target,
+            action="read-property",
+            request_timeout=self.config.read_property_timeout,
         )
-        if not isinstance(response, ReadPropertyACK):
-            msg = f"Unexpected response: {response!r}"
-            raise TypeError(msg)
-        return _decode_property_value(response.propertyValue)
+        if isinstance(response, ReadPropertyACK):
+            return _decode_property_value(response.propertyValue)
+        _raise_for_response(response, target=target, action="read-property")
 
     async def _read(self, address: BacnetAddress) -> AttributeValueType:
         return await self._read_bacnet(address)
@@ -320,17 +341,16 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         request.pduDestination = self._device_address_for_instance(
             rpm_request.device_instance
         )
-        response = await asyncio.wait_for(
-            self._application.request(request),
-            timeout=self.config.read_property_timeout,
+        target = f"device {rpm_request.device_instance}"
+        response = await self._request(
+            request,
+            target=target,
+            action="read-property-multiple",
+            request_timeout=self.config.read_property_timeout,
         )
         if isinstance(response, ReadPropertyMultipleACK):
             return response
-        _raise_for_response(
-            response,
-            target=f"device {rpm_request.device_instance}",
-            action="read-property-multiple",
-        )
+        _raise_for_response(response, target=target, action="read-property-multiple")
 
     async def _read_rpm_request(
         self, rpm_request: RpmRequest, correlation_id: str | None
@@ -470,18 +490,17 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             priority=address.write_priority or self.config.default_write_priority,
         )
         request.pduDestination = self._device_address(address)
-        response = await asyncio.wait_for(
-            self._application.request(request),
-            timeout=self.config.write_property_timeout,
+        target = f"{obj_id} {address.property_name}"
+        response = await self._request(
+            request,
+            target=target,
+            action="write-property",
+            request_timeout=self.config.write_property_timeout,
         )
 
         if isinstance(response, SimpleAckPDU):
             return
-        _raise_for_response(
-            response,
-            target=f"{obj_id} {address.property_name}",
-            action="write-property",
-        )
+        _raise_for_response(response, target=target, action="write-property")
 
     async def write(
         self,

@@ -195,7 +195,11 @@ class _FakeRequestApp:
     async def request(self, request: object) -> object:
         self.requests.append(request)
         response = self.responses.pop(0)
-        if isinstance(response, Exception):
+        # Error/RejectPDU/AbortPDU are BaseException subclasses (not
+        # Exception), matching real bacpypes3, which can raise them
+        # directly instead of returning them -- both delivery mechanisms
+        # need to be simulatable here.
+        if isinstance(response, BaseException):
             raise response
         return response
 
@@ -356,6 +360,27 @@ class TestReadManyRpm:
         app = _FakeRequestApp()
         addresses = [_addr(1, 0)]
         app.responses = [AbortPDU(reason="other"), _read_property_ack(21.5)]
+        client = _connected_client(app)
+
+        results = [r async for r in client.read_many(addresses)]
+
+        assert client._rpm_supported[1] is False  # noqa: SLF001
+        assert isinstance(results[0], ReadOk)
+
+    @pytest.mark.asyncio
+    async def test_raised_abort_pdu_falls_back_same_as_a_returned_one(self) -> None:
+        """Regression test: a real device (confirmed live) raises AbortPDU
+        ("segmentation-not-supported" for an oversized RPM chunk) straight
+        out of Application.request() instead of returning it as a value.
+        Error/RejectPDU/AbortPDU are BaseException subclasses, not Exception,
+        so a raised one previously slipped past every `except Exception` up
+        the call chain and crashed the poll loop instead of falling back."""
+        app = _FakeRequestApp()
+        addresses = [_addr(1, 0)]
+        app.responses = [
+            AbortPDU(reason="segmentationNotSupported"),
+            _read_property_ack(21.5),
+        ]
         client = _connected_client(app)
 
         results = [r async for r in client.read_many(addresses)]
@@ -601,3 +626,27 @@ class TestPollCycleBatching:
 
         assert device.get_attribute("a").current_value == 1.0
         assert device.get_attribute("b").current_value is None
+
+
+class TestWriteBacnet:
+    @pytest.mark.asyncio
+    async def test_simple_ack_succeeds(self) -> None:
+        app = _FakeRequestApp()
+        app.responses = [SimpleAckPDU()]
+        client = _connected_client(app)
+
+        await client.write(_addr(1, 0), 21.5)
+
+        assert len(app.requests) == 1
+
+    @pytest.mark.asyncio
+    async def test_raised_reject_pdu_raises_a_catchable_error(self) -> None:
+        """Same BaseException-vs-Exception gap as the read path: a rejected
+        write must surface as a normal, catchable exception, not an
+        uncaught BaseException."""
+        app = _FakeRequestApp()
+        app.responses = [RejectPDU(reason="unrecognizedService")]
+        client = _connected_client(app)
+
+        with pytest.raises(BacnetServiceRejectedError):
+            await client.write(_addr(1, 0), 21.5)
