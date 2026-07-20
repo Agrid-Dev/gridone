@@ -134,7 +134,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             await super().connect()
 
     async def close(self) -> None:
-        async with self._connection_lock:
+        # Lock order: see TransportClient._read_lock in base.py.
+        async with self._read_lock, self._connection_lock:
             self._known_devices = {}
             if hasattr(self, "_application") and self._application:
                 self._application.close()

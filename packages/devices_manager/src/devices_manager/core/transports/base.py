@@ -41,6 +41,10 @@ class TransportClient[T_TransportAddress](ABC):
     connection_state: TransportConnectionState
     address_builder: type[T_TransportAddress]
     _connection_lock: Lock
+    # A subclass close() that tears down/replaces the connection must acquire
+    # _read_lock before _connection_lock, never the reverse: a read's own
+    # internal reconnect (via @connected) only ever acquires _connection_lock
+    # while already holding _read_lock, so the opposite order would deadlock.
     _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
     _read_cache: dict[str, tuple[str, AttributeValueType]]
@@ -187,8 +191,16 @@ class TransportClient[T_TransportAddress](ABC):
         ...
 
     async def __aenter__(self) -> "TransportClient[T_TransportAddress]":
-        """Support async context manager (async with)."""
-        await self.connect()
+        """Support async context manager (async with).
+
+        Transports are shared across devices, so this connect() call — unlike
+        the one @connected triggers from inside an already-_read_lock-held
+        read() — can race a read on another device. Holding _read_lock here
+        gives it the same protection close() has, without risking the
+        reentrant deadlock a blanket lock in connect() itself would cause.
+        """
+        async with self._read_lock:
+            await self.connect()
         return self
 
     async def __aexit__(
