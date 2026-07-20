@@ -5,6 +5,7 @@ import enAssets from "./locales/en/assets.json";
 import enAutomations from "./locales/en/automations.json";
 import enProfile from "./locales/en/profile.json";
 import enCommon from "./locales/en/common.json";
+import enDashboards from "./locales/en/dashboards.json";
 import enDevices from "./locales/en/devices.json";
 import enDrivers from "./locales/en/drivers.json";
 import enFaults from "./locales/en/faults.json";
@@ -18,6 +19,7 @@ import frAssets from "./locales/fr/assets.json";
 import frAutomations from "./locales/fr/automations.json";
 import frProfile from "./locales/fr/profile.json";
 import frCommon from "./locales/fr/common.json";
+import frDashboards from "./locales/fr/dashboards.json";
 import frDevices from "./locales/fr/devices.json";
 import frDrivers from "./locales/fr/drivers.json";
 import frFaults from "./locales/fr/faults.json";
@@ -31,6 +33,7 @@ i18n.use(initReactI18next).init({
   resources: {
     en: {
       common: enCommon,
+      dashboards: enDashboards,
       devices: enDevices,
       users: enUsers,
       assets: enAssets,
@@ -46,6 +49,7 @@ i18n.use(initReactI18next).init({
     },
     fr: {
       common: frCommon,
+      dashboards: frDashboards,
       devices: frDevices,
       users: frUsers,
       assets: frAssets,

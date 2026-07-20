@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
 import Automations from "./pages/automations";
+import Dashboards from "./pages/dashboards";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
 import Home from "./pages/home";
@@ -28,6 +29,7 @@ const SynopticsSandbox = lazy(() => import("./pages/sandbox/SynopticsSandbox"));
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
   const sandboxEnabled = useFeatureEnabled("uiSandbox");
+  const dashboardsEnabled = useFeatureEnabled("dashboards");
 
   useEffect(() => {
     document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
@@ -43,6 +45,9 @@ function ProtectedLayout() {
             <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
               <Routes>
                 <Route index element={<Home />} />
+                {dashboardsEnabled && (
+                  <Route path="/dashboards/*" element={<Dashboards />} />
+                )}
                 <Route path="/assets/*" element={<Assets />} />
                 <Route path="/devices/*" element={<Devices />} />
                 <Route path="/drivers/*" element={<Drivers />} />
