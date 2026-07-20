@@ -1,5 +1,6 @@
 """KNX/IP tunnel client. Payload shape is defined in ``wire_payload``."""
 
+import asyncio
 import logging
 from typing import cast
 
@@ -60,7 +61,9 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
                 telegram_received_cb=self._on_telegram_received,
             )
             try:
-                await self._xknx_instance.start()
+                await asyncio.wait_for(
+                    self._xknx_instance.start(), timeout=READ_TIMEOUT_SECONDS
+                )
             except Exception:
                 self._xknx_instance = None
                 self.connection_state = TransportConnectionState.connection_error()
