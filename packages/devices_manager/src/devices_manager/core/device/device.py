@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -20,7 +21,14 @@ from .connection_status import (
     build_cs_attribute,
     compute_connection_status,
 )
-from .event_log import EventType, build_entry, log_event, wrap_listen
+from .event_log import (
+    DeviceIdentity,
+    EventType,
+    build_entry,
+    log_event,
+    log_observability,
+    wrap_listen,
+)
 from .watchdog import SilenceWatchdog
 
 if TYPE_CHECKING:
@@ -369,6 +377,12 @@ class CoreDevice:
         ``read_many`` already isolates failures per network read.
         """
         correlation_id = gen_id()
+        # Reset per result, not once for the whole sweep: read_many() streams
+        # results as they land, so timing every result from one shared sweep
+        # start would inflate duration_ms for whichever attribute streams in
+        # last, growing with the size of the group. Timing from the previous
+        # result's arrival instead keeps duration_ms scoped to this result.
+        last = time.perf_counter()
         context = {**self.driver.env, **self.config}
         addresses: list[TransportAddress] = []
         attr_names_by_address_id: dict[str, list[str]] = {}
@@ -396,24 +410,36 @@ class CoreDevice:
             attr_names_by_address_id.setdefault(address.id, []).append(attr_name)
         # read_many() dedupes addresses by .id internally; no need to do it here too.
         async for result in self.transport.read_many(addresses, correlation_id):
+            start, last = last, time.perf_counter()
             for attr_name in attr_names_by_address_id.get(result.address_id, []):
-                self._apply_read_result(attr_name, result)
+                self._apply_read_result(attr_name, result, start)
 
-    def _log_read_outcome(self, attribute: Attribute, error: Exception | None) -> None:
-        """Record a read/decode outcome in the attribute's event log and
-        recompute connection_status from it — the same bookkeeping
-        ``read_attribute_value``'s ``@log_event`` decorator performs, needed
+    def _log_read_outcome(
+        self, attribute: Attribute, error: Exception | None, start: float
+    ) -> None:
+        """Record a read/decode outcome in the attribute's event log, recompute
+        connection_status from it, and emit the same ``devices_manager.observability``
+        log line ``read_attribute_value``'s ``@log_event`` decorator emits — needed
         here too since group sweeps update attributes without going through
         that decorator."""
         attribute.append_log(build_entry(EventType.READ, error))
         self._on_log_append()
+        log_observability(
+            EventType.READ,
+            "error" if error is not None else "ok",
+            (time.perf_counter() - start) * 1000,
+            attribute_name=attribute.name,
+            identity=DeviceIdentity(self.id, self.driver_id, self.transport.protocol),
+        )
 
-    def _apply_read_result(self, attr_name: str, result: ReadResult) -> None:
+    def _apply_read_result(
+        self, attr_name: str, result: ReadResult, start: float
+    ) -> None:
         attribute = self.attributes.get(attr_name)
         if attribute is None:
             return
         if isinstance(result, ReadError):
-            self._log_read_outcome(attribute, result.error)
+            self._log_read_outcome(attribute, result.error, start)
             logger.warning(
                 "[Device %s] poll read failed for %s — %s: %s",
                 self.id,
@@ -428,7 +454,7 @@ class CoreDevice:
         try:
             decoded_value = attribute_driver.codec.decode(result.value)
         except Exception as e:  # noqa: BLE001
-            self._log_read_outcome(attribute, e)
+            self._log_read_outcome(attribute, e, start)
             logger.warning(
                 "[Device %s] failed to decode attribute %s — %s: %s",
                 self.id,
@@ -437,7 +463,7 @@ class CoreDevice:
                 e,
             )
             return
-        self._log_read_outcome(attribute, None)
+        self._log_read_outcome(attribute, None, start)
         try:
             self._update_attribute(attribute, decoded_value)
         except Exception as e:  # noqa: BLE001
