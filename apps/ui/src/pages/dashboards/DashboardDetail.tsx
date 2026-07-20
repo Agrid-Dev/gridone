@@ -17,11 +17,18 @@ const DashboardDetailContent: FC = () => {
       {/* Constant section title (the active dashboard's name is its tab, not a
           second header) with the switcher row below it. */}
       <ResourceHeader title={t("title")} />
-      <div className="flex items-center gap-2">
-        <DashboardTabs summaries={summaries} activeId={dashboard.id} />
-        <div className="ml-auto">
-          <DashboardActions dashboard={dashboard} summaries={summaries} />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <DashboardTabs summaries={summaries} activeId={dashboard.id} />
+          <div className="ml-auto">
+            <DashboardActions dashboard={dashboard} summaries={summaries} />
+          </div>
         </div>
+        {dashboard.description && (
+          <p className="pl-4 text-sm text-muted-foreground">
+            {dashboard.description}
+          </p>
+        )}
       </div>
       {/* Widget grid lands in a later milestone (AGR-875+). */}
       <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
