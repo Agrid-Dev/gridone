@@ -104,7 +104,9 @@ class TransportClient[T_TransportAddress](ABC):
         """Return the value memoized for this sweep, or ``None`` on a miss.
 
         ``None`` is an unambiguous miss: ``AttributeValueType`` never includes it.
-        A ``None`` ``correlation_id`` (on-demand read) always misses.
+        A ``None`` ``correlation_id`` (on-demand read) always misses. The guard
+        is repeated here (not just in ``memoize_sweep``) because batching
+        transports call this directly with a possibly-``None`` id.
         """
         if correlation_id is None:
             return None
@@ -121,7 +123,9 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> None:
         """Memoize a value for this sweep, keyed per ``address.id``.
 
-        A ``None`` ``correlation_id`` (on-demand read) is never stored.
+        A ``None`` ``correlation_id`` (on-demand read) is never stored. As with
+        :meth:`_recall_read`, the guard is repeated here because batching
+        transports call this directly with a possibly-``None`` id.
         """
         if correlation_id is not None:
             self._sweep_reads[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]

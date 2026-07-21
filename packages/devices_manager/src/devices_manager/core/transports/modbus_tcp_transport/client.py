@@ -126,6 +126,12 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced block reads — one request per contiguous
         run of registers/bits rather than one per address.
+
+        This path bypasses the ``@memoize_sweep`` read() wrapper, so MemoStats
+        is not recorded here: its ``network_per_read`` ratio counts one network
+        call per address, which does not describe a block read where a single
+        request serves many addresses. Coalescing here is measured by the block
+        planner's own debug log below, not by the per-read memo metric.
         """
         pending: list[ModbusAddress] = []
         for address in dedupe_addresses(addresses).values():

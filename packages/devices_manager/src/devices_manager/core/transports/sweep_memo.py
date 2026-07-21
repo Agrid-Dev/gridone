@@ -71,6 +71,10 @@ def memoize_sweep[**P](
     misses the old entry, so a reconnect needs no invalidation.
     """
 
+    # The wrapper takes *args/**kwargs (not a concrete
+    # (self, address, correlation_id) signature) so ``P`` carries read's own
+    # signature through unchanged — callers keep seeing read(T_TransportAddress),
+    # not a flattened TransportAddress. The cost is reparsing the arguments below.
     @wraps(read)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> AttributeValueType:
         # read is bound as read(self, address, correlation_id=None); either
