@@ -1,3 +1,9 @@
+## v0.161.7 (2026-07-21)
+
+### Refactor
+
+- **devices-manager**: rename correlation_id to sweep_id in read path (#473)
+
 ## v0.161.6 (2026-07-21)
 
 ### Refactor
