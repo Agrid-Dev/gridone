@@ -969,15 +969,13 @@ class TestSweepReadCache:
     async def test_confirm_read_back_bypasses_sweep_cache(
         self, device: CoreDevice, mock_transport_client
     ):
-        correlation_ids: list[str | None] = []
+        sweep_ids: list[str | None] = []
 
         async def recording_read(
-            address: MockTransportAddress, correlation_id: str | None = None
+            address: MockTransportAddress, sweep_id: str | None = None
         ) -> object:
-            correlation_ids.append(correlation_id)
-            return await TransportClient.read(
-                mock_transport_client, address, correlation_id
-            )
+            sweep_ids.append(sweep_id)
+            return await TransportClient.read(mock_transport_client, address, sweep_id)
 
         mock_transport_client.read = recording_read
 
@@ -989,5 +987,5 @@ class TestSweepReadCache:
         await device.write_attribute_value("temperature_setpoint", 20, confirm=True)
 
         assert device.get_attribute_value("temperature_setpoint") == 20
-        assert None in correlation_ids
-        assert any(cid is not None for cid in correlation_ids)
+        assert None in sweep_ids
+        assert any(cid is not None for cid in sweep_ids)

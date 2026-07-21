@@ -18,7 +18,7 @@ class SweepMemo:
     """Per-transport request coalescing for one sweep, plus effectiveness stats.
 
     Holds at most one entry per ``address.id``: a value read under a given
-    ``correlation_id`` is reused by later reads sharing that id (one sweep) and
+    ``sweep_id`` is reused by later reads sharing that id (one sweep) and
     silently superseded when a new id arrives, so a reconnect needs no
     invalidation. The store is bounded by the number of distinct addresses, not
     by time. :meth:`record` tracks how often the memo is hit and logs the ratio
@@ -32,21 +32,21 @@ class SweepMemo:
     _reads: int = 0
     _network: int = 0
 
-    def recall(self, address_id: str, correlation_id: str) -> AttributeValueType | None:
+    def recall(self, address_id: str, sweep_id: str) -> AttributeValueType | None:
         """Return the value memoized for this sweep, or ``None`` on a miss.
 
         ``None`` is an unambiguous miss: ``AttributeValueType`` never includes it.
         """
         entry = self._entries.get(address_id)
-        if entry is None or entry[0] != correlation_id:
+        if entry is None or entry[0] != sweep_id:
             return None
         return entry[1]
 
     def remember(
-        self, address_id: str, correlation_id: str, value: AttributeValueType
+        self, address_id: str, sweep_id: str, value: AttributeValueType
     ) -> None:
         """Memoize a value for this sweep, keyed per ``address.id``."""
-        self._entries[address_id] = (correlation_id, value)
+        self._entries[address_id] = (sweep_id, value)
 
     def record(self, *, hit: bool) -> None:
         """Tally one sweep read; emit the ratio and reset every ``window`` reads.
@@ -76,9 +76,9 @@ def memoize_sweep(
 ) -> Callable[..., Coroutine[Any, Any, AttributeValueType]]:
     """Coalesce repeat reads of one address within a sweep.
 
-    Wraps ``read(self, address, correlation_id=None)``: with a ``correlation_id``
+    Wraps ``read(self, address, sweep_id=None)``: with a ``sweep_id``
     a value already read under that id is served from ``self._sweep_memo``;
-    ``correlation_id=None`` (on-demand) always reads and is excluded from both
+    ``sweep_id=None`` (on-demand) always reads and is excluded from both
     the memo and its stats. The miss is recorded only once the read returns, so a
     raised read counts no network call that never completed.
     """
@@ -87,18 +87,18 @@ def memoize_sweep(
     async def wrapper(
         self: "TransportClient",
         address: "TransportAddress",
-        correlation_id: str | None = None,
+        sweep_id: str | None = None,
     ) -> AttributeValueType:
-        if correlation_id is None:
+        if sweep_id is None:
             return await read(self, address, None)
         memo = self._sweep_memo
-        cached = memo.recall(address.id, correlation_id)
+        cached = memo.recall(address.id, sweep_id)
         if cached is not None:
             memo.record(hit=True)
             return cached
-        value = await read(self, address, correlation_id)
+        value = await read(self, address, sweep_id)
         memo.record(hit=False)
-        memo.remember(address.id, correlation_id, value)
+        memo.remember(address.id, sweep_id, value)
         return value
 
     return wrapper

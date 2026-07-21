@@ -90,11 +90,11 @@ class TransportClient[T_TransportAddress](ABC):
     async def read(
         self,
         address: T_TransportAddress,
-        correlation_id: str | None = None,  # noqa: ARG002
+        sweep_id: str | None = None,  # noqa: ARG002
     ) -> AttributeValueType:
         """Read a value from the transport.
 
-        Wrapped by `memoize_sweep`: with a ``correlation_id`` the value is
+        Wrapped by `memoize_sweep`: with a ``sweep_id`` the value is
         memoized in ``self._sweep_memo`` per ``address.id`` and reused for later
         reads sharing that id (one sweep); ``None`` always hits the network and
         never stores.
@@ -110,7 +110,7 @@ class TransportClient[T_TransportAddress](ABC):
     async def read_many(
         self,
         addresses: list[T_TransportAddress],
-        correlation_id: str | None = None,
+        sweep_id: str | None = None,
     ) -> AsyncGenerator[ReadResult]:
         """Read each distinct address, yielding a result as each one lands.
 
@@ -124,7 +124,7 @@ class TransportClient[T_TransportAddress](ABC):
         """
         async for result in read_results(
             dedupe_addresses(addresses).values(),  # ty: ignore[invalid-argument-type]
-            lambda address: self.read(address, correlation_id),
+            lambda address: self.read(address, sweep_id),
             concurrent=not self._serialize_reads,
         ):
             yield result

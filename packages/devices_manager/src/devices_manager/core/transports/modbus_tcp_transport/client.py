@@ -119,13 +119,13 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
     async def read_many(
         self,
         addresses: list[ModbusAddress],
-        correlation_id: str | None = None,  # noqa: ARG002
+        sweep_id: str | None = None,  # noqa: ARG002
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced block reads — one request per contiguous
         run of registers/bits rather than one per address.
 
         The sweep optimization here is block-coalescing, not the per-address
-        memo: ``correlation_id`` is unused (kept for base-class parity) and no
+        memo: ``sweep_id`` is unused (kept for base-class parity) and no
         ``SweepMemo`` is consulted or populated.
         """
         deduped = list(dedupe_addresses(addresses).values())

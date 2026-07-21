@@ -152,7 +152,7 @@ class TestReconnectCoordination:
 
 class TestReadCache:
     @pytest.mark.asyncio
-    async def test_same_correlation_id_dedupes_network_reads(self) -> None:
+    async def test_same_sweep_id_dedupes_network_reads(self) -> None:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
@@ -163,7 +163,7 @@ class TestReadCache:
         assert first == second
 
     @pytest.mark.asyncio
-    async def test_new_correlation_id_refetches(self) -> None:
+    async def test_new_sweep_id_refetches(self) -> None:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
@@ -173,7 +173,7 @@ class TestReadCache:
         assert client.read_calls == 2
 
     @pytest.mark.asyncio
-    async def test_no_correlation_id_always_hits_network(self) -> None:
+    async def test_no_sweep_id_always_hits_network(self) -> None:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
@@ -185,7 +185,7 @@ class TestReadCache:
 
     @pytest.mark.asyncio
     async def test_close_does_not_clear_sweep_memo(self) -> None:
-        # The memo is scoped by correlation_id, not by connection lifecycle, so
+        # The memo is scoped by sweep_id, not by connection lifecycle, so
         # close() no longer clears it — a same-sweep read after a reconnect is
         # still served from the memo (no generation counter to invalidate it).
         client = RecordingTransportClient()
@@ -212,8 +212,8 @@ class TestReadCache:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
-        first = await client.read(address=address, correlation_id="sweep-1")
-        second = await client.read(address=address, correlation_id="sweep-1")
+        first = await client.read(address=address, sweep_id="sweep-1")
+        second = await client.read(address=address, sweep_id="sweep-1")
 
         assert client.read_calls == 1
         assert first == second
@@ -271,7 +271,7 @@ class TestSweepMemo:
 
         await client.read(address, "sweep-1")  # miss -> network + read
         await client.read(address, "sweep-1")  # hit  -> read only
-        await client.read(address)  # correlation_id=None -> not recorded
+        await client.read(address)  # sweep_id=None -> not recorded
 
         assert client._sweep_memo._reads == 2  # noqa: SLF001
         assert client._sweep_memo._network == 1  # noqa: SLF001
