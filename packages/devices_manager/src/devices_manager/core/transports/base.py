@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from asyncio import Lock, Task, create_task
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, nullcontext
-from typing import ClassVar, TypeVar
+from typing import ClassVar
 
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
@@ -20,9 +20,6 @@ from .transport_address import (
 from .transport_connection_state import TransportConnectionState
 from .transport_metadata import TransportMetadata
 
-T_TransportAddress = TypeVar("T_TransportAddress", bound=TransportAddress)
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +28,7 @@ def dedupe_addresses[T: TransportAddress](addresses: list[T]) -> dict[str, T]:
     return {address.id: address for address in addresses}
 
 
-class TransportClient[T_TransportAddress](ABC):
+class TransportClient[T_TransportAddress: TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
@@ -70,7 +67,7 @@ class TransportClient[T_TransportAddress](ABC):
     def build_address(
         self, raw_address: RawTransportAddress, context: dict | None = None
     ) -> T_TransportAddress:
-        return self.address_builder.from_raw(raw_address, extra_context=context)  # ty: ignore[unresolved-attribute]
+        return self.address_builder.from_raw(raw_address, extra_context=context)
 
     @abstractmethod
     async def connect(self) -> None:
@@ -123,7 +120,7 @@ class TransportClient[T_TransportAddress](ABC):
         with their own strategy.
         """
         async for result in read_results(
-            dedupe_addresses(addresses).values(),  # ty: ignore[invalid-argument-type]
+            dedupe_addresses(addresses).values(),
             lambda address: self.read(address, sweep_id),
             concurrent=not self._serialize_reads,
         ):
@@ -183,14 +180,13 @@ class TransportClient[T_TransportAddress](ABC):
             self.schedule_reconnect()
 
 
-class PullTransportClient[T_TransportAddress](TransportClient[T_TransportAddress]):
+class PullTransportClient[T_TransportAddress: TransportAddress](
+    TransportClient[T_TransportAddress]
+):
     transport_type: ClassVar[TransportType] = TransportType.PULL
 
 
-T_PushTransportAddress = TypeVar("T_PushTransportAddress", bound=PushTransportAddress)
-
-
-class PushTransportClient[T_PushTransportAddress](
+class PushTransportClient[T_PushTransportAddress: PushTransportAddress](
     TransportClient[T_PushTransportAddress]
 ):
     transport_type: ClassVar[TransportType] = TransportType.PUSH

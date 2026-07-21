@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Self
 
 type RawTransportAddress = str | dict
 
@@ -32,7 +33,7 @@ class TransportAddress(ABC):
     @abstractmethod
     def from_raw(
         cls, raw_address: RawTransportAddress, extra_context: dict | None = None
-    ) -> "TransportAddress":
+    ) -> Self:
         pass
 
 
