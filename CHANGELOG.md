@@ -1,3 +1,9 @@
+## v0.161.6 (2026-07-21)
+
+### Refactor
+
+- **devices-manager**: collapse read family behind _serialize_reads (#471)
+
 ## v0.161.5 (2026-07-21)
 
 ### Refactor
