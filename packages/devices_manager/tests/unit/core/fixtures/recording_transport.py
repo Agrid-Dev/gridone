@@ -2,10 +2,12 @@ import asyncio
 
 from devices_manager.core.transports.base import TransportClient
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
-from devices_manager.core.transports.concurrent_read import ConcurrentReadMixin
 from devices_manager.types import TransportProtocols
 
 from .transport_clients import mock_metadata
+
+# Per-read delay wide enough for overlapping reads to be observed as concurrent.
+READ_DELAY = 0.02
 
 
 class ConcurrencyTrackerMixin:
@@ -43,7 +45,8 @@ class ConcurrencyTrackerMixin:
 
 
 class RecordingTransportClient(ConcurrencyTrackerMixin, TransportClient):
-    """Minimal concrete transport that records read concurrency."""
+    """Minimal concrete transport that records read concurrency and counts
+    the network reads that actually reached :meth:`_read` (cache misses)."""
 
     protocol = TransportProtocols.HTTP
     _serialize_reads = False
@@ -51,39 +54,7 @@ class RecordingTransportClient(ConcurrencyTrackerMixin, TransportClient):
     def __init__(
         self,
         *,
-        read_delay: float = 0.02,
-        shared_state: dict[str, int] | None = None,
-    ) -> None:
-        super().__init__(mock_metadata, BaseTransportConfig())
-        self._init_tracker(read_delay=read_delay, shared_state=shared_state)
-
-    async def connect(self) -> None:
-        pass
-
-    async def close(self) -> None:
-        pass
-
-    async def write(self, address: str, value: object) -> None:
-        pass
-
-    async def _read(self, address: str) -> str:
-        return await self._tracked_read(address)  # ty: ignore[invalid-return-type]
-
-
-class SerializedTransportClient(RecordingTransportClient):
-    _serialize_reads = True
-
-
-class ConcurrentRecordingTransportClient(ConcurrencyTrackerMixin, ConcurrentReadMixin):
-    """Concurrent-strategy counterpart of :class:`RecordingTransportClient`."""
-
-    protocol = TransportProtocols.HTTP
-    _serialize_reads = False
-
-    def __init__(
-        self,
-        *,
-        read_delay: float = 0.02,
+        read_delay: float = READ_DELAY,
         shared_state: dict[str, int] | None = None,
     ) -> None:
         super().__init__(mock_metadata, BaseTransportConfig())
@@ -94,7 +65,7 @@ class ConcurrentRecordingTransportClient(ConcurrencyTrackerMixin, ConcurrentRead
         pass
 
     async def close(self) -> None:
-        await super().close()
+        pass
 
     async def write(self, address: object, value: object) -> None:
         pass
@@ -102,3 +73,7 @@ class ConcurrentRecordingTransportClient(ConcurrencyTrackerMixin, ConcurrentRead
     async def _read(self, address: object) -> str:
         self.read_calls += 1
         return await self._tracked_read(address)  # ty: ignore[invalid-return-type]
+
+
+class SerializedTransportClient(RecordingTransportClient):
+    _serialize_reads = True
