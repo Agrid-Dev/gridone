@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from assets.models import (
     Asset,
     AssetCreate,
@@ -172,6 +174,8 @@ class AssetsService(Service):
             type=new_type,
             name=new_name,
             position=existing.position,
+            created_at=existing.created_at,
+            updated_at=datetime.now(UTC),
         )
         await self._backend.save(updated)
 

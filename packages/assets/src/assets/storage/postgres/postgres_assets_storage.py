@@ -38,6 +38,8 @@ class PostgresAssetsStorage:
             name=row["name"],
             path=str(row["path"]).split(".") if row["path"] else [],
             position=row["position"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     async def get_by_id(self, asset_id: str) -> AssetInDB | None:
@@ -63,19 +65,23 @@ class PostgresAssetsStorage:
     async def save(self, asset: AssetInDB) -> None:
         await self._pool.execute(
             """
-            INSERT INTO assets (id, parent_id, type, name, position)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO assets
+                (id, parent_id, type, name, position, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO UPDATE SET
                 parent_id = EXCLUDED.parent_id,
                 type = EXCLUDED.type,
                 name = EXCLUDED.name,
-                position = EXCLUDED.position
+                position = EXCLUDED.position,
+                updated_at = EXCLUDED.updated_at
             """,
             asset.id,
             asset.parent_id,
             asset.type,
             asset.name,
             asset.position,
+            asset.created_at,
+            asset.updated_at,
         )
 
     async def delete(self, asset_id: str) -> None:
