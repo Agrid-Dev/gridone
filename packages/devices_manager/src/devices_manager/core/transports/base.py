@@ -8,8 +8,9 @@ from typing import ClassVar, TypeVar
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
 from .base_transport_config import BaseTransportConfig
+from .batch_read import read_results
 from .listener_registry import ListenerCallback, ListenerRegistry
-from .read_result import ReadResult, read_results
+from .read_result import ReadResult
 from .sweep_memo import SweepMemo, memoize_sweep
 from .transport_address import (
     PushTransportAddress,
