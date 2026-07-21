@@ -370,13 +370,13 @@ class CoreDevice:
 
     async def _read_group(self, attribute_names: list[str]) -> None:
         """One polling-group sweep: a single ``read_many`` call sharing one
-        ``correlation_id``, with each result applied as it streams in.
+        ``sweep_id``, with each result applied as it streams in.
 
         Building one attribute's address must never abort the sweep for its
         siblings, so failures here are isolated per attribute — mirroring how
         ``read_many`` already isolates failures per network read.
         """
-        correlation_id = gen_id()
+        sweep_id = gen_id()
         # Reset per result, not once for the whole sweep: read_many() streams
         # results as they land, so timing every result from one shared sweep
         # start would inflate duration_ms for whichever attribute streams in
@@ -409,7 +409,7 @@ class CoreDevice:
             addresses.append(address)
             attr_names_by_address_id.setdefault(address.id, []).append(attr_name)
         # read_many() dedupes addresses by .id internally; no need to do it here too.
-        async for result in self.transport.read_many(addresses, correlation_id):
+        async for result in self.transport.read_many(addresses, sweep_id):
             start, last = last, time.perf_counter()
             for attr_name in attr_names_by_address_id.get(result.address_id, []):
                 self._apply_read_result(attr_name, result, start)
@@ -534,7 +534,7 @@ class CoreDevice:
         self,
         attribute_name: str,
         *,
-        correlation_id: str | None = None,
+        sweep_id: str | None = None,
         _log_attribute: Attribute | None = None,
     ) -> AttributeValueType:
         attribute = _log_attribute or self.get_attribute(attribute_name)
@@ -549,7 +549,7 @@ class CoreDevice:
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
-        raw_value = await self.transport.read(address, correlation_id)
+        raw_value = await self.transport.read(address, sweep_id)
         codec = attribute_driver.codec
         decoded_value = codec.decode(raw_value)
         self._update_attribute(attribute, decoded_value)
@@ -592,19 +592,17 @@ class CoreDevice:
         ``None`` for that attribute so a single unreachable register never aborts
         the whole sweep.
 
-        A single ``correlation_id`` is minted for the sweep so attributes that
+        A single ``sweep_id`` is minted for the sweep so attributes that
         render to the same transport address share one network read.
         """
-        correlation_id = gen_id()
+        sweep_id = gen_id()
         for attr_name, attr in self.attributes.items():
             if "read" not in attr.read_write_modes:
                 continue
             if attr.kind == AttributeKind.INTERNAL:
                 continue
             try:
-                value = await self.read_attribute_value(
-                    attr_name, correlation_id=correlation_id
-                )
+                value = await self.read_attribute_value(attr_name, sweep_id=sweep_id)
                 logger.debug(
                     "[Device %s] Read attribute %s with value %s",
                     self.id,

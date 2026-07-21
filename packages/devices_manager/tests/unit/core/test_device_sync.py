@@ -186,24 +186,24 @@ class TestCoreDevicePollingGroups:
         assert all(task.done() for task in tasks)
 
     @pytest.mark.asyncio
-    async def test_read_group_shares_one_correlation_id_per_sweep(
+    async def test_read_group_shares_one_sweep_id_per_sweep(
         self, grouped_device: CoreDevice, mock_transport_client
     ):
-        correlation_ids: list[str | None] = []
+        sweep_ids: list[str | None] = []
         real_read = mock_transport_client.read
 
-        async def recording_read(address, correlation_id: str | None = None) -> str:
-            correlation_ids.append(correlation_id)
-            return await real_read(address, correlation_id)
+        async def recording_read(address, sweep_id: str | None = None) -> str:
+            sweep_ids.append(sweep_id)
+            return await real_read(address, sweep_id)
 
         mock_transport_client.read = recording_read
         mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
 
         await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
 
-        assert len(correlation_ids) == 2
-        assert correlation_ids[0] is not None
-        assert correlation_ids[0] == correlation_ids[1]
+        assert len(sweep_ids) == 2
+        assert sweep_ids[0] is not None
+        assert sweep_ids[0] == sweep_ids[1]
 
     @pytest.mark.asyncio
     async def test_read_group_only_reads_its_own_attributes(
@@ -223,7 +223,7 @@ class TestCoreDevicePollingGroups:
     ):
         """One bad read/decode in the sweep must not block the others."""
 
-        async def flaky_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+        async def flaky_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
             if address.id == "GET /temperature":
                 raise ConnectionError("boom")
             return "20.0"
@@ -287,7 +287,7 @@ class TestCoreDevicePollingGroups:
     async def test_read_group_updates_connection_status_on_read_error(
         self, grouped_device: CoreDevice, mock_transport_client
     ):
-        async def failing_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+        async def failing_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
             raise ConnectionError("boom")
 
         mock_transport_client.read = failing_read
@@ -352,7 +352,7 @@ class TestCoreDevicePollingGroups:
     async def test_read_group_emits_observability_log_on_error(
         self, grouped_device: CoreDevice, mock_transport_client, caplog
     ):
-        async def failing_read(address, correlation_id: str | None = None) -> str:  # noqa: ARG001
+        async def failing_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
             raise ConnectionError("boom")
 
         mock_transport_client.read = failing_read
@@ -378,7 +378,7 @@ class TestCoreDevicePollingGroups:
 
         async def slow_then_fast_read(
             address,
-            correlation_id: str | None = None,  # noqa: ARG001
+            sweep_id: str | None = None,  # noqa: ARG001
         ) -> str:
             if address.id == "GET /temperature":
                 await asyncio.sleep(0.05)
