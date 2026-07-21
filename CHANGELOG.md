@@ -1,3 +1,9 @@
+## v0.161.5 (2026-07-21)
+
+### Refactor
+
+- **devices-manager**: extract @memoize_sweep, drop cache epoch (#470)
+
 ## v0.161.4 (2026-07-21)
 
 ### Fix
