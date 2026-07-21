@@ -89,9 +89,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         )
         return result.bits if block.is_bit else result.registers
 
-    async def _read_block(
-        self, block: ModbusBlock, correlation_id: str | None
-    ) -> list[ReadResult]:
+    async def _read_block(self, block: ModbusBlock) -> list[ReadResult]:
         """Fetch one block and split it back into a result per member address.
 
         The lock is held for the transaction only, then released before the
@@ -99,7 +97,6 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         A block that fails marks its own members failed and nothing else.
         """
         async with self._read_lock:
-            epoch = self._cache_epoch
             try:
                 payload = await self._fetch_block(block)
                 values = [
@@ -117,28 +114,23 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
                     e,
                 )
                 return [ReadError(address.id, e) for address in block.addresses]
-        for address, value in values:
-            self._cache_put(address, correlation_id, value, epoch)  # ty: ignore[invalid-argument-type]
         return [ReadOk(address.id, value) for address, value in values]  # ty: ignore[invalid-argument-type]
 
     async def read_many(
         self,
         addresses: list[ModbusAddress],
-        correlation_id: str | None = None,
+        correlation_id: str | None = None,  # noqa: ARG002
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced block reads — one request per contiguous
         run of registers/bits rather than one per address.
-        """
-        pending: list[ModbusAddress] = []
-        for address in dedupe_addresses(addresses).values():
-            cached = self._cache_get(address, correlation_id)
-            if cached is None:
-                pending.append(address)
-            else:
-                yield ReadOk(address.id, cached)
 
+        The sweep optimization here is block-coalescing, not the per-address
+        memo: ``correlation_id`` is unused (kept for base-class parity) and no
+        ``SweepMemo`` is consulted or populated.
+        """
+        deduped = list(dedupe_addresses(addresses).values())
         blocks = plan_blocks(
-            pending,
+            deduped,
             max_block=self.config.max_block,
             max_gap=self.config.max_gap,
         )
@@ -146,12 +138,12 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
             logger.debug(
                 "[Transport %s] %d address(es) coalesced into %d block read(s): %s",
                 self.id,
-                len(pending),
+                len(deduped),
                 len(blocks),
                 [f"{b.type.value}{b.start}:{b.count}" for b in blocks],
             )
         for block in blocks:
-            for result in await self._read_block(block, correlation_id):
+            for result in await self._read_block(block):
                 yield result
 
     def _validate_holding_register_value(

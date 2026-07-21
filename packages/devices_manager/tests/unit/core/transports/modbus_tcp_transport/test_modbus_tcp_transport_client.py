@@ -381,46 +381,18 @@ class TestReadMany:
         assert len(results) == 1
 
     @pytest.mark.asyncio
-    async def test_cache_hit_skips_the_network(
-        self, transport: ModbusTCPTransportClient, dummy: DummyModbusClient
-    ) -> None:
-        address = _hr(10)
-        await transport.read(address, "sweep-1")
-        assert len(dummy.calls) == 1
-
-        results = [r async for r in transport.read_many([address], "sweep-1")]
-
-        assert len(dummy.calls) == 1
-        assert isinstance(results[0], ReadOk)
-
-    @pytest.mark.asyncio
-    async def test_block_read_populates_the_sweep_cache(
-        self, transport: ModbusTCPTransportClient, dummy: DummyModbusClient
-    ) -> None:
-        addresses = [_hr(10), _hr(11)]
-
-        [r async for r in transport.read_many(addresses, "sweep-1")]
-        value = await transport.read(_hr(11), "sweep-1")
-
-        assert dummy.calls == [("read_holding_registers", 10, 2, 1)]
-        assert value == 1
-
-    @pytest.mark.asyncio
     async def test_nothing_logged_when_there_is_nothing_to_read(
         self, transport: ModbusTCPTransportClient, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """A sweep whose addresses are all cache hits plans no blocks; it must
-        not emit an empty batch line on every poll of every transport."""
-        address = _hr(10)
-        await transport.read(address, "sweep-1")
-
+        """An empty sweep plans no blocks; it must not emit an empty batch line
+        on every poll of every transport."""
         with caplog.at_level(
             logging.DEBUG,
             logger="devices_manager.core.transports.modbus_tcp_transport.client",
         ):
-            results = [r async for r in transport.read_many([address], "sweep-1")]
+            results = [r async for r in transport.read_many([])]
 
-        assert len(results) == 1
+        assert results == []
         assert "block read(s)" not in caplog.text
 
     @pytest.mark.asyncio

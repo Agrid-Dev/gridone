@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pytest
 from pydantic import ValidationError
@@ -11,6 +12,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk
+from devices_manager.core.transports.sweep_memo import SweepMemo
 from devices_manager.types import TransportProtocols
 
 from ..fixtures.recording_transport import (
@@ -197,10 +199,13 @@ class TestReadCache:
         await client.read(address)
 
         assert client.read_calls == 2
-        assert client._read_cache == {}  # noqa: SLF001
+        assert client._sweep_memo._entries == {}  # noqa: SLF001
 
     @pytest.mark.asyncio
-    async def test_cache_cleared_on_close(self) -> None:
+    async def test_close_does_not_clear_sweep_memo(self) -> None:
+        # The memo is scoped by correlation_id, not by connection lifecycle, so
+        # close() no longer clears it — a same-sweep read after a reconnect is
+        # still served from the memo (no generation counter to invalidate it).
         client = _CountingTransportClient()
         address = MockTransportAddress("a")
 
@@ -208,7 +213,7 @@ class TestReadCache:
         await client.close()
         await client.read(address, "sweep-1")
 
-        assert client.read_calls == 2
+        assert client.read_calls == 1
 
     @pytest.mark.asyncio
     async def test_memory_bounded_to_one_entry_per_address(self) -> None:
@@ -218,28 +223,91 @@ class TestReadCache:
         for i in range(100):
             await client.read(address, f"sweep-{i}")
 
-        assert len(client._read_cache) == 1  # noqa: SLF001
+        assert len(client._sweep_memo._entries) == 1  # noqa: SLF001
 
     @pytest.mark.asyncio
-    async def test_close_during_in_flight_read_does_not_resurrect_entry(self) -> None:
+    async def test_keyword_arguments_are_memoized(self) -> None:
         client = _CountingTransportClient()
         address = MockTransportAddress("a")
-        release = asyncio.Event()
 
-        async def blocking_read(_address: MockTransportAddress) -> str:
-            await release.wait()
-            return "post-reconnect"
+        first = await client.read(address=address, correlation_id="sweep-1")
+        second = await client.read(address=address, correlation_id="sweep-1")
 
-        client._read = blocking_read  # type: ignore[method-assign]  # noqa: SLF001
-        read_task = asyncio.create_task(client.read(address, "sweep-1"))
-        await asyncio.sleep(0)  # let the read suspend inside _read
+        assert client.read_calls == 1
+        assert first == second
 
-        await client.close()  # clears cache + bumps epoch mid-read
-        release.set()
-        await read_task
 
-        # The store is skipped because the epoch changed while the read ran.
-        assert client._read_cache == {}  # noqa: SLF001
+class TestSweepMemo:
+    def _memo(self, window: int) -> SweepMemo:
+        return SweepMemo("my-transport", TransportProtocols.HTTP, window=window)
+
+    def test_recall_returns_value_only_for_matching_sweep(self) -> None:
+        memo = self._memo(window=10)
+
+        memo.remember("a", "sweep-1", "v")
+
+        assert memo.recall("a", "sweep-1") == "v"
+        assert memo.recall("a", "sweep-2") is None
+        assert memo.recall("b", "sweep-1") is None
+
+    def test_miss_counts_network_hit_does_not(self) -> None:
+        memo = self._memo(window=10)
+
+        memo.record(hit=False)
+        memo.record(hit=True)
+
+        assert memo._reads == 2  # noqa: SLF001
+        assert memo._network == 1  # noqa: SLF001  # ratio 0.5, never exceeds 1
+
+    def test_resets_after_window(self) -> None:
+        memo = self._memo(window=3)
+
+        for _ in range(3):
+            memo.record(hit=False)
+
+        assert memo._reads == 0  # noqa: SLF001
+        assert memo._network == 0  # noqa: SLF001
+
+    def test_emits_ratio_and_transport_every_window(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        memo = self._memo(window=2)
+
+        with caplog.at_level(logging.INFO):
+            memo.record(hit=False)
+            memo.record(hit=True)
+
+        emitted = [r for r in caplog.records if r.message == "sweep memo"]
+        assert len(emitted) == 1
+        assert emitted[0].network_per_read == 0.5  # type: ignore[attr-defined]
+        assert emitted[0].transport == "my-transport"  # type: ignore[attr-defined]
+
+    @pytest.mark.asyncio
+    async def test_decorator_records_sweep_reads_and_skips_on_demand(self) -> None:
+        client = _CountingTransportClient()
+        address = MockTransportAddress("a")
+
+        await client.read(address, "sweep-1")  # miss -> network + read
+        await client.read(address, "sweep-1")  # hit  -> read only
+        await client.read(address)  # correlation_id=None -> not recorded
+
+        assert client._sweep_memo._reads == 2  # noqa: SLF001
+        assert client._sweep_memo._network == 1  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_failed_read_is_not_counted(self) -> None:
+        class _RaisingTransportClient(_CountingTransportClient):
+            async def _read(self, address: MockTransportAddress) -> str:  # noqa: ARG002
+                msg = "boom"
+                raise ValueError(msg)
+
+        client = _RaisingTransportClient()
+
+        with pytest.raises(ValueError, match="boom"):
+            await client.read(MockTransportAddress("a"), "sweep-1")
+
+        assert client._sweep_memo._reads == 0  # noqa: SLF001
+        assert client._sweep_memo._network == 0  # noqa: SLF001
 
 
 class TestReadMany:

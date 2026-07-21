@@ -10,6 +10,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols, Transp
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
 from .read_result import ReadError, ReadOk, ReadResult
+from .sweep_memo import SweepMemo, memoize_sweep
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
@@ -47,8 +48,7 @@ class TransportClient[T_TransportAddress](ABC):
     # while already holding _read_lock, so the opposite order would deadlock.
     _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
-    _read_cache: dict[str, tuple[str, AttributeValueType]]
-    _cache_epoch: int
+    _sweep_memo: SweepMemo
 
     def __init__(
         self, metadata: TransportMetadata, config: BaseTransportConfig
@@ -60,8 +60,7 @@ class TransportClient[T_TransportAddress](ABC):
         self.config = config
         self.metadata = metadata
         self._background_tasks = set()
-        self._read_cache = {}
-        self._cache_epoch = 0
+        self._sweep_memo = SweepMemo(self.id, self.protocol)
 
     @property
     def id(self) -> str:
@@ -84,58 +83,23 @@ class TransportClient[T_TransportAddress](ABC):
     async def close(self) -> None:
         """Close the connection and release resources."""
         self.connection_state = TransportConnectionState.closed()
-        self._read_cache.clear()
-        self._cache_epoch += 1
         logger.info("Transport client %s closed", self.protocol)
 
+    @memoize_sweep
     async def read(
         self,
         address: T_TransportAddress,
-        correlation_id: str | None = None,
+        correlation_id: str | None = None,  # noqa: ARG002
     ) -> AttributeValueType:
         """Read a value from the transport.
 
-        With a ``correlation_id``, the value is cached per ``address.id`` and
-        reused for later reads sharing that id (one sweep). ``None`` always hits
-        the network and never touches the cache.
+        Wrapped by `memoize_sweep`: with a ``correlation_id`` the value is
+        memoized in ``self._sweep_memo`` per ``address.id`` and reused for later
+        reads sharing that id (one sweep); ``None`` always hits the network and
+        never stores.
         """
-        cached = self._cache_get(address, correlation_id)
-        if cached is not None:
-            return cached
         async with self._read_lock:
-            epoch = self._cache_epoch
-            value = await self._read(address)
-            self._cache_put(address, correlation_id, value, epoch)
-            return value
-
-    def _cache_get(
-        self, address: T_TransportAddress, correlation_id: str | None
-    ) -> AttributeValueType | None:
-        """Return the value cached for this sweep, or ``None`` on a miss.
-
-        ``None`` is an unambiguous miss: ``AttributeValueType`` never includes it.
-        """
-        if correlation_id is None:
-            return None
-        cached = self._read_cache.get(address.id)  # ty: ignore[unresolved-attribute]
-        if cached is None or cached[0] != correlation_id:
-            return None
-        return cached[1]
-
-    def _cache_put(
-        self,
-        address: T_TransportAddress,
-        correlation_id: str | None,
-        value: AttributeValueType,
-        epoch: int,
-    ) -> None:
-        """Cache a value for this sweep.
-
-        Skipped if a close()/reconnect cleared the cache while the network read
-        was in flight — otherwise a stale entry would survive it.
-        """
-        if correlation_id is not None and self._cache_epoch == epoch:
-            self._read_cache[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]
+            return await self._read(address)
 
     @abstractmethod
     async def _read(self, address: T_TransportAddress) -> AttributeValueType:
