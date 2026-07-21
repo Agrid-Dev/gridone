@@ -1,3 +1,9 @@
+## v0.161.4 (2026-07-21)
+
+### Fix
+
+- **devices-manager**: coordinate transport reconnect with in-flight reads (#469)
+
 ## v0.161.3 (2026-07-20)
 
 ### Fix
