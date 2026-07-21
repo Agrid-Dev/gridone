@@ -1,25 +1,31 @@
 import asyncio
 import logging
+from collections.abc import Callable
 
 import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
-from devices_manager.core.transports.base import TransportClient
-from devices_manager.core.transports.base_transport_config import BaseTransportConfig
+from devices_manager.core.transports.http_transport import HTTPTransportClient
+from devices_manager.core.transports.http_transport.http_address import HttpAddress
 from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttAddress
 from devices_manager.core.transports.read_result import ReadError, ReadOk
 from devices_manager.core.transports.sweep_memo import SweepMemo
-from devices_manager.types import TransportProtocols
+from devices_manager.types import AttributeValueType, TransportProtocols
 
 from ..fixtures.recording_transport import (
+    READ_DELAY,
     RecordingTransportClient,
     SerializedTransportClient,
 )
-from ..fixtures.transport_clients import MockTransportAddress, mock_metadata
+from ..fixtures.transport_clients import (
+    MockTransportAddress,
+    make_http_transport_client,
+)
 
 
 def _mqtt_client() -> MqttTransportClient:
@@ -100,10 +106,10 @@ class _ReconnectingCoordinatedTransportClient(_CoordinatedCloseTransportClient):
         self._is_connected = False
         await super().close()
 
-    async def _read(self, address: str) -> str:
+    async def _read(self, address: object) -> str:
         if not self._is_connected:
             await self.connect()
-        return await self._tracked_read(address)  # ty: ignore[invalid-return-type]
+        return await super()._read(address)
 
 
 class TestReconnectCoordination:
@@ -144,34 +150,10 @@ class TestReconnectCoordination:
         assert client.connect_calls >= 1
 
 
-class _CountingTransportClient(TransportClient):
-    """Concrete transport that counts underlying network reads."""
-
-    protocol = TransportProtocols.HTTP
-    _serialize_reads = False
-
-    def __init__(self) -> None:
-        super().__init__(mock_metadata, BaseTransportConfig())
-        self.read_calls = 0
-
-    async def connect(self) -> None:
-        pass
-
-    async def close(self) -> None:
-        await super().close()
-
-    async def write(self, address: object, value: object) -> None:
-        pass
-
-    async def _read(self, address: MockTransportAddress) -> str:
-        self.read_calls += 1
-        return f"value-{self.read_calls}-{address.id}"
-
-
 class TestReadCache:
     @pytest.mark.asyncio
     async def test_same_correlation_id_dedupes_network_reads(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         first = await client.read(address, "sweep-1")
@@ -182,7 +164,7 @@ class TestReadCache:
 
     @pytest.mark.asyncio
     async def test_new_correlation_id_refetches(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         await client.read(address, "sweep-1")
@@ -192,7 +174,7 @@ class TestReadCache:
 
     @pytest.mark.asyncio
     async def test_no_correlation_id_always_hits_network(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         await client.read(address)
@@ -206,7 +188,7 @@ class TestReadCache:
         # The memo is scoped by correlation_id, not by connection lifecycle, so
         # close() no longer clears it — a same-sweep read after a reconnect is
         # still served from the memo (no generation counter to invalidate it).
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         await client.read(address, "sweep-1")
@@ -217,7 +199,7 @@ class TestReadCache:
 
     @pytest.mark.asyncio
     async def test_memory_bounded_to_one_entry_per_address(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         for i in range(100):
@@ -227,7 +209,7 @@ class TestReadCache:
 
     @pytest.mark.asyncio
     async def test_keyword_arguments_are_memoized(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         first = await client.read(address=address, correlation_id="sweep-1")
@@ -284,7 +266,7 @@ class TestSweepMemo:
 
     @pytest.mark.asyncio
     async def test_decorator_records_sweep_reads_and_skips_on_demand(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         await client.read(address, "sweep-1")  # miss -> network + read
@@ -296,8 +278,8 @@ class TestSweepMemo:
 
     @pytest.mark.asyncio
     async def test_failed_read_is_not_counted(self) -> None:
-        class _RaisingTransportClient(_CountingTransportClient):
-            async def _read(self, address: MockTransportAddress) -> str:  # noqa: ARG002
+        class _RaisingTransportClient(RecordingTransportClient):
+            async def _read(self, address: object) -> str:  # noqa: ARG002
                 msg = "boom"
                 raise ValueError(msg)
 
@@ -312,8 +294,8 @@ class TestSweepMemo:
 
 class TestReadMany:
     @pytest.mark.asyncio
-    async def test_sequential_default_yields_each_address(self) -> None:
-        client = _CountingTransportClient()
+    async def test_yields_each_distinct_address(self) -> None:
+        client = RecordingTransportClient()
         addresses = [MockTransportAddress("a"), MockTransportAddress("b")]
 
         results = [r async for r in client.read_many(addresses)]
@@ -323,7 +305,7 @@ class TestReadMany:
 
     @pytest.mark.asyncio
     async def test_dedupes_addresses_by_id(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         addresses = [MockTransportAddress("a"), MockTransportAddress("a")]
 
         results = [r async for r in client.read_many(addresses)]
@@ -333,13 +315,14 @@ class TestReadMany:
 
     @pytest.mark.asyncio
     async def test_failing_address_yields_read_error_and_continues(self) -> None:
-        class _FlakyTransportClient(_CountingTransportClient):
-            async def _read(self, address: MockTransportAddress) -> str:
+        class _FlakyTransportClient(RecordingTransportClient):
+            async def _read(self, address: object) -> str:
                 self.read_calls += 1
-                if address.id == "bad":
+                address_id = getattr(address, "id", address)
+                if address_id == "bad":
                     msg = "boom"
                     raise ValueError(msg)
-                return f"value-{address.id}"
+                return f"value-{address_id}"
 
         client = _FlakyTransportClient()
         addresses = [MockTransportAddress("good"), MockTransportAddress("bad")]
@@ -352,7 +335,7 @@ class TestReadMany:
 
     @pytest.mark.asyncio
     async def test_cache_hit_skips_network_read(self) -> None:
-        client = _CountingTransportClient()
+        client = RecordingTransportClient()
         address = MockTransportAddress("a")
         cached_value = await client.read(address, "sweep-1")
         assert client.read_calls == 1
@@ -385,14 +368,100 @@ class TestReadMany:
         # in-flight transaction, not the whole 3-address sweep (0.15s).
         assert single_duration < 0.1
 
+
+class TestReadManyStrategy:
+    """`_serialize_reads` alone selects the base `read_many` strategy:
+    concurrent fan-out when clear (the default), sequential when set.
+    """
+
     @pytest.mark.asyncio
-    async def test_collect_returns_full_dict(self) -> None:
-        client = _CountingTransportClient()
-        addresses = [MockTransportAddress("a"), MockTransportAddress("b")]
+    async def test_default_reads_run_concurrently(self) -> None:
+        client = RecordingTransportClient()
+        addresses = [MockTransportAddress(x) for x in ("a", "b", "c")]
 
-        result = await client.collect(addresses)
+        results = [r async for r in client.read_many(addresses)]
 
-        assert set(result) == {"a", "b"}
+        assert client.max_concurrent_reads > 1
+        assert {r.address_id for r in results} == {"a", "b", "c"}
+
+    @pytest.mark.asyncio
+    async def test_serialize_reads_run_sequentially(self) -> None:
+        client = SerializedTransportClient()
+        addresses = [MockTransportAddress(x) for x in ("a", "b", "c")]
+
+        results = [r async for r in client.read_many(addresses)]
+
+        assert client.max_concurrent_reads == 1
+        assert {r.address_id for r in results} == {"a", "b", "c"}
+
+    @pytest.mark.asyncio
+    async def test_early_exit_cancels_pending_reads(self) -> None:
+        client = RecordingTransportClient(read_delay=0.05)
+        addresses = [MockTransportAddress(x) for x in ("a", "b", "c")]
+
+        gen = client.read_many(addresses)
+        await gen.__anext__()
+        await gen.aclose()
+
+        assert client.in_flight == 0
+
+
+async def _peak_concurrency(
+    client: HTTPTransportClient | MqttTransportClient,
+    addresses: list[HttpAddress] | list[MqttAddress],
+) -> tuple[int, set[str]]:
+    """Drive `read_many` with a delayed `_read` stub, returning the peak
+    in-flight count and the yielded address ids.
+    """
+    in_flight = {"current": 0, "max": 0}
+
+    async def fake_read(address: HttpAddress | MqttAddress) -> AttributeValueType:
+        in_flight["current"] += 1
+        in_flight["max"] = max(in_flight["max"], in_flight["current"])
+        await asyncio.sleep(READ_DELAY)
+        in_flight["current"] -= 1
+        return f"value-{address.id}"
+
+    client._read = fake_read  # type: ignore[method-assign]  # noqa: SLF001
+    results = [r async for r in client.read_many(addresses)]  # type: ignore[arg-type]
+    return in_flight["max"], {r.address_id for r in results}
+
+
+def _make_mqtt_client() -> MqttTransportClient:
+    return MqttTransportClient(
+        TransportMetadata(id="mqtt-1", name="mqtt"),
+        MqttTransportConfig(host="broker", port=1883),
+    )
+
+
+class TestConcreteTransportsDefaultToConcurrent:
+    """HTTP/MQTT clear `_serialize_reads`, so they must read concurrently
+    through the base `read_many` — guards against a regression to sequential.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("make_client", "addresses"),
+        [
+            (
+                make_http_transport_client,
+                [HttpAddress(method="GET", path=f"host/{x}") for x in ("a", "b", "c")],
+            ),
+            (_make_mqtt_client, [MqttAddress(topic=x) for x in ("a", "b", "c")]),
+        ],
+        ids=["http", "mqtt"],
+    )
+    async def test_reads_concurrently(
+        self,
+        make_client: Callable[[], HTTPTransportClient | MqttTransportClient],
+        addresses: list[HttpAddress] | list[MqttAddress],
+    ) -> None:
+        client = make_client()
+
+        max_in_flight, yielded_ids = await _peak_concurrency(client, addresses)
+
+        assert max_in_flight > 1
+        assert yielded_ids == {a.id for a in addresses}
 
 
 class TestUpdateConfig:
