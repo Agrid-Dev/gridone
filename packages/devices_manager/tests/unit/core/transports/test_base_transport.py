@@ -12,7 +12,7 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportConfig,
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk
-from devices_manager.core.transports.sweep_memo import MemoStats
+from devices_manager.core.transports.sweep_memo import SweepMemo
 from devices_manager.types import TransportProtocols
 
 from ..fixtures.recording_transport import (
@@ -114,7 +114,7 @@ class TestReadCache:
         await client.read(address)
 
         assert client.read_calls == 2
-        assert client._sweep_reads == {}  # noqa: SLF001
+        assert client._sweep_memo._entries == {}  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_close_does_not_clear_sweep_memo(self) -> None:
@@ -138,7 +138,7 @@ class TestReadCache:
         for i in range(100):
             await client.read(address, f"sweep-{i}")
 
-        assert len(client._sweep_reads) == 1  # noqa: SLF001
+        assert len(client._sweep_memo._entries) == 1  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_keyword_arguments_are_memoized(self) -> None:
@@ -152,35 +152,50 @@ class TestReadCache:
         assert first == second
 
 
-class TestMemoStats:
+class TestSweepMemo:
+    def _memo(self, window: int) -> SweepMemo:
+        return SweepMemo("my-transport", TransportProtocols.HTTP, window=window)
+
+    def test_recall_returns_value_only_for_matching_sweep(self) -> None:
+        memo = self._memo(window=10)
+
+        memo.remember("a", "sweep-1", "v")
+
+        assert memo.recall("a", "sweep-1") == "v"
+        assert memo.recall("a", "sweep-2") is None
+        assert memo.recall("b", "sweep-1") is None
+
     def test_miss_counts_network_hit_does_not(self) -> None:
-        stats = MemoStats(window=10)
+        memo = self._memo(window=10)
 
-        stats.record(hit=False)
-        stats.record(hit=True)
+        memo.record(hit=False)
+        memo.record(hit=True)
 
-        assert stats.reads == 2
-        assert stats.network == 1  # ratio 0.5, never exceeds 1
+        assert memo._reads == 2  # noqa: SLF001
+        assert memo._network == 1  # noqa: SLF001  # ratio 0.5, never exceeds 1
 
     def test_resets_after_window(self) -> None:
-        stats = MemoStats(window=3)
+        memo = self._memo(window=3)
 
         for _ in range(3):
-            stats.record(hit=False)
+            memo.record(hit=False)
 
-        assert stats.reads == 0
-        assert stats.network == 0
+        assert memo._reads == 0  # noqa: SLF001
+        assert memo._network == 0  # noqa: SLF001
 
-    def test_emits_ratio_every_window(self, caplog: pytest.LogCaptureFixture) -> None:
-        stats = MemoStats(window=2)
+    def test_emits_ratio_and_transport_every_window(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        memo = self._memo(window=2)
 
         with caplog.at_level(logging.INFO):
-            stats.record(hit=False)
-            stats.record(hit=True)
+            memo.record(hit=False)
+            memo.record(hit=True)
 
         emitted = [r for r in caplog.records if r.message == "sweep memo"]
         assert len(emitted) == 1
         assert emitted[0].network_per_read == 0.5  # type: ignore[attr-defined]
+        assert emitted[0].transport == "my-transport"  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
     async def test_decorator_records_sweep_reads_and_skips_on_demand(self) -> None:
@@ -191,8 +206,8 @@ class TestMemoStats:
         await client.read(address, "sweep-1")  # hit  -> read only
         await client.read(address)  # correlation_id=None -> not recorded
 
-        assert client._memo_stats.reads == 2  # noqa: SLF001
-        assert client._memo_stats.network == 1  # noqa: SLF001
+        assert client._sweep_memo._reads == 2  # noqa: SLF001
+        assert client._sweep_memo._network == 1  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_failed_read_is_not_counted(self) -> None:
@@ -206,8 +221,8 @@ class TestMemoStats:
         with pytest.raises(ValueError, match="boom"):
             await client.read(MockTransportAddress("a"), "sweep-1")
 
-        assert client._memo_stats.reads == 0  # noqa: SLF001
-        assert client._memo_stats.network == 0  # noqa: SLF001
+        assert client._sweep_memo._reads == 0  # noqa: SLF001
+        assert client._sweep_memo._network == 0  # noqa: SLF001
 
 
 class TestReadMany:

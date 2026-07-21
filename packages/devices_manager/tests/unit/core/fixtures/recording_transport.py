@@ -3,6 +3,7 @@ import asyncio
 from devices_manager.core.transports.base import TransportClient
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 from devices_manager.core.transports.concurrent_read import ConcurrentReadMixin
+from devices_manager.types import TransportProtocols
 
 from .transport_clients import mock_metadata
 
@@ -44,6 +45,7 @@ class ConcurrencyTrackerMixin:
 class RecordingTransportClient(ConcurrencyTrackerMixin, TransportClient):
     """Minimal concrete transport that records read concurrency."""
 
+    protocol = TransportProtocols.HTTP
     _serialize_reads = False
 
     def __init__(
@@ -75,6 +77,7 @@ class SerializedTransportClient(RecordingTransportClient):
 class ConcurrentRecordingTransportClient(ConcurrencyTrackerMixin, ConcurrentReadMixin):
     """Concurrent-strategy counterpart of :class:`RecordingTransportClient`."""
 
+    protocol = TransportProtocols.HTTP
     _serialize_reads = False
 
     def __init__(

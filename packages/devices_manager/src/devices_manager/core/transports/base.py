@@ -10,7 +10,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols, Transp
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
 from .read_result import ReadError, ReadOk, ReadResult
-from .sweep_memo import MemoStats, memoize_sweep
+from .sweep_memo import SweepMemo, memoize_sweep
 from .transport_address import (
     PushTransportAddress,
     RawTransportAddress,
@@ -44,8 +44,7 @@ class TransportClient[T_TransportAddress](ABC):
     _connection_lock: Lock
     _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
-    _sweep_reads: dict[str, tuple[str, AttributeValueType]]
-    _memo_stats: MemoStats
+    _sweep_memo: SweepMemo
 
     def __init__(
         self, metadata: TransportMetadata, config: BaseTransportConfig
@@ -57,8 +56,7 @@ class TransportClient[T_TransportAddress](ABC):
         self.config = config
         self.metadata = metadata
         self._background_tasks = set()
-        self._sweep_reads = {}
-        self._memo_stats = MemoStats()
+        self._sweep_memo = SweepMemo(self.id, self.protocol)
 
     @property
     def id(self) -> str:
@@ -91,44 +89,13 @@ class TransportClient[T_TransportAddress](ABC):
     ) -> AttributeValueType:
         """Read a value from the transport.
 
-        Wrapped by :func:`memoize_sweep`: with a ``correlation_id`` the value is
-        memoized per ``address.id`` and reused for later reads sharing that id
-        (one sweep); ``None`` always hits the network and never stores.
+        Wrapped by `memoize_sweep`: with a ``correlation_id`` the value is
+        memoized in ``self._sweep_memo`` per ``address.id`` and reused for later
+        reads sharing that id (one sweep); ``None`` always hits the network and
+        never stores.
         """
         async with self._read_lock:
             return await self._read(address)
-
-    def _recall_read(
-        self, address: T_TransportAddress, correlation_id: str | None
-    ) -> AttributeValueType | None:
-        """Return the value memoized for this sweep, or ``None`` on a miss.
-
-        ``None`` is an unambiguous miss: ``AttributeValueType`` never includes it.
-        A ``None`` ``correlation_id`` (on-demand read) always misses. The guard
-        is repeated here (not just in ``memoize_sweep``) because batching
-        transports call this directly with a possibly-``None`` id.
-        """
-        if correlation_id is None:
-            return None
-        cached = self._sweep_reads.get(address.id)  # ty: ignore[unresolved-attribute]
-        if cached is None or cached[0] != correlation_id:
-            return None
-        return cached[1]
-
-    def _remember_read(
-        self,
-        address: T_TransportAddress,
-        correlation_id: str | None,
-        value: AttributeValueType,
-    ) -> None:
-        """Memoize a value for this sweep, keyed per ``address.id``.
-
-        A ``None`` ``correlation_id`` (on-demand read) is never stored. As with
-        :meth:`_recall_read`, the guard is repeated here because batching
-        transports call this directly with a possibly-``None`` id.
-        """
-        if correlation_id is not None:
-            self._sweep_reads[address.id] = (correlation_id, value)  # ty: ignore[unresolved-attribute]
 
     @abstractmethod
     async def _read(self, address: T_TransportAddress) -> AttributeValueType:
