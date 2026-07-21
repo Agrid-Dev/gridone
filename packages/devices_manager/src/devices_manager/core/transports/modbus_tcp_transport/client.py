@@ -98,7 +98,6 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         A block that fails marks its own members failed and nothing else.
         """
         async with self._read_lock:
-            epoch = self._cache_epoch
             try:
                 payload = await self._fetch_block(block)
                 values = [
@@ -117,7 +116,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
                 )
                 return [ReadError(address.id, e) for address in block.addresses]
         for address, value in values:
-            self._cache_put(address, correlation_id, value, epoch)  # ty: ignore[invalid-argument-type]
+            self._remember_read(address, correlation_id, value)  # ty: ignore[invalid-argument-type]
         return [ReadOk(address.id, value) for address, value in values]  # ty: ignore[invalid-argument-type]
 
     async def read_many(
@@ -130,7 +129,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         """
         pending: list[ModbusAddress] = []
         for address in dedupe_addresses(addresses).values():
-            cached = self._cache_get(address, correlation_id)
+            cached = self._recall_read(address, correlation_id)
             if cached is None:
                 pending.append(address)
             else:
