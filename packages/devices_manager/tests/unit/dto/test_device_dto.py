@@ -162,6 +162,41 @@ class TestDtoToCoreRestoresTimestamps:
         assert device.attributes["temperature"].last_changed is None
 
 
+class TestMetadataRoundTrip:
+    """created_at/updated_at must survive dto -> core -> dto."""
+
+    _CREATED = datetime(2020, 1, 1, tzinfo=UTC)
+    _UPDATED = datetime(2021, 1, 1, tzinfo=UTC)
+
+    def test_dto_to_core_to_dto_preserves_timestamps(
+        self, driver, mock_transport_client
+    ):
+        dto = Device(
+            id="d1",
+            name="D1",
+            config={},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+            created_at=self._CREATED,
+            updated_at=self._UPDATED,
+        )
+        device = dto_to_core(
+            dto, {driver.id: driver}, {mock_transport_client.id: mock_transport_client}
+        )
+        assert device.created_at == self._CREATED
+        assert device.updated_at == self._UPDATED
+
+        rebuilt = core_to_dto(device)
+        assert rebuilt.created_at == self._CREATED
+        assert rebuilt.updated_at == self._UPDATED
+
+    def test_fresh_device_defaults_both_timestamps(self, make_device):
+        device = make_device("d2", "D2", {})
+        dto = core_to_dto(device)
+        assert dto.created_at == device.created_at
+        assert dto.updated_at == device.updated_at
+
+
 class TestDeviceAttributeSerialization:
     """`Device.attributes` uses a discriminated union keyed on `kind`: standard
     attributes serialize the base `Attribute` schema (no severity / healthy_values

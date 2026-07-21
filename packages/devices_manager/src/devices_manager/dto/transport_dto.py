@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
@@ -21,9 +22,10 @@ from devices_manager.core.transports.modbus_tcp_transport import (
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import TransportProtocols
+from models.metadata import ResourceMetadata
 
 
-class TransportBase(BaseModel):
+class TransportBase(ResourceMetadata):
     id: str
     name: str
     connection_state: TransportConnectionState
@@ -77,6 +79,8 @@ def dto_to_core(dto: Transport) -> TransportClient:
         TransportMetadata(
             id=dto.id,
             name=dto.name,
+            created_at=dto.created_at,
+            updated_at=dto.updated_at,
         ),
     )
 
@@ -93,12 +97,14 @@ DTO_BY_PROTOCOL = {
 DEFAULT_CONNECTION_STATE = TransportConnectionState.idle()
 
 
-def build_dto(
+def build_dto(  # noqa: PLR0913
     transport_id: str,
     name: str,
     protocol: TransportProtocols,
     config: BaseTransportConfig | dict,
     connection_state: TransportConnectionState = DEFAULT_CONNECTION_STATE,
+    created_at: datetime | None = None,
+    updated_at: datetime | None = None,
 ) -> Transport:
     dto_class = DTO_BY_PROTOCOL.get(protocol)
     if not dto_class:
@@ -108,12 +114,18 @@ def build_dto(
         raise ValueError(msg)
     if not isinstance(config, BaseTransportConfig):
         config = make_transport_config(protocol, config)
+    kwargs = {}
+    if created_at is not None:
+        kwargs["created_at"] = created_at
+    if updated_at is not None:
+        kwargs["updated_at"] = updated_at
     return dto_class(
         id=transport_id,
         name=name,
         protocol=protocol,  # ty: ignore[invalid-argument-type]
         config=config,  # ty: ignore[invalid-argument-type]
         connection_state=connection_state,
+        **kwargs,
     )
 
 
@@ -124,6 +136,8 @@ def core_to_dto(client: TransportClient) -> Transport:
         client.protocol,
         client.config,
         client.connection_state,
+        client.metadata.created_at,
+        client.metadata.updated_at,
     )
 
 

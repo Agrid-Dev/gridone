@@ -15,6 +15,7 @@ from devices_manager.core.driver import (
 )
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.types import AttributeValueType, TransportProtocols
+from models.metadata import ResourceMetadata
 from models.types import Severity
 
 
@@ -37,7 +38,7 @@ AttributeDriverSpec = Annotated[
 ]
 
 
-class DriverSpec(BaseModel):
+class DriverSpec(ResourceMetadata):
     id: Annotated[str, Field(min_length=1)]
     vendor: str | None = None
     model: str | None = None
@@ -131,6 +132,8 @@ def core_to_dto(driver: Driver) -> DriverSpec:
         discovery=driver.discovery_schema,
         attributes=list(driver.attributes.values()),
         type=driver.type,
+        created_at=driver.metadata.created_at,
+        updated_at=driver.metadata.updated_at,
     )
 
 

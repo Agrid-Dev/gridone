@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Collection
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import device_to_public
@@ -186,7 +187,13 @@ class DeviceRegistry:
         Preserves existing attribute values and tags.
         """
         new_device = CoreDevice.from_base(
-            DeviceBase(id=device.id, name=device.name, config=device.config),
+            DeviceBase(
+                id=device.id,
+                name=device.name,
+                config=device.config,
+                created_at=device.created_at,
+                updated_at=datetime.now(UTC),
+            ),
             driver=driver,
             transport=transport,
             restored_attributes=device.attributes,
@@ -222,6 +229,8 @@ class DeviceRegistry:
         if new_driver is not None or new_transport is not None:
             device = self.rebuild_device(device, effective_driver, effective_transport)
             self._devices[device_id] = device
+        else:
+            device.updated_at = datetime.now(UTC)
 
         result = self._devices[device_id]
         await self._storage.write(device_id, device_to_public(result))

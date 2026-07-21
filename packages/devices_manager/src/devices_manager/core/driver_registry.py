@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
@@ -123,6 +124,10 @@ class DriverRegistry:
         except InvalidError as e:
             raise ConflictError(build_message(e)) from e
 
+    @staticmethod
+    def _touch(driver: Driver) -> None:
+        driver.metadata.updated_at = datetime.now(UTC)
+
     async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
@@ -162,6 +167,7 @@ class DriverRegistry:
                     )
             target = driver.metadata if field in metadata_fields else driver
             setattr(target, field, value)
+        self._touch(driver)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
@@ -186,6 +192,7 @@ class DriverRegistry:
         )
         validate_polling_groups(driver.update_strategy, [attribute])
         driver.attributes[attribute.name] = attribute
+        self._touch(driver)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return attribute
@@ -215,6 +222,7 @@ class DriverRegistry:
             raise InvalidError(msg) from None
         validate_polling_groups(driver.update_strategy, [updated])
         driver.attributes[attribute_id] = updated
+        self._touch(driver)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return updated
@@ -235,6 +243,7 @@ class DriverRegistry:
             ),
         )
         del driver.attributes[attribute_id]
+        self._touch(driver)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return dto
@@ -265,6 +274,7 @@ class DriverRegistry:
         )
         del driver.attributes[attribute_id]
         driver.attributes[new_name] = renamed
+        self._touch(driver)
         dto = driver_to_public(driver)
         await self._storage.write(dto.id, dto)
         return renamed

@@ -127,6 +127,15 @@ class TestDriverRegistryPatch:
         assert result.id == driver.id
 
     @pytest.mark.asyncio
+    async def test_patch_bumps_updated_at_keeps_created_at(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        original_created_at = driver.metadata.created_at
+        original_updated_at = driver.metadata.updated_at
+        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        assert result.created_at == original_created_at
+        assert result.updated_at > original_updated_at
+
+    @pytest.mark.asyncio
     async def test_patch_env(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(

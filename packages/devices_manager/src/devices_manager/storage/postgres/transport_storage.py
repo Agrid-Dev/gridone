@@ -27,11 +27,14 @@ class PostgresTransportStorage(StorageBackend[Transport]):
             connection_state=TransportConnectionState.from_dict(
                 row["connection_state"]
             ),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     async def read(self, item_id: str) -> Transport:
         row = await self._pool.fetchrow(
-            "SELECT id, name, protocol, config, connection_state "
+            "SELECT id, name, protocol, config, connection_state, "
+            "created_at, updated_at "
             "FROM dm_transports WHERE id = $1",
             item_id,
         )
@@ -44,22 +47,26 @@ class PostgresTransportStorage(StorageBackend[Transport]):
         dumped = data.model_dump(mode="json")
         await self._pool.execute(
             "INSERT INTO dm_transports "
-            "(id, name, protocol, config, connection_state) "
-            "VALUES ($1, $2, $3, $4, $5) "
+            "(id, name, protocol, config, connection_state, created_at, updated_at) "
+            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
             "ON CONFLICT (id) DO UPDATE SET "
             "name = EXCLUDED.name, protocol = EXCLUDED.protocol, "
             "config = EXCLUDED.config, "
-            "connection_state = EXCLUDED.connection_state",
+            "connection_state = EXCLUDED.connection_state, "
+            "updated_at = EXCLUDED.updated_at",
             item_id,
             dumped["name"],
             dumped["protocol"],
             dumped["config"],
             dumped.get("connection_state", {}),
+            data.created_at,
+            data.updated_at,
         )
 
     async def read_all(self) -> list[Transport]:
         rows = await self._pool.fetch(
-            "SELECT id, name, protocol, config, connection_state "
+            "SELECT id, name, protocol, config, connection_state, "
+            "created_at, updated_at "
             "FROM dm_transports ORDER BY id",
         )
         return [self._row_to_dto(row) for row in rows]

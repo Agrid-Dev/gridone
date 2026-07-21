@@ -53,11 +53,14 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             transport_id=row["transport_id"],
             attributes=attributes,
             is_faulty=False,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     async def read(self, item_id: str) -> Device:
         row = await self._pool.fetchrow(
-            "SELECT id, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id, "
+            "created_at, updated_at "
             "FROM dm_devices WHERE id = $1",
             item_id,
         )
@@ -74,19 +77,23 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "INSERT INTO dm_devices"
-                " (id, name, type, config, driver_id, transport_id)"
-                " VALUES ($1, $2, $3, $4, $5, $6)"
+                " (id, name, type, config, driver_id, transport_id,"
+                " created_at, updated_at)"
+                " VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " name = EXCLUDED.name,"
                 " type = EXCLUDED.type, config = EXCLUDED.config,"
                 " driver_id = EXCLUDED.driver_id,"
-                " transport_id = EXCLUDED.transport_id",
+                " transport_id = EXCLUDED.transport_id,"
+                " updated_at = EXCLUDED.updated_at",
                 item_id,
                 dumped["name"],
                 dumped.get("type"),
                 dumped["config"],
                 dumped["driver_id"],
                 dumped["transport_id"],
+                data.created_at,
+                data.updated_at,
             )
 
             await _write_tags(conn, item_id, data.tags)
@@ -161,7 +168,8 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read_all(self) -> list[Device]:
         device_rows = await self._pool.fetch(
-            "SELECT id, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id, "
+            "created_at, updated_at "
             "FROM dm_devices ORDER BY id",
         )
         if not device_rows:

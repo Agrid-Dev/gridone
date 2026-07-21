@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import asyncpg
 
 from devices_manager.dto import DriverSpec
@@ -28,6 +30,8 @@ class PostgresDriverStorage(StorageBackend[DriverSpec]):
                 "model": row["model"],
                 "type": row["type"],
                 "transport": row["transport"],
+                "created_at": row["created_at"],
+                "updated_at": row["updated_at"],
                 **row["data"],
             }
         )
@@ -36,7 +40,7 @@ class PostgresDriverStorage(StorageBackend[DriverSpec]):
     def _dto_to_columns(
         item_id: str,
         dto: DriverSpec,
-    ) -> tuple[str, str | None, str | None, str | None, str, dict]:
+    ) -> tuple[str, str | None, str | None, str | None, str, datetime, datetime, dict]:
         dumped = dto.model_dump(mode="json")
         jsonb_data = {k: dumped[k] for k in _JSONB_FIELDS if k in dumped}
         return (
@@ -45,12 +49,14 @@ class PostgresDriverStorage(StorageBackend[DriverSpec]):
             dumped.get("model"),
             dumped.get("type"),
             dumped["transport"],
+            dto.created_at,
+            dto.updated_at,
             jsonb_data,
         )
 
     async def read(self, item_id: str) -> DriverSpec:
         row = await self._pool.fetchrow(
-            "SELECT id, vendor, model, type, transport, data "
+            "SELECT id, vendor, model, type, transport, created_at, updated_at, data "
             "FROM dm_drivers WHERE id = $1",
             item_id,
         )
@@ -63,18 +69,19 @@ class PostgresDriverStorage(StorageBackend[DriverSpec]):
         params = self._dto_to_columns(item_id, data)
         await self._pool.execute(
             "INSERT INTO dm_drivers"
-            " (id, vendor, model, type, transport, data)"
-            " VALUES ($1, $2, $3, $4, $5, $6)"
+            " (id, vendor, model, type, transport, created_at, updated_at, data)"
+            " VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
             " ON CONFLICT (id) DO UPDATE SET"
             " vendor = EXCLUDED.vendor, model = EXCLUDED.model,"
             " type = EXCLUDED.type, transport = EXCLUDED.transport,"
+            " updated_at = EXCLUDED.updated_at,"
             " data = EXCLUDED.data",
             *params,
         )
 
     async def read_all(self) -> list[DriverSpec]:
         rows = await self._pool.fetch(
-            "SELECT id, vendor, model, type, transport, data "
+            "SELECT id, vendor, model, type, transport, created_at, updated_at, data "
             "FROM dm_drivers ORDER BY id",
         )
         return [self._row_to_dto(row) for row in rows]

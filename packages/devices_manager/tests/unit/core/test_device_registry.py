@@ -311,6 +311,16 @@ class TestDeviceRegistryUpdate:
         assert result.name == original_name
 
     @pytest.mark.asyncio
+    async def test_update_bumps_updated_at_keeps_created_at(
+        self, device_registry, device
+    ):
+        original_created_at = device.created_at
+        original_updated_at = device.updated_at
+        result = await device_registry.update(device.id, DeviceUpdate(name="New Name"))
+        assert result.created_at == original_created_at
+        assert result.updated_at > original_updated_at
+
+    @pytest.mark.asyncio
     async def test_set_tag(self, device_registry, device):
         result = await device_registry.set_tag(device.id, "asset_id", "floor1")
         assert result.tags == {"asset_id": "floor1"}
@@ -418,6 +428,30 @@ class TestDeviceRegistryUpdate:
         assert isinstance(result, CoreDevice)
         assert result.driver_id == other_http_driver.id
         assert "power" in result.attributes
+
+    @pytest.mark.asyncio
+    async def test_update_driver_rebuild_keeps_created_at_bumps_updated_at(
+        self,
+        device,
+        driver,
+        mock_transport_client,
+        other_http_driver,
+        on_attribute_update,
+    ):
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver, other_http_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        original_created_at = device.created_at
+        original_updated_at = device.updated_at
+        result = await registry.update(
+            device.id,
+            DeviceUpdate(driver_id=other_http_driver.id),
+        )
+        assert result.created_at == original_created_at
+        assert result.updated_at > original_updated_at
 
     @pytest.mark.asyncio
     async def test_update_driver_incompatible(

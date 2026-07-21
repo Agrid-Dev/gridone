@@ -11,6 +11,7 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
+from models.metadata import ResourceMetadata
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,7 +47,7 @@ _AttributeUnion = Annotated[
 ]
 
 
-class Device(BaseModel):
+class Device(ResourceMetadata):
     id: str
     name: str
     type: str | None = None
@@ -81,6 +82,8 @@ def core_to_dto(device: CoreDevice) -> Device:
         tags=device.tags,
         attributes=device.attributes,
         is_faulty=device.is_faulty,
+        created_at=device.created_at,
+        updated_at=device.updated_at,
     )
 
 
@@ -90,6 +93,8 @@ def dto_to_base(dto: Device) -> DeviceBase:
         id=dto.id,
         name=dto.name,
         config=dto.config,
+        created_at=dto.created_at,
+        updated_at=dto.updated_at,
     )
 
 
@@ -104,7 +109,7 @@ def dto_to_core(
     driver = drivers[dto.driver_id]
     transport = transports[dto.transport_id]
     device = CoreDevice.from_base(
-        DeviceBase(id=dto.id, name=dto.name, config=dto.config),
+        dto_to_base(dto),
         driver=driver,
         transport=transport,
         restored_attributes=dto.attributes,

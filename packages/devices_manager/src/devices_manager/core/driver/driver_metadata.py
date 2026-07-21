@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from models.metadata import ResourceMetadata
 
 
-class DriverMetadata(BaseModel):
+class DriverMetadata(ResourceMetadata):
     id: str = Field(min_length=1)
     vendor: str | None = None
     model: str | None = None

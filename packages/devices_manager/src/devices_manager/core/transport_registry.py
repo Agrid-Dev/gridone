@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
@@ -24,10 +25,22 @@ if TYPE_CHECKING:
 
 
 def build_transport_client(transport: TransportCreate | Transport) -> TransportClient:
-    """Build a transport client from a create payload or a stored DTO."""
+    """Build a transport client from a create payload or a stored DTO.
+
+    ``TransportCreate`` carries no timestamps (fresh transport), so
+    ``TransportMetadata`` falls back to its own defaults in that case; a
+    stored ``Transport`` always carries them through unchanged.
+    """
     config = make_transport_config(transport.protocol, transport.config.model_dump())
     transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
-    metadata = TransportMetadata(id=transport_id, name=transport.name)
+    timestamps = {}
+    created_at = getattr(transport, "created_at", None)
+    updated_at = getattr(transport, "updated_at", None)
+    if created_at is not None:
+        timestamps["created_at"] = created_at
+    if updated_at is not None:
+        timestamps["updated_at"] = updated_at
+    metadata = TransportMetadata(id=transport_id, name=transport.name, **timestamps)
     return make_transport_client(transport.protocol, config, metadata)
 
 
@@ -96,6 +109,7 @@ class TransportRegistry:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
+        transport.metadata.updated_at = datetime.now(UTC)
         dto = transport_to_public(transport)
         await self._storage.write(transport_id, dto)
         return transport

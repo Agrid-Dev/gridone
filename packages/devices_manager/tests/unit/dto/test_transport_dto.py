@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
@@ -56,6 +58,27 @@ def test_dto_to_core(mock_metadata):
     assert client.config == dto.config
     assert client.protocol == dto.protocol
     assert client.connection_state == dto.connection_state
+
+
+def test_dto_to_core_to_dto_preserves_timestamps():
+    created = datetime(2020, 1, 1, tzinfo=UTC)
+    updated = datetime(2021, 1, 1, tzinfo=UTC)
+    dto = MqttTransport(
+        id="t1",
+        name="My Transport",
+        protocol=TransportProtocols.MQTT,
+        config=MqttTransportConfig(host="localhost"),
+        connection_state=TransportConnectionState.idle(),
+        created_at=created,
+        updated_at=updated,
+    )
+    client = dto_to_core(dto)
+    assert client.metadata.created_at == created
+    assert client.metadata.updated_at == updated
+
+    rebuilt = core_to_dto(client)
+    assert rebuilt.created_at == created
+    assert rebuilt.updated_at == updated
 
 
 class TestTransportCreate:

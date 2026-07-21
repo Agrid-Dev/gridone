@@ -36,6 +36,11 @@ class CoreFileStorage:
         )
 
         def transport_factory(data: dict) -> Transport:
+            kwargs = {}
+            if "created_at" in data:
+                kwargs["created_at"] = data["created_at"]
+            if "updated_at" in data:
+                kwargs["updated_at"] = data["updated_at"]
             return build_transport(
                 transport_id=data["id"],
                 name=data.get("name", ""),
@@ -44,6 +49,7 @@ class CoreFileStorage:
                 connection_state=TransportConnectionState.from_dict(
                     data.get("connection_state")
                 ),
+                **kwargs,
             )
 
         self.transports = YamlFileStorage[Transport](
