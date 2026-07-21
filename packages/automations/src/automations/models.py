@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime  # noqa: TC003 - pydantic needs this at runtime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
+
+from models.metadata import ResourceMetadata
 
 
 class ExecutionStatus(StrEnum):
@@ -41,20 +43,15 @@ class AutomationUpdate(BaseModel):
     enabled: bool | None = None
 
 
-class Automation(AutomationCreate):
+class Automation(AutomationCreate, ResourceMetadata):
     id: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     created_by: str = ""
 
     def apply_update(self, params: AutomationUpdate) -> Automation:
         if not params.model_fields_set:
             return self
-        return self.model_copy(
-            update={
-                **{k: getattr(params, k) for k in params.model_fields_set},
-                "updated_at": datetime.now(UTC),
-            }
+        return self.touch_updated_at().model_copy(
+            update={k: getattr(params, k) for k in params.model_fields_set}
         )
 
 
