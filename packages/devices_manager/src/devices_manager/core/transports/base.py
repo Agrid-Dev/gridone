@@ -9,7 +9,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols, Transp
 
 from .base_transport_config import BaseTransportConfig
 from .listener_registry import ListenerCallback, ListenerRegistry
-from .read_result import ReadError, ReadOk, ReadResult
+from .read_result import ReadResult, read_results
 from .sweep_memo import SweepMemo, memoize_sweep
 from .transport_address import (
     PushTransportAddress,
@@ -34,8 +34,8 @@ class TransportClient[T_TransportAddress](ABC):
     protocol: ClassVar[TransportProtocols]
     transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
-    # Gates read()'s lock. Concurrent transports also need ConcurrentReadMixin
-    # (concurrent_read.py) for read_many() — keep both in sync, never both True.
+    # Single knob for the read path: gates read()'s lock and, in turn, the base
+    # read_many() strategy — sequential when True, concurrent fan-out when False.
     _serialize_reads: ClassVar[bool] = False
     config: BaseTransportConfig
     metadata: TransportMetadata
@@ -106,44 +106,27 @@ class TransportClient[T_TransportAddress](ABC):
         """Perform the actual read, without lock handling."""
         ...
 
-    async def _read_one(
-        self,
-        address: T_TransportAddress,
-        correlation_id: str | None,
-    ) -> ReadResult:
-        """Read a single address, wrapping the outcome instead of raising."""
-        try:
-            value = await self.read(address, correlation_id)
-        except Exception as e:  # noqa: BLE001
-            return ReadError(address.id, e)  # ty: ignore[unresolved-attribute]
-        return ReadOk(address.id, value)  # ty: ignore[unresolved-attribute]
-
     async def read_many(
         self,
         addresses: list[T_TransportAddress],
         correlation_id: str | None = None,
     ) -> AsyncGenerator[ReadResult]:
-        """Read each address in turn, yielding a result as each one lands.
+        """Read each distinct address, yielding a result as each one lands.
 
-        Base default: sequential, via :meth:`read` (cache + lock included).
-        Transports that can fetch concurrently or batch addresses into one
-        transaction override this with a different strategy.
+        Strategy follows :attr:`_serialize_reads`: sequential (results in
+        address order) when set, concurrent fan-out otherwise. The concurrent
+        default yields in completion order, not address order, so callers must
+        key on ``result.address_id`` rather than the input position. Reads go
+        through :meth:`read`, so the per-sweep cache and read lock apply.
+        Transports that batch addresses into one transaction override this
+        with their own strategy.
         """
-        for address in dedupe_addresses(addresses).values():  # ty: ignore[invalid-argument-type]
-            yield await self._read_one(address, correlation_id)
-
-    async def collect(
-        self,
-        addresses: list[T_TransportAddress],
-        correlation_id: str | None = None,
-    ) -> dict[str, AttributeValueType | Exception]:
-        """Gather :meth:`read_many` into a ``{address_id: value | error}`` dict."""
-        return {
-            result.address_id: result.value
-            if isinstance(result, ReadOk)
-            else result.error
-            async for result in self.read_many(addresses, correlation_id)
-        }
+        async for result in read_results(
+            dedupe_addresses(addresses).values(),  # ty: ignore[invalid-argument-type]
+            lambda address: self.read(address, correlation_id),
+            concurrent=not self._serialize_reads,
+        ):
+            yield result
 
     @abstractmethod
     async def write(

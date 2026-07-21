@@ -8,7 +8,6 @@ from pathlib import Path
 import aiomqtt
 
 from devices_manager.core.transports import PushTransportClient
-from devices_manager.core.transports.concurrent_read import ConcurrentReadMixin
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.listener_registry import (
     ListenerCallback,
@@ -49,9 +48,7 @@ def build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
     return context
 
 
-class MqttTransportClient(
-    ConcurrentReadMixin[MqttAddress], PushTransportClient[MqttAddress]
-):
+class MqttTransportClient(PushTransportClient[MqttAddress]):
     _client_instance: aiomqtt.Client | None = None
     _config_builder = MqttTransportConfig
     protocol = TransportProtocols.MQTT
