@@ -59,7 +59,8 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
 
     async def close(self) -> None:
         if self.connection_state.is_connected:
-            async with self._connection_lock:
+            # Lock order: see TransportClient._read_lock in base.py.
+            async with self._read_lock, self._connection_lock:
                 self._client.close()
                 await super().close()
 

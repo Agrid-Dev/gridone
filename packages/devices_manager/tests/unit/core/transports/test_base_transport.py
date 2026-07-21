@@ -57,6 +57,91 @@ class TestReadLock:
         assert shared_state["max_concurrent"] == 2
 
 
+class _CoordinatedCloseTransportClient(SerializedTransportClient):
+    """Mimics the real transports' close(): read_lock before connection_lock."""
+
+    def __init__(
+        self,
+        *,
+        read_delay: float = 0.02,
+        shared_state: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(read_delay=read_delay, shared_state=shared_state)
+        self.closed = False
+
+    async def close(self) -> None:
+        async with self._read_lock, self._connection_lock:
+            self.closed = True
+            await super().close()
+
+
+class _ReconnectingCoordinatedTransportClient(_CoordinatedCloseTransportClient):
+    """Like the real @connected transports: _read reconnects if not connected,
+    from inside read()'s held _read_lock."""
+
+    def __init__(
+        self,
+        *,
+        read_delay: float = 0.02,
+        shared_state: dict[str, int] | None = None,
+    ) -> None:
+        super().__init__(read_delay=read_delay, shared_state=shared_state)
+        self.connect_calls = 0
+        self._is_connected = False
+
+    async def connect(self) -> None:
+        async with self._connection_lock:
+            self.connect_calls += 1
+            self._is_connected = True
+
+    async def close(self) -> None:
+        self._is_connected = False
+        await super().close()
+
+    async def _read(self, address: str) -> str:
+        if not self._is_connected:
+            await self.connect()
+        return await self._tracked_read(address)  # ty: ignore[invalid-return-type]
+
+
+class TestReconnectCoordination:
+    @pytest.mark.asyncio
+    async def test_close_waits_for_in_flight_read(self) -> None:
+        client = _CoordinatedCloseTransportClient()
+        read_started = asyncio.Event()
+        release_read = asyncio.Event()
+
+        async def blocking_read(address: str) -> str:
+            read_started.set()
+            await release_read.wait()
+            return address
+
+        client._read = blocking_read  # type: ignore[method-assign]  # noqa: SLF001
+        read_task = asyncio.create_task(client.read("a"))
+        await read_started.wait()
+
+        close_task = asyncio.create_task(client.close())
+        await asyncio.sleep(0)
+        assert not client.closed
+
+        release_read.set()
+        await read_task
+        await close_task
+        assert client.closed
+
+    @pytest.mark.asyncio
+    async def test_read_triggered_reconnect_does_not_deadlock_against_close(
+        self,
+    ) -> None:
+        client = _ReconnectingCoordinatedTransportClient()
+
+        await asyncio.wait_for(
+            asyncio.gather(client.read("a"), client.close()), timeout=1
+        )
+
+        assert client.connect_calls >= 1
+
+
 class _CountingTransportClient(TransportClient):
     """Concrete transport that counts underlying network reads."""
 

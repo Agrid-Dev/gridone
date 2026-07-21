@@ -36,7 +36,9 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
-            self._serial = await asyncio.to_thread(self._open)
+            self._serial = await asyncio.wait_for(
+                asyncio.to_thread(self._open), timeout=MBUS_READ_TIMEOUT_SECONDS
+            )
             await super().connect()
 
     def _open(self) -> serial.SerialBase:
@@ -54,7 +56,8 @@ class MBusTransportClient(PullTransportClient[MBusAddress]):
 
     async def close(self) -> None:
         if self.connection_state.is_connected:
-            async with self._connection_lock:
+            # Lock order: see TransportClient._read_lock in base.py.
+            async with self._read_lock, self._connection_lock:
                 self._serial.close()
                 self._telegram_cache.clear()
                 await super().close()

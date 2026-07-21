@@ -24,6 +24,7 @@ from .core.discovery_manager import (
 from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry, build_transport_client
+from .core.transports import TransportClient
 from .dto import (
     AttributePatch,
     Device,
@@ -60,6 +61,20 @@ if TYPE_CHECKING:
     from .types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
+
+# Upper bound on how long a transport close() may take. close() now waits out
+# any in-flight read (AGR-928), so callers on a request/shutdown path need a
+# cap rather than an open-ended wait.
+TRANSPORT_CLOSE_TIMEOUT_SECONDS = 10
+
+
+async def _close_transport(transport: TransportClient) -> None:
+    try:
+        await asyncio.wait_for(
+            transport.close(), timeout=TRANSPORT_CLOSE_TIMEOUT_SECONDS
+        )
+    except TimeoutError:
+        logger.warning("Transport %s close() timed out, abandoning it", transport.id)
 
 
 def _fault_view_from(device: CoreDevice, attr: FaultAttribute) -> FaultView:
@@ -191,7 +206,7 @@ class DevicesService(Service):
         for device in self._device_registry.all.values():
             await device.stop_sync()
         await asyncio.gather(
-            *(t.close() for t in self._transport_registry.all.values())
+            *(_close_transport(t) for t in self._transport_registry.all.values())
         )
         await self._storage.close()
 
@@ -545,7 +560,7 @@ class DevicesService(Service):
         self._transport_registry.get(transport_id)
         self._assert_transport_not_used(transport_id)
         transport = await self._transport_registry.remove(transport_id)
-        await transport.close()
+        await _close_transport(transport)
 
     async def update_transport(
         self, transport_id: str, update: TransportUpdate
