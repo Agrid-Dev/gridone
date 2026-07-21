@@ -1,8 +1,8 @@
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from devices_manager.types import AttributeValueType, TransportProtocols
 
@@ -73,7 +73,7 @@ class SweepMemo:
 
 def memoize_sweep(
     read: Callable[..., Awaitable[AttributeValueType]],
-) -> Callable[..., Awaitable[AttributeValueType]]:
+) -> Callable[..., Coroutine[Any, Any, AttributeValueType]]:
     """Coalesce repeat reads of one address within a sweep.
 
     Wraps ``read(self, address, correlation_id=None)``: with a ``correlation_id``
