@@ -1,3 +1,9 @@
+## v0.161.8 (2026-07-21)
+
+### Refactor
+
+- **devices-manager**: bound transport client type params, drop shadowed TypeVars (#474)
+
 ## v0.161.7 (2026-07-21)
 
 ### Refactor
