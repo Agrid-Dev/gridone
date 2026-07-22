@@ -155,6 +155,13 @@ async def create_device(
 
 @router.post(
     "/batch",
+    status_code=status.HTTP_207_MULTI_STATUS,
+    responses={
+        status.HTTP_201_CREATED: {"description": "Every device was created"},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Every device failed to be created"
+        },
+    },
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
 async def create_devices_batch(
