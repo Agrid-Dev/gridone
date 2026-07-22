@@ -20,11 +20,28 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
 
 
+# A device may be created nameless (labelled later), so name defaults to "".
+_DEFAULT_DEVICE_NAME = ""
+
+
 class DeviceCreate(BaseModel):
-    name: Annotated[str, Field(default_factory=lambda: "")]
+    name: str = _DEFAULT_DEVICE_NAME
     config: dict
     driver_id: str
     transport_id: str
+
+
+class DeviceBatchItem(BaseModel):
+    name: str = _DEFAULT_DEVICE_NAME
+    config: dict
+
+
+class DeviceBatchCreate(BaseModel):
+    """Create many devices sharing one driver + transport, each with its own config."""
+
+    driver_id: str
+    transport_id: str
+    devices: list[DeviceBatchItem] = Field(min_length=1)
 
 
 def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401

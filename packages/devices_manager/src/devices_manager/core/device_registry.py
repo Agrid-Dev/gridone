@@ -140,7 +140,7 @@ class DeviceRegistry:
     def _check_transport_compat(driver: Driver, transport: TransportClient) -> None:
         if driver.transport != transport.protocol:
             msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
-            raise ValueError(msg)
+            raise InvalidError(msg)
 
     def _check_config_uniqueness(
         self,

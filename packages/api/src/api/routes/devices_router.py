@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from api.dependencies import (
     get_device_manager,
@@ -16,6 +16,7 @@ from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
+    DeviceBatchItemResult,
     SingleAttrTimeseriesPushPoint,
     TagValueBody,
     TimeseriesBulkPushRequest,
@@ -27,9 +28,11 @@ from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
+    DeviceBatchCreate,
     DeviceCreate,
     DeviceUpdate,
 )
+from models.errors import ConflictError, InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
     SeriesKey,
@@ -148,6 +151,53 @@ async def create_device(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Device:
     return await dm.add_device(dto)
+
+
+@router.post(
+    "/batch",
+    status_code=status.HTTP_207_MULTI_STATUS,
+    responses={
+        status.HTTP_201_CREATED: {"description": "Every device was created"},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {
+            "description": "Every device failed to be created"
+        },
+    },
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def create_devices_batch(
+    dto: DeviceBatchCreate,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    response: Response,
+) -> list[DeviceBatchItemResult]:
+    """Create every device in the batch independently (partial success).
+
+    A thin loop over `add_device`: each entry is attempted independently and
+    one entry's failure does not block the others. The status code reflects
+    the outcome: 201 when every entry succeeded, 422 when every entry failed,
+    207 for a mix of both.
+    """
+    results: list[DeviceBatchItemResult] = []
+    for item in dto.devices:
+        create = DeviceCreate(
+            name=item.name,
+            config=item.config,
+            driver_id=dto.driver_id,
+            transport_id=dto.transport_id,
+        )
+        try:
+            device = await dm.add_device(create)
+        except (InvalidError, NotFoundError, ConflictError) as e:
+            results.append(DeviceBatchItemResult(error=str(e)))
+        else:
+            results.append(DeviceBatchItemResult(device=device))
+
+    if all(r.error is None for r in results):
+        response.status_code = status.HTTP_201_CREATED
+    elif all(r.device is None for r in results):
+        response.status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    else:
+        response.status_code = status.HTTP_207_MULTI_STATUS
+    return results
 
 
 @router.patch(
