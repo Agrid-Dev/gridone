@@ -10,5 +10,6 @@ class ResourceMetadata(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    def touch_updated_at(self) -> Self:
-        return self.model_copy(update={"updated_at": datetime.now(UTC)})
+    def touch_updated_at(self, **extra: object) -> Self:
+        """Copy with a fresh updated_at, merging any other field updates in."""
+        return self.model_copy(update={**extra, "updated_at": datetime.now(UTC)})

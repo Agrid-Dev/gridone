@@ -50,8 +50,8 @@ class Automation(AutomationCreate, ResourceMetadata):
     def apply_update(self, params: AutomationUpdate) -> Automation:
         if not params.model_fields_set:
             return self
-        return self.touch_updated_at().model_copy(
-            update={k: getattr(params, k) for k in params.model_fields_set}
+        return self.touch_updated_at(
+            **{k: getattr(params, k) for k in params.model_fields_set}
         )
 
 
