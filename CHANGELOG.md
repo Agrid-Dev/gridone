@@ -1,3 +1,9 @@
+## v0.165.0 (2026-07-22)
+
+### Feat
+
+- **devices-manager**: enforce device config uniqueness at creation (#477)
+
 ## v0.164.0 (2026-07-22)
 
 ### Feat
