@@ -109,6 +109,19 @@ class TestTransportRegistryUpdate:
         assert updated.metadata.name == "New Name"
 
     @pytest.mark.asyncio
+    async def test_update_bumps_updated_at_keeps_created_at(
+        self, mock_transport_client
+    ):
+        registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
+        original_created_at = mock_transport_client.metadata.created_at
+        original_updated_at = mock_transport_client.metadata.updated_at
+        updated = await registry.update(
+            mock_transport_client.id, TransportUpdate(name="New Name")
+        )
+        assert updated.metadata.created_at == original_created_at
+        assert updated.metadata.updated_at > original_updated_at
+
+    @pytest.mark.asyncio
     async def test_update_config(self, mock_transport_client):
         registry = TransportRegistry({mock_transport_client.id: mock_transport_client})
         updated = await registry.update(

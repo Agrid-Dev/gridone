@@ -674,7 +674,7 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
         await device_storage.write("dev1", _make_device("dev1"))
 
-        await device_storage.set_tag("dev1", "zone", "north")
+        await device_storage.set_tag("dev1", "zone", "north", datetime.now(UTC))
 
         result = await device_storage.read("dev1")
         assert result.tags == {"zone": "north"}
@@ -691,7 +691,7 @@ class TestAttributePersistence:
         device.tags = {"zone": "north"}
         await device_storage.write("dev1", device)
 
-        await device_storage.set_tag("dev1", "zone", "south")
+        await device_storage.set_tag("dev1", "zone", "south", datetime.now(UTC))
 
         result = await device_storage.read("dev1")
         assert result.tags == {"zone": "south"}
@@ -708,7 +708,7 @@ class TestAttributePersistence:
         device.tags = {"zone": "north"}
         await device_storage.write("dev1", device)
 
-        await device_storage.delete_tag("dev1", "zone")
+        await device_storage.delete_tag("dev1", "zone", datetime.now(UTC))
 
         result = await device_storage.read("dev1")
         assert "zone" not in result.tags
@@ -723,7 +723,7 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
         await device_storage.write("dev1", _make_device("dev1"))
 
-        await device_storage.delete_tag("dev1", "nonexistent")
+        await device_storage.delete_tag("dev1", "nonexistent", datetime.now(UTC))
 
         result = await device_storage.read("dev1")
         assert result.tags == {}
@@ -738,7 +738,7 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
         await device_storage.write("dev1", _make_device("dev1"))
 
-        await device_storage.set_tag("dev1", "asset_id", "asset-xyz")
+        await device_storage.set_tag("dev1", "asset_id", "asset-xyz", datetime.now(UTC))
 
         all_devices = await device_storage.read_all()
         dev = next(d for d in all_devices if d.id == "dev1")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import pytest
@@ -124,7 +125,7 @@ class TestTagMutations:
     @pytest.mark.asyncio
     async def test_set_tag(self, storage: CoreFileStorage):
         await storage.devices.write("dev1", _make_device())
-        await storage.devices.set_tag("dev1", "floor", "3")
+        await storage.devices.set_tag("dev1", "floor", "3", datetime.now(UTC))
 
         result = await storage.devices.read("dev1")
         assert result.tags["floor"] == "3"
@@ -132,8 +133,8 @@ class TestTagMutations:
     @pytest.mark.asyncio
     async def test_delete_tag(self, storage: CoreFileStorage):
         await storage.devices.write("dev1", _make_device())
-        await storage.devices.set_tag("dev1", "floor", "3")
-        await storage.devices.delete_tag("dev1", "floor")
+        await storage.devices.set_tag("dev1", "floor", "3", datetime.now(UTC))
+        await storage.devices.delete_tag("dev1", "floor", datetime.now(UTC))
 
         result = await storage.devices.read("dev1")
         assert "floor" not in result.tags

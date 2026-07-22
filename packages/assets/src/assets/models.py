@@ -2,6 +2,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from models.metadata import ResourceMetadata
+
 ASSET_NAME_MIN_LENGTH = 1
 ASSET_NAME_MAX_LENGTH = 128
 
@@ -16,7 +18,7 @@ class AssetType(StrEnum):
     ZONE = "zone"
 
 
-class Asset(BaseModel):
+class Asset(ResourceMetadata):
     """Public asset model (API response)."""
 
     id: str

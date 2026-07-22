@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from devices_manager.dto import (
@@ -11,6 +12,7 @@ from devices_manager.dto import (
 from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
 from models.ids import gen_id
+from models.metadata import timestamp_kwargs
 
 from .transports import (
     TransportClient,
@@ -24,10 +26,18 @@ if TYPE_CHECKING:
 
 
 def build_transport_client(transport: TransportCreate | Transport) -> TransportClient:
-    """Build a transport client from a create payload or a stored DTO."""
+    """Build a transport client from a create payload or a stored DTO.
+
+    ``TransportCreate`` carries no timestamps (fresh transport), so
+    ``TransportMetadata`` falls back to its own defaults in that case; a
+    stored ``Transport`` always carries them through unchanged.
+    """
     config = make_transport_config(transport.protocol, transport.config.model_dump())
     transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
-    metadata = TransportMetadata(id=transport_id, name=transport.name)
+    timestamps = timestamp_kwargs(
+        getattr(transport, "created_at", None), getattr(transport, "updated_at", None)
+    )
+    metadata = TransportMetadata(id=transport_id, name=transport.name, **timestamps)
     return make_transport_client(transport.protocol, config, metadata)
 
 
@@ -73,6 +83,15 @@ class TransportRegistry:
         client = self._get_or_raise(transport_id)
         return transport_to_public(client)
 
+    async def _persist(self, transport: TransportClient) -> Transport:
+        """Bump updated_at and write back. The single chokepoint every
+        mutating method funnels through, so a new one can't forget to
+        bump the timestamp."""
+        transport.metadata.updated_at = datetime.now(UTC)
+        dto = transport_to_public(transport)
+        await self._storage.write(transport.id, dto)
+        return dto
+
     async def add(self, transport: TransportCreate | Transport) -> Transport:
         client = build_transport_client(transport)
         self._transports[client.id] = client
@@ -96,6 +115,5 @@ class TransportRegistry:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
-        dto = transport_to_public(transport)
-        await self._storage.write(transport_id, dto)
+        await self._persist(transport)
         return transport

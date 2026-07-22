@@ -9,6 +9,8 @@ from devices_manager.storage.storage_backend import StorageBackend
 from devices_manager.types import AttributeValueType, DataType
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import asyncpg
 
 
@@ -53,11 +55,14 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             transport_id=row["transport_id"],
             attributes=attributes,
             is_faulty=False,
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     async def read(self, item_id: str) -> Device:
         row = await self._pool.fetchrow(
-            "SELECT id, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id, "
+            "created_at, updated_at "
             "FROM dm_devices WHERE id = $1",
             item_id,
         )
@@ -74,19 +79,23 @@ class PostgresDeviceStorage(StorageBackend[Device]):
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "INSERT INTO dm_devices"
-                " (id, name, type, config, driver_id, transport_id)"
-                " VALUES ($1, $2, $3, $4, $5, $6)"
+                " (id, name, type, config, driver_id, transport_id,"
+                " created_at, updated_at)"
+                " VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " name = EXCLUDED.name,"
                 " type = EXCLUDED.type, config = EXCLUDED.config,"
                 " driver_id = EXCLUDED.driver_id,"
-                " transport_id = EXCLUDED.transport_id",
+                " transport_id = EXCLUDED.transport_id,"
+                " updated_at = EXCLUDED.updated_at",
                 item_id,
                 dumped["name"],
                 dumped.get("type"),
                 dumped["config"],
                 dumped["driver_id"],
                 dumped["transport_id"],
+                data.created_at,
+                data.updated_at,
             )
 
             await _write_tags(conn, item_id, data.tags)
@@ -161,7 +170,8 @@ class PostgresDeviceStorage(StorageBackend[Device]):
 
     async def read_all(self) -> list[Device]:
         device_rows = await self._pool.fetch(
-            "SELECT id, name, type, config, driver_id, transport_id "
+            "SELECT id, name, type, config, driver_id, transport_id, "
+            "created_at, updated_at "
             "FROM dm_devices ORDER BY id",
         )
         if not device_rows:
@@ -200,21 +210,35 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             msg = f"dm_devices entry '{item_id}' not found"
             raise FileNotFoundError(msg)
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> None:
-        await self._pool.execute(
-            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
-            " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
-            device_id,
-            key,
-            value,
-        )
+    async def set_tag(
+        self, device_id: str, key: str, value: str, updated_at: datetime
+    ) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
+                " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
+                device_id,
+                key,
+                value,
+            )
+            await conn.execute(
+                "UPDATE dm_devices SET updated_at = $2 WHERE id = $1",
+                device_id,
+                updated_at,
+            )
 
-    async def delete_tag(self, device_id: str, key: str) -> None:
-        await self._pool.execute(
-            "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
-            device_id,
-            key,
-        )
+    async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
+                device_id,
+                key,
+            )
+            await conn.execute(
+                "UPDATE dm_devices SET updated_at = $2 WHERE id = $1",
+                device_id,
+                updated_at,
+            )
 
 
 async def _fetch_attrs_and_tags(

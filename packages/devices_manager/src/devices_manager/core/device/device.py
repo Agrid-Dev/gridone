@@ -127,6 +127,8 @@ class CoreDevice:
     config: DeviceConfig
     type: str | None = field(init=False, default=None)
     tags: dict[str, str] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     on_update: AttributeListener | None = field(default=None, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
@@ -218,6 +220,8 @@ class CoreDevice:
             id=base.id,
             name=base.name,
             config=base.config,
+            created_at=base.created_at,
+            updated_at=base.updated_at,
             driver=driver,
             transport=transport,
             on_update=on_update,

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from assets.models import (
     Asset,
     AssetCreate,
@@ -172,6 +174,8 @@ class AssetsService(Service):
             type=new_type,
             name=new_name,
             position=existing.position,
+            created_at=existing.created_at,
+            updated_at=datetime.now(UTC),
         )
         await self._backend.save(updated)
 
@@ -200,7 +204,7 @@ class AssetsService(Service):
 
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
-        await self._backend.reorder_siblings(parent_id, ordered_ids)
+        await self._backend.reorder_siblings(parent_id, ordered_ids, datetime.now(UTC))
 
 
 __all__ = ["AssetsService"]

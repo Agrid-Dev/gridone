@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import asyncpg
 
 from assets.models import BuildingProfile
@@ -38,6 +40,8 @@ class PostgresAssetsStorage:
             name=row["name"],
             path=str(row["path"]).split(".") if row["path"] else [],
             position=row["position"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
         )
 
     async def get_by_id(self, asset_id: str) -> AssetInDB | None:
@@ -63,19 +67,23 @@ class PostgresAssetsStorage:
     async def save(self, asset: AssetInDB) -> None:
         await self._pool.execute(
             """
-            INSERT INTO assets (id, parent_id, type, name, position)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO assets
+                (id, parent_id, type, name, position, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (id) DO UPDATE SET
                 parent_id = EXCLUDED.parent_id,
                 type = EXCLUDED.type,
                 name = EXCLUDED.name,
-                position = EXCLUDED.position
+                position = EXCLUDED.position,
+                updated_at = EXCLUDED.updated_at
             """,
             asset.id,
             asset.parent_id,
             asset.type,
             asset.name,
             asset.position,
+            asset.created_at,
+            asset.updated_at,
         )
 
     async def delete(self, asset_id: str) -> None:
@@ -111,16 +119,20 @@ class PostgresAssetsStorage:
         )
         return row["next_pos"]
 
-    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
+    async def reorder_siblings(
+        self, parent_id: str, ordered_ids: list[str], updated_at: datetime
+    ) -> None:
         if not ordered_ids:
             return
         async with self._pool.acquire() as conn, conn.transaction():
             for pos, asset_id in enumerate(ordered_ids):
                 await conn.execute(
-                    "UPDATE assets SET position = $1 WHERE id = $2 AND parent_id = $3",
+                    "UPDATE assets SET position = $1, updated_at = $4 "
+                    "WHERE id = $2 AND parent_id = $3",
                     pos,
                     asset_id,
                     parent_id,
+                    updated_at,
                 )
 
     async def close(self) -> None:

@@ -149,6 +149,48 @@ class TestMemoryTreeOperations:
         siblings = await service.list_all(parent_id=root.id)
         assert [asset.id for asset in siblings] == [second.id, first.id]
 
+    async def test_reorder_siblings_bumps_updated_at(
+        self, service: AssetsService
+    ) -> None:
+        root = (await service.list_all())[0]
+        first = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 1")
+        )
+        second = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 2")
+        )
+
+        await service.reorder_siblings(root.id, [second.id, first.id])
+
+        siblings = {a.id: a for a in await service.list_all(parent_id=root.id)}
+        assert siblings[first.id].updated_at > first.updated_at
+        assert siblings[second.id].updated_at > second.updated_at
+
+
+class TestResourceMetadata:
+    async def test_create_asset_sets_both_timestamps(
+        self, service: AssetsService
+    ) -> None:
+        root = (await service.list_all())[0]
+        building = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 1")
+        )
+        assert building.created_at is not None
+        assert building.updated_at is not None
+
+    async def test_update_asset_keeps_created_at_bumps_updated_at(
+        self, service: AssetsService
+    ) -> None:
+        root = (await service.list_all())[0]
+        building = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 1")
+        )
+        updated = await service.update_asset(
+            building.id, AssetUpdate(name="Renamed Building")
+        )
+        assert updated.created_at == building.created_at
+        assert updated.updated_at > building.updated_at
+
 
 class TestBuildingProfile:
     async def test_get_returns_empty_default_when_unset(self, service: AssetsService):
