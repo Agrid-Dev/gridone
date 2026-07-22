@@ -103,6 +103,7 @@ def build_dto(  # noqa: PLR0913
     protocol: TransportProtocols,
     config: BaseTransportConfig | dict,
     connection_state: TransportConnectionState = DEFAULT_CONNECTION_STATE,
+    *,
     created_at: datetime | None = None,
     updated_at: datetime | None = None,
 ) -> Transport:
@@ -136,8 +137,8 @@ def core_to_dto(client: TransportClient) -> Transport:
         client.protocol,
         client.config,
         client.connection_state,
-        client.metadata.created_at,
-        client.metadata.updated_at,
+        created_at=client.metadata.created_at,
+        updated_at=client.metadata.updated_at,
     )
 
 
