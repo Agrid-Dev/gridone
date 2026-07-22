@@ -92,10 +92,10 @@ class _StrSubclass(str):
     __slots__ = ()
 
 
-def _client() -> BacnetTransportClient:
+def _client(*, rpm_enabled: bool = True) -> BacnetTransportClient:
     return BacnetTransportClient(
         TransportMetadata(id="t", name="t"),
-        BacnetTransportConfig(ip_with_mask="10.0.0.1/24"),
+        BacnetTransportConfig(ip_with_mask="10.0.0.1/24", rpm_enabled=rpm_enabled),
     )
 
 
@@ -227,11 +227,14 @@ def _value(result: ReadOk | ReadError) -> AttributeValueType:
 
 
 def _connected_client(
-    app: _FakeRequestApp, *, device_instances: dict[int, int] | None = None
+    app: _FakeRequestApp,
+    *,
+    device_instances: dict[int, int] | None = None,
+    rpm_enabled: bool = True,
 ) -> BacnetTransportClient:
     """A client bypassing connect()/discovery, wired to ``app`` and aware of
     the given ``{device_instance: max_apdu}`` devices."""
-    client = _client()
+    client = _client(rpm_enabled=rpm_enabled)
     client._application = app  # noqa: SLF001  # ty: ignore[invalid-assignment]
     client.connection_state = TransportConnectionState.connected()
     client._connection_lock = asyncio.Lock()  # noqa: SLF001
@@ -308,6 +311,40 @@ class TestRaiseForResponse:
     def test_unexpected_response_raises_type_error(self) -> None:
         with pytest.raises(TypeError):
             _raise_for_response(SimpleAckPDU(), target="t", action="a")
+
+
+class TestRpmEnabledConfig:
+    @pytest.mark.asyncio
+    async def test_rpm_disabled_forces_per_property_reads(self) -> None:
+        app = _FakeRequestApp()
+        addresses = [_addr(1, 0), _addr(1, 1)]
+        app.responses = [_read_property_ack(21.5), _read_property_ack(22.0)]
+        client = _connected_client(app, rpm_enabled=False)
+
+        results = {r.address_id: r async for r in client.read_many(addresses)}
+
+        assert len(app.requests) == 2
+        assert _value(results[addresses[0].id]) == 21.5
+        assert _value(results[addresses[1].id]) == 22.0
+
+    @pytest.mark.asyncio
+    async def test_rpm_disabled_overrides_rpm_support_cache(self) -> None:
+        """Even a device that previously succeeded with RPM must fall back
+        once rpm_enabled=False, not just a device already known-unsupported."""
+        app = _FakeRequestApp()
+        address = _addr(1, 0)
+        app.responses = [_rpm_ack([(address, 21.5)])]
+        client = _connected_client(app, rpm_enabled=True)
+        _ = [r async for r in client.read_many([address])]
+        assert len(app.requests) == 1
+
+        client.config.rpm_enabled = False
+        app.responses = [_read_property_ack(22.0)]
+
+        results = [r async for r in client.read_many([address], "sweep-2")]
+
+        assert len(app.requests) == 2
+        assert _value(results[0]) == 22.0
 
 
 class TestReadManyRpm:

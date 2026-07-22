@@ -24,6 +24,7 @@ DEFAULT_WRITE_PRIORITY = 8
 # so a request is budgeted to this fraction of a device's Max-APDU, leaving
 # headroom for the response.
 DEFAULT_RPM_REQUEST_APDU_FRACTION = 0.5
+DEFAULT_RPM_ENABLED = True
 
 DEFAULT_MASK = "/24"
 
@@ -81,3 +82,14 @@ class BacnetTransportConfig(BaseTransportConfig):
             ),
         ),
     ] = DEFAULT_RPM_REQUEST_APDU_FRACTION
+    rpm_enabled: Annotated[
+        bool,
+        Field(
+            description=(
+                "Whether to batch reads via ReadPropertyMultiple. False "
+                "forces the per-property ReadProperty fallback for every "
+                "device on this transport, regardless of RPM support — "
+                "for comparing before/after batching performance."
+            ),
+        ),
+    ] = DEFAULT_RPM_ENABLED

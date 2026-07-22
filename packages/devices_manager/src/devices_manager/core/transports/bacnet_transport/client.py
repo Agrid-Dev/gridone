@@ -468,7 +468,18 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         The RPM path bypasses the base :meth:`read`, so it consults and
         populates ``self._sweep_memo`` directly (same store `memoize_sweep`
         uses) to stay coalesced with any on-demand reads sharing this sweep.
+
+        ``config.rpm_enabled=False`` forces every device on this transport
+        onto the per-property fallback regardless of RPM support, for
+        comparing before/after batching performance.
         """
+        if not self.config.rpm_enabled:
+            logger.debug(
+                "[Transport %s] rpm_enabled=False — forcing per-property "
+                "ReadProperty for %d address(es)",
+                self.id,
+                len(addresses),
+            )
         pending: list[BacnetAddress] = []
         for address in dedupe_addresses(addresses).values():
             cached = (
@@ -486,7 +497,9 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             by_device.setdefault(address.device_instance, []).append(address)
 
         for device_instance, device_addresses in by_device.items():
-            if self._rpm_supported.get(device_instance, True):
+            if self.config.rpm_enabled and self._rpm_supported.get(
+                device_instance, True
+            ):
                 async for result in self._read_device_rpm(
                     device_instance, device_addresses, sweep_id
                 ):
