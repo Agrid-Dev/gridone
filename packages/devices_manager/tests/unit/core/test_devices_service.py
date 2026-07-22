@@ -941,6 +941,25 @@ class TestDevicesServiceDeviceDelegation:
         assert isinstance(result, Device)
 
     @pytest.mark.asyncio
+    async def test_update_device_restarts_sync_when_registry_rejects_update(
+        self, driver, mock_transport_client
+    ):
+        device = _make_physical_device("d1", driver, mock_transport_client)
+        mock_reg = _mock_device_registry({"d1": device})
+        mock_reg.update.side_effect = ConflictError("duplicate config")
+
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+        await device.start_sync()
+
+        with pytest.raises(ConflictError):
+            await dm.update_device("d1", DeviceUpdate(name="New Name"))
+
+        assert device.syncing is True
+        await device.stop_sync()
+        dm._running = False  # noqa: SLF001
+
+    @pytest.mark.asyncio
     async def test_update_device_inits_listeners_on_rebuild(
         self, driver, mock_transport_client, other_http_driver
     ):

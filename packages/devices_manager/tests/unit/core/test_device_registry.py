@@ -363,6 +363,64 @@ class TestDeviceRegistryUpdate:
             await device_registry.update(other.id, DeviceUpdate(config=device.config))
 
     @pytest.mark.asyncio
+    async def test_update_rejects_config_leaves_device_unmutated(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        other = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Other", config={"some_id": "other"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        await device_registry.register(other)
+        original_name = other.name
+        original_config = dict(other.config)
+        original_updated_at = other.updated_at
+
+        with pytest.raises(ConflictError):
+            await device_registry.update(
+                other.id, DeviceUpdate(name="Renamed", config=device.config)
+            )
+
+        stored = device_registry.get(other.id)
+        assert stored.name == original_name
+        assert stored.config == original_config
+        assert stored.updated_at == original_updated_at
+
+    @pytest.mark.asyncio
+    async def test_update_name_only_ignores_preexisting_duplicate_config(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        """A name-only edit must not be blocked by an already-existing config
+
+        collision between other devices (e.g. imported before this check
+        existed) since it doesn't touch config/driver/transport.
+        """
+        duplicate = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Duplicate", config=dict(device.config)),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        # Bypass add()'s uniqueness check to simulate a pre-existing duplicate.
+        await device_registry.register(duplicate)
+
+        result = await device_registry.update(
+            duplicate.id, DeviceUpdate(name="Renamed")
+        )
+        assert result.name == "Renamed"
+
+    @pytest.mark.asyncio
     async def test_update_bumps_updated_at_keeps_created_at(
         self, device_registry, device
     ):
