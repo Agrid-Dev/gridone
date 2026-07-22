@@ -19,7 +19,7 @@ from devices_manager.dto import (
     DeviceUpdate,
 )
 from devices_manager.storage import DeviceStorageBackend
-from models.errors import InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -297,6 +297,32 @@ class TestDeviceRegistryAddPhysical:
         device = await empty_registry.add(create)
         assert device.on_update is on_attribute_update
 
+    @pytest.mark.asyncio
+    async def test_add_physical_device_rejects_duplicate_config(
+        self, device_registry, driver, mock_transport_client
+    ):
+        create = DeviceCreate(
+            name="Duplicate",
+            config={"some_id": "abc"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        with pytest.raises(ConflictError):
+            await device_registry.add(create)
+
+    @pytest.mark.asyncio
+    async def test_add_physical_device_allows_different_config(
+        self, device_registry, driver, mock_transport_client
+    ):
+        create = DeviceCreate(
+            name="Not a duplicate",
+            config={"some_id": "xyz"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        device = await device_registry.add(create)
+        assert device.config == {"some_id": "xyz"}
+
 
 class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
@@ -309,6 +335,32 @@ class TestDeviceRegistryUpdate:
         original_name = device.name
         result = await device_registry.update(device.id, DeviceUpdate())
         assert result.name == original_name
+
+    @pytest.mark.asyncio
+    async def test_update_allows_keeping_own_config(self, device_registry, device):
+        result = await device_registry.update(
+            device.id, DeviceUpdate(config=device.config)
+        )
+        assert result.config == device.config
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_config_matching_another_device(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        other = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Other", config={"some_id": "other"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        await device_registry.register(other)
+        with pytest.raises(ConflictError):
+            await device_registry.update(other.id, DeviceUpdate(config=device.config))
 
     @pytest.mark.asyncio
     async def test_update_bumps_updated_at_keeps_created_at(

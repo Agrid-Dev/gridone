@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from devices_manager.dto import device_to_public
 from devices_manager.storage.memory import MemoryDeviceStorage
-from models.errors import InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 from models.ids import gen_id
 
 from .device import (
@@ -142,6 +142,21 @@ class DeviceRegistry:
             msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
             raise ValueError(msg)
 
+    def _check_config_uniqueness(
+        self, device: CoreDevice, *, exclude_id: str | None = None
+    ) -> None:
+        """Reject a device whose driver+transport+config exactly matches another's."""
+        for existing in self._devices.values():
+            if existing.id == exclude_id:
+                continue
+            if device == existing:
+                msg = (
+                    f"Device config is identical to existing device '{existing.id}' "
+                    f"for driver '{device.driver_id}' "
+                    f"and transport '{device.transport_id}'"
+                )
+                raise ConflictError(msg)
+
     def _create_device(self, device_create: DeviceCreate) -> CoreDevice:
         driver = self._resolve_driver(device_create.driver_id)
         self._validate_device_config(device_create.config, driver)
@@ -163,6 +178,7 @@ class DeviceRegistry:
         Returns the CoreDevice so the caller can handle lifecycle.
         """
         device = self._create_device(device_create)
+        self._check_config_uniqueness(device)
         await self.register(device)
         logger.info(
             "Successfully created device '%s' (id: %s)",
@@ -235,10 +251,12 @@ class DeviceRegistry:
 
         if new_driver is not None or new_transport is not None:
             device = self.rebuild_device(device, effective_driver, effective_transport)
-            self._devices[device_id] = device
         else:
             self._touch(device)
 
+        self._check_config_uniqueness(device, exclude_id=device_id)
+
+        self._devices[device_id] = device
         result = self._devices[device_id]
         await self._persist(result)
         return result
