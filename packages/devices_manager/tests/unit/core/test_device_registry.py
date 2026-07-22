@@ -323,6 +323,34 @@ class TestDeviceRegistryAddPhysical:
         device = await device_registry.add(create)
         assert device.config == {"some_id": "xyz"}
 
+    @pytest.mark.asyncio
+    async def test_add_physical_device_allows_same_config_on_different_transport(
+        self,
+        device,
+        driver,
+        mock_transport_client,
+        second_mock_transport_client,
+        on_attribute_update,
+    ):
+        """Uniqueness is scoped per driver+transport, not by config alone."""
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(
+                mock_transport_client, second_mock_transport_client
+            ),
+            on_attribute_update=on_attribute_update,
+        )
+        create = DeviceCreate(
+            name="Same config, different transport",
+            config=device.config,
+            driver_id=driver.id,
+            transport_id=second_mock_transport_client.id,
+        )
+        new_device = await registry.add(create)
+        assert new_device.config == device.config
+        assert new_device.transport_id == second_mock_transport_client.id
+
 
 class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
@@ -419,6 +447,46 @@ class TestDeviceRegistryUpdate:
             duplicate.id, DeviceUpdate(name="Renamed")
         )
         assert result.name == "Renamed"
+
+    @pytest.mark.asyncio
+    async def test_update_transport_change_rejects_config_colliding_on_new_transport(
+        self,
+        driver,
+        mock_transport_client,
+        second_mock_transport_client,
+        on_attribute_update,
+    ):
+        """A transport-only change (no config edit) must still be checked.
+
+        Two devices may legitimately share a config as long as they sit on
+        different transports; moving one onto the other's transport makes
+        them collide even though the config itself never changed.
+        """
+        device_a = CoreDevice.from_base(
+            DeviceBase(id="a", name="A", config={"some_id": "shared"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        device_b = CoreDevice.from_base(
+            DeviceBase(id="b", name="B", config={"some_id": "shared"}),
+            driver=driver,
+            transport=second_mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        registry = DeviceRegistry(
+            {device_a.id: device_a, device_b.id: device_b},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(
+                mock_transport_client, second_mock_transport_client
+            ),
+            on_attribute_update=on_attribute_update,
+        )
+
+        with pytest.raises(ConflictError):
+            await registry.update(
+                device_b.id, DeviceUpdate(transport_id=mock_transport_client.id)
+            )
 
     @pytest.mark.asyncio
     async def test_update_bumps_updated_at_keeps_created_at(
