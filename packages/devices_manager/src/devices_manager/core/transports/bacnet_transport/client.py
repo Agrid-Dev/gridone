@@ -1,7 +1,7 @@
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Iterable
 from typing import NoReturn
 
 from bacpypes3.apdu import (
@@ -359,14 +359,15 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> list[ReadResult] | None:
         """Issue one RPM request and split its ACK into a result per address.
 
-        Returns ``None`` when the device doesn't support the service —
-        either it rejected it outright (``BacnetServiceRejectedError``) or
-        it never responded at all (``TimeoutError``: some devices signal an
-        unsupported service by silently dropping the request rather than
-        sending a proper Reject/Abort) — the caller falls back to
-        per-property reads for this request's addresses. Any other failure
-        marks every member address failed, mirroring Modbus's per-block
-        isolation.
+        Returns ``None`` on ANY failure — an explicit rejection
+        (``BacnetServiceRejectedError``), a silent timeout (some devices
+        signal an unsupported service by dropping the request rather than
+        sending a proper Reject/Abort), a decode error, or anything else —
+        and marks the device unsupported so it isn't re-attempted every
+        sweep. One strike: a device that fails RPM for any reason, including
+        a single transient timeout, falls back to per-property reads for the
+        rest of the session (reset on reconnect). The caller falls back to
+        per-property reads for this request's addresses too.
 
         The lock is held for the transaction only, then released before
         results are handed on, so one long RPM sweep cannot starve another
@@ -376,8 +377,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             try:
                 async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
                     ack = await self._read_rpm(rpm_request)
-                values = _decode_rpm(rpm_request, ack)
-            except (BacnetServiceRejectedError, TimeoutError) as e:
+                    values = _decode_rpm(rpm_request, ack)
+            except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "[Transport %s] device %d does not support "
                     "ReadPropertyMultiple — falling back to per-property "
@@ -389,25 +390,32 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                 )
                 self._rpm_supported[rpm_request.device_instance] = False
                 return None
-            except Exception as e:  # noqa: BLE001
-                logger.warning(
-                    "[Transport %s] RPM request for device %d failed — %s: %s",
-                    self.id,
-                    rpm_request.device_instance,
-                    type(e).__name__,
-                    e,
-                )
-                return [ReadError(address.id, e) for address in rpm_request.addresses]
             if sweep_id is not None:
                 for address, value in values:
                     if not isinstance(value, Exception):
                         self._sweep_memo.remember(address.id, sweep_id, value)
+                        self._sweep_memo.record(hit=False)
         return [
             ReadError(address.id, value)
             if isinstance(value, Exception)
             else ReadOk(address.id, value)
             for address, value in values
         ]
+
+    def _fallback_read(
+        self, addresses: Iterable[BacnetAddress], sweep_id: str | None
+    ) -> AsyncGenerator[ReadResult]:
+        """Per-property ReadProperty for addresses that aren't using RPM —
+        because the device is already known unsupported, an RPM request just
+        failed, or ``rpm_enabled`` is off. Goes through the base :meth:`read`,
+        so it's isolated per address (``read_results``), memoized, and timed
+        the same as any other single read.
+        """
+        return read_results(
+            addresses,
+            lambda a: self.read(a, sweep_id),
+            concurrent=not self._serialize_reads,
+        )
 
     async def _read_device_rpm(
         self,
@@ -435,19 +443,15 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             # the fallback instead of re-attempting a service just proven
             # unsupported.
             if not self._rpm_supported.get(device_instance, True):
-                async for result in read_results(
-                    rpm_request.addresses,
-                    lambda a: self.read(a, sweep_id),
-                    concurrent=not self._serialize_reads,
+                async for result in self._fallback_read(
+                    rpm_request.addresses, sweep_id
                 ):
                     yield result
                 continue
             results = await self._read_rpm_request(rpm_request, sweep_id)
             if results is None:
-                async for result in read_results(
-                    rpm_request.addresses,
-                    lambda a: self.read(a, sweep_id),
-                    concurrent=not self._serialize_reads,
+                async for result in self._fallback_read(
+                    rpm_request.addresses, sweep_id
                 ):
                     yield result
                 continue
@@ -469,11 +473,14 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         populates ``self._sweep_memo`` directly (same store `memoize_sweep`
         uses) to stay coalesced with any on-demand reads sharing this sweep.
 
-        ``config.rpm_enabled=False`` forces every device on this transport
-        onto the per-property fallback regardless of RPM support, for
-        comparing before/after batching performance.
+        ``config.rpm_enabled`` is snapshotted once at the top of the sweep,
+        so a config patch landing mid-sweep can't split one sweep between
+        RPM and forced-fallback devices. ``False`` forces every device on
+        this transport onto the per-property fallback regardless of RPM
+        support, for comparing before/after batching performance.
         """
-        if not self.config.rpm_enabled:
+        rpm_enabled = self.config.rpm_enabled
+        if not rpm_enabled:
             logger.debug(
                 "[Transport %s] rpm_enabled=False — forcing per-property "
                 "ReadProperty for %d address(es)",
@@ -490,6 +497,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             if cached is None:
                 pending.append(address)
             else:
+                self._sweep_memo.record(hit=True)
                 yield ReadOk(address.id, cached)
 
         by_device: dict[int, list[BacnetAddress]] = {}
@@ -497,19 +505,13 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             by_device.setdefault(address.device_instance, []).append(address)
 
         for device_instance, device_addresses in by_device.items():
-            if self.config.rpm_enabled and self._rpm_supported.get(
-                device_instance, True
-            ):
+            if rpm_enabled and self._rpm_supported.get(device_instance, True):
                 async for result in self._read_device_rpm(
                     device_instance, device_addresses, sweep_id
                 ):
                     yield result
             else:
-                async for result in read_results(
-                    device_addresses,
-                    lambda a: self.read(a, sweep_id),
-                    concurrent=not self._serialize_reads,
-                ):
+                async for result in self._fallback_read(device_addresses, sweep_id):
                     yield result
 
     @connected

@@ -567,6 +567,86 @@ class TestReadManyRpm:
         assert all(isinstance(r, ReadError) for r in results.values())
 
     @pytest.mark.asyncio
+    async def test_decode_failure_disables_rpm_and_falls_back_same_cycle(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A decode failure isn't just isolated to ReadErrors (the test
+        above) — it must be treated as an RPM failure like any other: the
+        device is marked unsupported, and this same read cycle recovers via
+        per-property fallback rather than surfacing errors it could have
+        avoided."""
+        import devices_manager.core.transports.bacnet_transport.client as client_module
+
+        call_count = 0
+        real_decode_rpm = client_module._decode_rpm  # noqa: SLF001
+
+        def _boom_once(*args: object, **kwargs: object) -> object:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                msg = "malformed property value"
+                raise ValueError(msg)
+            return real_decode_rpm(*args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+        monkeypatch.setattr(client_module, "_decode_rpm", _boom_once)
+        app = _FakeRequestApp()
+        address = _addr(1, 0)
+        app.responses = [
+            _rpm_ack([(address, 21.5)]),  # RPM attempt, decode fails
+            _read_property_ack(21.5),  # same-cycle fallback for address
+        ]
+        client = _connected_client(app)
+
+        results = {r.address_id: r async for r in client.read_many([address])}
+
+        assert _value(results[address.id]) == 21.5
+        assert client._rpm_supported[1] is False  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_rpm_enabled_is_snapshotted_once_per_sweep(self) -> None:
+        """Flipping config.rpm_enabled mid-sweep (e.g. a concurrent config
+        patch landing between two devices' reads) must not split one sweep
+        between RPM and forced-fallback devices — the whole sweep honors
+        whatever rpm_enabled was at the start."""
+        app = _FakeRequestApp()
+        dev1_addr, dev2_addr = _addr(1, 0), _addr(2, 0)
+        app.responses = [
+            _rpm_ack([(dev1_addr, 1.0)]),
+            _rpm_ack([(dev2_addr, 2.0)]),
+        ]
+        client = _connected_client(app, device_instances={1: 1024, 2: 1024})
+
+        gen = client.read_many([dev1_addr, dev2_addr])
+        first = await anext(gen)
+        # Flip rpm_enabled after the first device's read has already landed,
+        # simulating a config patch arriving mid-sweep.
+        client.config.rpm_enabled = False
+        remaining = [r async for r in gen]
+
+        assert _value(first) == 1.0
+        assert _value(remaining[0]) == 2.0
+        request_types = [type(r).__name__ for r in app.requests]
+        assert request_types.count("ReadPropertyMultipleRequest") == 2
+
+    @pytest.mark.asyncio
+    async def test_sweep_memo_stats_recorded_for_rpm_hits_and_misses(self) -> None:
+        """The RPM path populates/reads self._sweep_memo directly (bypassing
+        memoize_sweep), so it must call record() itself — otherwise the
+        sweep-memo effectiveness log never fires for this transport."""
+        app = _FakeRequestApp()
+        address = _addr(1, 0)
+        app.responses = [_rpm_ack([(address, 21.5)])]
+        client = _connected_client(app)
+
+        _ = [r async for r in client.read_many([address], "sweep-1")]
+        assert client._sweep_memo._reads == 1  # noqa: SLF001
+        assert client._sweep_memo._network == 1  # noqa: SLF001
+
+        _ = [r async for r in client.read_many([address], "sweep-1")]
+        assert client._sweep_memo._reads == 2  # noqa: SLF001
+        assert client._sweep_memo._network == 1  # noqa: SLF001  (second was a hit)
+
+    @pytest.mark.asyncio
     async def test_rejection_on_one_chunk_skips_rpm_for_later_chunks_same_sweep(
         self,
     ) -> None:
