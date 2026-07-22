@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from functools import lru_cache
 
 from bacpypes3.apdu import (
     PropertyReference,
@@ -26,6 +27,24 @@ def _object_identifier(address: BacnetAddress) -> ObjectIdentifier:
     return ObjectIdentifier(f"{address.object_type},{address.object_instance}")
 
 
+@lru_cache(maxsize=4096)
+def _spec_size_cached(obj_id: ObjectIdentifier, property_names: tuple[str, ...]) -> int:
+    """Cached body of :func:`_spec_size` — see its docstring. Keyed on the
+    object id and property set, the only inputs the encoded size depends on,
+    since a device's driver-defined objects/properties are static for the
+    life of the process: without this, every poll cycle re-encodes the exact
+    same spec via bacpypes3's ASN.1 encoder for every object on the device.
+    """
+    spec = ReadAccessSpecification(
+        objectIdentifier=obj_id,
+        listOfPropertyReferences=[
+            PropertyReference(propertyIdentifier=name) for name in property_names
+        ],
+    )
+    request = ReadPropertyMultipleRequest(listOfReadAccessSpecs=[spec])
+    return len(request.encode().pduData)
+
+
 def _spec_size(spec: ReadAccessSpecification) -> int:
     """Bytes ``spec`` alone adds to a ReadPropertyMultipleRequest's wire
     encoding, via bacpypes3's own encoder rather than a guessed byte-cost
@@ -35,10 +54,15 @@ def _spec_size(spec: ReadAccessSpecification) -> int:
     the ASN.1 128-byte length-prefix boundary), so this can be computed once
     per spec and summed by the caller instead of re-encoding the whole
     growing request on every append — the latter is O(n^2) in the number of
-    objects on a device.
+    objects on a device. Memoized in :func:`_spec_size_cached`, keyed on the
+    object id and property names, since the encoded size is a pure function
+    of those and doesn't change between poll cycles.
     """
-    request = ReadPropertyMultipleRequest(listOfReadAccessSpecs=[spec])
-    return len(request.encode().pduData)
+    property_names = tuple(
+        str(ref.propertyIdentifier)
+        for ref in spec.listOfPropertyReferences  # ty: ignore[not-iterable]
+    )
+    return _spec_size_cached(spec.objectIdentifier, property_names)
 
 
 def _group_by_object(
