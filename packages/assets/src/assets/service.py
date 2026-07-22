@@ -204,7 +204,7 @@ class AssetsService(Service):
 
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
-        await self._backend.reorder_siblings(parent_id, ordered_ids)
+        await self._backend.reorder_siblings(parent_id, ordered_ids, datetime.now(UTC))
 
 
 __all__ = ["AssetsService"]

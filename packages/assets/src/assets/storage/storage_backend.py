@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Protocol
 
 from assets.models import BuildingProfile
@@ -29,7 +30,9 @@ class AssetsStorageBackend(Protocol):
         """Return the next available position for a new child of *parent_id*."""
         ...
 
-    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
+    async def reorder_siblings(
+        self, parent_id: str, ordered_ids: list[str], updated_at: datetime
+    ) -> None:
         """Set position values for the given sibling IDs in order (0, 1, 2, ...)."""
         ...
 

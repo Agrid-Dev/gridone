@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import asyncpg
 
 from assets.models import BuildingProfile
@@ -117,17 +119,20 @@ class PostgresAssetsStorage:
         )
         return row["next_pos"]
 
-    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
+    async def reorder_siblings(
+        self, parent_id: str, ordered_ids: list[str], updated_at: datetime
+    ) -> None:
         if not ordered_ids:
             return
         async with self._pool.acquire() as conn, conn.transaction():
             for pos, asset_id in enumerate(ordered_ids):
                 await conn.execute(
-                    "UPDATE assets SET position = $1, updated_at = now() "
+                    "UPDATE assets SET position = $1, updated_at = $4 "
                     "WHERE id = $2 AND parent_id = $3",
                     pos,
                     asset_id,
                     parent_id,
+                    updated_at,
                 )
 
     async def close(self) -> None:

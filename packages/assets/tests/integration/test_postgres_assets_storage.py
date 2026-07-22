@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 
 import asyncpg
 import pytest
@@ -333,7 +334,7 @@ class TestPositionAndReorder:
         await storage.save(_make_asset("b3", parent_id=root.id, name="B3", position=2))
 
         # Reverse order
-        await storage.reorder_siblings(root.id, ["b3", "b2", "b1"])
+        await storage.reorder_siblings(root.id, ["b3", "b2", "b1"], datetime.now(UTC))
 
         children = await storage.get_children(root.id)
         assert [c.id for c in children] == ["b3", "b2", "b1"]
@@ -342,7 +343,7 @@ class TestPositionAndReorder:
         """reorder_siblings with an empty list should be a no-op."""
         root = _root()
         await storage.save(root)
-        await storage.reorder_siblings(root.id, [])
+        await storage.reorder_siblings(root.id, [], datetime.now(UTC))
 
 
 class TestBuildingProfile:

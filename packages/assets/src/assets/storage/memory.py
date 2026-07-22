@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 
 from assets.models import BuildingProfile
 from assets.storage.models import AssetInDB
@@ -79,12 +79,14 @@ class MemoryAssetsStorage:
             return 0
         return max(child.position for child in children) + 1
 
-    async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
+    async def reorder_siblings(
+        self, parent_id: str, ordered_ids: list[str], updated_at: datetime
+    ) -> None:
         for position, asset_id in enumerate(ordered_ids):
             asset = self._assets.get(asset_id)
             if asset is not None and asset.parent_id == parent_id:
                 self._assets[asset_id] = asset.model_copy(
-                    update={"position": position, "updated_at": datetime.now(UTC)}
+                    update={"position": position, "updated_at": updated_at}
                 )
 
     async def close(self) -> None:
