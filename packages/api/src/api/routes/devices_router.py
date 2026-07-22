@@ -16,6 +16,7 @@ from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
+    DeviceBatchItemResult,
     SingleAttrTimeseriesPushPoint,
     TagValueBody,
     TimeseriesBulkPushRequest,
@@ -28,10 +29,10 @@ from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
     DeviceBatchCreate,
-    DeviceBatchItemResult,
     DeviceCreate,
     DeviceUpdate,
 )
+from models.errors import ConflictError, InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
     SeriesKey,
@@ -163,10 +164,26 @@ async def create_devices_batch(
 ) -> list[DeviceBatchItemResult]:
     """Create every device in the batch independently (partial success).
 
-    The status code reflects the outcome: 201 when every entry succeeded,
-    422 when every entry failed, 207 for a mix of both.
+    A thin loop over `add_device`: each entry is attempted independently and
+    one entry's failure does not block the others. The status code reflects
+    the outcome: 201 when every entry succeeded, 422 when every entry failed,
+    207 for a mix of both.
     """
-    results = await dm.add_devices_batch(dto.driver_id, dto.transport_id, dto.devices)
+    results: list[DeviceBatchItemResult] = []
+    for item in dto.devices:
+        create = DeviceCreate(
+            name=item.name,
+            config=item.config,
+            driver_id=dto.driver_id,
+            transport_id=dto.transport_id,
+        )
+        try:
+            device = await dm.add_device(create)
+        except (InvalidError, NotFoundError, ConflictError) as e:
+            results.append(DeviceBatchItemResult(error=str(e)))
+        else:
+            results.append(DeviceBatchItemResult(device=device))
+
     if all(r.error is None for r in results):
         response.status_code = status.HTTP_201_CREATED
     elif all(r.device is None for r in results):

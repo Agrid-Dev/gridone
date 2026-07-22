@@ -21,8 +21,6 @@ if TYPE_CHECKING:
     from .dto import (
         AttributePatch,
         Device,
-        DeviceBatchItem,
-        DeviceBatchItemResult,
         DeviceCreate,
         DeviceUpdate,
         DriverPatch,
@@ -142,13 +140,6 @@ class DevicesServiceInterface(Protocol):
     def get_device(self, device_id: str) -> Device: ...
 
     async def add_device(self, device_create: DeviceCreate) -> Device: ...
-
-    async def add_devices_batch(
-        self,
-        driver_id: str,
-        transport_id: str,
-        items: list[DeviceBatchItem],
-    ) -> list[DeviceBatchItemResult]: ...
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdate

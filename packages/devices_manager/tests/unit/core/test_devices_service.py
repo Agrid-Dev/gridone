@@ -20,7 +20,6 @@ from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.dto import (
     AttributePatch,
     Device,
-    DeviceBatchItem,
     DeviceCreate,
     DeviceUpdate,
     DriverPatch,
@@ -42,7 +41,6 @@ from devices_manager.types import (
 from models.errors import (
     ConfirmationError,
     ConflictError,
-    InvalidError,
     NotFoundError,
 )
 from models.types import Severity
@@ -925,102 +923,6 @@ class TestDevicesServiceDeviceDelegation:
         assert device.syncing is True
         await device.stop_sync()
         dm._running = False  # noqa: SLF001
-
-    @pytest.mark.asyncio
-    async def test_add_devices_batch_delegates_per_item_to_registry_add(
-        self, driver, mock_transport_client
-    ):
-        device_a = _make_physical_device("a", driver, mock_transport_client)
-        device_b = _make_physical_device("b", driver, mock_transport_client)
-        mock_reg = _mock_device_registry()
-        mock_reg.add.side_effect = [device_a, device_b]
-
-        dm = await _dm_with_mock_registry(mock_reg)
-
-        items = [
-            DeviceBatchItem(name="A", config={"some_id": "a"}),
-            DeviceBatchItem(name="B", config={"some_id": "b"}),
-        ]
-        results = await dm.add_devices_batch(driver.id, mock_transport_client.id, items)
-
-        assert mock_reg.add.call_count == 2
-        assert [r.device.id for r in results if r.device is not None] == ["a", "b"]
-        assert all(r.error is None for r in results)
-
-    @pytest.mark.asyncio
-    async def test_add_devices_batch_partial_failure_continues(
-        self, driver, mock_transport_client
-    ):
-        device_a = _make_physical_device("a", driver, mock_transport_client)
-        device_c = _make_physical_device("c", driver, mock_transport_client)
-        mock_reg = _mock_device_registry()
-        mock_reg.add.side_effect = [
-            device_a,
-            ConflictError("duplicate config"),
-            device_c,
-        ]
-
-        dm = await _dm_with_mock_registry(mock_reg)
-
-        items = [
-            DeviceBatchItem(name="A", config={"some_id": "a"}),
-            DeviceBatchItem(name="B", config={"some_id": "a"}),
-            DeviceBatchItem(name="C", config={"some_id": "c"}),
-        ]
-        results = await dm.add_devices_batch(driver.id, mock_transport_client.id, items)
-
-        assert mock_reg.add.call_count == 3
-        assert results[0].device is not None
-        assert results[0].device.id == "a"
-        assert results[0].error is None
-        assert results[1].device is None
-        assert results[1].error == "duplicate config"
-        assert results[2].device is not None
-        assert results[2].device.id == "c"
-        assert results[2].error is None
-
-    @pytest.mark.asyncio
-    async def test_add_devices_batch_records_bare_value_error_per_item(
-        self, driver, mock_transport_client
-    ):
-        """A transport-compat mismatch raises a bare ValueError (not
-
-        InvalidError), which must still be recorded per-item rather than
-        aborting the rest of the batch.
-        """
-        device_b = _make_physical_device("b", driver, mock_transport_client)
-        mock_reg = _mock_device_registry()
-        mock_reg.add.side_effect = [
-            ValueError("Transport incompatible with driver"),
-            device_b,
-        ]
-
-        dm = await _dm_with_mock_registry(mock_reg)
-
-        items = [
-            DeviceBatchItem(name="A", config={"some_id": "a"}),
-            DeviceBatchItem(name="B", config={"some_id": "b"}),
-        ]
-        results = await dm.add_devices_batch(driver.id, mock_transport_client.id, items)
-
-        assert mock_reg.add.call_count == 2
-        assert results[0].device is None
-        assert results[0].error == "Transport incompatible with driver"
-        assert results[1].device is not None
-        assert results[1].device.id == "b"
-        assert results[1].error is None
-
-    @pytest.mark.asyncio
-    async def test_add_devices_batch_empty_list_raises_invalid_error(
-        self, driver, mock_transport_client
-    ):
-        mock_reg = _mock_device_registry()
-        dm = await _dm_with_mock_registry(mock_reg)
-
-        with pytest.raises(InvalidError):
-            await dm.add_devices_batch(driver.id, mock_transport_client.id, [])
-
-        mock_reg.add.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_update_device_delegates_to_registry(

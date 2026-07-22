@@ -22,11 +22,7 @@ from devices_manager.core.device import Attribute
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
-from devices_manager.dto.device_dto import (
-    Device,
-    DeviceBatchItem,
-    DeviceBatchItemResult,
-)
+from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
@@ -137,20 +133,6 @@ def _make_dm(
             transport_id="my-http",
             is_faulty=False,
         )
-    )
-    mock.add_devices_batch = AsyncMock(
-        return_value=[
-            DeviceBatchItemResult(
-                device=Device(
-                    id="new-id",
-                    name="new",
-                    config={},
-                    driver_id="test_driver",
-                    transport_id="my-http",
-                    is_faulty=False,
-                )
-            )
-        ]
     )
     mock.update_device = AsyncMock(return_value=_DEVICE)
     mock.delete_device = AsyncMock()
@@ -477,6 +459,26 @@ class TestCreateDevicesBatch:
     async def test_all_succeed_returns_201(
         self, async_client: AsyncClient, dm: MagicMock
     ):
+        dm.add_device = AsyncMock(
+            side_effect=[
+                Device(
+                    id="a",
+                    name="A",
+                    config={"some_id": "a"},
+                    driver_id="test_driver",
+                    transport_id="my-http",
+                    is_faulty=False,
+                ),
+                Device(
+                    id="b",
+                    name="B",
+                    config={"some_id": "b"},
+                    driver_id="test_driver",
+                    transport_id="my-http",
+                    is_faulty=False,
+                ),
+            ]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/batch",
@@ -490,34 +492,30 @@ class TestCreateDevicesBatch:
                 },
             )
         assert response.status_code == 201
-        dm.add_devices_batch.assert_called_once_with(
-            "test_driver",
-            "my-http",
-            [
-                DeviceBatchItem(name="A", config={"some_id": "a"}),
-                DeviceBatchItem(name="B", config={"some_id": "b"}),
-            ],
-        )
+        assert dm.add_device.call_count == 2
+        first_call_dto = dm.add_device.call_args_list[0].args[0]
+        assert first_call_dto.name == "A"
+        assert first_call_dto.config == {"some_id": "a"}
+        assert first_call_dto.driver_id == "test_driver"
+        assert first_call_dto.transport_id == "my-http"
 
     @pytest.mark.asyncio
     async def test_partial_failure_still_returns_207(
         self, async_client: AsyncClient, dm: MagicMock
     ):
-        dm.add_devices_batch.return_value = [
-            DeviceBatchItemResult(
-                device=Device(
+        dm.add_device = AsyncMock(
+            side_effect=[
+                Device(
                     id="new-id",
                     name="A",
                     config={"some_id": "a"},
                     driver_id="test_driver",
                     transport_id="my-http",
                     is_faulty=False,
-                )
-            ),
-            DeviceBatchItemResult(
-                error="Device config misses driver required field 'some_id'"
-            ),
-        ]
+                ),
+                InvalidError("Device config misses driver required field 'some_id'"),
+            ]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/batch",
@@ -539,12 +537,12 @@ class TestCreateDevicesBatch:
 
     @pytest.mark.asyncio
     async def test_all_fail_returns_422(self, async_client: AsyncClient, dm: MagicMock):
-        dm.add_devices_batch.return_value = [
-            DeviceBatchItemResult(
-                error="Device config misses driver required field 'x'"
-            ),
-            DeviceBatchItemResult(error="Transport not compatible with driver"),
-        ]
+        dm.add_device = AsyncMock(
+            side_effect=[
+                InvalidError("Device config misses driver required field 'x'"),
+                NotFoundError("Driver not found"),
+            ]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/batch",
@@ -565,9 +563,6 @@ class TestCreateDevicesBatch:
     async def test_empty_batch_returns_422(
         self, async_client: AsyncClient, dm: MagicMock
     ):
-        dm.add_devices_batch.side_effect = InvalidError(
-            "Batch device list must not be empty"
-        )
         async with async_client as ac:
             response = await ac.post(
                 "/batch",
@@ -578,6 +573,7 @@ class TestCreateDevicesBatch:
                 },
             )
         assert response.status_code == 422
+        dm.add_device.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
 
 from devices_manager.core.device import (
     Attribute,
@@ -41,7 +41,7 @@ class DeviceBatchCreate(BaseModel):
 
     driver_id: str
     transport_id: str
-    devices: list[DeviceBatchItem]
+    devices: list[DeviceBatchItem] = Field(min_length=1)
 
 
 def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
@@ -86,20 +86,6 @@ class DeviceUpdate(BaseModel):
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
-
-
-class DeviceBatchItemResult(BaseModel):
-    """Outcome of one entry in a batch create: either the created device or an error."""
-
-    device: Device | None = None
-    error: str | None = None
-
-    @model_validator(mode="after")
-    def _check_exactly_one_set(self) -> DeviceBatchItemResult:
-        if (self.device is None) == (self.error is None):
-            msg = "Exactly one of `device` or `error` must be set"
-            raise ValueError(msg)
-        return self
 
 
 def core_to_dto(device: CoreDevice) -> Device:
