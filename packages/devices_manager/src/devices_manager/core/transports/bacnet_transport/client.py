@@ -28,7 +28,9 @@ from bacpypes3.primitivedata import (
 )
 
 from devices_manager.core.transports.base import PullTransportClient, dedupe_addresses
+from devices_manager.core.transports.batch_read import read_results
 from devices_manager.core.transports.connected import connected
+from devices_manager.core.transports.io_timing import timed_io
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols
@@ -353,7 +355,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         _raise_for_response(response, target=target, action="read-property-multiple")
 
     async def _read_rpm_request(
-        self, rpm_request: RpmRequest, correlation_id: str | None
+        self, rpm_request: RpmRequest, sweep_id: str | None
     ) -> list[ReadResult] | None:
         """Issue one RPM request and split its ACK into a result per address.
 
@@ -371,9 +373,9 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         read.
         """
         async with self._read_lock:
-            epoch = self._cache_epoch
             try:
-                ack = await self._read_rpm(rpm_request)
+                async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
+                    ack = await self._read_rpm(rpm_request)
                 values = _decode_rpm(rpm_request, ack)
             except (BacnetServiceRejectedError, TimeoutError) as e:
                 logger.warning(
@@ -396,9 +398,10 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                     e,
                 )
                 return [ReadError(address.id, e) for address in rpm_request.addresses]
-            for address, value in values:
-                if not isinstance(value, Exception):
-                    self._cache_put(address, correlation_id, value, epoch)
+            if sweep_id is not None:
+                for address, value in values:
+                    if not isinstance(value, Exception):
+                        self._sweep_memo.remember(address.id, sweep_id, value)
         return [
             ReadError(address.id, value)
             if isinstance(value, Exception)
@@ -410,7 +413,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         self,
         device_instance: int,
         addresses: list[BacnetAddress],
-        correlation_id: str | None,
+        sweep_id: str | None,
     ) -> AsyncGenerator[ReadResult]:
         requests = plan_rpm(
             addresses,
@@ -432,13 +435,21 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             # the fallback instead of re-attempting a service just proven
             # unsupported.
             if not self._rpm_supported.get(device_instance, True):
-                for address in rpm_request.addresses:
-                    yield await self._read_one(address, correlation_id)
+                async for result in read_results(
+                    rpm_request.addresses,
+                    lambda a: self.read(a, sweep_id),
+                    concurrent=not self._serialize_reads,
+                ):
+                    yield result
                 continue
-            results = await self._read_rpm_request(rpm_request, correlation_id)
+            results = await self._read_rpm_request(rpm_request, sweep_id)
             if results is None:
-                for address in rpm_request.addresses:
-                    yield await self._read_one(address, correlation_id)
+                async for result in read_results(
+                    rpm_request.addresses,
+                    lambda a: self.read(a, sweep_id),
+                    concurrent=not self._serialize_reads,
+                ):
+                    yield result
                 continue
             for result in results:
                 yield result
@@ -446,17 +457,25 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     async def read_many(
         self,
         addresses: list[BacnetAddress],
-        correlation_id: str | None = None,
+        sweep_id: str | None = None,
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced ReadPropertyMultiple requests, one per
         device instance's Max-APDU-sized chunk. A device that has already
         shown (RejectPDU/AbortPDU, or simply never responding) it doesn't
         support RPM falls back to sequential ReadProperty for the rest of
         the session.
+
+        The RPM path bypasses the base :meth:`read`, so it consults and
+        populates ``self._sweep_memo`` directly (same store `memoize_sweep`
+        uses) to stay coalesced with any on-demand reads sharing this sweep.
         """
         pending: list[BacnetAddress] = []
         for address in dedupe_addresses(addresses).values():
-            cached = self._cache_get(address, correlation_id)
+            cached = (
+                self._sweep_memo.recall(address.id, sweep_id)
+                if sweep_id is not None
+                else None
+            )
             if cached is None:
                 pending.append(address)
             else:
@@ -469,12 +488,16 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         for device_instance, device_addresses in by_device.items():
             if self._rpm_supported.get(device_instance, True):
                 async for result in self._read_device_rpm(
-                    device_instance, device_addresses, correlation_id
+                    device_instance, device_addresses, sweep_id
                 ):
                     yield result
             else:
-                for address in device_addresses:
-                    yield await self._read_one(address, correlation_id)
+                async for result in read_results(
+                    device_addresses,
+                    lambda a: self.read(a, sweep_id),
+                    concurrent=not self._serialize_reads,
+                ):
+                    yield result
 
     @connected
     async def _write_bacnet(
