@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from devices_manager.dto import device_to_public
 from devices_manager.storage.memory import MemoryDeviceStorage
-from models.errors import InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 from models.ids import gen_id
 
 from .device import (
@@ -142,6 +142,30 @@ class DeviceRegistry:
             msg = f"Transport {transport.id} is not compatible with driver {driver.id}"
             raise ValueError(msg)
 
+    def _check_config_uniqueness(
+        self,
+        driver_id: str,
+        transport_id: str,
+        config: dict,
+        *,
+        exclude_id: str | None = None,
+    ) -> None:
+        """Reject a config matching another device's on the same driver+transport."""
+        for existing in self._devices.values():
+            if existing.id == exclude_id:
+                continue
+            if (
+                existing.driver_id == driver_id
+                and existing.transport_id == transport_id
+                and existing.config == config
+            ):
+                msg = (
+                    f"Device config is identical to existing device '{existing.id}' "
+                    f"for driver '{driver_id}' "
+                    f"and transport '{transport_id}'"
+                )
+                raise ConflictError(msg)
+
     def _create_device(self, device_create: DeviceCreate) -> CoreDevice:
         driver = self._resolve_driver(device_create.driver_id)
         self._validate_device_config(device_create.config, driver)
@@ -163,6 +187,9 @@ class DeviceRegistry:
         Returns the CoreDevice so the caller can handle lifecycle.
         """
         device = self._create_device(device_create)
+        self._check_config_uniqueness(
+            device.driver_id, device.transport_id, device.config
+        )
         await self.register(device)
         logger.info(
             "Successfully created device '%s' (id: %s)",
@@ -220,28 +247,43 @@ class DeviceRegistry:
         new_transport = self._resolve_transport_or_none(device_update.transport_id)
         effective_driver = new_driver or device.driver
         effective_transport = new_transport or device.transport
+        effective_config = (
+            device_update.config if device_update.config is not None else device.config
+        )
 
         self._check_transport_compat(effective_driver, effective_transport)
+
+        if new_driver is not None:
+            self._validate_device_config(effective_config, new_driver)
+        elif device_update.config is not None:
+            self._validate_device_config(effective_config, device.driver)
+
+        config_affecting_change = (
+            new_driver is not None
+            or new_transport is not None
+            or device_update.config is not None
+        )
+        if config_affecting_change:
+            self._check_config_uniqueness(
+                effective_driver.id,
+                effective_transport.id,
+                effective_config,
+                exclude_id=device_id,
+            )
 
         if device_update.name is not None:
             device.name = device_update.name
         if device_update.config is not None:
             device.config = device_update.config
 
-        if new_driver is not None:
-            self._validate_device_config(device.config, new_driver)
-        elif device_update.config is not None:
-            self._validate_device_config(device_update.config, device.driver)
-
         if new_driver is not None or new_transport is not None:
             device = self.rebuild_device(device, effective_driver, effective_transport)
-            self._devices[device_id] = device
         else:
             self._touch(device)
 
-        result = self._devices[device_id]
-        await self._persist(result)
-        return result
+        self._devices[device_id] = device
+        await self._persist(device)
+        return device
 
     async def remove(self, device_id: str) -> None:
         """Remove a device from memory and storage."""

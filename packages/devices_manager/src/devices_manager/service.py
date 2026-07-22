@@ -345,7 +345,12 @@ class DevicesService(Service):
     ) -> Device:
         old_device = self._device_registry.get(device_id)
         await old_device.stop_sync()
-        device = await self._device_registry.update(device_id, device_update)
+        try:
+            device = await self._device_registry.update(device_id, device_update)
+        except Exception:
+            if self._running:
+                await old_device.start_sync()
+            raise
         if self._running:
             await device.start_sync()
         return device_to_public(device)

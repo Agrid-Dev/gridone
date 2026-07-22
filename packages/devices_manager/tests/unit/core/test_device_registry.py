@@ -19,7 +19,7 @@ from devices_manager.dto import (
     DeviceUpdate,
 )
 from devices_manager.storage import DeviceStorageBackend
-from models.errors import InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -297,6 +297,60 @@ class TestDeviceRegistryAddPhysical:
         device = await empty_registry.add(create)
         assert device.on_update is on_attribute_update
 
+    @pytest.mark.asyncio
+    async def test_add_physical_device_rejects_duplicate_config(
+        self, device_registry, driver, mock_transport_client
+    ):
+        create = DeviceCreate(
+            name="Duplicate",
+            config={"some_id": "abc"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        with pytest.raises(ConflictError):
+            await device_registry.add(create)
+
+    @pytest.mark.asyncio
+    async def test_add_physical_device_allows_different_config(
+        self, device_registry, driver, mock_transport_client
+    ):
+        create = DeviceCreate(
+            name="Not a duplicate",
+            config={"some_id": "xyz"},
+            driver_id=driver.id,
+            transport_id=mock_transport_client.id,
+        )
+        device = await device_registry.add(create)
+        assert device.config == {"some_id": "xyz"}
+
+    @pytest.mark.asyncio
+    async def test_add_physical_device_allows_same_config_on_different_transport(
+        self,
+        device,
+        driver,
+        mock_transport_client,
+        second_mock_transport_client,
+        on_attribute_update,
+    ):
+        """Uniqueness is scoped per driver+transport, not by config alone."""
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(
+                mock_transport_client, second_mock_transport_client
+            ),
+            on_attribute_update=on_attribute_update,
+        )
+        create = DeviceCreate(
+            name="Same config, different transport",
+            config=device.config,
+            driver_id=driver.id,
+            transport_id=second_mock_transport_client.id,
+        )
+        new_device = await registry.add(create)
+        assert new_device.config == device.config
+        assert new_device.transport_id == second_mock_transport_client.id
+
 
 class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
@@ -309,6 +363,130 @@ class TestDeviceRegistryUpdate:
         original_name = device.name
         result = await device_registry.update(device.id, DeviceUpdate())
         assert result.name == original_name
+
+    @pytest.mark.asyncio
+    async def test_update_allows_keeping_own_config(self, device_registry, device):
+        result = await device_registry.update(
+            device.id, DeviceUpdate(config=device.config)
+        )
+        assert result.config == device.config
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_config_matching_another_device(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        other = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Other", config={"some_id": "other"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        await device_registry.register(other)
+        with pytest.raises(ConflictError):
+            await device_registry.update(other.id, DeviceUpdate(config=device.config))
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_config_leaves_device_unmutated(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        other = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Other", config={"some_id": "other"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        await device_registry.register(other)
+        original_name = other.name
+        original_config = dict(other.config)
+        original_updated_at = other.updated_at
+
+        with pytest.raises(ConflictError):
+            await device_registry.update(
+                other.id, DeviceUpdate(name="Renamed", config=device.config)
+            )
+
+        stored = device_registry.get(other.id)
+        assert stored.name == original_name
+        assert stored.config == original_config
+        assert stored.updated_at == original_updated_at
+
+    @pytest.mark.asyncio
+    async def test_update_name_only_ignores_preexisting_duplicate_config(
+        self,
+        device_registry,
+        device,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        """A name-only edit must not be blocked by an already-existing config
+
+        collision between other devices (e.g. imported before this check
+        existed) since it doesn't touch config/driver/transport.
+        """
+        duplicate = CoreDevice.from_base(
+            DeviceBase(id="d2", name="Duplicate", config=dict(device.config)),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        # Bypass add()'s uniqueness check to simulate a pre-existing duplicate.
+        await device_registry.register(duplicate)
+
+        result = await device_registry.update(
+            duplicate.id, DeviceUpdate(name="Renamed")
+        )
+        assert result.name == "Renamed"
+
+    @pytest.mark.asyncio
+    async def test_update_transport_change_rejects_config_colliding_on_new_transport(
+        self,
+        driver,
+        mock_transport_client,
+        second_mock_transport_client,
+        on_attribute_update,
+    ):
+        """A transport-only change (no config edit) must still be checked.
+
+        Two devices may legitimately share a config as long as they sit on
+        different transports; moving one onto the other's transport makes
+        them collide even though the config itself never changed.
+        """
+        device_a = CoreDevice.from_base(
+            DeviceBase(id="a", name="A", config={"some_id": "shared"}),
+            driver=driver,
+            transport=mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        device_b = CoreDevice.from_base(
+            DeviceBase(id="b", name="B", config={"some_id": "shared"}),
+            driver=driver,
+            transport=second_mock_transport_client,
+            on_update=on_attribute_update,
+        )
+        registry = DeviceRegistry(
+            {device_a.id: device_a, device_b.id: device_b},
+            resolve_driver=_make_driver_resolver(driver),
+            resolve_transport=_make_transport_resolver(
+                mock_transport_client, second_mock_transport_client
+            ),
+            on_attribute_update=on_attribute_update,
+        )
+
+        with pytest.raises(ConflictError):
+            await registry.update(
+                device_b.id, DeviceUpdate(transport_id=mock_transport_client.id)
+            )
 
     @pytest.mark.asyncio
     async def test_update_bumps_updated_at_keeps_created_at(
