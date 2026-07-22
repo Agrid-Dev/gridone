@@ -12,6 +12,7 @@ from devices_manager.dto import (
 from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import NotFoundError
 from models.ids import gen_id
+from models.metadata import timestamp_kwargs
 
 from .transports import (
     TransportClient,
@@ -33,13 +34,9 @@ def build_transport_client(transport: TransportCreate | Transport) -> TransportC
     """
     config = make_transport_config(transport.protocol, transport.config.model_dump())
     transport_id = str(transport.id) if hasattr(transport, "id") else gen_id()
-    timestamps = {}
-    created_at = getattr(transport, "created_at", None)
-    updated_at = getattr(transport, "updated_at", None)
-    if created_at is not None:
-        timestamps["created_at"] = created_at
-    if updated_at is not None:
-        timestamps["updated_at"] = updated_at
+    timestamps = timestamp_kwargs(
+        getattr(transport, "created_at", None), getattr(transport, "updated_at", None)
+    )
     metadata = TransportMetadata(id=transport_id, name=transport.name, **timestamps)
     return make_transport_client(transport.protocol, config, metadata)
 

@@ -22,7 +22,7 @@ from devices_manager.core.transports.modbus_tcp_transport import (
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.types import TransportProtocols
-from models.metadata import ResourceMetadata
+from models.metadata import ResourceMetadata, timestamp_kwargs
 
 
 class TransportBase(ResourceMetadata):
@@ -115,11 +115,7 @@ def build_dto(  # noqa: PLR0913
         raise ValueError(msg)
     if not isinstance(config, BaseTransportConfig):
         config = make_transport_config(protocol, config)
-    kwargs = {}
-    if created_at is not None:
-        kwargs["created_at"] = created_at
-    if updated_at is not None:
-        kwargs["updated_at"] = updated_at
+    kwargs = timestamp_kwargs(created_at, updated_at)
     return dto_class(
         id=transport_id,
         name=name,

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from devices_manager.core.transports import TransportConnectionState
 from devices_manager.dto import DriverSpec, Transport, build_transport
 from devices_manager.dto.device_dto import Device
+from models.metadata import timestamp_kwargs
 
 from .yaml_dm_storage import YamlDeviceStorage, YamlFileStorage
 
@@ -36,11 +37,7 @@ class CoreFileStorage:
         )
 
         def transport_factory(data: dict) -> Transport:
-            kwargs = {}
-            if "created_at" in data:
-                kwargs["created_at"] = data["created_at"]
-            if "updated_at" in data:
-                kwargs["updated_at"] = data["updated_at"]
+            kwargs = timestamp_kwargs(data.get("created_at"), data.get("updated_at"))
             return build_transport(
                 transport_id=data["id"],
                 name=data.get("name", ""),
