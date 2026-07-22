@@ -1,3 +1,9 @@
+## v0.163.0 (2026-07-22)
+
+### Feat
+
+- **devices-manager,assets,automations**: add resource metadata fields (#476)
+
 ## v0.162.0 (2026-07-22)
 
 ### Feat
