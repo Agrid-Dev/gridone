@@ -1,0 +1,14 @@
+meta {
+  name: list dashboards
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{BASE_URL}}/dashboards/
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+}

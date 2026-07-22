@@ -1,0 +1,73 @@
+{
+  "title": "Dashboards",
+  "resourceName": "dashboard",
+  "tabs": {
+    "label": "Dashboards",
+    "new": "New dashboard"
+  },
+  "toolbox": {
+    "show": "Toolbox",
+    "hide": "Close toolbox"
+  },
+  "layout": {
+    "edit": "Edit layout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editing": "Drag or resize widgets, then save.",
+    "unsaved": "Unsaved changes"
+  },
+  "widgets": {
+    "empty": "This dashboard has no widgets yet.",
+    "renderError": "This widget failed to render.",
+    "add": "Add widget",
+    "addTitle": "Add widget",
+    "addSubmit": "Add widget",
+    "addSuccess": "Widget added",
+    "editTitle": "Edit widget",
+    "editSubmit": "Save changes",
+    "updateSuccess": "Widget updated",
+    "deleteSuccess": "Widget deleted",
+    "fields": {
+      "type": "Type",
+      "title": "Title"
+    },
+    "actions": {
+      "label": "Widget actions",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "delete": {
+      "title": "Delete widget?",
+      "details": "This widget will be permanently removed from the dashboard.",
+      "confirm": "Delete"
+    }
+  },
+  "fields": {
+    "name": "Name",
+    "description": "Description"
+  },
+  "validation": {
+    "nameRequired": "Name is required"
+  },
+  "create": {
+    "title": "New dashboard",
+    "submit": "Create dashboard",
+    "success": "Dashboard \"{{name}}\" created"
+  },
+  "actions": {
+    "label": "Dashboard actions",
+    "rename": "Rename",
+    "delete": "Delete"
+  },
+  "rename": {
+    "title": "Rename dashboard",
+    "submit": "Save changes",
+    "success": "Dashboard \"{{name}}\" updated"
+  },
+  "delete": {
+    "title": "Delete dashboard?",
+    "details": "\"{{name}}\" will be permanently deleted. This cannot be undone.",
+    "confirm": "Delete",
+    "success": "Dashboard deleted"
+  }
+}

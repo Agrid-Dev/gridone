@@ -10,6 +10,7 @@ import { MemoryTokenStorage } from "./http/tokenStorage";
 import { AppsResource } from "./resources/apps";
 import { AssetsResource } from "./resources/assets";
 import { AutomationsResource } from "./resources/automations";
+import { DashboardsResource } from "./resources/dashboards";
 import { DevicesResource } from "./resources/devices";
 import { DriversResource } from "./resources/drivers";
 import { NotificationsResource } from "./resources/notifications";
@@ -42,6 +43,7 @@ export class GridoneClient {
   readonly apps: AppsResource;
   readonly automations: AutomationsResource;
   readonly notifications: NotificationsResource;
+  readonly dashboards: DashboardsResource;
 
   constructor(config: GridoneClientConfig) {
     this.http = new HttpClient({
@@ -60,6 +62,7 @@ export class GridoneClient {
     this.apps = new AppsResource(request);
     this.automations = new AutomationsResource(request);
     this.notifications = new NotificationsResource(request);
+    this.dashboards = new DashboardsResource(request);
   }
 
   health(): Promise<HealthResponse> {

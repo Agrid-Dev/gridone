@@ -1,0 +1,32 @@
+meta {
+  name: update widget
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{BASE_URL}}/dashboards/:dashboard_id/widgets/:widget_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
+  widget_id: {{widget_id}}
+}
+
+body:json {
+  {
+    "title": "Renamed note",
+    "config": {
+      "type": "text",
+      "text": "updated",
+      "color": "#ffffff"
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.title: eq Renamed note
+}
