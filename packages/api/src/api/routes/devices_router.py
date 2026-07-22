@@ -27,6 +27,8 @@ from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
+    DeviceBatchCreate,
+    DeviceBatchItemResult,
     DeviceCreate,
     DeviceUpdate,
 )
@@ -148,6 +150,18 @@ async def create_device(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Device:
     return await dm.add_device(dto)
+
+
+@router.post(
+    "/batch",
+    status_code=status.HTTP_207_MULTI_STATUS,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def create_devices_batch(
+    dto: DeviceBatchCreate,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> list[DeviceBatchItemResult]:
+    return await dm.add_devices_batch(dto.driver_id, dto.transport_id, dto.devices)
 
 
 @router.patch(

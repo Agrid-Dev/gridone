@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from models.errors import ConflictError, StorageNotInitializedError
+from models.errors import (
+    ConflictError,
+    InvalidError,
+    NotFoundError,
+    StorageNotInitializedError,
+)
 from models.ids import gen_id
 from models.service import Service
 
@@ -28,6 +33,8 @@ from .core.transports import TransportClient
 from .dto import (
     AttributePatch,
     Device,
+    DeviceBatchItem,
+    DeviceBatchItemResult,
     DeviceCreate,
     DeviceUpdate,
     DriverPatch,
@@ -339,6 +346,37 @@ class DevicesService(Service):
         if self._running:
             await device.start_sync()
         return device_to_public(device)
+
+    async def add_devices_batch(
+        self,
+        driver_id: str,
+        transport_id: str,
+        items: list[DeviceBatchItem],
+    ) -> list[DeviceBatchItemResult]:
+        """Create many devices sharing one driver + transport.
+
+        A thin loop over `add_device`: each entry is attempted independently
+        and one entry's failure does not block the others (partial success).
+        """
+        if not items:
+            msg = "Batch device list must not be empty"
+            raise InvalidError(msg)
+
+        results: list[DeviceBatchItemResult] = []
+        for item in items:
+            create = DeviceCreate(
+                name=item.name,
+                config=item.config,
+                driver_id=driver_id,
+                transport_id=transport_id,
+            )
+            try:
+                device = await self.add_device(create)
+            except (InvalidError, NotFoundError, ConflictError) as e:
+                results.append(DeviceBatchItemResult(error=str(e)))
+            else:
+                results.append(DeviceBatchItemResult(device=device))
+        return results
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdate

@@ -27,6 +27,19 @@ class DeviceCreate(BaseModel):
     transport_id: str
 
 
+class DeviceBatchItem(BaseModel):
+    name: Annotated[str, Field(default_factory=lambda: "")]
+    config: dict
+
+
+class DeviceBatchCreate(BaseModel):
+    """Create many devices sharing one driver + transport, each with its own config."""
+
+    driver_id: str
+    transport_id: str
+    devices: list[DeviceBatchItem]
+
+
 def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
     """Resolve the `kind` tag for discriminated-union dispatch.
 
@@ -69,6 +82,13 @@ class DeviceUpdate(BaseModel):
     config: dict | None = None
     transport_id: str | None = None
     driver_id: str | None = None
+
+
+class DeviceBatchItemResult(BaseModel):
+    """Outcome of one entry in a batch create: either the created device or an error."""
+
+    device: Device | None = None
+    error: str | None = None
 
 
 def core_to_dto(device: CoreDevice) -> Device:

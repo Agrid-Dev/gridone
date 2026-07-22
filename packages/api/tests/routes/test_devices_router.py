@@ -22,7 +22,11 @@ from devices_manager.core.device import Attribute
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
-from devices_manager.dto.device_dto import Device
+from devices_manager.dto.device_dto import (
+    Device,
+    DeviceBatchItem,
+    DeviceBatchItemResult,
+)
 from devices_manager.types import ConnectionStatus, DataType
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
@@ -133,6 +137,20 @@ def _make_dm(
             transport_id="my-http",
             is_faulty=False,
         )
+    )
+    mock.add_devices_batch = AsyncMock(
+        return_value=[
+            DeviceBatchItemResult(
+                device=Device(
+                    id="new-id",
+                    name="new",
+                    config={},
+                    driver_id="test_driver",
+                    transport_id="my-http",
+                    is_faulty=False,
+                )
+            )
+        ]
     )
     mock.update_device = AsyncMock(return_value=_DEVICE)
     mock.delete_device = AsyncMock()
@@ -444,6 +462,93 @@ class TestCreateDevice:
                     "config": {},
                     "driver_id": "test_driver",
                     "transport_id": "my-http",
+                },
+            )
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Create devices batch
+# ---------------------------------------------------------------------------
+
+
+class TestCreateDevicesBatch:
+    @pytest.mark.asyncio
+    async def test_ok_returns_207(self, async_client: AsyncClient, dm: MagicMock):
+        async with async_client as ac:
+            response = await ac.post(
+                "/batch",
+                json={
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                    "devices": [
+                        {"name": "A", "config": {"some_id": "a"}},
+                        {"name": "B", "config": {"some_id": "b"}},
+                    ],
+                },
+            )
+        assert response.status_code == 207
+        dm.add_devices_batch.assert_called_once_with(
+            "test_driver",
+            "my-http",
+            [
+                DeviceBatchItem(name="A", config={"some_id": "a"}),
+                DeviceBatchItem(name="B", config={"some_id": "b"}),
+            ],
+        )
+
+    @pytest.mark.asyncio
+    async def test_partial_failure_still_returns_207(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        dm.add_devices_batch.return_value = [
+            DeviceBatchItemResult(
+                device=Device(
+                    id="new-id",
+                    name="A",
+                    config={"some_id": "a"},
+                    driver_id="test_driver",
+                    transport_id="my-http",
+                    is_faulty=False,
+                )
+            ),
+            DeviceBatchItemResult(
+                error="Device config misses driver required field 'some_id'"
+            ),
+        ]
+        async with async_client as ac:
+            response = await ac.post(
+                "/batch",
+                json={
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                    "devices": [
+                        {"name": "A", "config": {"some_id": "a"}},
+                        {"name": "B", "config": {}},
+                    ],
+                },
+            )
+        assert response.status_code == 207
+        body = response.json()
+        assert body[0]["device"]["id"] == "new-id"
+        assert body[0]["error"] is None
+        assert body[1]["device"] is None
+        assert body[1]["error"] is not None
+
+    @pytest.mark.asyncio
+    async def test_empty_batch_returns_422(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        dm.add_devices_batch.side_effect = InvalidError(
+            "Batch device list must not be empty"
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/batch",
+                json={
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                    "devices": [],
                 },
             )
         assert response.status_code == 422
