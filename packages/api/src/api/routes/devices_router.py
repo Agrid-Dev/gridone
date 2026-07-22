@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from api.dependencies import (
     get_device_manager,
@@ -154,14 +154,26 @@ async def create_device(
 
 @router.post(
     "/batch",
-    status_code=status.HTTP_207_MULTI_STATUS,
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
 async def create_devices_batch(
     dto: DeviceBatchCreate,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    response: Response,
 ) -> list[DeviceBatchItemResult]:
-    return await dm.add_devices_batch(dto.driver_id, dto.transport_id, dto.devices)
+    """Create every device in the batch independently (partial success).
+
+    The status code reflects the outcome: 201 when every entry succeeded,
+    422 when every entry failed, 207 for a mix of both.
+    """
+    results = await dm.add_devices_batch(dto.driver_id, dto.transport_id, dto.devices)
+    if all(r.error is None for r in results):
+        response.status_code = status.HTTP_201_CREATED
+    elif all(r.device is None for r in results):
+        response.status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    else:
+        response.status_code = status.HTTP_207_MULTI_STATUS
+    return results
 
 
 @router.patch(

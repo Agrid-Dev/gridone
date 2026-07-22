@@ -980,6 +980,37 @@ class TestDevicesServiceDeviceDelegation:
         assert results[2].error is None
 
     @pytest.mark.asyncio
+    async def test_add_devices_batch_records_bare_value_error_per_item(
+        self, driver, mock_transport_client
+    ):
+        """A transport-compat mismatch raises a bare ValueError (not
+
+        InvalidError), which must still be recorded per-item rather than
+        aborting the rest of the batch.
+        """
+        device_b = _make_physical_device("b", driver, mock_transport_client)
+        mock_reg = _mock_device_registry()
+        mock_reg.add.side_effect = [
+            ValueError("Transport incompatible with driver"),
+            device_b,
+        ]
+
+        dm = await _dm_with_mock_registry(mock_reg)
+
+        items = [
+            DeviceBatchItem(name="A", config={"some_id": "a"}),
+            DeviceBatchItem(name="B", config={"some_id": "b"}),
+        ]
+        results = await dm.add_devices_batch(driver.id, mock_transport_client.id, items)
+
+        assert mock_reg.add.call_count == 2
+        assert results[0].device is None
+        assert results[0].error == "Transport incompatible with driver"
+        assert results[1].device is not None
+        assert results[1].device.id == "b"
+        assert results[1].error is None
+
+    @pytest.mark.asyncio
     async def test_add_devices_batch_empty_list_raises_invalid_error(
         self, driver, mock_transport_client
     ):

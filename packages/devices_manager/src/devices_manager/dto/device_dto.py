@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
 
 from devices_manager.core.device import (
     Attribute,
@@ -20,15 +20,19 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
 
 
+# A device may be created nameless (labelled later), so name defaults to "".
+_DEFAULT_DEVICE_NAME = ""
+
+
 class DeviceCreate(BaseModel):
-    name: Annotated[str, Field(default_factory=lambda: "")]
+    name: str = _DEFAULT_DEVICE_NAME
     config: dict
     driver_id: str
     transport_id: str
 
 
 class DeviceBatchItem(BaseModel):
-    name: Annotated[str, Field(default_factory=lambda: "")]
+    name: str = _DEFAULT_DEVICE_NAME
     config: dict
 
 
@@ -89,6 +93,13 @@ class DeviceBatchItemResult(BaseModel):
 
     device: Device | None = None
     error: str | None = None
+
+    @model_validator(mode="after")
+    def _check_exactly_one_set(self) -> DeviceBatchItemResult:
+        if (self.device is None) == (self.error is None):
+            msg = "Exactly one of `device` or `error` must be set"
+            raise ValueError(msg)
+        return self
 
 
 def core_to_dto(device: CoreDevice) -> Device:

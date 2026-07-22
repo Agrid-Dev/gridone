@@ -474,7 +474,9 @@ class TestCreateDevice:
 
 class TestCreateDevicesBatch:
     @pytest.mark.asyncio
-    async def test_ok_returns_207(self, async_client: AsyncClient, dm: MagicMock):
+    async def test_all_succeed_returns_201(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
         async with async_client as ac:
             response = await ac.post(
                 "/batch",
@@ -487,7 +489,7 @@ class TestCreateDevicesBatch:
                     ],
                 },
             )
-        assert response.status_code == 207
+        assert response.status_code == 201
         dm.add_devices_batch.assert_called_once_with(
             "test_driver",
             "my-http",
@@ -534,6 +536,30 @@ class TestCreateDevicesBatch:
         assert body[0]["error"] is None
         assert body[1]["device"] is None
         assert body[1]["error"] is not None
+
+    @pytest.mark.asyncio
+    async def test_all_fail_returns_422(self, async_client: AsyncClient, dm: MagicMock):
+        dm.add_devices_batch.return_value = [
+            DeviceBatchItemResult(
+                error="Device config misses driver required field 'x'"
+            ),
+            DeviceBatchItemResult(error="Transport not compatible with driver"),
+        ]
+        async with async_client as ac:
+            response = await ac.post(
+                "/batch",
+                json={
+                    "driver_id": "test_driver",
+                    "transport_id": "my-http",
+                    "devices": [
+                        {"name": "A", "config": {}},
+                        {"name": "B", "config": {}},
+                    ],
+                },
+            )
+        assert response.status_code == 422
+        body = response.json()
+        assert all(item["device"] is None for item in body)
 
     @pytest.mark.asyncio
     async def test_empty_batch_returns_422(

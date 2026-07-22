@@ -372,7 +372,7 @@ class DevicesService(Service):
             )
             try:
                 device = await self.add_device(create)
-            except (InvalidError, NotFoundError, ConflictError) as e:
+            except (ValueError, NotFoundError, ConflictError) as e:
                 results.append(DeviceBatchItemResult(error=str(e)))
             else:
                 results.append(DeviceBatchItemResult(device=device))
