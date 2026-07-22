@@ -1,3 +1,9 @@
+## v0.162.0 (2026-07-22)
+
+### Feat
+
+- **devices-manager**: move read-latency timing to the transport I/O boundary (#475)
+
 ## v0.161.8 (2026-07-21)
 
 ### Refactor
