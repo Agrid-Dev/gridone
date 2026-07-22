@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from assets.models import BuildingProfile
 from assets.storage.models import AssetInDB
@@ -82,7 +83,9 @@ class MemoryAssetsStorage:
         for position, asset_id in enumerate(ordered_ids):
             asset = self._assets.get(asset_id)
             if asset is not None and asset.parent_id == parent_id:
-                self._assets[asset_id] = asset.model_copy(update={"position": position})
+                self._assets[asset_id] = asset.model_copy(
+                    update={"position": position, "updated_at": datetime.now(UTC)}
+                )
 
     async def close(self) -> None:
         pass

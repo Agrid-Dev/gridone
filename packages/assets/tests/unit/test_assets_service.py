@@ -149,6 +149,23 @@ class TestMemoryTreeOperations:
         siblings = await service.list_all(parent_id=root.id)
         assert [asset.id for asset in siblings] == [second.id, first.id]
 
+    async def test_reorder_siblings_bumps_updated_at(
+        self, service: AssetsService
+    ) -> None:
+        root = (await service.list_all())[0]
+        first = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 1")
+        )
+        second = await service.create_asset(
+            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Building 2")
+        )
+
+        await service.reorder_siblings(root.id, [second.id, first.id])
+
+        siblings = {a.id: a for a in await service.list_all(parent_id=root.id)}
+        assert siblings[first.id].updated_at > first.updated_at
+        assert siblings[second.id].updated_at > second.updated_at
+
 
 class TestResourceMetadata:
     async def test_create_asset_sets_both_timestamps(

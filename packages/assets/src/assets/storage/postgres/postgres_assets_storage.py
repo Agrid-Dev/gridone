@@ -123,7 +123,8 @@ class PostgresAssetsStorage:
         async with self._pool.acquire() as conn, conn.transaction():
             for pos, asset_id in enumerate(ordered_ids):
                 await conn.execute(
-                    "UPDATE assets SET position = $1 WHERE id = $2 AND parent_id = $3",
+                    "UPDATE assets SET position = $1, updated_at = now() "
+                    "WHERE id = $2 AND parent_id = $3",
                     pos,
                     asset_id,
                     parent_id,
