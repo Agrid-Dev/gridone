@@ -1,3 +1,19 @@
+## v0.164.0 (2026-07-22)
+
+### Feat
+
+- **ui**: dashboards layout UI
+- **dashboards**: expose dashboards HTTP API with SDK and acceptance suite (M1)
+- **dashboards**: add dashboards service package (M1)
+
+### Fix
+
+- **dashboards**: serialize concrete widget config in responses
+
+### Refactor
+
+- **dashboards**: address review + drop created_by/updated_by
+
 ## v0.163.0 (2026-07-22)
 
 ### Feat
