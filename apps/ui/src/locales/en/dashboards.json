@@ -5,8 +5,42 @@
     "label": "Dashboards",
     "new": "New dashboard"
   },
-  "body": {
-    "placeholder": "Widgets will appear here in a later milestone."
+  "toolbox": {
+    "show": "Toolbox",
+    "hide": "Close toolbox"
+  },
+  "layout": {
+    "edit": "Edit layout",
+    "save": "Save",
+    "cancel": "Cancel",
+    "editing": "Drag or resize widgets, then save.",
+    "unsaved": "Unsaved changes"
+  },
+  "widgets": {
+    "empty": "This dashboard has no widgets yet.",
+    "renderError": "This widget failed to render.",
+    "add": "Add widget",
+    "addTitle": "Add widget",
+    "addSubmit": "Add widget",
+    "addSuccess": "Widget added",
+    "editTitle": "Edit widget",
+    "editSubmit": "Save changes",
+    "updateSuccess": "Widget updated",
+    "deleteSuccess": "Widget deleted",
+    "fields": {
+      "type": "Type",
+      "title": "Title"
+    },
+    "actions": {
+      "label": "Widget actions",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "delete": {
+      "title": "Delete widget?",
+      "details": "This widget will be permanently removed from the dashboard.",
+      "confirm": "Delete"
+    }
   },
   "fields": {
     "name": "Name",

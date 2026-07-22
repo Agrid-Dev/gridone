@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { DashboardForm } from "./DashboardForm";
 import { useCreateDashboard } from "./useDashboards";
@@ -11,6 +12,8 @@ const DashboardCreate: FC = () => {
   const navigate = useNavigate();
   const { createDashboard } = useCreateDashboard();
 
+  useBreadcrumb([{ to: "/dashboards/new", labelKey: "breadcrumb.new" }]);
+
   return (
     <section className="space-y-6">
       <ResourceHeader title={t("create.title")} />
@@ -18,9 +21,11 @@ const DashboardCreate: FC = () => {
         formId="dashboard-create-form"
         submitLabel={t("create.submit")}
         onSubmit={async (values) => {
-          const created = await createDashboard(values).catch(() => null);
-          if (created) {
+          try {
+            const created = await createDashboard(values);
             navigate(`../${created.id}`);
+          } catch {
+            /* handled by the mutation's onError */
           }
         }}
         onCancel={() => navigate("..")}

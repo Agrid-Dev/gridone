@@ -12,6 +12,7 @@ import {
   type DashboardCreate,
   type DashboardPatch,
   type DashboardSummary,
+  type LayoutItem,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
@@ -137,7 +138,31 @@ export function useDeleteDashboard() {
     onError: onApiError,
   });
 
-  const deleteDashboard = (id: string) => mutation.mutateAsync(id);
+  const deleteDashboard = (
+    id: string,
+    options?: Parameters<typeof mutation.mutate>[1],
+  ) => mutation.mutate(id, options);
 
   return { deleteDashboard };
+}
+
+/** Replace a dashboard's grid layout (PUT /dashboards/{id}/layout). Invalidates
+ *  the dashboard document so the grid re-renders from the persisted layout. */
+export function useUpdateLayout(dashboardId: string) {
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+  const onApiError = useApiErrorToast();
+
+  const mutation = useMutation({
+    mutationFn: (items: LayoutItem[]) =>
+      client.dashboards.updateLayout(dashboardId, items),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: dashboardKey(dashboardId),
+      });
+    },
+    onError: onApiError,
+  });
+
+  return { updateLayout: (items: LayoutItem[]) => mutation.mutateAsync(items) };
 }
