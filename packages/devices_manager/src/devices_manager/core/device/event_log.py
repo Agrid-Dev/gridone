@@ -1,5 +1,4 @@
 import logging
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -84,12 +83,10 @@ def log_observability(
 ) -> None:
     """Emit the ``devices_manager.observability`` structured log line.
 
-    Shared by the single-attribute ``log_event`` decorator and the
-    polling-group read path, so both emit the same event/duration_ms/attribute
-    shape regardless of which one performed the read. ``duration_ms`` is
-    measured from whatever the caller considers this outcome's start (e.g.
-    the decorated call's own start, or the previous result's arrival in a
-    batch sweep) — it is not guaranteed to isolate network time alone.
+    Called by the polling-group read path (``device.py:_log_read_outcome``).
+    ``duration_ms`` is measured from whatever the caller considers this
+    outcome's start — the previous result's arrival in a batch sweep — so it
+    is not guaranteed to isolate network time alone.
     """
     _observability_logger.info(
         "device %s %s",
@@ -128,34 +125,18 @@ def log_event(
             attribute = self.attributes.get(attribute_name)
             if attribute is None:
                 return await fn(self, attribute_name, *args, **kwargs)
-            start = time.perf_counter()
-            status: Literal["ok", "error"] = "ok"
             try:
                 result = await fn(
                     self, attribute_name, *args, _log_attribute=attribute, **kwargs
                 )
                 attribute.append_log(_ok_entry(event_type))
             except Exception as e:
-                status = "error"
                 attribute.append_log(_error_entry(event_type, e))
                 raise
             else:
                 return result
             finally:
                 self._on_log_append()
-                log_observability(
-                    event_type,
-                    status,
-                    (time.perf_counter() - start) * 1000,
-                    attribute_name=attribute_name,
-                    identity=DeviceIdentity(
-                        device_id=getattr(self, "id", None),
-                        driver_id=getattr(self, "driver_id", None),
-                        protocol=getattr(
-                            getattr(self, "transport", None), "protocol", None
-                        ),
-                    ),
-                )
 
         return wrapper
 

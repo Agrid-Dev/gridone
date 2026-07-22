@@ -7,6 +7,7 @@ from pymodbus.client import AsyncModbusTcpClient
 from devices_manager.core.transports import PullTransportClient
 from devices_manager.core.transports.base import dedupe_addresses
 from devices_manager.core.transports.connected import connected
+from devices_manager.core.transports.io_timing import timed_io
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.cast.bool import cast_as_bool
@@ -98,7 +99,8 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         """
         async with self._read_lock:
             try:
-                payload = await self._fetch_block(block)
+                async with timed_io(self.id, self.protocol, len(block.addresses)):
+                    payload = await self._fetch_block(block)
                 values = [
                     (address, block.extract(address, payload))
                     for address in block.addresses

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from devices_manager.core.transports import TransportMetadata
 from devices_manager.core.transports.http_transport import HTTPTransportClient
 from devices_manager.core.transports.http_transport.http_address import HttpAddress
+from devices_manager.core.transports.io_timing import IO_LOGGER_NAME
 from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
@@ -290,6 +291,53 @@ class TestSweepMemo:
 
         assert client._sweep_memo._reads == 0  # noqa: SLF001
         assert client._sweep_memo._network == 0  # noqa: SLF001
+
+
+class TestTransportIoMetric:
+    @pytest.mark.asyncio
+    async def test_single_read_emits_one_metric_with_one_address(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        client = RecordingTransportClient()
+
+        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
+            await client.read(MockTransportAddress("a"))
+
+        assert len(caplog.records) == 1
+        fields = caplog.records[0].__dict__
+        assert fields["addresses"] == 1
+        assert fields["status"] == "ok"
+        assert fields["protocol"] == TransportProtocols.HTTP
+
+    @pytest.mark.asyncio
+    async def test_memo_hit_emits_no_metric(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        client = RecordingTransportClient()
+        address = MockTransportAddress("a")
+
+        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
+            await client.read(address, "sweep-1")  # miss: one real transaction
+            caplog.clear()
+            await client.read(address, "sweep-1")  # hit: no I/O
+
+        assert caplog.records == []
+
+    @pytest.mark.asyncio
+    async def test_concurrent_fan_out_emits_one_metric_per_read(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # Concurrent read_many calls read() once per address; each is an
+        # independent transaction, so N addresses must emit N metrics, all
+        # addresses=1 (never one metric covering the whole fan-out).
+        client = RecordingTransportClient()
+        addresses = [MockTransportAddress(x) for x in ("a", "b", "c")]
+
+        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
+            [r async for r in client.read_many(addresses)]
+
+        assert len(caplog.records) == 3
+        assert all(r.__dict__["addresses"] == 1 for r in caplog.records)
 
 
 class TestReadMany:

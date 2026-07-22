@@ -9,6 +9,7 @@ from devices_manager.types import AttributeValueType, TransportProtocols, Transp
 
 from .base_transport_config import BaseTransportConfig
 from .batch_read import read_results
+from .io_timing import timed_io
 from .listener_registry import ListenerCallback, ListenerRegistry
 from .read_result import ReadResult
 from .sweep_memo import SweepMemo, memoize_sweep
@@ -96,7 +97,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         reads sharing that id (one sweep); ``None`` always hits the network and
         never stores.
         """
-        async with self._read_lock:
+        async with self._read_lock, timed_io(self.id, self.protocol, 1):
             return await self._read(address)
 
     @abstractmethod
@@ -118,6 +119,10 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         through :meth:`read`, so the per-sweep cache and read lock apply.
         Transports that batch addresses into one transaction override this
         with their own strategy.
+
+        Contract: an override that bypasses :meth:`read` must wrap each of its
+        own wire transactions in ``timed_io`` — the base I/O metric fires from
+        :meth:`read`, so an override that forgets it is a silent metrics gap.
         """
         async for result in read_results(
             dedupe_addresses(addresses).values(),

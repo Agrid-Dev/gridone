@@ -102,9 +102,12 @@ class TestLogEventDecorator:
 
 
 class TestObservabilityLog:
-    async def test_ok_emits_structured_log_record(
+    async def test_decorator_no_longer_emits_duration_observability_log(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        # Read-latency timing moved to the transport I/O boundary (``timed_io``),
+        # so the decorator only maintains event-log history and emits no
+        # ``devices_manager.observability`` duration line of its own.
         attr = _make_attribute()
         host = _make_host(attr)
 
@@ -115,79 +118,7 @@ class TestObservabilityLog:
         with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
             await fn(host, "temperature")
 
-        assert len(caplog.records) == 1
-        fields = caplog.records[0].__dict__
-        assert fields["event"] == EventType.READ
-        assert fields["status"] == "ok"
-        assert fields["attribute"] == "temperature"
-        assert fields["device_id"] == "device-1"
-        assert fields["driver_id"] == "driver-1"
-        assert fields["protocol"] == "mqtt"
-        assert isinstance(fields["duration_ms"], float)
-        assert fields["duration_ms"] >= 0
-
-    async def test_error_emits_structured_log_record_with_error_status(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        attr = _make_attribute()
-        host = _make_host(attr)
-
-        @log_event(EventType.WRITE)
-        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> None:
-            raise OSError("boom")
-
-        with (
-            caplog.at_level(logging.INFO, logger="devices_manager.observability"),
-            pytest.raises(OSError, match="boom"),
-        ):
-            await fn(host, "temperature")
-
-        assert len(caplog.records) == 1
-        fields = caplog.records[0].__dict__
-        assert fields["event"] == EventType.WRITE
-        assert fields["status"] == "error"
-        assert isinstance(fields["duration_ms"], float)
-
-    async def test_missing_device_fields_fall_back_to_none(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        attr = _make_attribute()
-
-        class _BareHost:
-            def __init__(self) -> None:
-                self.attributes = {"temperature": attr}
-
-            def _on_log_append(self) -> None:
-                pass
-
-        host = _BareHost()
-
-        @log_event(EventType.READ)
-        async def fn(_self: object, _attribute_name: str, **_kwargs: object) -> str:
-            return "value"
-
-        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
-            await fn(host, "temperature")
-
-        fields = caplog.records[0].__dict__
-        assert fields["device_id"] is None
-        assert fields["driver_id"] is None
-        assert fields["protocol"] is None
-
-    async def test_unknown_attribute_does_not_emit_observability_log(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        attr = _make_attribute()
-        host = _make_host(attr)
-
-        @log_event(EventType.READ)
-        async def fn(_self: object, attribute_name: str) -> None:
-            pass
-
-        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
-            await fn(host, "nonexistent")
-
-        assert len(caplog.records) == 0
+        assert caplog.records == []
 
 
 class TestWrapListen:

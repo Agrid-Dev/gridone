@@ -9,6 +9,7 @@ from devices_manager.core import Driver
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.driver import AttributeDriver, DriverMetadata, UpdateStrategy
+from devices_manager.core.transports.io_timing import IO_LOGGER_NAME
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportClient,
     ModbusTCPTransportConfig,
@@ -280,6 +281,35 @@ class TestPollCycleBatching:
         assert device.get_attribute("a").current_value is None
         assert device.get_attribute("b").current_value is None
         assert device.get_attribute("c").current_value == 0
+
+
+class TestBlockIoMetric:
+    @pytest.mark.asyncio
+    async def test_block_read_emits_one_metric_with_member_count(
+        self, transport: ModbusTCPTransportClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # One coalesced transaction over three registers is one I/O metric
+        # carrying addresses=3, not three per-address metrics.
+        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
+            await _ok_values(transport.read_many([_hr(10), _hr(11), _hr(12)]))
+
+        assert len(caplog.records) == 1
+        fields = caplog.records[0].__dict__
+        assert fields["addresses"] == 3
+        assert fields["status"] == "ok"
+        assert fields["protocol"] == TransportProtocols.MODBUS_TCP
+
+    @pytest.mark.asyncio
+    async def test_single_read_emits_exactly_one_metric(
+        self, transport: ModbusTCPTransportClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # A single read goes through base read() -> _read -> _fetch_block; only
+        # the base boundary must fire, never both (no double-count).
+        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
+            await transport.read(_hr(10))
+
+        assert len(caplog.records) == 1
+        assert caplog.records[0].__dict__["addresses"] == 1
 
 
 class TestReadMany:
