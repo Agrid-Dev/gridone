@@ -1,0 +1,35 @@
+meta {
+  name: add widget
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{BASE_URL}}/dashboards/:dashboard_id/widgets
+  body: json
+  auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
+}
+
+body:json {
+  {
+    "config": {
+      "type": "text",
+      "text": "hello",
+      "color": "#1a2b3c"
+    },
+    "title": "Note"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.type: eq text
+}
+
+script:post-response {
+  bru.setVar("widget_id", res.body.id);
+}

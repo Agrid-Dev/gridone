@@ -1,5 +1,6 @@
 from .assets_router import router as assets_router
 from .automations_router import router as automations_router
+from .dashboards_router import router as dashboards_router
 from .devices_router import router as devices_router
 from .drivers_router import router as drivers_router
 from .health_router import router as health_router
@@ -9,6 +10,7 @@ from .transports_router import router as transports_router
 __all__ = [
     "assets_router",
     "automations_router",
+    "dashboards_router",
     "devices_router",
     "drivers_router",
     "health_router",

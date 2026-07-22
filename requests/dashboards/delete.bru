@@ -1,0 +1,19 @@
+meta {
+  name: delete dashboard
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{BASE_URL}}/dashboards/:dashboard_id
+  body: none
+  auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
+}
+
+assert {
+  res.status: eq 204
+}

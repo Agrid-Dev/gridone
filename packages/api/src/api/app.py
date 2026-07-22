@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
+from dashboards import DashboardsService
 from fastapi import Depends, FastAPI
 
 from api.action_providers.commands import CommandsActionProvider
@@ -19,6 +20,7 @@ from api.notification_listeners.fault import on_fault_transition
 from api.routes import (
     assets_router,
     automations_router,
+    dashboards_router,
     devices_router,
     drivers_router,
     health_router,
@@ -68,7 +70,7 @@ class _CompositeTargetResolver:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
     settings = load_settings()
     auth_service = AuthService(
         secret_key=settings.secret_key,
@@ -160,6 +162,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await assets_service.start()
     app.state.assets_service = assets_service
 
+    dashboards_service = DashboardsService(settings.storage_url)
+    await dashboards_service.start()
+    app.state.dashboards_service = dashboards_service
+
     async def recipients() -> list[str]:
         users = await users_service.list_users()
         return [u.id for u in users if not u.is_blocked]
@@ -217,6 +223,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 users_service,
                 apps_svc,
                 assets_service,
+                dashboards_service,
             ]
         )
         await websocket_manager.close_all()
@@ -267,6 +274,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         notifications_router,
         prefix="/notifications",
         tags=["notifications"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        dashboards_router,
+        prefix="/dashboards",
+        tags=["dashboards"],
         dependencies=jwt_dep,
     )
     app.include_router(

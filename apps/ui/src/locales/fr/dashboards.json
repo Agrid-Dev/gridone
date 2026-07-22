@@ -1,0 +1,73 @@
+{
+  "title": "Tableaux de bord",
+  "resourceName": "tableau de bord",
+  "tabs": {
+    "label": "Tableaux de bord",
+    "new": "Nouveau tableau de bord"
+  },
+  "toolbox": {
+    "show": "Boîte à outils",
+    "hide": "Fermer la boîte à outils"
+  },
+  "layout": {
+    "edit": "Modifier la disposition",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "editing": "Déplacez ou redimensionnez les widgets, puis enregistrez.",
+    "unsaved": "Modifications non enregistrées"
+  },
+  "widgets": {
+    "empty": "Ce tableau de bord n'a pas encore de widget.",
+    "renderError": "Échec de l'affichage de ce widget.",
+    "add": "Ajouter un widget",
+    "addTitle": "Ajouter un widget",
+    "addSubmit": "Ajouter le widget",
+    "addSuccess": "Widget ajouté",
+    "editTitle": "Modifier le widget",
+    "editSubmit": "Enregistrer",
+    "updateSuccess": "Widget mis à jour",
+    "deleteSuccess": "Widget supprimé",
+    "fields": {
+      "type": "Type",
+      "title": "Titre"
+    },
+    "actions": {
+      "label": "Actions du widget",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "delete": {
+      "title": "Supprimer le widget ?",
+      "details": "Ce widget sera définitivement retiré du tableau de bord.",
+      "confirm": "Supprimer"
+    }
+  },
+  "fields": {
+    "name": "Nom",
+    "description": "Description"
+  },
+  "validation": {
+    "nameRequired": "Le nom est requis"
+  },
+  "create": {
+    "title": "Nouveau tableau de bord",
+    "submit": "Créer le tableau de bord",
+    "success": "Tableau de bord « {{name}} » créé"
+  },
+  "actions": {
+    "label": "Actions du tableau de bord",
+    "rename": "Renommer",
+    "delete": "Supprimer"
+  },
+  "rename": {
+    "title": "Renommer le tableau de bord",
+    "submit": "Enregistrer",
+    "success": "Tableau de bord « {{name}} » mis à jour"
+  },
+  "delete": {
+    "title": "Supprimer le tableau de bord ?",
+    "details": "« {{name}} » sera définitivement supprimé. Cette action est irréversible.",
+    "confirm": "Supprimer",
+    "success": "Tableau de bord supprimé"
+  }
+}

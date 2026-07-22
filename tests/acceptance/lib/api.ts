@@ -14,6 +14,25 @@ export async function makeAdminClient(): Promise<GridoneClient> {
   return client;
 }
 
+let roleClientCounter = 0;
+
+/**
+ * Create a fresh user with the given role (as admin) and return a client
+ * logged in as that user — used for RBAC checks. Usernames are unique so
+ * re-runs against a non-fresh stack don't collide.
+ */
+export async function makeRoleClient(
+  role: "operator" | "viewer",
+): Promise<GridoneClient> {
+  const admin = await makeAdminClient();
+  const uname = `acceptance-${role}-${Date.now()}-${roleClientCounter++}`;
+  const pwd = "acceptance-pass";
+  await admin.users.create({ username: uname, password: pwd, role });
+  const client = makeClient();
+  await client.login(uname, pwd);
+  return client;
+}
+
 export interface PollOptions {
   timeoutMs?: number;
   intervalMs?: number;

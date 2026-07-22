@@ -1,0 +1,15 @@
+meta {
+  name: widget schemas
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/dashboards/widget-schemas
+  auth: inherit
+}
+
+assert {
+  res.status: eq 200
+  res.body.text: isDefined
+}

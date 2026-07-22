@@ -16,6 +16,7 @@ members = [
     "gridone-assets",
     "gridone-automations",
     "gridone-commands",
+    "gridone-dashboards",
     "gridone-devices-manager",
     "gridone-migrations",
     "gridone-models",
@@ -818,6 +819,7 @@ dependencies = [
     { name = "gridone-assets" },
     { name = "gridone-automations" },
     { name = "gridone-commands" },
+    { name = "gridone-dashboards" },
     { name = "gridone-models" },
     { name = "gridone-notifications" },
     { name = "gridone-users" },
@@ -834,6 +836,7 @@ requires-dist = [
     { name = "gridone-assets", editable = "packages/assets" },
     { name = "gridone-automations", editable = "packages/automations" },
     { name = "gridone-commands", editable = "packages/commands" },
+    { name = "gridone-dashboards", editable = "packages/dashboards" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-notifications", editable = "packages/notifications" },
     { name = "gridone-users", editable = "packages/users" },
@@ -906,6 +909,23 @@ requires-dist = [
 name = "gridone-commands"
 version = "0.1.0"
 source = { editable = "packages/commands" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
+]
+
+[[package]]
+name = "gridone-dashboards"
+version = "0.1.0"
+source = { editable = "packages/dashboards" }
 dependencies = [
     { name = "asyncpg" },
     { name = "gridone-models" },

@@ -5,6 +5,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from automations import AutomationsServiceInterface
+from dashboards import (
+    Dashboard,
+    DashboardsServiceInterface,
+    Metadata,
+    TextWidgetConfig,
+    Widget,
+    WidgetLayout,
+)
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -14,6 +22,7 @@ from api.dependencies import (
     get_automations_service,
     get_commands_service,
     get_current_user_id,
+    get_dashboards_service,
     get_device_manager,
     get_notifications_service,
     get_ts_service,
@@ -22,6 +31,7 @@ from api.dependencies import (
 from api.routes.apps import apps_registration_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
+from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
@@ -994,4 +1004,188 @@ def test_drivers_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers, json={})
+        assert resp.status_code == expected_status
+
+
+# --- Dashboards RBAC ---
+# Write endpoints allow admin + operator; viewer is read-only; no-auth is 401.
+
+_DASH_META = Metadata()
+_DASH_WIDGET = Widget(
+    id="w1",
+    config=TextWidgetConfig(text="hi", color="#1a2b3c"),
+    layout=WidgetLayout(x=0, y=0, w=4, h=2),
+    metadata=_DASH_META,
+)
+_DASH = Dashboard(id="d1", name="Ops", widgets=[_DASH_WIDGET], metadata=_DASH_META)
+
+
+def _build_dashboards_mock() -> AsyncMock:
+    svc = AsyncMock(spec=DashboardsServiceInterface)
+    svc.list.return_value = Page(items=[], total=0, page=1, size=1)
+    svc.create.return_value = _DASH
+    svc.get.return_value = _DASH
+    svc.update.return_value = _DASH
+    svc.add_widget.return_value = _DASH_WIDGET
+    svc.update_widget.return_value = _DASH_WIDGET
+    svc.update_layout.return_value = _DASH
+    svc.widget_schemas = MagicMock(return_value={"text": {}})
+    return svc
+
+
+def _build_dashboards_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_dashboards_service] = _build_dashboards_mock
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(dashboards_router, prefix="/dashboards", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def dashboards_app() -> FastAPI:
+    return _build_dashboards_app()
+
+
+_CREATE_BODY = {"name": "Ops"}
+_WIDGET_BODY = {"config": {"type": "text", "text": "hi", "color": "#1a2b3c"}}
+_LAYOUT_BODY = [{"i": "w1", "x": 0, "y": 0, "w": 4, "h": 2}]
+
+DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
+    # Reads — every authenticated role can read; no-auth is 401.
+    pytest.param("GET", "/dashboards/", "viewer", 200, None, id="list-viewer"),
+    pytest.param("GET", "/dashboards/", "operator", 200, None, id="list-operator"),
+    pytest.param("GET", "/dashboards/", None, 401, None, id="list-no-auth"),
+    pytest.param(
+        "GET", "/dashboards/widget-schemas", "viewer", 200, None, id="schemas-viewer"
+    ),
+    pytest.param(
+        "GET", "/dashboards/widget-schemas", None, 401, None, id="schemas-no-auth"
+    ),
+    pytest.param("GET", "/dashboards/any-id", "viewer", 200, None, id="get-viewer"),
+    pytest.param("GET", "/dashboards/any-id", None, 401, None, id="get-no-auth"),
+    # Writes — admin + operator allowed; viewer 403; no-auth 401.
+    pytest.param("POST", "/dashboards/", "operator", 201, _CREATE_BODY, id="create-op"),
+    pytest.param(
+        "POST", "/dashboards/", "viewer", 403, _CREATE_BODY, id="create-viewer"
+    ),
+    pytest.param("POST", "/dashboards/", None, 401, _CREATE_BODY, id="create-no-auth"),
+    pytest.param(
+        "PUT", "/dashboards/any-id", "operator", 200, _CREATE_BODY, id="update-op"
+    ),
+    pytest.param(
+        "PUT", "/dashboards/any-id", "viewer", 403, _CREATE_BODY, id="update-viewer"
+    ),
+    pytest.param("PUT", "/dashboards/any-id", None, 401, _CREATE_BODY, id="update-noa"),
+    pytest.param("DELETE", "/dashboards/any-id", "operator", 204, None, id="delete-op"),
+    pytest.param(
+        "DELETE", "/dashboards/any-id", "viewer", 403, None, id="delete-viewer"
+    ),
+    pytest.param("DELETE", "/dashboards/any-id", None, 401, None, id="delete-no-auth"),
+    pytest.param(
+        "POST",
+        "/dashboards/any-id/widgets",
+        "operator",
+        201,
+        _WIDGET_BODY,
+        id="add-widget-op",
+    ),
+    pytest.param(
+        "POST",
+        "/dashboards/any-id/widgets",
+        "viewer",
+        403,
+        _WIDGET_BODY,
+        id="add-widget-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/dashboards/any-id/widgets",
+        None,
+        401,
+        _WIDGET_BODY,
+        id="add-widget-noa",
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/any-id/widgets/w1",
+        "operator",
+        200,
+        {"title": "x"},
+        id="update-widget-op",
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/any-id/widgets/w1",
+        "viewer",
+        403,
+        {"title": "x"},
+        id="update-widget-viewer",
+    ),
+    pytest.param(
+        "PUT", "/dashboards/any-id/widgets/w1", None, 401, {"title": "x"}, id="uw-noa"
+    ),
+    pytest.param(
+        "DELETE",
+        "/dashboards/any-id/widgets/w1",
+        "operator",
+        204,
+        None,
+        id="remove-widget-op",
+    ),
+    pytest.param(
+        "DELETE",
+        "/dashboards/any-id/widgets/w1",
+        "viewer",
+        403,
+        None,
+        id="remove-widget-viewer",
+    ),
+    pytest.param(
+        "DELETE", "/dashboards/any-id/widgets/w1", None, 401, None, id="rw-noa"
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/any-id/layout",
+        "operator",
+        200,
+        _LAYOUT_BODY,
+        id="layout-op",
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/any-id/layout",
+        "viewer",
+        403,
+        _LAYOUT_BODY,
+        id="layout-viewer",
+    ),
+    pytest.param(
+        "PUT", "/dashboards/any-id/layout", None, 401, _LAYOUT_BODY, id="layout-no-auth"
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status", "body"),
+    DASHBOARDS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_dashboards_access_control(  # noqa: PLR0913
+    dashboards_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+    body: object,
+) -> None:
+    with TestClient(dashboards_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status

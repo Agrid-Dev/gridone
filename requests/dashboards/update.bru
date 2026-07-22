@@ -1,0 +1,26 @@
+meta {
+  name: update dashboard
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{BASE_URL}}/dashboards/:dashboard_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  dashboard_id: {{dashboard_id}}
+}
+
+body:json {
+  {
+    "name": "Renamed Dashboard"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq Renamed Dashboard
+}

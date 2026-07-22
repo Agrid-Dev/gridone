@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
 from automations import AutomationsServiceInterface
+from dashboards import DashboardsServiceInterface
 from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
@@ -49,6 +50,10 @@ def get_notifications_service(request: Request) -> NotificationsServiceInterface
 
 def get_assets_service(request: Request) -> AssetsService:
     return request.app.state.assets_service
+
+
+def get_dashboards_service(request: Request) -> DashboardsServiceInterface:
+    return request.app.state.dashboards_service
 
 
 def get_auth_service(request: Request) -> AuthService:

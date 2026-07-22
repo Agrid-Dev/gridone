@@ -3,6 +3,7 @@ import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Cpu,
+  LayoutDashboard,
   LayoutGrid,
   Network,
   Puzzle,
@@ -11,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { useFeatureEnabled } from "@/utils/featureFlags";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -33,6 +35,7 @@ export function Sidebar() {
   const { t } = useTranslation("common");
   const can = usePermissions();
   const { health } = useAuth();
+  const dashboardsEnabled = useFeatureEnabled("dashboards");
 
   const version = health.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
@@ -42,6 +45,13 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
           <SectionLabel>{t("nav.supervision")}</SectionLabel>
+
+          {dashboardsEnabled && (
+            <NavLink to="/dashboards" className={navLinkClass}>
+              <LayoutDashboard className="h-4 w-4" />
+              {t("app.dashboards")}
+            </NavLink>
+          )}
 
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />
