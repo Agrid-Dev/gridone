@@ -22,6 +22,7 @@ export type TrailCrumb = BreadcrumbCrumb & { isCurrent: boolean };
 /** Top-level section roots, derived from the pathname so the ~9 list pages
  *  don't each register the same crumb. Anything deeper is route-registered. */
 export const SECTION_LABELS: Record<string, string> = {
+  dashboards: "app.dashboards",
   devices: "app.devices",
   assets: "app.assets",
   drivers: "app.drivers",

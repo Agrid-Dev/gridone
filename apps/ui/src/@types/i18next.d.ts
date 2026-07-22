@@ -4,6 +4,7 @@ import type assets from "../locales/en/assets.json";
 import type automations from "../locales/en/automations.json";
 import type profile from "../locales/en/profile.json";
 import type common from "../locales/en/common.json";
+import type dashboards from "../locales/en/dashboards.json";
 import type devices from "../locales/en/devices.json";
 import type drivers from "../locales/en/drivers.json";
 import type faults from "../locales/en/faults.json";
@@ -18,6 +19,7 @@ declare module "i18next" {
     defaultNS: "common";
     resources: {
       common: typeof common;
+      dashboards: typeof dashboards;
       devices: typeof devices;
       users: typeof users;
       assets: typeof assets;
