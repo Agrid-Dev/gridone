@@ -86,6 +86,15 @@ class TransportRegistry:
         client = self._get_or_raise(transport_id)
         return transport_to_public(client)
 
+    async def _persist(self, transport: TransportClient) -> Transport:
+        """Bump updated_at and write back. The single chokepoint every
+        mutating method funnels through, so a new one can't forget to
+        bump the timestamp."""
+        transport.metadata.updated_at = datetime.now(UTC)
+        dto = transport_to_public(transport)
+        await self._storage.write(transport.id, dto)
+        return dto
+
     async def add(self, transport: TransportCreate | Transport) -> Transport:
         client = build_transport_client(transport)
         self._transports[client.id] = client
@@ -109,7 +118,5 @@ class TransportRegistry:
             transport.metadata.name = update.name
         if update.config is not None:
             transport.update_config(update.config)
-        transport.metadata.updated_at = datetime.now(UTC)
-        dto = transport_to_public(transport)
-        await self._storage.write(transport_id, dto)
+        await self._persist(transport)
         return transport

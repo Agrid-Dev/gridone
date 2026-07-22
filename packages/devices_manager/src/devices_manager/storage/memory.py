@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from devices_manager.dto import Device, DriverSpec, Transport
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from devices_manager.core.device import Attribute
 
     from .storage_backend import DeviceStorageBackend, StorageBackend
@@ -59,17 +61,21 @@ class MemoryDeviceStorage(MemoryStorageBackend[Device]):
     FK violation in the path of in-memory-only test setups).
     """
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> None:
+    async def set_tag(
+        self, device_id: str, key: str, value: str, updated_at: datetime
+    ) -> None:
         device = self._items.get(device_id)
         if device is None:
             return
         device.tags[key] = value
+        device.updated_at = updated_at
 
-    async def delete_tag(self, device_id: str, key: str) -> None:
+    async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
         device = self._items.get(device_id)
         if device is None:
             return
         device.tags.pop(key, None)
+        device.updated_at = updated_at
 
 
 class MemoryDevicesStorage:

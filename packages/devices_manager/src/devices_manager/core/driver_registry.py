@@ -128,6 +128,15 @@ class DriverRegistry:
     def _touch(driver: Driver) -> None:
         driver.metadata.updated_at = datetime.now(UTC)
 
+    async def _persist(self, driver: Driver) -> DriverSpec:
+        """Bump updated_at and write back. The single chokepoint every
+        mutating method funnels through, so a new one can't forget to
+        bump the timestamp."""
+        self._touch(driver)
+        dto = driver_to_public(driver)
+        await self._storage.write(dto.id, dto)
+        return dto
+
     async def add(self, driver_dto: DriverSpec) -> DriverSpec:
         if driver_dto.id in self._drivers:
             msg = f"Driver {driver_dto.id} already exists"
@@ -167,10 +176,7 @@ class DriverRegistry:
                     )
             target = driver.metadata if field in metadata_fields else driver
             setattr(target, field, value)
-        self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
-        return dto
+        return await self._persist(driver)
 
     async def create_driver_attribute(
         self, driver_id: str, attribute: AttributeDriver
@@ -192,9 +198,7 @@ class DriverRegistry:
         )
         validate_polling_groups(driver.update_strategy, [attribute])
         driver.attributes[attribute.name] = attribute
-        self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
+        await self._persist(driver)
         return attribute
 
     async def patch_driver_attribute(
@@ -222,9 +226,7 @@ class DriverRegistry:
             raise InvalidError(msg) from None
         validate_polling_groups(driver.update_strategy, [updated])
         driver.attributes[attribute_id] = updated
-        self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
+        await self._persist(driver)
         return updated
 
     async def delete_driver_attribute(
@@ -243,10 +245,7 @@ class DriverRegistry:
             ),
         )
         del driver.attributes[attribute_id]
-        self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
-        return dto
+        return await self._persist(driver)
 
     async def rename_driver_attribute(
         self, driver_id: str, attribute_id: str, new_name: str
@@ -274,9 +273,7 @@ class DriverRegistry:
         )
         del driver.attributes[attribute_id]
         driver.attributes[new_name] = renamed
-        self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
+        await self._persist(driver)
         return renamed
 
     async def remove(self, driver_id: str) -> None:

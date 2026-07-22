@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from devices_manager.dto import Device
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from devices_manager.core.device import Attribute
     from devices_manager.dto import DriverSpec, Transport
 
@@ -26,9 +28,13 @@ class StorageBackend[M: BaseModel](Protocol):
 class DeviceStorageBackend(StorageBackend[Device], Protocol):
     """StorageBackend[Device] extended with targeted tag-mutation methods."""
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> None: ...
+    async def set_tag(
+        self, device_id: str, key: str, value: str, updated_at: datetime
+    ) -> None: ...
 
-    async def delete_tag(self, device_id: str, key: str) -> None: ...
+    async def delete_tag(
+        self, device_id: str, key: str, updated_at: datetime
+    ) -> None: ...
 
 
 class DevicesManagerStorage(Protocol):

@@ -9,6 +9,8 @@ from devices_manager.storage.storage_backend import StorageBackend
 from devices_manager.types import AttributeValueType, DataType
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     import asyncpg
 
 
@@ -208,21 +210,35 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             msg = f"dm_devices entry '{item_id}' not found"
             raise FileNotFoundError(msg)
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> None:
-        await self._pool.execute(
-            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
-            " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
-            device_id,
-            key,
-            value,
-        )
+    async def set_tag(
+        self, device_id: str, key: str, value: str, updated_at: datetime
+    ) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
+                " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
+                device_id,
+                key,
+                value,
+            )
+            await conn.execute(
+                "UPDATE dm_devices SET updated_at = $2 WHERE id = $1",
+                device_id,
+                updated_at,
+            )
 
-    async def delete_tag(self, device_id: str, key: str) -> None:
-        await self._pool.execute(
-            "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
-            device_id,
-            key,
-        )
+    async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
+                device_id,
+                key,
+            )
+            await conn.execute(
+                "UPDATE dm_devices SET updated_at = $2 WHERE id = $1",
+                device_id,
+                updated_at,
+            )
 
 
 async def _fetch_attrs_and_tags(

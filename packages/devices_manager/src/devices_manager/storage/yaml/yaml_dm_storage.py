@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -75,12 +76,16 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
 class YamlDeviceStorage(YamlFileStorage[Device]):
     """YamlFileStorage[Device] extended with targeted tag-mutation methods."""
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> None:
+    async def set_tag(
+        self, device_id: str, key: str, value: str, updated_at: datetime
+    ) -> None:
         dto = await self.read(device_id)
         dto.tags[key] = value
+        dto.updated_at = updated_at
         await self.write(device_id, dto)
 
-    async def delete_tag(self, device_id: str, key: str) -> None:
+    async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
         dto = await self.read(device_id)
         dto.tags.pop(key, None)
+        dto.updated_at = updated_at
         await self.write(device_id, dto)

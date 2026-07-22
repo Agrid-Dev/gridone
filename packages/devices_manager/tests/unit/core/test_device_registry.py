@@ -326,6 +326,19 @@ class TestDeviceRegistryUpdate:
         assert result.tags == {"asset_id": "floor1"}
 
     @pytest.mark.asyncio
+    async def test_set_tag_bumps_updated_at(self, device_registry, device):
+        original_updated_at = device.updated_at
+        result = await device_registry.set_tag(device.id, "asset_id", "floor1")
+        assert result.updated_at > original_updated_at
+
+    @pytest.mark.asyncio
+    async def test_delete_tag_bumps_updated_at(self, device_registry, device):
+        device.tags = {"asset_id": "floor1"}
+        original_updated_at = device.updated_at
+        result = await device_registry.delete_tag(device.id, "asset_id")
+        assert result.updated_at > original_updated_at
+
+    @pytest.mark.asyncio
     async def test_set_tag_overwrite(self, device_registry, device):
         await device_registry.set_tag(device.id, "asset_id", "floor1")
         result = await device_registry.set_tag(device.id, "asset_id", "floor2")
@@ -355,7 +368,9 @@ class TestDeviceRegistryUpdate:
             storage=storage,
         )
         await registry.set_tag(device.id, "zone", "north")
-        storage.set_tag.assert_awaited_once_with(device.id, "zone", "north")
+        storage.set_tag.assert_awaited_once_with(
+            device.id, "zone", "north", device.updated_at
+        )
         storage.write.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -372,7 +387,9 @@ class TestDeviceRegistryUpdate:
             storage=storage,
         )
         await registry.delete_tag(device.id, "zone")
-        storage.delete_tag.assert_awaited_once_with(device.id, "zone")
+        storage.delete_tag.assert_awaited_once_with(
+            device.id, "zone", device.updated_at
+        )
         storage.write.assert_not_awaited()
 
     @pytest.mark.asyncio

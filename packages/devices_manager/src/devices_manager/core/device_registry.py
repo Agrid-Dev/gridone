@@ -114,13 +114,20 @@ class DeviceRegistry:
             device_to_public(d) for d in self._devices.values() if filters.matches(d)
         ]
 
+    @staticmethod
+    def _touch(device: CoreDevice) -> None:
+        device.updated_at = datetime.now(UTC)
+
+    async def _persist(self, device: CoreDevice) -> None:
+        await self._storage.write(device.id, device_to_public(device))
+
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
         self._devices[device.id] = device
-        await self._storage.write(device.id, device_to_public(device))
+        await self._persist(device)
         logger.info("Successfully registered device '%s'", device.id)
 
     def _validate_device_config(self, device_config: dict, driver: Driver) -> None:
@@ -230,10 +237,10 @@ class DeviceRegistry:
             device = self.rebuild_device(device, effective_driver, effective_transport)
             self._devices[device_id] = device
         else:
-            device.updated_at = datetime.now(UTC)
+            self._touch(device)
 
         result = self._devices[device_id]
-        await self._storage.write(device_id, device_to_public(result))
+        await self._persist(result)
         return result
 
     async def remove(self, device_id: str) -> None:
@@ -245,13 +252,15 @@ class DeviceRegistry:
     async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags[key] = value
-        await self._storage.set_tag(device_id, key, value)
+        self._touch(device)
+        await self._storage.set_tag(device_id, key, value, device.updated_at)
         return device
 
     async def delete_tag(self, device_id: str, key: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags.pop(key, None)
-        await self._storage.delete_tag(device_id, key)
+        self._touch(device)
+        await self._storage.delete_tag(device_id, key, device.updated_at)
         return device
 
     async def write_attribute(
