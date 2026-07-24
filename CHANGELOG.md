@@ -1,3 +1,9 @@
+## v0.167.0 (2026-07-24)
+
+### Feat
+
+- **devices-manager,api**: add POST /devices/batch as a thin loop over add_device (#472)
+
 ## v0.166.0 (2026-07-24)
 
 ### Feat
