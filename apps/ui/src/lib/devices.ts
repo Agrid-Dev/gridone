@@ -244,6 +244,108 @@ export function isStandardDevice(device: Device): device is StandardDevice {
   );
 }
 
+/** Ordered standard-attribute wire names for each standard device type, most
+ *  meaningful first. Mirrors the backend standard-schema registry: the wire
+ *  does not flag which of a device's attributes belong to its standard schema
+ *  (every attribute reports `kind: "standard"`), so the UI carries the list to
+ *  surface the important attributes first (e.g. in history views). */
+export const STANDARD_ATTRIBUTE_NAMES: Record<DeviceType, string[]> = {
+  [DeviceType.Thermostat]: [
+    "temperature",
+    "temperature_setpoint",
+    "onoff_state",
+    "mode",
+    "fan_speed",
+    "temperature_setpoint_min",
+    "temperature_setpoint_max",
+  ],
+  [DeviceType.Awhp]: [
+    "onoff_state",
+    "unit_run_status",
+    "mode",
+    "inlet_temperature",
+    "outlet_temperature",
+    "setpoint_temperature",
+    "outdoor_temperature",
+    "compressor_suction_temperature",
+    "compressor_suction_pressure",
+    "compressor_discharge_temperature",
+    "compressor_discharge_pressure",
+    "condenser_saturated_refrigerant_temperature",
+    "condenser_refrigerant_pressure",
+    "evaporator_saturated_refrigerant_temperature",
+    "evaporator_refrigerant_pressure",
+  ],
+  [DeviceType.WeatherSensor]: [
+    "temperature",
+    "weather_code",
+    "wind_speed",
+    "wind_direction",
+    "humidity",
+  ],
+  [DeviceType.ElectricityMeter]: [
+    "energy",
+    "active_power",
+    "reactive_power",
+    "index",
+  ],
+  [DeviceType.AhuDoubleFlux]: [
+    "supply_air_temperature",
+    "supply_air_temperature_setpoint",
+    "supply_fan_speed",
+    "extract_air_temperature",
+    "extract_fan_speed",
+    "onoff_state",
+    "hvac_mode",
+    "supply_air_pressure",
+    "supply_air_pressure_setpoint",
+    "extract_air_pressure",
+    "extract_air_pressure_setpoint",
+    "outdoor_air_temperature",
+    "exhaust_air_temperature",
+    "heating_valve",
+    "cooling_valve",
+    "exchanger_utilization",
+  ],
+  [DeviceType.AhuSingleFlux]: [
+    "supply_air_temperature",
+    "supply_air_temperature_setpoint",
+    "supply_fan_speed",
+    "onoff_state",
+    "hvac_mode",
+    "supply_air_pressure",
+    "supply_air_pressure_setpoint",
+    "outdoor_air_temperature",
+    "extract_air_temperature",
+    "extract_air_pressure",
+    "extract_fan_speed",
+    "heating_valve",
+    "cooling_valve",
+  ],
+  [DeviceType.AirExtractor]: ["onoff_state", "fan_speed", "flow_switch"],
+};
+
+/** The ordered standard-attribute names for a device's type, or `[]` when the
+ *  device has no known standard type. */
+export function standardAttributeNames(device: Device): string[] {
+  const type = device.type;
+  if (type == null) return [];
+  return STANDARD_ATTRIBUTE_NAMES[type as DeviceType] ?? [];
+}
+
+/** A device's attribute names ordered with its standard-schema attributes
+ *  first (in schema order, keeping only those the device actually declares),
+ *  followed by the remaining attributes in declaration order. For a device
+ *  with no known standard type this is just the declaration order. */
+export function attributeNamesStandardFirst(device: Device): string[] {
+  const names = Object.keys(deviceAttributes(device));
+  const standard = standardAttributeNames(device).filter((n) =>
+    names.includes(n),
+  );
+  const standardSet = new Set(standard);
+  return [...standard, ...names.filter((n) => !standardSet.has(n))];
+}
+
 /** Enum-style accessors over the SDK's `ConnectionStatus` union. */
 export const ConnectionStatus = {
   Idle: "idle",

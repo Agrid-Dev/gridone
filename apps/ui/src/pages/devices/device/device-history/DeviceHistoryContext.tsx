@@ -25,7 +25,7 @@ import { toast } from "sonner";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
-const MAX_DEFAULT_VISIBLE = 5;
+const MAX_DEFAULT_VISIBLE = 10;
 
 function storageKey(deviceId: string) {
   return `device-history-columns:${deviceId}`;

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
+import { attributeNamesStandardFirst } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import {
@@ -51,8 +52,10 @@ export default function DeviceHistoryLayout() {
     { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
   ]);
 
+  // Standard-schema attributes first, so the most meaningful ones are the
+  // defaults selected in the history views (see DeviceHistoryContext).
   const attributeNames = useMemo(
-    () => Object.keys(device.attributes ?? {}),
+    () => attributeNamesStandardFirst(device),
     [device],
   );
 

@@ -113,6 +113,56 @@ function setupDevice(count: number) {
   mockListSeries.mockResolvedValue(series);
 }
 
+/** Configure a thermostat whose standard-schema attributes are declared
+ *  *after* a block of non-standard filler attributes, each with a time series.
+ *  Returns the standard attribute names, in schema order. */
+function setupThermostat() {
+  const fillers = Array.from({ length: 10 }, (_, i) => `filler_${i + 1}`);
+  const standard = [
+    "temperature",
+    "temperature_setpoint",
+    "onoff_state",
+    "mode",
+    "fan_speed",
+  ];
+  const names = [...fillers, ...standard];
+  mockDevice.current = {
+    id: "d1",
+    name: "Thermostat",
+    type: "thermostat",
+    tags: {},
+    driver_id: "drv",
+    transport_id: "tr",
+    config: {},
+    attributes: Object.fromEntries(
+      names.map((name) => [
+        name,
+        {
+          kind: "standard",
+          name,
+          data_type: "float",
+          read_write_modes: ["read"],
+          current_value: null,
+          last_updated: null,
+          last_changed: null,
+        },
+      ]),
+    ),
+    is_faulty: false,
+  } satisfies Device;
+
+  const series: TimeSeries[] = names.map((metric) => ({
+    id: `s-${metric}`,
+    data_type: "float",
+    owner_id: "d1",
+    metric,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  }));
+  mockListSeries.mockResolvedValue(series);
+  return standard;
+}
+
 function renderLayout() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -153,43 +203,59 @@ afterEach(() => {
 
 describe("DeviceHistoryLayout attribute selection", () => {
   it("fetches points only for the default-visible attributes", async () => {
-    setupDevice(8);
+    setupDevice(12);
     renderLayout();
 
-    await screen.findByText("5 / 8");
+    await screen.findByText("10 / 12");
 
-    expect(mockGetSeriesPoints).toHaveBeenCalledTimes(5);
+    expect(mockGetSeriesPoints).toHaveBeenCalledTimes(10);
     const fetchedMetrics = mockGetSeriesPoints.mock.calls.map((c) => c[1]);
-    expect(fetchedMetrics).toEqual([0, 1, 2, 3, 4].map(attrName));
+    expect(fetchedMetrics).toEqual(
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(attrName),
+    );
+  });
+
+  it("selects a standard device's schema attributes by default", async () => {
+    const standard = setupThermostat();
+    renderLayout();
+
+    // 10 fillers + 5 standard; the default cap is 10, so without promotion the
+    // standard attributes (declared last) would all be hidden.
+    await screen.findByText("10 / 15");
+
+    const fetchedMetrics = mockGetSeriesPoints.mock.calls.map((c) => c[1]);
+    for (const name of standard) {
+      expect(fetchedMetrics).toContain(name);
+    }
   });
 
   it("fetches only the missing series when the selection grows", async () => {
-    setupDevice(8);
+    setupDevice(12);
     renderLayout();
-    await screen.findByText("5 / 8");
+    await screen.findByText("10 / 12");
     mockGetSeriesPoints.mockClear();
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("Attr 06"));
+    await user.click(screen.getByText("Attr 11"));
 
-    await screen.findByText("6 / 8");
+    await screen.findByText("11 / 12");
     await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(1));
-    expect(mockGetSeriesPoints.mock.calls[0][1]).toBe(attrName(5));
+    expect(mockGetSeriesPoints.mock.calls[0][1]).toBe(attrName(10));
   });
 
   it("disables select-all when the device has too many attributes", async () => {
     setupDevice(25);
     renderLayout();
-    await screen.findByText("5 / 25");
+    await screen.findByText("10 / 25");
 
     expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
     expect(screen.getByText("Too many attributes")).toBeInTheDocument();
   });
 
   it("keeps select-all enabled at or below the threshold", async () => {
-    setupDevice(8);
+    setupDevice(12);
     renderLayout();
-    await screen.findByText("5 / 8");
+    await screen.findByText("10 / 12");
 
     expect(screen.getByRole("button", { name: "Select all" })).toBeEnabled();
   });
@@ -197,7 +263,7 @@ describe("DeviceHistoryLayout attribute selection", () => {
   it("filters the attribute list with the search input", async () => {
     setupDevice(8);
     renderLayout();
-    await screen.findByText("5 / 8");
+    await screen.findByText("8 / 8");
 
     const user = userEvent.setup();
     await user.type(screen.getByPlaceholderText("Search attributes…"), "06");
