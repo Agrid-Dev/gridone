@@ -10,6 +10,7 @@ import type {
   Device,
   DeviceListParams,
   DevicesFilterBody,
+  StandardAttributeSchema,
 } from "@gridone/sdk";
 
 /** Value type of one entry in `Device.attributes`. */
@@ -242,6 +243,35 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isAhuSingleFlux(device) ||
     isAirExtractor(device)
   );
+}
+
+/** The standard-schema attribute names for a device's type, in schema order,
+ *  taken from the standard-type catalog (`GET /devices/standard-types`). Empty
+ *  when the device has no type or no matching schema. */
+export function standardAttributeNames(
+  device: Device,
+  schemas: StandardAttributeSchema[],
+): string[] {
+  const schema = device.type
+    ? schemas.find((s) => s.key === device.type)
+    : undefined;
+  return schema?.fields.map((f) => f.name) ?? [];
+}
+
+/** The attributes shown by default in the history views: the device's standard
+ *  attributes present in `available` (in `standardNames` order), capped at
+ *  `limit`. The wire does not flag which attributes belong to a device's
+ *  standard schema (every one reports `kind: "standard"`), so `standardNames`
+ *  comes from the standard-type catalog. When the device exposes no standard
+ *  attributes, falls back to the first `limit` of `available`. */
+export function defaultVisibleAttributes(
+  available: string[],
+  standardNames: string[],
+  limit: number,
+): string[] {
+  const standard = standardNames.filter((n) => available.includes(n));
+  const base = standard.length > 0 ? standard : available;
+  return base.slice(0, limit);
 }
 
 /** Enum-style accessors over the SDK's `ConnectionStatus` union. */

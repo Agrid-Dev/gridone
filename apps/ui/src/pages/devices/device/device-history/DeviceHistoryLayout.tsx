@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/popover";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
+import { useStandardTypes } from "@/hooks/useStandardTypes";
+import { standardAttributeNames } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import {
@@ -46,6 +48,7 @@ export const MAX_SELECT_ALL_ATTRIBUTES = 20;
 export default function DeviceHistoryLayout() {
   const device = useDeviceFromRoute();
   const deviceId = device.id;
+  const standardTypes = useStandardTypes();
 
   useBreadcrumb([
     { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
@@ -56,8 +59,19 @@ export default function DeviceHistoryLayout() {
     [device],
   );
 
+  // The device's standard-schema attributes become the default selection in
+  // the history views (see DeviceHistoryContext).
+  const standardNames = useMemo(
+    () => standardAttributeNames(device, standardTypes),
+    [device, standardTypes],
+  );
+
   return (
-    <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
+    <DeviceHistoryProvider
+      deviceId={deviceId}
+      attributeNames={attributeNames}
+      standardAttributeNames={standardNames}
+    >
       <div className="space-y-6">
         <HistoryToolbar deviceId={deviceId} />
       </div>

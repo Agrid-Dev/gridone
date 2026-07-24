@@ -8,6 +8,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
 import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
 import { useUsers } from "@/hooks/useUsers";
+import { defaultVisibleAttributes } from "@/lib/devices";
 import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
@@ -25,7 +26,7 @@ import { toast } from "sonner";
 import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
-const MAX_DEFAULT_VISIBLE = 5;
+const MAX_DEFAULT_VISIBLE = 8;
 
 function storageKey(deviceId: string) {
   return `device-history-columns:${deviceId}`;
@@ -86,12 +87,14 @@ const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
 type DeviceHistoryProviderProps = {
   deviceId: string;
   attributeNames: string[];
+  standardAttributeNames: string[];
   children: ReactNode;
 };
 
 export function DeviceHistoryProvider({
   deviceId,
   attributeNames,
+  standardAttributeNames,
   children,
 }: DeviceHistoryProviderProps) {
   const { t } = useTranslation("devices");
@@ -146,15 +149,22 @@ export function DeviceHistoryProvider({
     );
     const all = [...ordered, ...remaining];
 
+    const visible = new Set(
+      defaultVisibleAttributes(
+        all,
+        standardAttributeNames,
+        MAX_DEFAULT_VISIBLE,
+      ),
+    );
     const defaults: VisibilityState = {};
-    all.forEach((attr, i) => {
-      defaults[attr] = i < MAX_DEFAULT_VISIBLE;
+    all.forEach((attr) => {
+      defaults[attr] = visible.has(attr);
     });
 
     defaultsApplied.current = true;
     setColumnVisibility(defaults);
     writeVisibility(deviceId, defaults);
-  }, [availableAttributes, attributeNames, deviceId]);
+  }, [availableAttributes, attributeNames, standardAttributeNames, deviceId]);
 
   // Column order — newly visible columns are appended to the right
   const [columnOrder, setColumnOrder] = useState<string[]>(["timestamp"]);
