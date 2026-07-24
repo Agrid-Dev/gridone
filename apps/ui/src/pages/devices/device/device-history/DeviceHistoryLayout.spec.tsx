@@ -8,10 +8,12 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { Device, TimeSeries } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const { mockListSeries, mockGetSeriesPoints } = vi.hoisted(() => ({
-  mockListSeries: vi.fn(),
-  mockGetSeriesPoints: vi.fn(),
-}));
+const { mockListSeries, mockGetSeriesPoints, mockGetStandardTypes } =
+  vi.hoisted(() => ({
+    mockListSeries: vi.fn(),
+    mockGetSeriesPoints: vi.fn(),
+    mockGetStandardTypes: vi.fn(),
+  }));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
@@ -20,6 +22,9 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
       exportCsv: vi.fn(),
       exportPng: vi.fn(),
+    },
+    devices: {
+      getStandardTypes: (...args: unknown[]) => mockGetStandardTypes(...args),
     },
   }),
 }));
@@ -171,14 +176,16 @@ function renderLayout() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <MemoryRouter initialEntries={["/devices/d1/history/table"]}>
-          <Routes>
-            <Route
-              path="/devices/:deviceId/history"
-              element={<DeviceHistoryLayout />}
-            >
-              <Route path="table" element={<div />} />
-            </Route>
-          </Routes>
+          <React.Suspense fallback={null}>
+            <Routes>
+              <Route
+                path="/devices/:deviceId/history"
+                element={<DeviceHistoryLayout />}
+              >
+                <Route path="table" element={<div />} />
+              </Route>
+            </Routes>
+          </React.Suspense>
         </MemoryRouter>
       </TooltipProvider>
     </QueryClientProvider>,
@@ -193,12 +200,27 @@ beforeEach(() => {
     truncated: false,
     next_start: null,
   });
+  // The standard-type catalog; thermostat is the only entry the tests need.
+  mockGetStandardTypes.mockResolvedValue([
+    {
+      key: "thermostat",
+      name: "Thermostat",
+      fields: [
+        "temperature",
+        "temperature_setpoint",
+        "onoff_state",
+        "mode",
+        "fan_speed",
+      ].map((name) => ({ name, required: false, data_type: "float" })),
+    },
+  ]);
 });
 
 afterEach(() => {
   cleanup();
   mockListSeries.mockReset();
   mockGetSeriesPoints.mockReset();
+  mockGetStandardTypes.mockReset();
 });
 
 describe("DeviceHistoryLayout attribute selection", () => {
