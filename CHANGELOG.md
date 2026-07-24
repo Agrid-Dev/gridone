@@ -1,3 +1,14 @@
+## v0.166.0 (2026-07-24)
+
+### Feat
+
+- **ui**: default to standard attributes only, capped at 8
+- **ui**: select standard attributes by default in history charts
+
+### Refactor
+
+- **ui**: source standard attributes from the standard-types endpoint
+
 ## v0.165.0 (2026-07-22)
 
 ### Feat
