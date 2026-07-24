@@ -21,7 +21,7 @@ import {
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useStandardTypes } from "@/hooks/useStandardTypes";
-import { attributeNamesStandardFirst } from "@/lib/devices";
+import { standardAttributeNames } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import {
@@ -54,15 +54,24 @@ export default function DeviceHistoryLayout() {
     { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
   ]);
 
-  // Standard-schema attributes first, so the most meaningful ones are the
-  // defaults selected in the history views (see DeviceHistoryContext).
   const attributeNames = useMemo(
-    () => attributeNamesStandardFirst(device, standardTypes),
+    () => Object.keys(device.attributes ?? {}),
+    [device],
+  );
+
+  // The device's standard-schema attributes become the default selection in
+  // the history views (see DeviceHistoryContext).
+  const standardNames = useMemo(
+    () => standardAttributeNames(device, standardTypes),
     [device, standardTypes],
   );
 
   return (
-    <DeviceHistoryProvider deviceId={deviceId} attributeNames={attributeNames}>
+    <DeviceHistoryProvider
+      deviceId={deviceId}
+      attributeNames={attributeNames}
+      standardAttributeNames={standardNames}
+    >
       <div className="space-y-6">
         <HistoryToolbar deviceId={deviceId} />
       </div>

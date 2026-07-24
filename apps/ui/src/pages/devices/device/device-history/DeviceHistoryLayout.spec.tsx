@@ -225,50 +225,48 @@ afterEach(() => {
 
 describe("DeviceHistoryLayout attribute selection", () => {
   it("fetches points only for the default-visible attributes", async () => {
+    // A non-standard device has no standard schema, so the default falls back
+    // to the first 8 attributes in declaration order.
     setupDevice(12);
     renderLayout();
 
-    await screen.findByText("10 / 12");
+    await screen.findByText("8 / 12");
 
-    expect(mockGetSeriesPoints).toHaveBeenCalledTimes(10);
+    expect(mockGetSeriesPoints).toHaveBeenCalledTimes(8);
     const fetchedMetrics = mockGetSeriesPoints.mock.calls.map((c) => c[1]);
-    expect(fetchedMetrics).toEqual(
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(attrName),
-    );
+    expect(fetchedMetrics).toEqual([0, 1, 2, 3, 4, 5, 6, 7].map(attrName));
   });
 
-  it("selects a standard device's schema attributes by default", async () => {
+  it("selects only a standard device's schema attributes by default", async () => {
     const standard = setupThermostat();
     renderLayout();
 
-    // 10 fillers + 5 standard; the default cap is 10, so without promotion the
-    // standard attributes (declared last) would all be hidden.
-    await screen.findByText("10 / 15");
+    // 10 fillers + 5 standard: exactly the 5 standard attributes are selected,
+    // none of the fillers — the default is standard-only, not padded to a cap.
+    await screen.findByText("5 / 15");
 
     const fetchedMetrics = mockGetSeriesPoints.mock.calls.map((c) => c[1]);
-    for (const name of standard) {
-      expect(fetchedMetrics).toContain(name);
-    }
+    expect([...fetchedMetrics].sort()).toEqual([...standard].sort());
   });
 
   it("fetches only the missing series when the selection grows", async () => {
     setupDevice(12);
     renderLayout();
-    await screen.findByText("10 / 12");
+    await screen.findByText("8 / 12");
     mockGetSeriesPoints.mockClear();
 
     const user = userEvent.setup();
-    await user.click(screen.getByText("Attr 11"));
+    await user.click(screen.getByText("Attr 09"));
 
-    await screen.findByText("11 / 12");
+    await screen.findByText("9 / 12");
     await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(1));
-    expect(mockGetSeriesPoints.mock.calls[0][1]).toBe(attrName(10));
+    expect(mockGetSeriesPoints.mock.calls[0][1]).toBe(attrName(8));
   });
 
   it("disables select-all when the device has too many attributes", async () => {
     setupDevice(25);
     renderLayout();
-    await screen.findByText("10 / 25");
+    await screen.findByText("8 / 25");
 
     expect(screen.getByRole("button", { name: "Select all" })).toBeDisabled();
     expect(screen.getByText("Too many attributes")).toBeInTheDocument();
@@ -277,7 +275,7 @@ describe("DeviceHistoryLayout attribute selection", () => {
   it("keeps select-all enabled at or below the threshold", async () => {
     setupDevice(12);
     renderLayout();
-    await screen.findByText("10 / 12");
+    await screen.findByText("8 / 12");
 
     expect(screen.getByRole("button", { name: "Select all" })).toBeEnabled();
   });

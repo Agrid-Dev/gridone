@@ -1,7 +1,7 @@
 import type { Device, StandardAttributeSchema } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import {
-  attributeNamesStandardFirst,
+  defaultVisibleAttributes,
   DeviceType,
   standardAttributeNames,
   type DeviceAttribute,
@@ -51,53 +51,41 @@ const SCHEMAS: StandardAttributeSchema[] = [
   },
 ];
 
-describe("attributeNamesStandardFirst", () => {
-  it("puts a thermostat's standard attributes first, ahead of driver-order ones", () => {
-    // Driver declaration order buries the meaningful attributes behind
-    // firmware/boot metadata (all reported as kind: "standard" on the wire).
-    const device = makeDevice("thermostat", [
+describe("defaultVisibleAttributes", () => {
+  it("selects only the standard attributes present, in schema order", () => {
+    // Driver order buries the standard attributes behind firmware/boot
+    // metadata (all reported as kind: "standard" on the wire).
+    const available = [
       "firmware_version",
+      "temperature",
+      "mode",
       "boot_mode",
-      "bootloader_version",
+      "fan_speed",
+    ];
+    const standard = [
       "temperature",
       "temperature_setpoint",
       "mode",
       "fan_speed",
-      "onoff_state",
-    ]);
+    ];
 
-    expect(attributeNamesStandardFirst(device, SCHEMAS)).toEqual([
+    // temperature_setpoint is not exposed, so it is skipped; the metadata
+    // attributes are excluded entirely — only the 3 present standard ones show.
+    expect(defaultVisibleAttributes(available, standard, 8)).toEqual([
       "temperature",
-      "temperature_setpoint",
-      "onoff_state",
       "mode",
       "fan_speed",
-      "firmware_version",
-      "boot_mode",
-      "bootloader_version",
     ]);
   });
 
-  it("only promotes standard attributes the device actually declares", () => {
-    const device = makeDevice("thermostat", [
-      "boot_mode",
-      "temperature",
-      "mode",
-    ]);
-
-    // temperature_setpoint / fan_speed are not declared, so they are skipped.
-    expect(attributeNamesStandardFirst(device, SCHEMAS)).toEqual([
-      "temperature",
-      "mode",
-      "boot_mode",
-    ]);
+  it("caps the standard selection at the limit", () => {
+    const attrs = ["a", "b", "c", "d"];
+    expect(defaultVisibleAttributes(attrs, attrs, 2)).toEqual(["a", "b"]);
   });
 
-  it("keeps declaration order for a device whose type has no schema", () => {
-    const names = ["b_attr", "a_attr", "temperature"];
-    const device = makeDevice(null, names);
-
-    expect(attributeNamesStandardFirst(device, SCHEMAS)).toEqual(names);
+  it("falls back to the first `limit` attributes when none are standard", () => {
+    const available = ["a", "b", "c", "d", "e"];
+    expect(defaultVisibleAttributes(available, [], 3)).toEqual(["a", "b", "c"]);
   });
 });
 
