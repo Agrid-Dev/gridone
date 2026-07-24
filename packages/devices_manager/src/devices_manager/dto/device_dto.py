@@ -20,8 +20,12 @@ if TYPE_CHECKING:
     from devices_manager.core.transports import TransportClient
 
 
+# A device may be created nameless (labelled later), so name defaults to "".
+_DEFAULT_DEVICE_NAME = ""
+
+
 class DeviceCreate(BaseModel):
-    name: Annotated[str, Field(default_factory=lambda: "")]
+    name: str = _DEFAULT_DEVICE_NAME
     config: dict
     driver_id: str
     transport_id: str

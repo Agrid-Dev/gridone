@@ -264,7 +264,7 @@ class TestDeviceRegistryAddPhysical:
             driver_id=driver.id,
             transport_id=mock_push_transport_client.id,
         )
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(InvalidError):
             await registry.add(create)
 
     @pytest.mark.asyncio
@@ -663,7 +663,7 @@ class TestDeviceRegistryUpdate:
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        with pytest.raises(ValueError):  # noqa: PT011
+        with pytest.raises(InvalidError):
             await registry.update(
                 device.id,
                 DeviceUpdate(driver_id=driver_w_push_transport.id),

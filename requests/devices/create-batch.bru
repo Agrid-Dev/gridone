@@ -1,0 +1,34 @@
+meta {
+  name: create devices batch
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}/devices/batch
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "driver_id": "open_meteo",
+    "transport_id": "http_default",
+    "devices": [
+      {
+        "name": "Tokyo weather",
+        "config": {
+          "latitude": 35.689487,
+          "longitude": 139.691706
+        }
+      },
+      {
+        "name": "Paris weather",
+        "config": {
+          "latitude": 48.856613,
+          "longitude": 2.352222
+        }
+      }
+    ]
+  }
+}
