@@ -1,7 +1,5 @@
 from .device_dto import (
     Device,
-    DeviceBatchCreate,
-    DeviceBatchItem,
     DeviceCreate,
     DeviceUpdate,
 )
@@ -43,8 +41,6 @@ __all__ = [
     "AttributePatch",
     "AttributeRename",
     "Device",
-    "DeviceBatchCreate",
-    "DeviceBatchItem",
     "DeviceCreate",
     "DeviceUpdate",
     "DriverPatch",

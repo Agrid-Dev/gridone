@@ -16,6 +16,7 @@ from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
+    DeviceBatchCreate,
     DeviceBatchItemResult,
     SingleAttrTimeseriesPushPoint,
     TagValueBody,
@@ -28,7 +29,6 @@ from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
-    DeviceBatchCreate,
     DeviceCreate,
     DeviceUpdate,
 )

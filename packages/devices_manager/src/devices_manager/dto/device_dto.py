@@ -31,19 +31,6 @@ class DeviceCreate(BaseModel):
     transport_id: str
 
 
-class DeviceBatchItem(BaseModel):
-    name: str = _DEFAULT_DEVICE_NAME
-    config: dict
-
-
-class DeviceBatchCreate(BaseModel):
-    """Create many devices sharing one driver + transport, each with its own config."""
-
-    driver_id: str
-    transport_id: str
-    devices: list[DeviceBatchItem] = Field(min_length=1)
-
-
 def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
     """Resolve the `kind` tag for discriminated-union dispatch.
 

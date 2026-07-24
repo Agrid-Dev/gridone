@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import AttributeValueType
@@ -29,6 +29,21 @@ class TimeseriesSingleAttrPushRequest(BaseModel):
 
 class TagValueBody(BaseModel):
     value: str
+
+
+class DeviceBatchItem(BaseModel):
+    # Unlike single-device creation, batch entries require a name: it is the
+    # only way to tell otherwise-identical devices apart in the batch result.
+    name: str = Field(min_length=1)
+    config: dict
+
+
+class DeviceBatchCreate(BaseModel):
+    """Create many devices sharing one driver + transport, each with its own config."""
+
+    driver_id: str
+    transport_id: str
+    devices: list[DeviceBatchItem] = Field(min_length=1)
 
 
 class DeviceBatchItemResult(BaseModel):
