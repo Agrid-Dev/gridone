@@ -31,6 +31,18 @@
       "type": "Type",
       "title": "Titre"
     },
+    "editor": {
+      "back": "Retour au tableau de bord",
+      "configuration": "Configuration",
+      "preview": "Aperçu",
+      "previewPlaceholder": "Remplissez le formulaire pour prévisualiser le widget ici.",
+      "discard": {
+        "title": "Abandonner les modifications ?",
+        "details": "Vos modifications de ce widget n'ont pas été enregistrées. Quitter maintenant les abandonne.",
+        "cancel": "Continuer l'édition",
+        "confirm": "Abandonner"
+      }
+    },
     "actions": {
       "label": "Actions du widget",
       "edit": "Modifier",

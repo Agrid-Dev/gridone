@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   useForm,
+  useWatch,
   type Control,
   type FieldValues,
   type Resolver,
@@ -9,15 +10,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useTranslation } from "react-i18next";
 import { InputController } from "@/components/forms/controllers/InputController";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toLabel } from "@/lib/textFormat";
 import { SchemaField, type JsonSchema } from "@/components/forms/SchemaField";
 
 export interface WidgetFormValues {
@@ -26,17 +18,31 @@ export interface WidgetFormValues {
   config: Record<string, unknown>;
 }
 
+/** What the form currently describes, for the page around it: the values as
+ *  they would be submitted (`null` while they don't satisfy the type's schema),
+ *  plus the flags its page-level controls need. */
+export interface WidgetFormState {
+  draft: WidgetFormValues | null;
+  /** Whether the user changed anything — drives the discard-changes guard. */
+  dirty: boolean;
+  submitting: boolean;
+}
+
 interface WidgetFormProps {
-  /** type → JSON Schema of that type's config (from GET widget-schemas). */
-  schemas: Record<string, Record<string, unknown>>;
-  defaultType?: string;
+  /** The type being authored. Owned by the page: it decides both the fields
+   *  below and what the preview renders, so it is not a field of this form. */
+  type: string;
+  /** JSON Schema of that type's config (from GET widget-schemas). */
+  configSchema: Record<string, unknown>;
   defaultTitle?: string;
   defaultConfig?: Record<string, unknown>;
-  /** Lock the type (edit): a widget's type is immutable after creation. */
-  typeLocked?: boolean;
-  submitLabel: string;
+  /** Lets the page's submit button drive this form (`<button form={id}>`). */
+  formId: string;
   onSubmit: (values: WidgetFormValues) => Promise<void>;
-  onCancel: () => void;
+  /** Called on every value change so the page can render a live preview and
+   *  enable its controls. Must be referentially stable (e.g. a `useState`
+   *  setter). */
+  onStateChange?: (state: WidgetFormState) => void;
 }
 
 /** Build a valid-shaped empty config for a type from its schema. */
@@ -56,26 +62,33 @@ function emptyConfig(
   return config;
 }
 
+/** Normalize raw form values into what gets submitted (and previewed): the
+ *  immutable `type` discriminator is stamped on the config regardless of field
+ *  registration, and the title is trimmed. */
+function toSubmitValues(
+  values: WidgetFormValues,
+  type: string,
+): WidgetFormValues {
+  return {
+    title: values.title.trim(),
+    config: { ...values.config, type },
+  };
+}
+
 /** Config form for one widget type: title + fields rendered from the type's
- *  JSON Schema. Remounted (keyed by type) when the type changes. */
-function WidgetTypeForm({
+ *  JSON Schema. Holds no actions — the page owns them, next to the type
+ *  selector, since both apply to the editor as a whole. Remount it (keyed by
+ *  type) when the type changes. */
+export function WidgetForm({
   type,
   configSchema,
   defaultTitle,
   defaultConfig,
-  submitLabel,
+  formId,
   onSubmit,
-  onCancel,
-}: {
-  type: string;
-  configSchema: Record<string, unknown>;
-  defaultTitle?: string;
-  defaultConfig?: Record<string, unknown>;
-  submitLabel: string;
-  onSubmit: (values: WidgetFormValues) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation(["dashboards", "common"]);
+  onStateChange,
+}: WidgetFormProps) {
+  const { t } = useTranslation("dashboards");
   const schema = configSchema as unknown as JsonSchema;
 
   const formSchema = useMemo(
@@ -96,13 +109,36 @@ function WidgetTypeForm({
     },
   });
 
-  const submit = form.handleSubmit(async (values) => {
-    // Guarantee the immutable discriminator regardless of field registration.
-    await onSubmit({
-      title: values.title.trim(),
-      config: { ...values.config, type },
+  const submit = form.handleSubmit(async (values) =>
+    onSubmit(toSubmitValues(values, type)),
+  );
+
+  const values = useWatch({
+    control: form.control,
+  }) as Partial<WidgetFormValues>;
+  const { isValid, isDirty, isSubmitting } = form.formState;
+  // `useWatch` hands back a fresh object on every render, so the effect is keyed
+  // on a serialized snapshot instead — otherwise reporting up would re-render
+  // the caller, which re-renders this form, which reports again, forever.
+  const snapshot = JSON.stringify(values);
+
+  useEffect(() => {
+    if (!onStateChange) return;
+    const current = JSON.parse(snapshot) as Partial<WidgetFormValues>;
+    onStateChange({
+      draft: isValid
+        ? toSubmitValues(
+            {
+              title: current.title ?? "",
+              config: current.config ?? {},
+            },
+            type,
+          )
+        : null,
+      dirty: isDirty,
+      submitting: isSubmitting,
     });
-  });
+  }, [onStateChange, snapshot, isValid, isDirty, isSubmitting, type]);
 
   const required = new Set(schema.required ?? []);
   const configProps = Object.entries(schema.properties ?? {}).filter(
@@ -110,7 +146,7 @@ function WidgetTypeForm({
   );
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form id={formId} onSubmit={submit} className="space-y-4">
       <InputController
         name="title"
         control={form.control as unknown as Control<FieldValues>}
@@ -126,66 +162,6 @@ function WidgetTypeForm({
           required={required.has(name)}
         />
       ))}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" type="button" onClick={onCancel}>
-          {t("common:common.cancel")}
-        </Button>
-        <Button
-          type="submit"
-          disabled={!form.formState.isValid || form.formState.isSubmitting}
-        >
-          {submitLabel}
-        </Button>
-      </div>
     </form>
-  );
-}
-
-/** Add/edit a widget: pick the type (locked on edit), then a config form
- *  rendered from that type's JSON Schema. */
-export function WidgetForm({
-  schemas,
-  defaultType,
-  defaultTitle,
-  defaultConfig,
-  typeLocked,
-  submitLabel,
-  onSubmit,
-  onCancel,
-}: WidgetFormProps) {
-  const { t } = useTranslation("dashboards");
-  const types = Object.keys(schemas);
-  const [type, setType] = useState(defaultType ?? types[0]);
-
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="widget-type" className="text-sm font-medium">
-          {t("widgets.fields.type")}
-        </label>
-        <Select value={type} onValueChange={setType} disabled={typeLocked}>
-          <SelectTrigger id="widget-type">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {types.map((widgetType) => (
-              <SelectItem key={widgetType} value={widgetType}>
-                {toLabel(widgetType)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <WidgetTypeForm
-        key={type}
-        type={type}
-        configSchema={schemas[type]}
-        defaultTitle={defaultTitle}
-        defaultConfig={type === defaultType ? defaultConfig : undefined}
-        submitLabel={submitLabel}
-        onSubmit={onSubmit}
-        onCancel={onCancel}
-      />
-    </div>
   );
 }

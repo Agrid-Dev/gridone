@@ -31,6 +31,18 @@
       "type": "Type",
       "title": "Title"
     },
+    "editor": {
+      "back": "Back to dashboard",
+      "configuration": "Configuration",
+      "preview": "Preview",
+      "previewPlaceholder": "Fill in the form to preview the widget here.",
+      "discard": {
+        "title": "Discard changes?",
+        "details": "Your changes to this widget have not been saved. Leaving now discards them.",
+        "cancel": "Keep editing",
+        "confirm": "Discard"
+      }
+    },
     "actions": {
       "label": "Widget actions",
       "edit": "Edit",

@@ -1,4 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -12,14 +16,16 @@ import { dashboardKey } from "./useDashboards";
 
 /** JSON Schemas of the registered widget types (backend is the source of
  *  truth). Drives the widget config form; cached indefinitely — the registry
- *  is static for a running server. */
-export function useWidgetSchemas() {
+ *  is static for a running server. Suspends until loaded so the editor pages
+ *  render pure happy-path JSX under a `ResourceBoundary`. */
+export function useWidgetSchemas(): WidgetSchemas {
   const client = useGridoneClient();
-  return useQuery<WidgetSchemas>({
+  const { data } = useSuspenseQuery<WidgetSchemas>({
     queryKey: ["dashboards", "widget-schemas"],
     queryFn: () => client.dashboards.getWidgetSchemas(),
     staleTime: Infinity,
   });
+  return data;
 }
 
 function useWidgetErrorToast() {
