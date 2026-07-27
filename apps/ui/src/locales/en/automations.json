@@ -33,6 +33,37 @@
     "type": "Trigger type",
 
     "cron": "Cron expression",
+    "schedule": {
+      "frequency": "Repeats",
+      "frequencies": {
+        "minutes": "Every few minutes",
+        "hours": "Every few hours",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "custom": "Custom schedule"
+      },
+      "minuteInterval": "Minute interval",
+      "hourInterval": "Hour interval",
+      "minute": "At minute",
+      "time": "Time",
+      "weekdays": {
+        "label": "Days",
+        "short": {
+          "0": "Sun",
+          "1": "Mon",
+          "2": "Tue",
+          "3": "Wed",
+          "4": "Thu",
+          "5": "Fri",
+          "6": "Sat"
+        }
+      },
+      "monthDay": "Day of month",
+      "preview": "Schedule",
+      "customHelp": "This automation uses an advanced schedule. Choose a frequency above to replace it with a schedule that can be edited here.",
+      "descriptionUnavailable": "Schedule unavailable"
+    },
     "device": "Device",
     "attribute": "Attribute",
     "condition": "Condition",
