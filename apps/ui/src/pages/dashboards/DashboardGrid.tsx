@@ -14,9 +14,15 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 // editing in v0. Vertical compaction keeps widgets flushed to the top with no
 // vertical gaps.
 const COMPACT_TYPE = "vertical";
-const COLS = { lg: 12, xs: 1 };
 const BREAKPOINTS = { lg: 768, xs: 0 };
-const ROW_HEIGHT = 72;
+
+// Grid geometry, shared with the editor preview so a previewed widget is laid
+// out at the size it will have on the dashboard.
+export const COLUMNS = 12;
+export const ROW_HEIGHT = 72;
+export const GRID_MARGIN = 16;
+
+const COLS = { lg: COLUMNS, xs: 1 };
 
 interface DashboardGridProps {
   dashboard: Dashboard;
@@ -45,7 +51,7 @@ export const DashboardGrid: FC<DashboardGridProps> = ({
       breakpoints={BREAKPOINTS}
       cols={COLS}
       rowHeight={ROW_HEIGHT}
-      margin={[16, 16]}
+      margin={[GRID_MARGIN, GRID_MARGIN]}
       compactType={COMPACT_TYPE}
       isDraggable={editing}
       isResizable={editing}

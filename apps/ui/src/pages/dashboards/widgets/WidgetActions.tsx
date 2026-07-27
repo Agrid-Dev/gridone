@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { FC } from "react";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
-import type { Widget, WidgetUpdateBody } from "@gridone/sdk";
+import type { Widget } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,12 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,40 +21,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { WidgetForm, type WidgetFormValues } from "./WidgetForm";
-import {
-  useRemoveWidget,
-  useUpdateWidget,
-  useWidgetSchemas,
-} from "../useWidgets";
+import { useRemoveWidget } from "../useWidgets";
 
-/** Per-widget actions (edit / delete). Edit reuses the schema-driven widget
- *  form with the type locked — a widget's type is immutable after creation. */
+/** Per-widget actions (edit / delete). Edit leads to the widget editor page,
+ *  where the config form sits next to a live preview. */
 export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
   dashboardId,
   widget,
 }) => {
   const { t } = useTranslation(["dashboards", "common"]);
-  const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const { updateWidget } = useUpdateWidget(dashboardId);
   const { removeWidget } = useRemoveWidget(dashboardId);
-  const { data: schemas } = useWidgetSchemas();
-
-  const handleEdit = async (values: WidgetFormValues) => {
-    // Awaited so the form's submit stays disabled while in flight; a rejection
-    // is swallowed here (the mutation's onError already toasts it) and just
-    // keeps the dialog open.
-    try {
-      await updateWidget(widget.id, {
-        title: values.title,
-        config: values.config as WidgetUpdateBody["config"],
-      });
-      setEditOpen(false);
-    } catch {
-      /* handled by the mutation's onError */
-    }
-  };
 
   const handleDelete = () => {
     removeWidget(widget.id, { onSuccess: () => setDeleteOpen(false) });
@@ -79,9 +51,11 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4" />
-            {t("widgets.actions.edit")}
+          <DropdownMenuItem asChild>
+            <Link to={`/dashboards/${dashboardId}/widgets/${widget.id}/edit`}>
+              <Pencil className="h-4 w-4" />
+              {t("widgets.actions.edit")}
+            </Link>
           </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
@@ -92,32 +66,6 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("widgets.editTitle")}</DialogTitle>
-          </DialogHeader>
-          {schemas ? (
-            <WidgetForm
-              schemas={schemas}
-              typeLocked
-              defaultType={widget.type}
-              defaultTitle={widget.title ?? undefined}
-              defaultConfig={
-                widget.config as unknown as Record<string, unknown>
-              }
-              submitLabel={t("widgets.editSubmit")}
-              onSubmit={handleEdit}
-              onCancel={() => setEditOpen(false)}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {t("common:common.loading")}
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
