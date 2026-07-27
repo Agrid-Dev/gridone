@@ -1,3 +1,10 @@
+## v0.168.0 (2026-07-27)
+
+### Feat
+
+- **ui**: full-page widget editor with live preview (#479)
+- **ui**: full-page widget editor with live preview
+
 ## v0.167.0 (2026-07-24)
 
 ### Feat
