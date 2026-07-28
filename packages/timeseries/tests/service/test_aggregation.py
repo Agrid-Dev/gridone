@@ -782,3 +782,197 @@ class TestAutoIntervalService:
             ),
         )
         assert str(result.interval) == expected_interval
+
+
+class TestPeriodInterval:
+    """interval=\"period\" → exactly one bucket over [start, end)."""
+
+    async def test_single_bucket_over_range(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        key = SeriesKey(owner_id="period-test", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 1, 3, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(timestamp=start, value=10.0),
+                DataPoint(timestamp=start + timedelta(hours=1), value=20.0),
+                DataPoint(timestamp=start + timedelta(hours=2), value=30.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.AVG,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert result.interval == "period"
+        assert len(result.points) == 1
+        assert result.points[0].interval_start == start
+        assert result.points[0].count == 3
+        assert result.points[0].value == pytest.approx(20.0)
+
+    async def test_empty_range_no_anchor(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-empty", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 2, tzinfo=UTC)
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.AVG,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert result.interval == "period"
+        assert len(result.points) == 1
+        assert result.points[0].interval_start == start
+        assert result.points[0].count == 0
+        assert result.points[0].value is None
+
+    async def test_empty_range_sum_is_zero(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-empty-sum", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.SUM,
+                interval="period",
+                start=start,
+                end=start + timedelta(hours=1),
+            ),
+        )
+        assert len(result.points) == 1
+        assert result.points[0].count == 0
+        assert result.points[0].value == pytest.approx(0.0)
+
+    async def test_empty_range_with_locf(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-locf", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 2, tzinfo=UTC)
+        end = datetime(2026, 1, 3, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [DataPoint(timestamp=datetime(2026, 1, 1, 12, tzinfo=UTC), value=42.0)],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.AVG,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert len(result.points) == 1
+        assert result.points[0].count == 0
+        assert result.points[0].value == pytest.approx(42.0)
+
+    async def test_single_point(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-one", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key, [DataPoint(timestamp=start + timedelta(minutes=30), value=7.5)]
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.MAX,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert len(result.points) == 1
+        assert result.points[0].count == 1
+        assert result.points[0].value == pytest.approx(7.5)
+
+    async def test_short_period(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-short", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.INT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, 0, 0, tzinfo=UTC)
+        end = datetime(2026, 1, 1, 0, 5, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(timestamp=start + timedelta(minutes=1), value=1),
+                DataPoint(timestamp=start + timedelta(minutes=2), value=3),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.SUM,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert len(result.points) == 1
+        assert result.points[0].interval_start == start
+        assert result.points[0].value == 4
+
+    async def test_tw_avg_full_range(self, ts_service: TimeSeriesService) -> None:
+        key = SeriesKey(owner_id="period-twavg", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = datetime(2026, 1, 1, 2, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(timestamp=start, value=10.0),
+                DataPoint(timestamp=start + timedelta(hours=1), value=20.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.TW_AVG,
+                interval="period",
+                start=start,
+                end=end,
+            ),
+        )
+        assert result.interval == "period"
+        assert len(result.points) == 1
+        # (10 * 1h + 20 * 1h) / 2h = 15.0
+        assert result.points[0].value == pytest.approx(15.0, rel=1e-4)
+        assert result.points[0].count == 2
+
+    async def test_options_include_period(self, ts_service: TimeSeriesService) -> None:
+        options = await ts_service.get_aggregate_options(
+            start=datetime(2026, 1, 1, tzinfo=UTC),
+            end=datetime(2026, 1, 8, tzinfo=UTC),
+        )
+        intervals = [iv for iv, _ in options.intervals]
+        assert intervals[0] == "raw"
+        assert intervals[1] == "period"
+        assert ("period", 1) in options.intervals
+
+        options_no_window = await ts_service.get_aggregate_options()
+        assert ("period", None) in options_no_window.intervals
+        assert options_no_window.intervals[1] == ("period", None)

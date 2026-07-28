@@ -74,13 +74,13 @@ class TestValidIntervalsForPeriod:
     @pytest.mark.parametrize(
         ("period", "expected"),
         [
-            (timedelta(hours=1), ["raw", "15min"]),
-            (timedelta(hours=24), ["raw", "15min", "1h"]),
-            (timedelta(days=7), ["raw", "15min", "1h", "1d"]),
-            (timedelta(days=11), ["raw", "1h", "1d"]),
-            (timedelta(days=30), ["raw", "1h", "1d"]),
-            (timedelta(days=180), ["raw", "1d", "1mo"]),
-            (timedelta(days=365), ["raw", "1d", "1mo"]),
+            (timedelta(hours=1), ["raw", "period", "15min"]),
+            (timedelta(hours=24), ["raw", "period", "15min", "1h"]),
+            (timedelta(days=7), ["raw", "period", "15min", "1h", "1d"]),
+            (timedelta(days=11), ["raw", "period", "1h", "1d"]),
+            (timedelta(days=30), ["raw", "period", "1h", "1d"]),
+            (timedelta(days=180), ["raw", "period", "1d", "1mo"]),
+            (timedelta(days=365), ["raw", "period", "1d", "1mo"]),
         ],
     )
     def test_valid_intervals_for_period(

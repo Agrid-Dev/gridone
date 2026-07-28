@@ -314,3 +314,23 @@ class TestAggregationResult:
             points=[point],
         )
         assert result.points[0].value is None
+
+    def test_period_interval_resolves_aggregation_data_type(self):
+        result = AggregationResult(
+            interval="period",
+            agg=AggregationOperator.AVG,
+            data_type=DataType.BOOL,
+            timezone="UTC",
+            points=[],
+        )
+        assert result.interval == "period"
+        assert result.aggregation_data_type == DataType.FLOAT
+
+    def test_period_query_accepted(self):
+        q = AggregationQuery(
+            interval="period",
+            agg=AggregationOperator.SUM,
+            start=datetime(2026, 1, 1, tzinfo=UTC),
+            end=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        assert q.interval == "period"

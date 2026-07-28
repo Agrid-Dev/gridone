@@ -157,7 +157,7 @@ class AggregatedPoint(BaseModel):
 
 
 class AggregationQuery(BaseModel):
-    interval: Interval | Literal["auto"] = "auto"
+    interval: Interval | Literal["auto", "period"] = "auto"
     agg: AggregationOperator
     start: datetime | None = None
     end: datetime | None = None
@@ -213,7 +213,7 @@ class AggregationQuery(BaseModel):
 
 
 class AggregationResult(BaseModel):
-    interval: Interval | Literal["raw"]
+    interval: Interval | Literal["raw", "period"]
     agg: AggregationOperator
     data_type: DataType
     timezone: str

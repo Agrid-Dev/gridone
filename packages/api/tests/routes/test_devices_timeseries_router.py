@@ -761,6 +761,37 @@ class TestGetDeviceTimeseriesAggregate:
         assert filled[0]["value"] == 10.0
         assert filled[1]["value"] == 20.0
 
+    async def test_period_interval_returns_single_bucket(
+        self, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
+        )
+        await ts_service.upsert_points(
+            KEY,
+            [
+                DataPoint(timestamp=datetime(2026, 1, 1, 10, tzinfo=UTC), value=10.0),
+                DataPoint(timestamp=datetime(2026, 1, 1, 11, tzinfo=UTC), value=20.0),
+            ],
+        )
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
+                params={
+                    "interval": "period",
+                    "agg": "avg",
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["interval"] == "period"
+        assert len(body["points"]) == 1
+        assert body["points"][0]["interval_start"].startswith("2026-01-01T00:00:00")
+        assert body["points"][0]["count"] == 2
+        assert body["points"][0]["value"] == 15.0
+
     async def test_empty_result_when_no_points_in_range(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
     ):
@@ -1013,6 +1044,7 @@ class TestAggregateOptions:
         assert body["recommended_interval"] is None
         intervals = body["intervals"]
         assert intervals[0]["interval"] == "raw"
+        assert intervals[1]["interval"] == "period"
         assert all(iv["bucket_count"] is None for iv in intervals)
         assert "operators_by_data_type" in body
         assert "auto_interval_lookup" not in body
@@ -1032,11 +1064,13 @@ class TestAggregateOptions:
         # 7d: 1h gives 168 buckets (diff=32 from TARGET=200), closest among valid
         assert body["recommended_interval"] == "1h"
         interval_names = [iv["interval"] for iv in body["intervals"]]
-        assert interval_names == ["raw", "15min", "1h", "1d"]
-        # bucket counts populated for non-raw entries
-        for iv in body["intervals"]:
-            if iv["interval"] != "raw":
-                assert iv["bucket_count"] is not None
+        assert interval_names == ["raw", "period", "15min", "1h", "1d"]
+        # bucket counts: period always 1; other non-raw entries populated
+        by_name = {iv["interval"]: iv["bucket_count"] for iv in body["intervals"]}
+        assert by_name["raw"] is None
+        assert by_name["period"] == 1
+        for name in ("15min", "1h", "1d"):
+            assert by_name[name] is not None
 
     async def test_last_param_computes_period(self, async_client: AsyncClient):
         async with async_client as ac:

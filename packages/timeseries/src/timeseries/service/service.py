@@ -277,6 +277,10 @@ class TimeSeriesService(Service):
         match interval:
             case "raw":
                 return await self._get_aggregate_raw(key, query, series.data_type)
+            case "period":
+                result = await self._backend.aggregate(key, query)
+                points = [p for p in result.points if p.interval_start <= cutoff]
+                return result.model_copy(update={"points": points})
             case _:
                 query = query.model_copy(
                     update={"interval": Interval.model_validate(interval)}
@@ -303,11 +307,17 @@ class TimeSeriesService(Service):
             period = resolved_end - resolved_start
             valid = valid_intervals_for_period(period)
             recommended = resolve_auto_interval(period)
-            iv_td = {iv: parse_duration(iv) for iv in valid if iv != "raw"}
-            intervals: list[tuple[str, int | None]] = [
-                ("raw", None) if iv == "raw" else (iv, int(period / iv_td[iv]))
-                for iv in valid
-            ]
+            iv_td = {
+                iv: parse_duration(iv) for iv in valid if iv not in {"raw", "period"}
+            }
+            intervals: list[tuple[str, int | None]] = []
+            for iv in valid:
+                if iv == "raw":
+                    intervals.append(("raw", None))
+                elif iv == "period":
+                    intervals.append(("period", 1))
+                else:
+                    intervals.append((iv, int(period / iv_td[iv])))
             return AggregateOptions(
                 intervals=intervals,
                 recommended_interval=recommended,
@@ -316,6 +326,7 @@ class TimeSeriesService(Service):
 
         intervals_no_period: list[tuple[str, int | None]] = [
             ("raw", None),
+            ("period", None),
             *[(iv, None) for iv in CANONICAL_INTERVALS],
         ]
         return AggregateOptions(

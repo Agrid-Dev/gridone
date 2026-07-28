@@ -411,6 +411,219 @@ def _coerce_anchor(op: AggregationOperator, anchor: DataPoint | None) -> _Anchor
     return v
 
 
+# Period queries use a compact param layout (no calendar interval / timezone):
+#   $1 = start, $2 = end, $3 = series_id, $4 = optional LOCF anchor
+
+
+@dataclass(frozen=True)
+class _PeriodCtx:
+    value_col: str
+    anchor_value: _AnchorValue
+    series_id: str
+    start: datetime
+    end: datetime
+    data_type: DataType
+
+
+def _period_base_params(ctx: _PeriodCtx) -> _Params:
+    return [ctx.start, ctx.end, ctx.series_id]
+
+
+def _period_anchor_params(ctx: _PeriodCtx) -> _Params:
+    return [ctx.start, ctx.end, ctx.series_id, ctx.anchor_value]
+
+
+def _period_simple_query(
+    op: AggregationOperator, ctx: _PeriodCtx
+) -> tuple[str, _Params]:
+    """Single-bucket aggregate over [start, end) without time_bucket / gapfill."""
+    where = (
+        "WHERE series_id = $3\n"
+        "  AND timestamp >= $1::timestamptz\n"
+        "  AND timestamp < $2::timestamptz"
+    )
+    count_expr = "COALESCE(COUNT(timestamp), 0)::int"
+    vc = ctx.value_col
+
+    match op:
+        case AggregationOperator.COUNT:
+            sql = (
+                "SELECT\n"
+                "    $1::timestamptz AS bucket,\n"
+                "    COALESCE(COUNT(timestamp), 0)::bigint AS value,\n"
+                f"    {count_expr} AS count\n"
+                "FROM ts_data_points\n"
+                f"{where}"
+            )
+            return sql, _period_base_params(ctx)
+
+        case AggregationOperator.SUM:
+            if ctx.data_type == DataType.BOOL:
+                val_expr = f"COALESCE(SUM({vc}::int), 0)::bigint"
+            elif ctx.data_type == DataType.INT:
+                val_expr = f"COALESCE(SUM({vc}), 0)::bigint"
+            else:
+                val_expr = f"COALESCE(SUM({vc}), 0)::double precision"
+            sql = (
+                "SELECT\n"
+                "    $1::timestamptz AS bucket,\n"
+                f"    {val_expr} AS value,\n"
+                f"    {count_expr} AS count\n"
+                "FROM ts_data_points\n"
+                f"{where}"
+            )
+            return sql, _period_base_params(ctx)
+
+        case _:
+            agg_expr, _, _ = _locf_parts(op, ctx.data_type, vc)
+            if op == AggregationOperator.AVG:
+                prev_cast = "$4::double precision"
+            else:
+                prev_cast = "$4"
+            sql = (
+                "SELECT\n"
+                "    $1::timestamptz AS bucket,\n"
+                f"    COALESCE({agg_expr}, {prev_cast}) AS value,\n"
+                f"    {count_expr} AS count\n"
+                "FROM ts_data_points\n"
+                f"{where}"
+            )
+            return sql, _period_anchor_params(ctx)
+
+
+def _period_mode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+    vc = ctx.value_col
+    sql = (
+        "WITH val_counts AS (\n"
+        f"    SELECT {vc} AS value, COUNT(*) AS cnt\n"
+        "    FROM ts_data_points\n"
+        "    WHERE series_id = $3\n"
+        "      AND timestamp >= $1::timestamptz\n"
+        "      AND timestamp < $2::timestamptz\n"
+        f"    GROUP BY {vc}\n"
+        "),\n"
+        "winner AS (\n"
+        "    SELECT value FROM val_counts\n"
+        "    ORDER BY cnt DESC, value ASC\n"
+        "    LIMIT 1\n"
+        "),\n"
+        "totals AS (\n"
+        "    SELECT COALESCE(SUM(cnt), 0)::int AS total_count FROM val_counts\n"
+        ")\n"
+        "SELECT\n"
+        "    $1::timestamptz AS bucket,\n"
+        "    COALESCE((SELECT value FROM winner), $4) AS value,\n"
+        "    (SELECT total_count FROM totals) AS count"
+    )
+    return sql, _period_anchor_params(ctx)
+
+
+def _period_twavg_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+    raw_val = (
+        f"{ctx.value_col}::int::double precision"
+        if ctx.data_type == DataType.BOOL
+        else f"{ctx.value_col}::double precision"
+    )
+    sql = (
+        "WITH src AS (\n"
+        f"    SELECT timestamp, {raw_val} AS v\n"
+        "    FROM ts_data_points\n"
+        "    WHERE series_id = $3\n"
+        "      AND timestamp >= $1::timestamptz\n"
+        "      AND timestamp < $2::timestamptz\n"
+        "),\n"
+        "weighted AS (\n"
+        "    SELECT v, timestamp,\n"
+        "        CASE WHEN LAG(timestamp) OVER w IS NULL THEN\n"
+        "            COALESCE($4::double precision, v)\n"
+        "            * EXTRACT(EPOCH FROM (timestamp - $1::timestamptz))\n"
+        "        ELSE 0 END AS locf_wt,\n"
+        "        v * EXTRACT(EPOCH FROM (\n"
+        "            LEAST(\n"
+        "                COALESCE(LEAD(timestamp) OVER w, $2::timestamptz),\n"
+        "                $2::timestamptz\n"
+        "            ) - timestamp\n"
+        "        )) AS hold_wt\n"
+        "    FROM src\n"
+        "    WINDOW w AS (ORDER BY timestamp)\n"
+        ")\n"
+        "SELECT\n"
+        "    $1::timestamptz AS bucket,\n"
+        "    COALESCE(\n"
+        "        SUM(locf_wt + hold_wt) / NULLIF(\n"
+        "            EXTRACT(EPOCH FROM ($2::timestamptz - $1::timestamptz)), 0\n"
+        "        ),\n"
+        "        $4::double precision\n"
+        "    ) AS value,\n"
+        "    COALESCE(COUNT(timestamp), 0)::int AS count\n"
+        "FROM weighted"
+    )
+    return sql, _period_anchor_params(ctx)
+
+
+def _period_twmode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+    vc = ctx.value_col
+    sql = (
+        "WITH src AS (\n"
+        f"    SELECT timestamp, {vc} AS v\n"
+        "    FROM ts_data_points\n"
+        "    WHERE series_id = $3\n"
+        "      AND timestamp >= $1::timestamptz\n"
+        "      AND timestamp < $2::timestamptz\n"
+        "),\n"
+        "src_aug AS (\n"
+        "    SELECT timestamp, v,\n"
+        "        LAG(v) OVER (ORDER BY timestamp) AS lag_v,\n"
+        "        LEAD(timestamp) OVER (ORDER BY timestamp) AS lead_ts,\n"
+        "        ROW_NUMBER() OVER (ORDER BY timestamp) AS rn\n"
+        "    FROM src\n"
+        "),\n"
+        "segs AS (\n"
+        "    SELECT v,\n"
+        "        EXTRACT(EPOCH FROM (\n"
+        "            LEAST(COALESCE(lead_ts, $2::timestamptz), $2::timestamptz)\n"
+        "            - timestamp\n"
+        "        )) AS dur\n"
+        "    FROM src_aug\n"
+        "    UNION ALL\n"
+        "    SELECT COALESCE(lag_v, $4, v) AS v,\n"
+        "        EXTRACT(EPOCH FROM (timestamp - $1::timestamptz)) AS dur\n"
+        "    FROM src_aug\n"
+        "    WHERE rn = 1 AND timestamp > $1::timestamptz\n"
+        "),\n"
+        "val_durs AS (\n"
+        "    SELECT v, SUM(dur) AS total_dur\n"
+        "    FROM segs\n"
+        "    GROUP BY v\n"
+        "),\n"
+        "raw_counts AS (\n"
+        "    SELECT COUNT(*)::int AS cnt FROM src\n"
+        "),\n"
+        "winner AS (\n"
+        "    SELECT v AS value FROM val_durs\n"
+        "    ORDER BY total_dur DESC, v ASC\n"
+        "    LIMIT 1\n"
+        ")\n"
+        "SELECT\n"
+        "    $1::timestamptz AS bucket,\n"
+        "    COALESCE((SELECT value FROM winner), $4) AS value,\n"
+        "    (SELECT cnt FROM raw_counts) AS count"
+    )
+    return sql, _period_anchor_params(ctx)
+
+
+def _period_query(op: AggregationOperator, ctx: _PeriodCtx) -> tuple[str, _Params]:
+    match op:
+        case AggregationOperator.MODE:
+            return _period_mode_query(ctx)
+        case AggregationOperator.TW_AVG:
+            return _period_twavg_query(ctx)
+        case AggregationOperator.TW_MODE:
+            return _period_twmode_query(ctx)
+        case _:
+            return _period_simple_query(op, ctx)
+
+
 async def compute(
     pool: asyncpg.Pool,
     series: TimeSeries,
@@ -421,15 +634,44 @@ async def compute(
     assert query.start is not None  # noqa: S101
     assert query.end is not None  # noqa: S101
     assert_query_resolved(query)
-    assert isinstance(query.interval, Interval)  # noqa: S101
     assert query.timezone is not None  # noqa: S101
-    interval: Interval = query.interval
     tz: str = query.timezone
     op = query.agg
     data_type = series.data_type
+    anchor_value = _coerce_anchor(op, anchor)
+
+    if query.interval == "period":
+        pctx = _PeriodCtx(
+            value_col=value_col,
+            anchor_value=anchor_value,
+            series_id=series.id,
+            start=query.start,
+            end=query.end,
+            data_type=data_type,
+        )
+        sql, params = _period_query(op, pctx)
+        rows = await pool.fetch(sql, *params)
+        points = [
+            AggregatedPoint(
+                interval_start=row["bucket"],
+                value=row["value"],
+                count=row["count"],
+            )
+            for row in rows
+        ]
+        return AggregationResult(
+            interval="period",
+            agg=op,
+            data_type=data_type,
+            timezone=tz,
+            points=points,
+        )
+
+    assert isinstance(query.interval, Interval)  # noqa: S101
+    interval: Interval = query.interval
     ctx = _QueryCtx(
         value_col=value_col,
-        anchor_value=_coerce_anchor(op, anchor),
+        anchor_value=anchor_value,
         tz=tz,
         interval_str=_to_sql_interval(interval),
         interval_unit=interval.unit,

@@ -161,11 +161,14 @@ def get_aggregation_query(
     interval: str = Query(
         "auto",
         description=(
-            "Duration string (e.g. '15min', '1h', '1d', '1mo') or 'auto'. "
-            "When 'auto' or omitted, the server picks the best interval for the period."
+            "Duration string (e.g. '15min', '1h', '1d', '1mo'), 'auto', or "
+            "'period'. When 'auto' or omitted, the server picks the best "
+            "interval for the period. When 'period', returns a single bucket "
+            "spanning the whole [start, end) range."
         ),
         openapi_examples={
             "auto": {"value": "auto"},
+            "period": {"value": "period"},
             "15min": {"value": "15min"},
             "1h": {"value": "1h"},
             "1d": {"value": "1d"},
