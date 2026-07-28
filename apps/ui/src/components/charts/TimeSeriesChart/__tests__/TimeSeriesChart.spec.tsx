@@ -78,16 +78,14 @@ describe("StringPanel — semantic colours", () => {
         width={WIDTH}
       />,
     );
-    expect(swatchFor("Connection: ok").style.backgroundColor).toBe(
-      "hsl(var(--status-ok))",
-    );
-    expect(swatchFor("Connection: degraded").style.backgroundColor).toBe(
+    expect(swatchFor("ok").style.backgroundColor).toBe("hsl(var(--status-ok))");
+    expect(swatchFor("degraded").style.backgroundColor).toBe(
       "hsl(var(--status-warning))",
     );
-    expect(swatchFor("Connection: error").style.backgroundColor).toBe(
+    expect(swatchFor("error").style.backgroundColor).toBe(
       "hsl(var(--status-error))",
     );
-    expect(swatchFor("Connection: idle").style.backgroundColor).toBe(
+    expect(swatchFor("idle").style.backgroundColor).toBe(
       "hsl(var(--status-info))",
     );
   });
@@ -114,10 +112,10 @@ describe("StringPanel — semantic colours", () => {
         width={WIDTH}
       />,
     );
-    expect(swatchFor("Mode: heat").style.backgroundColor).toBe(
+    expect(swatchFor("heat").style.backgroundColor).toBe(
       "hsl(var(--hvac-heat))",
     );
-    expect(swatchFor("Mode: cool").style.backgroundColor).toBe(
+    expect(swatchFor("cool").style.backgroundColor).toBe(
       "hsl(var(--hvac-cool))",
     );
   });
@@ -139,12 +137,15 @@ describe("TimeSeriesChart — legends", () => {
     expect(screen.getByText("Heater On")).toBeInTheDocument();
   });
 
-  it("renders string series legends with values", () => {
+  // The series is named once and its values follow, rather than every swatch
+  // restating it.
+  it("names a string series once, then lists its values", () => {
     renderFull();
-    // String legends show "label: value"
-    expect(screen.getByText(/Mode: idle/)).toBeInTheDocument();
-    expect(screen.getByText(/Mode: heating/)).toBeInTheDocument();
-    expect(screen.getByText(/Mode: cooling/)).toBeInTheDocument();
+    expect(screen.getByText("Mode")).toBeInTheDocument();
+    expect(screen.getByText("idle")).toBeInTheDocument();
+    expect(screen.getByText("heating")).toBeInTheDocument();
+    expect(screen.getByText("cooling")).toBeInTheDocument();
+    expect(screen.queryByText(/Mode: /)).not.toBeInTheDocument();
   });
 });
 
@@ -595,7 +596,7 @@ describe("StringPanel — many unique values", () => {
         width={WIDTH}
       />,
     );
-    expect(screen.getByText(/Status: Other/)).toBeInTheDocument();
+    expect(screen.getByText("Other")).toBeInTheDocument();
   });
 
   it("still renders few values normally without Other", () => {

@@ -51,3 +51,12 @@ export const legendItemStyle = {
 export const legendLabelStyle = {
   color: "hsl(var(--muted-foreground))",
 };
+
+/** Names the series a legend's swatches belong to, where those swatches stand
+ *  for values rather than series (the string panel). Carries the row, so it
+ *  reads a step above the values it heads. */
+export const legendSeriesLabelStyle = {
+  ...legendItemStyle,
+  color: "hsl(var(--foreground))",
+  fontWeight: 500,
+};

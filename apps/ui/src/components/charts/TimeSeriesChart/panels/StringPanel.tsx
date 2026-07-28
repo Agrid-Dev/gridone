@@ -17,13 +17,16 @@ import {
   legendStyle,
   legendItemStyle,
   legendLabelStyle,
+  legendSeriesLabelStyle,
 } from "../constants";
 import { LegendSwatch } from "../LegendSwatch";
 import { computeTopStringValues } from "../topStringValues";
 import { attributeValueChartColor } from "@/lib/semanticColors";
 
 type RenderItem = {
-  label: string;
+  /** The value itself — the series it belongs to is named once, by the legend
+   *  heading, rather than repeated on every swatch. */
+  value: string;
   color: string;
   dataKey: string;
   data: BoolDatum[];
@@ -56,7 +59,7 @@ export function StringPanel({
         });
       }
       items.push({
-        label: `${series.label}: ${val}`,
+        value: val,
         color:
           attributeValueChartColor(series.key, val) ??
           CHART_COLORS[vi % CHART_COLORS.length],
@@ -75,7 +78,7 @@ export function StringPanel({
         });
       }
       items.push({
-        label: `${series.label}: Other`,
+        value: "Other",
         color: OTHER_COLOR,
         dataKey: `${series.key}::__other__`,
         data,
@@ -87,11 +90,15 @@ export function StringPanel({
 
   return (
     <>
+      {/* The series is named once and its values follow, rather than every
+          swatch restating it — a mode panel reads "Mode  heat  auto  cool"
+          instead of "Mode: heat  Mode: auto  Mode: cool". */}
       <div style={legendStyle}>
+        <span style={legendSeriesLabelStyle}>{series.label}</span>
         {renderItems.map((item) => (
           <div key={item.dataKey} style={legendItemStyle}>
             <LegendSwatch color={item.color} variant="area" />
-            <span style={legendLabelStyle}>{item.label}</span>
+            <span style={legendLabelStyle}>{item.value}</span>
           </div>
         ))}
       </div>
