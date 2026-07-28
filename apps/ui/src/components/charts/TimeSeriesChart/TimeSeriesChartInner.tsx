@@ -34,6 +34,7 @@ export function TimeSeriesChartInner({
 
   const {
     containerRef,
+    tooltipRef,
     floatScaleCtx,
     handlePointerMove,
     handlePointerLeave,
@@ -90,6 +91,7 @@ export function TimeSeriesChartInner({
           hoveredIdx !== null &&
           tooltipRows && (
             <div
+              ref={tooltipRef}
               className="bg-popover text-popover-foreground rounded-md border px-3 py-2 shadow-md"
               style={{
                 position: "absolute",
@@ -97,7 +99,9 @@ export function TimeSeriesChartInner({
                 top: tooltipTop,
                 pointerEvents: "none",
                 zIndex: 10,
-                whiteSpace: "nowrap",
+                // Bounded by the chart so a long series label wraps instead of
+                // overhanging — in a narrow tile no placement would fit it.
+                maxWidth: width,
               }}
             >
               <TooltipContent

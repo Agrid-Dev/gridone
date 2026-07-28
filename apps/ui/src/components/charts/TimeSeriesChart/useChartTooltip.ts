@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type {
   FloatPanelEntry,
@@ -7,15 +13,10 @@ import type {
   TooltipRow,
 } from "./types";
 import type { FloatScaleContextType } from "./FloatScaleContext";
-import {
-  MARGIN,
-  AXIS_EXTRA,
-  TOOLTIP_OFFSET,
-  CHART_COLORS,
-  OTHER_COLOR,
-} from "./constants";
+import { MARGIN, AXIS_EXTRA, CHART_COLORS, OTHER_COLOR } from "./constants";
 import { computeTopStringValues } from "./topStringValues";
 import { nearestIndex } from "./nearestIndex";
+import { placeTooltip } from "./placeTooltip";
 import { attributeValueChartColor } from "@/lib/semanticColors";
 import { getTooltipRows, type TooltipRowOptions } from "./panels/registry";
 
@@ -31,6 +32,7 @@ export function useChartTooltip({
   panels,
 }: UseChartTooltipArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const floatPanelRef = useRef<HTMLDivElement>(null);
   const floatYScaleRef = useRef<((v: number) => number) | null>(null);
   const [cursorX, setCursorX] = useState<number | null>(null);
@@ -176,31 +178,27 @@ export function useChartTooltip({
     return rows;
   }, [hoveredIdx, hoveredSection, nearestFloatKey, panels, stringColorMaps]);
 
-  // Tooltip positioning
-  const tooltipEstH =
-    40 +
-    24 *
-      panels.reduce((n, p) => {
-        if (p.type === "float") return n + (p as FloatPanelEntry).series.length;
-        return n + 1;
-      }, 0);
+  // Tooltip positioning. The box is measured rather than estimated: its width
+  // depends on the series labels, which the caller supplies and which can be
+  // several times any constant we might pick. Guessing meant the "does it fit?"
+  // test was wrong for long labels, and the box ran outside the chart — clipped
+  // outright wherever an ancestor hides overflow, as a dashboard tile does.
+  const [tooltipSize, setTooltipSize] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = tooltipRef.current;
+    if (!el) return;
+    const { offsetWidth: w, offsetHeight: h } = el;
+    // Measured before paint, so the first frame is already placed correctly.
+    setTooltipSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+  }, [tooltipRows]);
+
   const containerH = containerRef.current?.offsetHeight ?? Infinity;
 
   const tooltipLeft =
-    cursorX !== null
-      ? cursorX + TOOLTIP_OFFSET + 180 > width
-        ? cursorX - TOOLTIP_OFFSET - 180
-        : cursorX + TOOLTIP_OFFSET
-      : 0;
-
-  const flipV =
-    cursorY !== null && cursorY + TOOLTIP_OFFSET + tooltipEstH > containerH;
+    cursorX !== null ? placeTooltip(cursorX, tooltipSize.w, width) : 0;
   const tooltipTop =
-    cursorY !== null
-      ? flipV
-        ? cursorY - TOOLTIP_OFFSET - tooltipEstH
-        : cursorY + TOOLTIP_OFFSET
-      : 0;
+    cursorY !== null ? placeTooltip(cursorY, tooltipSize.h, containerH) : 0;
 
   const floatScaleCtx: FloatScaleContextType = {
     panelRef: floatPanelRef,
@@ -209,6 +207,7 @@ export function useChartTooltip({
 
   return {
     containerRef,
+    tooltipRef,
     floatScaleCtx,
     handlePointerMove,
     handlePointerLeave,
