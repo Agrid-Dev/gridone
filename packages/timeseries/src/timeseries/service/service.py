@@ -73,6 +73,18 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def _drop_buckets_after(
+    result: AggregationResult, cutoff: datetime
+) -> AggregationResult:
+    """Drop calendar buckets that start in the future.
+
+    A range ending past "now" gapfills buckets the series cannot have data for yet;
+    they would render as a flat LOCF tail on a chart.
+    """
+    points = [p for p in result.points if p.interval_start <= cutoff]
+    return result.model_copy(update={"points": points})
+
+
 class TimeSeriesService(Service):
     _storage: TimeSeriesStorage | None
 
@@ -278,16 +290,15 @@ class TimeSeriesService(Service):
             case "raw":
                 return await self._get_aggregate_raw(key, query, series.data_type)
             case "period":
-                result = await self._backend.aggregate(key, query)
-                points = [p for p in result.points if p.interval_start <= cutoff]
-                return result.model_copy(update={"points": points})
+                # Exactly one bucket, spanning the range the caller asked for: no
+                # future trimming, or a future-dated range would return no bucket.
+                return await self._backend.aggregate(key, query)
             case _:
                 query = query.model_copy(
                     update={"interval": Interval.model_validate(interval)}
                 )
                 result = await self._backend.aggregate(key, query)
-                points = [p for p in result.points if p.interval_start <= cutoff]
-                return result.model_copy(update={"points": points})
+                return _drop_buckets_after(result, cutoff)
 
     async def get_aggregate_options(
         self,
@@ -324,13 +335,14 @@ class TimeSeriesService(Service):
                 operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
             )
 
-        intervals_no_period: list[tuple[str, int | None]] = [
+        # No time range given: every interval is offered, none can be sized.
+        default_intervals: list[tuple[str, int | None]] = [
             ("raw", None),
             ("period", None),
             *[(iv, None) for iv in CANONICAL_INTERVALS],
         ]
         return AggregateOptions(
-            intervals=intervals_no_period,
+            intervals=default_intervals,
             recommended_interval=None,
             operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
         )
