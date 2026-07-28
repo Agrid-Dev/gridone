@@ -83,10 +83,10 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const name = device
     ? `${device.name} — ${toLabel(attribute)}`
     : toLabel(attribute);
-  const label =
-    agg && interval
-      ? `${name} (${t(`widgets.chart.operators.${agg}` as "widgets.chart.operators.avg")}, ${interval})`
-      : name;
+  // Appended, not parenthesised: the legend is one line in a tile, and nesting
+  // brackets inside a label that already reads "device — attribute" costs more
+  // width than it earns. The operator keeps its wire name, as in the editor.
+  const label = agg && interval ? `${name} · ${agg} · ${interval}` : name;
 
   // Aggregation can change the data type — `count` yields ints whatever went
   // in — so the panel follows what came back, not what was recorded.

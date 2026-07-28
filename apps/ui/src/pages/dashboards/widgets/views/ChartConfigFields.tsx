@@ -7,6 +7,33 @@ import { operatorsFor, useAggregateOptions } from "@/hooks/useAggregateOptions";
 import { useDeviceById } from "@/hooks/useDeviceById";
 import { attributeDataType } from "@/lib/devices";
 
+/** How "plot the readings as recorded" reads in the operator list. The config
+ *  stores `null` for it. */
+const RAW = "raw";
+
+/**
+ * One entry in the aggregation list: the operator's own name, with a short
+ * gloss beside it.
+ *
+ * The name leads because these are terms of art, kept as they are written
+ * everywhere else — spelling `tw_avg` out in full crowds the attribute it
+ * qualifies, and each reading would then differ by language. The gloss carries
+ * the meaning without displacing the term.
+ */
+const AggOption: FC<{ name: string }> = ({ name }) => {
+  const { t } = useTranslation("dashboards");
+  return (
+    <span className="flex items-baseline gap-2">
+      <span>{name}</span>
+      <span className="text-xs text-muted-foreground">
+        {t(
+          `widgets.chart.agg.captions.${name}` as "widgets.chart.agg.captions.avg",
+        )}
+      </span>
+    </span>
+  );
+};
+
 /**
  * Config fields for the chart widget: which device, which attribute, and how to
  * reduce it over time.
@@ -40,11 +67,11 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     device && attribute ? attributeDataType(device, attribute) : undefined;
 
   // Only the operators this attribute's type admits. Until one is picked the
-  // list is empty, leaving "no aggregation" as the only choice — which is also
-  // the default, so the field is never in a state it can't explain.
+  // list is empty, leaving raw as the only choice — which is also the default,
+  // so the field is never in a state it can't explain.
   const aggOptions = operatorsFor(options, dataType).map((op) => ({
     value: op as string | null,
-    label: t(`widgets.chart.operators.${op}` as "widgets.chart.operators.avg"),
+    label: <AggOption name={op} />,
   }));
 
   return (
@@ -69,9 +96,9 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
         description={t("widgets.chart.agg.description")}
         // `null` is the stored value for raw, and the trigger falls back to the
         // placeholder for it — so raw reads as a named choice, not an empty one.
-        placeholder={t("widgets.chart.agg.raw")}
+        placeholder={<AggOption name={RAW} />}
         options={[
-          { value: null, label: t("widgets.chart.agg.raw") },
+          { value: null, label: <AggOption name={RAW} /> },
           ...aggOptions,
         ]}
       />

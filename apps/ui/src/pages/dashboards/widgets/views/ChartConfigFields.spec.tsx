@@ -8,10 +8,8 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "widgets.chart.agg.label": "Aggregation",
     "widgets.chart.agg.description": "Bucket width follows the period.",
-    "widgets.chart.agg.raw": "No aggregation (raw)",
-    "widgets.chart.operators.avg": "Average",
-    "widgets.chart.operators.min": "Minimum",
-    "widgets.chart.operators.mode": "Most frequent",
+    "widgets.chart.agg.captions.raw": "every recorded point",
+    "widgets.chart.agg.captions.avg": "mean of the bucket",
   }),
 );
 
@@ -131,9 +129,11 @@ function renderFields(defaultConfig?: Record<string, unknown>) {
   return () => values[values.length - 1];
 }
 
+/** The offered operators, by stored value. Raw is stored as `null`, which the
+ *  select keys as the string "null". */
 const options = () =>
-  Array.from(screen.getByTestId("agg").querySelectorAll("option")).map(
-    (o) => o.textContent,
+  Array.from(screen.getByTestId("agg").querySelectorAll("option")).map((o) =>
+    o.getAttribute("value"),
   );
 
 afterEach(cleanup);
@@ -141,17 +141,27 @@ afterEach(cleanup);
 describe("ChartConfigFields", () => {
   it("offers raw only until an attribute is picked", () => {
     renderFields();
-    expect(options()).toEqual(["No aggregation (raw)"]);
+    expect(options()).toEqual(["null"]);
   });
 
   it("offers the operators the attribute's data type admits", () => {
     renderFields({ device_id: "dev1", attribute: "temperature" });
-    expect(options()).toEqual(["No aggregation (raw)", "Average", "Minimum"]);
+    expect(options()).toEqual(["null", "avg", "min"]);
+  });
+
+  // The operator's own name leads; the gloss sits beside it.
+  it("captions each operator without displacing its name", () => {
+    renderFields({ device_id: "dev1", attribute: "temperature" });
+    const labels = Array.from(
+      screen.getByTestId("agg").querySelectorAll("option"),
+    ).map((o) => o.textContent);
+    expect(labels[0]).toBe("rawevery recorded point");
+    expect(labels[1]).toBe("avgmean of the bucket");
   });
 
   it("offers a different set for a string attribute", () => {
     renderFields({ device_id: "dev1", attribute: "mode" });
-    expect(options()).toEqual(["No aggregation (raw)", "Most frequent"]);
+    expect(options()).toEqual(["null", "mode"]);
   });
 
   // Keeping `avg` across a switch to a string attribute would save a pair the

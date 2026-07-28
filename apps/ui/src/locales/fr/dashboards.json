@@ -26,20 +26,20 @@
       "agg": {
         "label": "Agrégation",
         "description": "Le pas de temps suit la période du tableau de bord.",
-        "raw": "Aucune agrégation (brut)"
-      },
-      "operators": {
-        "avg": "Moyenne",
-        "tw_avg": "Moyenne (pondérée par le temps)",
-        "sum": "Somme",
-        "min": "Minimum",
-        "max": "Maximum",
-        "first": "Première valeur",
-        "last": "Dernière valeur",
-        "mode": "Valeur la plus fréquente",
-        "tw_mode": "Valeur la plus fréquente (pondérée par le temps)",
-        "count": "Nombre de points",
-        "delta": "Consommation"
+        "captions": {
+          "raw": "chaque point enregistré",
+          "avg": "moyenne du pas de temps",
+          "tw_avg": "moyenne pondérée par la durée",
+          "sum": "total du pas de temps",
+          "min": "valeur la plus basse",
+          "max": "valeur la plus haute",
+          "first": "première valeur",
+          "last": "dernière valeur",
+          "mode": "valeur la plus fréquente",
+          "tw_mode": "la plus fréquente par durée",
+          "count": "nombre de points",
+          "delta": "consommation sur le pas de temps"
+        }
       }
     },
     "add": "Ajouter un widget",

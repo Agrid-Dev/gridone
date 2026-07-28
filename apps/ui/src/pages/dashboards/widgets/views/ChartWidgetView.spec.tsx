@@ -8,7 +8,6 @@ vi.mock("react-i18next", () =>
     "widgets.chart.error": "Could not load history",
     "widgets.chart.noSeries": "No history recorded",
     "widgets.chart.noData": "No data over the period",
-    "widgets.chart.operators.avg": "Average",
   }),
 );
 
@@ -206,7 +205,7 @@ describe("ChartWidgetView", () => {
     render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
 
     expect(screen.getByTestId("chart")).toHaveTextContent(
-      "Thermostat 1 — Temperature (Average, 1h)",
+      "Thermostat 1 — Temperature · avg · 1h",
     );
   });
 
