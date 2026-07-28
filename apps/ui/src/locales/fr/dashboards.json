@@ -26,6 +26,7 @@
       "agg": {
         "label": "Agrégation",
         "description": "Le pas de temps suit la période du tableau de bord.",
+        "unsupported": "non pris en charge",
         "captions": {
           "raw": "chaque point enregistré",
           "avg": "moyenne du pas de temps",

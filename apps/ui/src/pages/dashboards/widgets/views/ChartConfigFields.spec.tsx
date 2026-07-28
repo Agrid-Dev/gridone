@@ -10,6 +10,9 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.description": "Bucket width follows the period.",
     "widgets.chart.agg.captions.raw": "every recorded point",
     "widgets.chart.agg.captions.avg": "mean of the bucket",
+    "widgets.chart.agg.captions.min": "lowest value",
+    "widgets.chart.agg.captions.mode": "most frequent value",
+    "widgets.chart.agg.unsupported": "not supported",
   }),
 );
 
@@ -47,21 +50,23 @@ vi.mock("@/hooks/useDeviceById", () => ({
   }),
 }));
 
-// Mirrors the backend matrix: numbers admit avg/min, strings only mode.
-vi.mock("@/hooks/useAggregateOptions", () => ({
-  useAggregateOptions: () => ({
-    data: {
-      operators_by_data_type: { float: ["avg", "min"], str: ["mode"] },
-    },
-  }),
-  operatorsFor: (
-    options: { operators_by_data_type: Record<string, string[]> } | undefined,
-    dataType: string | undefined,
-  ) =>
-    !options || !dataType
-      ? []
-      : (options.operators_by_data_type[dataType] ?? []),
-}));
+// Mirrors the backend matrix: every operator against every type, mapped to
+// what it yields, or null where the pair is refused.
+const MATRIX = {
+  float: { avg: "float", min: "float", mode: "float" },
+  str: { avg: null, min: null, mode: "str" },
+};
+
+vi.mock("@/hooks/useAggregateOptions", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/hooks/useAggregateOptions")
+  >("@/hooks/useAggregateOptions");
+  return {
+    // The real projection — this spec is about how the editor renders it.
+    operatorsFor: actual.operatorsFor,
+    useAggregateOptions: () => ({ data: { operators_by_data_type: MATRIX } }),
+  };
+});
 
 vi.mock("@/components/ui/select", () => ({
   Select: ({
@@ -91,10 +96,16 @@ vi.mock("@/components/ui/select", () => ({
   SelectItem: ({
     value,
     children,
+    disabled,
   }: {
     value: string;
     children: React.ReactNode;
-  }) => <option value={value}>{children}</option>,
+    disabled?: boolean;
+  }) => (
+    <option value={value} disabled={disabled}>
+      {children}
+    </option>
+  ),
 }));
 
 // Imported after the mocks are registered.
@@ -129,39 +140,62 @@ function renderFields(defaultConfig?: Record<string, unknown>) {
   return () => values[values.length - 1];
 }
 
+const items = () =>
+  Array.from(screen.getByTestId("agg").querySelectorAll("option"));
+
 /** The offered operators, by stored value. Raw is stored as `null`, which the
  *  select keys as the string "null". */
-const options = () =>
-  Array.from(screen.getByTestId("agg").querySelectorAll("option")).map((o) =>
-    o.getAttribute("value"),
-  );
+const options = () => items().map((o) => o.getAttribute("value"));
+
+/** The operators a user can actually choose right now. */
+const enabled = () =>
+  items()
+    .filter((o) => !o.disabled)
+    .map((o) => o.getAttribute("value"));
 
 afterEach(cleanup);
 
 describe("ChartConfigFields", () => {
-  it("offers raw only until an attribute is picked", () => {
-    renderFields();
-    expect(options()).toEqual(["null"]);
+  // A list that silently shortens leaves you unable to tell an operator that
+  // doesn't apply to this attribute from one that doesn't exist.
+  it.each([
+    ["a numeric attribute", "temperature"],
+    ["a string attribute", "mode"],
+  ])("lists every operator for %s", (_case, attribute) => {
+    renderFields({ device_id: "dev1", attribute });
+    expect(options()).toEqual(["null", "avg", "min", "mode"]);
   });
 
-  it("offers the operators the attribute's data type admits", () => {
-    renderFields({ device_id: "dev1", attribute: "temperature" });
-    expect(options()).toEqual(["null", "avg", "min"]);
-  });
-
-  // The operator's own name leads; the gloss sits beside it.
-  it("captions each operator without displacing its name", () => {
-    renderFields({ device_id: "dev1", attribute: "temperature" });
-    const labels = Array.from(
-      screen.getByTestId("agg").querySelectorAll("option"),
-    ).map((o) => o.textContent);
-    expect(labels[0]).toBe("rawevery recorded point");
-    expect(labels[1]).toBe("avgmean of the bucket");
-  });
-
-  it("offers a different set for a string attribute", () => {
+  it("disables the operators the data type refuses", () => {
     renderFields({ device_id: "dev1", attribute: "mode" });
-    expect(options()).toEqual(["null", "mode"]);
+    expect(enabled()).toEqual(["null", "mode"]);
+  });
+
+  it("enables the operators the data type admits", () => {
+    renderFields({ device_id: "dev1", attribute: "temperature" });
+    expect(enabled()).toEqual(["null", "avg", "min", "mode"]);
+  });
+
+  // Nothing can be aggregated until there is an attribute to aggregate.
+  it("leaves raw the only choice until an attribute is picked", () => {
+    renderFields();
+    expect(options()).toEqual(["null", "avg", "min", "mode"]);
+    expect(enabled()).toEqual(["null"]);
+  });
+
+  // The operator's own name leads; the gloss and the result type sit beside it.
+  it("shows each operator's caption and what it would yield", () => {
+    renderFields({ device_id: "dev1", attribute: "temperature" });
+    const labels = items().map((o) => o.textContent);
+    expect(labels[0]).toBe("rawevery recorded point");
+    expect(labels[1]).toBe("avgmean of the bucketfloat");
+  });
+
+  it("marks a refused operator as unsupported rather than showing a type", () => {
+    renderFields({ device_id: "dev1", attribute: "mode" });
+    const labels = items().map((o) => o.textContent);
+    expect(labels[1]).toBe("avgmean of the bucketnot supported");
+    expect(labels[3]).toBe("modemost frequent valuestr");
   });
 
   // Keeping `avg` across a switch to a string attribute would save a pair the

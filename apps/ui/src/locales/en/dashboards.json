@@ -26,6 +26,7 @@
       "agg": {
         "label": "Aggregation",
         "description": "Bucket width follows the dashboard period.",
+        "unsupported": "not supported",
         "captions": {
           "raw": "every recorded point",
           "avg": "mean of the bucket",

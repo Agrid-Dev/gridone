@@ -1319,7 +1319,9 @@ export interface components {
       recommended_interval: string | null;
       /** Operators By Data Type */
       operators_by_data_type: {
-        [key: string]: string[];
+        [key: string]: {
+          [key: string]: components["schemas"]["DataType"] | null;
+        };
       };
     };
     /** AggregatedPointResponse */

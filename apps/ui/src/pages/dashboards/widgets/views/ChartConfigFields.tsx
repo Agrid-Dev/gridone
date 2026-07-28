@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import type { DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { DeviceAttributePicker } from "@/components/forms/resourcePickers/DeviceAttributePicker";
@@ -12,24 +13,36 @@ import { attributeDataType } from "@/lib/devices";
 const RAW = "raw";
 
 /**
- * One entry in the aggregation list: the operator's own name, with a short
- * gloss beside it.
+ * One entry in the aggregation list: the operator's own name, a short gloss,
+ * and the type it would yield for the chosen attribute.
  *
  * The name leads because these are terms of art, kept as they are written
  * everywhere else — spelling `tw_avg` out in full crowds the attribute it
  * qualifies, and each reading would then differ by language. The gloss carries
  * the meaning without displacing the term.
+ *
+ * The result type is worth showing because aggregating can change it: `count`
+ * yields an int whatever went in, and averaging a bool yields a float, which is
+ * what decides whether the widget draws a line or an on/off band.
  */
-const AggOption: FC<{ name: string }> = ({ name }) => {
+const AggOption: FC<{ name: string; resultType?: DataType | null }> = ({
+  name,
+  resultType,
+}) => {
   const { t } = useTranslation("dashboards");
   return (
-    <span className="flex items-baseline gap-2">
+    <span className="flex w-full items-baseline gap-2">
       <span>{name}</span>
       <span className="text-xs text-muted-foreground">
         {t(
           `widgets.chart.agg.captions.${name}` as "widgets.chart.agg.captions.avg",
         )}
       </span>
+      {resultType !== undefined && (
+        <span className="ml-auto pl-3 text-xs text-muted-foreground">
+          {resultType ?? t("widgets.chart.agg.unsupported")}
+        </span>
+      )}
     </span>
   );
 };
@@ -66,13 +79,17 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   const dataType =
     device && attribute ? attributeDataType(device, attribute) : undefined;
 
-  // Only the operators this attribute's type admits. Until one is picked the
-  // list is empty, leaving raw as the only choice — which is also the default,
-  // so the field is never in a state it can't explain.
-  const aggOptions = operatorsFor(options, dataType).map((op) => ({
-    value: op as string | null,
-    label: <AggOption name={op} />,
-  }));
+  // Every operator is listed, with the ones this attribute's type refuses shown
+  // disabled rather than dropped: a list that silently shortens leaves you
+  // unable to tell an operator that doesn't apply here from one that doesn't
+  // exist, and unable to see that picking a different attribute would offer it.
+  const aggOptions = operatorsFor(options, dataType).map(
+    ({ operator, resultType }) => ({
+      value: operator as string | null,
+      label: <AggOption name={operator} resultType={resultType} />,
+      disabled: resultType === null,
+    }),
+  );
 
   return (
     <>
@@ -96,6 +113,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
         description={t("widgets.chart.agg.description")}
         // `null` is the stored value for raw, and the trigger falls back to the
         // placeholder for it — so raw reads as a named choice, not an empty one.
+        // It carries no result type: it yields whatever the attribute records.
         placeholder={<AggOption name={RAW} />}
         options={[
           { value: null, label: <AggOption name={RAW} /> },
