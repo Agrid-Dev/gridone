@@ -17,6 +17,7 @@ const translations: Record<string, string> = {
   "triggers.schedule.frequencies.weekly": "Weekly",
   "triggers.schedule.frequencies.monthly": "Monthly",
   "triggers.schedule.frequencies.custom": "Custom schedule",
+  "triggers.cron": "Cron expression",
   "triggers.schedule.minuteInterval": "Minute interval",
   "triggers.schedule.hourInterval": "Hour interval",
   "triggers.schedule.minute": "At minute",
@@ -32,7 +33,9 @@ const translations: Record<string, string> = {
   "triggers.schedule.monthDay": "Day of month",
   "triggers.schedule.preview": "Schedule",
   "triggers.schedule.customHelp":
-    "This automation uses an advanced schedule. Choose a frequency above to replace it.",
+    "Enter a cron expression directly. The API validates it when you save.",
+  "triggers.schedule.utcNotice":
+    "Schedules run in UTC. Enter all times in UTC.",
   "triggers.schedule.descriptionUnavailable": "Schedule unavailable",
   "common.cancel": "Cancel",
   "common.save": "Save",
@@ -83,6 +86,9 @@ describe("ScheduleForm", () => {
     const onSubmit = renderForm({ hideActions: true });
 
     expect(screen.getByText("At 09:00 AM, every day")).toBeInTheDocument();
+    expect(
+      screen.getByText("Schedules run in UTC. Enter all times in UTC."),
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText(/cron/i)).not.toBeInTheDocument();
 
     const timeInput = screen.getByLabelText("Time *");
@@ -128,7 +134,7 @@ describe("ScheduleForm", () => {
     });
   });
 
-  it("preserves advanced saved schedules until a new frequency is chosen", () => {
+  it("exposes advanced saved schedules in the raw cron input", () => {
     renderForm({
       initialValue: {
         provider_id: "schedule",
@@ -140,9 +146,39 @@ describe("ScheduleForm", () => {
       "Custom schedule",
     );
     expect(
-      screen.getByText(/This automation uses an advanced schedule/),
+      screen.getByText(/Enter a cron expression directly/),
     ).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("0 9 L * *")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Cron expression *")).toHaveValue("0 9 L * *");
+  });
+
+  it("keeps the raw cron mode selectable and editable", async () => {
+    const onSubmit = renderForm();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Repeats" }));
+    await userEvent.click(
+      screen.getByRole("option", { name: "Custom schedule" }),
+    );
+
+    const cronInput = screen.getByLabelText("Cron expression *");
+    expect(cronInput).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    await userEvent.type(cronInput, "0 9 L * *");
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Repeats" }));
+    await userEvent.click(screen.getByRole("option", { name: "Daily" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Repeats" }));
+    await userEvent.click(
+      screen.getByRole("option", { name: "Custom schedule" }),
+    );
+
+    expect(screen.getByLabelText("Cron expression *")).toHaveValue("0 9 L * *");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      provider_id: "schedule",
+      params: { cron: "0 9 L * *" },
+    });
   });
 
   it("does not let an abandoned field block a different schedule mode", async () => {

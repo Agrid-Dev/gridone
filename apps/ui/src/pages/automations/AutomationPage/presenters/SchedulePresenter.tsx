@@ -16,7 +16,12 @@ export const SchedulePresenter = ({ trigger }: { trigger: Trigger }) => {
 
   return (
     <p className="text-sm font-medium">
-      {description ?? t("triggers.schedule.descriptionUnavailable")}
+      <span>
+        {description ?? t("triggers.schedule.descriptionUnavailable")}
+      </span>{" "}
+      <span className="text-muted-foreground">
+        ({t("triggers.schedule.timezone")})
+      </span>
     </p>
   );
 };

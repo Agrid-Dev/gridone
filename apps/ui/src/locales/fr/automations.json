@@ -60,7 +60,9 @@
       },
       "monthDay": "Jour du mois",
       "preview": "Programmation",
-      "customHelp": "Cette automatisation utilise une programmation avancée. Choisissez une fréquence ci-dessus pour la remplacer par une programmation modifiable ici.",
+      "customHelp": "Saisissez directement une expression cron. L'API la valide lors de l'enregistrement.",
+      "utcNotice": "Les programmations s'exécutent en UTC. Saisissez toutes les heures en UTC.",
+      "timezone": "UTC",
       "descriptionUnavailable": "Programmation indisponible"
     },
     "device": "Appareil",

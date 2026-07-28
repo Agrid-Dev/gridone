@@ -1,6 +1,6 @@
 import { Controller, type Control } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, CalendarClock } from "lucide-react";
+import { CalendarClock, Info } from "lucide-react";
 import { Button } from "@/components/ui";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { InputController } from "@/components/forms/controllers/InputController";
@@ -9,12 +9,13 @@ import { describeCronExpression } from "../../presenters/cronDescription";
 import type { ScheduleFormValues, ScheduleFrequency } from "./cronSchedule";
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
-const EDITABLE_FREQUENCIES = [
+const FREQUENCIES = [
   "minutes",
   "hours",
   "daily",
   "weekly",
   "monthly",
+  "custom",
 ] as const;
 
 type CronPickerProps = {
@@ -29,22 +30,10 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
   const description =
     describeCronExpression(cron, language) ??
     t("triggers.schedule.descriptionUnavailable");
-  const frequencyOptions: Array<{
-    value: ScheduleFrequency;
-    label: string;
-    disabled?: boolean;
-  }> = EDITABLE_FREQUENCIES.map((value) => ({
+  const frequencyOptions = FREQUENCIES.map((value) => ({
     value,
     label: t(`triggers.schedule.frequencies.${value}`),
   }));
-
-  if (frequency === "custom") {
-    frequencyOptions.push({
-      value: "custom",
-      label: t("triggers.schedule.frequencies.custom"),
-      disabled: true,
-    });
-  }
 
   return (
     <div className="space-y-5 rounded-lg border bg-muted/20 p-4">
@@ -158,13 +147,19 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
       )}
 
       {frequency === "custom" && (
-        <div className="flex gap-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-          <AlertTriangle
-            className="mt-0.5 h-4 w-4 shrink-0 text-warning"
-            aria-hidden="true"
-          />
-          <p>{t("triggers.schedule.customHelp")}</p>
-        </div>
+        <InputController
+          name="customCron"
+          control={control}
+          label={t("triggers.cron")}
+          description={t("triggers.schedule.customHelp")}
+          inputProps={{
+            className: "font-mono",
+            placeholder: "0 9 * * *",
+            spellCheck: false,
+            autoCapitalize: "none",
+          }}
+          required
+        />
       )}
 
       <div
@@ -181,6 +176,11 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           </p>
           <p className="text-sm font-medium">{description}</p>
         </div>
+      </div>
+
+      <div className="flex gap-2 text-sm text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <p>{t("triggers.schedule.utcNotice")}</p>
       </div>
     </div>
   );

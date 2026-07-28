@@ -15,6 +15,7 @@ const minuteSchema = z.number().int().min(0).max(59);
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const weekdaysSchema = z.array(z.number().int().min(0).max(6)).min(1);
 const monthDaySchema = z.number().int().min(1).max(31);
+const customCronSchema = z.string().trim().min(1);
 
 const scheduleFormSchema = z
   .object({
@@ -63,6 +64,7 @@ const scheduleFormSchema = z
         validate(monthDaySchema, values.monthDay, "monthDay");
         break;
       case "custom":
+        validate(customCronSchema, values.customCron, "customCron");
         break;
     }
   });

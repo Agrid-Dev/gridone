@@ -61,7 +61,9 @@
       },
       "monthDay": "Day of month",
       "preview": "Schedule",
-      "customHelp": "This automation uses an advanced schedule. Choose a frequency above to replace it with a schedule that can be edited here.",
+      "customHelp": "Enter a cron expression directly. The API validates it when you save.",
+      "utcNotice": "Schedules run in UTC. Enter all times in UTC.",
+      "timezone": "UTC",
       "descriptionUnavailable": "Schedule unavailable"
     },
     "device": "Device",

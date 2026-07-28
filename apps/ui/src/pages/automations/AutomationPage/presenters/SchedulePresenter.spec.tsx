@@ -3,10 +3,13 @@ import { cleanup, render, screen } from "@testing-library/react";
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) =>
-      key === "triggers.schedule.descriptionUnavailable"
-        ? "Schedule unavailable"
-        : key,
+    t: (key: string) => {
+      if (key === "triggers.schedule.descriptionUnavailable") {
+        return "Schedule unavailable";
+      }
+      if (key === "triggers.schedule.timezone") return "UTC";
+      return key;
+    },
     i18n: { resolvedLanguage: "en" },
   }),
 }));
@@ -27,6 +30,7 @@ describe("SchedulePresenter", () => {
     );
 
     expect(screen.getByText("At 10:00 AM, every day")).toBeInTheDocument();
+    expect(screen.getByText("(UTC)")).toBeInTheDocument();
     expect(screen.queryByText("0 10 * * *")).not.toBeInTheDocument();
   });
 
