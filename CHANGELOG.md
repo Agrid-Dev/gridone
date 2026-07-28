@@ -1,3 +1,9 @@
+## v0.171.0 (2026-07-28)
+
+### Feat
+
+- **timeseries**: add the delta aggregation operator
+
 ## v0.170.0 (2026-07-28)
 
 ### Feat
