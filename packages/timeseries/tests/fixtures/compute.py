@@ -49,6 +49,8 @@ _R_CROSS = ("2025-01-01T00:00:00+00:00", "2025-01-08T00:00:00+00:00")
 _R_DST_SF = ("2026-03-28T23:00:00+00:00", "2026-03-29T22:00:00+00:00")
 _R_DST_FB = ("2026-10-24T22:00:00+00:00", "2026-10-25T23:00:00+00:00")
 _R_SINGLE = ("2025-06-14T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
+# Starts after single_point's only sample: no data in range, anchor before it.
+_R_ANCHOR_ONLY = ("2025-06-16T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 
 _LOCF_OPS = ["count", "first", "last", "avg", "tw_avg"]
 
@@ -112,6 +114,22 @@ CASE_SPEC: list[dict[str, str]] = [
         ops=["avg", "count", "tw_avg"],
     ),
     *_cases("single_point", "float", ["1d"], _R_SINGLE),
+    # interval="period": every operator x data_type pair in AGG_COMPAT, plus the
+    # anchor-only range (empty bucket carrying LOCF in from before start).
+    *_cases("main_float", "float", ["period"], _R_6MO),
+    *_cases("main_int", "int", ["period"], _R_1W),
+    *_cases("main_bool", "bool", ["period"], _R_1W),
+    *_cases("main_str", "str", ["period"], _R_1W),
+    *_cases("single_point", "float", ["period"], _R_ANCHOR_ONLY),
+    # A period bucket ignores the timezone; pin that both backends agree.
+    *_cases(
+        "cross_timezone",
+        "float",
+        ["period"],
+        _R_CROSS,
+        timezone="Europe/Paris",
+        ops=["count", "avg", "tw_avg"],
+    ),
 ]
 
 Point = tuple[datetime, Any]
@@ -172,6 +190,11 @@ def _next_bin(dt: datetime, bin_str: str) -> datetime:
 def bin_boundaries(
     start_utc: datetime, end_utc: datetime, bin_str: str, tz_name: str
 ) -> list[tuple[datetime, datetime]]:
+    # "period" is not a calendar bin: one bucket spanning the whole range, so the
+    # timezone never enters into it (boundaries are the caller's absolute instants).
+    if bin_str == "period":
+        return [(start_utc, end_utc)]
+
     tz = _tz(tz_name)
     current = _floor_bin(start_utc.astimezone(tz), bin_str)
 
