@@ -1,3 +1,13 @@
+## v0.169.0 (2026-07-28)
+
+### Feat
+
+- **ui**: add cron schedule editor and presenter
+
+### Fix
+
+- **ui**: expose custom cron schedules and clarify UTC execution
+
 ## v0.168.0 (2026-07-27)
 
 ### Feat
