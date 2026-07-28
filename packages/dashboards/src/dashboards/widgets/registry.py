@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
+from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -99,7 +100,9 @@ class WidgetRegistry:
 def build_default_registry() -> WidgetRegistry:
     """Build the registry with the built-in widget types registered.
 
-    ``text`` is the only type today — a placeholder widget at 4x2 grid cells.
+    ``text`` is the placeholder widget at 4x2 grid cells; ``chart`` gets a
+    wider, taller default footprint because a time axis is unreadable in a
+    small box.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -107,6 +110,13 @@ def build_default_registry() -> WidgetRegistry:
             type="text",
             config_model=TextWidgetConfig,
             default_size=WidgetSize(w=4, h=2),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="chart",
+            config_model=ChartWidgetConfig,
+            default_size=WidgetSize(w=6, h=4),
         )
     )
     return registry

@@ -9,16 +9,20 @@ config schema surfaces in OpenAPI for the SDK / ``z.fromJSONSchema``.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from dashboards import TextWidgetConfig, WidgetPatch
-from pydantic import BaseModel, ConfigDict
+from dashboards import ChartWidgetConfig, TextWidgetConfig, WidgetPatch
+from pydantic import BaseModel, ConfigDict, Field
 
-# The request-body type for a widget's ``config``. Today only the ``text`` type
-# is registered; as widget types are added this becomes a discriminated union on
-# ``type`` — mirroring the WidgetRegistry, which remains the source of truth for
-# the schemas exposed by ``GET /dashboards/widget-schemas``.
-WidgetConfigBody = TextWidgetConfig
+# The request-body type for a widget's ``config``: a discriminated union on
+# ``type``, mirroring the WidgetRegistry — which remains the source of truth for
+# the schemas exposed by ``GET /dashboards/widget-schemas``. Discriminating here
+# is what makes a bad config a 422 whose error path names the offending field
+# rather than a wall of per-member union errors.
+WidgetConfigBody = Annotated[
+    TextWidgetConfig | ChartWidgetConfig,
+    Field(discriminator="type"),
+]
 
 
 class WidgetCreateBody(BaseModel):

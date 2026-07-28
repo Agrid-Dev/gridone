@@ -42,6 +42,7 @@ _DASHBOARD = Dashboard(
 _SUMMARY = DashboardSummary(id="d1", name="Ops", description="d", metadata=_META)
 
 _TEXT_CONFIG = {"type": "text", "text": "hi", "color": "#1a2b3c"}
+_CHART_CONFIG = {"type": "chart", "device_id": "dev1", "attribute": "temperature"}
 
 
 @pytest.fixture
@@ -150,6 +151,30 @@ class TestWidgets:
         # Field-level path points at the offending config field.
         locs = [d["loc"] for d in resp.json()["detail"]]
         assert any("color" in loc for loc in locs)
+        svc.add_widget.assert_not_awaited()
+
+    async def test_add_chart_widget_reaches_the_service(self, client, svc):
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _CHART_CONFIG})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1", config=_CHART_CONFIG, title=None, description=None
+        )
+
+    async def test_add_chart_widget_missing_field_returns_422_field_path(
+        self, client, svc
+    ):
+        # `type` discriminates, so the error names the missing chart field
+        # instead of reporting every union member's complaints at once.
+        async with client as c:
+            resp = await c.post(
+                "/d1/widgets", json={"config": {"type": "chart", "device_id": "dev1"}}
+            )
+        assert resp.status_code == 422
+        locs = [d["loc"] for d in resp.json()["detail"]]
+        assert any("attribute" in loc for loc in locs)
+        assert not any("color" in loc for loc in locs)
         svc.add_widget.assert_not_awaited()
 
     async def test_add_widget_unknown_type_returns_422(self, client):

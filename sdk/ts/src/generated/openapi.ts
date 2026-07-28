@@ -1829,6 +1829,30 @@ export interface components {
       /** Icon */
       icon?: string | null;
     };
+    /**
+     * ChartWidgetConfig
+     * @description Time-series chart over one attribute of one device, plotted raw.
+     *
+     *     The data source is deliberately the narrowest useful one: a single
+     *     ``(device, attribute)`` pair, no aggregation. Points are read over the
+     *     dashboard period, so nothing about the time window is stored here.
+     *
+     *     Both the device set and the number of series widen in later work (a
+     *     filter-shaped target, then several series per chart). Widening either one
+     *     rewrites this shape, so stored configs migrate — an accepted trade for
+     *     keeping the first slice minimal while no real dashboards exist.
+     */
+    ChartWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "chart";
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+    };
     /** CodecSpec */
     CodecSpec: {
       /** Name */
@@ -2913,11 +2937,10 @@ export interface components {
      */
     TextWidgetConfig: {
       /**
-       * Type
-       * @default text
-       * @constant
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
        */
-      type?: "text";
+      type: "text";
       /** Text */
       text: string;
       /** Color */
@@ -3221,7 +3244,10 @@ export interface components {
      * @description Request body for ``POST /dashboards/{id}/widgets``.
      */
     WidgetCreateBody: {
-      config: components["schemas"]["TextWidgetConfig"];
+      /** Config */
+      config:
+        | components["schemas"]["TextWidgetConfig"]
+        | components["schemas"]["ChartWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -3260,7 +3286,13 @@ export interface components {
       title?: string | null;
       /** Description */
       description?: string | null;
-      config?: components["schemas"]["TextWidgetConfig"] | null;
+      /** Config */
+      config?:
+        | (
+            | components["schemas"]["TextWidgetConfig"]
+            | components["schemas"]["ChartWidgetConfig"]
+          )
+        | null;
     };
   };
   responses: never;

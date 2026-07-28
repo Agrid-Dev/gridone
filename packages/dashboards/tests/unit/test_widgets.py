@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from dashboards.widgets import (
+    ChartWidgetConfig,
     TextWidgetConfig,
     WidgetSize,
     WidgetType,
@@ -14,11 +15,12 @@ from dashboards.widgets.registry import WidgetRegistry
 from models.errors import InvalidError, NotFoundError
 
 
-def test_default_registry_registers_text():
+def test_default_registry_registers_built_in_types():
     registry = build_default_registry()
 
-    assert registry.types() == ["text"]
+    assert set(registry.types()) == {"text", "chart"}
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
+    assert registry.default_size("chart") == WidgetSize(w=6, h=4)
 
 
 def test_validate_config_returns_concrete_model():
@@ -41,6 +43,14 @@ def test_validate_config_returns_concrete_model():
         {"type": "text", "text": "hi", "color": "red"},  # bad color
         {"type": "text", "color": "#1a2b3c"},  # missing text
         {"type": "text", "text": "hi", "color": "#1a2b3c", "extra": 1},  # extra key
+        {"type": "chart", "attribute": "temperature"},  # missing device_id
+        {"type": "chart", "device_id": "d1"},  # missing attribute
+        {  # extra key
+            "type": "chart",
+            "device_id": "d1",
+            "attribute": "temperature",
+            "agg": "avg",
+        },
     ],
 )
 def test_validate_config_rejects_invalid(raw: dict):
@@ -84,10 +94,11 @@ def test_schemas_returns_json_schema_per_type():
 
     schemas = registry.schemas()
 
-    assert set(schemas) == {"text"}
+    assert set(schemas) == {"text", "chart"}
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
+    assert set(schemas["chart"]["required"]) == {"device_id", "attribute"}
 
 
 def test_empty_registry_has_no_types():
@@ -95,6 +106,18 @@ def test_empty_registry_has_no_types():
 
     assert registry.types() == []
     assert registry.schemas() == {}
+
+
+def test_validate_config_returns_chart_model():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {"type": "chart", "device_id": "d1", "attribute": "temperature"}
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.device_id == "d1"
+    assert config.attribute == "temperature"
 
 
 @pytest.mark.parametrize("color", ["#000000", "#FFFFFF", "#1a2B3c"])
