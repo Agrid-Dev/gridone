@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+from pydantic import Field
+
 from dashboards.widgets.config import WidgetConfig
 
 
@@ -19,5 +21,8 @@ class ChartWidgetConfig(WidgetConfig):
     """
 
     type: Literal["chart"] = "chart"
-    device_id: str
-    attribute: str
+    # Non-empty so ``minLength`` reaches the generated JSON Schema: the editor
+    # seeds string fields with "", which an unconstrained ``str`` accepts — the
+    # form would call itself valid and offer to save a chart bound to nothing.
+    device_id: str = Field(min_length=1)
+    attribute: str = Field(min_length=1)

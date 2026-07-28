@@ -11,7 +11,12 @@ type UseTimeSeriesOptions = {
   attributeName: string;
   start?: string;
   end?: string;
+  /** Relative window (e.g. "3h"), the form a period preset resolves to. */
+  last?: string;
   enabled?: boolean;
+  /** Poll cadence, or `false` to fetch once. Views showing a window that ends
+   *  "now" pass an interval so an unattended screen stays current. */
+  refetchInterval?: number | false;
 };
 
 export function useTimeSeries({
@@ -19,7 +24,9 @@ export function useTimeSeries({
   attributeName,
   start,
   end,
+  last,
   enabled = true,
+  refetchInterval = false,
 }: UseTimeSeriesOptions) {
   const client = useGridoneClient();
 
@@ -37,14 +44,16 @@ export function useTimeSeries({
   const seriesId = seriesQuery.data?.id;
 
   const pointsQuery = useQuery<FetchPointsResultResponse>({
-    queryKey: ["timeseries", "points", seriesId, start, end],
+    queryKey: ["timeseries", "points", seriesId, start, end, last],
     queryFn: () =>
       client.timeseries.getPoints(deviceId, attributeName, {
         start,
         end,
+        last,
         carry_forward: true,
       }),
     enabled: !!seriesId,
+    refetchInterval,
   });
 
   return {

@@ -19,6 +19,11 @@
   "widgets": {
     "empty": "This dashboard has no widgets yet.",
     "renderError": "This widget failed to render.",
+    "chart": {
+      "error": "Could not load this attribute's history.",
+      "noSeries": "No history is recorded for this attribute.",
+      "noData": "No data over the selected period."
+    },
     "add": "Add widget",
     "addTitle": "Add widget",
     "addSubmit": "Add widget",

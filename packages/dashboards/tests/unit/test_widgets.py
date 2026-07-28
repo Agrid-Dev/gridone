@@ -45,6 +45,8 @@ def test_validate_config_returns_concrete_model():
         {"type": "text", "text": "hi", "color": "#1a2b3c", "extra": 1},  # extra key
         {"type": "chart", "attribute": "temperature"},  # missing device_id
         {"type": "chart", "device_id": "d1"},  # missing attribute
+        {"type": "chart", "device_id": "", "attribute": "temperature"},  # empty
+        {"type": "chart", "device_id": "d1", "attribute": ""},  # empty
         {  # extra key
             "type": "chart",
             "device_id": "d1",
@@ -98,7 +100,12 @@ def test_schemas_returns_json_schema_per_type():
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
+    chart = schemas["chart"]["properties"]
     assert set(schemas["chart"]["required"]) == {"device_id", "attribute"}
+    # minLength must survive into the schema — it is what stops the editor
+    # accepting its own empty-string seed as a valid config.
+    assert chart["device_id"]["minLength"] == 1
+    assert chart["attribute"]["minLength"] == 1
 
 
 def test_empty_registry_has_no_types():

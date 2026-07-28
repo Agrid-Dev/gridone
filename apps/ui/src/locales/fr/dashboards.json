@@ -19,6 +19,11 @@
   "widgets": {
     "empty": "Ce tableau de bord n'a pas encore de widget.",
     "renderError": "Échec de l'affichage de ce widget.",
+    "chart": {
+      "error": "Impossible de charger l'historique de cet attribut.",
+      "noSeries": "Aucun historique n'est enregistré pour cet attribut.",
+      "noData": "Aucune donnée sur la période sélectionnée."
+    },
     "add": "Ajouter un widget",
     "addTitle": "Ajouter un widget",
     "addSubmit": "Ajouter le widget",
