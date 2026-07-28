@@ -278,18 +278,18 @@ def compute(
     labeled at its calendar boundary but only contains data from query.start onward;
     LOCF fills the gap via the anchor point. This matches TimescaleDB behavior.
 
-    ``interval="period"`` yields exactly one bucket covering ``[start, end)``.
+    ``interval="whole"`` yields exactly one bucket covering ``[start, end)``.
     """
     assert_query_resolved(query)
     assert query.timezone is not None  # noqa: S101
     assert query.start is not None  # noqa: S101
     assert query.end is not None  # noqa: S101
     tz_name: str = query.timezone
-    result_interval: Interval | Literal["period"]
+    result_interval: Interval | Literal["whole"]
 
-    if query.interval == "period":
+    if query.interval == "whole":
         bins = [(query.start.astimezone(UTC), query.end.astimezone(UTC))]
-        result_interval = "period"
+        result_interval = "whole"
     else:
         assert isinstance(query.interval, Interval)  # noqa: S101
         result_interval = query.interval

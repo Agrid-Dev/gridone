@@ -94,7 +94,6 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
 async def test_aggregate(
     ts_service: TimeSeriesService,
     case_name: str,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     scenario = _SCENARIOS[case_name]
     inp = _load_input(scenario["input_ref"])
@@ -124,15 +123,6 @@ async def test_aggregate(
         end=_parse_dt(req.get("end")),
         timezone=req.get("timezone"),
     )
-
-    # Freeze "now" to end + 1 day so future-bucket filtering never interferes
-    # with bucketing-correctness assertions — the scenario data may be in the future.
-    end_dt = _parse_dt(req.get("end"))
-    if end_dt is not None:
-        synthetic_now = end_dt + timedelta(days=1)
-        if synthetic_now.tzinfo is None:
-            synthetic_now = synthetic_now.replace(tzinfo=UTC)
-        monkeypatch.setattr("timeseries.service.service._utcnow", lambda: synthetic_now)
 
     result = await ts_service.get_aggregate(key, query)
     assert_aggregation_equal(result, case_name)
@@ -356,34 +346,6 @@ class TestGetAggregateTzAware:
 
 
 class TestGetAggregateDefects:
-    async def test_no_future_buckets(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        svc = TimeSeriesService(storage_url=None)
-        await svc.start()
-        try:
-            key = SeriesKey(owner_id="future-test", metric="temp")
-            await svc.create_series(
-                data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
-            )
-            pt_ts = datetime(2026, 1, 1, 10, tzinfo=UTC)
-            await svc.upsert_points(key, [DataPoint(timestamp=pt_ts, value=1.0)])
-            frozen_now = datetime(2026, 1, 1, 13, tzinfo=UTC)
-            monkeypatch.setattr(
-                "timeseries.service.service._utcnow", lambda: frozen_now
-            )
-            result = await svc.get_aggregate(
-                key,
-                AggregationQuery(
-                    agg=AggregationOperator.COUNT,
-                    interval=Interval.model_validate("1h"),
-                    start=datetime(2026, 1, 1, tzinfo=UTC),
-                    end=datetime(2026, 1, 2, tzinfo=UTC),
-                ),
-            )
-            assert len(result.points) == 14  # [00:00 … 13:00] inclusive
-            assert all(p.interval_start <= frozen_now for p in result.points)
-        finally:
-            await svc.stop()
-
     async def test_last_alone_sets_end_to_now(self) -> None:
         # last="12h" with no end: model_validator resolves start=now-12h, end=now
         svc = TimeSeriesService(storage_url=None)
@@ -723,6 +685,35 @@ class TestAutoIntervalService:
         assert result.points[1].value == pytest.approx(2.0)
         assert result.truncated is False
 
+    async def test_raw_requested_explicitly(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """ "raw" is offered by get_aggregate_options, so it must be requestable."""
+        key = SeriesKey(owner_id="explicit-raw", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(timestamp=start, value=1.0),
+                DataPoint(timestamp=start + timedelta(days=1), value=2.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.AVG,
+                interval="raw",
+                start=start,
+                end=start + timedelta(days=7),
+            ),
+        )
+        assert result.interval == "raw"
+        assert len(result.points) == 2
+        assert all(p.count == 1 for p in result.points)
+
     async def test_auto_interval_raw_truncated_flag(
         self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -784,7 +775,7 @@ class TestAutoIntervalService:
         assert str(result.interval) == expected_interval
 
 
-class TestPeriodInterval:
+class TestWholeInterval:
     """interval=\"period\" → exactly one bucket over [start, end)."""
 
     async def test_single_bucket_over_range(
@@ -808,12 +799,12 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
         )
-        assert result.interval == "period"
+        assert result.interval == "whole"
         assert len(result.points) == 1
         assert result.points[0].interval_start == start
         assert result.points[0].count == 3
@@ -830,12 +821,12 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
         )
-        assert result.interval == "period"
+        assert result.interval == "whole"
         assert len(result.points) == 1
         assert result.points[0].interval_start == start
         assert result.points[0].count == 0
@@ -851,7 +842,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.SUM,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=start + timedelta(hours=1),
             ),
@@ -875,7 +866,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
@@ -898,7 +889,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.MAX,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
@@ -927,7 +918,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                interval="period",
+                interval="whole",
                 start=base + timedelta(minutes=10),
                 end=base + timedelta(minutes=20),
             ),
@@ -939,8 +930,8 @@ class TestPeriodInterval:
     async def test_future_range_still_returns_one_bucket(
         self, ts_service: TimeSeriesService
     ) -> None:
-        """Future-dated range keeps its bucket: only calendar buckets get trimmed."""
-        key = SeriesKey(owner_id="period-future", metric="temp")
+        """A future-dated range is served as asked, like every other interval."""
+        key = SeriesKey(owner_id="whole-future", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
         )
@@ -952,7 +943,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=start + timedelta(days=1),
             ),
@@ -982,7 +973,7 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.SUM,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
@@ -1009,12 +1000,12 @@ class TestPeriodInterval:
             key,
             AggregationQuery(
                 agg=AggregationOperator.TW_AVG,
-                interval="period",
+                interval="whole",
                 start=start,
                 end=end,
             ),
         )
-        assert result.interval == "period"
+        assert result.interval == "whole"
         assert len(result.points) == 1
         # (10 * 1h + 20 * 1h) / 2h = 15.0
         assert result.points[0].value == pytest.approx(15.0, rel=1e-4)
@@ -1027,9 +1018,9 @@ class TestPeriodInterval:
         )
         intervals = [iv for iv, _ in options.intervals]
         assert intervals[0] == "raw"
-        assert intervals[1] == "period"
-        assert ("period", 1) in options.intervals
+        assert intervals[1] == "whole"
+        assert ("whole", 1) in options.intervals
 
         options_no_window = await ts_service.get_aggregate_options()
-        assert ("period", None) in options_no_window.intervals
-        assert options_no_window.intervals[1] == ("period", None)
+        assert ("whole", None) in options_no_window.intervals
+        assert options_no_window.intervals[1] == ("whole", None)

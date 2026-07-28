@@ -131,7 +131,7 @@ def _locf_parts(
     """Return (aggregate expr, LOCF carry expr, anchor placeholder) for an operator.
 
     ``prev_param`` is the placeholder holding the LOCF anchor; it differs between the
-    bucketed layout ($6) and the compact period layout ($4).
+    bucketed layout ($6) and the compact whole-range layout ($4).
     """
     prev_float = f"{prev_param}::double precision"
     match op:
@@ -417,12 +417,12 @@ def _coerce_anchor(op: AggregationOperator, anchor: DataPoint | None) -> _Anchor
     return v
 
 
-# Period queries use a compact param layout (no calendar interval / timezone):
+# Whole-range queries use a compact param layout (no calendar interval / timezone):
 #   $1 = start, $2 = end, $3 = series_id, $4 = optional LOCF anchor
 
 
 @dataclass(frozen=True)
-class _PeriodCtx:
+class _WholeCtx:
     value_col: str
     anchor_value: _AnchorValue
     series_id: str
@@ -431,17 +431,15 @@ class _PeriodCtx:
     data_type: DataType
 
 
-def _period_base_params(ctx: _PeriodCtx) -> _Params:
+def _whole_base_params(ctx: _WholeCtx) -> _Params:
     return [ctx.start, ctx.end, ctx.series_id]
 
 
-def _period_anchor_params(ctx: _PeriodCtx) -> _Params:
+def _whole_anchor_params(ctx: _WholeCtx) -> _Params:
     return [ctx.start, ctx.end, ctx.series_id, ctx.anchor_value]
 
 
-def _period_simple_query(
-    op: AggregationOperator, ctx: _PeriodCtx
-) -> tuple[str, _Params]:
+def _whole_simple_query(op: AggregationOperator, ctx: _WholeCtx) -> tuple[str, _Params]:
     """Single-bucket aggregate over [start, end) without time_bucket / gapfill."""
     where = (
         "WHERE series_id = $3\n"
@@ -461,7 +459,7 @@ def _period_simple_query(
                 "FROM ts_data_points\n"
                 f"{where}"
             )
-            return sql, _period_base_params(ctx)
+            return sql, _whole_base_params(ctx)
 
         case AggregationOperator.SUM:
             if ctx.data_type == DataType.BOOL:
@@ -478,7 +476,7 @@ def _period_simple_query(
                 "FROM ts_data_points\n"
                 f"{where}"
             )
-            return sql, _period_base_params(ctx)
+            return sql, _whole_base_params(ctx)
 
         case _:
             agg_expr, _, prev_cast = _locf_parts(op, ctx.data_type, vc, "$4")
@@ -490,10 +488,10 @@ def _period_simple_query(
                 "FROM ts_data_points\n"
                 f"{where}"
             )
-            return sql, _period_anchor_params(ctx)
+            return sql, _whole_anchor_params(ctx)
 
 
-def _period_mode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+def _whole_mode_query(ctx: _WholeCtx) -> tuple[str, _Params]:
     vc = ctx.value_col
     sql = (
         "WITH val_counts AS (\n"
@@ -517,10 +515,10 @@ def _period_mode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
         "    COALESCE((SELECT value FROM winner), $4) AS value,\n"
         "    (SELECT total_count FROM totals) AS count"
     )
-    return sql, _period_anchor_params(ctx)
+    return sql, _whole_anchor_params(ctx)
 
 
-def _period_twavg_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+def _whole_twavg_query(ctx: _WholeCtx) -> tuple[str, _Params]:
     raw_val = (
         f"{ctx.value_col}::int::double precision"
         if ctx.data_type == DataType.BOOL
@@ -560,10 +558,10 @@ def _period_twavg_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
         "    COALESCE(COUNT(timestamp), 0)::int AS count\n"
         "FROM weighted"
     )
-    return sql, _period_anchor_params(ctx)
+    return sql, _whole_anchor_params(ctx)
 
 
-def _period_twmode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
+def _whole_twmode_query(ctx: _WholeCtx) -> tuple[str, _Params]:
     vc = ctx.value_col
     sql = (
         "WITH src AS (\n"
@@ -611,19 +609,19 @@ def _period_twmode_query(ctx: _PeriodCtx) -> tuple[str, _Params]:
         "    COALESCE((SELECT value FROM winner), $4) AS value,\n"
         "    (SELECT cnt FROM raw_counts) AS count"
     )
-    return sql, _period_anchor_params(ctx)
+    return sql, _whole_anchor_params(ctx)
 
 
-def _period_query(op: AggregationOperator, ctx: _PeriodCtx) -> tuple[str, _Params]:
+def _whole_query(op: AggregationOperator, ctx: _WholeCtx) -> tuple[str, _Params]:
     match op:
         case AggregationOperator.MODE:
-            return _period_mode_query(ctx)
+            return _whole_mode_query(ctx)
         case AggregationOperator.TW_AVG:
-            return _period_twavg_query(ctx)
+            return _whole_twavg_query(ctx)
         case AggregationOperator.TW_MODE:
-            return _period_twmode_query(ctx)
+            return _whole_twmode_query(ctx)
         case _:
-            return _period_simple_query(op, ctx)
+            return _whole_simple_query(op, ctx)
 
 
 async def compute(
@@ -642,8 +640,8 @@ async def compute(
     data_type = series.data_type
     anchor_value = _coerce_anchor(op, anchor)
 
-    if query.interval == "period":
-        pctx = _PeriodCtx(
+    if query.interval == "whole":
+        wctx = _WholeCtx(
             value_col=value_col,
             anchor_value=anchor_value,
             series_id=series.id,
@@ -651,7 +649,7 @@ async def compute(
             end=query.end,
             data_type=data_type,
         )
-        sql, params = _period_query(op, pctx)
+        sql, params = _whole_query(op, wctx)
         rows = await pool.fetch(sql, *params)
         points = [
             AggregatedPoint(
@@ -662,7 +660,7 @@ async def compute(
             for row in rows
         ]
         return AggregationResult(
-            interval="period",
+            interval="whole",
             agg=op,
             data_type=data_type,
             timezone=tz,

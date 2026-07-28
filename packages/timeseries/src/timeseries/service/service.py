@@ -73,18 +73,6 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _drop_buckets_after(
-    result: AggregationResult, cutoff: datetime
-) -> AggregationResult:
-    """Drop calendar buckets that start in the future.
-
-    A range ending past "now" gapfills buckets the series cannot have data for yet;
-    they would render as a flat LOCF tail on a chart.
-    """
-    points = [p for p in result.points if p.interval_start <= cutoff]
-    return result.model_copy(update={"points": points})
-
-
 class TimeSeriesService(Service):
     _storage: TimeSeriesStorage | None
 
@@ -286,19 +274,13 @@ class TimeSeriesService(Service):
             if query.interval == "auto"
             else query.interval
         )
-        match interval:
-            case "raw":
-                return await self._get_aggregate_raw(key, query, series.data_type)
-            case "period":
-                # Exactly one bucket, spanning the range the caller asked for: no
-                # future trimming, or a future-dated range would return no bucket.
-                return await self._backend.aggregate(key, query)
-            case _:
-                query = query.model_copy(
-                    update={"interval": Interval.model_validate(interval)}
-                )
-                result = await self._backend.aggregate(key, query)
-                return _drop_buckets_after(result, cutoff)
+        if interval == "raw":
+            return await self._get_aggregate_raw(key, query, series.data_type)
+        if interval != "whole":
+            query = query.model_copy(
+                update={"interval": Interval.model_validate(interval)}
+            )
+        return await self._backend.aggregate(key, query)
 
     async def get_aggregate_options(
         self,
@@ -319,14 +301,14 @@ class TimeSeriesService(Service):
             valid = valid_intervals_for_period(period)
             recommended = resolve_auto_interval(period)
             iv_td = {
-                iv: parse_duration(iv) for iv in valid if iv not in {"raw", "period"}
+                iv: parse_duration(iv) for iv in valid if iv not in {"raw", "whole"}
             }
             intervals: list[tuple[str, int | None]] = []
             for iv in valid:
                 if iv == "raw":
                     intervals.append(("raw", None))
-                elif iv == "period":
-                    intervals.append(("period", 1))
+                elif iv == "whole":
+                    intervals.append(("whole", 1))
                 else:
                     intervals.append((iv, int(period / iv_td[iv])))
             return AggregateOptions(
@@ -338,7 +320,7 @@ class TimeSeriesService(Service):
         # No time range given: every interval is offered, none can be sized.
         default_intervals: list[tuple[str, int | None]] = [
             ("raw", None),
-            ("period", None),
+            ("whole", None),
             *[(iv, None) for iv in CANONICAL_INTERVALS],
         ]
         return AggregateOptions(

@@ -6,6 +6,6 @@ def assert_query_resolved(query: AggregationQuery) -> None:
     if query.timezone is None:
         msg = "timezone must be resolved by the service before calling storage"
         raise RuntimeError(msg)
-    if query.interval != "period" and not isinstance(query.interval, Interval):
+    if query.interval != "whole" and not isinstance(query.interval, Interval):
         msg = "interval must be resolved by the service before calling storage"
         raise RuntimeError(msg)
