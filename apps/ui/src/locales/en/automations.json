@@ -33,6 +33,39 @@
     "type": "Trigger type",
 
     "cron": "Cron expression",
+    "schedule": {
+      "frequency": "Repeats",
+      "frequencies": {
+        "minutes": "Every few minutes",
+        "hours": "Every few hours",
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "monthly": "Monthly",
+        "custom": "Custom schedule"
+      },
+      "minuteInterval": "Minute interval",
+      "hourInterval": "Hour interval",
+      "minute": "At minute",
+      "time": "Time",
+      "weekdays": {
+        "label": "Days",
+        "short": {
+          "0": "Sun",
+          "1": "Mon",
+          "2": "Tue",
+          "3": "Wed",
+          "4": "Thu",
+          "5": "Fri",
+          "6": "Sat"
+        }
+      },
+      "monthDay": "Day of month",
+      "preview": "Schedule",
+      "customHelp": "Enter a cron expression directly. The API validates it when you save.",
+      "utcNotice": "Schedules run in UTC. Enter all times in UTC.",
+      "timezone": "UTC",
+      "descriptionUnavailable": "Schedule unavailable"
+    },
     "device": "Device",
     "attribute": "Attribute",
     "condition": "Condition",

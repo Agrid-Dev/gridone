@@ -32,6 +32,39 @@
     },
     "type": "Type de déclencheur",
     "cron": "Expression cron",
+    "schedule": {
+      "frequency": "Répétition",
+      "frequencies": {
+        "minutes": "Toutes les quelques minutes",
+        "hours": "Toutes les quelques heures",
+        "daily": "Tous les jours",
+        "weekly": "Toutes les semaines",
+        "monthly": "Tous les mois",
+        "custom": "Programmation personnalisée"
+      },
+      "minuteInterval": "Intervalle en minutes",
+      "hourInterval": "Intervalle en heures",
+      "minute": "À la minute",
+      "time": "Heure",
+      "weekdays": {
+        "label": "Jours",
+        "short": {
+          "0": "Dim",
+          "1": "Lun",
+          "2": "Mar",
+          "3": "Mer",
+          "4": "Jeu",
+          "5": "Ven",
+          "6": "Sam"
+        }
+      },
+      "monthDay": "Jour du mois",
+      "preview": "Programmation",
+      "customHelp": "Saisissez directement une expression cron. L'API la valide lors de l'enregistrement.",
+      "utcNotice": "Les programmations s'exécutent en UTC. Saisissez toutes les heures en UTC.",
+      "timezone": "UTC",
+      "descriptionUnavailable": "Programmation indisponible"
+    },
     "device": "Appareil",
     "attribute": "Attribut",
     "condition": "Condition",
