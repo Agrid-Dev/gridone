@@ -15,7 +15,7 @@ import type {
 import type { FloatScaleContextType } from "./FloatScaleContext";
 import { MARGIN, AXIS_EXTRA, CHART_COLORS, OTHER_COLOR } from "./constants";
 import { computeTopStringValues } from "./topStringValues";
-import { nearestIndex } from "./nearestIndex";
+import { indexAtOrBefore, timeAtCursor } from "./hoverPoint";
 import { placeTooltip } from "./placeTooltip";
 import { attributeValueChartColor } from "@/lib/semanticColors";
 import { getTooltipRows, type TooltipRowOptions } from "./panels/registry";
@@ -63,8 +63,13 @@ export function useChartTooltip({
     setCursorY(null);
   }, []);
 
+  // The cursor names an instant of its own, read off the axis; the values shown
+  // are those in force at that instant, i.e. the most recent reading at or
+  // before it.
+  const hoveredTime =
+    cursorX !== null ? timeAtCursor(cursorX, width, timestamps) : null;
   const hoveredIdx =
-    cursorX !== null ? nearestIndex(cursorX, width, timestamps) : null;
+    hoveredTime !== null ? indexAtOrBefore(timestamps, hoveredTime) : null;
 
   // Build string value→color maps for tooltip swatches
   const stringColorMaps = useMemo(() => {
@@ -214,6 +219,7 @@ export function useChartTooltip({
     cursorX,
     cursorY,
     hoveredIdx,
+    hoveredTime,
     tooltipRows,
     tooltipLeft,
     tooltipTop,

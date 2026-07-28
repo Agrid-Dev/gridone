@@ -41,6 +41,7 @@ export function TimeSeriesChartInner({
     cursorX,
     cursorY,
     hoveredIdx,
+    hoveredTime,
     tooltipRows,
     tooltipLeft,
     tooltipTop,
@@ -89,6 +90,7 @@ export function TimeSeriesChartInner({
         {cursorX !== null &&
           cursorY !== null &&
           hoveredIdx !== null &&
+          hoveredTime !== null &&
           tooltipRows && (
             <div
               ref={tooltipRef}
@@ -104,10 +106,9 @@ export function TimeSeriesChartInner({
                 maxWidth: width,
               }}
             >
-              <TooltipContent
-                timestamp={timestamps[hoveredIdx]}
-                rows={tooltipRows}
-              />
+              {/* The instant under the cursor, not the recorded point's own
+                  timestamp — the rows report the values in force then. */}
+              <TooltipContent timestamp={hoveredTime} rows={tooltipRows} />
             </div>
           )}
       </div>
