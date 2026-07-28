@@ -114,6 +114,91 @@ class TestApply:
         assert val == 10.0
 
 
+class TestDelta:
+    _BIN_START = "2025-01-01T00:00:00+00:00"
+    _BIN_END = "2025-01-02T00:00:00+00:00"
+
+    def _apply(self, pts: list[compute.Point], locf: float | None) -> float | None:
+        val, _ = compute.apply(
+            "delta", pts, _dt(self._BIN_START), _dt(self._BIN_END), locf, "float"
+        )
+        return val
+
+    def test_carries_previous_bucket_last_value(self) -> None:
+        # counter went 100 -> 130 during the bin, but the bin opened at 90
+        pts = _pts(
+            ("2025-01-01T01:00:00+00:00", 100.0),
+            ("2025-01-01T02:00:00+00:00", 130.0),
+        )
+        assert self._apply(pts, 90.0) == 40.0
+
+    def test_single_point_bucket_uses_carry(self) -> None:
+        # a meter reporting once per bucket: in-bucket last-first would give 0
+        pts = _pts(("2025-01-01T01:00:00+00:00", 100.0))
+        assert self._apply(pts, 90.0) == 10.0
+
+    def test_no_carry_falls_back_to_in_bucket(self) -> None:
+        pts = _pts(
+            ("2025-01-01T01:00:00+00:00", 100.0),
+            ("2025-01-01T02:00:00+00:00", 130.0),
+        )
+        assert self._apply(pts, None) == 30.0
+
+    def test_empty_bucket_has_no_value(self) -> None:
+        # not 0: nothing was read, so no consumption can be attributed here
+        assert self._apply([], 90.0) is None
+        assert self._apply([], None) is None
+
+    def test_counter_reset_passes_through_as_negative(self) -> None:
+        # meter replaced: index restarts near 0 while the carry is still high
+        pts = _pts(("2025-01-01T01:00:00+00:00", 5.0))
+        assert self._apply(pts, 90.0) == -85.0
+
+    def test_int_series_stays_int(self) -> None:
+        pts = _pts(("2025-01-01T01:00:00+00:00", 130))
+        val, agg_dt = compute.apply(
+            "delta", pts, _dt(self._BIN_START), _dt(self._BIN_END), 100, "int"
+        )
+        assert val == 30
+        assert isinstance(val, int)
+        assert agg_dt == "int"
+
+    def test_buckets_tile_across_an_empty_one(self) -> None:
+        # the gap bucket has no value; the next one still bills the whole increase
+        points = [
+            (datetime(2025, 1, 1, 0, 30, tzinfo=UTC), 100.0),
+            (datetime(2025, 1, 1, 2, 15, tzinfo=UTC), 160.0),
+        ]
+        expected = compute.compute_expected(
+            points,
+            "float",
+            datetime(2025, 1, 1, tzinfo=UTC),
+            datetime(2025, 1, 1, 3, tzinfo=UTC),
+            "1h",
+            "UTC",
+            "delta",
+        )
+        assert [e["value"] for e in expected] == [0.0, None, 60.0]
+
+    def test_deltas_sum_to_the_total_increase(self) -> None:
+        points = [
+            (datetime(2025, 1, 1, 0, 30, tzinfo=UTC), 100.0),
+            (datetime(2025, 1, 1, 1, 30, tzinfo=UTC), 140.0),
+            (datetime(2025, 1, 1, 2, 30, tzinfo=UTC), 175.0),
+        ]
+        expected = compute.compute_expected(
+            points,
+            "float",
+            datetime(2025, 1, 1, tzinfo=UTC),
+            datetime(2025, 1, 1, 3, tzinfo=UTC),
+            "1h",
+            "UTC",
+            "delta",
+        )
+        values = [e["value"] for e in expected if e["value"] is not None]
+        assert sum(values) == 175.0 - 100.0
+
+
 class TestTwAvg:
     def test_with_locf(self) -> None:
         # LOCF 20 for first 30 min, point 40 for last 30 min → weighted avg 30.0

@@ -24,6 +24,7 @@ _COMPAT: dict[str, dict[str, str]] = {
     "min": {"float": "float", "int": "int", "bool": "bool", "str": "str"},
     "max": {"float": "float", "int": "int", "bool": "bool", "str": "str"},
     "sum": {"float": "float", "int": "int", "bool": "int"},
+    "delta": {"float": "float", "int": "int"},
     "avg": {"float": "float", "int": "float", "bool": "float"},
     "tw_avg": {"float": "float", "int": "float", "bool": "float"},
     "mode": {"float": "float", "int": "int", "bool": "bool", "str": "str"},
@@ -52,7 +53,7 @@ _R_SINGLE = ("2025-06-14T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 # Starts after single_point's only sample: no data in range, anchor before it.
 _R_ANCHOR_ONLY = ("2025-06-16T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 
-_LOCF_OPS = ["count", "first", "last", "avg", "tw_avg"]
+_LOCF_OPS = ["count", "first", "last", "avg", "tw_avg", "delta"]
 
 
 def _cases(
@@ -95,7 +96,7 @@ CASE_SPEC: list[dict[str, str]] = [
         ["1d"],
         _R_CROSS,
         timezone="Europe/Paris",
-        ops=["count", "avg"],
+        ops=["count", "avg", "delta"],
     ),
     *_cases(
         "dst_spring_forward",
@@ -103,7 +104,7 @@ CASE_SPEC: list[dict[str, str]] = [
         ["1h", "1d"],
         _R_DST_SF,
         timezone="Europe/Paris",
-        ops=["avg", "count", "tw_avg"],
+        ops=["avg", "count", "tw_avg", "delta"],
     ),
     *_cases(
         "dst_fall_back",
@@ -111,7 +112,7 @@ CASE_SPEC: list[dict[str, str]] = [
         ["1h", "1d"],
         _R_DST_FB,
         timezone="Europe/Paris",
-        ops=["avg", "count", "tw_avg"],
+        ops=["avg", "count", "tw_avg", "delta"],
     ),
     *_cases("single_point", "float", ["1d"], _R_SINGLE),
     # interval="whole": every operator x data_type pair in AGG_COMPAT, plus the
@@ -128,7 +129,7 @@ CASE_SPEC: list[dict[str, str]] = [
         ["whole"],
         _R_CROSS,
         timezone="Europe/Paris",
-        ops=["count", "avg", "tw_avg"],
+        ops=["count", "avg", "tw_avg", "delta"],
     ),
 ]
 
@@ -329,8 +330,14 @@ def apply(
     if operator == "count":
         return len(values), agg_dt
     if not values:
-        # empty bucket: sum of zero observations = 0; all others carry LOCF
-        return (0 if operator == "sum" else locf), agg_dt
+        # empty bucket: sum of zero observations = 0; delta has nothing to
+        # measure so it has no value; all others carry LOCF
+        if operator == "sum":
+            return 0, agg_dt
+        return (None if operator == "delta" else locf), agg_dt
+    if operator == "delta":
+        # consumption since the last reading before the bucket, so buckets tile
+        return values[-1] - (values[0] if locf is None else locf), agg_dt
     if fn := _SIMPLE_OPS.get(operator):
         return fn(values), agg_dt
     if operator == "tw_avg":

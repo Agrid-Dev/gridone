@@ -183,7 +183,12 @@ def get_aggregation_query(
             "Note: 'avg' on bool series returns the sample mean of "
             "discrete observations (0.0 or 1.0 per point), "
             "which is rarely useful for event-driven series. "
-            "Use 'tw_avg' to get the fraction of time the value was True."
+            "Use 'tw_avg' to get the fraction of time the value was True. "
+            "'delta' is the consumption of a cumulative counter (energy/water "
+            "index) per bucket: the bucket's last value minus the last value "
+            "before it, so consecutive buckets lose nothing in between. "
+            "Buckets with no points have no value, counter resets show up as "
+            "negative deltas, and 'raw' is not supported for it."
         ),
     ),
     start: datetime | None = Query(None),

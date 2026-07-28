@@ -3,8 +3,8 @@ from __future__ import annotations
 import contextlib
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, cast
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Literal, cast
 
 from models.errors import InvalidError, NotFoundError, StorageConnectionError
 from models.service import Service
@@ -71,6 +71,29 @@ MAX_RAW_LIMIT = 100_000
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _resolve_interval(
+    query: AggregationQuery, period: timedelta
+) -> Interval | Literal["raw", "whole"]:
+    """Resolve ``interval="auto"`` and reject the operator/interval combinations.
+
+    ``raw`` returns the stored points untouched, bypassing the operator entirely.
+    For ``delta`` that would hand back cumulative counter readings instead of the
+    consumption asked for, so it is refused; an ``auto`` range too short (or too
+    long) for a canonical interval falls back to ``whole`` — a single bucket is
+    still the total consumption over the range.
+    """
+    is_delta = query.agg == AggregationOperator.DELTA
+    if query.interval == "auto":
+        interval = resolve_auto_interval(period)
+        if interval == "raw":
+            return "whole" if is_delta else "raw"
+        return Interval.model_validate(interval)
+    if query.interval == "raw" and is_delta:
+        msg = f"Operator '{query.agg}' requires a bucketed interval, not 'raw'"
+        raise InvalidError(msg)
+    return query.interval
 
 
 class TimeSeriesService(Service):
@@ -269,17 +292,11 @@ class TimeSeriesService(Service):
 
         start: datetime = query.start
         end: datetime = query.end or cutoff  # end always set by model_copy above
-        interval = (
-            resolve_auto_interval(end - start)
-            if query.interval == "auto"
-            else query.interval
-        )
+        interval = _resolve_interval(query, end - start)
         if interval == "raw":
             return await self._get_aggregate_raw(key, query, series.data_type)
-        if interval != "whole":
-            query = query.model_copy(
-                update={"interval": Interval.model_validate(interval)}
-            )
+        # The backends require a resolved interval — "auto" must never reach them.
+        query = query.model_copy(update={"interval": interval})
         return await self._backend.aggregate(key, query)
 
     async def get_aggregate_options(

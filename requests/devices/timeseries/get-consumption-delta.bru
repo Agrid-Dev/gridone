@@ -1,0 +1,34 @@
+meta {
+  name: get consumption delta
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{BASE_URL}}/devices/:device_id/timeseries/:attr/aggregate
+  auth: inherit
+}
+
+params:path {
+  device_id: bc59a4fa
+  attr: energy_index
+}
+
+params:query {
+  last: 30d
+  interval: 1d
+  agg: delta
+  ~timezone: Europe/Paris
+}
+
+docs {
+  Per-bucket consumption of a cumulative counter (energy / water index).
+
+  Each bucket is `last value in bucket - last value before the bucket`, so
+  consecutive buckets lose nothing in between and the values sum to the total
+  consumption over the range. Buckets with no reading have `value: null`
+  (never 0), and a counter reset shows up as a negative value.
+
+  `interval: raw` is rejected for this operator (it would return the raw index
+  values instead of the consumption); use `whole` for a single total.
+}

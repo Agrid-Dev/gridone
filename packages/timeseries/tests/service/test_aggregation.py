@@ -1024,3 +1024,238 @@ class TestWholeInterval:
         options_no_window = await ts_service.get_aggregate_options()
         assert ("whole", None) in options_no_window.intervals
         assert options_no_window.intervals[1] == ("whole", None)
+
+
+class TestDeltaOperator:
+    """Per-bucket consumption of a cumulative counter (AGR-879)."""
+
+    async def _counter(
+        self,
+        ts_service: TimeSeriesService,
+        metric: str,
+        readings: list[tuple[datetime, float]],
+        data_type: DataType = DataType.FLOAT,
+    ) -> SeriesKey:
+        key = SeriesKey(owner_id="delta-test", metric=metric)
+        await ts_service.create_series(
+            data_type=data_type, owner_id=key.owner_id, metric=key.metric
+        )
+        await ts_service.upsert_points(
+            key, [DataPoint(timestamp=ts, value=v) for ts, v in readings]
+        )
+        return key
+
+    async def test_carries_across_buckets(self, ts_service: TimeSeriesService) -> None:
+        """One reading per bucket: the delta comes from the previous bucket's value."""
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "hourly_index",
+            [
+                (start + timedelta(hours=i, minutes=30), 100.0 + 10 * i)
+                for i in range(4)
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=4),
+            ),
+        )
+        values = [p.value for p in result.points]
+        # first bucket has no prior reading → in-bucket delta of a lone point is 0
+        assert values == [0.0, 10.0, 10.0, 10.0]
+
+    async def test_empty_bucket_has_no_value(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        start = datetime(2026, 2, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "gappy_index",
+            [
+                (start + timedelta(minutes=30), 100.0),
+                (start + timedelta(hours=2, minutes=15), 160.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=3),
+            ),
+        )
+        values = [p.value for p in result.points]
+        # the gap bucket has no value (not 0); the next bucket bills the whole rise
+        assert values == [0.0, None, 60.0]
+        assert [p.count for p in result.points] == [1, 0, 1]
+
+    async def test_anchor_before_range_is_used(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """The last reading before `start` seeds the first bucket."""
+        start = datetime(2026, 3, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "anchored_index",
+            [
+                (start - timedelta(hours=1), 90.0),
+                (start + timedelta(minutes=30), 100.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=1),
+            ),
+        )
+        assert result.points[0].value == pytest.approx(10.0)
+
+    async def test_deltas_sum_to_whole_range_delta(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        start = datetime(2026, 4, 1, tzinfo=UTC)
+        end = start + timedelta(hours=4)
+        readings = [
+            (start - timedelta(minutes=10), 50.0),
+            (start + timedelta(minutes=20), 62.0),
+            (start + timedelta(hours=1, minutes=40), 75.5),
+            (start + timedelta(hours=3, minutes=5), 91.0),
+        ]
+        key = await self._counter(ts_service, "tiling_index", readings)
+        bucketed = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=end,
+            ),
+        )
+        whole = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA, interval="whole", start=start, end=end
+            ),
+        )
+        total = sum(p.value for p in bucketed.points if p.value is not None)
+        assert total == pytest.approx(91.0 - 50.0)
+        assert whole.points[0].value == pytest.approx(91.0 - 50.0)
+
+    async def test_counter_reset_passes_through(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """A meter replacement shows up as a negative delta, not a clamp."""
+        start = datetime(2026, 5, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "reset_index",
+            [
+                (start + timedelta(minutes=30), 900.0),
+                (start + timedelta(hours=1, minutes=30), 5.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=2),
+            ),
+        )
+        assert result.points[1].value == pytest.approx(-895.0)
+
+    async def test_int_series_returns_int(self, ts_service: TimeSeriesService) -> None:
+        start = datetime(2026, 6, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "int_index",
+            [
+                (start + timedelta(minutes=30), 100),
+                (start + timedelta(hours=1, minutes=30), 130),
+            ],
+            data_type=DataType.INT,
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=2),
+            ),
+        )
+        assert result.aggregation_data_type == DataType.INT
+        assert result.points[1].value == 30
+        assert isinstance(result.points[1].value, int)
+
+    @pytest.mark.parametrize("data_type", [DataType.STRING, DataType.BOOL])
+    async def test_rejected_on_non_numeric_series(
+        self, ts_service: TimeSeriesService, data_type: DataType
+    ) -> None:
+        key = SeriesKey(owner_id="delta-test", metric=f"non_numeric_{data_type}")
+        await ts_service.create_series(
+            data_type=data_type, owner_id=key.owner_id, metric=key.metric
+        )
+        with pytest.raises(InvalidError, match="not supported"):
+            await ts_service.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.DELTA,
+                    interval=Interval.model_validate("1h"),
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2026, 1, 2, tzinfo=UTC),
+                ),
+            )
+
+    async def test_explicit_raw_is_rejected(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """raw bypasses the operator, so it would return the index, not the delta."""
+        start = datetime(2026, 7, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service, "raw_reject_index", [(start + timedelta(minutes=30), 100.0)]
+        )
+        with pytest.raises(InvalidError, match="bucketed interval"):
+            await ts_service.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.DELTA,
+                    interval="raw",
+                    start=start,
+                    end=start + timedelta(days=1),
+                ),
+            )
+
+    async def test_auto_falls_back_to_whole_instead_of_raw(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """A range too short for any canonical interval still yields a real delta."""
+        start = datetime(2026, 8, 1, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "auto_short_index",
+            [
+                (start + timedelta(minutes=5), 100.0),
+                (start + timedelta(minutes=10), 112.0),
+            ],
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                start=start,
+                end=start + timedelta(minutes=20),
+            ),
+        )
+        assert result.interval == "whole"
+        assert result.points[0].value == pytest.approx(12.0)
