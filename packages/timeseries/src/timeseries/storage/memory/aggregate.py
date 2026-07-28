@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -277,22 +277,27 @@ def compute(
     Partial-window semantics: if query.start is not bin-aligned, the first bucket is
     labeled at its calendar boundary but only contains data from query.start onward;
     LOCF fills the gap via the anchor point. This matches TimescaleDB behavior.
+
+    ``interval="whole"`` yields exactly one bucket covering ``[start, end)``.
     """
     assert_query_resolved(query)
-    assert isinstance(query.interval, Interval)  # noqa: S101
     assert query.timezone is not None  # noqa: S101
-    interval: Interval = query.interval
+    assert query.start is not None  # noqa: S101
+    assert query.end is not None  # noqa: S101
     tz_name: str = query.timezone
+    result_interval: Interval | Literal["whole"]
 
-    bins = (
-        _bin_boundaries(query.start, query.end, interval, tz_name)
-        if query.start is not None and query.end is not None
-        else []
-    )
+    if query.interval == "whole":
+        bins = [(query.start.astimezone(UTC), query.end.astimezone(UTC))]
+        result_interval = "whole"
+    else:
+        assert isinstance(query.interval, Interval)  # noqa: S101
+        result_interval = query.interval
+        bins = _bin_boundaries(query.start, query.end, query.interval, tz_name)
 
     if not bins:
         return AggregationResult(
-            interval=interval,
+            interval=result_interval,
             agg=query.agg,
             data_type=series.data_type,
             timezone=tz_name,
@@ -353,7 +358,7 @@ def compute(
             locf = bucket_df["value"][-1]
 
     return AggregationResult(
-        interval=interval,
+        interval=result_interval,
         agg=query.agg,
         data_type=series.data_type,
         timezone=tz_name,

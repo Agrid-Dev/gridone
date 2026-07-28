@@ -37,14 +37,15 @@ def resolve_auto_interval(period: timedelta) -> str:
 def valid_intervals_for_period(period: timedelta) -> list[str]:
     """Return interval strings whose bucket count falls in [MIN_BUCKETS, MAX_BUCKETS].
 
-    "raw" is always included first (the caller can always opt out of bucketing).
+    "raw" and "whole" are always included first (the caller can always opt out of
+    calendar bucketing, or reduce the whole range to a single bucket).
     Raises InvalidError when period <= 0.
-    Example: timedelta(days=7) → ["raw", "15min", "1h", "1d"].
+    Example: timedelta(days=7) → ["raw", "whole", "15min", "1h", "1d"].
     """
     if period <= timedelta(0):
         msg = "period must be positive"
         raise InvalidError(msg)
-    valid: list[str] = ["raw"]
+    valid: list[str] = ["raw", "whole"]
     for iv_str, iv_td in zip(CANONICAL_INTERVALS, _CANONICAL_TIMEDELTAS, strict=True):
         bucket_count = period / iv_td
         if MIN_BUCKETS <= bucket_count <= MAX_BUCKETS:

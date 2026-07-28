@@ -274,16 +274,13 @@ class TimeSeriesService(Service):
             if query.interval == "auto"
             else query.interval
         )
-        match interval:
-            case "raw":
-                return await self._get_aggregate_raw(key, query, series.data_type)
-            case _:
-                query = query.model_copy(
-                    update={"interval": Interval.model_validate(interval)}
-                )
-                result = await self._backend.aggregate(key, query)
-                points = [p for p in result.points if p.interval_start <= cutoff]
-                return result.model_copy(update={"points": points})
+        if interval == "raw":
+            return await self._get_aggregate_raw(key, query, series.data_type)
+        if interval != "whole":
+            query = query.model_copy(
+                update={"interval": Interval.model_validate(interval)}
+            )
+        return await self._backend.aggregate(key, query)
 
     async def get_aggregate_options(
         self,
@@ -303,23 +300,31 @@ class TimeSeriesService(Service):
             period = resolved_end - resolved_start
             valid = valid_intervals_for_period(period)
             recommended = resolve_auto_interval(period)
-            iv_td = {iv: parse_duration(iv) for iv in valid if iv != "raw"}
-            intervals: list[tuple[str, int | None]] = [
-                ("raw", None) if iv == "raw" else (iv, int(period / iv_td[iv]))
-                for iv in valid
-            ]
+            iv_td = {
+                iv: parse_duration(iv) for iv in valid if iv not in {"raw", "whole"}
+            }
+            intervals: list[tuple[str, int | None]] = []
+            for iv in valid:
+                if iv == "raw":
+                    intervals.append(("raw", None))
+                elif iv == "whole":
+                    intervals.append(("whole", 1))
+                else:
+                    intervals.append((iv, int(period / iv_td[iv])))
             return AggregateOptions(
                 intervals=intervals,
                 recommended_interval=recommended,
                 operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
             )
 
-        intervals_no_period: list[tuple[str, int | None]] = [
+        # No time range given: every interval is offered, none can be sized.
+        default_intervals: list[tuple[str, int | None]] = [
             ("raw", None),
+            ("whole", None),
             *[(iv, None) for iv in CANONICAL_INTERVALS],
         ]
         return AggregateOptions(
-            intervals=intervals_no_period,
+            intervals=default_intervals,
             recommended_interval=None,
             operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
         )
