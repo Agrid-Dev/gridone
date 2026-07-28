@@ -22,7 +22,25 @@
     "chart": {
       "error": "Impossible de charger l'historique de cet attribut.",
       "noSeries": "Aucun historique n'est enregistré pour cet attribut.",
-      "noData": "Aucune donnée sur la période sélectionnée."
+      "noData": "Aucune donnée sur la période sélectionnée.",
+      "agg": {
+        "label": "Agrégation",
+        "description": "Le pas de temps suit la période du tableau de bord.",
+        "raw": "Aucune agrégation (brut)"
+      },
+      "operators": {
+        "avg": "Moyenne",
+        "tw_avg": "Moyenne (pondérée par le temps)",
+        "sum": "Somme",
+        "min": "Minimum",
+        "max": "Maximum",
+        "first": "Première valeur",
+        "last": "Dernière valeur",
+        "mode": "Valeur la plus fréquente",
+        "tw_mode": "Valeur la plus fréquente (pondérée par le temps)",
+        "count": "Nombre de points",
+        "delta": "Consommation"
+      }
     },
     "add": "Ajouter un widget",
     "addTitle": "Ajouter un widget",

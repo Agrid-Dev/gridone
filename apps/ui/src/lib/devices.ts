@@ -7,6 +7,7 @@
  */
 import type {
   ConnectionStatus as ConnectionStatusValue,
+  DataType,
   Device,
   DeviceListParams,
   DevicesFilterBody,
@@ -59,6 +60,16 @@ export function isReadOnlyDevice(device: Device): boolean {
 export function isAttributeWritable(device: Device, name: string): boolean {
   const attrModes = deviceAttributes(device)[name]?.read_write_modes;
   return Array.isArray(attrModes) && attrModes.includes("write");
+}
+
+/** An attribute's recorded data type (by wire name). Attributes arrive as an
+ *  untyped bag, so the value is narrowed rather than asserted. */
+export function attributeDataType(
+  device: Device,
+  name: string,
+): DataType | undefined {
+  const dataType = deviceAttributes(device)[name]?.data_type;
+  return typeof dataType === "string" ? (dataType as DataType) : undefined;
 }
 
 // ---------------------------------------------------------------------------

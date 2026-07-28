@@ -140,8 +140,19 @@ def test_chart_config_defaults_to_raw():
 
 
 def test_chart_config_accepts_an_operator():
-    config = ChartWidgetConfig(device_id="d1", attribute="temperature", agg="avg")
+    registry = build_default_registry()
 
+    # Validated from the wire form a stored config actually takes.
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "device_id": "d1",
+            "attribute": "temperature",
+            "agg": "avg",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
     assert config.agg is AggregationOperator.AVG
 
 
