@@ -13,13 +13,19 @@ from pydantic import (
 )
 
 from models.errors import InvalidError
-from models.types import DATA_TYPE_MAP, DataType
+from models.types import DATA_TYPE_MAP, AggregationOperator, DataType
+
 from timeseries.domain.time_range import (
     parse_duration,
     parse_duration_parts,
     resolve_last,
     validate_tz_name,
 )
+
+# Re-exported: the enum is shared vocabulary in `models`, but the operator's
+# meaning lives here, so `timeseries.domain.aggregation` stays its natural
+# import site.
+__all__ = ["AggregationOperator"]
 
 
 class IntervalUnit(StrEnum):
@@ -89,20 +95,6 @@ class Interval(BaseModel):
                 return timedelta(days=self.qty)
             case IntervalUnit.MO:
                 return timedelta(days=30 * self.qty)
-
-
-class AggregationOperator(StrEnum):
-    AVG = "avg"
-    TW_AVG = "tw_avg"
-    SUM = "sum"
-    MIN = "min"
-    MAX = "max"
-    FIRST = "first"
-    LAST = "last"
-    MODE = "mode"
-    TW_MODE = "tw_mode"
-    COUNT = "count"
-    DELTA = "delta"
 
 
 _IDENTITY: dict[DataType, DataType | None] = {dt: dt for dt in DataType}
