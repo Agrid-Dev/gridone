@@ -76,24 +76,11 @@ def _utcnow() -> datetime:
 def _resolve_interval(
     query: AggregationQuery, period: timedelta
 ) -> Interval | Literal["raw", "whole"]:
-    """Resolve ``interval="auto"`` and reject the operator/interval combinations.
-
-    ``raw`` returns the stored points untouched, bypassing the operator entirely.
-    For ``delta`` that would hand back cumulative counter readings instead of the
-    consumption asked for, so it is refused; an ``auto`` range too short (or too
-    long) for a canonical interval falls back to ``whole`` — a single bucket is
-    still the total consumption over the range.
-    """
-    is_delta = query.agg == AggregationOperator.DELTA
-    if query.interval == "auto":
-        interval = resolve_auto_interval(period)
-        if interval == "raw":
-            return "whole" if is_delta else "raw"
-        return Interval.model_validate(interval)
-    if query.interval == "raw" and is_delta:
-        msg = f"Operator '{query.agg}' requires a bucketed interval, not 'raw'"
-        raise InvalidError(msg)
-    return query.interval
+    """Resolve ``interval="auto"`` to the bucket width the backends expect."""
+    if query.interval != "auto":
+        return query.interval
+    interval = resolve_auto_interval(period)
+    return "whole" if interval == "whole" else Interval.model_validate(interval)
 
 
 class TimeSeriesService(Service):

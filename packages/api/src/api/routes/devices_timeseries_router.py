@@ -163,8 +163,10 @@ def get_aggregation_query(
         description=(
             "Bucket width: a duration string (e.g. '15min', '1h', '1d', '1mo'), "
             "'auto', 'raw' or 'whole'. When 'auto' or omitted, the server picks "
-            "the best width for the period. 'raw' returns the points unbucketed; "
-            "'whole' returns a single bucket spanning the [start, end) range."
+            "the best width for the period, falling back to 'whole' when the "
+            "period is too short or too long for any of them. 'raw' returns the "
+            "points unbucketed and applies no aggregation at all; 'whole' "
+            "returns a single bucket spanning the [start, end) range."
         ),
         openapi_examples={
             "auto": {"value": "auto"},
@@ -187,8 +189,8 @@ def get_aggregation_query(
             "'delta' is the consumption of a cumulative counter (energy/water "
             "index) per bucket: the bucket's last value minus the last value "
             "before it, so consecutive buckets lose nothing in between. "
-            "Buckets with no points have no value, counter resets show up as "
-            "negative deltas, and 'raw' is not supported for it."
+            "Buckets with no points have no value, and counter resets show up "
+            "as negative deltas."
         ),
     ),
     start: datetime | None = Query(None),

@@ -50,6 +50,7 @@ _R_CROSS = ("2025-01-01T00:00:00+00:00", "2025-01-08T00:00:00+00:00")
 _R_DST_SF = ("2026-03-28T23:00:00+00:00", "2026-03-29T22:00:00+00:00")
 _R_DST_FB = ("2026-10-24T22:00:00+00:00", "2026-10-25T23:00:00+00:00")
 _R_SINGLE = ("2025-06-14T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
+_R_COUNTER = ("2025-02-01T00:00:00+00:00", "2025-02-15T00:00:00+00:00")
 # Starts after single_point's only sample: no data in range, anchor before it.
 _R_ANCHOR_ONLY = ("2025-06-16T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 
@@ -115,6 +116,23 @@ CASE_SPEC: list[dict[str, str]] = [
         ops=["avg", "count", "tw_avg", "delta"],
     ),
     *_cases("single_point", "float", ["1d"], _R_SINGLE),
+    # A real cumulative counter: monotonic index, a meter reset, a reading gap.
+    *_cases(
+        "cumulative_counter",
+        "float",
+        ["1h", "1d"],
+        _R_COUNTER,
+        ops=["delta", "count", "last"],
+    ),
+    *_cases(
+        "cumulative_counter",
+        "float",
+        ["1d"],
+        _R_COUNTER,
+        timezone="Europe/Paris",
+        ops=["delta"],
+    ),
+    *_cases("cumulative_counter", "float", ["whole"], _R_COUNTER, ops=["delta"]),
     # interval="whole": every operator x data_type pair in AGG_COMPAT, plus the
     # anchor-only range (empty bucket carrying LOCF in from before start).
     *_cases("main_float", "float", ["whole"], _R_6MO),

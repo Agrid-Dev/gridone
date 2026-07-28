@@ -16,9 +16,9 @@ class TestResolveAutoInterval:
     @pytest.mark.parametrize(
         ("period", "expected"),
         [
-            # < MIN_BUCKETS * 15min (30min) → no valid interval → raw
-            (timedelta(minutes=20), "raw"),
-            (timedelta(minutes=29), "raw"),  # just below 30min boundary → raw
+            # < MIN_BUCKETS * 15min (30min) → no valid interval → whole
+            (timedelta(minutes=20), "whole"),
+            (timedelta(minutes=29), "whole"),  # just below 30min boundary → whole
             (timedelta(minutes=30), "15min"),  # exactly 2 * 15min = MIN_BUCKETS → valid
             # 15min is closest to TARGET_BUCKETS for short periods
             (timedelta(hours=1), "15min"),  # 1h → 4 buckets (15min), closest to 200

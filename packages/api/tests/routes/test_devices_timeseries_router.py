@@ -758,24 +758,6 @@ class TestGetDeviceTimeseriesAggregate:
         # untouched hours have no reading, so no value at all
         assert by_start["2026-01-01T05:00:00Z"] is None
 
-    async def test_delta_with_raw_interval_returns_422(
-        self, async_client: AsyncClient, ts_service: TimeSeriesService
-    ):
-        await ts_service.create_series(
-            data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=ATTR
-        )
-        async with async_client as ac:
-            response = await ac.get(
-                f"/{DEVICE_ID}/timeseries/{ATTR}/aggregate",
-                params={
-                    "interval": "raw",
-                    "agg": "delta",
-                    "start": AGG_START.isoformat(),
-                    "end": AGG_END.isoformat(),
-                },
-            )
-        assert response.status_code == 422
-
     async def test_returns_aggregated_result(
         self, async_client: AsyncClient, ts_service: TimeSeriesService
     ):

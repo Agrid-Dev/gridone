@@ -353,6 +353,50 @@ def scenario_dst_fall_back(rng: random.Random) -> dict[str, Any]:
     }
 
 
+def scenario_cumulative_counter(rng: random.Random) -> dict[str, Any]:
+    """Energy index over 2 weeks: monotonic, one reading gap, one meter reset.
+
+    The shape `delta` is actually built for — every other input is a random walk,
+    where a counter difference is meaningless.
+    """
+    start = datetime(2025, 2, 1, tzinfo=UTC)
+    # One reading per hour, except Feb 5-7 (a 3-day gap: empty daily buckets, and
+    # the consumption over the gap lands on the first bucket that reads again).
+    gap_start = datetime(2025, 2, 5, tzinfo=UTC)
+    gap_end = datetime(2025, 2, 8, tzinfo=UTC)
+    # The meter is swapped on Feb 11: the index restarts near zero mid-series.
+    reset_at = datetime(2025, 2, 11, 9, 0, tzinfo=UTC)
+
+    timestamps: list[datetime] = []
+    values: list[float] = []
+    index = 14_200.0
+    current = start
+    while current < datetime(2025, 2, 15, tzinfo=UTC):
+        # Consumption accrues even while the meter is silent.
+        index = round(index + rng.uniform(0.4, 3.2), 3)
+        if current == reset_at:
+            index = round(rng.uniform(0.0, 5.0), 3)
+        if not (gap_start <= current < gap_end):
+            timestamps.append(current)
+            values.append(index)
+        current += timedelta(hours=1)
+
+    return {
+        "name": "cumulative_counter",
+        "description": (
+            "Energy index (kWh) read hourly over Feb 1-14 2025. Monotonically "
+            "increasing apart from a meter replacement on 2025-02-11T09:00Z where "
+            "the index restarts near zero (a negative delta), and a 3-day reading "
+            "gap on Feb 5-7 (empty buckets, with the accrued consumption billed to "
+            "the first bucket that reads again)."
+        ),
+        "input": {
+            "data_type": "float",
+            "points": _make_points(timestamps, values),
+        },
+    }
+
+
 def scenario_single_point(rng: random.Random) -> dict[str, Any]:
     """Exactly one data point — exercises LOCF/count edge cases."""
     ts = datetime(2025, 6, 15, 12, 0, tzinfo=UTC)
@@ -393,6 +437,8 @@ def main() -> None:
         scenario_dst_spring_forward(rng),
         scenario_dst_fall_back(rng),
         scenario_single_point(rng),
+        # Appended last so the rng draws of the existing scenarios are unchanged.
+        scenario_cumulative_counter(rng),
     ]
 
     print(f"Generating {len(scenarios)} -> {OUT_DIR}")

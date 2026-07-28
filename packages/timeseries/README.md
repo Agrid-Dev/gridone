@@ -56,10 +56,21 @@ would report 0 everywhere.
   consumption since the last reading lands on the next bucket that has one.
 - Counter resets (meter replacement, rollover) are **passed through** as negative
   deltas rather than clamped or split. The caller decides what to do with them.
-- `interval=raw` is rejected: raw returns stored points untouched, which for a
-  counter means the cumulative index instead of the consumption. An
-  `interval=auto` range too short for any canonical bucket resolves to `whole`
-  rather than `raw`.
+
+Like every operator, `delta` is ignored when `interval=raw` is requested
+explicitly — see the note below.
+
+## `interval=raw`
+
+`raw` returns the stored points untouched, so the operator plays no part in the
+result. `interval=auto` therefore never resolves to `raw`: when no canonical
+bucket width yields a usable bucket count, it falls back to `whole`, which still
+applies the operator over a single bucket.
+
+Requesting `raw` explicitly remains possible — it is advertised by
+`GET /devices/timeseries/aggregate/options` — but it makes `agg` a no-op for
+every operator, which is arguably a modelling problem in its own right rather
+than a per-operator concern.
 
 ## Design notes
 
