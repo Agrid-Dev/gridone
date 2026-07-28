@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { DataPoint, TimeSeries } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
@@ -19,6 +19,11 @@ vi.mock("@/hooks/useTimeSeries", () => ({
 const useDashboardPeriod = vi.fn();
 vi.mock("../../useDashboardPeriod", () => ({
   useDashboardPeriod: () => useDashboardPeriod(),
+}));
+
+const useDeviceById = vi.fn();
+vi.mock("@/hooks/useDeviceById", () => ({
+  useDeviceById: (id: string) => useDeviceById(id),
 }));
 
 // The chart renders an SVG through visx; assert on the series label it emits
@@ -62,6 +67,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+beforeEach(() => {
+  useDeviceById.mockReturnValue({ data: { id: "dev1", name: "Thermostat 1" } });
+});
+
 describe("ChartWidgetView", () => {
   it("fetches the configured attribute over the dashboard period", () => {
     mockPeriod({ last: "7d" });
@@ -77,6 +86,29 @@ describe("ChartWidgetView", () => {
         refetchInterval: 300_000,
       }),
     );
+    expect(screen.getByTestId("chart")).toHaveTextContent("Temperature");
+  });
+
+  // A dashboard chart is read outside any device's page, so the attribute name
+  // alone doesn't say whose reading it is.
+  it("names the device in the series label", () => {
+    mockPeriod({ last: "3h" });
+    mockSeries();
+
+    render(<ChartWidgetView config={CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "Thermostat 1 — Temperature",
+    );
+  });
+
+  it("falls back to the attribute alone until the device arrives", () => {
+    useDeviceById.mockReturnValue({ data: undefined });
+    mockPeriod({ last: "3h" });
+    mockSeries();
+
+    render(<ChartWidgetView config={CONFIG} />);
+
     expect(screen.getByTestId("chart")).toHaveTextContent("Temperature");
   });
 

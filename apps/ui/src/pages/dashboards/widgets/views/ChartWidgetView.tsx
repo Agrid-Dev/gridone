@@ -1,13 +1,14 @@
-import type { FC } from "react";
+import { useMemo, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { ParentSize } from "@visx/responsive";
 import type { ChartWidgetConfig } from "@gridone/sdk";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDeviceById } from "@/hooks/useDeviceById";
 import { useTimeSeries } from "@/hooks/useTimeSeries";
 import { toLabel } from "@/lib/textFormat";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
-import { singleSeriesChartProps } from "./chartSeries";
+import { holdLastValueUntil, singleSeriesChartProps } from "./chartSeries";
 
 /** Vertical space the chart spends on chrome rather than the plot: the legend
  *  band above the panel, and the bottom margin the last panel adds for its time
@@ -37,6 +38,8 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { device_id: deviceId, attribute } = config as ChartWidgetConfig;
   const { query, refetchInterval } = useDashboardPeriod();
 
+  const { data: device } = useDeviceById(deviceId);
+
   const { series, points, isLoading, error } = useTimeSeries({
     deviceId,
     attributeName: attribute,
@@ -45,6 +48,15 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
     last: query.last,
     refetchInterval,
   });
+
+  // Anchored to `points` so "now" is re-read when the query refetches, rather
+  // than on every render — the trailing timestamp has to hold still between
+  // renders or the line re-animates continuously.
+  const spanned = useMemo(
+    () =>
+      holdLastValueUntil(points, query.end ? new Date(query.end) : new Date()),
+    [points, query.end],
+  );
 
   if (isLoading) {
     return (
@@ -58,11 +70,17 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   if (points.length === 0)
     return <Message>{t("widgets.chart.noData")}</Message>;
 
+  // A dashboard chart is read outside any device's page, so the series has to
+  // name its device — the attribute alone doesn't say whose it is.
+  const label = device
+    ? `${device.name} — ${toLabel(attribute)}`
+    : toLabel(attribute);
+
   const chartProps = singleSeriesChartProps(
     series.data_type,
     attribute,
-    toLabel(attribute),
-    points,
+    label,
+    spanned,
   );
 
   return (
