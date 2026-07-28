@@ -126,31 +126,37 @@ def _mode_outer_exprs(data_type: DataType) -> tuple[str, str]:
 
 
 def _locf_parts(
-    op: AggregationOperator, data_type: DataType, vc: str
+    op: AggregationOperator, data_type: DataType, vc: str, prev_param: str = "$6"
 ) -> tuple[str, str, str]:
+    """Return (aggregate expr, LOCF carry expr, anchor placeholder) for an operator.
+
+    ``prev_param`` is the placeholder holding the LOCF anchor; it differs between the
+    bucketed layout ($6) and the compact period layout ($4).
+    """
+    prev_float = f"{prev_param}::double precision"
     match op:
         case AggregationOperator.AVG:
             if data_type == DataType.BOOL:
                 return (
                     f"AVG({vc}::int)",
                     f"last({vc}::int::double precision, timestamp)",
-                    "$6::double precision",
+                    prev_float,
                 )
             return (
                 f"AVG({vc}::double precision)",
                 f"last({vc}::double precision, timestamp)",
-                "$6::double precision",
+                prev_float,
             )
         case AggregationOperator.MIN:
             agg = f"bool_and({vc})" if data_type == DataType.BOOL else f"MIN({vc})"
-            return agg, f"last({vc}, timestamp)", "$6"
+            return agg, f"last({vc}, timestamp)", prev_param
         case AggregationOperator.MAX:
             agg = f"bool_or({vc})" if data_type == DataType.BOOL else f"MAX({vc})"
-            return agg, f"last({vc}, timestamp)", "$6"
+            return agg, f"last({vc}, timestamp)", prev_param
         case AggregationOperator.FIRST:
-            return f"first({vc}, timestamp)", f"last({vc}, timestamp)", "$6"
+            return f"first({vc}, timestamp)", f"last({vc}, timestamp)", prev_param
         case AggregationOperator.LAST:
-            return f"last({vc}, timestamp)", f"last({vc}, timestamp)", "$6"
+            return f"last({vc}, timestamp)", f"last({vc}, timestamp)", prev_param
         case _:
             msg = f"_locf_parts does not handle operator {op!r}"
             raise ValueError(msg)
@@ -475,11 +481,7 @@ def _period_simple_query(
             return sql, _period_base_params(ctx)
 
         case _:
-            agg_expr, _, _ = _locf_parts(op, ctx.data_type, vc)
-            if op == AggregationOperator.AVG:
-                prev_cast = "$4::double precision"
-            else:
-                prev_cast = "$4"
+            agg_expr, _, prev_cast = _locf_parts(op, ctx.data_type, vc, "$4")
             sql = (
                 "SELECT\n"
                 "    $1::timestamptz AS bucket,\n"

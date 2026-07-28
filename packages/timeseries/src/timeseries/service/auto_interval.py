@@ -14,18 +14,19 @@ _CANONICAL_TIMEDELTAS: list[timedelta] = [
 ]
 
 
-def resolve_auto_interval(period: timedelta) -> str:
+def resolve_auto_interval(span: timedelta) -> str:
     """Return the canonical interval string closest to TARGET_BUCKETS buckets.
 
-    Returns "raw" when no canonical interval yields MIN_BUCKETS..MAX_BUCKETS buckets.
+    ``span`` is the queried time range. Returns "raw" when no canonical interval
+    yields MIN_BUCKETS..MAX_BUCKETS buckets.
     """
-    if period <= timedelta(0):
+    if span <= timedelta(0):
         msg = "period must be positive"
         raise InvalidError(msg)
     best: str | None = None
     best_diff = float("inf")
     for iv_str, iv_td in zip(CANONICAL_INTERVALS, _CANONICAL_TIMEDELTAS, strict=True):
-        bucket_count = period / iv_td
+        bucket_count = span / iv_td
         if MIN_BUCKETS <= bucket_count <= MAX_BUCKETS:
             diff = abs(bucket_count - TARGET_BUCKETS)
             if diff < best_diff:
@@ -34,20 +35,22 @@ def resolve_auto_interval(period: timedelta) -> str:
     return best if best is not None else "raw"
 
 
-def valid_intervals_for_period(period: timedelta) -> list[str]:
+def valid_intervals_for_period(span: timedelta) -> list[str]:
     """Return interval strings whose bucket count falls in [MIN_BUCKETS, MAX_BUCKETS].
 
+    ``span`` is the queried time range; the returned "period" entry is the interval
+    mode that reduces that whole range to one bucket — the two are distinct concepts.
     "raw" and "period" are always included first (the caller can always opt out of
     calendar bucketing, or reduce the whole range to a single bucket).
-    Raises InvalidError when period <= 0.
+    Raises InvalidError when span <= 0.
     Example: timedelta(days=7) → ["raw", "period", "15min", "1h", "1d"].
     """
-    if period <= timedelta(0):
+    if span <= timedelta(0):
         msg = "period must be positive"
         raise InvalidError(msg)
     valid: list[str] = ["raw", "period"]
     for iv_str, iv_td in zip(CANONICAL_INTERVALS, _CANONICAL_TIMEDELTAS, strict=True):
-        bucket_count = period / iv_td
+        bucket_count = span / iv_td
         if MIN_BUCKETS <= bucket_count <= MAX_BUCKETS:
             valid.append(iv_str)
     return valid
