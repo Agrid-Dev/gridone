@@ -530,6 +530,31 @@ export interface paths {
     patch: operations["update_device_devices__device_id__patch"];
     trace?: never;
   };
+  "/devices/batch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create Devices Batch
+     * @description Create every device in the batch independently (partial success).
+     *
+     *     A thin loop over `add_device`: each entry is attempted independently and
+     *     one entry's failure does not block the others. The status code reflects
+     *     the outcome: 201 when every entry succeeded, 422 when every entry failed,
+     *     207 for a mix of both.
+     */
+    post: operations["create_devices_batch_devices_batch_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}/tags/{key}": {
     parameters: {
       query?: never;
@@ -1323,7 +1348,8 @@ export interface components {
       | "last"
       | "mode"
       | "tw_mode"
-      | "count";
+      | "count"
+      | "delta";
     /** AggregationResultResponse */
     AggregationResultResponse: {
       /** Interval */
@@ -1379,6 +1405,16 @@ export interface components {
      * @description Public asset model (API response).
      */
     Asset: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Parent Id */
@@ -1536,6 +1572,16 @@ export interface components {
     };
     /** Automation */
     Automation: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Name */
       name: string;
       /**
@@ -1555,16 +1601,6 @@ export interface components {
        * @default
        */
       id?: string;
-      /**
-       * Created At
-       * Format: date-time
-       */
-      created_at?: string;
-      /**
-       * Updated At
-       * Format: date-time
-       */
-      updated_at?: string;
       /**
        * Created By
        * @default
@@ -1623,6 +1659,16 @@ export interface components {
     };
     /** BacnetTransport */
     BacnetTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -1935,6 +1981,16 @@ export interface components {
     DataType: "int" | "float" | "str" | "bool";
     /** Device */
     Device: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -1965,6 +2021,36 @@ export interface components {
       /** Transport Id */
       transport_id: string;
     };
+    /**
+     * DeviceBatchCreate
+     * @description Create many devices sharing one driver + transport, each with its own config.
+     */
+    DeviceBatchCreate: {
+      /** Driver Id */
+      driver_id: string;
+      /** Transport Id */
+      transport_id: string;
+      /** Devices */
+      devices: components["schemas"]["DeviceBatchItem"][];
+    };
+    /** DeviceBatchItem */
+    DeviceBatchItem: {
+      /** Name */
+      name: string;
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+    };
+    /**
+     * DeviceBatchItemResult
+     * @description Outcome of one entry in a batch create: either the created device or an error.
+     */
+    DeviceBatchItemResult: {
+      device?: components["schemas"]["Device"] | null;
+      /** Error */
+      error?: string | null;
+    };
     /** DeviceConfigField */
     DeviceConfigField: {
       /** Name */
@@ -1977,7 +2063,10 @@ export interface components {
     };
     /** DeviceCreate */
     DeviceCreate: {
-      /** Name */
+      /**
+       * Name
+       * @default
+       */
       name?: string;
       /** Config */
       config: {
@@ -2081,6 +2170,16 @@ export interface components {
     };
     /** DriverSpec */
     "DriverSpec-Input": {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Vendor */
@@ -2114,6 +2213,16 @@ export interface components {
     };
     /** DriverSpec */
     "DriverSpec-Output": {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Vendor */
@@ -2244,6 +2353,16 @@ export interface components {
     };
     /** HttpTransport */
     HttpTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -2316,6 +2435,16 @@ export interface components {
     };
     /** KnxTransport */
     KnxTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -2378,6 +2507,16 @@ export interface components {
     };
     /** MbusTransport */
     MbusTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -2475,6 +2614,16 @@ export interface components {
     };
     /** ModbusTcpTransport */
     ModbusTcpTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -2500,6 +2649,16 @@ export interface components {
     };
     /** MqttTransport */
     MqttTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
       /** Id */
       id: string;
       /** Name */
@@ -4145,9 +4304,9 @@ export interface operations {
   get_device_timeseries_aggregate_devices__device_id__timeseries__attr__aggregate_get: {
     parameters: {
       query: {
-        /** @description Duration string (e.g. '15min', '1h', '1d', '1mo') or 'auto'. When 'auto' or omitted, the server picks the best interval for the period. */
+        /** @description Bucket width: a duration string (e.g. '15min', '1h', '1d', '1mo'), 'auto', 'raw' or 'whole'. When 'auto' or omitted, the server picks the best width for the period. 'raw' returns the points unbucketed; 'whole' returns a single bucket spanning the [start, end) range. */
         interval?: string;
-        /** @description Aggregation operator. Note: 'avg' on bool series returns the sample mean of discrete observations (0.0 or 1.0 per point), which is rarely useful for event-driven series. Use 'tw_avg' to get the fraction of time the value was True. */
+        /** @description Aggregation operator. Note: 'avg' on bool series returns the sample mean of discrete observations (0.0 or 1.0 per point), which is rarely useful for event-driven series. Use 'tw_avg' to get the fraction of time the value was True. 'delta' is the consumption of a cumulative counter (energy/water index) per bucket: the bucket's last value minus the last value before it, so consecutive buckets lose nothing in between. Buckets with no points have no value, counter resets show up as negative deltas, and 'raw' is not supported for it. */
         agg: components["schemas"]["AggregationOperator"];
         start?: string | null;
         end?: string | null;
@@ -4462,6 +4621,44 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
         };
+      };
+    };
+  };
+  create_devices_batch_devices_batch_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceBatchCreate"];
+      };
+    };
+    responses: {
+      /** @description Every device was created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Successful Response */
+      207: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceBatchItemResult"][];
+        };
+      };
+      /** @description Every device failed to be created */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

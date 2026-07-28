@@ -71,6 +71,7 @@ class TestAggregationOperator:
             "mode",
             "tw_mode",
             "count",
+            "delta",
         ]
         assert list(AggregationOperator) == expected
 
@@ -125,6 +126,9 @@ class TestCompatMatrix:
             ("sum", DataType.FLOAT, DataType.FLOAT),
             ("sum", DataType.INT, DataType.INT),
             ("sum", DataType.BOOL, DataType.INT),
+            # delta: numeric only, output keeps the input type
+            ("delta", DataType.FLOAT, DataType.FLOAT),
+            ("delta", DataType.INT, DataType.INT),
             # avg / tw_avg: all numeric -> float, str invalid
             ("avg", DataType.FLOAT, DataType.FLOAT),
             ("avg", DataType.INT, DataType.FLOAT),
@@ -144,6 +148,8 @@ class TestCompatMatrix:
             ("sum", DataType.STRING),
             ("avg", DataType.STRING),
             ("tw_avg", DataType.STRING),
+            ("delta", DataType.STRING),
+            ("delta", DataType.BOOL),
         ],
     )
     def test_invalid_combination_raises(self, op, data_type):

@@ -197,11 +197,15 @@ def _empty_value(
 ) -> Any:
     """Return the value for an empty bucket (no data points in range).
 
-    SUM of zero observations is 0. All other operators carry LOCF forward; AVG and
-    TW_AVG coerce LOCF to float because AggregationResult validates float for those ops.
+    SUM of zero observations is 0. DELTA has no value at all — nothing was read, and
+    the consumption since the last reading lands on the next bucket that has one.
+    All other operators carry LOCF forward; AVG and TW_AVG coerce LOCF to float
+    because AggregationResult validates float for those ops.
     """
     if op == AggregationOperator.SUM:
         return 0.0 if data_type == DataType.FLOAT else 0
+    if op == AggregationOperator.DELTA:
+        return None
     if locf is None:
         return None
     if op in {AggregationOperator.AVG, AggregationOperator.TW_AVG}:
@@ -231,6 +235,10 @@ def _filled_value(
             if data_type == DataType.BOOL:
                 return int(vals.cast(pl.Int64).sum())
             return vals.sum()
+        case AggregationOperator.DELTA:
+            # Carry the previous bucket's last value so buckets tile; with no prior
+            # reading the only measurable consumption is the one inside the bucket.
+            return vals[-1] - (vals[0] if locf is None else locf)
         case AggregationOperator.AVG:
             mean = vals.cast(pl.Float64).mean() or 0.0
             return round(mean, _ROUND)  # type: ignore[arg-type]

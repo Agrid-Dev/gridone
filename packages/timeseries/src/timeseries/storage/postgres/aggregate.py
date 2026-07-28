@@ -407,6 +407,56 @@ def _twmode_query(ctx: _QueryCtx) -> tuple[str, _Params]:
     return sql, _anchor_params(ctx)
 
 
+def _delta_cast(data_type: DataType) -> str:
+    return "bigint" if data_type == DataType.INT else "double precision"
+
+
+def _delta_query(ctx: _QueryCtx) -> tuple[str, _Params]:
+    """Per-bucket counter consumption: ``last - previous bucket's last``.
+
+    ``carry`` is the bucket's last value with LOCF applied, so it survives empty
+    buckets; ``LAG(carry)`` then gives the previous reading for the next bucket.
+    The first bucket has no LAG, so it falls back to the anchor ($6) and, failing
+    that, to the bucket's own first value. Empty buckets have no value at all.
+    """
+    vc = ctx.value_col
+    cast = _delta_cast(ctx.data_type)
+    prev_expr = "COALESCE(LAG(carry) OVER (ORDER BY bucket), $6, first_val)"
+    sql = (
+        "WITH per_bucket AS (\n"
+        "    SELECT\n"
+        "        time_bucket($1::text::interval, timestamp, $4) AS bucket,\n"
+        f"        first({vc}, timestamp) AS first_val,\n"
+        f"        last({vc}, timestamp) AS last_val,\n"
+        "        COUNT(*)::int AS cnt\n"
+        "    FROM ts_data_points\n"
+        "    WHERE series_id = $5\n"
+        "      AND timestamp >= $2::timestamptz\n"
+        f"      AND timestamp < {_end_boundary(ctx)}\n"
+        "    GROUP BY bucket\n"
+        "),\n"
+        "gapfilled AS (\n"
+        "    SELECT\n"
+        f"        {_GAPFILL_BUCKET_EXPR} AS bucket,\n"
+        "        MAX(first_val) AS first_val,\n"
+        "        MAX(last_val) AS last_val,\n"
+        "        locf(MAX(last_val), prev => $6,"
+        " treat_null_as_missing => true) AS carry,\n"
+        "        COALESCE(MAX(cnt), 0)::int AS cnt\n"
+        "    FROM per_bucket\n"
+        f"{_GAPFILL_GROUP_BY}"
+        ")\n"
+        "SELECT bucket,\n"
+        "    CASE WHEN cnt = 0 THEN NULL\n"
+        f"         ELSE (last_val - {prev_expr})::{cast}\n"
+        "    END AS value,\n"
+        "    cnt AS count\n"
+        "FROM gapfilled\n"
+        "ORDER BY bucket"
+    )
+    return sql, _anchor_params(ctx)
+
+
 def _coerce_anchor(op: AggregationOperator, anchor: DataPoint | None) -> _AnchorValue:
     if anchor is None:
         return None
@@ -489,6 +539,26 @@ def _whole_simple_query(op: AggregationOperator, ctx: _WholeCtx) -> tuple[str, _
                 f"{where}"
             )
             return sql, _whole_anchor_params(ctx)
+
+
+def _whole_delta_query(ctx: _WholeCtx) -> tuple[str, _Params]:
+    """Counter consumption over the whole range: ``last - anchor`` (or - first)."""
+    vc = ctx.value_col
+    cast = _delta_cast(ctx.data_type)
+    sql = (
+        "SELECT\n"
+        "    $1::timestamptz AS bucket,\n"
+        "    CASE WHEN COUNT(timestamp) = 0 THEN NULL\n"
+        f"         ELSE (last({vc}, timestamp)"
+        f" - COALESCE($4, first({vc}, timestamp)))::{cast}\n"
+        "    END AS value,\n"
+        "    COALESCE(COUNT(timestamp), 0)::int AS count\n"
+        "FROM ts_data_points\n"
+        "WHERE series_id = $3\n"
+        "  AND timestamp >= $1::timestamptz\n"
+        "  AND timestamp < $2::timestamptz"
+    )
+    return sql, _whole_anchor_params(ctx)
 
 
 def _whole_mode_query(ctx: _WholeCtx) -> tuple[str, _Params]:
@@ -620,6 +690,8 @@ def _whole_query(op: AggregationOperator, ctx: _WholeCtx) -> tuple[str, _Params]
             return _whole_twavg_query(ctx)
         case AggregationOperator.TW_MODE:
             return _whole_twmode_query(ctx)
+        case AggregationOperator.DELTA:
+            return _whole_delta_query(ctx)
         case _:
             return _whole_simple_query(op, ctx)
 
@@ -688,6 +760,8 @@ async def compute(
             sql, params = _twavg_query(ctx)
         case AggregationOperator.TW_MODE:
             sql, params = _twmode_query(ctx)
+        case AggregationOperator.DELTA:
+            sql, params = _delta_query(ctx)
         case _:
             sql, params = _simple_query(op, data_type, ctx)
 
