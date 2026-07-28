@@ -1,3 +1,18 @@
+## v0.170.0 (2026-07-28)
+
+### Feat
+
+- **timeseries**: support interval=period for whole-range aggregates
+
+### Fix
+
+- **timeseries**: keep the period bucket for future-dated ranges
+
+### Refactor
+
+- **timeseries**: settle the interval axis to auto | raw | whole
+- **timeseries**: derive the period LOCF cast from _locf_parts
+
 ## v0.169.0 (2026-07-28)
 
 ### Feat
