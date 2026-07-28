@@ -30,7 +30,7 @@ export function TimeRangeSelect({
   onChangeParamsReset = [],
   defaultPreset = DEFAULT_PRESET,
 }: TimeRangeSelectProps) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
@@ -97,8 +97,10 @@ export function TimeRangeSelect({
               onClick={() => handlePreset(option.value)}
             >
               {t(
-                `deviceDetails.${option.unitKey}` as "deviceDetails.rangeLastMinutes",
-                { count: option.count },
+                `timeRange.${option.unitKey}` as "timeRange.rangeLastMinutes",
+                {
+                  count: option.count,
+                },
               )}
             </button>
           ))}
@@ -111,7 +113,7 @@ export function TimeRangeSelect({
             }`}
             onClick={() => handlePreset("all")}
           >
-            {t("deviceDetails.rangeAll")}
+            {t("timeRange.rangeAll")}
           </button>
         </div>
 
@@ -122,7 +124,7 @@ export function TimeRangeSelect({
             {timeRange.kind === "custom" && (
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent-foreground" />
             )}
-            {t("deviceDetails.rangeCustom")}
+            {t("timeRange.rangeCustom")}
           </p>
           <input
             type="datetime-local"
@@ -146,7 +148,7 @@ export function TimeRangeSelect({
             className="w-full"
             onClick={handleCustomApply}
           >
-            {t("deviceDetails.rangeApply")}
+            {t("timeRange.rangeApply")}
           </Button>
         </div>
       </PopoverContent>

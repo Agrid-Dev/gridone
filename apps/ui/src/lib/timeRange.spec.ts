@@ -4,6 +4,7 @@ import {
   rangeLabel,
   parseRangeParams,
   writeRangeParams,
+  rangeEndsNow,
   DEFAULT_PRESET,
   type TimeRange,
 } from "./timeRange";
@@ -45,12 +46,11 @@ describe("resolveTimeRange", () => {
 
 describe("rangeLabel", () => {
   const t = ((key: string, opts?: { count?: number }) => {
-    if (key === "deviceDetails.rangeAll") return "All time";
-    if (key === "deviceDetails.rangeCustom") return "Custom range";
-    if (key === "deviceDetails.rangeLastMinutes")
-      return `Last ${opts?.count} min`;
-    if (key === "deviceDetails.rangeLastHours") return `Last ${opts?.count}h`;
-    if (key === "deviceDetails.rangeLastDays") return `Last ${opts?.count}d`;
+    if (key === "timeRange.rangeAll") return "All time";
+    if (key === "timeRange.rangeCustom") return "Custom range";
+    if (key === "timeRange.rangeLastMinutes") return `Last ${opts?.count} min`;
+    if (key === "timeRange.rangeLastHours") return `Last ${opts?.count}h`;
+    if (key === "timeRange.rangeLastDays") return `Last ${opts?.count}d`;
     return key;
   }) as Parameters<typeof rangeLabel>[1];
 
@@ -66,6 +66,27 @@ describe("rangeLabel", () => {
     expect(rangeLabel({ kind: "custom", start: "a", end: "b" }, t)).toBe(
       "Custom range",
     );
+  });
+});
+
+describe("rangeEndsNow", () => {
+  it.each(["10m", "3h", "7d", "all"] as const)(
+    "preset %s tracks the present",
+    (preset) => {
+      expect(rangeEndsNow({ kind: "preset", preset })).toBe(true);
+    },
+  );
+
+  it("is true for a custom range with an open end", () => {
+    expect(rangeEndsNow({ kind: "custom", start: "2026-01-01", end: "" })).toBe(
+      true,
+    );
+  });
+
+  it("is false for a closed custom range", () => {
+    expect(
+      rangeEndsNow({ kind: "custom", start: "2026-01-01", end: "2026-01-31" }),
+    ).toBe(false);
   });
 });
 

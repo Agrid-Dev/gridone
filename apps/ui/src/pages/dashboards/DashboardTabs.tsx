@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import type { DashboardSummary } from "@gridone/sdk";
@@ -17,6 +17,9 @@ export const DashboardTabs: FC<{
   disabled?: boolean;
 }> = ({ summaries, activeId, disabled = false }) => {
   const { t } = useTranslation("dashboards");
+  // The viewing period is a page-level concern owned by the header, above the
+  // tabs — carry it across so switching dashboards keeps the chosen window.
+  const { search } = useLocation();
 
   return (
     <div
@@ -31,7 +34,7 @@ export const DashboardTabs: FC<{
           {summaries.map((dashboard) => (
             <TabsTrigger key={dashboard.id} value={dashboard.id} asChild>
               <NavLink
-                to={`/dashboards/${dashboard.id}`}
+                to={{ pathname: `/dashboards/${dashboard.id}`, search }}
                 title={dashboard.description ?? undefined}
               >
                 {dashboard.name}
