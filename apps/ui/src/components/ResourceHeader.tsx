@@ -18,7 +18,13 @@ type ResourceHeaderProps = {
  *  title with an optional status slot, an optional caption, and a
  *  right-aligned actions slot (which may host an overflow menu). Resource
  *  context lives in the breadcrumb, so this header shows only the title — no
- *  eyebrow and no back link. */
+ *  eyebrow and no back link.
+ *
+ *  Actions share a centred row with the title rather than sitting beside the
+ *  title+caption block: a control is taller than the title's line box, so
+ *  aligning the two blocks instead leaves the button visibly low whenever
+ *  there's no caption to make the left column the taller of the two. The
+ *  caption then flows underneath, spanning the full width. */
 export const ResourceHeader: FC<ResourceHeaderProps> = ({
   title,
   caption,
@@ -26,23 +32,18 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   actions = null,
   flush = false,
 }) => (
-  <div
-    className={cn(
-      "flex justify-between items-start gap-4",
-      !flush && "pb-6 border-b border-border",
-    )}
-  >
-    <div className="min-w-0">
-      <div className="flex items-center gap-3">
+  <div className={cn(!flush && "pb-6 border-b border-border")}>
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
         <TypographyH2>{title}</TypographyH2>
         {status}
       </div>
-      {caption && (
-        <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          {caption}
-        </div>
-      )}
+      <div className="flex shrink-0 justify-end gap-2">{actions}</div>
     </div>
-    <div className="flex justify-end gap-2">{actions}</div>
+    {caption && (
+      <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
+        {caption}
+      </div>
+    )}
   </div>
 );
