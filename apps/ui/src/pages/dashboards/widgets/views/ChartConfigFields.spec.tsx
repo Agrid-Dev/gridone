@@ -198,6 +198,29 @@ describe("ChartConfigFields", () => {
     expect(labels[3]).toBe("modemost frequent valuestr");
   });
 
+  // The picker keeps an attribute of the same name when the device changes, so
+  // the operator can outlive the data type that justified it. What matters is
+  // the type, not the name.
+  it("clears an operator the current data type refuses", () => {
+    const latest = renderFields({
+      device_id: "dev1",
+      attribute: "mode",
+      agg: "avg",
+    });
+
+    expect(latest().agg).toBeNull();
+  });
+
+  it("keeps an operator the current data type admits", () => {
+    const latest = renderFields({
+      device_id: "dev1",
+      attribute: "temperature",
+      agg: "avg",
+    });
+
+    expect(latest().agg).toBe("avg");
+  });
+
   // Keeping `avg` across a switch to a string attribute would save a pair the
   // API refuses, and the widget would render an error instead of a chart.
   it("clears the operator when the attribute changes", () => {

@@ -8,6 +8,7 @@ vi.mock("react-i18next", () =>
     "widgets.chart.error": "Could not load history",
     "widgets.chart.noSeries": "No history recorded",
     "widgets.chart.noData": "No data over the period",
+    "widgets.chart.unboundedPeriod": "Aggregation needs a bounded period",
   }),
 );
 
@@ -221,6 +222,35 @@ describe("ChartWidgetView", () => {
     mockSeries({ interval: "1h" });
     render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
     expect(screen.getByTestId("chart")).toHaveAttribute("data-points", "1");
+  });
+
+  // "All time" resolves to no start, end or last. Raw reads accept that;
+  // aggregation cannot, and used to fail as though the attribute were at fault
+  // while raw charts beside it kept rendering.
+  it("explains an unbounded period instead of a failed request", () => {
+    mockPeriod({});
+    mockSeries();
+
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
+
+    expect(
+      screen.getByText("Aggregation needs a bounded period"),
+    ).toBeInTheDocument();
+    expect(useTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it("still plots raw over an unbounded period", () => {
+    mockPeriod({});
+    mockSeries();
+
+    render(<ChartWidgetView config={CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toBeInTheDocument();
+    expect(useTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
   });
 
   it("reports a fetch failure", () => {

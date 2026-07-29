@@ -23,6 +23,7 @@
       "error": "Impossible de charger l'historique de cet attribut.",
       "noSeries": "Aucun historique n'est enregistré pour cet attribut.",
       "noData": "Aucune donnée sur la période sélectionnée.",
+      "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
       "agg": {
         "label": "Agrégation",
         "description": "Le pas de temps suit la période du tableau de bord.",

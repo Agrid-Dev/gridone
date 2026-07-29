@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import { useEffect, type FC } from "react";
 import type { DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -72,6 +72,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   const deviceId = (deviceField.value as string) || undefined;
   const attribute = (attributeField.value as string) || undefined;
+  const agg = (aggField.value as string | null) ?? null;
 
   const { data: device } = useDeviceById(deviceId);
   const { data: options } = useAggregateOptions();
@@ -83,13 +84,27 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   // disabled rather than dropped: a list that silently shortens leaves you
   // unable to tell an operator that doesn't apply here from one that doesn't
   // exist, and unable to see that picking a different attribute would offer it.
-  const aggOptions = operatorsFor(options, dataType).map(
-    ({ operator, resultType }) => ({
-      value: operator as string | null,
-      label: <AggOption name={operator} resultType={resultType} />,
-      disabled: resultType === null,
-    }),
-  );
+  const operators = operatorsFor(options, dataType);
+  const aggOptions = operators.map(({ operator, resultType }) => ({
+    value: operator as string | null,
+    label: <AggOption name={operator} resultType={resultType} />,
+    disabled: resultType === null,
+  }));
+
+  // Validity belongs to the data type, which the chosen operator can outlive:
+  // the picker keeps an attribute of the same name when the device changes, and
+  // a saved widget's device can be re-driven under it. So drop an operator this
+  // type refuses whenever that becomes true, rather than only when the
+  // attribute's name changes. Waits for the type and the matrix — until both
+  // are known, "unsupported" cannot be told from "not loaded yet".
+  const refused =
+    !!agg &&
+    !!dataType &&
+    operators.some((o) => o.operator === agg && o.resultType === null);
+
+  useEffect(() => {
+    if (refused) aggField.onChange(null);
+  }, [refused, aggField]);
 
   return (
     <>
@@ -99,10 +114,6 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
         onChange={(next) => {
           deviceField.onChange(next.deviceId);
           attributeField.onChange(next.attribute);
-          // Operators are per data type, so one chosen for a temperature isn't
-          // offered for a mode. Keeping it across the switch would save a pair
-          // the API refuses, and the widget would render an error, not a chart.
-          if (next.attribute !== attribute) aggField.onChange(null);
         }}
         required
       />

@@ -83,7 +83,7 @@ export function useTimeSeries({
         last,
         carry_forward: true,
       }),
-    enabled: !!seriesId && !agg,
+    enabled: enabled && !!seriesId && !agg,
     refetchInterval,
   });
 
@@ -97,7 +97,7 @@ export function useTimeSeries({
         agg: agg!,
         interval: AUTO_INTERVAL,
       }),
-    enabled: !!seriesId && !!agg,
+    enabled: enabled && !!seriesId && !!agg,
     refetchInterval,
   });
 

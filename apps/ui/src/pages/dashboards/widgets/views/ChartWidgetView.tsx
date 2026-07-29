@@ -34,6 +34,13 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
 
   const { data: device } = useDeviceById(deviceId);
 
+  // Buckets are cut from a window, so there is nothing to cut when the period
+  // is unbounded — the "all time" preset resolves to no start, end or last.
+  // Raw reads accept that and return the whole history, aggregation cannot, so
+  // the request is not sent rather than left to fail as though the attribute
+  // were at fault.
+  const unbounded = !!agg && !query.start && !query.last;
+
   const { series, points, dataType, interval, isLoading, error } =
     useTimeSeries({
       deviceId,
@@ -42,6 +49,7 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
       end: query.end,
       last: query.last,
       agg,
+      enabled: !unbounded,
       refetchInterval,
     });
 
@@ -63,6 +71,7 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
     [agg, points, query.end],
   );
 
+  if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
   if (isLoading) {
     return (
       <div className="h-full p-3">

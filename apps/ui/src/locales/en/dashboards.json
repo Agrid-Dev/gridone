@@ -23,6 +23,7 @@
       "error": "Could not load this attribute's history.",
       "noSeries": "No history is recorded for this attribute.",
       "noData": "No data over the selected period.",
+      "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
       "agg": {
         "label": "Aggregation",
         "description": "Bucket width follows the dashboard period.",
