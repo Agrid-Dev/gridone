@@ -1,3 +1,14 @@
+## v0.173.0 (2026-07-29)
+
+### Feat
+
+- **devices-manager**: webhook transport + message ingress
+
+### Fix
+
+- **devices-manager**: apply AGR-955 review feedback
+- **sdk**: add webhook variants to hand-written transport unions
+
 ## v0.172.0 (2026-07-29)
 
 ### Feat
