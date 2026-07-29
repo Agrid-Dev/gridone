@@ -8,6 +8,7 @@ from .ahu_single_flux import ahu_single_flux_schema
 from .air_extractor import air_extractor_schema
 from .awhp import awhp_schema
 from .electricity_meter import electricity_meter_schema
+from .pms_monitor import pms_monitor_schema
 from .thermostat import thermostat_schema
 from .weather_sensor import weather_sensor_schema
 
@@ -26,4 +27,5 @@ default_registry: StandardAttributeSchemaRegistry = _build_registry(
     air_extractor_schema,
     ahu_single_flux_schema,
     ahu_double_flux_schema,
+    pms_monitor_schema,
 )
