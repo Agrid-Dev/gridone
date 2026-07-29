@@ -1,3 +1,17 @@
+## v0.172.0 (2026-07-29)
+
+### Feat
+
+- **ui**: chart widget with time aggregation
+- **dashboards**: register a chart widget type
+- **timeseries**: share the operator vocabulary and advertise result types
+- **ui**: dashboard-level period picker
+
+### Fix
+
+- **ui**: correct the shared time-series chart
+- **ui**: align resource header actions with the title line
+
 ## v0.171.1 (2026-07-29)
 
 ### Fix
