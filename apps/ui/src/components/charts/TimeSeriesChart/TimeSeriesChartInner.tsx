@@ -34,12 +34,14 @@ export function TimeSeriesChartInner({
 
   const {
     containerRef,
+    tooltipRef,
     floatScaleCtx,
     handlePointerMove,
     handlePointerLeave,
     cursorX,
     cursorY,
     hoveredIdx,
+    hoveredTime,
     tooltipRows,
     tooltipLeft,
     tooltipTop,
@@ -88,8 +90,10 @@ export function TimeSeriesChartInner({
         {cursorX !== null &&
           cursorY !== null &&
           hoveredIdx !== null &&
+          hoveredTime !== null &&
           tooltipRows && (
             <div
+              ref={tooltipRef}
               className="bg-popover text-popover-foreground rounded-md border px-3 py-2 shadow-md"
               style={{
                 position: "absolute",
@@ -97,13 +101,14 @@ export function TimeSeriesChartInner({
                 top: tooltipTop,
                 pointerEvents: "none",
                 zIndex: 10,
-                whiteSpace: "nowrap",
+                // Bounded by the chart so a long series label wraps instead of
+                // overhanging — in a narrow tile no placement would fit it.
+                maxWidth: width,
               }}
             >
-              <TooltipContent
-                timestamp={timestamps[hoveredIdx]}
-                rows={tooltipRows}
-              />
+              {/* The instant under the cursor, not the recorded point's own
+                  timestamp — the rows report the values in force then. */}
+              <TooltipContent timestamp={hoveredTime} rows={tooltipRows} />
             </div>
           )}
       </div>
