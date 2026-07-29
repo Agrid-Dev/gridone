@@ -103,19 +103,6 @@ class AggregationOperator(StrEnum):
     TW_MODE = "tw_mode"
     COUNT = "count"
     DELTA = "delta"
-    """Consumption of a cumulative counter (energy/water index) over each bucket.
-
-    A bucket's value is ``last(bucket) - prev``, where ``prev`` is the last value
-    seen strictly before the bucket (carried across empty buckets, seeded from the
-    point preceding the query range). Carrying rather than differencing inside the
-    bucket makes buckets tile: the deltas sum to ``last - prev`` over the range, so
-    no consumption is lost between a bucket's last point and the next bucket's
-    first one. With no prior value at all, it degrades to ``last - first``.
-
-    A bucket with no points has no value (``None``), never 0 — nothing was read.
-    Counter resets (meter replacement, rollover) are passed through as negative
-    deltas rather than clamped or split; the caller decides what to do with them.
-    """
 
 
 _IDENTITY: dict[DataType, DataType | None] = {dt: dt for dt in DataType}
@@ -132,7 +119,6 @@ _SUM_ROW: dict[DataType, DataType | None] = {
     DataType.BOOL: DataType.INT,
     DataType.STRING: None,
 }
-# A counter difference only makes sense on a numeric, monotonic-ish series.
 _DELTA_ROW: dict[DataType, DataType | None] = {
     DataType.FLOAT: DataType.FLOAT,
     DataType.INT: DataType.INT,

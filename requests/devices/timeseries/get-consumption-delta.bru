@@ -29,6 +29,7 @@ docs {
   consumption over the range. Buckets with no reading have `value: null`
   (never 0), and a counter reset shows up as a negative value.
 
-  `interval: raw` is rejected for this operator (it would return the raw index
-  values instead of the consumption); use `whole` for a single total.
+  Use `interval: whole` for a single total over the range. Note that
+  `interval: raw` returns the stored points and applies no aggregation at all,
+  so it yields the cumulative index rather than the consumption.
 }

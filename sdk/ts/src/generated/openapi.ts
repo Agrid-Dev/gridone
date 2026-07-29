@@ -4304,9 +4304,9 @@ export interface operations {
   get_device_timeseries_aggregate_devices__device_id__timeseries__attr__aggregate_get: {
     parameters: {
       query: {
-        /** @description Bucket width: a duration string (e.g. '15min', '1h', '1d', '1mo'), 'auto', 'raw' or 'whole'. When 'auto' or omitted, the server picks the best width for the period. 'raw' returns the points unbucketed; 'whole' returns a single bucket spanning the [start, end) range. */
+        /** @description Bucket width: a duration string (e.g. '15min', '1h', '1d', '1mo'), 'auto', 'raw' or 'whole'. When 'auto' or omitted, the server picks the best width for the period, falling back to 'whole' when the period is too short or too long for any of them. 'raw' returns the points unbucketed and applies no aggregation at all; 'whole' returns a single bucket spanning the [start, end) range. */
         interval?: string;
-        /** @description Aggregation operator. Note: 'avg' on bool series returns the sample mean of discrete observations (0.0 or 1.0 per point), which is rarely useful for event-driven series. Use 'tw_avg' to get the fraction of time the value was True. 'delta' is the consumption of a cumulative counter (energy/water index) per bucket: the bucket's last value minus the last value before it, so consecutive buckets lose nothing in between. Buckets with no points have no value, counter resets show up as negative deltas, and 'raw' is not supported for it. */
+        /** @description Aggregation operator. Note: 'avg' on bool series returns the sample mean of discrete observations (0.0 or 1.0 per point), which is rarely useful for event-driven series. Use 'tw_avg' to get the fraction of time the value was True. 'delta' is the consumption of a cumulative counter (energy/water index) per bucket: the bucket's last value minus the last value before it, so consecutive buckets lose nothing in between. Buckets with no points have no value, and counter resets show up as negative deltas. */
         agg: components["schemas"]["AggregationOperator"];
         start?: string | null;
         end?: string | null;

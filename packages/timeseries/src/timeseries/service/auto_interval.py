@@ -17,7 +17,9 @@ _CANONICAL_TIMEDELTAS: list[timedelta] = [
 def resolve_auto_interval(period: timedelta) -> str:
     """Return the canonical interval string closest to TARGET_BUCKETS buckets.
 
-    Returns "raw" when no canonical interval yields MIN_BUCKETS..MAX_BUCKETS buckets.
+    Returns "whole" when no canonical interval yields MIN_BUCKETS..MAX_BUCKETS
+    buckets: a single bucket over the range still applies the operator, where
+    "raw" would hand back the stored points and silently ignore it.
     """
     if period <= timedelta(0):
         msg = "period must be positive"
@@ -31,7 +33,7 @@ def resolve_auto_interval(period: timedelta) -> str:
             if diff < best_diff:
                 best_diff = diff
                 best = iv_str
-    return best if best is not None else "raw"
+    return best if best is not None else "whole"
 
 
 def valid_intervals_for_period(period: timedelta) -> list[str]:

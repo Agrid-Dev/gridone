@@ -656,10 +656,13 @@ class TestAutoIntervalService:
         assert str(result.interval) == "1h"
         assert result.truncated is False
 
-    async def test_auto_interval_short_period_returns_raw(
+    async def test_auto_interval_short_period_returns_whole(
         self, ts_service: TimeSeriesService
     ) -> None:
-        # Period must be < MIN_BUCKETS * 15min (30min) to resolve to raw
+        """Too short for any canonical width → one bucket, not the raw points.
+
+        "raw" would silently ignore `agg`, so auto never resolves to it.
+        """
         key = SeriesKey(owner_id="auto-raw-test", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
@@ -678,11 +681,10 @@ class TestAutoIntervalService:
                 end=datetime(2026, 1, 1, 0, 20, tzinfo=UTC),
             ),
         )
-        assert result.interval == "raw"
-        assert len(result.points) == 2
-        assert all(p.count == 1 for p in result.points)
-        assert result.points[0].value == pytest.approx(1.0)
-        assert result.points[1].value == pytest.approx(2.0)
+        assert result.interval == "whole"
+        assert len(result.points) == 1
+        assert result.points[0].count == 2
+        assert result.points[0].value == pytest.approx(1.5)  # avg actually applied
         assert result.truncated is False
 
     async def test_raw_requested_explicitly(
@@ -714,10 +716,9 @@ class TestAutoIntervalService:
         assert len(result.points) == 2
         assert all(p.count == 1 for p in result.points)
 
-    async def test_auto_interval_raw_truncated_flag(
+    async def test_raw_truncated_flag(
         self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        # Period < 30min to ensure auto → raw path is taken
         key = SeriesKey(owner_id="auto-trunc-test", metric="temp")
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
@@ -734,6 +735,7 @@ class TestAutoIntervalService:
             key,
             AggregationQuery(
                 agg=AggregationOperator.AVG,
+                interval="raw",
                 start=base,
                 end=base + timedelta(minutes=20),
             ),
@@ -745,7 +747,7 @@ class TestAutoIntervalService:
     @pytest.mark.parametrize(
         ("period", "expected_interval"),
         [
-            (timedelta(minutes=20), "raw"),  # < MIN_BUCKETS * 15min → raw
+            (timedelta(minutes=20), "whole"),  # < MIN_BUCKETS * 15min → whole
             (timedelta(days=3), "15min"),  # 3d → 288 buckets (15min), closest to 200
             (timedelta(days=7), "1h"),  # 7d → 168 buckets (1h), closest to 200
             (timedelta(days=14), "1h"),  # 14d → 336 buckets (1h), closest to 200
@@ -1217,29 +1219,10 @@ class TestDeltaOperator:
                 ),
             )
 
-    async def test_explicit_raw_is_rejected(
+    async def test_auto_on_a_short_range_still_returns_a_delta(
         self, ts_service: TimeSeriesService
     ) -> None:
-        """raw bypasses the operator, so it would return the index, not the delta."""
-        start = datetime(2026, 7, 1, tzinfo=UTC)
-        key = await self._counter(
-            ts_service, "raw_reject_index", [(start + timedelta(minutes=30), 100.0)]
-        )
-        with pytest.raises(InvalidError, match="bucketed interval"):
-            await ts_service.get_aggregate(
-                key,
-                AggregationQuery(
-                    agg=AggregationOperator.DELTA,
-                    interval="raw",
-                    start=start,
-                    end=start + timedelta(days=1),
-                ),
-            )
-
-    async def test_auto_falls_back_to_whole_instead_of_raw(
-        self, ts_service: TimeSeriesService
-    ) -> None:
-        """A range too short for any canonical interval still yields a real delta."""
+        """The auto → whole fallback (not delta-specific) keeps delta meaningful."""
         start = datetime(2026, 8, 1, tzinfo=UTC)
         key = await self._counter(
             ts_service,
