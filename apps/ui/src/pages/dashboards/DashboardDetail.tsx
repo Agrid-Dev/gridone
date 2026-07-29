@@ -6,6 +6,7 @@ import { Info, Settings2, X } from "lucide-react";
 import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { Button } from "@/components/ui/button";
 import { DashboardGrid } from "./DashboardGrid";
 import { DashboardTabs } from "./DashboardTabs";
@@ -28,8 +29,10 @@ const DashboardDetailContent: FC = () => {
   return (
     <div className="flex flex-col gap-6">
       {/* Constant section title (the active dashboard's name is its tab, not a
-          second header) with the switcher row below it. */}
-      <ResourceHeader title={t("title")} />
+          second header) with the switcher row below it. The period sits in the
+          header actions: it applies to the whole page, above the tabs, so it
+          reads as a property of the view rather than of one dashboard. */}
+      <ResourceHeader title={t("title")} actions={<TimeRangeSelect />} />
       <div className="flex flex-col gap-2">
         {/* Navigation row: tabs on the left; a toolbox toggle on the right (or
             the layout Save/Cancel controls while editing). Edition actions live
