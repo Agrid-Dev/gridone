@@ -25,6 +25,12 @@ const { mockUseQuery, mockListDevices, mockGetDevice } = vi.hoisted(() => ({
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
+  // `useDeviceById` consults cached device lists to seed itself; this spec
+  // drives the query result directly, so the cache is empty here.
+  useQueryClient: () => ({
+    getQueriesData: () => [],
+    getQueryState: () => undefined,
+  }),
 }));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({

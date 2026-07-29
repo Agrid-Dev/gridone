@@ -19,6 +19,31 @@
   "widgets": {
     "empty": "This dashboard has no widgets yet.",
     "renderError": "This widget failed to render.",
+    "chart": {
+      "error": "Could not load this attribute's history.",
+      "noSeries": "No history is recorded for this attribute.",
+      "noData": "No data over the selected period.",
+      "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
+      "agg": {
+        "label": "Aggregation",
+        "description": "Bucket width follows the dashboard period.",
+        "unsupported": "not supported",
+        "captions": {
+          "raw": "every recorded point",
+          "avg": "mean of the bucket",
+          "tw_avg": "mean weighted by duration",
+          "sum": "total of the bucket",
+          "min": "lowest value",
+          "max": "highest value",
+          "first": "first value",
+          "last": "last value",
+          "mode": "most frequent value",
+          "tw_mode": "most frequent by duration",
+          "count": "number of points",
+          "delta": "difference over the bucket"
+        }
+      }
+    },
     "add": "Add widget",
     "addTitle": "Add widget",
     "addSubmit": "Add widget",

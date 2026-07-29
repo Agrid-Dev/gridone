@@ -1,8 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FC, useId, useMemo } from "react";
 import type { Device } from "@gridone/sdk";
-import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useDeviceById } from "@/hooks/useDeviceById";
 import {
   deviceAttributes,
   type DeviceAttribute,
@@ -45,16 +44,9 @@ export const DeviceAttributePicker: FC<DeviceAttributePickerProps> = ({
   disabled,
 }) => {
   const { t } = useTranslation("common");
-  const client = useGridoneClient();
   const attributeFieldId = useId();
 
-  // Singular key — `["devices", undefined]` collides with `useDevicesList`'s
-  // cache, and `enabled: false` doesn't prevent reading existing cached data.
-  const { data: device } = useQuery({
-    queryKey: ["device", deviceId],
-    queryFn: () => client.devices.get(deviceId!),
-    enabled: !!deviceId,
-  });
+  const { data: device } = useDeviceById(deviceId);
 
   const allowedAttributes = useMemo(
     () => filterAttributes(device, attributeFilter),
