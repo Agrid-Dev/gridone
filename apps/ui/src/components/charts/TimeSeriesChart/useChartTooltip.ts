@@ -13,7 +13,13 @@ import type {
   TooltipRow,
 } from "./types";
 import type { FloatScaleContextType } from "./FloatScaleContext";
-import { MARGIN, AXIS_EXTRA, CHART_COLORS, OTHER_COLOR } from "./constants";
+import {
+  MARGIN,
+  AXIS_EXTRA,
+  LEGEND_HEIGHT,
+  CHART_COLORS,
+  OTHER_COLOR,
+} from "./constants";
 import { computeTopStringValues } from "./topStringValues";
 import { indexAtOrBefore, timeAtCursor } from "./hoverPoint";
 import { placeTooltip } from "./placeTooltip";
@@ -110,9 +116,8 @@ export function useChartTooltip({
   const hoveredSection = useMemo(() => {
     if (cursorY === null) return null;
     let y = 0;
-    const legendH = 26;
     for (let i = 0; i < panels.length; i++) {
-      y += legendH;
+      y += LEGEND_HEIGHT;
       const isLast = i === panels.length - 1;
       const ph = panels[i].height + (isLast ? AXIS_EXTRA : 0);
       if (cursorY < y + ph) return panels[i].key;

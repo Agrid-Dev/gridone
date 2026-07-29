@@ -3,20 +3,13 @@ import { useTranslation } from "react-i18next";
 import { ParentSize } from "@visx/responsive";
 import type { ChartWidgetConfig } from "@gridone/sdk";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
+import { PANEL_CHROME_HEIGHT } from "@/components/charts/TimeSeriesChart/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeviceById } from "@/hooks/useDeviceById";
 import { useTimeSeries } from "@/hooks/useTimeSeries";
 import { toLabel } from "@/lib/textFormat";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import { holdLastValueUntil, singleSeriesChartProps } from "./chartSeries";
-
-/** Vertical space the chart spends on chrome rather than the plot: the legend
- *  band above the panel, and the bottom margin the last panel adds for its time
- *  axis. Subtracted from the tile so the plot fills it exactly instead of
- *  overflowing — the chart sizes its panel in pixels, not to its parent. */
-const LEGEND_HEIGHT = 26;
-const TIME_AXIS_HEIGHT = 28;
-const CHART_CHROME_HEIGHT = LEGEND_HEIGHT + TIME_AXIS_HEIGHT;
 
 /** Centred one-liner for the states the chart itself has no rendering for. */
 const Message: FC<{ children: string }> = ({ children }) => (
@@ -86,7 +79,7 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   return (
     <ParentSize>
       {({ height }) => {
-        const panelHeight = Math.max(height - CHART_CHROME_HEIGHT, 0);
+        const panelHeight = Math.max(height - PANEL_CHROME_HEIGHT, 0);
         return (
           <TimeSeriesChart
             {...chartProps}
