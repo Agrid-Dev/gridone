@@ -31,6 +31,7 @@ if TYPE_CHECKING:
         TransportCreate,
         TransportUpdate,
     )
+    from .ingress import MessageIngress
     from .types import AttributeValueType, DataType
 
 
@@ -192,6 +193,8 @@ class DevicesServiceInterface(Protocol):
     def list_transports(self) -> list[Transport]: ...
 
     def get_transport(self, transport_id: str) -> Transport: ...
+
+    def get_transport_ingress(self, transport_id: str) -> MessageIngress: ...
 
     async def add_transport(
         self, transport: TransportCreate | Transport

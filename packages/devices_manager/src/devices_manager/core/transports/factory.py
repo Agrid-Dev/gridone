@@ -11,6 +11,7 @@ from .mbus_transport import MBusTransportClient, MBusTransportConfig
 from .modbus_tcp_transport import ModbusTCPTransportClient, ModbusTCPTransportConfig
 from .mqtt_transport import MqttTransportClient, MqttTransportConfig
 from .transport_metadata import TransportMetadata
+from .webhook_transport import WebhookTransportClient, WebhookTransportConfig
 
 type TransportClientFactory = Callable[
     [TransportProtocols, BaseTransportConfig], TransportClient
@@ -27,6 +28,7 @@ def make_transport_config(
         TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
         TransportProtocols.MBUS: MBusTransportConfig,
         TransportProtocols.BACNET: BacnetTransportConfig,
+        TransportProtocols.WEBHOOK: WebhookTransportConfig,
     }
     builder = builders.get(protocol)
     if not builder:
@@ -44,6 +46,7 @@ TRANSPORTS_BY_PROTOCOL: dict[
     TransportProtocols.MODBUS_TCP: (ModbusTCPTransportClient, ModbusTCPTransportConfig),
     TransportProtocols.MBUS: (MBusTransportClient, MBusTransportConfig),
     TransportProtocols.BACNET: (BacnetTransportClient, BacnetTransportConfig),
+    TransportProtocols.WEBHOOK: (WebhookTransportClient, WebhookTransportConfig),
 }
 
 

@@ -35,9 +35,12 @@ from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
+from api.routes.transports_router import ingress_router as transports_ingress_router
+from api.routes.transports_router import router as transports_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from devices_manager import IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.types import DataType
@@ -999,6 +1002,71 @@ def test_drivers_access_control(
     expected_status: int,
 ) -> None:
     with TestClient(drivers_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json={})
+        assert resp.status_code == expected_status
+
+
+# --- Transports ingress (public, transport-level auth) ---
+
+
+class _FakeIngressTarget:
+    async def ingress(self, _request: object) -> IngressResult:
+        return IngressResult(matched=0)
+
+
+def _build_transports_app() -> FastAPI:
+    """Mirror app.py's split: the transports router sits behind the blanket
+    JWT dep while the ingress router is mounted publicly — pushes are
+    authenticated by the transport itself, not by the API user flow."""
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersService()
+    dm = MagicMock()
+    dm.list_transports.return_value = []
+    dm.get_transport_ingress.return_value = _FakeIngressTarget()
+    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_device_manager] = lambda: dm
+    app.include_router(auth_router, prefix="/auth")
+    app.include_router(transports_ingress_router, prefix="/transports")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(transports_router, prefix="/transports", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def transports_app() -> FastAPI:
+    return _build_transports_app()
+
+
+TRANSPORTS_ACCESS_CONTROL_SCENARIOS = [
+    # The management surface requires a JWT.
+    pytest.param("GET", "/transports/", None, 401, id="list-no-auth"),
+    pytest.param("GET", "/transports/", "viewer", 200, id="list-viewer"),
+    # Ingress bypasses the user-auth flow: no JWT needed (the transport
+    # checks its own credentials and 401s through UnauthorizedError).
+    pytest.param(
+        "POST", "/transports/t1/ingress/room1/snapshot", None, 200, id="ingress-no-auth"
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    TRANSPORTS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_transports_access_control(
+    transports_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    with TestClient(transports_app) as client:
         headers: dict[str, str] = {}
         if username is not None:
             token = _login(client, username)

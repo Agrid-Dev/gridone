@@ -25,6 +25,7 @@ from api.routes import (
     drivers_router,
     health_router,
     notifications_router,
+    transports_ingress_router,
     transports_router,
 )
 from api.routes import websocket as websocket_routes
@@ -239,6 +240,11 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     app.include_router(health_router, prefix="/health", tags=["health"])
     app.include_router(auth_router, prefix="/auth", tags=["auth"])
     app.include_router(apps_registration_router, prefix="/apps", tags=["apps"])
+    # Message ingress is device-level ingestion: the transport authenticates
+    # each push itself from its config, outside the API's user-auth flow.
+    app.include_router(
+        transports_ingress_router, prefix="/transports", tags=["transports"]
+    )
 
     # Protected routes — permissions are enforced per endpoint inside each router.
     # A blanket JWT dep is still applied so unauthenticated requests get a 401.

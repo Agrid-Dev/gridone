@@ -29,6 +29,10 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.webhook_transport import (
+    WebhookTransportClient,
+    WebhookTransportConfig,
+)
 from devices_manager.types import TransportProtocols
 
 
@@ -96,6 +100,12 @@ def test_mismatched_transport_config_raises(mock_transport_metadata):
                 KNXTransportConfig(gateway_ip="localhost"),
                 KNXTransportClient,
                 True,
+            ),
+            (
+                TransportProtocols.WEBHOOK,
+                WebhookTransportConfig(auth="none"),
+                WebhookTransportClient,
+                False,
             ),
         ]
     ),

@@ -152,3 +152,56 @@ KNX uses the KNX/IP tunneling protocol to communicate with a KNX/IP gateway. It 
 | `user_password` | yes | — | KNX Secure user password |
 | `user_id` | no | `2` | KNX Secure user ID |
 
+---
+
+### Webhook
+
+Webhook is the HTTP-ingress counterpart of MQTT: instead of Gridone subscribing to a broker, external producers push messages **to** Gridone over HTTP. It is push-based and **ingress-only** — the transport cannot solicit data and does not support writes.
+
+Messages enter through the API:
+
+```
+POST /transports/{transport_id}/ingress/{topic}
+```
+
+Everything after `/ingress/` is the **topic** (it may contain slashes, e.g. `room1/snapshot`). The raw request body is the message payload. Topics are matched **exactly** against the read topics of registered device attributes — no MQTT-style wildcards. A push on a topic with no subscribed attribute returns `200 {"matched": 0}`: this is a valid outcome (for example a push racing device provisioning), not an error.
+
+**Read flow** — a read (refresh, `read_device`) returns the last payload received on the attribute's topic, and times out if nothing has been pushed yet.
+
+**Write flow** — not supported.
+
+**Authentication** — the ingress endpoint is outside the API's user-authorization flow (this is device-level ingestion, like MQTT or BACnet credentials). The transport verifies each push itself, according to its config:
+
+| Scheme | How to push |
+|---|---|
+| `bearer` | Send `Authorization: Bearer <secret>` |
+| `hmac_sha256` | Send `x-signature-256: sha256=<hexdigest>`, where the digest is HMAC-SHA256 of the raw request body keyed with `secret` (GitHub webhook convention) |
+| `none` | No credentials checked |
+
+A failed check returns `401` with a generic message. Request bodies are capped at **1 MiB**.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `auth` | no | `bearer` | Authentication scheme: `none`, `bearer` or `hmac_sha256` |
+| `secret` | required unless `auth: none` | — | Shared secret used to verify pushes |
+
+**Device health** — a webhook has no connection to monitor. Declare `healthcheck.expected_push_interval` in the driver: the device is marked `degraded` after 2× the interval without a push, then `error` after 3×.
+
+```yaml
+transport:
+  name: app-ingress
+  protocol: webhook
+  config:
+    auth: bearer
+    secret: my-shared-secret
+```
+
+Example push:
+
+```sh
+curl -X POST "https://gridone.example.com/api/transports/<transport_id>/ingress/room1/snapshot" \
+  -H "Authorization: Bearer my-shared-secret" \
+  -H "Content-Type: application/json" \
+  -d '{"temperature": 21.5, "humidity": 55}'
+```
+

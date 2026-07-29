@@ -118,6 +118,18 @@ write:
 
 ---
 
+### Webhook
+
+Read addresses have a `topic` matched **exactly** (no wildcards) against the path of incoming pushes on `POST /transports/{transport_id}/ingress/{topic}`. The string form is the whole topic; templating from `device_config` lets each device subscribe to its own path.
+
+```yaml
+read: ${room_id}/snapshot
+```
+
+The transport is ingress-only: there is no `request` field (nothing can be solicited) and `write` addresses are not supported. Declare `healthcheck.expected_push_interval` so device health tracks push silence — see [Healthcheck](healthcheck.md).
+
+---
+
 ### Modbus TCP
 
 Addresses are compact strings: `<type><instance>` or `<type><instance>:<count>` for values that span multiple registers. An object format is also accepted (`type`, `instance`, `count`) but the string notation is preferred.

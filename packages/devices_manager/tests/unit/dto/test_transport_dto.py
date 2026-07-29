@@ -20,6 +20,7 @@ from devices_manager.dto.transport_dto import (
     MqttTransport,
     TransportCreate,
     TransportUpdate,
+    WebhookTransportCreate,
     core_to_dto,
     dto_to_core,
 )
@@ -97,6 +98,23 @@ class TestTransportCreate:
         with pytest.raises(ValidationError, match="host"):
             TRANSPORT_CREATE.validate_python(
                 {"name": "PLC", "protocol": "modbus-tcp", "config": {}}
+            )
+
+    def test_webhook_protocol_narrows_config(self):
+        create = TRANSPORT_CREATE.validate_python(
+            {
+                "name": "App ingress",
+                "protocol": "webhook",
+                "config": {"auth": "bearer", "secret": "s3cret"},
+            }
+        )
+        assert isinstance(create, WebhookTransportCreate)
+        assert create.config.auth == "bearer"
+
+    def test_webhook_secret_required_unless_auth_disabled(self):
+        with pytest.raises(ValidationError, match="secret"):
+            TRANSPORT_CREATE.validate_python(
+                {"name": "App ingress", "protocol": "webhook", "config": {}}
             )
 
     def test_rejects_unknown_protocol(self):

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from models.errors import ConflictError, StorageNotInitializedError
+from models.errors import ConflictError, NotFoundError, StorageNotInitializedError
 from models.ids import gen_id
 from models.service import Service
 
@@ -44,6 +44,7 @@ from .dto import (
     standard_schema_to_public,
     transport_to_public,
 )
+from .ingress import MessageIngress
 from .storage.factory import build_storage
 
 if TYPE_CHECKING:
@@ -544,6 +545,17 @@ class DevicesService(Service):
 
     def get_transport(self, transport_id: str) -> Transport:
         return self._transport_registry.get_dto(transport_id)
+
+    def get_transport_ingress(self, transport_id: str) -> MessageIngress:
+        """Return the live client behind a transport that accepts pushed
+        messages, exposed only through the narrow :class:`MessageIngress`
+        port so the full ``TransportClient`` surface never leaks upward.
+        """
+        client = self._transport_registry.get(transport_id)
+        if not isinstance(client, MessageIngress):
+            msg = f"Transport {transport_id} does not accept message ingress"
+            raise NotFoundError(msg)
+        return client
 
     async def add_transport(self, transport: TransportCreate | Transport) -> Transport:
         return await self._transport_registry.add(transport)

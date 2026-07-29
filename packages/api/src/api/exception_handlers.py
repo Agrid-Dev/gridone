@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -8,7 +10,10 @@ from models.errors import (
     ConflictError,
     InvalidError,
     NotFoundError,
+    UnauthorizedError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -40,6 +45,14 @@ def register_exception_handlers(app: FastAPI) -> None:
                 "detail": "Your account has been blocked. Contact an administrator."
             },
         )
+
+    @app.exception_handler(UnauthorizedError)
+    async def unauthorized_handler(
+        request: Request, exc: UnauthorizedError
+    ) -> JSONResponse:
+        # Generic message on purpose: never leak which credential check failed.
+        logger.warning("Unauthorized request on %s", request.url.path)
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
     @app.exception_handler(AppUnreachableError)
     async def app_unreachable_handler(

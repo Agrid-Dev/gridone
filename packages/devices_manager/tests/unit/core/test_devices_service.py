@@ -17,6 +17,11 @@ from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
 from devices_manager.core.transports.http_transport import HttpTransportConfig
+from devices_manager.core.transports.transport_metadata import TransportMetadata
+from devices_manager.core.transports.webhook_transport import (
+    WebhookTransportClient,
+    WebhookTransportConfig,
+)
 from devices_manager.dto import (
     AttributePatch,
     Device,
@@ -31,6 +36,7 @@ from devices_manager.dto import (
     transport_to_public,
 )
 from devices_manager.dto.transport_dto import HttpTransportCreate
+from devices_manager.ingress import MessageIngress
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import (
     AttributeValueType,
@@ -646,6 +652,36 @@ class TestDevicesServiceGetTransport:
     async def test_get_transport_non_existing(self, devices_manager):
         with pytest.raises(NotFoundError):
             devices_manager.get_transport("non-existing-id")
+
+
+class TestDevicesServiceGetTransportIngress:
+    @staticmethod
+    def _webhook_client() -> WebhookTransportClient:
+        return WebhookTransportClient(
+            TransportMetadata(id="my-webhook", name="My Webhook"),
+            WebhookTransportConfig(auth="none"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_returns_ingress_port(self):
+        webhook_client = self._webhook_client()
+        dm = DevicesService(transports={webhook_client.id: webhook_client})
+        await dm.load()
+        ingress = dm.get_transport_ingress(webhook_client.id)
+        assert isinstance(ingress, MessageIngress)
+        assert ingress is webhook_client
+
+    @pytest.mark.asyncio
+    async def test_non_existing_transport_raises_not_found(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            devices_manager.get_transport_ingress("non-existing-id")
+
+    @pytest.mark.asyncio
+    async def test_non_ingress_transport_raises_not_found(
+        self, devices_manager, mock_transport_client
+    ):
+        with pytest.raises(NotFoundError, match="does not accept message ingress"):
+            devices_manager.get_transport_ingress(mock_transport_client.id)
 
 
 class TestDevicesServiceAddTransport:
