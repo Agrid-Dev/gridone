@@ -51,4 +51,10 @@ class IntervalOption(BaseModel):
 class AggregateOptionsResponse(BaseModel):
     intervals: list[IntervalOption]
     recommended_interval: str | None
-    operators_by_data_type: dict[str, list[str]]
+    operators_by_data_type: dict[DataType, dict[AggregationOperator, DataType | None]]
+    """Every operator against every data type, mapped to the type it yields.
+
+    ``None`` marks a pair the aggregation refuses, stated rather than omitted:
+    an editor can then offer the whole vocabulary and disable what does not
+    apply, instead of silently shortening its list.
+    """

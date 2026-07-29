@@ -51,19 +51,29 @@ _POSTGRES_PREFIX = "postgresql"
 class AggregateOptions:
     intervals: list[tuple[str, int | None]]  # (interval_str, bucket_count)
     recommended_interval: str | None
-    operators_by_data_type: dict[str, list[str]]
+    operators_by_data_type: dict[DataType, dict[AggregationOperator, DataType | None]]
 
 
-def _build_operators_by_data_type() -> dict[str, list[str]]:
+def _build_operators_by_data_type() -> dict[
+    DataType, dict[AggregationOperator, DataType | None]
+]:
+    """Transpose the compatibility matrix to data-type-major, keeping every
+    operator.
+
+    Every operator appears against every data type, mapped to the type it
+    yields — or ``None`` where the pair is invalid. Listing only the valid ones
+    would leave a caller unable to tell an operator that does not apply from one
+    it has never heard of, and unable to say what it would get back: ``count``
+    yields an int whatever went in, and averaging a bool yields a float.
+    """
     return {
-        str(dt): [
-            str(op) for op in AggregationOperator if AGG_COMPAT[op][dt] is not None
-        ]
-        for dt in DataType
+        dt: {op: AGG_COMPAT[op][dt] for op in AggregationOperator} for dt in DataType
     }
 
 
-_OPERATORS_BY_DATA_TYPE: dict[str, list[str]] = _build_operators_by_data_type()
+_OPERATORS_BY_DATA_TYPE: dict[DataType, dict[AggregationOperator, DataType | None]] = (
+    _build_operators_by_data_type()
+)
 
 DEFAULT_RAW_LIMIT = 10_000
 MAX_RAW_LIMIT = 100_000
