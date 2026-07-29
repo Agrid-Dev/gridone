@@ -6,10 +6,17 @@ vi.mock("react-i18next", () =>
   createI18nMock({ "widgets.fields.title": "Title" }),
 );
 
-// The picker fetches devices; stand in for it so this stays a test of which
-// editor the form chooses, not of the picker's own behaviour.
+// The chart editor fetches devices and the operator matrix; stand those in so
+// this stays a test of which editor the form chooses, not of their behaviour.
 vi.mock("@/components/forms/resourcePickers/DeviceAttributePicker", () => ({
   DeviceAttributePicker: () => <div data-testid="device-attribute-picker" />,
+}));
+vi.mock("@/hooks/useDeviceById", () => ({
+  useDeviceById: () => ({ data: undefined }),
+}));
+vi.mock("@/hooks/useAggregateOptions", () => ({
+  useAggregateOptions: () => ({ data: undefined }),
+  operatorsFor: () => [],
 }));
 
 // Imported after the mocks are registered.

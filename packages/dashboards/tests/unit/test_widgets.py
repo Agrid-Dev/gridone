@@ -13,6 +13,7 @@ from dashboards.widgets import (
 from dashboards.widgets.registry import WidgetRegistry
 
 from models.errors import InvalidError, NotFoundError
+from models.types import AggregationOperator
 
 
 def test_default_registry_registers_built_in_types():
@@ -47,11 +48,11 @@ def test_validate_config_returns_concrete_model():
         {"type": "chart", "device_id": "d1"},  # missing attribute
         {"type": "chart", "device_id": "", "attribute": "temperature"},  # empty
         {"type": "chart", "device_id": "d1", "attribute": ""},  # empty
-        {  # extra key
+        {  # extra key — the bucket width is not the widget's to store
             "type": "chart",
             "device_id": "d1",
             "attribute": "temperature",
-            "agg": "avg",
+            "interval": "1h",
         },
     ],
 )
@@ -129,6 +130,44 @@ def test_validate_config_returns_chart_model():
     assert isinstance(config, ChartWidgetConfig)
     assert config.device_id == "d1"
     assert config.attribute == "temperature"
+
+
+# Adding aggregation must not invalidate charts stored before it existed.
+def test_chart_config_defaults_to_raw():
+    config = ChartWidgetConfig(device_id="d1", attribute="temperature")
+
+    assert config.agg is None
+
+
+def test_chart_config_accepts_an_operator():
+    registry = build_default_registry()
+
+    # Validated from the wire form a stored config actually takes.
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "device_id": "d1",
+            "attribute": "temperature",
+            "agg": "avg",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.agg is AggregationOperator.AVG
+
+
+def test_chart_config_rejects_an_unknown_operator():
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "chart",
+                "device_id": "d1",
+                "attribute": "temperature",
+                "agg": "median",
+            }
+        )
 
 
 @pytest.mark.parametrize("color", ["#000000", "#FFFFFF", "#1a2B3c"])

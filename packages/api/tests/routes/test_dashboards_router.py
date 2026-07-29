@@ -158,9 +158,31 @@ class TestWidgets:
         async with client as c:
             resp = await c.post("/d1/widgets", json={"config": _CHART_CONFIG})
         assert resp.status_code == 201
+        # A body omitting `agg` reaches the service as an explicit raw chart.
         svc.add_widget.assert_awaited_once_with(
-            "d1", config=_CHART_CONFIG, title=None, description=None
+            "d1",
+            config={**_CHART_CONFIG, "agg": None},
+            title=None,
+            description=None,
         )
+
+    async def test_add_aggregated_chart_widget_reaches_the_service(self, client, svc):
+        svc.add_widget.return_value = _WIDGET
+        config = {**_CHART_CONFIG, "agg": "avg"}
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1", config=config, title=None, description=None
+        )
+
+    async def test_add_chart_widget_unknown_operator_returns_422(self, client, svc):
+        async with client as c:
+            resp = await c.post(
+                "/d1/widgets", json={"config": {**_CHART_CONFIG, "agg": "median"}}
+            )
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
 
     async def test_add_chart_widget_missing_field_returns_422_field_path(
         self, client, svc

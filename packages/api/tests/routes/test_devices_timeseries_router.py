@@ -1151,8 +1151,23 @@ class TestAggregateOptions:
         body = response.json()
         ops_by_type = body["operators_by_data_type"]
         assert set(ops_by_type.keys()) == {"float", "int", "str", "bool"}
-        assert "avg" in ops_by_type["float"]
-        assert "avg" not in ops_by_type["str"]
+        # Every operator is listed against every type, so a caller can tell an
+        # operator that doesn't apply from one it has never heard of.
+        assert set(ops_by_type["float"]) == set(ops_by_type["str"])
+        assert ops_by_type["float"]["avg"] == "float"
+        assert ops_by_type["str"]["avg"] is None
+
+    async def test_operators_advertise_the_type_they_yield(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate/options")
+        ops_by_type = response.json()["operators_by_data_type"]
+        # Counting yields an int whatever went in; averaging a bool widens it.
+        assert ops_by_type["str"]["count"] == "int"
+        assert ops_by_type["bool"]["tw_avg"] == "float"
+        # An operator that neither widens nor narrows keeps the input type.
+        assert ops_by_type["str"]["mode"] == "str"
 
     async def test_delta_advertised_for_numeric_types_only(
         self, async_client: AsyncClient
@@ -1160,10 +1175,10 @@ class TestAggregateOptions:
         async with async_client as ac:
             response = await ac.get("/timeseries/aggregate/options")
         ops_by_type = response.json()["operators_by_data_type"]
-        assert "delta" in ops_by_type["float"]
-        assert "delta" in ops_by_type["int"]
-        assert "delta" not in ops_by_type["str"]
-        assert "delta" not in ops_by_type["bool"]
+        assert ops_by_type["float"]["delta"] == "float"
+        assert ops_by_type["int"]["delta"] == "int"
+        assert ops_by_type["str"]["delta"] is None
+        assert ops_by_type["bool"]["delta"] is None
 
     async def test_end_only_returns_422(self, async_client: AsyncClient):
         async with async_client as ac:

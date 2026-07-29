@@ -8,6 +8,7 @@ vi.mock("react-i18next", () =>
     "widgets.chart.error": "Could not load history",
     "widgets.chart.noSeries": "No history recorded",
     "widgets.chart.noData": "No data over the period",
+    "widgets.chart.unboundedPeriod": "Aggregation needs a bounded period",
   }),
 );
 
@@ -26,12 +27,39 @@ vi.mock("@/hooks/useDeviceById", () => ({
   useDeviceById: (id: string) => useDeviceById(id),
 }));
 
-// The chart renders an SVG through visx; assert on the series label it emits
-// rather than on chart internals.
+// The chart renders an SVG through visx; assert on the props it is handed
+// rather than on chart internals. `panel` names which of the four prop pairs
+// was filled, which is how the data type reaches the display.
 vi.mock("@/components/charts/TimeSeriesChart", () => ({
-  default: ({ lineSeries }: { lineSeries?: { label: string }[] }) => (
-    <div data-testid="chart">{lineSeries?.map((s) => s.label).join(",")}</div>
-  ),
+  default: (props: {
+    timestamps?: Date[];
+    lineSeries?: { label: string }[];
+    intSeries?: { label: string }[];
+    stringSeries?: { label: string }[];
+    booleanSeries?: { label: string }[];
+  }) => {
+    const series =
+      props.lineSeries ??
+      props.intSeries ??
+      props.stringSeries ??
+      props.booleanSeries;
+    const panel = props.lineSeries
+      ? "line"
+      : props.intSeries
+        ? "int"
+        : props.stringSeries
+          ? "string"
+          : "boolean";
+    return (
+      <div
+        data-testid="chart"
+        data-panel={panel}
+        data-points={props.timestamps?.length}
+      >
+        {series?.map((s) => s.label).join(",")}
+      </div>
+    );
+  },
 }));
 
 // Imported after the mocks are registered.
@@ -56,6 +84,8 @@ function mockSeries(over: Record<string, unknown> = {}) {
   useTimeSeries.mockReturnValue({
     series: SERIES,
     points: POINTS,
+    dataType: "float",
+    interval: null,
     isLoading: false,
     error: null,
     ...over,
@@ -145,6 +175,82 @@ describe("ChartWidgetView", () => {
     render(<ChartWidgetView config={CONFIG} />);
 
     expect(screen.getByText("No history recorded")).toBeInTheDocument();
+  });
+
+  it("passes the configured operator down", () => {
+    mockPeriod({ last: "1d" });
+    mockSeries({ interval: "1h" });
+
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
+
+    expect(useTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ agg: "avg" }),
+    );
+  });
+
+  // `count` yields ints whatever went in, and averaging a bool yields a float,
+  // so the panel has to follow what came back rather than what was recorded.
+  it("panels by the aggregated type, not the recorded one", () => {
+    mockPeriod({ last: "1d" });
+    mockSeries({ dataType: "int", interval: "1h" });
+
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "count" }} />);
+
+    expect(screen.getByTestId("chart")).toHaveAttribute("data-panel", "int");
+  });
+
+  it("names the operator and resolved bucket in the label", () => {
+    mockPeriod({ last: "1d" });
+    mockSeries({ interval: "1h" });
+
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "Thermostat 1 — Temperature · avg · 1h",
+    );
+  });
+
+  // Raw points need the last value held to the window end to draw at all;
+  // buckets already tile the window, so holding would invent one.
+  it("holds a raw series to the window end but never a bucketed one", () => {
+    mockPeriod({ last: "3h" });
+    mockSeries();
+    const { unmount } = render(<ChartWidgetView config={CONFIG} />);
+    expect(screen.getByTestId("chart")).toHaveAttribute("data-points", "2");
+    unmount();
+
+    mockSeries({ interval: "1h" });
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
+    expect(screen.getByTestId("chart")).toHaveAttribute("data-points", "1");
+  });
+
+  // "All time" resolves to no start, end or last. Raw reads accept that;
+  // aggregation cannot, and used to fail as though the attribute were at fault
+  // while raw charts beside it kept rendering.
+  it("explains an unbounded period instead of a failed request", () => {
+    mockPeriod({});
+    mockSeries();
+
+    render(<ChartWidgetView config={{ ...CONFIG, agg: "avg" }} />);
+
+    expect(
+      screen.getByText("Aggregation needs a bounded period"),
+    ).toBeInTheDocument();
+    expect(useTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+  });
+
+  it("still plots raw over an unbounded period", () => {
+    mockPeriod({});
+    mockSeries();
+
+    render(<ChartWidgetView config={CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toBeInTheDocument();
+    expect(useTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
   });
 
   it("reports a fetch failure", () => {
