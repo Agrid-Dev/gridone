@@ -39,7 +39,7 @@
           "mode": "valeur la plus fréquente",
           "tw_mode": "la plus fréquente par durée",
           "count": "nombre de points",
-          "delta": "consommation sur le pas de temps"
+          "delta": "différence sur le pas de temps"
         }
       }
     },

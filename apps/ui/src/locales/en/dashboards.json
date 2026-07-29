@@ -39,7 +39,7 @@
           "mode": "most frequent value",
           "tw_mode": "most frequent by duration",
           "count": "number of points",
-          "delta": "consumption over the bucket"
+          "delta": "difference over the bucket"
         }
       }
     },

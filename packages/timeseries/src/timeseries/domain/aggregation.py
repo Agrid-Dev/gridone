@@ -14,7 +14,6 @@ from pydantic import (
 
 from models.errors import InvalidError
 from models.types import DATA_TYPE_MAP, AggregationOperator, DataType
-
 from timeseries.domain.time_range import (
     parse_duration,
     parse_duration_parts,
