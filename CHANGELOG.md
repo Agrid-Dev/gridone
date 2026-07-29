@@ -1,3 +1,9 @@
+## v0.171.1 (2026-07-29)
+
+### Fix
+
+- **timeseries**: apply AGR-879 review feedback
+
 ## v0.171.0 (2026-07-28)
 
 ### Feat
