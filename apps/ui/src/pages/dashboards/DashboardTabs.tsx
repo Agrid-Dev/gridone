@@ -1,10 +1,11 @@
-import type { FC } from "react";
-import { NavLink, useLocation } from "react-router";
+import { useMemo, type FC } from "react";
+import { NavLink, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import type { DashboardSummary } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { parseRangeParams, writeRangeParams } from "@/lib/timeRange";
 import { cn } from "@/lib/utils";
 
 /** Route-linked tab bar over the dashboards. Each trigger is a `NavLink`
@@ -17,9 +18,22 @@ export const DashboardTabs: FC<{
   disabled?: boolean;
 }> = ({ summaries, activeId, disabled = false }) => {
   const { t } = useTranslation("dashboards");
+  const [searchParams] = useSearchParams();
+
   // The viewing period is a page-level concern owned by the header, above the
-  // tabs — carry it across so switching dashboards keeps the chosen window.
-  const { search } = useLocation();
+  // tabs, so it carries across: switching dashboards keeps the chosen window.
+  //
+  // Rebuilt from the period alone rather than copying the query string, so
+  // anything else this route comes to hold — `?edit=layout` already — stays
+  // with the dashboard it belongs to instead of following the link.
+  const search = useMemo(
+    () =>
+      writeRangeParams(
+        new URLSearchParams(),
+        parseRangeParams(searchParams),
+      ).toString(),
+    [searchParams],
+  );
 
   return (
     <div
