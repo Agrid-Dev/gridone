@@ -161,6 +161,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/transports/{transport_id}/ingress/{topic}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ingress Message
+     * @description Push a message to a transport's topic. ``matched: 0`` is a valid
+     *     response (e.g. a push racing device provisioning), not an error.
+     */
+    post: operations["ingress_message_transports__transport_id__ingress__topic__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/users/": {
     parameters: {
       query?: never;
@@ -2427,6 +2448,11 @@ export interface components {
       protocol: "http";
       config: components["schemas"]["HttpTransportConfig"];
     };
+    /** IngressResult */
+    IngressResult: {
+      /** Matched */
+      matched: number;
+    };
     /** IntervalOption */
     IntervalOption: {
       /** Interval */
@@ -3027,7 +3053,8 @@ export interface components {
       | "mbus"
       | "http"
       | "knx"
-      | "mqtt";
+      | "mqtt"
+      | "webhook";
     /** TransportUpdate */
     TransportUpdate: {
       /** Name */
@@ -3206,6 +3233,52 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /** WebhookTransport */
+    WebhookTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      connection_state: components["schemas"]["TransportConnectionState"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "webhook";
+      config: components["schemas"]["WebhookTransportConfig"];
+    };
+    /** WebhookTransportConfig */
+    WebhookTransportConfig: {
+      /**
+       * Auth
+       * @default bearer
+       * @enum {string}
+       */
+      auth?: "none" | "bearer" | "hmac_sha256";
+      /** Secret */
+      secret?: string | null;
+    };
+    /** WebhookTransportCreate */
+    WebhookTransportCreate: {
+      /** Name */
+      name: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "webhook";
+      config: components["schemas"]["WebhookTransportConfig"];
     };
     /**
      * Widget
@@ -3563,6 +3636,59 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["RegistrationRequestResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ingress_message_transports__transport_id__ingress__topic__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transport_id: string;
+        topic: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IngressResult"];
+        };
+      };
+      /** @description Invalid push credentials */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown or non-ingress transport */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Payload over 1 MiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {
@@ -4921,6 +5047,7 @@ export interface operations {
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
             | components["schemas"]["BacnetTransport"]
+            | components["schemas"]["WebhookTransport"]
           )[];
         };
       };
@@ -4941,7 +5068,8 @@ export interface operations {
           | components["schemas"]["MqttTransportCreate"]
           | components["schemas"]["ModbusTcpTransportCreate"]
           | components["schemas"]["MbusTransportCreate"]
-          | components["schemas"]["BacnetTransportCreate"];
+          | components["schemas"]["BacnetTransportCreate"]
+          | components["schemas"]["WebhookTransportCreate"];
       };
     };
     responses: {
@@ -4957,7 +5085,8 @@ export interface operations {
             | components["schemas"]["MqttTransport"]
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
-            | components["schemas"]["BacnetTransport"];
+            | components["schemas"]["BacnetTransport"]
+            | components["schemas"]["WebhookTransport"];
         };
       };
       /** @description Validation Error */
@@ -4994,7 +5123,8 @@ export interface operations {
             | components["schemas"]["MqttTransport"]
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
-            | components["schemas"]["BacnetTransport"];
+            | components["schemas"]["BacnetTransport"]
+            | components["schemas"]["WebhookTransport"];
         };
       };
       /** @description Validation Error */
@@ -5064,7 +5194,8 @@ export interface operations {
             | components["schemas"]["MqttTransport"]
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
-            | components["schemas"]["BacnetTransport"];
+            | components["schemas"]["BacnetTransport"]
+            | components["schemas"]["WebhookTransport"];
         };
       };
       /** @description Validation Error */

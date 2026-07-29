@@ -25,6 +25,7 @@ class TransportProtocols(StrEnum):
     HTTP = "http"
     KNX = "knx"
     MQTT = "mqtt"
+    WEBHOOK = "webhook"
 
 
 type DeviceConfig = dict[str, str | int | float | bool]

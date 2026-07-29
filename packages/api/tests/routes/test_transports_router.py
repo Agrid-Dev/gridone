@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -8,11 +9,15 @@ from pydantic import ValidationError
 
 from api.dependencies import get_current_token_payload, get_device_manager
 from api.exception_handlers import register_exception_handlers
-from api.routes.transports_router import router
-from devices_manager import DevicesServiceInterface
+from api.routes.transports_router import (
+    MAX_INGRESS_BODY_BYTES,
+    ingress_router,
+    router,
+)
+from devices_manager import DevicesServiceInterface, IngressRequest, IngressResult
 from devices_manager.dto import Transport, build_transport
 from devices_manager.types import TransportProtocols
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError, UnauthorizedError
 
 _HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
 _MQTT = build_transport(
@@ -53,6 +58,7 @@ def app(dm, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
+    app.include_router(ingress_router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     return app
@@ -152,6 +158,94 @@ class TestDeleteTransport:
         async with async_client as ac:
             response = await ac.delete("/unknown")
         assert response.status_code == 404
+
+
+class _FakeIngressTarget:
+    """In-memory MessageIngress capturing what the route hands over."""
+
+    def __init__(self, matched: int = 1) -> None:
+        self.requests: list[IngressRequest] = []
+        self._matched = matched
+
+    async def ingress(self, request: IngressRequest) -> IngressResult:
+        self.requests.append(request)
+        return IngressResult(matched=self._matched)
+
+
+class TestIngress:
+    def test_ok_forwards_request_to_transport(self, client: TestClient, dm: MagicMock):
+        target = _FakeIngressTarget(matched=2)
+        dm.get_transport_ingress.return_value = target
+        response = client.post(
+            "/my-webhook/ingress/room1/snapshot?source=app1",
+            content=b'{"temperature": 21.5}',
+            headers={"X-Custom": "Value", "Authorization": "Bearer s3cret"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"matched": 2}
+        dm.get_transport_ingress.assert_called_once_with("my-webhook")
+        (request,) = target.requests
+        # The whole path after /ingress/ is the topic.
+        assert request.topic == "room1/snapshot"
+        assert request.payload == b'{"temperature": 21.5}'
+        assert request.headers["x-custom"] == "Value"
+        assert request.headers["authorization"] == "Bearer s3cret"
+        assert request.query == {"source": "app1"}
+
+    def test_unknown_topic_returns_200_with_zero_matched(
+        self, client: TestClient, dm: MagicMock
+    ):
+        dm.get_transport_ingress.return_value = _FakeIngressTarget(matched=0)
+        response = client.post("/my-webhook/ingress/unknown", content=b"{}")
+        assert response.status_code == 200
+        assert response.json() == {"matched": 0}
+
+    def test_transport_not_found_returns_404(self, client: TestClient, dm: MagicMock):
+        dm.get_transport_ingress.side_effect = NotFoundError("Transport not found")
+        response = client.post("/unknown/ingress/topic", content=b"{}")
+        assert response.status_code == 404
+
+    def test_unauthorized_returns_401_with_generic_detail(
+        self, client: TestClient, dm: MagicMock
+    ):
+        target = MagicMock()
+        target.ingress = AsyncMock(side_effect=UnauthorizedError("Invalid token"))
+        dm.get_transport_ingress.return_value = target
+        response = client.post("/my-webhook/ingress/topic", content=b"{}")
+        assert response.status_code == 401
+        # Generic message: the credential failure reason must not leak.
+        assert response.json() == {"detail": "Unauthorized"}
+
+    def test_invalid_payload_returns_422(self, client: TestClient, dm: MagicMock):
+        target = MagicMock()
+        target.ingress = AsyncMock(side_effect=InvalidError("Payload must be UTF-8"))
+        dm.get_transport_ingress.return_value = target
+        response = client.post("/my-webhook/ingress/topic", content=b"\xff\xfe")
+        assert response.status_code == 422
+
+    def test_oversized_body_returns_413(self, client: TestClient, dm: MagicMock):
+        dm.get_transport_ingress.return_value = _FakeIngressTarget()
+        response = client.post(
+            "/my-webhook/ingress/topic",
+            content=b"x" * (MAX_INGRESS_BODY_BYTES + 1),
+        )
+        assert response.status_code == 413
+        dm.get_transport_ingress.assert_not_called()
+
+    def test_oversized_chunked_body_returns_413(
+        self, client: TestClient, dm: MagicMock
+    ):
+        # A chunked request carries no content-length, so only the streaming
+        # accumulator can stop it — the guard that matters on a public
+        # endpoint (a hostile client can also just lie in content-length).
+        def chunks() -> Iterator[bytes]:
+            for _ in range(3):
+                yield b"x" * (MAX_INGRESS_BODY_BYTES // 2)
+
+        dm.get_transport_ingress.return_value = _FakeIngressTarget()
+        response = client.post("/my-webhook/ingress/topic", content=chunks())
+        assert response.status_code == 413
+        dm.get_transport_ingress.assert_not_called()
 
 
 class TestGetTransportSchemas:

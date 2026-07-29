@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -5,7 +6,7 @@ from pydantic import ValidationError
 
 from api.dependencies import get_device_manager, require_permission
 from api.permissions import Permission
-from devices_manager import DevicesServiceInterface
+from devices_manager import DevicesServiceInterface, IngressRequest, IngressResult
 from devices_manager.dto import (
     TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
     Transport,
@@ -15,11 +16,84 @@ from devices_manager.dto import (
 
 from .discovery_router import router as discovery_router
 
+# The ingress endpoint is public (transport-level auth, no JWT), so it gets
+# its own logger to keep an auditable trail of what is pushed from outside.
+ingress_logger = logging.getLogger("api.ingress")
+
+MAX_INGRESS_BODY_BYTES = 1024 * 1024
+
 router = APIRouter()
 
 router.include_router(
     discovery_router, prefix="/{transport_id}/discovery", tags=["discovery"]
 )
+
+# Mounted separately in app.py, without the blanket JWT dependency: ingress is
+# device-level ingestion (like MQTT or BACnet), authenticated by the transport
+# itself from its config — not by the API's user-authorization flow.
+ingress_router = APIRouter()
+
+
+async def _read_limited_body(request: Request) -> bytes:
+    """Read the request body, rejecting anything over MAX_INGRESS_BODY_BYTES.
+
+    The endpoint is unauthenticated until the transport checks credentials,
+    so the body is streamed with a hard cap instead of buffered blindly.
+    """
+    if int(request.headers.get("content-length") or 0) > MAX_INGRESS_BODY_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE, detail="Payload too large"
+        )
+    chunks: list[bytes] = []
+    received = 0
+    async for chunk in request.stream():
+        received += len(chunk)
+        if received > MAX_INGRESS_BODY_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail="Payload too large",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+@ingress_router.post(
+    "/{transport_id}/ingress/{topic:path}",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Invalid push credentials"},
+        status.HTTP_404_NOT_FOUND: {"description": "Unknown or non-ingress transport"},
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": "Payload over 1 MiB"},
+    },
+)
+async def ingress_message(
+    transport_id: str,
+    topic: str,
+    request: Request,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> IngressResult:
+    """Push a message to a transport's topic. ``matched: 0`` is a valid
+    response (e.g. a push racing device provisioning), not an error."""
+    payload = await _read_limited_body(request)
+    target = dm.get_transport_ingress(transport_id)
+    result = await target.ingress(
+        IngressRequest(
+            topic=topic,
+            payload=payload,
+            headers={k.lower(): v for k, v in request.headers.items()},
+            query=dict(request.query_params),
+        )
+    )
+    # Nominal pushes stay at debug (an app pushing every few seconds would
+    # flood the log); an unmatched topic is the case worth surfacing.
+    log = ingress_logger.info if result.matched == 0 else ingress_logger.debug
+    log(
+        "Ingress on transport %s topic %s: %d bytes, %d listener(s) matched",
+        transport_id,
+        topic,
+        len(payload),
+        result.matched,
+    )
+    return result
 
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))])

@@ -8,6 +8,7 @@ from .core.device import (
 )
 from .core.device_registry import DeviceRegistry
 from .core.driver import Driver
+from .ingress import IngressRequest, IngressResult, MessageIngress
 from .interface import (
     DeviceRegistryInterface,
     DevicesServiceInterface,
@@ -26,4 +27,7 @@ __all__ = [
     "DiscoveryManagerInterface",
     "Driver",
     "FaultAttribute",
+    "IngressRequest",
+    "IngressResult",
+    "MessageIngress",
 ]

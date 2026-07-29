@@ -20,6 +20,7 @@ export const transportProtocols = [
   "http",
   "modbus-tcp",
   "bacnet",
+  "webhook",
 ] as const satisfies readonly TransportProtocols[];
 
 /** The subset of protocols the form can edit. */

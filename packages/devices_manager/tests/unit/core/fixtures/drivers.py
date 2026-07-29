@@ -6,9 +6,12 @@ from devices_manager.core.driver import (
     DeviceConfigField,
     Driver,
     DriverMetadata,
+    HealthCheck,
     UpdateStrategy,
 )
 from devices_manager.types import DataType, TransportProtocols
+
+WEBHOOK_PUSH_INTERVAL = 1
 
 
 @pytest.fixture
@@ -168,4 +171,35 @@ def driver_w_push_transport(push_attributes: list[AttributeDriver]) -> Driver:
                 {"name": "gateway_id", "codecs": [{"json_pointer": "/gateway_id"}]},
             ],
         },
+    )
+
+
+@pytest.fixture
+def webhook_driver() -> Driver:
+    """Push-only snapshot driver: both attributes subscribe to a templated
+    topic and decode their own field from the pushed JSON."""
+    attributes = [
+        AttributeDriver(
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read={"topic": "${room_id}/snapshot"},
+            write=None,
+            codecs=[CodecSpec(name="json_pointer", argument="/temperature")],
+        ),
+        AttributeDriver(
+            name="humidity",
+            data_type=DataType.FLOAT,
+            read={"topic": "${room_id}/snapshot"},
+            write=None,
+            codecs=[CodecSpec(name="json_pointer", argument="/humidity")],
+        ),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="webhook_snapshot_driver"),
+        env={},
+        device_config_required=[],
+        transport=TransportProtocols.WEBHOOK,
+        update_strategy=UpdateStrategy(polling_enabled=False),
+        healthcheck=HealthCheck(expected_push_interval=WEBHOOK_PUSH_INTERVAL),
+        attributes={a.name: a for a in attributes},
     )

@@ -18,6 +18,10 @@ class BlockedUserError(Exception):
     """Raised when a blocked user attempts to authenticate."""
 
 
+class UnauthorizedError(Exception):
+    """Raised when a request fails credential verification."""
+
+
 class StorageError(Exception):
     """Base class for storage-related failures raised by services."""
 

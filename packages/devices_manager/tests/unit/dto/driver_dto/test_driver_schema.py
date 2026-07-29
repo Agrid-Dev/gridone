@@ -151,6 +151,49 @@ def test_parser_accepts_and_ignores_top_level_definitions_key():
         assert attr.codecs[0].argument == "/current_weather/temperature"
 
 
+def _webhook_driver_raw(update_strategy: dict | None = None) -> dict:
+    raw: dict[str, object] = {
+        "id": "webhook_driver",
+        "transport": "webhook",
+        "device_config": [{"name": "room_id"}],
+        "attributes": [
+            {
+                "name": "temperature",
+                "data_type": "float",
+                "read": {"topic": "${room_id}/snapshot"},
+                "codecs": [{"json_pointer": "/temperature"}],
+            },
+        ],
+    }
+    if update_strategy is not None:
+        raw["update_strategy"] = update_strategy
+    return raw
+
+
+class TestWebhookDriverIsPushOnly:
+    def test_omitted_update_strategy_disables_polling(self):
+        dto = DriverSpec.model_validate(_webhook_driver_raw())
+        assert dto.update_strategy.polling_enabled is False
+
+    def test_explicit_polling_disable_is_accepted(self):
+        dto = DriverSpec.model_validate(
+            _webhook_driver_raw({"polling": "disable"}),
+        )
+        assert dto.update_strategy.polling_enabled is False
+
+    def test_explicit_polling_enabled_is_rejected(self):
+        with pytest.raises(ValueError, match="push-only"):
+            DriverSpec.model_validate(
+                _webhook_driver_raw({"polling_enabled": True}),
+            )
+
+    def test_polling_interval_alone_does_not_enable_polling(self):
+        # A leftover interval without an explicit polling_enabled is treated
+        # as an omission, not a contradiction.
+        dto = DriverSpec.model_validate(_webhook_driver_raw({"polling": "15min"}))
+        assert dto.update_strategy.polling_enabled is False
+
+
 def test_parser_mixes_standard_and_fault_attributes():
     dto = DriverSpec.model_validate(
         {

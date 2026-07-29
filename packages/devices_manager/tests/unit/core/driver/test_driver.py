@@ -201,3 +201,27 @@ class TestDriverPollingGroupValidation:
             attributes=attrs,
         )
         assert driver.attributes["temp"].polling_group is None
+
+
+class TestDriverPushOnlyValidation:
+    def test_webhook_driver_cannot_enable_polling(self):
+        with pytest.raises(InvalidError, match="push-only"):
+            Driver(
+                metadata=DriverMetadata(id="webhook_driver"),
+                env={},
+                device_config_required=[],
+                transport=TransportProtocols.WEBHOOK,
+                update_strategy=UpdateStrategy(polling_enabled=True),
+                attributes={},
+            )
+
+    def test_webhook_driver_with_polling_disabled_is_valid(self):
+        driver = Driver(
+            metadata=DriverMetadata(id="webhook_driver"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.WEBHOOK,
+            update_strategy=UpdateStrategy(polling_enabled=False),
+            attributes={},
+        )
+        assert driver.transport == TransportProtocols.WEBHOOK

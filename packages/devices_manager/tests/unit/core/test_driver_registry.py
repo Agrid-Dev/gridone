@@ -166,6 +166,15 @@ class TestDriverRegistryPatch:
         assert isinstance(driver.update_strategy, UpdateStrategy)
 
     @pytest.mark.asyncio
+    async def test_patch_cannot_enable_polling_on_webhook_driver(self, webhook_driver):
+        registry = DriverRegistry({webhook_driver.id: webhook_driver})
+        with pytest.raises(InvalidError, match="push-only"):
+            await registry.patch(
+                webhook_driver.id,
+                DriverPatch(update_strategy=UpdateStrategy(polling_enabled=True)),
+            )
+
+    @pytest.mark.asyncio
     async def test_patch_healthcheck(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(

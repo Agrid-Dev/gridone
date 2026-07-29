@@ -21,6 +21,7 @@ from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
+from devices_manager.core.transports.webhook_transport import WebhookTransportConfig
 from devices_manager.types import TransportProtocols
 from models.metadata import ResourceMetadata, timestamp_kwargs
 
@@ -61,13 +62,19 @@ class BacnetTransport(TransportBase):
     config: BacnetTransportConfig
 
 
+class WebhookTransport(TransportBase):
+    protocol: Literal[TransportProtocols.WEBHOOK]
+    config: WebhookTransportConfig
+
+
 Transport = Annotated[
     HttpTransport
     | KnxTransport
     | MqttTransport
     | ModbusTcpTransport
     | MbusTransport
-    | BacnetTransport,
+    | BacnetTransport
+    | WebhookTransport,
     Field(discriminator="protocol"),
 ]
 
@@ -92,6 +99,7 @@ DTO_BY_PROTOCOL = {
     TransportProtocols.MODBUS_TCP: ModbusTcpTransport,
     TransportProtocols.MBUS: MbusTransport,
     TransportProtocols.BACNET: BacnetTransport,
+    TransportProtocols.WEBHOOK: WebhookTransport,
 }
 
 DEFAULT_CONNECTION_STATE = TransportConnectionState.idle()
@@ -145,6 +153,7 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
     TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
     TransportProtocols.MBUS: MBusTransportConfig,
     TransportProtocols.BACNET: BacnetTransportConfig,
+    TransportProtocols.WEBHOOK: WebhookTransportConfig,
 }
 
 
@@ -182,6 +191,11 @@ class BacnetTransportCreate(TransportCreateBase):
     config: BacnetTransportConfig
 
 
+class WebhookTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.WEBHOOK]
+    config: WebhookTransportConfig
+
+
 # Mirrors the read-side `Transport` union so `protocol` narrows `config` to the
 # matching per-protocol config, both server-side and in generated client types.
 TransportCreate = Annotated[
@@ -190,7 +204,8 @@ TransportCreate = Annotated[
     | MqttTransportCreate
     | ModbusTcpTransportCreate
     | MbusTransportCreate
-    | BacnetTransportCreate,
+    | BacnetTransportCreate
+    | WebhookTransportCreate,
     Field(discriminator="protocol"),
 ]
 
