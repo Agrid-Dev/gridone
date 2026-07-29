@@ -7,12 +7,33 @@ import { WidgetFrame } from "./WidgetFrame";
 import { WidgetView } from "./registry";
 import type { WidgetFormValues } from "./WidgetForm";
 
-/** Grid footprint of a widget being created, until the backend assigns the
- *  registered default size for its type on add. */
+/** Footprint used when a type's schema doesn't declare one (older backend). */
 export const DEFAULT_PREVIEW_SIZE: Pick<WidgetLayout, "w" | "h"> = {
   w: 4,
   h: 2,
 };
+
+/**
+ * The footprint a new widget of this type will get, read from the
+ * `x-default-size` the backend registry ships alongside each config schema.
+ *
+ * The registry owns sizing, so the preview asks it rather than guessing — a
+ * chart previewed at the text widget's 4x2 is far too small to judge.
+ */
+export function widgetDefaultSize(
+  schema: Record<string, unknown> | undefined,
+): Pick<WidgetLayout, "w" | "h"> {
+  const size = schema?.["x-default-size"];
+  if (
+    typeof size === "object" &&
+    size !== null &&
+    typeof (size as { w?: unknown }).w === "number" &&
+    typeof (size as { h?: unknown }).h === "number"
+  ) {
+    return size as Pick<WidgetLayout, "w" | "h">;
+  }
+  return DEFAULT_PREVIEW_SIZE;
+}
 
 /** Width the grid gets on a typical desktop dashboard (the max-w-7xl main
  *  column minus its padding). The preview renders at that scale so a widget is

@@ -12,6 +12,7 @@ from dashboards.models import (
 )
 from dashboards.service import DashboardsService
 from dashboards.widgets import (
+    ChartWidgetConfig,
     TextWidgetConfig,
     WidgetConfig,
     WidgetRegistry,
@@ -21,6 +22,7 @@ from dashboards.widgets import (
 )
 
 __all__ = [
+    "ChartWidgetConfig",
     "Dashboard",
     "DashboardCreate",
     "DashboardPatch",

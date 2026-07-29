@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
+from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -89,8 +90,21 @@ class WidgetRegistry:
         return self.get(type_).default_size
 
     def schemas(self) -> dict[str, dict[str, Any]]:
-        """Return a JSON Schema per registered type via ``model_json_schema``."""
-        return {t: wt.config_model.model_json_schema() for t, wt in self._types.items()}
+        """Return a JSON Schema per registered type via ``model_json_schema``.
+
+        Each schema carries the type's default size under the ``x-default-size``
+        vendor extension. The registry owns sizing, so shipping it alongside the
+        schema keeps one source of truth — the editor previews a widget at the
+        footprint it will actually get, instead of guessing. Consumers that only
+        validate ignore the extra key.
+        """
+        return {
+            t: {
+                **wt.config_model.model_json_schema(),
+                "x-default-size": asdict(wt.default_size),
+            }
+            for t, wt in self._types.items()
+        }
 
     def types(self) -> list[str]:
         return list(self._types)
@@ -99,7 +113,10 @@ class WidgetRegistry:
 def build_default_registry() -> WidgetRegistry:
     """Build the registry with the built-in widget types registered.
 
-    ``text`` is the only type today — a placeholder widget at 4x2 grid cells.
+    ``text`` is the placeholder widget at 4x2 grid cells. ``chart`` takes half
+    the 12-column grid and enough rows to give the plot roughly the height it
+    has on the device history page — a time axis squeezed into a small tile is
+    unreadable.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -107,6 +124,13 @@ def build_default_registry() -> WidgetRegistry:
             type="text",
             config_model=TextWidgetConfig,
             default_size=WidgetSize(w=4, h=2),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="chart",
+            config_model=ChartWidgetConfig,
+            default_size=WidgetSize(w=6, h=5),
         )
     )
     return registry

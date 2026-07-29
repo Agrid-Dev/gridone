@@ -11,6 +11,7 @@ import * as z from "zod";
 import { useTranslation } from "react-i18next";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SchemaField, type JsonSchema } from "@/components/forms/SchemaField";
+import { widgetConfigFields } from "./registry";
 
 export interface WidgetFormValues {
   title: string;
@@ -144,24 +145,30 @@ export function WidgetForm({
   const configProps = Object.entries(schema.properties ?? {}).filter(
     ([name]) => name !== "type",
   );
+  const control = form.control as unknown as Control<FieldValues>;
+  const ConfigFields = widgetConfigFields[type];
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-4">
       <InputController
         name="title"
-        control={form.control as unknown as Control<FieldValues>}
+        control={control}
         label={t("widgets.fields.title")}
       />
-      {configProps.map(([name, prop]) => (
-        <SchemaField
-          key={name}
-          name={`config.${name}`}
-          propName={name}
-          schema={prop}
-          control={form.control as unknown as Control<FieldValues>}
-          required={required.has(name)}
-        />
-      ))}
+      {ConfigFields ? (
+        <ConfigFields control={control} />
+      ) : (
+        configProps.map(([name, prop]) => (
+          <SchemaField
+            key={name}
+            name={`config.${name}`}
+            propName={name}
+            schema={prop}
+            control={control}
+            required={required.has(name)}
+          />
+        ))
+      )}
     </form>
   );
 }

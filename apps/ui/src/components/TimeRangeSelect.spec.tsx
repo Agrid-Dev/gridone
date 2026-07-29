@@ -7,12 +7,12 @@ import { TimeRangeSelect } from "./TimeRangeSelect";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "deviceDetails.rangeAll": "All time",
-    "deviceDetails.rangeCustom": "Custom range",
-    "deviceDetails.rangeApply": "Apply",
-    "deviceDetails.rangeLastMinutes": "Last {{count}} min",
-    "deviceDetails.rangeLastHours": "Last {{count}}h",
-    "deviceDetails.rangeLastDays": "Last {{count}}d",
+    "timeRange.rangeAll": "All time",
+    "timeRange.rangeCustom": "Custom range",
+    "timeRange.rangeApply": "Apply",
+    "timeRange.rangeLastMinutes": "Last {{count}} min",
+    "timeRange.rangeLastHours": "Last {{count}}h",
+    "timeRange.rangeLastDays": "Last {{count}}d",
   }),
 );
 

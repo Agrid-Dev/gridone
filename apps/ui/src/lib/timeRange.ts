@@ -49,21 +49,28 @@ export function resolveTimeRange(range: TimeRange): {
   return { last: range.preset };
 }
 
-export function rangeLabel(range: TimeRange, t: TFunction<"devices">): string {
+export function rangeLabel(range: TimeRange, t: TFunction<"common">): string {
   if (range.kind === "custom") {
-    return t("deviceDetails.rangeCustom");
+    return t("timeRange.rangeCustom");
   }
   if (range.preset === "all") {
-    return t("deviceDetails.rangeAll");
+    return t("timeRange.rangeAll");
   }
   const option = PRESET_OPTIONS.find((o) => o.value === range.preset);
   if (!option) return range.preset;
-  return t(
-    `deviceDetails.${option.unitKey}` as "deviceDetails.rangeLastMinutes",
-    {
-      count: option.count,
-    },
-  );
+  return t(`timeRange.${option.unitKey}` as "timeRange.rangeLastMinutes", {
+    count: option.count,
+  });
+}
+
+/**
+ * Whether the range tracks the present — a preset (always relative to now) or
+ * a custom range with an open end. Views that must stay current on an unattended
+ * screen poll only while this holds; a closed custom range is settled history
+ * and never needs a refetch.
+ */
+export function rangeEndsNow(range: TimeRange): boolean {
+  return range.kind === "preset" || !range.end;
 }
 
 const VALID_PRESETS = new Set<string>([
