@@ -3,7 +3,6 @@ import logging
 from devices_manager.core.transports import PushTransportClient
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.listener_registry import ListenerCallback
-from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.ingress import IngressRequest, IngressResult
 from devices_manager.types import AttributeValueType, TransportProtocols
 from models.errors import InvalidError
@@ -25,19 +24,17 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
 
     Topics are matched exactly — each device subscribes to its rendered path
     (e.g. ``${room_id}/snapshot``). Wildcard matching is out of scope.
+
+    Push-only: reads and writes both raise. A read served from a cache would
+    log a READ-ok entry and flip the connection status back to OK, masking
+    the silence the watchdog just detected — so drivers using this transport
+    must not poll (enforced at driver validation).
     """
 
     _config_builder = WebhookTransportConfig
     protocol = TransportProtocols.WEBHOOK
     address_builder = WebhookAddress
     config: WebhookTransportConfig
-
-    def __init__(
-        self, metadata: TransportMetadata, config: WebhookTransportConfig
-    ) -> None:
-        super().__init__(metadata, config)
-        # Last decoded payload per subscribed topic, serving `_read`.
-        self._last_payloads: dict[str, str] = {}
 
     async def connect(self) -> None:
         await super().connect()
@@ -63,8 +60,6 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
         verify_ingress_auth(self.config, request.headers, request.payload)
         payload = self._decode_payload(request.payload)
         callbacks = self._handlers_registry.get_by_address_id(request.topic)
-        if callbacks:
-            self._last_payloads[request.topic] = payload
         for callback in callbacks:
             try:
                 callback(payload)
@@ -80,14 +75,9 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
             msg = "Payload must be valid UTF-8"
             raise InvalidError(msg) from e
 
-    async def _read(self, address: WebhookAddress) -> AttributeValueType:
-        """Return the last payload pushed on the topic — a webhook cannot
-        solicit data, so a read is served from what was already received."""
-        try:
-            return self._last_payloads[address.topic]
-        except KeyError as e:
-            msg = f"Webhook: no message received on topic {address.topic} yet"
-            raise TimeoutError(msg) from e
+    async def _read(self, address: WebhookAddress) -> AttributeValueType:  # noqa: ARG002
+        msg = "Webhook transport is ingress-only and does not support reads"
+        raise InvalidError(msg)
 
     async def write(
         self,

@@ -36,6 +36,20 @@ def validate_polling_groups(
             raise InvalidError(msg)
 
 
+def validate_push_only_polling(
+    transport: TransportProtocols, update_strategy: UpdateStrategy
+) -> None:
+    """Reject polling on push-only transports.
+
+    A webhook transport cannot solicit data — its reads raise — so polling
+    would only pile up READ-error log entries and degrade the connection
+    status of a device that is perfectly alimented by pushes.
+    """
+    if transport == TransportProtocols.WEBHOOK and update_strategy.polling_enabled:
+        msg = "Webhook drivers are push-only: polling cannot be enabled"
+        raise InvalidError(msg)
+
+
 @dataclass
 class Driver:
     metadata: DriverMetadata
@@ -51,6 +65,7 @@ class Driver:
 
     def __post_init__(self) -> None:
         validate_polling_groups(self.update_strategy, self.attributes.values())
+        validate_push_only_polling(self.transport, self.update_strategy)
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))
 

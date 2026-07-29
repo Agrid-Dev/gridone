@@ -3628,6 +3628,27 @@ export interface operations {
           "application/json": components["schemas"]["IngressResult"];
         };
       };
+      /** @description Invalid push credentials */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown or non-ingress transport */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Payload over 1 MiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Validation Error */
       422: {
         headers: {

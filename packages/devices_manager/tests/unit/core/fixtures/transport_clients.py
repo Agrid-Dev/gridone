@@ -22,6 +22,10 @@ from devices_manager.core.transports.listener_registry import (
     ListenerRegistry,
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
+from devices_manager.core.transports.webhook_transport import (
+    WebhookTransportClient,
+    WebhookTransportConfig,
+)
 from devices_manager.types import AttributeValueType, TransportProtocols
 
 if TYPE_CHECKING:
@@ -213,3 +217,9 @@ def mock_push_transport_client() -> MockPushTransportClient:
 @pytest.fixture
 def mock_transport_metadata() -> TransportMetadata:
     return TransportMetadata(id="my-transport", name="My Transport")
+
+
+@pytest.fixture
+def webhook_transport_client() -> WebhookTransportClient:
+    metadata = TransportMetadata(id="my-webhook", name="My Webhook")
+    return WebhookTransportClient(metadata, WebhookTransportConfig(auth="none"))

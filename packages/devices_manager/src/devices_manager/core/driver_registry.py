@@ -9,7 +9,10 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
-from devices_manager.core.driver.driver import validate_polling_groups
+from devices_manager.core.driver.driver import (
+    validate_polling_groups,
+    validate_push_only_polling,
+)
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.dto import (
@@ -164,6 +167,7 @@ class DriverRegistry:
                 update=patch.update_strategy.model_dump(exclude_unset=True)
             )
             validate_polling_groups(merged_strategy, driver.attributes.values())
+            validate_push_only_polling(driver.transport, merged_strategy)
         metadata_fields = DriverMetadata.model_fields
         for field in patch.model_fields_set:
             if field == "update_strategy" and merged_strategy is not None:

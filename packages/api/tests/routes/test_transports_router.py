@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -228,6 +229,21 @@ class TestIngress:
             "/my-webhook/ingress/topic",
             content=b"x" * (MAX_INGRESS_BODY_BYTES + 1),
         )
+        assert response.status_code == 413
+        dm.get_transport_ingress.assert_not_called()
+
+    def test_oversized_chunked_body_returns_413(
+        self, client: TestClient, dm: MagicMock
+    ):
+        # A chunked request carries no content-length, so only the streaming
+        # accumulator can stop it — the guard that matters on a public
+        # endpoint (a hostile client can also just lie in content-length).
+        def chunks() -> Iterator[bytes]:
+            for _ in range(3):
+                yield b"x" * (MAX_INGRESS_BODY_BYTES // 2)
+
+        dm.get_transport_ingress.return_value = _FakeIngressTarget()
+        response = client.post("/my-webhook/ingress/topic", content=chunks())
         assert response.status_code == 413
         dm.get_transport_ingress.assert_not_called()
 

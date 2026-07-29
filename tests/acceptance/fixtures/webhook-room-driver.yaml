@@ -1,0 +1,37 @@
+# Webhook driver for the ingress acceptance suite. No emulator: the tests
+# themselves push snapshots to POST /transports/{id}/ingress/${room_id}/snapshot.
+#
+# Push-only: reads and writes are unsupported on the webhook transport, and
+# polling is disabled automatically (declaring polling_enabled: true is a
+# validation error). Health relies on the silence watchdog via
+# healthcheck.expected_push_interval.
+id: acceptance_webhook_room
+transport: webhook
+
+healthcheck:
+  expected_push_interval: 5s
+
+device_config:
+  - name: room_id
+
+attributes:
+  - name: temperature
+    data_type: float
+    read:
+      topic: ${room_id}/snapshot
+    codecs:
+      - json_pointer: /temperature
+
+  - name: humidity
+    data_type: float
+    read:
+      topic: ${room_id}/snapshot
+    codecs:
+      - json_pointer: /humidity
+
+  - name: occupancy
+    data_type: bool
+    read:
+      topic: ${room_id}/snapshot
+    codecs:
+      - json_pointer: /occupancy

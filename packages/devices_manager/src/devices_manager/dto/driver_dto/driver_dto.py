@@ -1,7 +1,15 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 import yaml as pyyaml
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    field_validator,
+    model_validator,
+)
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
@@ -52,6 +60,24 @@ class DriverSpec(ResourceMetadata):
     attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
     type: str | None = None
+
+    @model_validator(mode="after")
+    def _disable_polling_on_push_only_transport(self) -> Self:
+        """Webhook is push-only (reads raise), so polling would only log
+        READ errors and degrade a healthy device. An explicit
+        ``polling_enabled: true`` is a contradiction and is rejected; a
+        driver that simply omits it gets polling disabled instead of the
+        polling default.
+        """
+        if (
+            self.transport == TransportProtocols.WEBHOOK
+            and self.update_strategy.polling_enabled
+        ):
+            if "polling_enabled" in self.update_strategy.model_fields_set:
+                msg = "Webhook drivers are push-only: polling cannot be enabled"
+                raise ValueError(msg)
+            self.update_strategy.polling_enabled = False
+        return self
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverSpec":

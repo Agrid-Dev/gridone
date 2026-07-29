@@ -57,7 +57,14 @@ async def _read_limited_body(request: Request) -> bytes:
     return b"".join(chunks)
 
 
-@ingress_router.post("/{transport_id}/ingress/{topic:path}")
+@ingress_router.post(
+    "/{transport_id}/ingress/{topic:path}",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Invalid push credentials"},
+        status.HTTP_404_NOT_FOUND: {"description": "Unknown or non-ingress transport"},
+        status.HTTP_413_CONTENT_TOO_LARGE: {"description": "Payload over 1 MiB"},
+    },
+)
 async def ingress_message(
     transport_id: str,
     topic: str,
@@ -76,7 +83,10 @@ async def ingress_message(
             query=dict(request.query_params),
         )
     )
-    ingress_logger.info(
+    # Nominal pushes stay at debug (an app pushing every few seconds would
+    # flood the log); an unmatched topic is the case worth surfacing.
+    log = ingress_logger.info if result.matched == 0 else ingress_logger.debug
+    log(
         "Ingress on transport %s topic %s: %d bytes, %d listener(s) matched",
         transport_id,
         topic,

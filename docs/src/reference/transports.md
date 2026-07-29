@@ -166,7 +166,7 @@ POST /transports/{transport_id}/ingress/{topic}
 
 Everything after `/ingress/` is the **topic** (it may contain slashes, e.g. `room1/snapshot`). The raw request body is the message payload. Topics are matched **exactly** against the read topics of registered device attributes — no MQTT-style wildcards. A push on a topic with no subscribed attribute returns `200 {"matched": 0}`: this is a valid outcome (for example a push racing device provisioning), not an error.
 
-**Read flow** — a read (refresh, `read_device`) returns the last payload received on the attribute's topic, and times out if nothing has been pushed yet.
+**Read flow** — not supported. The transport cannot solicit data, so on-demand reads (refresh, `read_device`) fail with a `422`; attribute values only move when a message is pushed. For the same reason webhook drivers must not poll: an explicit `polling_enabled: true` is rejected at driver validation, and a driver that omits the setting gets polling disabled automatically.
 
 **Write flow** — not supported.
 

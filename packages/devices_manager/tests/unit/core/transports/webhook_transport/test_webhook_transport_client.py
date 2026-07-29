@@ -159,29 +159,16 @@ class TestIngressAuth:
 
 
 @pytest.mark.asyncio
-class TestRead:
-    async def test_read_before_any_push_times_out(self, client) -> None:
+class TestReadWrite:
+    """The transport is push-only: a cached read would log a READ-ok entry
+    and mask watchdog-detected silence, so both directions raise."""
+
+    async def test_read_is_not_supported(self, client) -> None:
         await client.register_listener(TOPIC, lambda _: None)
-        with pytest.raises(TimeoutError, match="no message received"):
+        await client.ingress(_request())
+        with pytest.raises(InvalidError, match="ingress-only"):
             await client.read(WebhookAddress(topic=TOPIC))
 
-    async def test_read_returns_last_received_payload(self, client) -> None:
-        await client.register_listener(TOPIC, lambda _: None)
-        await client.ingress(_request(payload=b'{"temperature": 20}'))
-        await client.ingress(_request(payload=b'{"temperature": 22}'))
-        assert await client.read(WebhookAddress(topic=TOPIC)) == '{"temperature": 22}'
-
-    async def test_unsubscribed_topics_are_not_cached(self, client) -> None:
-        # A push on a topic without listeners is dropped, not stored, so
-        # arbitrary topics cannot grow the payload cache.
-        await client.ingress(_request(topic="unknown/topic"))
-        await client.register_listener("unknown/topic", lambda _: None)
-        with pytest.raises(TimeoutError):
-            await client.read(WebhookAddress(topic="unknown/topic"))
-
-
-@pytest.mark.asyncio
-class TestWrite:
     async def test_write_is_not_supported(self, client) -> None:
         with pytest.raises(InvalidError, match="ingress-only"):
             await client.write(WebhookAddress(topic=TOPIC), 21.5)

@@ -1,77 +1,36 @@
 """End-to-end webhook pipeline at the device level: an HTTP push entering
 through the `MessageIngress` port flows listener -> codecs -> attributes,
-and device health follows the silence watchdog like any push transport."""
+and device health follows the silence watchdog like any push transport.
+
+The `webhook_driver` / `webhook_transport_client` fixtures come from
+tests/unit/core/fixtures (shared via conftest).
+"""
 
 from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
-from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import Attribute, CoreDevice, DeviceBase
 from devices_manager.core.device.connection_status import (
     CONNECTION_STATUS_ATTR,
     SILENCE_DEGRADED_MULTIPLIER,
     SILENCE_ERROR_MULTIPLIER,
 )
-from devices_manager.core.driver import (
-    AttributeDriver,
-    Driver,
-    DriverMetadata,
-    HealthCheck,
-    UpdateStrategy,
-)
-from devices_manager.core.transports.transport_metadata import TransportMetadata
-from devices_manager.core.transports.webhook_transport import (
-    WebhookTransportClient,
-    WebhookTransportConfig,
-)
 from devices_manager.ingress import IngressRequest
-from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
+from devices_manager.types import ConnectionStatus
+from models.errors import InvalidError
 
-WATCHDOG_INTERVAL = 1
+if TYPE_CHECKING:
+    from devices_manager.core.driver import Driver
+    from devices_manager.core.transports.webhook_transport import (
+        WebhookTransportClient,
+    )
+
 TICK = 0.05
-
-
-@pytest.fixture
-def webhook_client() -> WebhookTransportClient:
-    return WebhookTransportClient(
-        TransportMetadata(id="my-webhook", name="My Webhook"),
-        WebhookTransportConfig(auth="none"),
-    )
-
-
-@pytest.fixture
-def webhook_driver() -> Driver:
-    """Snapshot driver: both attributes subscribe to a templated topic and
-    decode their own field from the pushed JSON via `json_pointer`."""
-    attributes = [
-        AttributeDriver(
-            name="temperature",
-            data_type=DataType.FLOAT,
-            read={"topic": "${room_id}/snapshot"},
-            write=None,
-            codecs=[CodecSpec(name="json_pointer", argument="/temperature")],
-        ),
-        AttributeDriver(
-            name="humidity",
-            data_type=DataType.FLOAT,
-            read={"topic": "${room_id}/snapshot"},
-            write=None,
-            codecs=[CodecSpec(name="json_pointer", argument="/humidity")],
-        ),
-    ]
-    return Driver(
-        metadata=DriverMetadata(id="webhook_snapshot_driver"),
-        env={},
-        device_config_required=[],
-        transport=TransportProtocols.WEBHOOK,
-        update_strategy=UpdateStrategy(polling_enabled=False),
-        healthcheck=HealthCheck(expected_push_interval=WATCHDOG_INTERVAL),
-        attributes={a.name: a for a in attributes},
-    )
 
 
 def _make_device(
@@ -95,33 +54,33 @@ def _snapshot(temperature: float, humidity: float) -> IngressRequest:
 @pytest.mark.asyncio
 class TestWebhookIngressPipeline:
     async def test_push_decodes_snapshot_into_attributes(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.init_listeners()
 
-        result = await webhook_client.ingress(_snapshot(21.5, 55.0))
+        result = await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
 
         assert result.matched == 2
         assert device.attributes["temperature"].current_value == 21.5
         assert device.attributes["humidity"].current_value == 55.0
 
     async def test_topic_is_rendered_from_device_config(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.init_listeners()
 
         other_room = IngressRequest(
             topic="room2/snapshot", payload=b'{"temperature": 1, "humidity": 2}'
         )
-        result = await webhook_client.ingress(other_room)
+        result = await webhook_transport_client.ingress(other_room)
 
         assert result.matched == 0
         assert device.attributes["temperature"].current_value is None
 
     async def test_on_update_fires_on_change_only(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
         updates: list[str] = []
 
@@ -136,29 +95,35 @@ class TestWebhookIngressPipeline:
             if attribute_name != CONNECTION_STATUS_ATTR:
                 updates.append(attribute_name)
 
-        device = _make_device(webhook_driver, webhook_client, on_update=on_update)
+        device = _make_device(
+            webhook_driver, webhook_transport_client, on_update=on_update
+        )
         await device.init_listeners()
 
-        await webhook_client.ingress(_snapshot(21.5, 55.0))
+        await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
         assert sorted(updates) == ["humidity", "temperature"]
 
         # Same values again: no change, no update events.
-        await webhook_client.ingress(_snapshot(21.5, 55.0))
+        await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
         assert len(updates) == 2
 
         # One value changes: exactly one more event.
-        await webhook_client.ingress(_snapshot(22.0, 55.0))
+        await webhook_transport_client.ingress(_snapshot(22.0, 55.0))
         assert sorted(updates) == ["humidity", "temperature", "temperature"]
 
-    async def test_refresh_reads_last_pushed_payload(
-        self, webhook_driver, webhook_client
+    async def test_on_demand_read_is_rejected(
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        # Push-only: a read cannot solicit data, and serving it from a cache
+        # would log a READ-ok entry masking watchdog-detected silence.
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.init_listeners()
-        await webhook_client.ingress(_snapshot(21.5, 55.0))
+        await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
 
-        attribute = await device.read_attribute_value("temperature")
-        assert attribute == 21.5
+        with pytest.raises(InvalidError, match="ingress-only"):
+            await device.read_attribute_value("temperature")
+        # The pushed value is untouched by the failed read.
+        assert device.attributes["temperature"].current_value == 21.5
 
 
 def _silence(device: CoreDevice, multiplier: float) -> None:
@@ -176,9 +141,9 @@ class TestWebhookSilenceWatchdog:
     silence watchdog fed by `healthcheck.expected_push_interval`."""
 
     async def test_degraded_after_double_interval_silence(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
         _silence(device, SILENCE_DEGRADED_MULTIPLIER + 0.5)
         await asyncio.sleep(TICK)
@@ -189,9 +154,9 @@ class TestWebhookSilenceWatchdog:
         await device.stop_sync()
 
     async def test_error_after_triple_interval_silence(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
         _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
         await asyncio.sleep(TICK)
@@ -201,11 +166,11 @@ class TestWebhookSilenceWatchdog:
         await device.stop_sync()
 
     async def test_push_keeps_device_healthy(
-        self, webhook_driver, webhook_client
+        self, webhook_driver, webhook_transport_client
     ) -> None:
-        device = _make_device(webhook_driver, webhook_client)
+        device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
-        await webhook_client.ingress(_snapshot(21.5, 55.0))
+        await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
         await asyncio.sleep(TICK)
         assert device.get_attribute_value(CONNECTION_STATUS_ATTR) not in (
             ConnectionStatus.DEGRADED,

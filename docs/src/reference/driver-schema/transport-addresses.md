@@ -126,7 +126,7 @@ Read addresses have a `topic` matched **exactly** (no wildcards) against the pat
 read: ${room_id}/snapshot
 ```
 
-The transport is ingress-only: there is no `request` field (nothing can be solicited) and `write` addresses are not supported. Declare `healthcheck.expected_push_interval` so device health tracks push silence — see [Healthcheck](healthcheck.md).
+The transport is ingress-only: there is no `request` field (nothing can be solicited), on-demand reads fail, and `write` addresses are not supported. Polling is disabled automatically (declaring `polling_enabled: true` is a validation error). Declare `healthcheck.expected_push_interval` so device health tracks push silence — see [Healthcheck](healthcheck.md).
 
 ---
 
