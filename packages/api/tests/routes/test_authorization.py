@@ -28,7 +28,7 @@ from api.dependencies import (
     get_ts_service,
     get_users_service,
 )
-from api.routes.apps import apps_registration_router
+from api.routes.apps import apps_registration_router, apps_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
 from api.routes.dashboards_router import router as dashboards_router
@@ -39,7 +39,13 @@ from api.routes.transports_router import ingress_router as transports_ingress_ro
 from api.routes.transports_router import router as transports_router
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
-from apps import App, AppStatus, RegistrationRequest, RegistrationRequestStatus
+from apps import (
+    App,
+    AppsService,
+    AppStatus,
+    RegistrationRequest,
+    RegistrationRequestStatus,
+)
 from devices_manager import IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
@@ -316,6 +322,102 @@ def test_registration_access_control(
             token = _login(client, username)
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers)
+        assert resp.status_code == expected_status
+
+
+# --- Apps config/enable/disable RBAC (users:write gated) ---
+
+_APPS_ROUTER_APP = App(
+    id="app-1",
+    user_id="u-1",
+    name="x",
+    description="",
+    api_url="http://x",
+    icon="",
+    status=AppStatus.REGISTERED,
+    manifest="",
+)
+
+
+def _build_apps_router_mock() -> AsyncMock:
+    svc = AsyncMock(spec=AppsService)
+    svc.get_config_schema.return_value = {"type": "object", "properties": {}}
+    svc.get_config.return_value = {}
+    svc.update_config.return_value = _APPS_ROUTER_APP
+    svc.enable_app.return_value = _APPS_ROUTER_APP
+    svc.disable_app.return_value = _APPS_ROUTER_APP
+    return svc
+
+
+def _build_apps_router_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_apps_service] = _build_apps_router_mock
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(apps_router, prefix="/apps", dependencies=jwt_dep)
+    return app
+
+
+@pytest.fixture
+def apps_router_app() -> FastAPI:
+    return _build_apps_router_app()
+
+
+APPS_ROUTER_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param(
+        "GET", "/apps/app-1/config/schema", "admin", 200, id="config-schema-admin"
+    ),
+    pytest.param(
+        "GET",
+        "/apps/app-1/config/schema",
+        "operator",
+        403,
+        id="config-schema-operator",
+    ),
+    pytest.param(
+        "GET", "/apps/app-1/config/schema", None, 401, id="config-schema-no-auth"
+    ),
+    pytest.param("GET", "/apps/app-1/config", "admin", 200, id="get-config-admin"),
+    pytest.param(
+        "GET", "/apps/app-1/config", "operator", 403, id="get-config-operator"
+    ),
+    pytest.param("GET", "/apps/app-1/config", None, 401, id="get-config-no-auth"),
+    pytest.param("PATCH", "/apps/app-1/config", "admin", 200, id="patch-config-admin"),
+    pytest.param(
+        "PATCH", "/apps/app-1/config", "operator", 403, id="patch-config-operator"
+    ),
+    pytest.param("PATCH", "/apps/app-1/config", None, 401, id="patch-config-no-auth"),
+    pytest.param("POST", "/apps/app-1/enable", "admin", 200, id="enable-admin"),
+    pytest.param("POST", "/apps/app-1/enable", "operator", 403, id="enable-operator"),
+    pytest.param("POST", "/apps/app-1/enable", None, 401, id="enable-no-auth"),
+    pytest.param("POST", "/apps/app-1/disable", "admin", 200, id="disable-admin"),
+    pytest.param("POST", "/apps/app-1/disable", "operator", 403, id="disable-operator"),
+    pytest.param("POST", "/apps/app-1/disable", None, 401, id="disable-no-auth"),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status"),
+    APPS_ROUTER_ACCESS_CONTROL_SCENARIOS,
+)
+def test_apps_router_access_control(
+    apps_router_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+) -> None:
+    with TestClient(apps_router_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        body = {"lat": 1} if method == "PATCH" else None
+        resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status
 
 

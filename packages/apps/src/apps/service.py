@@ -67,9 +67,7 @@ class AppsService(Service):
     async def get_config(self, app_id: str) -> dict[str, Any]:
         return await self._apps_manager.get_config(app_id)
 
-    async def update_config(
-        self, app_id: str, config: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def update_config(self, app_id: str, config: dict[str, Any]) -> App:
         return await self._apps_manager.update_config(app_id, config)
 
     async def enable_app(self, app_id: str) -> App:

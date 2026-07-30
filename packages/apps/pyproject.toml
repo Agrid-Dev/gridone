@@ -10,6 +10,7 @@ dependencies = [
     "gridone-models",
     "gridone-users",
     "httpx>=0.28.0",
+    "jsonschema>=4",
     "pydantic>=2.12.4",
     "pyyaml>=6.0.3",
 ]

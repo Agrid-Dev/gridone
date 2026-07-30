@@ -1,6 +1,7 @@
 import type { RequestFn } from "../http/httpClient";
 import type {
   App,
+  AppConfigResult,
   RegistrationRequestCreateBody,
   RegistrationRequestResponse,
 } from "../types";
@@ -76,7 +77,7 @@ export class AppsResource {
   updateConfig(
     appId: string,
     config: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<AppConfigResult> {
     return this.request("PATCH", `/apps/${encodeURIComponent(appId)}/config`, {
       body: config,
     });

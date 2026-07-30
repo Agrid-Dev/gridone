@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
@@ -35,6 +36,12 @@ class AppStatus(StrEnum):
     UNHEALTHY = "unhealthy"
 
 
+class PushStatus(StrEnum):
+    OK = "ok"
+    PENDING = "pending"
+    REJECTED = "rejected"
+
+
 class App(BaseModel):
     id: str
     user_id: str
@@ -45,6 +52,11 @@ class App(BaseModel):
     status: AppStatus = AppStatus.REGISTERED
     manifest: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # Excluded from serialization: GET /apps and GET /apps/{id} are readable by
+    # any authenticated user, but config may hold secrets. Reads go through
+    # GET /apps/{id}/config instead, which is gated behind users:write.
+    config: dict[str, Any] | None = Field(default=None, exclude=True)
+    push_status: PushStatus | None = None
 
     @field_validator("api_url")
     @classmethod
@@ -69,6 +81,7 @@ __all__ = [
     "REQUIRED_CONFIG_FIELDS",
     "App",
     "AppStatus",
+    "PushStatus",
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",

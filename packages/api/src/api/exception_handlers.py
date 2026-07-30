@@ -58,4 +58,4 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def app_unreachable_handler(
         request: Request, exc: AppUnreachableError
     ) -> JSONResponse:
-        return JSONResponse(status_code=502, content={"detail": "App is unreachable"})
+        return JSONResponse(status_code=503, content={"detail": "App is unreachable"})

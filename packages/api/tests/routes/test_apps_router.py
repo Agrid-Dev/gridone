@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from api.dependencies import get_apps_service, get_current_token_payload
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
-from apps import App, AppStatus
+from apps import App, AppStatus, PushStatus
 from apps.errors import AppUnreachableError
 from models.errors import InvalidError, NotFoundError
 from users.auth import TokenPayload
@@ -47,6 +47,9 @@ DUMMY_SCHEMA = {
     "required": ["lat", "lng"],
 }
 DUMMY_CONFIG = {"lat": 48.8, "lng": 2.3}
+DUMMY_APP_WITH_CONFIG = DUMMY_APP.model_copy(
+    update={"config": DUMMY_CONFIG, "push_status": PushStatus.OK}
+)
 
 
 @pytest.fixture
@@ -58,7 +61,7 @@ def apps_service() -> AsyncMock:
     service.disable_app = AsyncMock(return_value=DUMMY_APP)
     service.get_config_schema = AsyncMock(return_value=DUMMY_SCHEMA)
     service.get_config = AsyncMock(return_value=DUMMY_CONFIG)
-    service.update_config = AsyncMock(return_value=DUMMY_CONFIG)
+    service.update_config = AsyncMock(return_value=DUMMY_APP_WITH_CONFIG)
     return service
 
 
@@ -142,7 +145,7 @@ def test_get_config_schema_app_unreachable(app: FastAPI, apps_service: AsyncMock
     )
     with TestClient(app) as client:
         resp = client.get("/apps/app-1/config/schema")
-        assert resp.status_code == 502
+        assert resp.status_code == 503
 
 
 # ── GET /apps/{app_id}/config ──────────────────────────────
@@ -155,15 +158,6 @@ def test_get_config(app: FastAPI):
         assert resp.json() == {"lat": 48.8, "lng": 2.3}
 
 
-def test_get_config_app_unreachable(app: FastAPI, apps_service: AsyncMock):
-    apps_service.get_config = AsyncMock(
-        side_effect=AppUnreachableError("App unreachable")
-    )
-    with TestClient(app) as client:
-        resp = client.get("/apps/app-1/config")
-        assert resp.status_code == 502
-
-
 # ── PATCH /apps/{app_id}/config ────────────────────────────
 
 
@@ -171,6 +165,7 @@ def test_update_config(app: FastAPI, apps_service: AsyncMock):
     with TestClient(app) as client:
         resp = client.patch("/apps/app-1/config", json={"lat": 40.7, "lng": -74.0})
         assert resp.status_code == 200
+        assert resp.json() == {"config": DUMMY_CONFIG, "push_status": "ok"}
         apps_service.update_config.assert_called_once_with(
             "app-1", {"lat": 40.7, "lng": -74.0}
         )
@@ -178,7 +173,7 @@ def test_update_config(app: FastAPI, apps_service: AsyncMock):
 
 def test_update_config_validation_error(app: FastAPI, apps_service: AsyncMock):
     apps_service.update_config = AsyncMock(
-        side_effect=InvalidError("App returned 422: lat must be between -90 and 90")
+        side_effect=InvalidError("Config validation failed: lat: 999 is too large")
     )
     with TestClient(app) as client:
         resp = client.patch("/apps/app-1/config", json={"lat": 999})
@@ -191,7 +186,7 @@ def test_update_config_app_unreachable(app: FastAPI, apps_service: AsyncMock):
     )
     with TestClient(app) as client:
         resp = client.patch("/apps/app-1/config", json={"lat": 40.7})
-        assert resp.status_code == 502
+        assert resp.status_code == 503
 
 
 # ── POST /apps/{app_id}/enable ───────────────────────────────

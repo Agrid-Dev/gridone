@@ -1,8 +1,9 @@
+import json
 from datetime import UTC
 
 import asyncpg
 
-from apps.models import App, AppStatus
+from apps.models import App, AppStatus, PushStatus
 
 
 class PostgresAppStorage:
@@ -17,6 +18,8 @@ class PostgresAppStorage:
         created_at = row["created_at"]
         if created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=UTC)
+        config_raw = row["config"]
+        push_status = row["push_status"]
         return App(
             id=row["id"],
             user_id=row["user_id"],
@@ -27,6 +30,8 @@ class PostgresAppStorage:
             status=AppStatus(row["status"]),
             manifest=row["manifest"],
             created_at=created_at,
+            config=json.loads(config_raw) if config_raw is not None else None,
+            push_status=PushStatus(push_status) if push_status is not None else None,
         )
 
     async def get_by_id(self, app_id: str) -> App | None:
@@ -41,13 +46,15 @@ class PostgresAppStorage:
         created_at = app.created_at
         if created_at.tzinfo is not None:
             created_at = created_at.replace(tzinfo=None)
+        # asyncpg has no JSONB codec configured here, so encode/decode explicitly.
+        config_raw = json.dumps(app.config) if app.config is not None else None
         await self._pool.execute(
             """
             INSERT INTO apps (
                 id, user_id, name, description, api_url,
-                icon, status, manifest, created_at
+                icon, status, manifest, created_at, config, push_status
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
             ON CONFLICT (id) DO UPDATE SET
                 user_id = EXCLUDED.user_id,
                 name = EXCLUDED.name,
@@ -56,7 +63,9 @@ class PostgresAppStorage:
                 icon = EXCLUDED.icon,
                 status = EXCLUDED.status,
                 manifest = EXCLUDED.manifest,
-                created_at = EXCLUDED.created_at
+                created_at = EXCLUDED.created_at,
+                config = EXCLUDED.config,
+                push_status = EXCLUDED.push_status
             """,
             app.id,
             app.user_id,
@@ -67,6 +76,8 @@ class PostgresAppStorage:
             app.status,
             app.manifest,
             created_at,
+            config_raw,
+            app.push_status,
         )
 
     async def close(self) -> None:

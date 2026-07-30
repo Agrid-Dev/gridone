@@ -1,11 +1,13 @@
 import asyncio
 import contextlib
 import logging
+from typing import Any
 
 import httpx
 
+from apps.config_validation import validate_config
 from apps.errors import AppUnreachableError
-from apps.models import App, AppStatus
+from apps.models import App, AppStatus, PushStatus
 from apps.storage.storage_backend import AppStorageBackend
 from models.errors import InvalidError, NotFoundError
 from users import UsersServiceInterface
@@ -41,21 +43,62 @@ class AppsManager:
             raise NotFoundError(msg)
         return app
 
-    # ── Config proxy ──────────────────────────────────────────────────────
+    # ── Config ───────────────────────────────────────────────────────────
 
     async def get_config_schema(self, app_id: str) -> dict:
         app = await self.get_app(app_id)
         return await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
 
-    async def get_config(self, app_id: str) -> dict:
+    async def get_config(self, app_id: str) -> dict[str, Any]:
         app = await self.get_app(app_id)
-        return await self._proxy_app_request("GET", f"{app.api_url}/config")
+        return app.config or {}
 
-    async def update_config(self, app_id: str, config: dict) -> dict:
+    async def update_config(self, app_id: str, config: dict[str, Any]) -> App:
+        """Validate, store, then best-effort push a new config to the app.
+
+        The stored config is the source of truth: it is saved before the
+        push attempt (with `push_status=pending`) so it survives even if the
+        process dies mid-push. Nothing is stored if the schema fetch or the
+        validation fails.
+        """
         app = await self.get_app(app_id)
-        return await self._proxy_app_request(
-            "PATCH", f"{app.api_url}/config", json=config
+        schema = await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
+        validate_config(config, schema)
+
+        app = app.model_copy(
+            update={"config": config, "push_status": PushStatus.PENDING}
         )
+        await self._app_storage.save(app)
+
+        push_status = await self._push_config(app)
+        app = app.model_copy(update={"push_status": push_status})
+        await self._app_storage.save(app)
+        return app
+
+    async def _push_config(self, app: App) -> PushStatus:
+        """Best-effort delivery of an app's stored config to the app itself.
+
+        2xx -> ok, 4xx (the app rejects the config) -> rejected, anything
+        else (unreachable, 5xx, timeout) -> pending, since the health-loop
+        will retry delivery later.
+        """
+        try:
+            resp = await self._http_client.request(
+                "PATCH", f"{app.api_url}/config", timeout=10.0, json=app.config
+            )
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if 400 <= status < 500:  # noqa: PLR2004
+                return PushStatus.REJECTED
+            logger.warning("Push of config to %s failed with %s", app.api_url, status)
+            return PushStatus.PENDING
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "App unreachable while pushing config to %s: %s", app.api_url, exc
+            )
+            return PushStatus.PENDING
+        return PushStatus.OK
 
     async def _proxy_app_request(
         self, method: str, url: str, json: dict | None = None
