@@ -1365,6 +1365,9 @@ export interface components {
      *     data type admits, and what type each yields (``AGG_COMPAT``) — while other
      *     packages need only to name one. A dashboard widget storing ``"avg"`` in its
      *     config must not import the timeseries package to spell it.
+     *
+     *     What each operator means, and the corner cases of ``delta`` in particular,
+     *     are documented in ``packages/timeseries/README.md``.
      * @enum {string}
      */
     AggregationOperator:
@@ -1419,10 +1422,19 @@ export interface components {
        * Format: date-time
        */
       created_at?: string;
+      push_status?: components["schemas"]["PushStatus"] | null;
       /** Health Url */
       readonly health_url: string;
       /** Enable Url */
       readonly enable_url: string;
+    };
+    /** AppConfigResult */
+    AppConfigResult: {
+      /** Config */
+      config: {
+        [key: string]: unknown;
+      };
+      push_status: components["schemas"]["PushStatus"] | null;
     };
     /**
      * AppStatus
@@ -2858,6 +2870,11 @@ export interface components {
       /** Prev */
       prev?: string | null;
     };
+    /**
+     * PushStatus
+     * @enum {string}
+     */
+    PushStatus: "ok" | "pending" | "rejected";
     RawTransportAddress:
       | string
       | {
@@ -6790,19 +6807,22 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": components["schemas"]["AppConfigResult"];
         };
       };
-      /** @description Validation Error */
+      /** @description Invalid config */
       422: {
         headers: {
           [name: string]: unknown;
         };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+        content?: never;
+      };
+      /** @description App is unreachable or served an invalid config schema */
+      503: {
+        headers: {
+          [name: string]: unknown;
         };
+        content?: never;
       };
     };
   };

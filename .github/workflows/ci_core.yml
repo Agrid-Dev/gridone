@@ -23,6 +23,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      apps: ${{ steps.filter.outputs.apps }}
       assets: ${{ steps.filter.outputs.assets }}
       automations: ${{ steps.filter.outputs.automations }}
       commands: ${{ steps.filter.outputs.commands }}
@@ -46,6 +47,9 @@ jobs:
               - 'uv.lock'
               - 'docker/**'
               - '.github/workflows/ci_core.yml'
+            apps:
+              - *shared
+              - 'packages/apps/**'
             assets:
               - *shared
               - 'packages/assets/**'
@@ -128,6 +132,7 @@ jobs:
     # Skip on PRs that touch no integration-bearing package; always run on push to main.
     if: >-
       github.event_name != 'pull_request' ||
+      needs.changes.outputs.apps == 'true' ||
       needs.changes.outputs.assets == 'true' ||
       needs.changes.outputs.automations == 'true' ||
       needs.changes.outputs.commands == 'true' ||
@@ -195,6 +200,7 @@ jobs:
             uv run coverage run -m pytest -m integration
           else
             paths=()
+            [ "${{ needs.changes.outputs.apps }}" = "true" ] && paths+=(packages/apps)
             [ "${{ needs.changes.outputs.assets }}" = "true" ] && paths+=(packages/assets)
             [ "${{ needs.changes.outputs.automations }}" = "true" ] && paths+=(packages/automations)
             [ "${{ needs.changes.outputs.commands }}" = "true" ] && paths+=(packages/commands)

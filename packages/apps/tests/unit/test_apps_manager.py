@@ -8,11 +8,25 @@ import pytest
 from conftest import make_app
 
 from apps.apps_manager import AppsManager
-from apps.errors import AppUnreachableError
-from apps.models import App, AppStatus
+from apps.errors import AppUnreachableError, InvalidAppSchemaError
+from apps.models import App, AppStatus, PushStatus
+from apps.storage.storage_backend import AppStorageBackend
 from models.errors import InvalidError, NotFoundError
 
 pytestmark = pytest.mark.asyncio
+
+DUMMY_CONFIG_SCHEMA = {
+    "type": "object",
+    "properties": {"lat": {"type": "number"}, "lng": {"type": "number"}},
+    "required": ["lat", "lng"],
+}
+
+
+def schema_response() -> MagicMock:
+    """Stub the app's `GET /config/schema` reply."""
+    response = MagicMock()
+    response.json.return_value = DUMMY_CONFIG_SCHEMA
+    return response
 
 
 @pytest.fixture
@@ -103,81 +117,190 @@ class TestGetConfigSchema:
 
 
 class TestGetConfig:
-    async def test_returns_config(self, apps_manager, app_storage, http_client):
-        await app_storage.save(make_app())
-        config = {"lat": 48.8, "lng": 2.3}
-        response = MagicMock()
-        response.json.return_value = config
-        http_client.request.return_value = response
+    async def test_returns_stored_config(self, apps_manager, app_storage):
+        app = make_app().model_copy(update={"config": {"lat": 48.8, "lng": 2.3}})
+        await app_storage.save(app)
 
         result = await apps_manager.get_config("app-1")
 
-        assert result == config
-        http_client.request.assert_called_once_with(
-            "GET",
-            "https://myapp.example.com/config",
-            timeout=10.0,
-            json=None,
-        )
+        assert result == {"lat": 48.8, "lng": 2.3}
 
-    async def test_app_unreachable(self, apps_manager, app_storage, http_client):
+    async def test_never_configured_returns_empty_dict(self, apps_manager, app_storage):
         await app_storage.save(make_app())
-        http_client.request.side_effect = httpx.ConnectError("unreachable")
 
-        with pytest.raises(AppUnreachableError):
-            await apps_manager.get_config("app-1")
+        result = await apps_manager.get_config("app-1")
+
+        assert result == {}
+
+    async def test_app_not_found(self, apps_manager):
+        with pytest.raises(NotFoundError):
+            await apps_manager.get_config("nonexistent")
 
 
 class TestUpdateConfig:
-    async def test_returns_updated_config(self, apps_manager, app_storage, http_client):
-        await app_storage.save(make_app())
-        updated = {"lat": 40.7, "lng": -74.0}
-        response = MagicMock()
-        response.json.return_value = updated
-        http_client.request.return_value = response
-
-        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
-
-        assert result == updated
-        http_client.request.assert_called_once_with(
-            "PATCH",
-            "https://myapp.example.com/config",
-            timeout=10.0,
-            json={"lat": 40.7, "lng": -74.0},
-        )
-
-    async def test_app_returns_422(self, apps_manager, app_storage, http_client):
-        await app_storage.save(make_app())
-        resp_mock = MagicMock()
-        resp_mock.status_code = 422
-        resp_mock.text = "Validation error"
-        resp_mock.json.return_value = {"detail": "lat must be between -90 and 90"}
-        http_client.request.side_effect = httpx.HTTPStatusError(
-            "Unprocessable", request=MagicMock(), response=resp_mock
-        )
-
-        with pytest.raises(InvalidError, match="lat must be between"):
-            await apps_manager.update_config("app-1", {"lat": 999})
-
-    async def test_app_returns_500(self, apps_manager, app_storage, http_client):
-        await app_storage.save(make_app())
-        resp_mock = MagicMock()
-        resp_mock.status_code = 500
-        resp_mock.text = "Internal Server Error"
-        resp_mock.json.return_value = {"detail": "Internal error"}
-        http_client.request.side_effect = httpx.HTTPStatusError(
-            "Server Error", request=MagicMock(), response=resp_mock
-        )
-
-        with pytest.raises(AppUnreachableError):
-            await apps_manager.update_config("app-1", {"lat": 40.7})
-
-    async def test_app_unreachable(self, apps_manager, app_storage, http_client):
+    async def test_schema_fetch_unreachable_stores_nothing(
+        self, apps_manager, app_storage, http_client
+    ):
         await app_storage.save(make_app())
         http_client.request.side_effect = httpx.ConnectError("unreachable")
 
         with pytest.raises(AppUnreachableError):
-            await apps_manager.update_config("app-1", {"lat": 40.7})
+            await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config is None
+        assert http_client.request.call_count == 1
+
+    async def test_invalid_payload_stores_nothing(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        http_client.request.side_effect = [schema_response()]
+
+        with pytest.raises(InvalidError):
+            await apps_manager.update_config("app-1", {"lat": 40.7})  # missing lng
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config is None
+        assert http_client.request.call_count == 1
+
+    async def test_malformed_schema_stores_nothing(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A schema the app itself got wrong must not be blamed on the payload."""
+        await app_storage.save(make_app())
+        bad_schema = MagicMock()
+        bad_schema.json.return_value = {"type": "not-a-json-type"}
+        http_client.request.side_effect = [bad_schema]
+
+        with pytest.raises(InvalidAppSchemaError):
+            await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config is None
+        assert http_client.request.call_count == 1
+
+    async def test_full_success_stores_config_and_pushes(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        push_response = MagicMock()
+        http_client.request.side_effect = [schema_response(), push_response]
+
+        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        assert result.config == {"lat": 40.7, "lng": -74.0}
+        assert result.push_status == PushStatus.OK
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config == {"lat": 40.7, "lng": -74.0}
+        assert stored.push_status == PushStatus.OK
+        assert http_client.request.call_count == 2
+        push_call = http_client.request.call_args_list[1]
+        assert push_call.args == ("PATCH", "https://myapp.example.com/config")
+        assert push_call.kwargs == {
+            "timeout": 10.0,
+            "json": {"lat": 40.7, "lng": -74.0},
+        }
+
+    async def test_push_rejected_stores_rejected_status(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 422
+        push_error = httpx.HTTPStatusError(
+            "Unprocessable", request=MagicMock(), response=resp_mock
+        )
+        http_client.request.side_effect = [schema_response(), push_error]
+
+        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        assert result.push_status == PushStatus.REJECTED
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.push_status == PushStatus.REJECTED
+        assert stored.config == {"lat": 40.7, "lng": -74.0}
+
+    async def test_push_unreachable_stores_pending_status(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        http_client.request.side_effect = [
+            schema_response(),
+            httpx.ConnectError("unreachable"),
+        ]
+
+        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        assert result.push_status == PushStatus.PENDING
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.push_status == PushStatus.PENDING
+        assert stored.config == {"lat": 40.7, "lng": -74.0}
+
+    async def test_push_5xx_stores_pending_status(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 500
+        push_error = httpx.HTTPStatusError(
+            "Server Error", request=MagicMock(), response=resp_mock
+        )
+        http_client.request.side_effect = [schema_response(), push_error]
+
+        result = await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        assert result.push_status == PushStatus.PENDING
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.push_status == PushStatus.PENDING
+
+    async def test_push_window_preserves_concurrent_status_flip(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A health flip landing during the push must survive the final write.
+
+        The flip is injected during the *push*, not the schema fetch: the
+        post-push write touches `push_status` only, whereas the pre-push
+        write is deliberately still a full-row save of the config the
+        client just supplied.
+        """
+        await app_storage.save(make_app(status=AppStatus.HEALTHY))
+
+        async def request(_method: str, url: str, **_kwargs: object) -> MagicMock:
+            if url.endswith("/config/schema"):
+                return schema_response()
+            # The push is in flight — a health flip commits right now.
+            await app_storage.update_status("app-1", AppStatus.UNHEALTHY)
+            return MagicMock()
+
+        http_client.request.side_effect = request
+
+        await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.status == AppStatus.UNHEALTHY
+        assert stored.config == {"lat": 40.7, "lng": -74.0}
+        assert stored.push_status == PushStatus.OK
+
+    async def test_push_status_write_is_targeted(self, users_manager, http_client):
+        """The post-push write must not carry the whole row a second time."""
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.get_by_id.return_value = make_app()
+        manager = AppsManager(storage, users_manager, http_client)
+        http_client.request.side_effect = [schema_response(), MagicMock()]
+
+        await manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        storage.update_push_status.assert_awaited_once_with("app-1", PushStatus.OK)
+        # Exactly one full-row save: the authoritative config write.
+        assert storage.save.await_count == 1
 
 
 class TestEnableApp:
@@ -285,26 +408,65 @@ class TestHealthCheck:
         assert updated is not None
         assert updated.status == AppStatus.UNHEALTHY
 
-    async def test_no_update_when_status_unchanged(
-        self, apps_manager, app_storage, http_client
-    ):
-        await app_storage.save(make_app(status=AppStatus.HEALTHY))
+    async def test_no_update_when_status_unchanged(self, users_manager, http_client):
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.list_all.return_value = [make_app(status=AppStatus.HEALTHY)]
+        manager = AppsManager(storage, users_manager, http_client)
         response = AsyncMock()
         response.is_success = True
         http_client.get.return_value = response
 
-        original_save = app_storage.save
-        save_calls = []
+        await manager._check_all_apps_health()  # noqa: SLF001
 
-        async def tracked_save(app) -> None:
-            save_calls.append(app)
-            await original_save(app)
+        storage.update_status.assert_not_awaited()
+        storage.save.assert_not_awaited()
 
-        app_storage.save = tracked_save
+    async def test_status_change_uses_targeted_update(self, users_manager, http_client):
+        """A status change must never carry a full row, stale config included."""
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.list_all.return_value = [make_app(status=AppStatus.REGISTERED)]
+        manager = AppsManager(storage, users_manager, http_client)
+        response = AsyncMock()
+        response.is_success = True
+        http_client.get.return_value = response
+
+        await manager._check_all_apps_health()  # noqa: SLF001
+
+        storage.update_status.assert_awaited_once_with("app-1", AppStatus.HEALTHY)
+        storage.save.assert_not_awaited()
+
+    async def test_status_change_preserves_concurrently_written_config(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A config PATCH committing during a health probe must survive.
+
+        The health loop snapshots every app before awaiting its probe, so a
+        full-row write from that snapshot would revert a config stored in the
+        meantime — after the client already got a 200.
+        """
+        await app_storage.save(make_app(status=AppStatus.REGISTERED))
+
+        async def request(_method: str, url: str, **_kwargs: object) -> MagicMock:
+            return schema_response() if url.endswith("/config/schema") else MagicMock()
+
+        http_client.request.side_effect = request
+
+        async def probe(*_args: object, **_kwargs: object) -> AsyncMock:
+            # PATCH /apps/app-1/config commits while the probe is in flight.
+            await apps_manager.update_config("app-1", {"lat": 1.0, "lng": 2.0})
+            response = AsyncMock()
+            response.is_success = True
+            return response
+
+        http_client.get.side_effect = probe
 
         await apps_manager._check_all_apps_health()  # noqa: SLF001
 
-        assert len(save_calls) == 0
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config == {"lat": 1.0, "lng": 2.0}
+        assert stored.push_status == PushStatus.OK
+        assert stored.status == AppStatus.HEALTHY
 
     async def test_start_and_stop_health_check(self, apps_manager):
         await apps_manager.start_health_check(interval_seconds=3600)
@@ -361,11 +523,36 @@ class TestAppModel:
         assert app.health_url == "https://example.com/health"
         assert app.enable_url == "https://example.com/enable"
 
-    def test_with_status(self):
-        app = make_app(status=AppStatus.REGISTERED)
-        updated = app.with_status(AppStatus.HEALTHY)
-        assert updated.status == AppStatus.HEALTHY
-        assert updated.id == app.id
+    def test_config_excluded_from_serialization(self):
+        app = make_app().model_copy(
+            update={"config": {"secret": "shh"}, "push_status": PushStatus.OK}
+        )
+        dumped = app.model_dump()
+        assert "config" not in dumped
+        assert dumped["push_status"] == PushStatus.OK
+
+
+class TestMemoryAppStorageRoundTrip:
+    async def test_config_and_push_status_survive_save_and_get(self, app_storage):
+        app = make_app().model_copy(
+            update={"config": {"lat": 1.0, "lng": 2.0}, "push_status": PushStatus.OK}
+        )
+        await app_storage.save(app)
+
+        fetched = await app_storage.get_by_id("app-1")
+
+        assert fetched is not None
+        assert fetched.config == {"lat": 1.0, "lng": 2.0}
+        assert fetched.push_status == PushStatus.OK
+
+    async def test_never_configured_app_has_no_config_or_push_status(self, app_storage):
+        await app_storage.save(make_app())
+
+        fetched = await app_storage.get_by_id("app-1")
+
+        assert fetched is not None
+        assert fetched.config is None
+        assert fetched.push_status is None
 
 
 class TestAppsManagerLifecycle:

@@ -16,6 +16,12 @@ params:path {
 
 body:json {
   {
-    "key": "value"
+    "lat": 48.8566,
+    "lng": 2.3522
   }
+}
+
+assert {
+  res.status: eq 200
+  res.body.push_status: isDefined
 }

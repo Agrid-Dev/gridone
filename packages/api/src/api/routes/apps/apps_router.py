@@ -1,12 +1,18 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, status
+from pydantic import BaseModel
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
-from apps import App, AppsService
+from apps import App, AppsService, PushStatus
 
 router = APIRouter()
+
+
+class AppConfigResult(BaseModel):
+    config: dict[str, Any]
+    push_status: PushStatus | None
 
 
 @router.get(
@@ -53,13 +59,20 @@ async def get_config(
 @router.patch(
     "/{app_id}/config",
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
+    responses={
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "Invalid config"},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "App is unreachable or served an invalid config schema"
+        },
+    },
 )
 async def update_config(
     app_id: str,
     config: Annotated[dict[str, Any], Body()],
     service: Annotated[AppsService, Depends(get_apps_service)],
-) -> dict:
-    return await service.update_config(app_id, config)
+) -> AppConfigResult:
+    app = await service.update_config(app_id, config)
+    return AppConfigResult(config=app.config or {}, push_status=app.push_status)
 
 
 @router.post(

@@ -66,6 +66,8 @@ export type BuildingProfile = Schemas["BuildingProfile"];
 // Apps
 export type App = Schemas["App"];
 export type AppStatus = Schemas["AppStatus"];
+export type PushStatus = Schemas["PushStatus"];
+export type AppConfigResult = Schemas["AppConfigResult"];
 
 // Assets
 export type Asset = Schemas["Asset"];

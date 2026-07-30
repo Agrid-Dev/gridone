@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from apps.models import App, RegistrationRequest
+from apps.models import App, AppStatus, PushStatus, RegistrationRequest
 
 
 class RegistrationRequestStorageBackend(Protocol):
@@ -19,6 +19,19 @@ class AppStorageBackend(Protocol):
     async def list_all(self) -> list[App]: ...
 
     async def save(self, app: App) -> None: ...
+
+    async def update_status(self, app_id: str, status: AppStatus) -> None:
+        """Update only the health status, leaving config and push status intact.
+
+        Targeted on purpose: the health loop writes from a snapshot taken
+        before its probes, so a full-row save could revert a config stored
+        in the meantime. No-op when no row matches `app_id`.
+        """
+        ...
+
+    async def update_push_status(self, app_id: str, push_status: PushStatus) -> None:
+        """Update only the config push status. No-op when no row matches `app_id`."""
+        ...
 
     async def close(self) -> None: ...
 
