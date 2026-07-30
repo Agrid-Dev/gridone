@@ -108,6 +108,8 @@ export type DataType = Schemas["DataType"];
 export type StandardAttributeSchema = Schemas["StandardAttributeSchema"];
 export type StandardAttributeSchemaField =
   Schemas["StandardAttributeSchemaField"];
+export type AttributeCoverage = Schemas["AttributeCoverage"];
+export type AttributeCoverageResponse = Schemas["AttributeCoverageResponse"];
 
 // Drivers
 export type Driver = Schemas["DriverSpec-Output"];

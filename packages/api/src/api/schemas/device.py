@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import AttributeValueType
+from models.targets import AttributeCoverage
 
 
 class TimeseriesPushPoint(BaseModel):
@@ -29,6 +30,17 @@ class TimeseriesSingleAttrPushRequest(BaseModel):
 
 class TagValueBody(BaseModel):
     value: str
+
+
+class AttributeCoverageResponse(BaseModel):
+    """Response body for ``GET /devices/attributes``.
+
+    ``total_devices`` is the size of the matched device set, so clients can
+    render per-attribute coverage (``device_count`` / ``total_devices``).
+    """
+
+    total_devices: int
+    attributes: list[AttributeCoverage]
 
 
 class DeviceBatchItem(BaseModel):

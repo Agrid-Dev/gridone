@@ -215,6 +215,7 @@ class TestListDevices:
     def test_filter_by_type_passed_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"type": "thermostat"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -227,6 +228,7 @@ class TestListDevices:
     def test_filter_by_tags_single_value(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"tags": "asset_id:asset-1"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -248,6 +250,7 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -260,6 +263,7 @@ class TestListDevices:
     def test_empty_tags_param_ignored(self, client: TestClient, dm: MagicMock):
         client.get("/")
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -272,6 +276,7 @@ class TestListDevices:
     def test_is_faulty_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "true"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -284,6 +289,7 @@ class TestListDevices:
     def test_is_faulty_false_filter_forwarded(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"is_faulty": "false"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -296,6 +302,7 @@ class TestListDevices:
     def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"asset_id": "a1"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -316,6 +323,7 @@ class TestListDevices:
             ],
         )
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -328,6 +336,7 @@ class TestListDevices:
     def test_search_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"search": "chambre 12"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             driver_id=None,
             transport_id=None,
             ids=None,
@@ -340,6 +349,7 @@ class TestListDevices:
     def test_driver_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"driver_id": "drv-1"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             ids=None,
             types=None,
             tags=None,
@@ -352,6 +362,7 @@ class TestListDevices:
     def test_transport_id_forwarded_to_service(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"transport_id": "tr-1"})
         dm.list_devices.assert_called_once_with(
+            attribute=None,
             ids=None,
             types=None,
             tags=None,
@@ -360,6 +371,62 @@ class TestListDevices:
             driver_id=None,
             transport_id="tr-1",
         )
+
+    def test_attribute_forwarded_to_service(self, client: TestClient, dm: MagicMock):
+        client.get("/", params={"attribute": "temperature"})
+        dm.list_devices.assert_called_once_with(
+            attribute="temperature",
+            ids=None,
+            types=None,
+            tags=None,
+            is_faulty=None,
+            search=None,
+            driver_id=None,
+            transport_id=None,
+        )
+
+
+# ---------------------------------------------------------------------------
+# List device attributes (coverage)
+# ---------------------------------------------------------------------------
+
+
+class TestListDeviceAttributes:
+    @pytest.fixture
+    def dm(self):
+        return _make_dm([_DEVICE, _SENSOR, _TYPED])
+
+    def test_reports_coverage_over_matched_devices(self, client: TestClient):
+        response = client.get("/attributes")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total_devices"] == 3
+        by_name = {a["attribute"]: a for a in body["attributes"]}
+        assert by_name["temperature"] == {
+            "attribute": "temperature",
+            "data_types": ["float"],
+            "device_count": 3,
+            "writable_count": 0,
+        }
+        assert by_name["setpoint"]["writable_count"] == 1
+
+    def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
+        client.get("/attributes", params={"type": "thermostat"})
+        dm.list_devices.assert_called_once_with(
+            attribute=None,
+            ids=None,
+            types=["thermostat"],
+            tags=None,
+            is_faulty=None,
+            search=None,
+            driver_id=None,
+            transport_id=None,
+        )
+
+    def test_empty_device_set(self, client: TestClient):
+        response = client.get("/attributes", params={"ids": "unknown"})
+        assert response.status_code == 200
+        assert response.json() == {"total_devices": 0, "attributes": []}
 
 
 # ---------------------------------------------------------------------------

@@ -55,6 +55,11 @@ const CASES: Case[] = [
       { searchParams: { type: ["thermostat"], is_faulty: false } },
     ],
   ],
+  [
+    "listAttributes",
+    (d) => d.listAttributes({ type: ["thermostat"] }),
+    ["GET", "/devices/attributes", { searchParams: { type: ["thermostat"] } }],
+  ],
   ["get", (d) => d.get("dev1"), ["GET", "/devices/dev1"]],
   ["create", (d) => d.create(CREATE), ["POST", "/devices/", { body: CREATE }]],
   [

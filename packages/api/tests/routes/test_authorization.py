@@ -329,6 +329,7 @@ def _build_devices_app() -> FastAPI:
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
     manager = MockUsersService()
     dm = MagicMock()
+    dm.list_devices.return_value = []
     dm.list_active_faults.return_value = []
     dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
     dm.refresh_device_attribute = AsyncMock(
@@ -355,6 +356,10 @@ def devices_app() -> FastAPI:
 
 
 DEVICES_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param(
+        "GET", "/devices/attributes", "viewer", 200, id="attr-coverage-viewer"
+    ),
+    pytest.param("GET", "/devices/attributes", None, 401, id="attr-coverage-no-auth"),
     pytest.param(
         "POST", "/devices/any-id/timeseries", "viewer", 403, id="bulk-push-viewer"
     ),
