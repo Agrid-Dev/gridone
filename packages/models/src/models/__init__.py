@@ -1,1 +1,9 @@
-from . import errors, ids, pagination, resource_reference, service, types  # noqa: F401
+from . import (  # noqa: F401
+    errors,
+    ids,
+    pagination,
+    resource_reference,
+    service,
+    targets,
+    types,
+)

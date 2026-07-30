@@ -5,7 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 authors = []
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2.0",
+]
 
 [tool.uv]
 workspaces=true
