@@ -20,7 +20,6 @@ class FakeField:
 
 
 ALL_FIELDS: list[ValidatedField] = [
-    FakeField("occupied", DataType.BOOL),
     FakeField("reservation_status", DataType.STRING),
     FakeField("guest_count", DataType.INT),
     FakeField("next_arrival_at", DataType.STRING),
@@ -35,25 +34,29 @@ def test_schema_key():
     assert pms_monitor_schema.key == "pms_monitor"
 
 
-def test_schema_has_four_required_fields():
-    assert len(pms_monitor_schema.fields) == 4
-    assert all(f.required for f in pms_monitor_schema.fields)
+def test_schema_fields():
+    assert [(f.name, f.required) for f in pms_monitor_schema.fields] == [
+        ("reservation_status", True),
+        ("guest_count", True),
+        ("next_arrival_at", False),
+    ]
 
 
-@pytest.mark.parametrize(
-    "missing_field",
-    ["occupied", "reservation_status", "guest_count", "next_arrival_at"],
-)
+@pytest.mark.parametrize("missing_field", ["reservation_status", "guest_count"])
 def test_missing_required_field_raises(missing_field):
     fields = [f for f in ALL_FIELDS if f.name != missing_field]
     with pytest.raises(InvalidError):
         validate_standard_schema(PMS_MONITOR_KEY, fields)
 
 
+def test_missing_optional_field_is_valid():
+    fields = [f for f in ALL_FIELDS if f.name != "next_arrival_at"]
+    validate_standard_schema(PMS_MONITOR_KEY, fields)
+
+
 @pytest.mark.parametrize(
     ("field_name", "wrong_type"),
     [
-        ("occupied", DataType.STRING),
         ("reservation_status", DataType.INT),
         ("guest_count", DataType.FLOAT),
         ("next_arrival_at", DataType.INT),
@@ -80,13 +83,6 @@ device_config:
   - name: room_id
 
 attributes:
-  - name: occupied
-    data_type: bool
-    read:
-      topic: ${room_id}/snapshot
-    codecs:
-      - json_pointer: /occupied
-
   - name: reservation_status
     data_type: str
     read:

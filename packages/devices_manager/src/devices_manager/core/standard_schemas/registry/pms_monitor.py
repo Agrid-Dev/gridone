@@ -9,9 +9,7 @@ from devices_manager.types import DataType
 PMS_MONITOR_KEY: Final = "pms_monitor"
 
 pms_monitor_fields = [
-    StandardAttributeSchemaField(
-        name="occupied", data_type=DataType.BOOL, required=True
-    ),
+    # Reservation lifecycle of the room, e.g. booked, checked_in, checked_out.
     StandardAttributeSchemaField(
         name="reservation_status", data_type=DataType.STRING, required=True
     ),
@@ -19,8 +17,9 @@ pms_monitor_fields = [
         name="guest_count", data_type=DataType.INT, required=True
     ),
     # ISO-8601 datetime, empty string when no arrival is scheduled.
+    # Optional: not every PMS exposes upcoming reservations.
     StandardAttributeSchemaField(
-        name="next_arrival_at", data_type=DataType.STRING, required=True
+        name="next_arrival_at", data_type=DataType.STRING, required=False
     ),
 ]
 
