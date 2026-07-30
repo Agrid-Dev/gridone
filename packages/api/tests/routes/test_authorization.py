@@ -532,6 +532,21 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="aggregate-no-auth",
     ),
+    # Space aggregate: missing required params → 422 past auth, 401 without auth
+    pytest.param(
+        "GET",
+        "/devices/timeseries/aggregate",
+        "viewer",
+        422,
+        id="space-aggregate-viewer",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/timeseries/aggregate",
+        None,
+        401,
+        id="space-aggregate-no-auth",
+    ),
     # Faults read endpoint (nested under /devices/faults, all auth roles allowed)
     pytest.param("GET", "/devices/faults/", "admin", 200, id="faults-admin"),
     pytest.param("GET", "/devices/faults/", "operator", 200, id="faults-operator"),

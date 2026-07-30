@@ -5,7 +5,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 
-from api.dependencies import get_device_manager, get_ts_service, require_permission
+from api.dependencies import (
+    get_device_manager,
+    get_target_resolver,
+    get_ts_service,
+    require_permission,
+)
+from api.devices_filter import parse_tags_params
 from api.permissions import Permission
 from api.schemas.timeseries import (
     AggregatedPointResponse,
@@ -14,10 +20,13 @@ from api.schemas.timeseries import (
     DataPointResponse,
     FetchPointsResultResponse,
     IntervalOption,
+    SpaceAggregationResultResponse,
     TimeSeriesResponse,
 )
+from api.targets import CompositeTargetResolver
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError, NotFoundError
+from models.targets import AttributeTarget, DevicesFilter
 from timeseries.domain import (
     AggregationOperator,
     AggregationQuery,
@@ -231,6 +240,73 @@ async def get_aggregate_options(
         ],
         recommended_interval=options.recommended_interval,
         operators_by_data_type=options.operators_by_data_type,
+    )
+
+
+def get_target_query(
+    types: list[str] | None = Query(None, alias="type"),
+    ids: list[str] | None = Query(None),
+    tags: list[str] | None = Query(None),
+    attribute: str = Query(...),
+) -> AttributeTarget:
+    """Parse target query params — the same device-set vocabulary as
+    ``GET /devices`` — into an :class:`AttributeTarget`."""
+    return AttributeTarget(
+        devices=DevicesFilter(ids=ids, types=types, tags=parse_tags_params(tags)),
+        attribute=attribute,
+    )
+
+
+@router.get(
+    "/timeseries/aggregate",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
+async def get_devices_timeseries_aggregate(
+    target: AttributeTarget = Depends(get_target_query),
+    query: AggregationQuery = Depends(get_aggregation_query),
+    space_agg: AggregationOperator = Query(
+        ...,
+        description=(
+            "How each time bucket's values are folded across the device set, "
+            "after `agg` reduced every device's readings over the bucket: "
+            "'avg' of thermostat temperatures, 'sum' of meter consumptions, "
+            "'mode' for the predominant state. Ordering-dependent and "
+            "time-weighted operators (first/last/delta/tw_*) do not apply "
+            "across devices and are rejected, as is `interval=raw`."
+        ),
+    ),
+    resolver: CompositeTargetResolver = Depends(get_target_resolver),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> SpaceAggregationResultResponse:
+    """Aggregate one attribute over a device set into a single series.
+
+    The target resolves at read time; devices whose history starts
+    mid-window simply contribute to fewer buckets.
+    """
+    resolved = await resolver.resolve(target)
+    keys = [
+        SeriesKey(owner_id=device_id, metric=target.attribute)
+        for device_id in resolved.device_ids
+    ]
+    result = await ts.get_aggregate_many(keys, query, space_agg)
+    tz = ZoneInfo(result.timezone)
+    return SpaceAggregationResultResponse(
+        interval=str(result.interval),
+        agg=result.agg,
+        space_agg=result.space_agg,
+        data_type=result.data_type,
+        aggregation_data_type=result.aggregation_data_type,
+        timezone=result.timezone,
+        device_count=len(resolved.device_ids),
+        series_count=result.series_count,
+        points=[
+            AggregatedPointResponse(
+                interval_start=p.interval_start.astimezone(tz),
+                value=p.value,
+                count=p.count,
+            )
+            for p in result.points
+        ],
     )
 
 

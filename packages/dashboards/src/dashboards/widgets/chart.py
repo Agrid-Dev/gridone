@@ -6,7 +6,7 @@ from pydantic import model_validator
 
 from dashboards.widgets.config import WidgetConfig
 from models.targets import AttributeTarget  # noqa: TC001
-from models.types import AggregationOperator  # noqa: TC001
+from models.types import SPACE_AGGREGATION_OPERATORS, AggregationOperator
 
 
 class ChartWidgetConfig(WidgetConfig):
@@ -36,6 +36,28 @@ class ChartWidgetConfig(WidgetConfig):
     The bucket width is not stored: it resolves from the dashboard period, which
     is a viewing concern.
     """
+
+    space_agg: AggregationOperator | None = None
+    """How each bucket's values are folded across the device set; ``None``
+    plots one series per device.
+
+    Whether the operator suits the attribute's data type stays the timeseries
+    package's rule, like ``agg``. Membership in the space vocabulary, though,
+    is shared knowledge (``SPACE_AGGREGATION_OPERATORS``), so an operator that
+    can never fold a device set is refused at save time.
+    """
+
+    @model_validator(mode="after")
+    def _validate_space_agg(self) -> ChartWidgetConfig:
+        if self.space_agg is None:
+            return self
+        if self.agg is None:
+            msg = "space_agg requires agg: raw series cannot be space-aggregated"
+            raise ValueError(msg)
+        if self.space_agg not in SPACE_AGGREGATION_OPERATORS:
+            msg = f"Operator '{self.space_agg}' is not a space aggregation operator"
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="before")
     @classmethod

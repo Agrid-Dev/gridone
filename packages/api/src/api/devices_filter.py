@@ -14,6 +14,22 @@ from __future__ import annotations
 from typing import Any
 
 
+def parse_tags_params(raw: list[str] | None) -> dict[str, list[str]] | None:
+    """Parse ``?tags=key:value`` query params into a tags filter dict.
+
+    Filter semantics: AND across keys, OR within values of the same key.
+    Repeat the param for OR: ``?tags=asset_id:a1&tags=asset_id:a2``.
+    """
+    if not raw:
+        return None
+    result: dict[str, list[str]] = {}
+    for item in raw:
+        key, _, value = item.partition(":")
+        if value:
+            result.setdefault(key, []).append(value)
+    return result or None
+
+
 def to_list_devices_kwargs(filter_dict: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of *filter_dict* with ``asset_id`` merged into ``tags``.
 

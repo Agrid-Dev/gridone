@@ -429,6 +429,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/timeseries/aggregate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Devices Timeseries Aggregate
+     * @description Aggregate one attribute over a device set into a single series.
+     *
+     *     The target resolves at read time; devices whose history starts
+     *     mid-window simply contribute to fewer buckets.
+     */
+    get: operations["get_devices_timeseries_aggregate_devices_timeseries_aggregate_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}/timeseries/{attr}/aggregate": {
     parameters: {
       query?: never;
@@ -1975,6 +1998,7 @@ export interface components {
       type: "chart";
       target: components["schemas"]["AttributeTarget"];
       agg?: components["schemas"]["AggregationOperator"] | null;
+      space_agg?: components["schemas"]["AggregationOperator"] | null;
     };
     /** CodecSpec */
     CodecSpec: {
@@ -3045,6 +3069,23 @@ export interface components {
      * @enum {string}
      */
     SortOrder: "asc" | "desc";
+    /** SpaceAggregationResultResponse */
+    SpaceAggregationResultResponse: {
+      /** Interval */
+      interval: string;
+      agg: components["schemas"]["AggregationOperator"];
+      space_agg: components["schemas"]["AggregationOperator"];
+      data_type: components["schemas"]["DataType"];
+      aggregation_data_type: components["schemas"]["DataType"];
+      /** Timezone */
+      timezone: string;
+      /** Device Count */
+      device_count: number;
+      /** Series Count */
+      series_count: number;
+      /** Points */
+      points: components["schemas"]["AggregatedPointResponse"][];
+    };
     /** StandardAttributeSchema */
     StandardAttributeSchema: {
       /** Key */
@@ -4567,6 +4608,50 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AggregateOptionsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_devices_timeseries_aggregate_devices_timeseries_aggregate_get: {
+    parameters: {
+      query: {
+        /** @description How each time bucket's values are folded across the device set, after `agg` reduced every device's readings over the bucket: 'avg' of thermostat temperatures, 'sum' of meter consumptions, 'mode' for the predominant state. Ordering-dependent and time-weighted operators (first/last/delta/tw_*) do not apply across devices and are rejected, as is `interval=raw`. */
+        space_agg: components["schemas"]["AggregationOperator"];
+        type?: string[] | null;
+        ids?: string[] | null;
+        tags?: string[] | null;
+        attribute: string;
+        /** @description Bucket width: a duration string (e.g. '15min', '1h', '1d', '1mo'), 'auto', 'raw' or 'whole'. When 'auto' or omitted, the server picks the best width for the period, falling back to 'whole' when the period is too short or too long for any of them. 'raw' returns the points unbucketed and applies no aggregation at all; 'whole' returns a single bucket spanning the [start, end) range. */
+        interval?: string;
+        /** @description Aggregation operator. Note: 'avg' on bool series returns the sample mean of discrete observations (0.0 or 1.0 per point), which is rarely useful for event-driven series. Use 'tw_avg' to get the fraction of time the value was True. 'delta' is the consumption of a cumulative counter (energy/water index) per bucket: the bucket's last value minus the last value before it, so consecutive buckets lose nothing in between. Buckets with no points have no value, and counter resets show up as negative deltas. */
+        agg: components["schemas"]["AggregationOperator"];
+        start?: string | null;
+        end?: string | null;
+        last?: string | null;
+        timezone?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpaceAggregationResultResponse"];
         };
       };
       /** @description Validation Error */
