@@ -23,7 +23,7 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { mergeTimeSeries, type MergedRow } from "./mergeTimeSeries";
+import { mergeTimeSeries, type MergedRow } from "@/lib/mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 8;

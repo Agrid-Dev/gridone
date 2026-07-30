@@ -21,6 +21,8 @@
     "renderError": "This widget failed to render.",
     "chart": {
       "error": "Could not load this attribute's history.",
+      "targetEmpty": "The target matches no device exposing this attribute.",
+      "mixedTypes": "The targeted devices record this attribute with different data types.",
       "noSeries": "No history is recorded for this attribute.",
       "noData": "No data over the selected period.",
       "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",

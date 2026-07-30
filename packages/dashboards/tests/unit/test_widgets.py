@@ -44,14 +44,25 @@ def test_validate_config_returns_concrete_model():
         {"type": "text", "text": "hi", "color": "red"},  # bad color
         {"type": "text", "color": "#1a2b3c"},  # missing text
         {"type": "text", "text": "hi", "color": "#1a2b3c", "extra": 1},  # extra key
-        {"type": "chart", "attribute": "temperature"},  # missing device_id
-        {"type": "chart", "device_id": "d1"},  # missing attribute
-        {"type": "chart", "device_id": "", "attribute": "temperature"},  # empty
-        {"type": "chart", "device_id": "d1", "attribute": ""},  # empty
+        {"type": "chart", "attribute": "temperature"},  # missing target
+        {"type": "chart", "device_id": "d1"},  # legacy shape missing attribute
+        {  # legacy shape with an empty device_id — never upgraded
+            "type": "chart",
+            "device_id": "",
+            "attribute": "temperature",
+        },
+        {"type": "chart", "device_id": "d1", "attribute": ""},  # empty attribute
+        {  # target present but empty attribute
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": ""},
+        },
+        {  # runtime filter keys are not persisted criteria
+            "type": "chart",
+            "target": {"devices": {"search": "th"}, "attribute": "temperature"},
+        },
         {  # extra key — the bucket width is not the widget's to store
             "type": "chart",
-            "device_id": "d1",
-            "attribute": "temperature",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
             "interval": "1h",
         },
     ],
@@ -102,11 +113,11 @@ def test_schemas_returns_json_schema_per_type():
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
     chart = schemas["chart"]["properties"]
-    assert set(schemas["chart"]["required"]) == {"device_id", "attribute"}
-    # minLength must survive into the schema — it is what stops the editor
-    # accepting its own empty-string seed as a valid config.
-    assert chart["device_id"]["minLength"] == 1
-    assert chart["attribute"]["minLength"] == 1
+    assert set(schemas["chart"]["required"]) == {"target"}
+    # The nested target model travels with the schema so the editor can
+    # build the picker form from it.
+    assert "target" in chart
+    assert "AttributeTarget" in schemas["chart"].get("$defs", {})
     # The editor previews a widget at the footprint it will be placed with, so
     # the size has to travel with the schema.
     assert schemas["chart"]["x-default-size"] == {"w": 6, "h": 5}
@@ -124,19 +135,65 @@ def test_validate_config_returns_chart_model():
     registry = build_default_registry()
 
     config = registry.validate_config(
-        {"type": "chart", "device_id": "d1", "attribute": "temperature"}
+        {
+            "type": "chart",
+            "target": {
+                "devices": {"types": ["thermostat"]},
+                "attribute": "temperature",
+            },
+        }
     )
 
     assert isinstance(config, ChartWidgetConfig)
-    assert config.device_id == "d1"
-    assert config.attribute == "temperature"
+    assert config.target.devices.types == ["thermostat"]
+    assert config.target.attribute == "temperature"
+
+
+# Charts persisted before the target model must keep loading: configs are
+# re-validated on read, so the legacy shape upgrades in place of a migration.
+def test_chart_config_upgrades_legacy_single_device_shape():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {"type": "chart", "device_id": "d1", "attribute": "temperature", "agg": "avg"}
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.target.devices.ids == ["d1"]
+    assert config.target.attribute == "temperature"
+    assert config.agg is AggregationOperator.AVG
+    # The upgraded form is what serializes — new saves persist the target shape.
+    assert "device_id" not in config.model_dump()
 
 
 # Adding aggregation must not invalidate charts stored before it existed.
 def test_chart_config_defaults_to_raw():
-    config = ChartWidgetConfig(device_id="d1", attribute="temperature")
+    config = ChartWidgetConfig.model_validate(
+        {"type": "chart", "device_id": "d1", "attribute": "temperature"}
+    )
 
     assert config.agg is None
+
+
+def test_every_registered_widget_declares_its_targets():
+    # The API layer validates ``config.targets()`` at save time; a widget
+    # type whose config forgot to implement it would silently skip that
+    # gate, so the contract is pinned for every registered type.
+    registry = build_default_registry()
+
+    for widget_type in registry.types():
+        model = registry.get(widget_type).config_model
+        assert callable(model.targets)
+
+    chart = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+    assert [t.attribute for t in chart.targets()] == ["temperature"]
+    text = registry.validate_config({"type": "text", "text": "hi", "color": "#1a2b3c"})
+    assert text.targets() == []
 
 
 def test_chart_config_accepts_an_operator():
@@ -146,8 +203,7 @@ def test_chart_config_accepts_an_operator():
     config = registry.validate_config(
         {
             "type": "chart",
-            "device_id": "d1",
-            "attribute": "temperature",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
             "agg": "avg",
         }
     )
@@ -163,8 +219,7 @@ def test_chart_config_rejects_an_unknown_operator():
         registry.validate_config(
             {
                 "type": "chart",
-                "device_id": "d1",
-                "attribute": "temperature",
+                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
                 "agg": "median",
             }
         )

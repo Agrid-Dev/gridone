@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from models.targets import AttributeTarget
 
 
 class WidgetConfig(BaseModel):
@@ -22,3 +27,13 @@ class WidgetConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: str
+
+    def targets(self) -> list[AttributeTarget]:
+        """The attribute targets this widget reads.
+
+        The API layer resolves them at save time (zero coverage and mixed
+        data types are authoring errors); the dashboards service itself
+        never does — it stays document-only. Widgets that read device data
+        override this; the default is no targets.
+        """
+        return []

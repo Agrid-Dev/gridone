@@ -2,15 +2,52 @@ import { useEffect, type FC } from "react";
 import type { DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { DeviceAttributePicker } from "@/components/forms/resourcePickers/DeviceAttributePicker";
+import * as z from "zod";
+import {
+  AttributeTargetPicker,
+  useAttributeCoverage,
+  type AttributeTarget,
+} from "@/components/forms/targetPicker";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { operatorsFor, useAggregateOptions } from "@/hooks/useAggregateOptions";
-import { useDeviceById } from "@/hooks/useDeviceById";
-import { attributeDataType } from "@/lib/devices";
+import { useDevicesList } from "@/hooks/useDevicesList";
+import { isEmptyFilter } from "@/lib/devices";
 
 /** How "plot the readings as recorded" reads in the operator list. The config
  *  stores `null` for it. */
 const RAW = "raw";
+
+/** True when the criteria select at least one device dimension. */
+function hasDeviceCriterion(devices: unknown): boolean {
+  if (typeof devices !== "object" || devices === null) return false;
+  const { ids, types, tags } = devices as Record<string, unknown>;
+  return (
+    (Array.isArray(ids) && ids.length > 0) ||
+    (Array.isArray(types) && types.length > 0) ||
+    (!!tags && typeof tags === "object" && Object.keys(tags).length > 0)
+  );
+}
+
+/**
+ * What the widget's JSON Schema cannot say about a chart config: an empty
+ * device filter is schema-valid (it means "all devices" on the wire) but never
+ * an intentional chart target, so the form must not submit one. Layered over
+ * the schema-derived resolver by the form (see `widgetConfigChecks`); loose
+ * objects leave everything else to the schema.
+ */
+export const chartConfigCheck = z.looseObject({
+  target: z.looseObject({
+    devices: z.custom<AttributeTarget["devices"]>(hasDeviceCriterion),
+  }),
+});
+
+/** The picker needs a well-formed target to render; the schema-driven default
+ *  for an object property is `""`, which is what a new widget starts from. */
+function toPickerTarget(value: unknown): AttributeTarget {
+  if (typeof value !== "object" || value === null) return { devices: {} };
+  const { devices, attribute } = value as Partial<AttributeTarget>;
+  return { devices: devices ?? {}, attribute };
+}
 
 /**
  * One entry in the aggregation list: the operator's own name, a short gloss,
@@ -48,37 +85,42 @@ const AggOption: FC<{ name: string; resultType?: DataType | null }> = ({
 };
 
 /**
- * Config fields for the chart widget: which device, which attribute, and how to
- * reduce it over time.
+ * Config fields for the chart widget: which device set, which attribute, and
+ * how to reduce it over time.
  *
- * Device and attribute are picked together — an attribute only means something
- * against a device — so a shared picker owns both fields rather than the
- * schema-driven one-input-per-property default, which would render a device id
- * as free text.
+ * The device set and attribute form one target — an attribute only means
+ * something against a set — so the shared target picker owns the whole
+ * `config.target` field rather than the schema-driven one-input-per-property
+ * default, which would render device ids as free text. Plotting needs no
+ * write access, so the picker offers every attribute the set records.
  */
 export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   control,
 }) => {
   const { t } = useTranslation("dashboards");
-  const { field: deviceField } = useController({
+  const { field: targetField } = useController({
     control,
-    name: "config.device_id",
-  });
-  const { field: attributeField } = useController({
-    control,
-    name: "config.attribute",
+    name: "config.target",
   });
   const { field: aggField } = useController({ control, name: "config.agg" });
 
-  const deviceId = (deviceField.value as string) || undefined;
-  const attribute = (attributeField.value as string) || undefined;
+  const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
 
-  const { data: device } = useDeviceById(deviceId);
+  const { devices } = useDevicesList();
   const { data: options } = useAggregateOptions();
 
-  const dataType =
-    device && attribute ? attributeDataType(device, attribute) : undefined;
+  // The attribute's data type over the whole set — the same coverage read the
+  // picker annotates its options with, so the cache is shared. A drifted set
+  // can record the attribute under several types; that offers no type at all,
+  // exactly as when nothing is picked yet.
+  const { coverage } = useAttributeCoverage(target.devices, {
+    enabled: !isEmptyFilter(target.devices),
+  });
+  const dataTypes = coverage.find(
+    (c) => c.attribute === target.attribute,
+  )?.data_types;
+  const dataType = dataTypes?.length === 1 ? dataTypes[0] : undefined;
 
   // Every operator is listed, with the ones this attribute's type refuses shown
   // disabled rather than dropped: a list that silently shortens leaves you
@@ -92,11 +134,11 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   }));
 
   // Validity belongs to the data type, which the chosen operator can outlive:
-  // the picker keeps an attribute of the same name when the device changes, and
-  // a saved widget's device can be re-driven under it. So drop an operator this
-  // type refuses whenever that becomes true, rather than only when the
-  // attribute's name changes. Waits for the type and the matrix — until both
-  // are known, "unsupported" cannot be told from "not loaded yet".
+  // the picker keeps an attribute of the same name when the device set
+  // changes, and a saved widget's devices can be re-driven under it. So drop
+  // an operator this type refuses whenever that becomes true, rather than only
+  // when the attribute's name changes. Waits for the type and the matrix —
+  // until both are known, "unsupported" cannot be told from "not loaded yet".
   const refused =
     !!agg &&
     !!dataType &&
@@ -108,14 +150,10 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   return (
     <>
-      <DeviceAttributePicker
-        deviceId={deviceId}
-        attribute={attribute}
-        onChange={(next) => {
-          deviceField.onChange(next.deviceId);
-          attributeField.onChange(next.attribute);
-        }}
-        required
+      <AttributeTargetPicker
+        value={target}
+        onChange={targetField.onChange}
+        devices={devices}
       />
       <SelectController<FieldValues, "config.agg", string | null>
         name="config.agg"

@@ -1215,6 +1215,11 @@ def _build_dashboards_app() -> FastAPI:
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_dashboards_service] = _build_dashboards_mock
+    # Widget endpoints resolve targets at save time; the resolver depends on
+    # the device manager, which this app doesn't carry.
+    dm = MagicMock()
+    dm.list_devices.return_value = []
+    app.dependency_overrides[get_device_manager] = lambda: dm
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(dashboards_router, prefix="/dashboards", dependencies=jwt_dep)

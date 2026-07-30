@@ -4,6 +4,10 @@ export type BoolDatum = { timestamp: Date; value: number };
 export type Series = {
   key: string;
   label: string;
+  /** Attribute name resolving semantic value colours (string panels). Falls
+   *  back to `key` — right when the series is keyed by its attribute, needed
+   *  when it is keyed by something else (a dashboard chart keys per device). */
+  semanticKey?: string;
 };
 
 export type TimeSeriesChartProps = {

@@ -61,7 +61,7 @@ export function StringPanel({
       items.push({
         value: val,
         color:
-          attributeValueChartColor(series.key, val) ??
+          attributeValueChartColor(series.semanticKey ?? series.key, val) ??
           CHART_COLORS[vi % CHART_COLORS.length],
         dataKey: `${series.key}::${val}`,
         data,

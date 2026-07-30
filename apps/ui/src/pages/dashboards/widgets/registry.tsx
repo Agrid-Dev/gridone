@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import type { Control, FieldValues } from "react-hook-form";
-import { ChartConfigFields } from "./views/ChartConfigFields";
+import type * as z from "zod";
+import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
 
@@ -35,6 +36,16 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
  */
 export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   chart: ChartConfigFields,
+};
+
+/**
+ * Type discriminator → validation the type's JSON Schema cannot express, for
+ * the types that need one. The form intersects it with the schema-derived
+ * resolver, so a registered check only ever tightens what the schema already
+ * accepts — it cannot loosen the wire contract.
+ */
+export const widgetConfigChecks: Record<string, z.ZodType> = {
+  chart: chartConfigCheck,
 };
 
 /** Renders a widget body from its type + config. Both the dashboard grid and

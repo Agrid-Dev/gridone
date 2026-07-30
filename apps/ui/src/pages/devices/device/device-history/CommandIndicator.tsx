@@ -8,7 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatValue } from "@/lib/formatValue";
 import type { UnitCommand, User } from "@gridone/sdk";
-import type { CellValue } from "./mergeTimeSeries";
+import type { CellValue } from "@/lib/mergeTimeSeries";
 
 type CommandIndicatorProps = {
   command: UnitCommand;

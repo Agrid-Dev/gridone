@@ -2,13 +2,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
@@ -16,8 +9,6 @@ import { cn } from "@/lib/utils";
 import type { Device } from "@gridone/sdk";
 import type { DeviceType } from "@/lib/devices";
 import { DevicePickerTable } from "./DevicePickerTable";
-
-const ALL = "__all__";
 
 /** How the user describes the device set. "devices" freezes the selection to
  *  an explicit id list; "filters" captures criteria (types, asset…) that are
@@ -130,10 +121,10 @@ function DevicesModeBody({
 }: DevicesModeBodyProps) {
   const { t } = useTranslation("devices");
 
+  // Search only — no type narrowing here: a type criterion belongs to the
+  // "by filters" mode, and offering it on both tabs read as two competing
+  // targets.
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
-
-  const deviceTypes = useMemo(() => deviceTypesOf(devices), [devices]);
 
   const filteredDevices = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -146,11 +137,10 @@ function DevicesModeBody({
           return false;
         }
       }
-      if (typeFilter && d.type !== typeFilter) return false;
       if (extraDeviceFilter && !extraDeviceFilter(d)) return false;
       return true;
     });
-  }, [devices, search, typeFilter, extraDeviceFilter]);
+  }, [devices, search, extraDeviceFilter]);
 
   const activeTrigger = "border-primary text-primary ring-1 ring-primary/30";
 
@@ -166,24 +156,6 @@ function DevicesModeBody({
             className={cn("pl-8", search && activeTrigger)}
           />
         </div>
-        <Select
-          value={typeFilter ?? ALL}
-          onValueChange={(v) => setTypeFilter(v === ALL ? null : v)}
-        >
-          <SelectTrigger
-            className={cn("w-[180px]", typeFilter && activeTrigger)}
-          >
-            <SelectValue placeholder={t("commands.new.allTypes")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("commands.new.allTypes")}</SelectItem>
-            {deviceTypes.map((dt) => (
-              <SelectItem key={dt} value={dt}>
-                <DeviceTypeChip type={dt as DeviceType} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         {extraFilters}
       </div>
 
