@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from models.targets import DevicesFilter  # noqa: TC001
 from models.types import AttributeValueType, DataType  # noqa: TC001
 
 
@@ -22,17 +21,6 @@ class WriteResult:
     """Minimal result returned by DeviceWriter, decoupled from devices_manager."""
 
     last_changed: datetime | None
-
-
-# ---------------------------------------------------------------------------
-# Target
-# ---------------------------------------------------------------------------
-# A ``Target`` is an opaque description of a device set. The commands package
-# never inspects its keys — the composition-root :class:`TargetResolver`
-# interprets it (today by forwarding to ``devices_manager.list_devices``).
-# The HTTP layer validates the shape with pydantic before it reaches the
-# service, so unknown keys land as 422 at the boundary.
-Target = Mapping[str, Any]
 
 
 @dataclass
@@ -54,7 +42,7 @@ class CommandTemplateCreate:
     so the target survives for audit.
     """
 
-    target: Target
+    target: DevicesFilter
     write: AttributeWrite
     name: str | None
 
@@ -76,7 +64,7 @@ class CommandTemplatePatch(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    target: Target | None = None
+    target: DevicesFilter | None = None
     write: AttributeWrite | None = None
     name: str | None = None
 

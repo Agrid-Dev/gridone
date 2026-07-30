@@ -17,13 +17,10 @@ from api.dependencies import (
     get_current_user_id,
     get_device_manager,
     get_pagination_params,
+    get_target_resolver,
     require_permission,
 )
 from api.permissions import Permission
-from api.routes._command_helpers import (
-    resolve_attribute_data_type,
-    resolve_attribute_data_type_for_target,
-)
 from api.schemas.command import (
     BatchDeviceCommand,
     BatchDispatchResponse,
@@ -37,15 +34,49 @@ from api.schemas.command_template import (
     CommandTemplateUpdatePayload,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from api.targets import validate_targets
 from commands import (
     AttributeWrite,
     CommandsServiceInterface,
     UnitCommand,
 )
 from devices_manager import DevicesServiceInterface
+from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
+from models.targets import (
+    AttributeTarget,
+    DevicesFilter,
+    ResolvedTarget,
+    TargetResolver,
+)
+from models.types import DataType
 
 router = APIRouter()
+
+
+async def _validated_write_target(
+    resolver: TargetResolver,
+    *,
+    devices: DevicesFilter,
+    attribute: str,
+    expected_data_type: DataType | None = None,
+) -> ResolvedTarget:
+    """Resolve a command target for a write, enforcing the save-time gate.
+
+    Raises ``InvalidError`` (→ 422) when no matched device exposes the
+    attribute as writable, when the resolved data types are mixed, or when
+    *expected_data_type* (a client-supplied ``write.data_type``) disagrees
+    with the resolved one.
+    """
+    attr_target = AttributeTarget(devices=devices, attribute=attribute)
+    resolved = (await validate_targets(resolver, [attr_target], writable=True))[0]
+    if expected_data_type is not None and resolved.data_type != expected_data_type:
+        msg = (
+            f"write.data_type '{expected_data_type}' does not match the "
+            f"resolved data type '{resolved.data_type}' for '{attribute}'"
+        )
+        raise InvalidError(msg)
+    return resolved
 
 
 def _resolve_start(query: CommandsQuery) -> datetime | None:
@@ -126,16 +157,18 @@ async def list_device_commands(
 )
 async def dispatch_batch_command(
     body: BatchDeviceCommand,
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    target = body.target.model_dump(exclude_none=True)
-    data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
+    target = body.target.to_devices_filter()
+    resolved = await _validated_write_target(
+        resolver, devices=target, attribute=body.attribute
+    )
     dispatch = await commands_svc.dispatch_batch(
         target=target,
         write=AttributeWrite(
-            attribute=body.attribute, value=body.value, data_type=data_type
+            attribute=body.attribute, value=body.value, data_type=resolved.data_type
         ),
         user_id=user_id,
         confirm=body.confirm,
@@ -156,15 +189,21 @@ async def dispatch_single_command(
     device_id: str,
     body: SingleDeviceCommand,
     dm: DevicesServiceInterface = Depends(get_device_manager),
+    resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> UnitCommand:
     dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
-    data_type = resolve_attribute_data_type(dm, [device_id], body.attribute)
+    resolved = await resolver.resolve(
+        AttributeTarget(
+            devices=DevicesFilter(ids=[device_id]), attribute=body.attribute
+        ),
+        writable=True,
+    )
     return await commands_svc.dispatch_unit(
         device_id=device_id,
         write=AttributeWrite(
-            attribute=body.attribute, value=body.value, data_type=data_type
+            attribute=body.attribute, value=body.value, data_type=resolved.data_type
         ),
         user_id=user_id,
         confirm=body.confirm,
@@ -183,9 +222,16 @@ async def dispatch_single_command(
 )
 async def create_template(
     body: CommandTemplateCreatePayload,
+    resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> CommandTemplateResponse:
+    await _validated_write_target(
+        resolver,
+        devices=body.target.to_devices_filter(),
+        attribute=body.write.attribute,
+        expected_data_type=body.write.data_type,
+    )
     template = await commands_svc.save_template(body.to_domain(), user_id)
     return CommandTemplateResponse.from_domain(template)
 
@@ -228,9 +274,24 @@ async def get_template(
 async def update_template(
     template_id: str,
     body: CommandTemplateUpdatePayload,
+    resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
 ) -> CommandTemplateResponse:
-    template = await commands_svc.update_template(template_id, body.to_domain())
+    patch = body.to_domain()
+    if patch.target is not None or patch.write is not None:
+        # Validate the template as it will exist after the patch: unchanged
+        # fields come from the stored version. Name-only patches skip
+        # validation so a template with a stale target can still be renamed.
+        existing = await commands_svc.get_template(template_id)
+        merged_target = patch.target if patch.target is not None else existing.target
+        merged_write = patch.write if patch.write is not None else existing.write
+        await _validated_write_target(
+            resolver,
+            devices=merged_target,
+            attribute=merged_write.attribute,
+            expected_data_type=merged_write.data_type,
+        )
+    template = await commands_svc.update_template(template_id, patch)
     return CommandTemplateResponse.from_domain(template)
 
 

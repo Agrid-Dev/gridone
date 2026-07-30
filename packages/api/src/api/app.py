@@ -13,7 +13,6 @@ from fastapi import Depends, FastAPI
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
 from api.dependencies import get_current_user_id
-from api.devices_filter import to_list_devices_kwargs
 from api.exception_handlers import register_exception_handlers
 from api.notification_listeners.device import on_device_discovered
 from api.notification_listeners.fault import on_fault_transition
@@ -32,12 +31,13 @@ from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
 from api.routes.users import auth_router, users_router
 from api.settings import load_settings
+from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import DeviceUpdateMessage
 from apps import AppsService
 from assets import AssetsService
-from commands import CommandsService, Target, WriteResult
+from commands import CommandsService, WriteResult
 from devices_manager import Attribute, CoreDevice, DevicesService
 from models.service import Service
 from models.types import AttributeValueType, DataType
@@ -49,25 +49,6 @@ from users.auth import AuthService
 
 async def _stop_services(services: list[Service]) -> None:
     await asyncio.gather(*[svc.stop() for svc in services])
-
-
-class _CompositeTargetResolver:
-    """TargetResolver backed by DevicesService.
-
-    The target is an opaque dict whose keys match ``DM.list_devices`` kwargs,
-    plus the ``asset_id`` alias. ``asset_id`` is translated into a
-    ``tags["asset_id"]`` filter here rather than exposed through
-    ``DM.list_devices`` directly, so devices_manager stays unaware of the
-    assets service. The tag convention mirrors the UI
-    (``setDeviceTag(id, "asset_id", assetId)``).
-    """
-
-    def __init__(self, dm: DevicesService) -> None:
-        self._dm = dm
-
-    async def resolve(self, target: Target) -> list[str]:
-        kwargs = to_list_devices_kwargs(dict(target))
-        return [d.id for d in self._dm.list_devices(**kwargs)]
 
 
 @asynccontextmanager
@@ -136,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
         settings.storage_url,
         device_writer=_write_device,
         result_handler=_on_command_success,
-        target_resolver=_CompositeTargetResolver(dm),
+        target_resolver=CompositeTargetResolver(dm),
     )
     await commands_service.start()
     app.state.commands_service = commands_service

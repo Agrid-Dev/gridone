@@ -23,6 +23,7 @@ from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
 from models.errors import NotFoundError
+from models.targets import DevicesFilter
 
 _ASSET_ID = "asset-1"
 _CHILD_ASSET_ID = "asset-2"
@@ -197,10 +198,10 @@ class TestDispatchAssetCommand:
             )
         assert response.status_code == 202
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["target"] == {
-            "tags": {"asset_id": [_ASSET_ID]},
-            "types": ["thermostat"],
-        }
+        assert kwargs["target"] == DevicesFilter(
+            tags={"asset_id": [_ASSET_ID]},
+            types=["thermostat"],
+        )
 
     @pytest.mark.asyncio
     async def test_recursive_includes_descendant_assets(
@@ -230,10 +231,10 @@ class TestDispatchAssetCommand:
         assets_service.get_descendants.assert_awaited_once_with(_ASSET_ID)
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
         target = kwargs["target"]
-        assert sorted(target["tags"]["asset_id"]) == sorted(
+        assert sorted((target.tags or {})["asset_id"]) == sorted(
             [_ASSET_ID, _CHILD_ASSET_ID]
         )
-        assert target["types"] == ["thermostat"]
+        assert target.types == ["thermostat"]
 
     @pytest.mark.asyncio
     async def test_no_devices_of_type_returns_404(

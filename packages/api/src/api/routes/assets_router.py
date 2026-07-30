@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
 from api.dependencies import (
@@ -8,12 +8,10 @@ from api.dependencies import (
     get_commands_service,
     get_current_user_id,
     get_device_manager,
+    get_target_resolver,
     require_permission,
 )
 from api.permissions import Permission
-from api.routes._command_helpers import (
-    resolve_attribute_data_type_for_target,
-)
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 from assets import (
     Asset,
@@ -26,7 +24,7 @@ from assets import (
 )
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
-from models.errors import NotFoundError
+from models.targets import AttributeTarget, DevicesFilter, TargetResolver
 
 router = APIRouter()
 
@@ -204,7 +202,7 @@ async def dispatch_asset_command(
     asset_id: str,
     body: AssetCommand,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    resolver: Annotated[TargetResolver, Depends(get_target_resolver)],
     commands_svc: Annotated[CommandsServiceInterface, Depends(get_commands_service)],
     user_id: Annotated[str, Depends(get_current_user_id)],
 ) -> BatchDispatchResponse:
@@ -213,20 +211,24 @@ async def dispatch_asset_command(
     if body.recursive:
         descendants = await assets_svc.get_descendants(asset_id)
         asset_ids.extend(a.id for a in descendants)
-    target: dict = {
-        "tags": {"asset_id": asset_ids},
-        "types": [body.device_type],
-    }
-    data_type = resolve_attribute_data_type_for_target(dm, target, body.attribute)
+    target = DevicesFilter(
+        tags={"asset_id": asset_ids},
+        types=[body.device_type],
+    )
+    resolved = await resolver.resolve(
+        AttributeTarget(devices=target, attribute=body.attribute),
+        writable=True,
+    )
     dispatch = await commands_svc.dispatch_batch(
         target=target,
         write=AttributeWrite(
-            attribute=body.attribute, value=body.value, data_type=data_type
+            attribute=body.attribute, value=body.value, data_type=resolved.data_type
         ),
         user_id=user_id,
         confirm=body.confirm,
     )
     if not dispatch.commands:
-        msg = f"No devices of type '{body.device_type}' found in asset '{asset_id}'"
-        raise NotFoundError(msg)
+        # Aligned with batch dispatch: an empty resolution is an invalid
+        # request (422), not a missing resource.
+        raise HTTPException(status_code=422, detail="Target resolved to no devices")
     return BatchDispatchResponse(batch_id=dispatch.batch_id, commands=dispatch.commands)

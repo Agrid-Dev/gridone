@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict
 
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
-from models.types import DataType, SortOrder
+from models.targets import DevicesFilter
+from models.types import SortOrder
 
 
 class CommandsQuery(BaseModel):
@@ -62,16 +63,20 @@ class SingleDeviceCommand(BaseModel):
 
 
 class DevicesFilterBody(BaseModel):
-    """HTTP shape of a devices filter, mirroring ``DM.list_devices`` kwargs.
+    """HTTP shape of a command target's device set.
 
-    This is the shape of the ``target`` field on the batch-dispatch body.
-    Unknown keys are rejected with 422; the commands service treats this as
-    an opaque ``dict`` once validated.
+    The wire form of :class:`models.targets.DevicesFilter`: the persisted
+    criteria (``ids`` / ``types`` / ``tags``) plus the ``asset_id``
+    convenience alias, folded into the ``asset_id`` tag by
+    :meth:`to_devices_filter` at this boundary — assets are stored as device
+    tags, and that translation lives at the composition layer so no service
+    knows about it. What the services see and persist is always the strict
+    canonical filter.
 
-    ``asset_id`` is a convenience alias: it is persisted verbatim in saved
-    templates (so intent round-trips cleanly to the UI) and translated into
-    the ``asset_id`` tag at the composition-root target resolver before the
-    call reaches ``DM.list_devices``.
+    Runtime query fields (``is_faulty``, ``writable_attribute``, ...) are
+    deliberately not accepted in a target — like any unknown key they are
+    rejected with 422 rather than silently altering the device set.
+    Writability is enforced against the dispatched attribute by the resolver.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -79,10 +84,18 @@ class DevicesFilterBody(BaseModel):
     ids: list[str] | None = None
     types: list[str] | None = None
     tags: dict[str, list[str]] | None = None
-    is_faulty: bool | None = None
-    writable_attribute: str | None = None
-    writable_attribute_type: DataType | None = None
     asset_id: str | None = None
+
+    def to_devices_filter(self) -> DevicesFilter:
+        """Canonicalize into the strict filter, folding ``asset_id`` into tags."""
+        tags = self.tags
+        if self.asset_id is not None:
+            tags = dict(tags or {})
+            values = list(tags.get("asset_id") or [])
+            if self.asset_id not in values:
+                values.append(self.asset_id)
+            tags["asset_id"] = values
+        return DevicesFilter(ids=self.ids, types=self.types, tags=tags)
 
 
 class BatchDeviceCommand(BaseModel):

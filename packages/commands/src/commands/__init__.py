@@ -6,7 +6,6 @@ from commands.models import (
     CommandTemplate,
     CommandTemplateCreate,
     CommandTemplatePatch,
-    Target,
     UnitCommand,
     UnitCommandCreate,
     WriteResult,
@@ -14,7 +13,6 @@ from commands.models import (
 from commands.protocols import (
     CommandResultHandler,
     DeviceWriter,
-    TargetResolver,
 )
 from commands.service import CommandsService
 
@@ -29,8 +27,6 @@ __all__ = [
     "CommandsService",
     "CommandsServiceInterface",
     "DeviceWriter",
-    "Target",
-    "TargetResolver",
     "UnitCommand",
     "UnitCommandCreate",
     "WriteResult",

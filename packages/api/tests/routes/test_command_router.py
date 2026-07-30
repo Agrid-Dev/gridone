@@ -15,6 +15,7 @@ from api.dependencies import (
     get_commands_service,
     get_current_token_payload,
     get_current_user_id,
+    get_target_resolver,
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.command_router import router
@@ -27,8 +28,9 @@ from commands import (
     UnitCommand,
 )
 from devices_manager.types import DataType
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
+from models.targets import DevicesFilter, ResolvedTarget, TargetResolver
 
 
 @pytest.fixture
@@ -37,11 +39,24 @@ def mock_commands_service():
 
 
 @pytest.fixture
-def app(mock_commands_service, admin_token_payload) -> FastAPI:
+def mock_target_resolver():
+    resolver = AsyncMock(spec=TargetResolver)
+    resolver.resolve.return_value = ResolvedTarget(
+        attribute="mode",
+        device_ids=["t1", "t2"],
+        data_type=DataType.STRING,
+        excluded_device_ids=[],
+    )
+    return resolver
+
+
+@pytest.fixture
+def app(mock_commands_service, mock_target_resolver, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
+    app.dependency_overrides[get_target_resolver] = lambda: mock_target_resolver
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
@@ -56,12 +71,12 @@ def _template(
     *,
     template_id: str = "abc1234567890def",
     name: str | None = "Thermostats to auto",
-    target: dict | None = None,
+    target: DevicesFilter | None = None,
 ) -> CommandTemplate:
     return CommandTemplate(
         id=template_id,
         name=name,
-        target=target or {"types": ["thermostat"]},
+        target=target or DevicesFilter(types=["thermostat"]),
         write=AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING),
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
         created_by="admin",
@@ -120,7 +135,7 @@ class TestCreateTemplate:
         body = response.json()
         assert body["id"] == saved.id
         assert body["name"] == "Thermostats to auto"
-        assert body["target"] == {"types": ["thermostat"]}
+        assert body["target"] == {"ids": None, "types": ["thermostat"], "tags": None}
         assert body["write"] == {
             "attribute": "mode",
             "value": "auto",
@@ -129,7 +144,7 @@ class TestCreateTemplate:
 
         template_create = mock_commands_service.save_template.call_args.args[0]
         assert template_create.name == "Thermostats to auto"
-        assert template_create.target == {"types": ["thermostat"]}
+        assert template_create.target == DevicesFilter(types=["thermostat"])
         assert template_create.write.data_type == DataType.STRING
 
     @pytest.mark.asyncio
@@ -155,16 +170,27 @@ class TestCreateTemplate:
         assert response.json()["name"] is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            pytest.param({"bogus": "x"}, id="unknown-key"),
+            # Retired runtime filters are rejected at the wire, not silently
+            # dropped — a target is criteria only (ids/types/tags/asset_id).
+            pytest.param({"writable_attribute": "mode"}, id="legacy-writable"),
+            pytest.param({"is_faulty": True}, id="legacy-is-faulty"),
+        ],
+    )
     async def test_unknown_target_key_returns_422(
         self,
         async_client: AsyncClient,
+        bad_key: dict,
     ):
         async with async_client as ac:
             response = await ac.post(
                 "/commands/templates/",
                 json={
                     "name": "T",
-                    "target": {"ids": ["d1"], "bogus": "x"},
+                    "target": {"ids": ["d1"], **bad_key},
                     "write": {
                         "attribute": "mode",
                         "value": "auto",
@@ -173,6 +199,57 @@ class TestCreateTemplate:
                 },
             )
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_unwritable_target_returns_422(
+        self,
+        async_client: AsyncClient,
+        mock_target_resolver: AsyncMock,
+        mock_commands_service: AsyncMock,
+    ):
+        mock_target_resolver.resolve.side_effect = InvalidError(
+            "No device in the target exposes 'mode' as writable"
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands/templates/",
+                json={
+                    "name": "T",
+                    "target": {"types": ["thermostat"]},
+                    "write": {
+                        "attribute": "mode",
+                        "value": "auto",
+                        "data_type": "str",
+                    },
+                },
+            )
+        assert response.status_code == 422
+        mock_commands_service.save_template.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_data_type_mismatch_returns_422(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        # The resolver reports 'str' for this attribute; a client-supplied
+        # 'float' would persist a write that can never apply.
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands/templates/",
+                json={
+                    "name": "T",
+                    "target": {"types": ["thermostat"]},
+                    "write": {
+                        "attribute": "mode",
+                        "value": 21.5,
+                        "data_type": "float",
+                    },
+                },
+            )
+        assert response.status_code == 422
+        assert "data_type" in response.json()["detail"]
+        mock_commands_service.save_template.assert_not_awaited()
 
 
 class TestListTemplates:
