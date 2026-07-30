@@ -1,3 +1,13 @@
+## v0.174.0 (2026-07-30)
+
+### Feat
+
+- **devices-manager**: add pms_monitor standard type to the registry
+
+### Fix
+
+- **devices-manager**: narrow pms_monitor required fields
+
 ## v0.173.0 (2026-07-29)
 
 ### Feat
