@@ -135,8 +135,10 @@
       "labels": {
         "ids": "Appareils spécifiques",
         "assetId": "Zone",
-        "types": "Type d'appareil"
-      }
+        "types": "Type d'appareil",
+        "tags": "Tags"
+      },
+      "tag": "{{key}} : {{values}}"
     },
     "templates": {
       "title": "Modèles",
@@ -193,7 +195,6 @@
       "toggleVisible": "Cocher les appareils visibles",
       "noDevicesMatch": "Aucun appareil ne correspond au filtre.",
       "noDevicesResolved": "Aucun appareil sélectionné.",
-      "pickAttributePlaceholder": "Choisir un attribut",
       "noCompatibleTitle": "Aucun attribut inscriptible compatible",
       "noCompatibleDescription": "Les appareils sélectionnés ne partagent aucun attribut inscriptible avec le même type de données. Restreignez la sélection.",
       "valueHint": {

@@ -14,6 +14,7 @@ import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import CommandTemplatePicker from "@/components/forms/resourcePickers/CommandTemplatePicker";
 import type { CommandTemplateResponse } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { assetIdOf } from "@/lib/devices";
 import type { DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
@@ -41,13 +42,14 @@ function templateToFormValues(
   template: CommandTemplateResponse,
 ): Partial<WizardFormValues> {
   const target = template.target as DevicesFilter;
+  const assetId = assetIdOf(target);
   const usingIdsOnly =
-    !!target.ids?.length && !target.asset_id && !target.types?.length;
+    !!target.ids?.length && !assetId && !target.types?.length;
   return {
     targetMode: usingIdsOnly ? "devices" : "filters",
     deviceIds: target.ids ?? [],
     targetFilter: {
-      assetId: target.asset_id ?? undefined,
+      assetId,
       types: target.types ?? undefined,
     },
     attribute: template.write.attribute,

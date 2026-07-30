@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { Device } from "@gridone/sdk";
 import type { DeviceAttribute } from "@/lib/devices";
-import { intersectWritableAttributes } from "./resolvers";
+import {
+  resolveFilter,
+  targetFilterToDevicesFilter,
+  valueOptionsFor,
+} from "./resolvers";
 
 function attr(
   name: string,
@@ -23,7 +27,10 @@ function attr(
   };
 }
 
-function device(attributes: DeviceAttribute[]): Device {
+function device(
+  attributes: DeviceAttribute[],
+  overrides?: Partial<Device>,
+): Device {
   return {
     id: "d1",
     name: "Device",
@@ -36,75 +43,83 @@ function device(attributes: DeviceAttribute[]): Device {
     attributes: Object.fromEntries(
       attributes.map((a) => [a.name as string, a]),
     ),
+    ...overrides,
   };
 }
 
-describe("intersectWritableAttributes", () => {
-  it("returns empty list when no devices", () => {
-    expect(intersectWritableAttributes([])).toEqual([]);
-  });
-
-  it("includes only writable attributes", () => {
-    const d = device([
-      attr("mode", { writable: true }),
-      attr("temperature", { writable: false }),
-    ]);
-    const result = intersectWritableAttributes([d]);
-    expect(result.map((a) => a.name)).toEqual(["mode"]);
-  });
-
-  it("includes valueOptions when the single device has them", () => {
+describe("valueOptionsFor", () => {
+  it("returns the options when the single device exposing the attribute has them", () => {
     const d = device([
       attr("mode", {
         writable: true,
         valueOptions: ["heat", "cool", "fan", "auto"],
       }),
     ]);
-    const [result] = intersectWritableAttributes([d]);
-    expect(result.valueOptions).toEqual(["heat", "cool", "fan", "auto"]);
+    expect(valueOptionsFor([d], "mode")).toEqual([
+      "heat",
+      "cool",
+      "fan",
+      "auto",
+    ]);
   });
 
-  it("includes valueOptions when all devices agree on the same list", () => {
+  it("intersects only over devices exposing the attribute as writable", () => {
+    // Union semantics: d2 doesn't expose `mode` at all and d3 exposes it
+    // read-only — both are excluded at dispatch, so they must not veto the
+    // exposing device's option list.
     const d1 = device([
       attr("mode", { writable: true, valueOptions: ["heat", "cool"] }),
     ]);
-    const d2 = device([
-      attr("mode", { writable: true, valueOptions: ["heat", "cool"] }),
-    ]);
-    const [result] = intersectWritableAttributes([d1, d2]);
-    expect(result.valueOptions).toEqual(["heat", "cool"]);
+    const d2 = device([attr("setpoint", { writable: true })], { id: "d2" });
+    const d3 = device([attr("mode", { writable: false })], { id: "d3" });
+    expect(valueOptionsFor([d1, d2, d3], "mode")).toEqual(["heat", "cool"]);
   });
 
-  it("omits valueOptions when devices disagree on the option list", () => {
+  it("is undefined when exposing devices disagree on the option list", () => {
     const d1 = device([
       attr("mode", { writable: true, valueOptions: ["heat", "cool"] }),
     ]);
-    const d2 = device([
-      attr("mode", { writable: true, valueOptions: ["heat"] }),
-    ]);
-    const [result] = intersectWritableAttributes([d1, d2]);
-    expect(result.valueOptions).toBeUndefined();
+    const d2 = device(
+      [attr("mode", { writable: true, valueOptions: ["heat"] })],
+      { id: "d2" },
+    );
+    expect(valueOptionsFor([d1, d2], "mode")).toBeUndefined();
   });
 
-  it("omits valueOptions when any device has none", () => {
+  it("is undefined when any exposing device has no options", () => {
     const d1 = device([
       attr("mode", { writable: true, valueOptions: ["heat", "cool"] }),
     ]);
-    const d2 = device([attr("mode", { writable: true })]);
-    const [result] = intersectWritableAttributes([d1, d2]);
-    expect(result.valueOptions).toBeUndefined();
+    const d2 = device([attr("mode", { writable: true })], { id: "d2" });
+    expect(valueOptionsFor([d1, d2], "mode")).toBeUndefined();
   });
 
-  it("omits the attribute when not shared across all devices", () => {
-    const d1 = device([attr("mode", { writable: true })]);
-    const d2 = device([attr("setpoint", { writable: true })]);
-    const result = intersectWritableAttributes([d1, d2]);
-    expect(result).toEqual([]);
+  it("is undefined when no selected device exposes the attribute as writable", () => {
+    const d = device([attr("mode", { writable: false })]);
+    expect(valueOptionsFor([d], "mode")).toBeUndefined();
   });
+});
 
-  it("omits the attribute when data types differ across devices", () => {
-    const d1 = device([attr("value", { writable: true, dataType: "int" })]);
-    const d2 = device([attr("value", { writable: true, dataType: "str" })]);
-    expect(intersectWritableAttributes([d1, d2])).toEqual([]);
+describe("targetFilterToDevicesFilter", () => {
+  // Regression: the wizard used to pass the form-state ``{assetId}`` shape
+  // straight into resolveFilter (which reads ``asset_id``), so the asset
+  // constraint silently no-oped in the filters-mode preview.
+  it("maps the form-state assetId onto asset_id so the preview applies it", () => {
+    const inAsset = device([], {
+      id: "in",
+      type: "thermostat",
+      tags: { asset_id: "a1" },
+    });
+    const outOfAsset = device([], {
+      id: "out",
+      type: "thermostat",
+      tags: { asset_id: "a2" },
+    });
+
+    const filter = targetFilterToDevicesFilter({ assetId: "a1" });
+    expect(filter).toEqual({ types: undefined, asset_id: "a1" });
+
+    const resolved = resolveFilter([inAsset, outOfAsset], filter);
+    expect(resolved.map((d) => d.id)).toEqual(["in"]);
   });
 });

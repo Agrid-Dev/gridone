@@ -135,8 +135,10 @@
       "labels": {
         "ids": "Specific devices",
         "assetId": "Zone",
-        "types": "Device type"
-      }
+        "types": "Device type",
+        "tags": "Tags"
+      },
+      "tag": "{{key}}: {{values}}"
     },
     "templates": {
       "title": "Templates",
@@ -193,7 +195,6 @@
       "toggleVisible": "Toggle visible devices",
       "noDevicesMatch": "No devices match your filter.",
       "noDevicesResolved": "No devices selected.",
-      "pickAttributePlaceholder": "Select an attribute",
       "noCompatibleTitle": "No compatible writable attribute",
       "noCompatibleDescription": "The selected devices do not share any writable attribute with matching data types. Narrow your selection.",
       "valueHint": {

@@ -2,11 +2,14 @@ import type { Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import {
   deviceAttributes,
+  isEmptyFilter,
   type AttributeValue,
   type DeviceAttribute,
   type DevicesFilter,
 } from "@/lib/devices";
-import type { AttributeDataType, WritableAttribute } from "./types";
+import type { TargetFilter } from "./types";
+
+export { isEmptyFilter };
 
 /** Attribute maps are untyped on the wire (`Record<string, unknown>`), so the
  *  field reads below narrow at the access site. */
@@ -16,36 +19,23 @@ function isWritable(attr: DeviceAttribute): boolean {
   );
 }
 
-/** Intersection of writable attributes across a set of devices. An attribute
- *  is included only if every device in the list exposes it as writable with
- *  the same data type. `valueOptions` is included only when every device
- *  agrees on the same non-null option list (driver-defined, so same-type
- *  devices always agree; mixed selections fall back to free-text). */
-export function intersectWritableAttributes(
+/** Value options for *attrName* across the selected devices that expose it as
+ *  writable — mirroring dispatch semantics, where devices not exposing the
+ *  attribute as writable are excluded server-side. Defined only when every
+ *  exposing device agrees on the same non-empty option list (driver-defined,
+ *  so same-type devices always agree; mixed sets fall back to free-text). */
+export function valueOptionsFor(
   devices: Device[],
-): WritableAttribute[] {
-  if (devices.length === 0) return [];
-
-  const writablesOfFirst = Object.values(deviceAttributes(devices[0])).filter(
-    isWritable,
-  );
-
-  return writablesOfFirst
-    .filter((attr) =>
-      devices.every((d) => {
-        const match = Object.values(deviceAttributes(d)).find(
-          (a: DeviceAttribute) => a.name === attr.name,
-        );
-        return (
-          !!match && isWritable(match) && match.data_type === attr.data_type
-        );
-      }),
-    )
-    .map((attr) => ({
-      name: attr.name as string,
-      dataType: attr.data_type as AttributeDataType,
-      valueOptions: intersectValueOptions(devices, attr.name as string),
-    }));
+  attrName: string,
+): AttributeValue[] | undefined {
+  const exposing = devices.filter((d) => {
+    const match = Object.values(deviceAttributes(d)).find(
+      (a) => a.name === attrName,
+    );
+    return !!match && isWritable(match);
+  });
+  if (exposing.length === 0) return undefined;
+  return intersectValueOptions(exposing, attrName);
 }
 
 function intersectValueOptions(
@@ -112,12 +102,16 @@ export function resolveFilter(
   return devices.filter((d) => deviceMatchesFilter(d, filter));
 }
 
-export function isEmptyFilter(filter: DevicesFilter): boolean {
-  return (
-    !(filter.ids && filter.ids.length > 0) &&
-    !(filter.types && filter.types.length > 0) &&
-    !filter.asset_id
-  );
+/** Map the filter-mode form state (camelCase ``assetId``) onto the
+ *  wire-format ``DevicesFilter`` expected by ``resolveFilter`` and the
+ *  target payload. */
+export function targetFilterToDevicesFilter(
+  filter: TargetFilter | undefined,
+): DevicesFilter {
+  return {
+    types: filter?.types,
+    asset_id: filter?.assetId,
+  };
 }
 
 /** All device IDs linked to the asset or any of its descendants. */

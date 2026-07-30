@@ -5,29 +5,31 @@ import {
   type UseFormSetValue,
 } from "react-hook-form";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectController } from "@/components/forms/controllers/SelectController";
+import {
+  AttributeCoverageSelect,
+  useAttributeCoverage,
+} from "@/components/forms/targetPicker";
 import { cn } from "@/lib/utils";
-import { toLabel } from "@/lib/textFormat";
 import { AttributeValue } from "@/components/AttributeValue";
 import type { Device } from "@gridone/sdk";
-import { type DeviceType } from "@/lib/devices";
-import { currentValueFor } from "./resolvers";
-import type { WizardFormValues, WritableAttribute } from "./types";
+import {
+  isEmptyFilter,
+  type DevicesFilter,
+  type DeviceType,
+} from "@/lib/devices";
+import { currentValueFor, valueOptionsFor } from "./resolvers";
+import type { WizardFormValues } from "./types";
 
 type CommandStepProps = {
   control: Control<WizardFormValues>;
   setValue: UseFormSetValue<WizardFormValues>;
-  attributes: WritableAttribute[];
+  /** The effective device-set filter the attribute coverage is computed
+   *  over (explicit ids, or the filters-mode criteria). */
+  filter: DevicesFilter;
   selectedDevices: Device[];
   selectedAttribute: string | undefined;
   selectedDataType: WizardFormValues["attributeDataType"];
@@ -36,14 +38,21 @@ type CommandStepProps = {
 export function CommandStep({
   control,
   setValue,
-  attributes,
+  filter,
   selectedDevices,
   selectedAttribute,
   selectedDataType,
 }: CommandStepProps) {
   const { t } = useTranslation("devices");
 
-  if (attributes.length === 0) {
+  // Same query key as the wizard's and AttributeCoverageSelect's hook —
+  // react-query dedupes, so this costs no extra fetch.
+  const { coverage, isLoading } = useAttributeCoverage(filter, {
+    enabled: !isEmptyFilter(filter),
+  });
+  const hasWritable = coverage.some((c) => c.writable_count > 0);
+
+  if (!isLoading && !hasWritable) {
     return (
       <Alert variant="destructive">
         <AlertTitle>{t("commands.new.noCompatibleTitle")}</AlertTitle>
@@ -62,34 +71,19 @@ export function CommandStep({
         render={({ field }) => (
           <Field>
             <FieldLabel>{t("commands.attribute")}</FieldLabel>
-            <Select
-              value={field.value ?? ""}
-              onValueChange={(v) => {
-                field.onChange(v);
-                const attr = attributes.find((a) => a.name === v);
-                setValue("attributeDataType", attr?.dataType);
+            <AttributeCoverageSelect
+              filter={filter}
+              writableOnly
+              value={field.value}
+              onChange={(attribute, dataType) => {
+                field.onChange(attribute);
+                setValue("attributeDataType", dataType);
                 // Pre-fill the value with the first selected device's current
                 // value. Firing inside the user handler (not a useEffect) means
                 // device polling can't overwrite edits the user makes after.
-                setValue("value", currentValueFor(selectedDevices, v));
+                setValue("value", currentValueFor(selectedDevices, attribute));
               }}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={t("commands.new.pickAttributePlaceholder")}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {attributes.map((attr) => (
-                  <SelectItem key={attr.name} value={attr.name}>
-                    <span>{toLabel(attr.name)}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({attr.dataType})
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </Field>
         )}
       />
@@ -97,9 +91,10 @@ export function CommandStep({
       {selectedAttribute &&
         selectedDataType &&
         (() => {
-          const selectedValueOptions = attributes.find(
-            (a) => a.name === selectedAttribute,
-          )?.valueOptions;
+          const selectedValueOptions = valueOptionsFor(
+            selectedDevices,
+            selectedAttribute,
+          );
           const hint = t(`commands.new.valueHint.${selectedDataType}`, {
             defaultValue: "",
           });
