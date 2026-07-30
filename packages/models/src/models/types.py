@@ -35,6 +35,25 @@ class AggregationOperator(StrEnum):
     DELTA = "delta"
 
 
+SPACE_AGGREGATION_OPERATORS: frozenset[AggregationOperator] = frozenset(
+    {
+        AggregationOperator.AVG,
+        AggregationOperator.SUM,
+        AggregationOperator.MIN,
+        AggregationOperator.MAX,
+        AggregationOperator.COUNT,
+        AggregationOperator.MODE,
+    }
+)
+"""Operators that can fold one bucket's values across a device set.
+
+Space has no ordering and no duration: ``first``/``last``/``delta`` need a
+sequence and the ``tw_*`` operators need time spent per value, so none of
+them mean anything across devices. Shared here so a widget config can refuse
+a non-space operator at save time without importing the timeseries package.
+"""
+
+
 class SortOrder(StrEnum):
     ASC = "asc"
     DESC = "desc"

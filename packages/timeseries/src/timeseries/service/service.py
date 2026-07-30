@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 from dataclasses import dataclass
@@ -21,11 +22,14 @@ from timeseries.domain import (
     FetchPointsResult,
     Interval,
     SeriesKey,
+    SpaceAggregationResult,
     TimeSeries,
+    combine_space,
     normalize_to_utc,
     parse_duration,
     resolve_aggregation_data_type,
     resolve_last,
+    resolve_space_aggregation_data_type,
     validate_tz_name,
     validate_value_type,
 )
@@ -295,6 +299,70 @@ class TimeSeriesService(Service):
         # The backends require a resolved interval — "auto" must never reach them.
         query = query.model_copy(update={"interval": interval})
         return await self._backend.aggregate(key, query)
+
+    async def get_aggregate_many(
+        self,
+        keys: list[SeriesKey],
+        query: AggregationQuery,
+        space_agg: AggregationOperator,
+    ) -> SpaceAggregationResult:
+        """Time-aggregate every series in *keys*, then fold buckets in space.
+
+        Every series runs the same resolved query, so the gap-filled bucket
+        grids line up and *space_agg* reduces each bucket's values across
+        series. Keys without a series are skipped (a device may expose the
+        attribute without recorded history); a bucket only counts the series
+        that hold a value there, which is how sets with different history
+        bounds stay aggregable.
+        """
+        cutoff = _utcnow()
+        resolved_tz = query.timezone or self._default_timezone
+        query = query.model_copy(
+            update={
+                "start": normalize_to_utc(query.start, resolved_tz),
+                "end": normalize_to_utc(query.end or cutoff, resolved_tz),
+                "timezone": resolved_tz,
+            }
+        )
+        if query.start is None:
+            msg = "start (or last) is required for aggregation"
+            raise InvalidError(msg)
+
+        maybe_series = await asyncio.gather(
+            *(self._backend.get_series_by_key(key) for key in keys)
+        )
+        series = [s for s in maybe_series if s is not None]
+        if not series:
+            msg = "No timeseries found for any device in the target"
+            raise NotFoundError(msg)
+        data_types = {s.data_type for s in series}
+        if len(data_types) > 1:
+            listed = ", ".join(sorted(dt.value for dt in data_types))
+            msg = f"Series in the target have mixed data types: {listed}"
+            raise InvalidError(msg)
+        data_type = next(iter(data_types))
+        time_output = resolve_aggregation_data_type(query.agg, data_type)
+        resolve_space_aggregation_data_type(space_agg, time_output)
+
+        end: datetime = query.end or cutoff
+        interval = _resolve_interval(query, end - query.start)
+        if interval == "raw":
+            msg = "Space aggregation requires bucketed series; 'raw' is not supported"
+            raise InvalidError(msg)
+        query = query.model_copy(update={"interval": interval})
+
+        results = await asyncio.gather(
+            *(self._backend.aggregate(s.key, query) for s in series)
+        )
+        return SpaceAggregationResult(
+            interval=interval,
+            agg=query.agg,
+            space_agg=space_agg,
+            data_type=data_type,
+            timezone=resolved_tz,
+            series_count=len(series),
+            points=combine_space(list(results), space_agg),
+        )
 
     async def get_aggregate_options(
         self,
