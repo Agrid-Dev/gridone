@@ -1,3 +1,13 @@
+## v0.177.0 (2026-07-30)
+
+### Feat
+
+- **ui**: shared attribute target picker adopted by the command wizard
+
+### Refactor
+
+- **commands**: adopt the shared typed target model
+
 ## v0.176.0 (2026-07-30)
 
 ### Feat
