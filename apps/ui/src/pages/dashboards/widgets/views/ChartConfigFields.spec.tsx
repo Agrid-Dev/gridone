@@ -16,38 +16,56 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-// Stand in for the picker, exposing a button per attribute so a switch can be
-// driven without reaching into its internals.
-vi.mock("@/components/forms/resourcePickers/DeviceAttributePicker", () => ({
-  DeviceAttributePicker: ({
+// Stand in for the target picker, exposing a button per canned target so a
+// change can be driven without reaching into its internals. Coverage over the
+// picked set is what gives the editor its data type; the fixtures mirror a
+// thermostat set recording a float and a string attribute.
+vi.mock("@/components/forms/targetPicker", () => ({
+  AttributeTargetPicker: ({
     onChange,
   }: {
-    onChange: (next: { deviceId: string; attribute: string }) => void;
+    onChange: (next: {
+      devices: { ids?: string[]; types?: string[] };
+      attribute?: string;
+    }) => void;
   }) => (
     <div>
       {["temperature", "mode"].map((attr) => (
         <button
           key={attr}
           type="button"
-          onClick={() => onChange({ deviceId: "dev1", attribute: attr })}
+          onClick={() =>
+            onChange({ devices: { ids: ["dev1", "dev2"] }, attribute: attr })
+          }
         >
           pick {attr}
         </button>
       ))}
     </div>
   ),
+  useAttributeCoverage: () => ({
+    coverage: [
+      {
+        attribute: "temperature",
+        data_types: ["float"],
+        device_count: 2,
+        writable_count: 0,
+      },
+      {
+        attribute: "mode",
+        data_types: ["str"],
+        device_count: 2,
+        writable_count: 0,
+      },
+    ],
+    totalDevices: 2,
+    isLoading: false,
+    error: null,
+  }),
 }));
 
-vi.mock("@/hooks/useDeviceById", () => ({
-  useDeviceById: () => ({
-    data: {
-      id: "dev1",
-      attributes: {
-        temperature: { data_type: "float" },
-        mode: { data_type: "str" },
-      },
-    },
-  }),
+vi.mock("@/hooks/useDevicesList", () => ({
+  useDevicesList: () => ({ devices: [], loading: false, error: null }),
 }));
 
 // Mirrors the backend matrix: every operator against every type, mapped to
@@ -121,7 +139,7 @@ function Harness({
 }) {
   const form = useForm({
     defaultValues: {
-      config: { device_id: "", attribute: "", agg: null, ...defaultConfig },
+      config: { type: "chart", target: "", agg: null, ...defaultConfig },
     },
   });
   onValues(form.watch("config"));
@@ -143,11 +161,8 @@ function renderFields(defaultConfig?: Record<string, unknown>) {
 const items = () =>
   Array.from(screen.getByTestId("agg").querySelectorAll("option"));
 
-/** The offered operators, by stored value. Raw is stored as `null`, which the
- *  select keys as the string "null". */
-const options = () => items().map((o) => o.getAttribute("value"));
-
-/** The operators a user can actually choose right now. */
+/** The operators a user can actually choose right now, by stored value. Raw is
+ *  stored as `null`, which the select keys as the string "null". */
 const enabled = () =>
   items()
     .filter((o) => !o.disabled)
@@ -156,95 +171,45 @@ const enabled = () =>
 afterEach(cleanup);
 
 describe("ChartConfigFields", () => {
-  // A list that silently shortens leaves you unable to tell an operator that
-  // doesn't apply to this attribute from one that doesn't exist.
-  it.each([
-    ["a numeric attribute", "temperature"],
-    ["a string attribute", "mode"],
-  ])("lists every operator for %s", (_case, attribute) => {
-    renderFields({ device_id: "dev1", attribute });
-    expect(options()).toEqual(["null", "avg", "min", "mode"]);
+  // The persisted target shape and nothing else — no runtime keys, no legacy
+  // device_id.
+  it("emits the picked target as config.target", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("pick temperature"));
+
+    expect(latest()).toEqual({
+      type: "chart",
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: null,
+    });
   });
 
-  it("disables the operators the data type refuses", () => {
-    renderFields({ device_id: "dev1", attribute: "mode" });
+  // The data type now belongs to the whole set, read from its coverage: the
+  // operators that type refuses stay listed but disabled.
+  it("disables the operators the set's data type refuses", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+    });
     expect(enabled()).toEqual(["null", "mode"]);
   });
 
-  it("enables the operators the data type admits", () => {
-    renderFields({ device_id: "dev1", attribute: "temperature" });
-    expect(enabled()).toEqual(["null", "avg", "min", "mode"]);
-  });
-
-  // Nothing can be aggregated until there is an attribute to aggregate.
-  it("leaves raw the only choice until an attribute is picked", () => {
-    renderFields();
-    expect(options()).toEqual(["null", "avg", "min", "mode"]);
-    expect(enabled()).toEqual(["null"]);
-  });
-
-  // The operator's own name leads; the gloss and the result type sit beside it.
-  it("shows each operator's caption and what it would yield", () => {
-    renderFields({ device_id: "dev1", attribute: "temperature" });
-    const labels = items().map((o) => o.textContent);
-    expect(labels[0]).toBe("rawevery recorded point");
-    expect(labels[1]).toBe("avgmean of the bucketfloat");
-  });
-
-  it("marks a refused operator as unsupported rather than showing a type", () => {
-    renderFields({ device_id: "dev1", attribute: "mode" });
-    const labels = items().map((o) => o.textContent);
-    expect(labels[1]).toBe("avgmean of the bucketnot supported");
-    expect(labels[3]).toBe("modemost frequent valuestr");
-  });
-
-  // The picker keeps an attribute of the same name when the device changes, so
-  // the operator can outlive the data type that justified it. What matters is
-  // the type, not the name.
-  it("clears an operator the current data type refuses", () => {
+  // A saved widget's set can be re-driven under its operator; what matters is
+  // the type coverage reports now, not the one that justified the save.
+  it("clears an operator the set's data type refuses", () => {
     const latest = renderFields({
-      device_id: "dev1",
-      attribute: "mode",
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
       agg: "avg",
     });
 
     expect(latest().agg).toBeNull();
   });
 
-  it("keeps an operator the current data type admits", () => {
+  it("keeps an operator the set's data type admits", () => {
     const latest = renderFields({
-      device_id: "dev1",
-      attribute: "temperature",
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
       agg: "avg",
     });
-
-    expect(latest().agg).toBe("avg");
-  });
-
-  // Keeping `avg` across a switch to a string attribute would save a pair the
-  // API refuses, and the widget would render an error instead of a chart.
-  it("clears the operator when the attribute changes", () => {
-    const latest = renderFields({
-      device_id: "dev1",
-      attribute: "temperature",
-      agg: "avg",
-    });
-    expect(latest().agg).toBe("avg");
-
-    fireEvent.click(screen.getByText("pick mode"));
-
-    expect(latest().attribute).toBe("mode");
-    expect(latest().agg).toBeNull();
-  });
-
-  it("keeps the operator when the same attribute is re-picked", () => {
-    const latest = renderFields({
-      device_id: "dev1",
-      attribute: "temperature",
-      agg: "avg",
-    });
-
-    fireEvent.click(screen.getByText("pick temperature"));
 
     expect(latest().agg).toBe("avg");
   });

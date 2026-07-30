@@ -1,5 +1,14 @@
 import type { DataPoint, DataType } from "@gridone/sdk";
 import type { TimeSeriesChartProps } from "@/components/charts/TimeSeriesChart";
+import { mergeTimeSeries } from "@/lib/mergeTimeSeries";
+
+/** One series to plot: the device it belongs to (`key`), how the legend names
+ *  it (`label`), and its points over the window. */
+export type ChartSeriesInput = {
+  key: string;
+  label: string;
+  points: DataPoint[];
+};
 
 /**
  * Repeat the last recorded value at *end* so the series spans the whole window.
@@ -37,35 +46,93 @@ export function singleSeriesChartProps(
   key: string,
   label: string,
   points: DataPoint[],
+  attribute?: string,
 ): TimeSeriesChartProps {
   const timestamps = points.map((p) => new Date(p.timestamp));
-  const series = [{ key, label }];
-  const values = points.map((p) => p.value);
+  return chartPropsFor(
+    dataType,
+    timestamps,
+    [{ key, label, semanticKey: attribute }],
+    { [key]: points.map((p) => p.value) },
+  );
+}
 
+/**
+ * Project several devices' points — one attribute, one shared data type — onto
+ * the chart's props.
+ *
+ * Each series records on its own clock, so their timestamps are merged into
+ * one index with per-series forward-fill (`mergeTimeSeries`): a value holds
+ * until the next one, which is what change-recorded points mean. A single
+ * series bypasses the merge and keeps its exact timestamps — one device must
+ * chart exactly as it always has.
+ */
+export function multiSeriesChartProps(
+  dataType: DataType,
+  series: ChartSeriesInput[],
+  attribute?: string,
+): TimeSeriesChartProps {
+  if (series.length === 1) {
+    const [s] = series;
+    return singleSeriesChartProps(
+      dataType,
+      s.key,
+      s.label,
+      s.points,
+      attribute,
+    );
+  }
+
+  const rows = mergeTimeSeries(
+    Object.fromEntries(series.map((s) => [s.key, s.points])),
+    series.map((s) => s.key),
+  );
+  const timestamps = rows.map((r) => new Date(r.timestamp));
+  const values = Object.fromEntries(
+    series.map((s) => [s.key, rows.map((r) => r.values[s.key])]),
+  );
+  return chartPropsFor(
+    dataType,
+    timestamps,
+    // Series are keyed per device, so each carries the attribute as its
+    // semantic key — value colours (hvac modes, statuses) resolve from the
+    // attribute, not the device.
+    series.map(({ key, label }) => ({ key, label, semanticKey: attribute })),
+    values,
+  );
+}
+
+/** Fill the prop pair the data type calls for (see `singleSeriesChartProps`). */
+function chartPropsFor(
+  dataType: DataType,
+  timestamps: Date[],
+  series: { key: string; label: string; semanticKey?: string }[],
+  values: Record<string, (DataPoint["value"] | null)[]>,
+): TimeSeriesChartProps {
   switch (dataType) {
     case "float":
       return {
         timestamps,
         lineSeries: series,
-        lineValues: { [key]: values as (number | null)[] },
+        lineValues: values as Record<string, (number | null)[]>,
       };
     case "int":
       return {
         timestamps,
         intSeries: series,
-        intValues: { [key]: values as (number | null)[] },
+        intValues: values as Record<string, (number | null)[]>,
       };
     case "bool":
       return {
         timestamps,
         booleanSeries: series,
-        booleanValues: { [key]: values as (boolean | null)[] },
+        booleanValues: values as Record<string, (boolean | null)[]>,
       };
     case "str":
       return {
         timestamps,
         stringSeries: series,
-        stringValues: { [key]: values as (string | null)[] },
+        stringValues: values as Record<string, (string | null)[]>,
       };
   }
 }

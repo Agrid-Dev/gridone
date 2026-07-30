@@ -9,11 +9,12 @@ export const AXIS_EXTRA = MARGIN.bottom - MARGIN_NO_BOTTOM.bottom;
 
 /** Height of the legend band each panel renders above its plot.
  *
- * Measured from `legendStyle` — 12px of top padding over a 14px line — rather
- * than from the DOM: it is needed for hit-testing during a pointer move, and to
- * size a panel to the box that contains it, both of which run before the legend
- * would have been laid out. Keep it in step with `legendStyle`. */
-export const LEGEND_HEIGHT = 26;
+ * Known ahead of layout — it is needed for hit-testing during a pointer move,
+ * and to size a panel to the box that contains it, both of which run before
+ * the legend exists in the DOM. `legendStyle` pins the row to exactly this
+ * height (border-box), so the budget a caller computes from it cannot drift
+ * from what renders: 12px of top padding over a 12px-font line box (~18px). */
+export const LEGEND_HEIGHT = 30;
 
 /** Vertical space a chart spends on chrome rather than plot, per panel: the
  *  legend above it, and the bottom margin the last panel adds for the time
@@ -53,6 +54,12 @@ export const legendStyle = {
   paddingLeft: MARGIN.left,
   paddingBottom: 0,
   paddingTop: 12,
+  // The band is budgeted before layout (LEGEND_HEIGHT) — pin it so an
+  // overlong legend clips instead of silently pushing every panel below it
+  // out of the box the caller sized.
+  height: LEGEND_HEIGHT,
+  boxSizing: "border-box" as const,
+  overflow: "hidden" as const,
 };
 
 export const legendItemStyle = {

@@ -21,6 +21,8 @@
     "renderError": "Échec de l'affichage de ce widget.",
     "chart": {
       "error": "Impossible de charger l'historique de cet attribut.",
+      "targetEmpty": "La cible ne correspond à aucun appareil exposant cet attribut.",
+      "mixedTypes": "Les appareils ciblés enregistrent cet attribut avec des types de données différents.",
       "noSeries": "Aucun historique n'est enregistré pour cet attribut.",
       "noData": "Aucune donnée sur la période sélectionnée.",
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",

@@ -7,7 +7,7 @@ import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
 import { cn } from "@/lib/utils";
 import { CommandIndicator } from "./CommandIndicator";
-import type { MergedRow } from "./mergeTimeSeries";
+import type { MergedRow } from "@/lib/mergeTimeSeries";
 
 function isNumericType(dataType?: string) {
   return dataType === "float" || dataType === "integer";

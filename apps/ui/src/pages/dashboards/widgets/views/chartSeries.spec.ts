@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { DataPoint } from "@gridone/sdk";
-import { holdLastValueUntil, singleSeriesChartProps } from "./chartSeries";
+import {
+  holdLastValueUntil,
+  multiSeriesChartProps,
+  singleSeriesChartProps,
+} from "./chartSeries";
 
 const POINTS: DataPoint[] = [
   { timestamp: "2026-07-28T10:00:00Z", value: 21.5 },
@@ -117,5 +121,65 @@ describe("singleSeriesChartProps", () => {
     const props = singleSeriesChartProps("float", "temperature", "T", []);
     expect(props.timestamps).toEqual([]);
     expect(props.lineValues).toEqual({ temperature: [] });
+  });
+
+  // Widget series are keyed per device, so value colours (hvac modes,
+  // statuses) resolve from the attribute carried as the semantic key — not
+  // from the device id the panel would otherwise look up.
+  it("carries the attribute as the semantic key on device-keyed series", () => {
+    const props = multiSeriesChartProps(
+      "str",
+      [
+        { key: "dev1", label: "Thermostat 1", points: [] },
+        { key: "dev2", label: "Thermostat 2", points: [] },
+      ],
+      "mode",
+    );
+    expect(props.stringSeries).toEqual([
+      { key: "dev1", label: "Thermostat 1", semanticKey: "mode" },
+      { key: "dev2", label: "Thermostat 2", semanticKey: "mode" },
+    ]);
+  });
+});
+
+describe("multiSeriesChartProps", () => {
+  // Devices record on their own clocks, and points mean "held until the next
+  // one" — so the merged index carries each series' value forward over the
+  // other's timestamps rather than punching holes in the lines.
+  it("merges series onto one index with per-series forward-fill", () => {
+    const props = multiSeriesChartProps("float", [
+      {
+        key: "dev1",
+        label: "Thermostat 1",
+        points: [{ timestamp: "2026-07-28T10:00:00Z", value: 21 }],
+      },
+      {
+        key: "dev2",
+        label: "Thermostat 2",
+        points: [{ timestamp: "2026-07-28T10:05:00Z", value: 23 }],
+      },
+    ]);
+
+    expect(props.timestamps).toEqual([
+      new Date("2026-07-28T10:00:00Z"),
+      new Date("2026-07-28T10:05:00Z"),
+    ]);
+    expect(props.lineSeries).toEqual([
+      { key: "dev1", label: "Thermostat 1" },
+      { key: "dev2", label: "Thermostat 2" },
+    ]);
+    expect(props.lineValues).toEqual({
+      dev1: [21, 21],
+      dev2: [null, 23],
+    });
+  });
+
+  // One device must chart exactly as it always has: no merge, no rounding —
+  // the same props the single-series projection produces.
+  it("keeps a lone series' exact shape", () => {
+    const series = { key: "dev1", label: "Thermostat 1", points: POINTS };
+    expect(multiSeriesChartProps("float", [series])).toEqual(
+      singleSeriesChartProps("float", "dev1", "Thermostat 1", POINTS),
+    );
   });
 });

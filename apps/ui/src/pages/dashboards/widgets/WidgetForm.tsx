@@ -11,7 +11,7 @@ import * as z from "zod";
 import { useTranslation } from "react-i18next";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SchemaField, type JsonSchema } from "@/components/forms/SchemaField";
-import { widgetConfigFields } from "./registry";
+import { widgetConfigChecks, widgetConfigFields } from "./registry";
 
 export interface WidgetFormValues {
   title: string;
@@ -92,11 +92,17 @@ export function WidgetForm({
   const { t } = useTranslation("dashboards");
   const schema = configSchema as unknown as JsonSchema;
 
-  const formSchema = useMemo(
-    () =>
-      z.object({ title: z.string(), config: z.fromJSONSchema(configSchema) }),
-    [configSchema],
-  );
+  // A type can register a check for what its JSON Schema cannot express (an
+  // intersection only ever tightens); the schema-derived resolver stays the
+  // source of the wire shape.
+  const formSchema = useMemo(() => {
+    const fromSchema = z.fromJSONSchema(configSchema);
+    const check = widgetConfigChecks[type];
+    return z.object({
+      title: z.string(),
+      config: check ? z.intersection(fromSchema, check) : fromSchema,
+    });
+  }, [configSchema, type]);
   const resolver = zodResolver(
     formSchema as unknown as z.ZodType<WidgetFormValues, WidgetFormValues>,
   ) as Resolver<WidgetFormValues>;
