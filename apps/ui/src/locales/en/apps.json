@@ -11,8 +11,16 @@
   },
   "status": {
     "healthy": "Healthy",
+    "needs_config": "Needs configuration",
     "unhealthy": "Unhealthy",
     "registered": "Registered"
+  },
+  "capabilities": {
+    "title": "Declared usage",
+    "produces": "Creates devices",
+    "reads": "Reads",
+    "commands": "Commands",
+    "none": "This app declares no device usage."
   },
   "enable": "Enable",
   "disable": "Disable",

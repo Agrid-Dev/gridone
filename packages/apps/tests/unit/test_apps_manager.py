@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from conftest import make_app
+from conftest import health_response, make_app
 
 from apps.apps_manager import AppsManager
 from apps.errors import AppUnreachableError, InvalidAppSchemaError
@@ -366,10 +366,61 @@ class TestDisableApp:
 
 
 class TestHealthCheck:
-    async def test_healthy_app(self, apps_manager, app_storage, http_client):
+    @pytest.mark.parametrize(
+        ("response", "expected"),
+        [
+            pytest.param(
+                health_response(body={"status": "ok"}),
+                AppStatus.HEALTHY,
+                id="reports-ok",
+            ),
+            pytest.param(
+                health_response(body={"status": "needs_config"}),
+                AppStatus.NEEDS_CONFIG,
+                id="reports-needs-config",
+            ),
+            pytest.param(
+                health_response(body={"status": "error"}),
+                AppStatus.UNHEALTHY,
+                id="reports-error",
+            ),
+            # Compat: a 2xx means up, whatever the body looks like.
+            pytest.param(health_response(), AppStatus.HEALTHY, id="no-body"),
+            pytest.param(
+                httpx.Response(200, text="pong"), AppStatus.HEALTHY, id="not-json"
+            ),
+            pytest.param(
+                health_response(body=["ok"]), AppStatus.HEALTHY, id="json-not-an-object"
+            ),
+            pytest.param(
+                health_response(body={"uptime": 12}),
+                AppStatus.HEALTHY,
+                id="no-status-key",
+            ),
+            pytest.param(
+                health_response(body={"status": "starting"}),
+                AppStatus.HEALTHY,
+                id="unknown-status",
+            ),
+            # An unhashable status would blow up the enum lookup, aborting the
+            # rest of the tick along with it.
+            pytest.param(
+                health_response(body={"status": ["ok"]}),
+                AppStatus.HEALTHY,
+                id="status-not-a-string",
+            ),
+            pytest.param(health_response(500), AppStatus.UNHEALTHY, id="server-error"),
+            pytest.param(
+                health_response(503, body={"status": "ok"}),
+                AppStatus.UNHEALTHY,
+                id="ok-body-but-non-2xx",
+            ),
+        ],
+    )
+    async def test_reported_status(
+        self, response, expected, apps_manager, app_storage, http_client
+    ):
         await app_storage.save(make_app(status=AppStatus.REGISTERED))
-        response = AsyncMock()
-        response.is_success = True
         http_client.get.return_value = response
 
         await apps_manager._check_all_apps_health()  # noqa: SLF001
@@ -380,21 +431,7 @@ class TestHealthCheck:
         )
         updated = await app_storage.get_by_id("app-1")
         assert updated is not None
-        assert updated.status == AppStatus.HEALTHY
-
-    async def test_unhealthy_app_bad_status(
-        self, apps_manager, app_storage, http_client
-    ):
-        await app_storage.save(make_app(status=AppStatus.HEALTHY))
-        response = AsyncMock()
-        response.is_success = False
-        http_client.get.return_value = response
-
-        await apps_manager._check_all_apps_health()  # noqa: SLF001
-
-        updated = await app_storage.get_by_id("app-1")
-        assert updated is not None
-        assert updated.status == AppStatus.UNHEALTHY
+        assert updated.status == expected
 
     async def test_unhealthy_app_connection_error(
         self, apps_manager, app_storage, http_client
@@ -412,9 +449,6 @@ class TestHealthCheck:
         storage = AsyncMock(spec=AppStorageBackend)
         storage.list_all.return_value = [make_app(status=AppStatus.HEALTHY)]
         manager = AppsManager(storage, users_manager, http_client)
-        response = AsyncMock()
-        response.is_success = True
-        http_client.get.return_value = response
 
         await manager._check_all_apps_health()  # noqa: SLF001
 
@@ -426,9 +460,6 @@ class TestHealthCheck:
         storage = AsyncMock(spec=AppStorageBackend)
         storage.list_all.return_value = [make_app(status=AppStatus.REGISTERED)]
         manager = AppsManager(storage, users_manager, http_client)
-        response = AsyncMock()
-        response.is_success = True
-        http_client.get.return_value = response
 
         await manager._check_all_apps_health()  # noqa: SLF001
 
@@ -451,12 +482,10 @@ class TestHealthCheck:
 
         http_client.request.side_effect = request
 
-        async def probe(*_args: object, **_kwargs: object) -> AsyncMock:
+        async def probe(*_args: object, **_kwargs: object) -> httpx.Response:
             # PATCH /apps/app-1/config commits while the probe is in flight.
             await apps_manager.update_config("app-1", {"lat": 1.0, "lng": 2.0})
-            response = AsyncMock()
-            response.is_success = True
-            return response
+            return health_response(body={"status": "ok"})
 
         http_client.get.side_effect = probe
 
@@ -467,6 +496,33 @@ class TestHealthCheck:
         assert stored.config == {"lat": 1.0, "lng": 2.0}
         assert stored.push_status == PushStatus.OK
         assert stored.status == AppStatus.HEALTHY
+
+    async def test_health_check_loop_survives_a_failing_tick(self, apps_manager):
+        """A raising tick must not kill the task — the loop is the only probe."""
+        ticks = 0
+
+        async def failing_tick() -> None:
+            nonlocal ticks
+            ticks += 1
+            msg = "storage is down"
+            raise RuntimeError(msg)
+
+        apps_manager._check_all_apps_health = failing_tick  # noqa: SLF001
+
+        original_sleep = asyncio.sleep
+
+        async def cancel_on_second_sleep(_seconds: float) -> None:
+            if ticks >= 2:
+                raise asyncio.CancelledError
+
+        asyncio.sleep = cancel_on_second_sleep  # type: ignore[assignment]
+        try:
+            with pytest.raises(asyncio.CancelledError):
+                await apps_manager._health_check_loop(60)  # noqa: SLF001
+        finally:
+            asyncio.sleep = original_sleep
+
+        assert ticks == 2
 
     async def test_start_and_stop_health_check(self, apps_manager):
         await apps_manager.start_health_check(interval_seconds=3600)
@@ -481,9 +537,6 @@ class TestHealthCheck:
     ):
         """Verify the loop body executes _check_all_apps_health then sleeps."""
         await app_storage.save(make_app(status=AppStatus.REGISTERED))
-        response = AsyncMock()
-        response.is_success = True
-        http_client.get.return_value = response
 
         original_sleep = asyncio.sleep
 
@@ -499,6 +552,147 @@ class TestHealthCheck:
 
         # The loop body ran once before being cancelled
         http_client.get.assert_called_once()
+
+
+class TestConfigRedelivery:
+    """The health loop doubles as config delivery for `needs_config` apps."""
+
+    @pytest.fixture(autouse=True)
+    def _app_needs_config(self, http_client) -> None:
+        http_client.get.return_value = health_response(body={"status": "needs_config"})
+        # httpx responses are sync; an AsyncMock would leak a coroutine on
+        # `raise_for_status()`.
+        http_client.request.return_value = MagicMock()
+
+    async def test_stored_config_is_pushed_back(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(
+            make_app(status=AppStatus.NEEDS_CONFIG).model_copy(
+                update={"config": {"lat": 1.0}, "push_status": PushStatus.PENDING}
+            )
+        )
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        http_client.request.assert_awaited_once_with(
+            "PATCH",
+            "https://myapp.example.com/config",
+            timeout=10.0,
+            json={"lat": 1.0},
+        )
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.push_status == PushStatus.OK
+
+    async def test_no_push_without_a_stored_config(
+        self, apps_manager, app_storage, http_client
+    ):
+        """An app awaiting its first configuration is a normal state."""
+        await app_storage.save(make_app(status=AppStatus.NEEDS_CONFIG))
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        http_client.request.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("reported", "status"),
+        [
+            pytest.param("ok", AppStatus.HEALTHY, id="healthy"),
+            pytest.param("error", AppStatus.UNHEALTHY, id="unhealthy"),
+        ],
+    )
+    async def test_no_push_when_app_does_not_ask(
+        self, reported, status, apps_manager, app_storage, http_client
+    ):
+        http_client.get.return_value = health_response(body={"status": reported})
+        await app_storage.save(
+            make_app(status=status).model_copy(update={"config": {"lat": 1.0}})
+        )
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        http_client.request.assert_not_awaited()
+
+    async def test_pushes_the_freshest_config_not_the_snapshot(
+        self, apps_manager, app_storage, http_client
+    ):
+        """The loop's snapshot predates the probes and may already be stale.
+
+        A tick spans a probe per app, so a config PATCH can commit in between.
+        Re-delivering the snapshot would push the config the operator just
+        replaced.
+        """
+        await app_storage.save(
+            make_app(status=AppStatus.NEEDS_CONFIG).model_copy(
+                update={"config": {"lat": 1.0}}
+            )
+        )
+
+        async def probe(*_args: object, **_kwargs: object) -> httpx.Response:
+            stored = await app_storage.get_by_id("app-1")
+            assert stored is not None
+            await app_storage.save(stored.model_copy(update={"config": {"lat": 2.0}}))
+            return health_response(body={"status": "needs_config"})
+
+        http_client.get.side_effect = probe
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        assert http_client.request.await_args.kwargs["json"] == {"lat": 2.0}
+
+    async def test_app_deleted_mid_tick_is_skipped(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(
+            make_app(status=AppStatus.NEEDS_CONFIG).model_copy(
+                update={"config": {"lat": 1.0}}
+            )
+        )
+
+        async def probe(*_args: object, **_kwargs: object) -> httpx.Response:
+            app_storage._apps.clear()  # noqa: SLF001
+            return health_response(body={"status": "needs_config"})
+
+        http_client.get.side_effect = probe
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        http_client.request.assert_not_awaited()
+
+    async def test_push_status_write_is_skipped_when_unchanged(
+        self, users_manager, http_client
+    ):
+        storage = AsyncMock(spec=AppStorageBackend)
+        app = make_app(status=AppStatus.NEEDS_CONFIG).model_copy(
+            update={"config": {"lat": 1.0}, "push_status": PushStatus.OK}
+        )
+        storage.list_all.return_value = [app]
+        storage.get_by_id.return_value = app
+        manager = AppsManager(storage, users_manager, http_client)
+
+        await manager._check_all_apps_health()  # noqa: SLF001
+
+        storage.update_push_status.assert_not_awaited()
+        storage.save.assert_not_awaited()
+
+    async def test_failed_push_is_recorded_as_pending(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(
+            make_app(status=AppStatus.NEEDS_CONFIG).model_copy(
+                update={"config": {"lat": 1.0}, "push_status": PushStatus.OK}
+            )
+        )
+        http_client.request.side_effect = httpx.ConnectError("unreachable")
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.push_status == PushStatus.PENDING
+        # The config stays in DB: it is the source of truth, redelivered next tick.
+        assert stored.config == {"lat": 1.0}
 
 
 class TestAppModel:

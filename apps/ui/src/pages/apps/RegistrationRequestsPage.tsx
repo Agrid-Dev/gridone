@@ -13,6 +13,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import type { RegistrationRequestResponse } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { AppCapabilities } from "./components/AppCapabilities";
 
 const statusStyles: Record<string, string> = {
   pending: "border-amber-200 bg-amber-100 text-amber-800",
@@ -98,55 +99,68 @@ export default function RegistrationRequestsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // username, app name, status, registered on — plus the actions column.
+  const columnCount = can("users:write") ? 5 : 4;
+
   const renderRow = (req: RegistrationRequestResponse) => {
     const configName = parseConfigName(req.config);
     return (
-      <tr key={req.id} className="hover:bg-muted/50">
-        <td className="px-4 py-3 text-sm font-medium text-foreground">
-          {req.username}
-        </td>
-        <td className="px-4 py-3 text-sm text-muted-foreground">
-          {configName || "-"}
-        </td>
-        <td className="px-4 py-3">
-          <RequestStatusBadge status={req.status} />
-        </td>
-        <td className="px-4 py-3 text-sm text-muted-foreground">
-          {new Date(req.created_at).toLocaleDateString()}
-        </td>
-        {can("users:write") && req.status === "pending" && (
-          <td className="px-4 py-3 text-right">
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => acceptMutation.mutate(req.id)}
-                disabled={acceptMutation.isPending}
-              >
-                <CheckCircle className="h-3.5 w-3.5" />
-                {t("requests.accept")}
-              </Button>
-              <ConfirmButton
-                variant="outline"
-                size="sm"
-                className="text-destructive"
-                onConfirm={() => discardMutation.mutate(req.id)}
-                confirmTitle={t("requests.discardConfirmTitle")}
-                confirmDetails={t("requests.discardConfirmDetails", {
-                  name: req.username,
-                })}
-                icon={<XCircle />}
-                disabled={discardMutation.isPending}
-              >
-                {t("requests.discard")}
-              </ConfirmButton>
-            </div>
+      <React.Fragment key={req.id}>
+        <tr className="hover:bg-muted/50">
+          <td className="px-4 py-3 text-sm font-medium text-foreground">
+            {req.username}
           </td>
+          <td className="px-4 py-3 text-sm text-muted-foreground">
+            {configName || "-"}
+          </td>
+          <td className="px-4 py-3">
+            <RequestStatusBadge status={req.status} />
+          </td>
+          <td className="px-4 py-3 text-sm text-muted-foreground">
+            {new Date(req.created_at).toLocaleDateString()}
+          </td>
+          {can("users:write") && req.status === "pending" && (
+            <td className="px-4 py-3 text-right">
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => acceptMutation.mutate(req.id)}
+                  disabled={acceptMutation.isPending}
+                >
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  {t("requests.accept")}
+                </Button>
+                <ConfirmButton
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive"
+                  onConfirm={() => discardMutation.mutate(req.id)}
+                  confirmTitle={t("requests.discardConfirmTitle")}
+                  confirmDetails={t("requests.discardConfirmDetails", {
+                    name: req.username,
+                  })}
+                  icon={<XCircle />}
+                  disabled={discardMutation.isPending}
+                >
+                  {t("requests.discard")}
+                </ConfirmButton>
+              </div>
+            </td>
+          )}
+          {can("users:write") && req.status !== "pending" && (
+            <td className="px-4 py-3" />
+          )}
+        </tr>
+        {/* What the app declares it will touch, shown where it is accepted. */}
+        {req.status === "pending" && (
+          <tr className="bg-muted/30">
+            <td colSpan={columnCount} className="px-4 py-3">
+              <AppCapabilities capabilities={req.capabilities} />
+            </td>
+          </tr>
         )}
-        {can("users:write") && req.status !== "pending" && (
-          <td className="px-4 py-3" />
-        )}
-      </tr>
+      </React.Fragment>
     );
   };
 

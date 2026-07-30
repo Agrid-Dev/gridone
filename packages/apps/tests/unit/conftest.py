@@ -15,6 +15,11 @@ VALID_CONFIG = (
     "api_url: https://example.com\n"
     "description: A test application\n"
     "icon: https://example.com/icon.png\n"
+    "produces: [weather_sensor]\n"
+    "reads:\n"
+    "  thermostat: [temperature]\n"
+    "commands:\n"
+    "  thermostat: [temperature_setpoint]\n"
 )
 
 
@@ -68,6 +73,20 @@ def users_manager() -> AsyncMock:
     return mock
 
 
+def health_response(
+    status_code: int = 200, body: object | None = None
+) -> httpx.Response:
+    """Build a real `/health` reply, with `body` serialized as JSON.
+
+    Health probes read the body, and `httpx.Response.json()` is sync — an
+    `AsyncMock` stand-in would hand back a coroutine instead. Omitting `body`
+    yields the "2xx without JSON" compatibility case.
+    """
+    if body is None:
+        return httpx.Response(status_code)
+    return httpx.Response(status_code, json=body)
+
+
 @pytest.fixture
 def http_client() -> AsyncMock:
     mock = AsyncMock(spec=httpx.AsyncClient)
@@ -75,5 +94,5 @@ def http_client() -> AsyncMock:
     response = AsyncMock()
     response.is_success = True
     mock.post.return_value = response
-    mock.get.return_value = response
+    mock.get.return_value = health_response()
     return mock

@@ -19,6 +19,13 @@ _APP_REQUEST_TIMEOUT = 10.0
 # Health probes are polled every 60s, so they fail fast rather than block a tick.
 _HEALTH_PROBE_TIMEOUT = 5.0
 
+# Status values an app reports on `GET {api_url}/health`, mapped onto our own.
+_REPORTED_STATUSES = {
+    "ok": AppStatus.HEALTHY,
+    "needs_config": AppStatus.NEEDS_CONFIG,
+    "error": AppStatus.UNHEALTHY,
+}
+
 
 class AppsManager:
     def __init__(
@@ -190,23 +197,73 @@ class AppsManager:
 
     async def _health_check_loop(self, interval: int) -> None:
         while True:
-            await self._check_all_apps_health()
+            try:
+                await self._check_all_apps_health()
+            except Exception:
+                # A failing tick must not kill the loop: the task would die
+                # silently and health checks would never run again.
+                logger.exception("Health check tick failed")
             await asyncio.sleep(interval)
 
     async def _check_all_apps_health(self) -> None:
-        apps = await self._app_storage.list_all()
-        for app in apps:
-            try:
-                resp = await self._http_client.get(
-                    app.health_url, timeout=_HEALTH_PROBE_TIMEOUT
-                )
-                new_status = (
-                    AppStatus.HEALTHY if resp.is_success else AppStatus.UNHEALTHY
-                )
-            except httpx.HTTPError:
-                new_status = AppStatus.UNHEALTHY
-            if new_status != app.status:
-                await self._app_storage.update_status(app.id, new_status)
+        for app in await self._app_storage.list_all():
+            await self._check_app_health(app)
+
+    async def _check_app_health(self, app: App) -> None:
+        """Probe one app, record its status, and re-deliver its config if asked.
+
+        The status write is targeted at `status` alone: the snapshot this runs
+        from predates the probe, so a full-row save could revert a config
+        stored in the meantime.
+        """
+        status = await self._probe_health(app)
+        if status != app.status:
+            await self._app_storage.update_status(app.id, status)
+        if status is AppStatus.NEEDS_CONFIG:
+            await self._redeliver_config(app.id)
+
+    async def _probe_health(self, app: App) -> AppStatus:
+        """Read an app's health status off `GET {api_url}/health`.
+
+        An unreachable app or a non-2xx reply is UNHEALTHY. A 2xx is read as
+        the ternary contract `{"status": "ok" | "needs_config" | "error"}`,
+        falling back to HEALTHY for apps that predate it — a 2xx means up.
+        """
+        try:
+            resp = await self._http_client.get(
+                app.health_url, timeout=_HEALTH_PROBE_TIMEOUT
+            )
+        except httpx.HTTPError:
+            return AppStatus.UNHEALTHY
+        if not resp.is_success:
+            return AppStatus.UNHEALTHY
+        try:
+            body = resp.json()
+        except ValueError:
+            return AppStatus.HEALTHY
+        if not isinstance(body, dict):
+            return AppStatus.HEALTHY
+        reported = body.get("status")
+        if not isinstance(reported, str):
+            return AppStatus.HEALTHY
+        return _REPORTED_STATUSES.get(reported, AppStatus.HEALTHY)
+
+    async def _redeliver_config(self, app_id: str) -> None:
+        """Re-push the stored config to an app reporting `needs_config`.
+
+        The health loop doubles as config delivery: an app holds its config in
+        memory only, so this is what covers first start, restart and reinstall.
+        The app is re-read rather than taken from the loop's snapshot, which
+        predates the probes and may already miss a config stored since.
+        """
+        app = await self._app_storage.get_by_id(app_id)
+        # Gone mid-tick, or still awaiting its first configuration.
+        if app is None or app.config is None:
+            return
+        logger.info("App %s reports needs_config, re-pushing its config", app_id)
+        push_status = await self._push_config(app)
+        if push_status != app.push_status:
+            await self._app_storage.update_push_status(app_id, push_status)
 
 
 __all__ = ["AppsManager"]

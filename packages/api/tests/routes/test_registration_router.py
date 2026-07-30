@@ -29,7 +29,21 @@ from users.auth import TokenPayload
 
 NOW = datetime.now(UTC)
 
-VALID_CONFIG = "name: My App\napi_url: https://example.com\n"
+VALID_CONFIG = (
+    "name: My App\n"
+    "api_url: https://example.com\n"
+    "produces: [weather_sensor]\n"
+    "reads:\n"
+    "  thermostat: [temperature]\n"
+    "commands:\n"
+    "  thermostat: [temperature_setpoint]\n"
+)
+
+EXPECTED_CAPABILITIES = {
+    "produces": ["weather_sensor"],
+    "reads": {"thermostat": ["temperature"]},
+    "commands": {"thermostat": ["temperature_setpoint"]},
+}
 
 PENDING_REQ = RegistrationRequest(
     id="req-1",
@@ -154,6 +168,13 @@ def test_list_registration_requests(app: FastAPI):
         assert len(resp.json()) == 1
 
 
+def test_list_exposes_manifest_capabilities(app: FastAPI):
+    """The operator sees what an app will touch before accepting it."""
+    with TestClient(app) as client:
+        resp = client.get("/apps/registration-requests")
+        assert resp.json()[0]["capabilities"] == EXPECTED_CAPABILITIES
+
+
 # ── GET /apps/registration-requests/{id} (public) ───────────────
 
 
@@ -162,6 +183,7 @@ def test_get_registration_request(app: FastAPI):
         resp = client.get("/apps/registration-requests/req-1")
         assert resp.status_code == 200
         assert resp.json()["id"] == "req-1"
+        assert resp.json()["capabilities"] == EXPECTED_CAPABILITIES
 
 
 def test_get_registration_request_not_found(app: FastAPI, apps_service: AsyncMock):
