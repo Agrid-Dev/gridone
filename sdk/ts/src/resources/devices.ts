@@ -1,6 +1,7 @@
 import type { operations } from "../generated/openapi";
 import type { RequestFn } from "../http/httpClient";
 import type {
+  AttributeCoverageResponse,
   AttributeLogs,
   BatchDeviceCommand,
   BatchDispatchResponse,
@@ -18,6 +19,9 @@ import { CommandTemplatesResource } from "./commandTemplates";
 
 export type DeviceListParams = NonNullable<
   operations["list_devices_devices__get"]["parameters"]["query"]
+>;
+export type DeviceAttributesParams = NonNullable<
+  operations["list_device_attributes_devices_attributes_get"]["parameters"]["query"]
 >;
 export type CommandListParams = NonNullable<
   operations["list_commands_devices_commands_get"]["parameters"]["query"]
@@ -37,6 +41,13 @@ export class DevicesResource {
 
   list(params?: DeviceListParams): Promise<Device[]> {
     return this.request("GET", "/devices/", { searchParams: params });
+  }
+
+  /** Reports attribute coverage over the device set matched by the filters. */
+  listAttributes(
+    params?: DeviceAttributesParams,
+  ): Promise<AttributeCoverageResponse> {
+    return this.request("GET", "/devices/attributes", { searchParams: params });
   }
 
   get(deviceId: string): Promise<Device> {

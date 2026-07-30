@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 class DeviceFilters:
     ids: Collection[str] | None = None
     types: Collection[str] | None = None
+    attribute: str | None = None
     writable_attribute: str | None = None
     writable_attribute_type: DataType | None = None
     tags: Mapping[str, Collection[str]] | None = None
@@ -29,6 +30,7 @@ class DeviceFilters:
         return (
             self._matches_ids(device)
             and self._matches_types(device)
+            and self._matches_attribute(device)
             and self._matches_writable_attribute(device)
             and self._matches_tags(device)
             and self._matches_is_faulty(device)
@@ -42,6 +44,9 @@ class DeviceFilters:
 
     def _matches_types(self, device: CoreDevice) -> bool:
         return self.types is None or device.type in self.types
+
+    def _matches_attribute(self, device: CoreDevice) -> bool:
+        return self.attribute is None or self.attribute in device.attributes
 
     def _matches_writable_attribute(self, device: CoreDevice) -> bool:
         return self.writable_attribute is None or device.can_write(

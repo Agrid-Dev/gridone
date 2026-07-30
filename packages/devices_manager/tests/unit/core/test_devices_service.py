@@ -1088,6 +1088,7 @@ class TestDevicesServiceDeviceDelegation:
         mock_reg.list_all.assert_called_once_with(
             ids=["d1"],
             types=["thermostat"],
+            attribute=None,
             writable_attribute="temperature_setpoint",
             writable_attribute_type=DataType.FLOAT,
             tags=None,

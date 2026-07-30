@@ -481,6 +481,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/attributes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Device Attributes
+     * @description Report attribute coverage over the matched device set.
+     *
+     *     Backs target pickers: the same filters as ``GET /devices`` select the
+     *     device set, and the response annotates every exposed attribute with its
+     *     data types and coverage counts.
+     */
+    get: operations["list_device_attributes_devices_attributes_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/standard-types": {
     parameters: {
       query?: never;
@@ -1523,6 +1547,36 @@ export interface components {
     };
     Attribute: {
       [key: string]: unknown;
+    };
+    /**
+     * AttributeCoverage
+     * @description How widely an attribute is exposed across a device set. Never persisted.
+     *
+     *     ``len(data_types) > 1`` means the attribute cannot form a valid target
+     *     for that device set (mixed data types).
+     */
+    AttributeCoverage: {
+      /** Attribute */
+      attribute: string;
+      /** Data Types */
+      data_types: components["schemas"]["DataType"][];
+      /** Device Count */
+      device_count: number;
+      /** Writable Count */
+      writable_count: number;
+    };
+    /**
+     * AttributeCoverageResponse
+     * @description Response body for ``GET /devices/attributes``.
+     *
+     *     ``total_devices`` is the size of the matched device set, so clients can
+     *     render per-attribute coverage (``device_count`` / ``total_devices``).
+     */
+    AttributeCoverageResponse: {
+      /** Total Devices */
+      total_devices: number;
+      /** Attributes */
+      attributes: components["schemas"]["AttributeCoverage"][];
     };
     /** AttributeDriver */
     AttributeDriver: {
@@ -4564,6 +4618,7 @@ export interface operations {
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;
+        attribute?: string | null;
         is_faulty?: boolean | null;
         asset_id?: string | null;
         search?: string | null;
@@ -4616,6 +4671,45 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Device"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_device_attributes_devices_attributes_get: {
+    parameters: {
+      query?: {
+        type?: string[] | null;
+        ids?: string[] | null;
+        tags?: string[] | null;
+        attribute?: string | null;
+        is_faulty?: boolean | null;
+        asset_id?: string | null;
+        search?: string | null;
+        driver_id?: string | null;
+        transport_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttributeCoverageResponse"];
         };
       };
       /** @description Validation Error */

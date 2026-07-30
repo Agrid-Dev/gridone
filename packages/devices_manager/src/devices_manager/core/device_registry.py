@@ -91,6 +91,7 @@ class DeviceRegistry:
         *,
         ids: Collection[str] | None = None,
         types: list[str] | None = None,
+        attribute: str | None = None,
         writable_attribute: str | None = None,
         writable_attribute_type: DataType | None = None,
         tags: dict[str, list[str]] | None = None,
@@ -102,6 +103,7 @@ class DeviceRegistry:
         filters = DeviceFilters(
             ids=ids,
             types=types,
+            attribute=attribute,
             writable_attribute=writable_attribute,
             writable_attribute_type=writable_attribute_type,
             tags=tags,

@@ -104,6 +104,25 @@ class TestDeviceFiltersMatches:
             make_device("d1", "Device", device_type=None)
         )
 
+    # -- attribute --
+
+    def test_attribute_match(self, make_device):
+        assert DeviceFilters(attribute="x").matches(make_device("d1", "Device"))
+
+    def test_attribute_matches_regardless_of_mode(self, make_device):
+        attrs = {"temp": Attribute.create("temp", DataType.FLOAT, {"read"})}
+        assert DeviceFilters(attribute="temp").matches(
+            make_device("d1", "Device", attributes=attrs)
+        )
+
+    def test_attribute_missing_excluded(self, make_device):
+        assert not DeviceFilters(attribute="nonexistent").matches(
+            make_device("d1", "Device")
+        )
+
+    def test_attribute_none_matches_all(self, make_device):
+        assert DeviceFilters(attribute=None).matches(make_device("d1", "Device"))
+
     # -- writable_attribute --
 
     def test_writable_attribute_match(self, make_device):

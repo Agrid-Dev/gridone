@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
@@ -16,6 +16,7 @@ from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
+    AttributeCoverageResponse,
     DeviceBatchCreate,
     DeviceBatchItemResult,
     SingleAttrTimeseriesPushPoint,
@@ -23,6 +24,7 @@ from api.schemas.device import (
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
+from api.targets import compute_attribute_coverage
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
@@ -67,25 +69,29 @@ router.include_router(devices_ts_router)
 router.include_router(faults_router, prefix="/faults")
 
 
-@router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
-def list_devices(
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+def get_devices_query(
     types: list[str] | None = Query(None, alias="type"),
     ids: list[str] | None = Query(None),
     tags: list[str] | None = Query(None),
     *,
+    attribute: str | None = Query(None),
     is_faulty: bool | None = Query(None),
     asset_id: str | None = Query(None),
     search: str | None = Query(None),
     driver_id: str | None = Query(None),
     transport_id: str | None = Query(None),
-) -> list[Device]:
-    parsed_tags = _parse_tags(tags)
-    kwargs = to_list_devices_kwargs(
+) -> dict[str, Any]:
+    """Parse the device-list query params into ``DM.list_devices`` kwargs.
+
+    Shared by every endpoint that selects a device set (``GET /devices``,
+    ``GET /devices/attributes``) so the filters stay identical.
+    """
+    return to_list_devices_kwargs(
         {
             "ids": ids,
             "types": types,
-            "tags": parsed_tags,
+            "tags": _parse_tags(tags),
+            "attribute": attribute,
             "is_faulty": is_faulty,
             "asset_id": asset_id,
             "search": search,
@@ -93,7 +99,35 @@ def list_devices(
             "transport_id": transport_id,
         }
     )
-    return dm.list_devices(**kwargs)
+
+
+@router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
+def list_devices(
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+) -> list[Device]:
+    return dm.list_devices(**query)
+
+
+@router.get(
+    "/attributes",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+def list_device_attributes(
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+) -> AttributeCoverageResponse:
+    """Report attribute coverage over the matched device set.
+
+    Backs target pickers: the same filters as ``GET /devices`` select the
+    device set, and the response annotates every exposed attribute with its
+    data types and coverage counts.
+    """
+    devices = dm.list_devices(**query)
+    return AttributeCoverageResponse(
+        total_devices=len(devices),
+        attributes=compute_attribute_coverage(devices),
+    )
 
 
 @router.get(
