@@ -1,3 +1,11 @@
+## v0.176.0 (2026-07-30)
+
+### Feat
+
+- **api**: attribute coverage endpoint and composite target resolver
+- **devices-manager**: read-side attribute filter on list_devices
+- **models**: shared target model
+
 ## v0.175.0 (2026-07-30)
 
 ### Feat
