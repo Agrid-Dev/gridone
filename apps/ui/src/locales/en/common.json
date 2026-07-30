@@ -190,7 +190,10 @@
       "label": "Attribute",
       "placeholder": "Select an attribute",
       "pickDeviceFirst": "Pick a device first",
-      "noMatching": "No matching attributes"
+      "noMatching": "No matching attributes",
+      "coverage_one": "{{count}}/{{total}} device",
+      "coverage_other": "{{count}}/{{total}} devices",
+      "mixedTypes": "mixed data types"
     },
     "user": {
       "label": "Recipients",

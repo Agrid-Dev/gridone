@@ -24,6 +24,7 @@ from models.errors import (
 )
 from models.pagination import PaginationParams
 from models.service import Service
+from models.targets import AttributeTarget, DevicesFilter, ResolvedTarget
 from models.types import DataType
 
 pytestmark = pytest.mark.asyncio
@@ -44,17 +45,28 @@ def result_handler() -> AsyncMock:
     return AsyncMock()
 
 
+def _resolved(
+    ids: list[str], *, attribute: str = "setpoint", excluded: list[str] | None = None
+) -> ResolvedTarget:
+    return ResolvedTarget(
+        attribute=attribute,
+        device_ids=ids,
+        data_type=DataType.FLOAT,
+        excluded_device_ids=excluded or [],
+    )
+
+
 @pytest.fixture
 def target_resolver() -> AsyncMock:
-    """Mock resolver whose ``resolve`` returns whatever ``ids`` the target carries.
+    """Mock resolver whose ``resolve`` echoes whatever ``ids`` the target carries.
 
     Tests pass explicit id lists via ``{"ids": [...]}`` for predictability;
     the resolve-empty path is exercised by a dedicated test that clears
     ``side_effect``.
     """
 
-    async def _resolve(target: dict) -> list[str]:
-        return list(target.get("ids") or [])
+    async def _resolve(target: AttributeTarget, **_kwargs: object) -> ResolvedTarget:
+        return _resolved(list(target.devices.ids or []), attribute=target.attribute)
 
     mock = AsyncMock()
     mock.resolve.side_effect = _resolve
@@ -297,7 +309,7 @@ class TestDispatchBatch:
         device_writer.side_effect = slow_writer
 
         dispatch = await service.dispatch_batch(
-            target={"ids": ["d1", "d2", "d3"]},
+            target=DevicesFilter(ids=["d1", "d2", "d3"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -324,9 +336,11 @@ class TestDispatchBatch:
         service: CommandsService,
         target_resolver: AsyncMock,
     ):
-        target = {"types": ["thermostat"], "tags": {"asset_id": ["a1"]}}
+        target = DevicesFilter(types=["thermostat"], tags={"asset_id": ["a1"]})
         target_resolver.resolve.side_effect = None
-        target_resolver.resolve.return_value = ["t1", "t2"]
+        target_resolver.resolve.return_value = _resolved(
+            ["t1", "t2"], attribute=MODE_AUTO.attribute
+        )
 
         dispatch = await service.dispatch_batch(
             target=target,
@@ -336,12 +350,19 @@ class TestDispatchBatch:
         await service._await_pending()  # noqa: SLF001
 
         # Every unit row links to the same auto-created ephemeral template
-        # and the resolver is called with the stored target (not the raw one).
+        # and the resolver receives the stored target downgraded to the
+        # shared model, constrained to the dispatched attribute (writable).
         template_ids = {c.template_id for c in dispatch.commands}
         assert len(template_ids) == 1
         template_id = next(iter(template_ids))
         assert template_id is not None
-        target_resolver.resolve.assert_awaited_once_with(target)
+        target_resolver.resolve.assert_awaited_once_with(
+            AttributeTarget(
+                devices=DevicesFilter(types=["thermostat"], tags={"asset_id": ["a1"]}),
+                attribute=MODE_AUTO.attribute,
+            ),
+            writable=True,
+        )
 
         # The ephemeral template is addressable through the public
         # ``get_template`` API — automations referencing an inline-created
@@ -365,7 +386,7 @@ class TestDispatchBatch:
         # create an ephemeral template. Every batch is template-backed;
         # a cleanup job sweeps ephemerals later.
         dispatch = await service.dispatch_batch(
-            target={"ids": ["d1", "d2"]},
+            target=DevicesFilter(ids=["d1", "d2"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -379,7 +400,7 @@ class TestDispatchBatch:
         template = await service._storage.get_template(template_id)  # noqa: SLF001
         assert template is not None
         assert template.name is None
-        assert template.target == {"ids": ["d1", "d2"]}
+        assert template.target == DevicesFilter(ids=["d1", "d2"])
 
     async def test_empty_resolve_returns_empty_dispatch(
         self,
@@ -389,11 +410,13 @@ class TestDispatchBatch:
         caplog: pytest.LogCaptureFixture,
     ):
         target_resolver.resolve.side_effect = None
-        target_resolver.resolve.return_value = []
+        target_resolver.resolve.return_value = _resolved(
+            [], attribute=MODE_AUTO.attribute
+        )
 
         with caplog.at_level(logging.WARNING, logger="commands.service"):
             dispatch = await service.dispatch_batch(
-                target={"types": ["unknown_type"]},
+                target=DevicesFilter(types=["unknown_type"]),
                 write=MODE_AUTO,
                 user_id="u1",
             )
@@ -415,7 +438,7 @@ class TestDispatchBatch:
         result_handler: AsyncMock,
     ):
         dispatch = await service.dispatch_batch(
-            target={"ids": ["d1", "d2", "d3"]},
+            target=DevicesFilter(ids=["d1", "d2", "d3"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -444,7 +467,7 @@ class TestDispatchBatch:
         device_writer.side_effect = writer
 
         dispatch = await service.dispatch_batch(
-            target={"ids": ["d1", "d2", "d3"]},
+            target=DevicesFilter(ids=["d1", "d2", "d3"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -469,7 +492,7 @@ class TestDispatchBatch:
         device_writer.side_effect = RuntimeError("nope")
 
         dispatch = await service.dispatch_batch(
-            target={"ids": ["d1", "d2"]},
+            target=DevicesFilter(ids=["d1", "d2"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -507,7 +530,7 @@ class TestDispatchBatch:
         device_writer.side_effect = slow_writer
 
         await svc.dispatch_batch(
-            target={"ids": ["d1", "d2"]},
+            target=DevicesFilter(ids=["d1", "d2"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -532,7 +555,7 @@ class TestDispatchBatch:
         # After the batch completes, await_pending should return instantly on
         # subsequent calls (no tasks pending).
         await service.dispatch_batch(
-            target={"ids": ["d1"]},
+            target=DevicesFilter(ids=["d1"]),
             write=MODE_AUTO,
             user_id="u1",
         )
@@ -548,7 +571,7 @@ class TestTemplateCrud:
     ):
         template = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]},
+                target=DevicesFilter(ids=["d1"]),
                 write=MODE_AUTO,
                 name="Thermostat to auto",
             ),
@@ -566,12 +589,14 @@ class TestTemplateCrud:
     ):
         await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
             ),
             user_id="u1",
         )
         await service.save_template(
-            CommandTemplateCreate(target={"ids": ["d2"]}, write=MODE_AUTO, name=None),
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d2"]), write=MODE_AUTO, name=None
+            ),
             user_id="u1",
         )
 
@@ -592,7 +617,7 @@ class TestTemplateCrud:
     ):
         template = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1", "d2"]}, write=MODE_AUTO, name="To go"
+                target=DevicesFilter(ids=["d1", "d2"]), write=MODE_AUTO, name="To go"
             ),
             user_id="u1",
         )
@@ -630,7 +655,7 @@ class TestTemplateCrud:
     ):
         template = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]}, write=MODE_AUTO, name="One shot"
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="One shot"
             ),
             user_id="u1",
         )
@@ -645,25 +670,54 @@ class TestTemplateCrud:
     ):
         template = await service.save_template(
             CommandTemplateCreate(
-                target={"types": ["thermostat"]},
+                target=DevicesFilter(types=["thermostat"]),
                 write=MODE_AUTO,
                 name="All thermostats",
             ),
             user_id="u1",
         )
         target_resolver.resolve.side_effect = None
-        target_resolver.resolve.return_value = ["t1", "t2"]
+        target_resolver.resolve.return_value = _resolved(
+            ["t1", "t2"], attribute=MODE_AUTO.attribute
+        )
 
         dispatch = await service.dispatch_from_template(
             template_id=template.id, user_id="u2"
         )
         await service._await_pending()  # noqa: SLF001
 
-        target_resolver.resolve.assert_awaited_with({"types": ["thermostat"]})
+        target_resolver.resolve.assert_awaited_with(
+            AttributeTarget(
+                devices=DevicesFilter(types=["thermostat"]),
+                attribute=MODE_AUTO.attribute,
+            ),
+            writable=True,
+        )
         assert [c.device_id for c in dispatch.commands] == ["t1", "t2"]
         assert all(c.template_id == template.id for c in dispatch.commands)
         # user_id on commands is whoever dispatched, not who saved the template.
         assert all(c.user_id == "u2" for c in dispatch.commands)
+
+    async def test_unresolvable_target_degrades_to_empty_dispatch(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        # The resolver rejecting the target (no writable coverage, mixed
+        # data types) must not propagate: automations dispatching a stale
+        # template get the observable empty-batch path, not a crash.
+        target_resolver.resolve.side_effect = InvalidError("mixed data types")
+
+        with caplog.at_level(logging.WARNING, logger="commands.service"):
+            dispatch = await service.dispatch_batch(
+                target=DevicesFilter(ids=["d1"]),
+                write=MODE_AUTO,
+                user_id="u1",
+            )
+
+        assert dispatch.commands == []
+        assert any("unresolvable" in rec.message for rec in caplog.records)
 
     async def test_dispatch_from_template_raises_on_unknown_id(
         self,
@@ -682,7 +736,9 @@ class TestTemplateCrud:
         # the inline-created template they own and need to dispatch through
         # it when their trigger fires.
         ephemeral = await service.save_template(
-            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name=None
+            ),
             user_id="u1",
         )
         dispatch = await service.dispatch_from_template(
@@ -698,7 +754,9 @@ class TestTemplateCrud:
         # Mirrors the automation flow: an inline-created template is saved
         # without a name and then read back by id by the automation page.
         ephemeral = await service.save_template(
-            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name=None
+            ),
             user_id="u1",
         )
         fetched = await service.get_template(ephemeral.id)
@@ -713,7 +771,7 @@ class TestUpdateTemplate:
     ):
         original = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
             ),
             user_id="u1",
         )
@@ -741,7 +799,9 @@ class TestUpdateTemplate:
         # Inline-created templates start with name=None and stay out of the
         # named list. A PATCH with a non-null name promotes them.
         ephemeral = await service.save_template(
-            CommandTemplateCreate(target={"ids": ["d1"]}, write=MODE_AUTO, name=None),
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name=None
+            ),
             user_id="u1",
         )
         page = await service.list_templates()
@@ -762,7 +822,7 @@ class TestUpdateTemplate:
     ):
         named = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
             ),
             user_id="u1",
         )
@@ -794,7 +854,7 @@ class TestUpdateTemplate:
         # storage is not touched, the existing row is returned as-is.
         original = await service.save_template(
             CommandTemplateCreate(
-                target={"ids": ["d1"]}, write=MODE_AUTO, name="Saved"
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
             ),
             user_id="u1",
         )

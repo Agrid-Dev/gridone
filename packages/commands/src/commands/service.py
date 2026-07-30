@@ -20,16 +20,17 @@ from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
 from models.service import Service
+from models.targets import AttributeTarget, DevicesFilter
 from models.types import SortOrder
 
 if TYPE_CHECKING:
-    from commands.models import AttributeWrite, CommandTemplatePatch, Target
+    from commands.models import AttributeWrite, CommandTemplatePatch
     from commands.protocols import (
         CommandResultHandler,
         DeviceWriter,
-        TargetResolver,
     )
     from commands.storage.protocol import CommandsStorage
+    from models.targets import TargetResolver
 
 logger = logging.getLogger(__name__)
 
@@ -200,7 +201,7 @@ class CommandsService(Service):
     async def dispatch_batch(
         self,
         *,
-        target: Target,
+        target: DevicesFilter,
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
@@ -241,12 +242,13 @@ class CommandsService(Service):
         :meth:`dispatch_batch` (ephemeral path) and
         :meth:`dispatch_from_template` (saved-template path).
 
-        An empty resolve logs a warning and returns a dispatch with an empty
-        ``commands`` list — no exception, no PENDING rows created. The
-        ``batch_id`` is still generated so the dispatch attempt is observable.
+        An empty or unresolvable target logs a warning and returns a dispatch
+        with an empty ``commands`` list — no exception, no PENDING rows
+        created. The ``batch_id`` is still generated so the dispatch attempt
+        is observable.
         """
         batch_id = gen_id()
-        device_ids = await self._target_resolver.resolve(template.target)
+        device_ids = await self._resolve_template_devices(template)
         if not device_ids:
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
@@ -279,6 +281,35 @@ class CommandsService(Service):
         task.add_done_callback(self._tasks.discard)
 
         return BatchCommandDispatch(batch_id=batch_id, commands=commands)
+
+    async def _resolve_template_devices(self, template: CommandTemplate) -> list[str]:
+        """Resolve the template's stored target to writable device ids.
+
+        Never raises: the device set drifts after a template is saved, so an
+        unresolvable target (no writable coverage, conflicting data types)
+        degrades to an empty set and the dispatch takes the observable
+        empty-batch path. Devices matching the filter but not exposing the
+        attribute as writable are excluded up front and logged.
+        """
+        try:
+            resolved = await self._target_resolver.resolve(
+                AttributeTarget(
+                    devices=template.target,
+                    attribute=template.write.attribute,
+                ),
+                writable=True,
+            )
+        except InvalidError as e:
+            logger.warning("dispatch: template %r unresolvable: %s", template.id, e)
+            return []
+        if resolved.excluded_device_ids:
+            logger.warning(
+                "dispatch: template %r excluded devices %s (attribute %r not writable)",
+                template.id,
+                resolved.excluded_device_ids,
+                template.write.attribute,
+            )
+        return resolved.device_ids
 
     async def _execute_all(
         self,

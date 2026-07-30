@@ -26,6 +26,7 @@ from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
+from models.targets import DevicesFilter
 from models.types import SortOrder
 
 # ---------------------------------------------------------------------------
@@ -878,7 +879,7 @@ class TestDispatchBatchCommand:
         assert all(c["batch_id"] == "abc123" for c in body["commands"])
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["target"] == {"ids": ["device1", "device1"]}
+        assert kwargs["target"] == DevicesFilter(ids=["device1", "device1"])
         assert kwargs["write"].attribute == "temperature_setpoint"
         assert kwargs["write"].value == 22.5
         assert kwargs["write"].data_type == DataType.FLOAT
@@ -906,16 +907,15 @@ class TestDispatchBatchCommand:
         assert [c["device_id"] for c in body["commands"]] == ["thermo1"]
 
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["target"] == {"types": ["thermostat"]}
+        assert kwargs["target"] == DevicesFilter(types=["thermostat"])
 
     @pytest.mark.asyncio
     async def test_asset_id_preserved_in_target(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
-        # asset_id is intent-preserving: the service receives it verbatim so
-        # saved templates can round-trip it back to the UI. The translation
-        # into a `tags["asset_id"]` filter happens inside the composition-root
-        # resolver, not at the HTTP boundary.
+        # asset_id is a wire convenience alias: the HTTP boundary folds it
+        # into the canonical `tags["asset_id"]` criterion, so services only
+        # ever see the strict filter.
         mock_commands_service.dispatch_batch.return_value = _batch_dispatch(
             "grp-a", ["thermo1"]
         )
@@ -930,7 +930,9 @@ class TestDispatchBatchCommand:
             )
         assert response.status_code == 202
         kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["target"] == {"asset_id": "a1", "types": ["thermostat"]}
+        assert kwargs["target"] == DevicesFilter(
+            types=["thermostat"], tags={"asset_id": ["a1"]}
+        )
 
     @pytest.mark.asyncio
     async def test_unknown_target_key_returns_422(self, async_client: AsyncClient):

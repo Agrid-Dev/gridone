@@ -190,7 +190,10 @@
       "label": "Attribut",
       "placeholder": "Sélectionner un attribut",
       "pickDeviceFirst": "Sélectionnez d'abord un appareil",
-      "noMatching": "Aucun attribut correspondant"
+      "noMatching": "Aucun attribut correspondant",
+      "coverage_one": "{{count}}/{{total}} appareil",
+      "coverage_other": "{{count}}/{{total}} appareils",
+      "mixedTypes": "types de données mixtes"
     },
     "user": {
       "label": "Destinataires",

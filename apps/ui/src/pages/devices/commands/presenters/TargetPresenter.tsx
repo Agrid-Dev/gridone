@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { cn } from "@/lib/utils";
 import type { Asset } from "@gridone/sdk";
-import { DeviceType, type DevicesFilter } from "@/lib/devices";
+import { assetIdOf, DeviceType, type DevicesFilter } from "@/lib/devices";
 
 type TargetPresenterProps = {
   target: DevicesFilter;
@@ -42,6 +42,18 @@ const SUB_PRESENTERS: Record<string, SubPresenter> = {
       ))}
     </>
   ),
+  tags: (tags: Record<string, string[]>, { t }) => (
+    <>
+      {Object.entries(tags).map(([key, values]) => (
+        <Badge key={key} variant="outline">
+          {t("commands.targetPresenter.tag", {
+            key,
+            values: values.join(", "),
+          })}
+        </Badge>
+      ))}
+    </>
+  ),
 };
 
 /** i18n label names stay camelCase while the wire keys are snake_case. */
@@ -49,7 +61,24 @@ const LABEL_KEYS: Record<string, string> = {
   ids: "ids",
   asset_id: "assetId",
   types: "types",
+  tags: "tags",
 };
+
+/** Present the canonical stored shape with the asset intent first-class:
+ *  the ``asset_id`` tag becomes the asset row, remaining tags render as
+ *  plain criteria. */
+function normalizeTarget(target: DevicesFilter): Record<string, unknown> {
+  const assetId = assetIdOf(target);
+  const residualTags = Object.fromEntries(
+    Object.entries(target.tags ?? {}).filter(([key]) => key !== "asset_id"),
+  );
+  return {
+    ids: target.ids,
+    asset_id: assetId,
+    types: target.types,
+    tags: Object.keys(residualTags).length ? residualTags : undefined,
+  };
+}
 
 export function TargetPresenter({
   target,
@@ -59,7 +88,7 @@ export function TargetPresenter({
   const { t } = useTranslation("devices");
   const ctx: PresenterContext = { t, assetsById };
 
-  const rows = Object.entries(target)
+  const rows = Object.entries(normalizeTarget(target))
     .filter(([key, value]) => SUB_PRESENTERS[key] && !isEmptyValue(value))
     .map(([key, value]) => ({
       key,

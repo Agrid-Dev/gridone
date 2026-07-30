@@ -1,21 +1,14 @@
 import type { DataType } from "@gridone/sdk";
 import type { AttributeValue } from "@/lib/devices";
+import type { TargetPickerMode } from "@/components/forms/targetPicker";
 
 export type AttributeDataType = DataType;
-
-export type WritableAttribute = {
-  name: string;
-  dataType: AttributeDataType;
-  /** Defined when every selected device agrees on the same option set for
-   *  this attribute. Absent means free-form input is required. */
-  valueOptions?: AttributeValue[];
-};
 
 /** How the user described the target. "devices" freezes the selection to an
  *  explicit id list (what the user picked in the table); "filters" captures
  *  the ``asset_id``/``types`` filter that the server re-resolves at each
  *  dispatch, so saved templates follow the asset's current membership. */
-export type TargetMode = "devices" | "filters";
+export type TargetMode = TargetPickerMode;
 
 /** The filter-mode form state: the narrow subset of DevicesFilter that the
  *  filter-mode UI lets the user edit today. */

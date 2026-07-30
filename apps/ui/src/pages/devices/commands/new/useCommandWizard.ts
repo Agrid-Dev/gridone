@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { useForm } from "react-hook-form";
-import type { AttributeWritePayload, Device } from "@gridone/sdk";
+import type {
+  AttributeCoverage,
+  AttributeWritePayload,
+  Device,
+} from "@gridone/sdk";
 import type { AttributeValue, DevicesFilter } from "@/lib/devices";
+import { useAttributeCoverage } from "@/components/forms/targetPicker";
 import {
   currentValueFor,
-  intersectWritableAttributes,
   isEmptyFilter,
   resolveFilter,
+  targetFilterToDevicesFilter,
 } from "./resolvers";
-import type { WizardFormValues, WritableAttribute } from "./types";
+import type { WizardFormValues } from "./types";
 import { useCommandTemplate } from "./useCommandTemplate";
 
 type CommandPayload = {
@@ -126,7 +131,10 @@ export function useCommandWizard({
       return resolveFilter(devices, predefinedTarget!);
     }
     if (values.targetMode === "filters") {
-      return resolveFilter(devices, values.targetFilter ?? {});
+      return resolveFilter(
+        devices,
+        targetFilterToDevicesFilter(values.targetFilter),
+      );
     }
     const ids = values.deviceIds ?? [];
     return devices.filter((d) => ids.includes(d.id));
@@ -139,23 +147,54 @@ export function useCommandWizard({
     values.targetFilter,
   ]);
 
-  const compatibleAttributes = useMemo(
-    () => intersectWritableAttributes(selectedDevices),
-    [selectedDevices],
+  // The effective device-set filter the attribute coverage is computed over.
+  // Union-with-coverage semantics: devices matching the filter but not
+  // exposing the dispatched attribute as writable are excluded server-side.
+  const coverageFilter = useMemo<DevicesFilter>(() => {
+    if (isPredefined) return predefinedTarget!;
+    if (values.targetMode === "filters") {
+      return targetFilterToDevicesFilter(values.targetFilter);
+    }
+    return { ids: values.deviceIds ?? [] };
+  }, [
+    isPredefined,
+    predefinedTarget,
+    values.targetMode,
+    values.deviceIds,
+    values.targetFilter,
+  ]);
+
+  const {
+    coverage,
+    isLoading: coverageLoading,
+    error: coverageError,
+  } = useAttributeCoverage(coverageFilter, {
+    enabled: !isEmptyFilter(coverageFilter),
+  });
+  const writableCoverage = useMemo(
+    () => coverage.filter((c) => c.writable_count > 0),
+    [coverage],
   );
 
-  // If the selected attribute is no longer compatible after the selection
-  // changes, clear it so step 2 doesn't display stale state.
+  // If the selected attribute is no longer targetable after the selection
+  // changes (out of coverage, not writable, or mixed data types), clear it
+  // so step 2 doesn't display stale state. Only act on settled coverage —
+  // a fetch in flight (or a failed one) must not wipe the user's choice.
   useEffect(() => {
-    if (
-      values.attribute &&
-      !compatibleAttributes.some((a) => a.name === values.attribute)
-    ) {
+    if (coverageLoading || coverageError || !values.attribute) return;
+    const row = writableCoverage.find((c) => c.attribute === values.attribute);
+    if (!row || row.data_types.length !== 1) {
       setValue("attribute", undefined);
       setValue("attributeDataType", undefined);
       setValue("value", undefined);
     }
-  }, [compatibleAttributes, values.attribute, setValue]);
+  }, [
+    coverageLoading,
+    coverageError,
+    writableCoverage,
+    values.attribute,
+    setValue,
+  ]);
 
   // Deep-link pre-selection: apply once the target's writable attributes are
   // known (they load async), and only if the requested attribute is among
@@ -164,20 +203,20 @@ export function useCommandWizard({
   const preselectApplied = useRef(false);
   useEffect(() => {
     if (preselectApplied.current || !preselectAttribute) return;
-    const match = compatibleAttributes.find(
-      (a) => a.name === preselectAttribute,
+    const match = writableCoverage.find(
+      (c) => c.attribute === preselectAttribute && c.data_types.length === 1,
     );
     if (!match) return;
     preselectApplied.current = true;
-    setValue("attribute", match.name);
-    setValue("attributeDataType", match.dataType);
-    setValue("value", currentValueFor(selectedDevices, match.name));
-  }, [preselectAttribute, compatibleAttributes, selectedDevices, setValue]);
+    setValue("attribute", match.attribute);
+    setValue("attributeDataType", match.data_types[0]);
+    setValue("value", currentValueFor(selectedDevices, match.attribute));
+  }, [preselectAttribute, writableCoverage, selectedDevices, setValue]);
 
-  const targetValid = isTargetValid(selectedDevices, compatibleAttributes);
+  const targetValid = selectedDevices.length > 0 && writableCoverage.length > 0;
   const commandValid = isCommandValid(
     values,
-    compatibleAttributes,
+    writableCoverage,
     selectedDevices.length,
   );
 
@@ -254,7 +293,7 @@ export function useCommandWizard({
     // derived
     step,
     selectedDevices,
-    compatibleAttributes,
+    coverageFilter,
     targetValid,
     commandValid,
     isPredefined,
@@ -294,21 +333,15 @@ function parseStep(raw: string | null, fallback: number): number {
   return Math.max(0, Math.min(2, n - 1));
 }
 
-function isTargetValid(
-  selectedDevices: Device[],
-  compatibleAttrs: WritableAttribute[],
-): boolean {
-  return selectedDevices.length > 0 && compatibleAttrs.length > 0;
-}
-
 function isCommandValid(
   v: WizardFormValues,
-  compatibleAttrs: WritableAttribute[],
+  writableCoverage: AttributeCoverage[],
   selectedCount: number,
 ): boolean {
   if (selectedCount === 0) return false;
   if (!v.attribute) return false;
-  if (!compatibleAttrs.some((a) => a.name === v.attribute)) return false;
+  const row = writableCoverage.find((c) => c.attribute === v.attribute);
+  if (!row || row.data_types.length !== 1) return false;
   return v.value !== undefined && v.value !== "";
 }
 

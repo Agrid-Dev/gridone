@@ -15,6 +15,7 @@ from commands import (
     CommandTemplatePatch,
 )
 from devices_manager.types import AttributeValueType
+from models.targets import DevicesFilter
 from models.types import DataType
 
 
@@ -56,7 +57,7 @@ class CommandTemplateCreatePayload(BaseModel):
 
     def to_domain(self) -> CommandTemplateCreate:
         return CommandTemplateCreate(
-            target=self.target.model_dump(exclude_none=True),
+            target=self.target.to_devices_filter(),
             write=self.write.to_domain(),
             name=self.name,
         )
@@ -82,7 +83,7 @@ class CommandTemplateUpdatePayload(BaseModel):
         # explicit ``null`` (demote to ephemeral) is distinct from omitted.
         diff: dict[str, Any] = {}
         if "target" in self.model_fields_set and self.target is not None:
-            diff["target"] = self.target.model_dump(exclude_none=True)
+            diff["target"] = self.target.to_devices_filter()
         if "write" in self.model_fields_set and self.write is not None:
             diff["write"] = self.write.to_domain()
         if "name" in self.model_fields_set:
@@ -95,7 +96,7 @@ class CommandTemplateResponse(BaseModel):
 
     id: str
     name: str | None
-    target: dict[str, Any]
+    target: DevicesFilter
     write: AttributeWritePayload
     created_at: datetime
     created_by: str
@@ -105,7 +106,7 @@ class CommandTemplateResponse(BaseModel):
         return cls(
             id=template.id,
             name=template.name,
-            target=dict(template.target),
+            target=template.target,
             write=AttributeWritePayload.from_domain(template.write),
             created_at=template.created_at,
             created_by=template.created_by,

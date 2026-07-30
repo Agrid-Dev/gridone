@@ -1,6 +1,7 @@
 import type { Device, StandardAttributeSchema } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import {
+  assetIdOf,
   defaultVisibleAttributes,
   DeviceType,
   standardAttributeNames,
@@ -101,5 +102,23 @@ describe("standardAttributeNames", () => {
     expect(
       standardAttributeNames(makeDevice("mystery_box", []), SCHEMAS),
     ).toEqual([]);
+  });
+});
+
+describe("assetIdOf", () => {
+  // The backend persists asset scoping as the canonical ``tags.asset_id``
+  // criterion; request bodies may still spell it with the ``asset_id`` alias.
+  it("reads the canonical tag form returned by the API", () => {
+    expect(assetIdOf({ tags: { asset_id: ["a1"] } })).toBe("a1");
+  });
+
+  it("reads the write-side alias and prefers it when both are present", () => {
+    expect(assetIdOf({ asset_id: "a2", tags: { asset_id: ["a1"] } })).toBe(
+      "a2",
+    );
+  });
+
+  it("is undefined when the filter has no asset scoping", () => {
+    expect(assetIdOf({ types: ["thermostat"] })).toBeUndefined();
   });
 });

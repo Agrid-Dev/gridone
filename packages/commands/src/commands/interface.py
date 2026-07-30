@@ -13,10 +13,10 @@ if TYPE_CHECKING:
         CommandTemplate,
         CommandTemplateCreate,
         CommandTemplatePatch,
-        Target,
         UnitCommand,
     )
     from models.pagination import Page, PaginationParams
+    from models.targets import DevicesFilter
 
 
 class CommandsServiceInterface(Protocol):
@@ -35,7 +35,7 @@ class CommandsServiceInterface(Protocol):
     async def dispatch_batch(
         self,
         *,
-        target: Target,
+        target: DevicesFilter,
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,

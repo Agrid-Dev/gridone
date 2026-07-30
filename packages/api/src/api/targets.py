@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from models.errors import InvalidError
 from models.targets import (
     AttributeCoverage,
     AttributeTarget,
@@ -20,8 +21,11 @@ from models.targets import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from devices_manager import DevicesServiceInterface
     from devices_manager.dto.device_dto import Device
+    from models.targets import TargetResolver
 
 
 def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
@@ -71,6 +75,10 @@ class CompositeTargetResolver:
         exposing = [
             d for d in devices if _exposes(d, target.attribute, writable=writable)
         ]
+        if not exposing:
+            qualifier = " as writable" if writable else ""
+            msg = f"No device in the target exposes '{target.attribute}'{qualifier}"
+            raise InvalidError(msg)
         exposing_ids = {d.id for d in exposing}
         data_type = unify_data_types(
             d.attributes[target.attribute].data_type for d in exposing
@@ -87,3 +95,19 @@ class CompositeTargetResolver:
     ) -> list[AttributeCoverage]:
         matched = self._dm.list_devices(**devices.model_dump(exclude_none=True))
         return compute_attribute_coverage(matched)
+
+
+async def validate_targets(
+    resolver: TargetResolver,
+    targets: Iterable[AttributeTarget],
+    *,
+    writable: bool = False,
+) -> list[ResolvedTarget]:
+    """Resolve every target, surfacing authoring mistakes as ``InvalidError``.
+
+    The shared save-time gate for anything persisting targets (command
+    templates, dashboard widgets): zero coverage and mixed data types raise
+    :class:`~models.errors.InvalidError` (→ 422); partial coverage is
+    allowed and reported on the returned :class:`ResolvedTarget`s.
+    """
+    return [await resolver.resolve(t, writable=writable) for t in targets]

@@ -11,6 +11,7 @@ from commands.models import (
 )
 from commands.storage.postgres.deserialize import deserialize_command_value
 from models.errors import NotFoundError
+from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
 
 if TYPE_CHECKING:
@@ -225,7 +226,7 @@ class PostgresCommandsStorage:
         return CommandTemplate(
             id=row["id"],
             name=row["name"],
-            target=row["target"],
+            target=DevicesFilter.model_validate(row["target"]),
             write=_write_from_jsonb(row["write"]),
             created_at=row["created_at"],
             created_by=row["created_by"],
@@ -241,7 +242,7 @@ class PostgresCommandsStorage:
             """,
             template.id,
             template.name,
-            dict(template.target),
+            template.target.model_dump(exclude_none=True),
             _write_to_jsonb(template.write),
             template.created_at,
             template.created_by,
@@ -258,7 +259,7 @@ class PostgresCommandsStorage:
             """,
             template.id,
             template.name,
-            dict(template.target),
+            template.target.model_dump(exclude_none=True),
             _write_to_jsonb(template.write),
         )
         if row is None:

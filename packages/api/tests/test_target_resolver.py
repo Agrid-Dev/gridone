@@ -130,7 +130,7 @@ class TestCompositeTargetResolver:
     @pytest.mark.asyncio
     async def test_no_coverage_raises(self):
         resolver = CompositeTargetResolver(_make_dm([_METER]))
-        with pytest.raises(InvalidError, match="no device"):
+        with pytest.raises(InvalidError, match="No device in the target"):
             await resolver.resolve(
                 AttributeTarget(devices=DevicesFilter(), attribute="temperature")
             )

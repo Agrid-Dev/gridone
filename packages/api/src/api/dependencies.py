@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
 from api.permissions import Permission, get_permissions_for_role
+from api.targets import CompositeTargetResolver
 from apps import AppsService
 from assets import AssetsService
 from commands import CommandsServiceInterface
@@ -22,6 +23,12 @@ _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
 def get_device_manager(request: Request) -> DevicesServiceInterface:
     return request.app.state.device_manager
+
+
+def get_target_resolver(
+    dm: DevicesServiceInterface = Depends(get_device_manager),
+) -> CompositeTargetResolver:
+    return CompositeTargetResolver(dm)
 
 
 def get_ts_service(request: Request) -> TimeSeriesService:

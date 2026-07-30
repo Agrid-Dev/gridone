@@ -10,7 +10,6 @@ import type {
   DataType,
   Device,
   DeviceListParams,
-  DevicesFilterBody,
   StandardAttributeSchema,
 } from "@gridone/sdk";
 
@@ -467,10 +466,15 @@ function attributeValueReader(device: Device) {
 // ---------------------------------------------------------------------------
 
 /** Shape of a filter over devices, shared between ``GET /devices`` and the
- *  ``target`` field on batch-command dispatches. Wire-format keys — a
- *  superset of the SDK's ``DevicesFilterBody`` with the list-only params.
- *  Intersection semantics across fields. */
-export type DevicesFilter = DevicesFilterBody & {
+ *  ``target`` field on batch-command dispatches. Wire-format keys — the
+ *  query-layer superset of the persisted target criteria
+ *  (``ids`` | ``types`` | ``tags``). Intersection semantics across fields. */
+export type DevicesFilter = {
+  ids?: string[] | null;
+  types?: string[] | null;
+  tags?: { [key: string]: string[] } | null;
+  asset_id?: string | null;
+  is_faulty?: boolean | null;
   /** Free-text fuzzy match against the device ``name``. */
   search?: string;
   /** Restrict to devices bound to this driver. */
@@ -479,13 +483,29 @@ export type DevicesFilter = DevicesFilterBody & {
   transport_id?: string;
 };
 
+/** True when the filter selects on none of the target dimensions
+ *  (``ids``/``types``/``asset_id``). An empty filter resolves to nothing —
+ *  "everything" is never an intentional target. */
+export function isEmptyFilter(filter: DevicesFilter): boolean {
+  return (
+    !(filter.ids && filter.ids.length > 0) &&
+    !(filter.types && filter.types.length > 0) &&
+    !filter.asset_id
+  );
+}
+
+/** Asset scoping of a filter, wherever it is spelled: the ``asset_id``
+ *  convenience alias (request bodies) or the canonical ``tags.asset_id``
+ *  criterion the backend persists and returns. */
+export function assetIdOf(filter: DevicesFilter): string | undefined {
+  return filter.asset_id ?? filter.tags?.asset_id?.[0] ?? undefined;
+}
+
 /** Map a DevicesFilter onto ``GET /devices`` query params.
  *
  *  Field mapping:
  *   - ``types`` becomes the repeated ``type`` param
  *   - ``tags`` expands to ``tags=key:value`` pairs
- *   - ``writable_attribute*`` fields only apply to batch-command targets and
- *     are not sent (the list endpoint does not support them)
  */
 export function devicesFilterToListParams(
   filter: DevicesFilter | undefined,

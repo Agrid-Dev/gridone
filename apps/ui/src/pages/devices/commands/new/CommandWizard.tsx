@@ -51,7 +51,7 @@ export function CommandWizard(props: CommandWizardProps) {
     values,
     step,
     selectedDevices,
-    compatibleAttributes,
+    coverageFilter,
     targetValid,
     commandValid,
     isPredefined,
@@ -141,7 +141,7 @@ export function CommandWizard(props: CommandWizardProps) {
             <CommandStep
               control={control}
               setValue={setValue}
-              attributes={compatibleAttributes}
+              filter={coverageFilter}
               selectedDevices={selectedDevices}
               selectedAttribute={values.attribute}
               selectedDataType={values.attributeDataType}

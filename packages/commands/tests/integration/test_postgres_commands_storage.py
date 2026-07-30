@@ -27,6 +27,7 @@ from commands.storage.postgres import (
     build_postgres_storage,
 )
 from models.errors import NotFoundError
+from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
@@ -74,14 +75,14 @@ def _template(
     *,
     template_id: str = "tpl0000000000001",
     name: str | None = "Thermostats to auto",
-    target: dict | None = None,
+    target: DevicesFilter | None = None,
     write: AttributeWrite = MODE_AUTO,
     created_by: str = "u1",
 ) -> CommandTemplate:
     return CommandTemplate(
         id=template_id,
         name=name,
-        target=target or {"types": ["thermostat"]},
+        target=target or DevicesFilter(types=["thermostat"]),
         write=write,
         created_at=datetime(2026, 4, 22, 10, 0, tzinfo=UTC),
         created_by=created_by,
@@ -249,11 +250,10 @@ class TestTemplates:
     ):
         saved = await storage.save_template(
             _template(
-                target={
-                    "types": ["thermostat"],
-                    "tags": {"asset_id": ["a1", "a2"]},
-                    "is_faulty": False,
-                },
+                target=DevicesFilter(
+                    types=["thermostat"],
+                    tags={"asset_id": ["a1", "a2"]},
+                ),
                 write=AttributeWrite(
                     attribute="setpoint", value=21.5, data_type=DataType.FLOAT
                 ),
@@ -261,12 +261,10 @@ class TestTemplates:
         )
         fetched = await storage.get_template(saved.id)
         assert fetched is not None
-        # jsonb codec restores the nested shape verbatim
-        assert fetched.target == {
-            "types": ["thermostat"],
-            "tags": {"asset_id": ["a1", "a2"]},
-            "is_faulty": False,
-        }
+        # the typed filter round-trips through the jsonb codec
+        assert fetched.target == DevicesFilter(
+            types=["thermostat"], tags={"asset_id": ["a1", "a2"]}
+        )
         assert fetched.write == AttributeWrite(
             attribute="setpoint", value=21.5, data_type=DataType.FLOAT
         )
@@ -302,7 +300,7 @@ class TestTemplates:
                 CommandTemplate(
                     id=f"tpl00000000000{i:02d}",
                     name=f"Saved {i}",
-                    target={"ids": [f"d{i}"]},
+                    target=DevicesFilter(ids=[f"d{i}"]),
                     write=MODE_AUTO,
                     created_at=datetime(2026, 4, 22, 10, i, tzinfo=UTC),
                     created_by="u1",
@@ -347,14 +345,14 @@ class TestTemplates:
             _template(
                 template_id="tpl0000update01",
                 name=None,
-                target={"ids": ["d1"]},
+                target=DevicesFilter(ids=["d1"]),
                 write=MODE_AUTO,
             )
         )
         merged = CommandTemplate(
             id=original.id,
             name="Promoted",
-            target={"types": ["thermostat"]},
+            target=DevicesFilter(types=["thermostat"]),
             write=AttributeWrite(
                 attribute="setpoint", value=21.5, data_type=DataType.FLOAT
             ),
@@ -364,7 +362,7 @@ class TestTemplates:
         updated = await storage.update_template(merged)
 
         assert updated.name == "Promoted"
-        assert updated.target == {"types": ["thermostat"]}
+        assert updated.target == DevicesFilter(types=["thermostat"])
         assert updated.write == AttributeWrite(
             attribute="setpoint", value=21.5, data_type=DataType.FLOAT
         )

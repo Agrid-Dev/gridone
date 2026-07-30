@@ -1991,10 +1991,7 @@ export interface components {
       id: string;
       /** Name */
       name: string | null;
-      /** Target */
-      target: {
-        [key: string]: unknown;
-      };
+      target: components["schemas"]["DevicesFilter"];
       write: components["schemas"]["AttributeWritePayload"];
       /**
        * Created At
@@ -2211,17 +2208,38 @@ export interface components {
       driver_id?: string | null;
     };
     /**
+     * DevicesFilter
+     * @description Persisted criteria selecting a set of devices.
+     *
+     *     Fields compose by intersection: a device matches when it satisfies every
+     *     non-``None`` field. An empty filter matches all devices.
+     */
+    DevicesFilter: {
+      /** Ids */
+      ids?: string[] | null;
+      /** Types */
+      types?: string[] | null;
+      /** Tags */
+      tags?: {
+        [key: string]: string[];
+      } | null;
+    };
+    /**
      * DevicesFilterBody
-     * @description HTTP shape of a devices filter, mirroring ``DM.list_devices`` kwargs.
+     * @description HTTP shape of a command target's device set.
      *
-     *     This is the shape of the ``target`` field on the batch-dispatch body.
-     *     Unknown keys are rejected with 422; the commands service treats this as
-     *     an opaque ``dict`` once validated.
+     *     The wire form of :class:`models.targets.DevicesFilter`: the persisted
+     *     criteria (``ids`` / ``types`` / ``tags``) plus the ``asset_id``
+     *     convenience alias, folded into the ``asset_id`` tag by
+     *     :meth:`to_devices_filter` at this boundary — assets are stored as device
+     *     tags, and that translation lives at the composition layer so no service
+     *     knows about it. What the services see and persist is always the strict
+     *     canonical filter.
      *
-     *     ``asset_id`` is a convenience alias: it is persisted verbatim in saved
-     *     templates (so intent round-trips cleanly to the UI) and translated into
-     *     the ``asset_id`` tag at the composition-root target resolver before the
-     *     call reaches ``DM.list_devices``.
+     *     Runtime query fields (``is_faulty``, ``writable_attribute``, ...) are
+     *     deliberately not accepted in a target — like any unknown key they are
+     *     rejected with 422 rather than silently altering the device set.
+     *     Writability is enforced against the dispatched attribute by the resolver.
      */
     DevicesFilterBody: {
       /** Ids */
@@ -2232,11 +2250,6 @@ export interface components {
       tags?: {
         [key: string]: string[];
       } | null;
-      /** Is Faulty */
-      is_faulty?: boolean | null;
-      /** Writable Attribute */
-      writable_attribute?: string | null;
-      writable_attribute_type?: components["schemas"]["DataType"] | null;
       /** Asset Id */
       asset_id?: string | null;
     };
