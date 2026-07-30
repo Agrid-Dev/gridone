@@ -1,3 +1,10 @@
+## v0.178.0 (2026-07-30)
+
+### Feat
+
+- **ui**: multi-series chart widget over a target
+- **dashboards**: chart widget targets a device set
+
 ## v0.177.0 (2026-07-30)
 
 ### Feat
