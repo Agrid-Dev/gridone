@@ -4,6 +4,7 @@ import type {
   AggregateOptionsResponse,
   AggregationResultResponse,
   FetchPointsResultResponse,
+  SpaceAggregationResult,
   TimeSeries,
   TimeseriesBulkPushRequest,
   TimeseriesSingleAttrPushRequest,
@@ -20,6 +21,9 @@ export type TimeseriesAggregateParams = NonNullable<
 >;
 export type AggregateOptionsParams = NonNullable<
   operations["get_aggregate_options_devices_timeseries_aggregate_options_get"]["parameters"]["query"]
+>;
+export type SpaceAggregateParams = NonNullable<
+  operations["get_devices_timeseries_aggregate_devices_timeseries_aggregate_get"]["parameters"]["query"]
 >;
 /** Shared by the CSV and PNG exports (same query parameters). */
 export type TimeseriesExportParams = NonNullable<
@@ -64,6 +68,19 @@ export class TimeseriesResource {
       `/devices/${encodeURIComponent(deviceId)}/timeseries/${encodeURIComponent(attribute)}/aggregate`,
       { searchParams: params },
     );
+  }
+
+  /**
+   * Aggregates one attribute over a device set into a single series: per-device
+   * time buckets first, then `space_agg` folds each bucket across the set.
+   * The target uses the same filter vocabulary as `client.devices.list`.
+   */
+  aggregateSpace(
+    params: SpaceAggregateParams,
+  ): Promise<SpaceAggregationResult> {
+    return this.request("GET", "/devices/timeseries/aggregate", {
+      searchParams: params,
+    });
   }
 
   /** Aggregation intervals/operators valid for the given time window. */

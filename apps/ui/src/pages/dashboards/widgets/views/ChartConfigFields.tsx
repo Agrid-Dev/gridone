@@ -1,5 +1,5 @@
 import { useEffect, type FC } from "react";
-import type { DataType } from "@gridone/sdk";
+import type { AggregationOperator, DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import * as z from "zod";
@@ -16,6 +16,23 @@ import { isEmptyFilter } from "@/lib/devices";
 /** How "plot the readings as recorded" reads in the operator list. The config
  *  stores `null` for it. */
 const RAW = "raw";
+
+/** How "one series per device" reads in the space operator list. The config
+ *  stores `null` for it. */
+const NONE = "none";
+
+/** The operators that can fold one bucket across the device set. Restated
+ *  from `models.types.SPACE_AGGREGATION_OPERATORS` (the backend refuses the
+ *  rest at save time): the options endpoint's matrix carries type
+ *  compatibility, not space membership. */
+const SPACE_OPERATORS: AggregationOperator[] = [
+  "avg",
+  "sum",
+  "min",
+  "max",
+  "count",
+  "mode",
+];
 
 /** True when the criteria select at least one device dimension. */
 function hasDeviceCriterion(devices: unknown): boolean {
@@ -62,17 +79,19 @@ function toPickerTarget(value: unknown): AttributeTarget {
  * yields an int whatever went in, and averaging a bool yields a float, which is
  * what decides whether the widget draws a line or an on/off band.
  */
-const AggOption: FC<{ name: string; resultType?: DataType | null }> = ({
-  name,
-  resultType,
-}) => {
+const AggOption: FC<{
+  name: string;
+  resultType?: DataType | null;
+  /** Which caption set glosses the name — time operators by default. */
+  kind?: "agg" | "space";
+}> = ({ name, resultType, kind = "agg" }) => {
   const { t } = useTranslation("dashboards");
   return (
     <span className="flex w-full items-baseline gap-2">
       <span>{name}</span>
       <span className="text-xs text-muted-foreground">
         {t(
-          `widgets.chart.agg.captions.${name}` as "widgets.chart.agg.captions.avg",
+          `widgets.chart.${kind}.captions.${name}` as "widgets.chart.agg.captions.avg",
         )}
       </span>
       {resultType !== undefined && (
@@ -103,9 +122,14 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     name: "config.target",
   });
   const { field: aggField } = useController({ control, name: "config.agg" });
+  const { field: spaceAggField } = useController({
+    control,
+    name: "config.space_agg",
+  });
 
   const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
+  const spaceAgg = (spaceAggField.value as string | null) ?? null;
 
   const { devices } = useDevicesList();
   const { data: options } = useAggregateOptions();
@@ -148,6 +172,37 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     if (refused) aggField.onChange(null);
   }, [refused, aggField]);
 
+  // Space runs on what the time operator yields, so its options are the same
+  // matrix read against the time output type — `avg` then `sum` of floats
+  // stays float, `mode` of a str-mode chain stays str. Only the space
+  // vocabulary is offered; the rest cannot fold a device set at all.
+  const timeOutputType = agg
+    ? (operators.find((o) => o.operator === agg)?.resultType ?? undefined)
+    : undefined;
+  const spaceOperators = operatorsFor(options, timeOutputType).filter((o) =>
+    SPACE_OPERATORS.includes(o.operator),
+  );
+  const spaceAggOptions = spaceOperators.map(({ operator, resultType }) => ({
+    value: operator as string | null,
+    label: <AggOption name={operator} resultType={resultType} kind="space" />,
+    disabled: resultType === null,
+  }));
+
+  // Raw series cannot be space-aggregated, so dropping the time operator also
+  // drops the space one; a chain the new types refuse resets the same way the
+  // time operator does above.
+  const spaceRefused =
+    !!spaceAgg &&
+    (!agg ||
+      (!!timeOutputType &&
+        spaceOperators.some(
+          (o) => o.operator === spaceAgg && o.resultType === null,
+        )));
+
+  useEffect(() => {
+    if (spaceRefused) spaceAggField.onChange(null);
+  }, [spaceRefused, spaceAggField]);
+
   return (
     <>
       <AttributeTargetPicker
@@ -169,6 +224,21 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
           ...aggOptions,
         ]}
       />
+      {agg !== null && (
+        <SelectController<FieldValues, "config.space_agg", string | null>
+          name="config.space_agg"
+          control={control}
+          label={t("widgets.chart.space.label")}
+          description={t("widgets.chart.space.description")}
+          // `null` keeps today's behavior — one series per device — and reads
+          // as a named choice rather than an empty select.
+          placeholder={<AggOption name={NONE} kind="space" />}
+          options={[
+            { value: null, label: <AggOption name={NONE} kind="space" /> },
+            ...spaceAggOptions,
+          ]}
+        />
+      )}
     </>
   );
 };
