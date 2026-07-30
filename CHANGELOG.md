@@ -1,3 +1,13 @@
+## v0.175.0 (2026-07-30)
+
+### Feat
+
+- **apps**: store App.config in DB with validate→store→push PATCH flow
+
+### Fix
+
+- **apps**: stop health loop from clobbering freshly stored config
+
 ## v0.174.0 (2026-07-30)
 
 ### Feat
