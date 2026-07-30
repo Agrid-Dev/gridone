@@ -1655,6 +1655,18 @@ export interface components {
       new_name: string;
     };
     /**
+     * AttributeTarget
+     * @description A device set paired with a single attribute.
+     *
+     *     ``attribute`` is singular by contract — consumers needing several
+     *     attributes hold a ``list[AttributeTarget]``.
+     */
+    AttributeTarget: {
+      devices: components["schemas"]["DevicesFilter"];
+      /** Attribute */
+      attribute: string;
+    };
+    /**
      * AttributeWritePayload
      * @description The ``what`` of a template: an attribute to set on a device.
      */
@@ -1926,16 +1938,17 @@ export interface components {
     };
     /**
      * ChartWidgetConfig
-     * @description Time-series chart over one attribute of one device.
+     * @description Time-series chart over one attribute of a device set.
      *
-     *     The data source is deliberately the narrowest useful one: a single
-     *     ``(device, attribute)`` pair. Points are read over the dashboard period, so
-     *     nothing about the time window is stored here.
+     *     ``target`` follows the shared target model: a persisted device set
+     *     (explicit ids or criteria, resolved at render time) paired with a single
+     *     attribute. Every matched device that exposes the attribute becomes a
+     *     series; the attribute's data type must be the same across the set —
+     *     enforced at save time by the API layer, and surfaced as a render-time
+     *     error state when a dynamic set drifts afterwards.
      *
-     *     Both the device set and the number of series widen in later work (a
-     *     filter-shaped target, then several series per chart). Widening either one
-     *     rewrites this shape, so stored configs migrate — an accepted trade for
-     *     keeping the first slice minimal while no real dashboards exist.
+     *     Points are read over the dashboard period, so nothing about the time
+     *     window is stored here.
      */
     ChartWidgetConfig: {
       /**
@@ -1943,10 +1956,7 @@ export interface components {
        * @enum {string}
        */
       type: "chart";
-      /** Device Id */
-      device_id: string;
-      /** Attribute */
-      attribute: string;
+      target: components["schemas"]["AttributeTarget"];
       agg?: components["schemas"]["AggregationOperator"] | null;
     };
     /** CodecSpec */

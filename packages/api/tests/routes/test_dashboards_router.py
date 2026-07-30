@@ -19,11 +19,14 @@ from api.dependencies import (
     get_current_token_payload,
     get_current_user_id,
     get_dashboards_service,
+    get_target_resolver,
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.dashboards_router import router
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page
+from models.targets import ResolvedTarget, TargetResolver
+from models.types import DataType
 
 pytestmark = pytest.mark.asyncio
 
@@ -42,7 +45,11 @@ _DASHBOARD = Dashboard(
 _SUMMARY = DashboardSummary(id="d1", name="Ops", description="d", metadata=_META)
 
 _TEXT_CONFIG = {"type": "text", "text": "hi", "color": "#1a2b3c"}
-_CHART_CONFIG = {"type": "chart", "device_id": "dev1", "attribute": "temperature"}
+_CHART_TARGET = {
+    "devices": {"ids": ["dev1"], "types": None, "tags": None},
+    "attribute": "temperature",
+}
+_CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
 
 
 @pytest.fixture
@@ -53,11 +60,24 @@ def svc() -> AsyncMock:
 
 
 @pytest.fixture
-def app(svc, admin_token_payload) -> FastAPI:
+def mock_target_resolver() -> AsyncMock:
+    resolver = AsyncMock(spec=TargetResolver)
+    resolver.resolve.return_value = ResolvedTarget(
+        attribute="temperature",
+        device_ids=["dev1"],
+        data_type=DataType.FLOAT,
+        excluded_device_ids=[],
+    )
+    return resolver
+
+
+@pytest.fixture
+def app(svc, mock_target_resolver, admin_token_payload) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_dashboards_service] = lambda: svc
+    app.dependency_overrides[get_target_resolver] = lambda: mock_target_resolver
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
@@ -198,6 +218,56 @@ class TestWidgets:
         assert any("attribute" in loc for loc in locs)
         assert not any("color" in loc for loc in locs)
         svc.add_widget.assert_not_awaited()
+
+    async def test_add_legacy_chart_body_upgrades_to_target(self, client, svc):
+        # The pre-target wire shape still validates: the boundary upgrades it
+        # so the service only ever persists the target form.
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post(
+                "/d1/widgets",
+                json={
+                    "config": {
+                        "type": "chart",
+                        "device_id": "dev1",
+                        "attribute": "temperature",
+                    }
+                },
+            )
+        assert resp.status_code == 201
+        config = svc.add_widget.await_args.kwargs["config"]
+        assert config["target"] == _CHART_TARGET
+        assert "device_id" not in config
+
+    async def test_add_widget_with_unresolvable_target_returns_422(
+        self, client, svc, mock_target_resolver
+    ):
+        # Save-time gate: zero coverage / mixed data types never persist.
+        mock_target_resolver.resolve.side_effect = InvalidError(
+            "No device in the target exposes 'temperature'"
+        )
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _CHART_CONFIG})
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
+
+    async def test_add_text_widget_skips_target_resolution(
+        self, client, svc, mock_target_resolver
+    ):
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _TEXT_CONFIG})
+        assert resp.status_code == 201
+        mock_target_resolver.resolve.assert_not_awaited()
+
+    async def test_update_widget_config_with_unresolvable_target_returns_422(
+        self, client, svc, mock_target_resolver
+    ):
+        mock_target_resolver.resolve.side_effect = InvalidError("mixed data types")
+        async with client as c:
+            resp = await c.put("/d1/widgets/w1", json={"config": _CHART_CONFIG})
+        assert resp.status_code == 422
+        svc.update_widget.assert_not_awaited()
 
     async def test_add_widget_unknown_type_returns_422(self, client):
         async with client as c:

@@ -13,13 +13,20 @@ from dashboards import (
 )
 from fastapi import APIRouter, Depends, status
 
-from api.dependencies import get_dashboards_service, require_permission
+from api.dependencies import (
+    get_dashboards_service,
+    get_target_resolver,
+    require_permission,
+)
 from api.permissions import Permission
 from api.schemas.dashboard import WidgetCreateBody, WidgetUpdateBody
+from api.targets import validate_targets
+from models.targets import TargetResolver
 
 router = APIRouter()
 
 _ServiceDep = Annotated[DashboardsServiceInterface, Depends(get_dashboards_service)]
+_ResolverDep = Annotated[TargetResolver, Depends(get_target_resolver)]
 
 
 # ``/widget-schemas`` is declared before ``/{dashboard_id}`` so the literal path
@@ -87,8 +94,15 @@ async def delete_dashboard(dashboard_id: str, svc: _ServiceDep) -> None:
     dependencies=[Depends(require_permission(Permission.DASHBOARDS_WRITE))],
 )
 async def add_widget(
-    dashboard_id: str, body: WidgetCreateBody, svc: _ServiceDep
+    dashboard_id: str,
+    body: WidgetCreateBody,
+    svc: _ServiceDep,
+    resolver: _ResolverDep,
 ) -> Widget:
+    # Save-time gate on the widget's targets (zero coverage / mixed data
+    # types -> 422). Partial coverage is allowed; a dynamic target can still
+    # drift after save, which the widget surfaces as a render-time error.
+    await validate_targets(resolver, body.config.targets())
     return await svc.add_widget(
         dashboard_id,
         config=body.config.model_dump(),
@@ -103,8 +117,14 @@ async def add_widget(
     dependencies=[Depends(require_permission(Permission.DASHBOARDS_WRITE))],
 )
 async def update_widget(
-    dashboard_id: str, widget_id: str, body: WidgetUpdateBody, svc: _ServiceDep
+    dashboard_id: str,
+    widget_id: str,
+    body: WidgetUpdateBody,
+    svc: _ServiceDep,
+    resolver: _ResolverDep,
 ) -> Widget:
+    if body.config is not None:
+        await validate_targets(resolver, body.config.targets())
     return await svc.update_widget(dashboard_id, widget_id, body.to_patch())
 
 
