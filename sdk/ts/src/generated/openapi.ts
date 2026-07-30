@@ -6817,7 +6817,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description App is unreachable */
+      /** @description App is unreachable or served an invalid config schema */
       503: {
         headers: {
           [name: string]: unknown;

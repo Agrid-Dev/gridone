@@ -15,7 +15,7 @@ from api.dependencies import get_apps_service, get_current_token_payload
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
 from apps import App, AppStatus, PushStatus
-from apps.errors import AppUnreachableError
+from apps.errors import AppUnreachableError, InvalidAppSchemaError
 from models.errors import InvalidError, NotFoundError
 from users.auth import TokenPayload
 
@@ -187,6 +187,17 @@ def test_update_config_app_unreachable(app: FastAPI, apps_service: AsyncMock):
     with TestClient(app) as client:
         resp = client.patch("/apps/app-1/config", json={"lat": 40.7})
         assert resp.status_code == 503
+
+
+def test_update_config_invalid_app_schema(app: FastAPI, apps_service: AsyncMock):
+    """A malformed schema is the app's fault: 503, not a 422 blaming the payload."""
+    apps_service.update_config = AsyncMock(
+        side_effect=InvalidAppSchemaError("App returned an invalid config schema")
+    )
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json={"lat": 40.7})
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "App returned an invalid config schema"
 
 
 # ── POST /apps/{app_id}/enable ───────────────────────────────

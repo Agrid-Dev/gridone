@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from apps import AppUnreachableError
+from apps import AppUnreachableError, InvalidAppSchemaError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
@@ -59,3 +59,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: AppUnreachableError
     ) -> JSONResponse:
         return JSONResponse(status_code=503, content={"detail": "App is unreachable"})
+
+    @app.exception_handler(InvalidAppSchemaError)
+    async def invalid_app_schema_handler(
+        request: Request, exc: InvalidAppSchemaError
+    ) -> JSONResponse:
+        # The app is at fault, not the caller — never a 422 blaming the payload.
+        logger.warning("Invalid config schema served by app on %s", request.url.path)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "App returned an invalid config schema"},
+        )

@@ -1,8 +1,27 @@
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from jsonschema.exceptions import SchemaError
 
+from apps.errors import InvalidAppSchemaError
 from models.errors import InvalidError
+
+
+def validate_schema(schema: dict[str, Any]) -> None:
+    """Check that an app's declared config schema is itself a valid JSON schema.
+
+    `Draft202012Validator(schema)` does not validate the schema, so a
+    malformed one would only blow up later inside `iter_errors`. Checking it
+    upfront turns that into a controlled failure attributed to the app.
+
+    Raises:
+        InvalidAppSchemaError: the schema does not conform to Draft 2020-12.
+    """
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        msg = "App returned an invalid config schema"
+        raise InvalidAppSchemaError(msg) from exc
 
 
 def validate_config(payload: dict[str, Any], schema: dict[str, Any]) -> None:
@@ -25,4 +44,4 @@ def validate_config(payload: dict[str, Any], schema: dict[str, Any]) -> None:
         raise InvalidError(msg)
 
 
-__all__ = ["validate_config"]
+__all__ = ["validate_config", "validate_schema"]

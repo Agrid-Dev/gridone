@@ -80,5 +80,16 @@ class PostgresAppStorage:
             app.push_status,
         )
 
+    async def update_status(self, app_id: str, status: AppStatus) -> None:
+        # No RETURNING: a vanished row is a no-op, per the protocol.
+        await self._pool.execute(
+            "UPDATE apps SET status = $2 WHERE id = $1", app_id, status
+        )
+
+    async def update_push_status(self, app_id: str, push_status: PushStatus) -> None:
+        await self._pool.execute(
+            "UPDATE apps SET push_status = $2 WHERE id = $1", app_id, push_status
+        )
+
     async def close(self) -> None:
         await self._pool.close()

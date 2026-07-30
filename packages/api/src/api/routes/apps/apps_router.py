@@ -61,7 +61,9 @@ async def get_config(
     dependencies=[Depends(require_permission(Permission.USERS_WRITE))],
     responses={
         status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "Invalid config"},
-        status.HTTP_503_SERVICE_UNAVAILABLE: {"description": "App is unreachable"},
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "App is unreachable or served an invalid config schema"
+        },
     },
 )
 async def update_config(

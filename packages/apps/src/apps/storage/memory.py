@@ -1,4 +1,4 @@
-from apps.models import App, RegistrationRequest
+from apps.models import App, AppStatus, PushStatus, RegistrationRequest
 
 
 class MemoryRegistrationStorage:
@@ -21,7 +21,14 @@ class MemoryRegistrationStorage:
 
 
 class MemoryAppStorage:
-    """In-memory storage backend for registered apps."""
+    """In-memory storage backend for registered apps.
+
+    Targeted updates replace the stored model with a copy rather than
+    mutating it. This backend hands out its models by reference, so an
+    in-place mutation would retroactively update snapshots already held by
+    callers — hiding the very staleness the targeted updates guard against,
+    while postgres (which rebuilds models per read) would not.
+    """
 
     def __init__(self) -> None:
         self._apps: dict[str, App] = {}
@@ -34,6 +41,18 @@ class MemoryAppStorage:
 
     async def save(self, app: App) -> None:
         self._apps[app.id] = app
+
+    async def update_status(self, app_id: str, status: AppStatus) -> None:
+        app = self._apps.get(app_id)
+        if app is None:
+            return
+        self._apps[app_id] = app.model_copy(update={"status": status})
+
+    async def update_push_status(self, app_id: str, push_status: PushStatus) -> None:
+        app = self._apps.get(app_id)
+        if app is None:
+            return
+        self._apps[app_id] = app.model_copy(update={"push_status": push_status})
 
     async def close(self) -> None:
         return None

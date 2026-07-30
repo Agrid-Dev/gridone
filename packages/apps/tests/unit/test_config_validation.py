@@ -2,7 +2,8 @@
 
 import pytest
 
-from apps.config_validation import validate_config
+from apps.config_validation import validate_config, validate_schema
+from apps.errors import InvalidAppSchemaError
 from models.errors import InvalidError
 
 SCHEMA = {
@@ -47,3 +48,23 @@ def test_unknown_format_annotation_is_ignored():
 def test_unknown_root_keyword_is_ignored():
     """The `i18n` root key is a Draft 2020-12 unknown keyword, silently ignored."""
     validate_config({"lat": 48.8, "lng": 2.3}, SCHEMA)
+
+
+class TestValidateSchema:
+    def test_valid_schema_passes(self):
+        validate_schema(SCHEMA)
+
+    @pytest.mark.parametrize(
+        "schema",
+        [
+            pytest.param({"type": "not-a-json-type"}, id="unknown-type"),
+            pytest.param({"required": "lat"}, id="required-not-an-array"),
+            pytest.param(
+                {"properties": {"lat": {"minimum": "zero"}}}, id="minimum-not-a-number"
+            ),
+            pytest.param([{"type": "object"}], id="schema-is-a-list"),
+        ],
+    )
+    def test_malformed_schema_raises(self, schema):
+        with pytest.raises(InvalidAppSchemaError, match="invalid config schema"):
+            validate_schema(schema)

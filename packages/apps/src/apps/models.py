@@ -73,9 +73,6 @@ class App(BaseModel):
     def enable_url(self) -> str:
         return f"{self.api_url}/enable"
 
-    def with_status(self, new_status: AppStatus) -> "App":
-        return self.model_copy(update={"status": new_status})
-
 
 __all__ = [
     "REQUIRED_CONFIG_FIELDS",
