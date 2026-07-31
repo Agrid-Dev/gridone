@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from dashboards.widgets.chart import ChartWidgetConfig
+from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -116,7 +117,9 @@ def build_default_registry() -> WidgetRegistry:
     ``text`` is the placeholder widget at 4x2 grid cells. ``chart`` takes half
     the 12-column grid and enough rows to give the plot roughly the height it
     has on the device history page — a time axis squeezed into a small tile is
-    unreadable.
+    unreadable. ``device_control`` is a third of the grid wide and tall,
+    matching the portrait footprint of the standard control surface plus
+    attribute panes on the device page.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -131,6 +134,13 @@ def build_default_registry() -> WidgetRegistry:
             type="chart",
             config_model=ChartWidgetConfig,
             default_size=WidgetSize(w=6, h=5),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="device_control",
+            config_model=DeviceControlWidgetConfig,
+            default_size=WidgetSize(w=4, h=6),
         )
     )
     return registry

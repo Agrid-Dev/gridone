@@ -13,6 +13,7 @@ from dashboards.models import (
 from dashboards.service import DashboardsService
 from dashboards.widgets import (
     ChartWidgetConfig,
+    DeviceControlWidgetConfig,
     TextWidgetConfig,
     WidgetConfig,
     WidgetRegistry,
@@ -29,6 +30,7 @@ __all__ = [
     "DashboardSummary",
     "DashboardsService",
     "DashboardsServiceInterface",
+    "DeviceControlWidgetConfig",
     "LayoutItem",
     "Metadata",
     "TextWidgetConfig",

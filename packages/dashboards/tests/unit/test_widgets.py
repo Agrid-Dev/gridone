@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from dashboards.widgets import (
     ChartWidgetConfig,
+    DeviceControlWidgetConfig,
     TextWidgetConfig,
     WidgetSize,
     WidgetType,
@@ -19,9 +20,10 @@ from models.types import AggregationOperator
 def test_default_registry_registers_built_in_types():
     registry = build_default_registry()
 
-    assert set(registry.types()) == {"text", "chart"}
+    assert set(registry.types()) == {"text", "chart", "device_control"}
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
+    assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
 
 
 def test_validate_config_returns_concrete_model():
@@ -64,6 +66,13 @@ def test_validate_config_returns_concrete_model():
             "type": "chart",
             "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
             "interval": "1h",
+        },
+        {"type": "device_control"},  # missing device_id
+        {"type": "device_control", "device_id": ""},  # empty device_id
+        {  # live-only widget: no period mode/operator to store
+            "type": "device_control",
+            "device_id": "d1",
+            "agg": "avg",
         },
     ],
 )
@@ -108,7 +117,7 @@ def test_schemas_returns_json_schema_per_type():
 
     schemas = registry.schemas()
 
-    assert set(schemas) == {"text", "chart"}
+    assert set(schemas) == {"text", "chart", "device_control"}
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
@@ -122,6 +131,10 @@ def test_schemas_returns_json_schema_per_type():
     # the size has to travel with the schema.
     assert schemas["chart"]["x-default-size"] == {"w": 6, "h": 5}
     assert schemas["text"]["x-default-size"] == {"w": 4, "h": 2}
+    device_control = schemas["device_control"]
+    assert set(device_control["required"]) == {"device_id"}
+    assert device_control["properties"]["device_id"]["minLength"] == 1
+    assert device_control["x-default-size"] == {"w": 4, "h": 6}
 
 
 def test_empty_registry_has_no_types():
@@ -194,6 +207,19 @@ def test_every_registered_widget_declares_its_targets():
     assert [t.attribute for t in chart.targets()] == ["temperature"]
     text = registry.validate_config({"type": "text", "text": "hi", "color": "#1a2b3c"})
     assert text.targets() == []
+    # device_control references a whole device, not attribute series — it is
+    # deliberately target-free (missing device is a render-time error state).
+    control = registry.validate_config({"type": "device_control", "device_id": "d1"})
+    assert control.targets() == []
+
+
+def test_validate_config_returns_device_control_model():
+    registry = build_default_registry()
+
+    config = registry.validate_config({"type": "device_control", "device_id": "d1"})
+
+    assert isinstance(config, DeviceControlWidgetConfig)
+    assert config.device_id == "d1"
 
 
 def test_chart_config_accepts_an_operator():

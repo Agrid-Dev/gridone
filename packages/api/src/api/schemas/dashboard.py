@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from dashboards import ChartWidgetConfig, TextWidgetConfig, WidgetPatch
+from dashboards import (
+    ChartWidgetConfig,
+    DeviceControlWidgetConfig,
+    TextWidgetConfig,
+    WidgetPatch,
+)
 from pydantic import BaseModel, ConfigDict, Field
 
 # The request-body type for a widget's ``config``: a discriminated union on
@@ -20,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # is what makes a bad config a 422 whose error path names the offending field
 # rather than a wall of per-member union errors.
 WidgetConfigBody = Annotated[
-    TextWidgetConfig | ChartWidgetConfig,
+    TextWidgetConfig | ChartWidgetConfig | DeviceControlWidgetConfig,
     Field(discriminator="type"),
 ]
 
