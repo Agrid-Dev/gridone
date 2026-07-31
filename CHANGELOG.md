@@ -1,3 +1,10 @@
+## v0.180.0 (2026-07-31)
+
+### Feat
+
+- space aggregation option on the chart widget (AGR-980) — 2/2 frontend (#496)
+- space aggregation over a device target (AGR-980) — 1/2 backend (#495)
+
 ## v0.179.1 (2026-07-31)
 
 ### Fix
