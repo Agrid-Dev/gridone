@@ -50,6 +50,7 @@ _CHART_TARGET = {
     "attribute": "temperature",
 }
 _CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
+_DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
 
 
 @pytest.fixture
@@ -259,6 +260,31 @@ class TestWidgets:
             resp = await c.post("/d1/widgets", json={"config": _TEXT_CONFIG})
         assert resp.status_code == 201
         mock_target_resolver.resolve.assert_not_awaited()
+
+    async def test_add_device_control_widget_reaches_the_service(
+        self, client, svc, mock_target_resolver
+    ):
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _DEVICE_CONTROL_CONFIG})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1", config=_DEVICE_CONTROL_CONFIG, title=None, description=None
+        )
+        # Target-free widget: nothing to resolve at save time.
+        mock_target_resolver.resolve.assert_not_awaited()
+
+    async def test_add_device_control_widget_missing_device_returns_422_field_path(
+        self, client, svc
+    ):
+        async with client as c:
+            resp = await c.post(
+                "/d1/widgets", json={"config": {"type": "device_control"}}
+            )
+        assert resp.status_code == 422
+        locs = [d["loc"] for d in resp.json()["detail"]]
+        assert any("device_id" in loc for loc in locs)
+        svc.add_widget.assert_not_awaited()
 
     async def test_update_widget_config_with_unresolvable_target_returns_422(
         self, client, svc, mock_target_resolver

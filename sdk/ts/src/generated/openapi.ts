@@ -441,9 +441,9 @@ export interface paths {
      * @description Aggregate one attribute over a device set into a single series.
      *
      *     The target resolves at read time; devices whose history starts
-     *     mid-window simply contribute to fewer buckets. The domain result is
-     *     already wire-shaped, so it serves as the response as-is — localized
-     *     because API timestamps render in the timezone the buckets were cut in.
+     *     mid-window simply contribute to fewer buckets. The service's result is
+     *     already wire-shaped — timestamps rendered in the timezone the buckets
+     *     were cut in — so it serves as the response untouched.
      */
     get: operations["get_devices_timeseries_aggregate_devices_timeseries_aggregate_get"];
     put?: never;
@@ -2243,6 +2243,26 @@ export interface components {
        */
       required?: boolean;
     };
+    /**
+     * DeviceControlWidgetConfig
+     * @description The standard control surface of one device, embedded in a dashboard.
+     *
+     *     Live-only by design: the widget mirrors the device page (current values,
+     *     writes), so the config carries just the device to control — no
+     *     mode/operator, and the dashboard period does not apply. It declares no
+     *     ``targets()``: it references a whole device rather than reading attribute
+     *     series, and a missing device is a render-time error state, not a save-time
+     *     gate.
+     */
+    DeviceControlWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "device_control";
+      /** Device Id */
+      device_id: string;
+    };
     /** DeviceCreate */
     DeviceCreate: {
       /**
@@ -3500,7 +3520,8 @@ export interface components {
       /** Config */
       config:
         | components["schemas"]["TextWidgetConfig"]
-        | components["schemas"]["ChartWidgetConfig"];
+        | components["schemas"]["ChartWidgetConfig"]
+        | components["schemas"]["DeviceControlWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -3544,6 +3565,7 @@ export interface components {
         | (
             | components["schemas"]["TextWidgetConfig"]
             | components["schemas"]["ChartWidgetConfig"]
+            | components["schemas"]["DeviceControlWidgetConfig"]
           )
         | null;
     };
