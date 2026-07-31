@@ -23,7 +23,11 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { mergeTimeSeries, type MergedRow } from "@/lib/mergeTimeSeries";
+import {
+  holdLastRowUntil,
+  mergeTimeSeries,
+  type MergedRow,
+} from "@/lib/mergeTimeSeries";
 import { parseRangeParams, resolveTimeRange } from "./timeRange";
 
 const MAX_DEFAULT_VISIBLE = 8;
@@ -70,6 +74,8 @@ type DeviceHistoryContextValue = {
   columnOrder: string[];
   setColumnOrder: React.Dispatch<React.SetStateAction<string[]>>;
   allRows: MergedRow[];
+  /** `allRows` with the last values held to the window end — chart only. */
+  chartRows: MergedRow[];
   visibleAttributes: string[];
   filteredRows: MergedRow[];
   commandsMap: Map<number, UnitCommand>;
@@ -257,6 +263,19 @@ export function DeviceHistoryProvider({
     [pointsByMetric, visibleAttributes],
   );
 
+  // The chart draws the last values held to the window end; the table keeps
+  // recorded rows only. Memoized against `allRows` so "now" is re-read when a
+  // fetch lands rather than on every render — the trailing timestamp has to
+  // hold still or the bands re-animate continuously.
+  const chartRows = useMemo(
+    () =>
+      holdLastRowUntil(
+        allRows,
+        resolved.end ? new Date(resolved.end) : new Date(),
+      ),
+    [allRows, resolved.end],
+  );
+
   // Only keep rows where at least one visible attribute has a real data point
   const filteredRows = useMemo(
     () =>
@@ -329,6 +348,7 @@ export function DeviceHistoryProvider({
       columnOrder,
       setColumnOrder,
       allRows,
+      chartRows,
       visibleAttributes,
       filteredRows,
       commandsMap,
@@ -347,6 +367,7 @@ export function DeviceHistoryProvider({
       columnOrder,
       setColumnOrder,
       allRows,
+      chartRows,
       visibleAttributes,
       filteredRows,
       commandsMap,

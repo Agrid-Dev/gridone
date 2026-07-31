@@ -5,7 +5,7 @@ import { toLabel } from "@/lib/textFormat";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 export default function DeviceHistoryChart() {
-  const { allRows, visibleAttributes, dataTypes } = useDeviceHistoryContext();
+  const { chartRows, visibleAttributes, dataTypes } = useDeviceHistoryContext();
   const { floatAttrs, intAttrs, boolAttrs, stringAttrs } = useMemo(() => {
     const floatAttrs = visibleAttributes.filter(
       (attr) => dataTypes[attr] === "float",
@@ -23,8 +23,8 @@ export default function DeviceHistoryChart() {
   }, [visibleAttributes, dataTypes]);
 
   const timestamps = useMemo(
-    () => allRows.map((r) => new Date(r.timestamp)),
-    [allRows],
+    () => chartRows.map((r) => new Date(r.timestamp)),
+    [chartRows],
   );
 
   const lineValues = useMemo(
@@ -32,10 +32,10 @@ export default function DeviceHistoryChart() {
       Object.fromEntries(
         floatAttrs.map((a) => [
           a,
-          allRows.map((r) => r.values[a] as number | null),
+          chartRows.map((r) => r.values[a] as number | null),
         ]),
       ),
-    [allRows, floatAttrs],
+    [chartRows, floatAttrs],
   );
 
   const lineSeries: Series[] = useMemo(
@@ -48,10 +48,10 @@ export default function DeviceHistoryChart() {
       Object.fromEntries(
         intAttrs.map((a) => [
           a,
-          allRows.map((r) => r.values[a] as number | null),
+          chartRows.map((r) => r.values[a] as number | null),
         ]),
       ),
-    [allRows, intAttrs],
+    [chartRows, intAttrs],
   );
 
   const intSeries: Series[] = useMemo(
@@ -64,10 +64,10 @@ export default function DeviceHistoryChart() {
       Object.fromEntries(
         boolAttrs.map((a) => [
           a,
-          allRows.map((r) => r.values[a] as boolean | null),
+          chartRows.map((r) => r.values[a] as boolean | null),
         ]),
       ),
-    [allRows, boolAttrs],
+    [chartRows, boolAttrs],
   );
 
   const booleanSeries: Series[] = useMemo(
@@ -80,10 +80,10 @@ export default function DeviceHistoryChart() {
       Object.fromEntries(
         stringAttrs.map((a) => [
           a,
-          allRows.map((r) => r.values[a] as string | null),
+          chartRows.map((r) => r.values[a] as string | null),
         ]),
       ),
-    [allRows, stringAttrs],
+    [chartRows, stringAttrs],
   );
 
   const stringSeries: Series[] = useMemo(
