@@ -50,6 +50,13 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   },
 };
 
+/** The device types a standard control is registered for — what a surface
+ *  that can only render standard controls (e.g. the device control widget)
+ *  offers to pick from. */
+export function standardControlTypes(): DeviceType[] {
+  return Object.keys(registry) as DeviceType[];
+}
+
 export function getStandardDeviceEntry(
   type: string | null | undefined,
 ): StandardDeviceEntry | undefined {

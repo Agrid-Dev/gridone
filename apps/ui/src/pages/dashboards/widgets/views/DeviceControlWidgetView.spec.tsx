@@ -3,12 +3,14 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { GridoneError, type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import type { StandardControlProps } from "@/pages/devices/standard-devices/types";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
     "widgets.deviceControl.empty": "Pick a device",
     "widgets.deviceControl.notFound": "This device no longer exists",
     "widgets.deviceControl.error": "Could not load this device",
+    "widgets.deviceControl.noControl": "No standard control",
     "widgets.deviceControl.live": "Live",
   }),
 );
@@ -18,18 +20,38 @@ vi.mock("@/hooks/useDeviceById", () => ({
   useDeviceById: (id: string | undefined) => useDeviceById(id),
 }));
 
-// The surface is the device page's own component; the widget's job is only to
-// resolve the device and frame it, so the embed is asserted by name.
-vi.mock("@/pages/devices/device/DeviceLiveControl", () => ({
-  DeviceControlSurface: ({ device }: { device: Device }) => (
-    <div data-testid="control-surface">{device.id}</div>
-  ),
+// The write path is the device page's own hook; the widget's job is to wire
+// the standard control to it, so the wiring is asserted, not the writes.
+vi.mock("@/hooks/useDeviceDetails", () => ({
+  useDeviceDetails: () => ({
+    draft: {},
+    savingAttr: null,
+    feedback: null,
+    handleDraftChange: vi.fn(),
+    handleSave: vi.fn(),
+  }),
+}));
+
+vi.mock("@/pages/devices/standard-devices/registry", () => ({
+  getStandardDeviceEntry: (type: string | null | undefined) =>
+    type === "thermostat"
+      ? {
+          Control: ({ device }: StandardControlProps) => (
+            <div data-testid="standard-control">{device.id}</div>
+          ),
+        }
+      : undefined,
 }));
 
 // Imported after the mocks are registered.
 import { DeviceControlWidgetView } from "./DeviceControlWidgetView";
 
-const DEVICE = { id: "dev1", name: "Thermostat hall", type: "thermostat" };
+const DEVICE = {
+  id: "dev1",
+  name: "Thermostat hall",
+  type: "thermostat",
+  attributes: { connection_status: { current_value: "ok" } },
+} as unknown as Device;
 const CONFIG = { type: "device_control", device_id: "dev1" };
 
 function renderView(config: unknown = CONFIG) {
@@ -46,15 +68,29 @@ afterEach(() => {
 });
 
 describe("DeviceControlWidgetView", () => {
-  it("renders the control surface with a live indicator and a device page link", () => {
+  it("renders the standard control with a live indicator and a device page link", () => {
     useDeviceById.mockReturnValue({ data: DEVICE, isLoading: false });
+
+    const { container } = renderView();
+
+    expect(screen.getByTestId("standard-control")).toHaveTextContent("dev1");
+    expect(screen.getByText("Live")).toBeInTheDocument();
+    // The dot carries the device's connection status colour.
+    expect(container.querySelector(".bg-status-ok")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Thermostat hall" });
+    expect(link).toHaveAttribute("href", "/devices/dev1");
+  });
+
+  it("names a device whose type has no standard control", () => {
+    useDeviceById.mockReturnValue({
+      data: { ...DEVICE, type: "relay" },
+      isLoading: false,
+    });
 
     renderView();
 
-    expect(screen.getByTestId("control-surface")).toHaveTextContent("dev1");
-    expect(screen.getByText("Live")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Thermostat hall" });
-    expect(link).toHaveAttribute("href", "/devices/dev1");
+    expect(screen.getByText("No standard control")).toBeInTheDocument();
+    expect(screen.queryByTestId("standard-control")).not.toBeInTheDocument();
   });
 
   it("renders an explicit state for a deleted device", () => {
@@ -69,7 +105,7 @@ describe("DeviceControlWidgetView", () => {
     expect(
       screen.getByText("This device no longer exists"),
     ).toBeInTheDocument();
-    expect(screen.queryByTestId("control-surface")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("standard-control")).not.toBeInTheDocument();
   });
 
   it("renders a generic error state when the device cannot be loaded", () => {

@@ -64,6 +64,7 @@
       "empty": "Pick a device to control.",
       "notFound": "This device no longer exists.",
       "error": "Could not load this device.",
+      "noControl": "This device type has no standard control.",
       "live": "Live"
     },
     "add": "Add widget",
