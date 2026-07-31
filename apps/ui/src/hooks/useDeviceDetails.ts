@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { deviceAttributes } from "@/lib/devices";
 import type { AttributeFields } from "@/lib/faults";
-import { useDeviceFromRoute } from "./useDevice";
 
 export type Feedback = { type: "success" | "error"; message: string };
 
-export function useDeviceDetails() {
+export function useDeviceDetails(device: Device) {
   const { t } = useTranslation("devices");
   const client = useGridoneClient();
   const queryClient = useQueryClient();
-  const device = useDeviceFromRoute();
   const deviceId = device.id;
 
   const [draft, setDraft] = useState<

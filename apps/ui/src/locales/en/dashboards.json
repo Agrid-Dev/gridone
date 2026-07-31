@@ -60,6 +60,12 @@
         "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
+    "deviceControl": {
+      "empty": "Pick a device to control.",
+      "notFound": "This device no longer exists.",
+      "error": "Could not load this device.",
+      "live": "Live"
+    },
     "add": "Add widget",
     "addTitle": "Add widget",
     "addSubmit": "Add widget",

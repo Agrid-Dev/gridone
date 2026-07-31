@@ -1,10 +1,15 @@
+import type { Device } from "@gridone/sdk";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
+import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
 
-export default function DeviceLiveControl() {
-  const { device, draft, savingAttr, feedback, handleDraftChange, handleSave } =
-    useDeviceDetails();
+/** The standard control surface of one device: its registered standard control
+ *  (if any) over the read-only attribute panes. Takes the device explicitly so
+ *  it can render outside the device route (e.g. in a dashboard widget). */
+export function DeviceControlSurface({ device }: { device: Device }) {
+  const { draft, savingAttr, feedback, handleDraftChange, handleSave } =
+    useDeviceDetails(device);
 
   const standardEntry = getStandardDeviceEntry(device.type);
 
@@ -28,4 +33,9 @@ export default function DeviceLiveControl() {
       <DeviceAttributePanes device={device} />
     </div>
   );
+}
+
+export default function DeviceLiveControl() {
+  const device = useDeviceFromRoute();
+  return <DeviceControlSurface device={device} />;
 }
