@@ -4,6 +4,7 @@ import type { AppStatus } from "@gridone/sdk";
 
 const statusStyles: Record<AppStatus, string> = {
   healthy: "border-green-200 bg-green-100 text-green-800",
+  needs_config: "border-amber-200 bg-amber-100 text-amber-800",
   unhealthy: "border-red-200 bg-red-100 text-red-800",
   registered: "border-border bg-muted text-muted-foreground",
 };

@@ -5,7 +5,12 @@ from pydantic import BaseModel
 
 from api.dependencies import get_apps_service, require_permission
 from api.permissions import Permission
-from apps import AppsService, RegistrationRequest, RegistrationRequestCreate
+from apps import (
+    AppCapabilities,
+    AppsService,
+    RegistrationRequest,
+    RegistrationRequestCreate,
+)
 from models.errors import InvalidError
 from users.validation import PasswordField, UsernameField
 
@@ -24,6 +29,9 @@ class RegistrationRequestResponse(BaseModel):
     status: str
     created_at: str
     config: str
+    # Parsed out of `config` so the manifest's declared intent is readable
+    # before the request is accepted.
+    capabilities: AppCapabilities
 
 
 def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
@@ -33,6 +41,7 @@ def _to_response(req: RegistrationRequest) -> RegistrationRequestResponse:
         status=req.status,
         created_at=req.created_at.isoformat(),
         config=req.config,
+        capabilities=req.capabilities,
     )
 
 

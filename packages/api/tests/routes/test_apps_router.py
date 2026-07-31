@@ -21,6 +21,21 @@ from users.auth import TokenPayload
 
 NOW = datetime.now(UTC)
 
+MANIFEST = (
+    "name: My App\n"
+    "produces: [weather_sensor]\n"
+    "reads:\n"
+    "  thermostat: [temperature]\n"
+    "commands:\n"
+    "  thermostat: [temperature_setpoint]\n"
+)
+
+EXPECTED_CAPABILITIES = {
+    "produces": ["weather_sensor"],
+    "reads": {"thermostat": ["temperature"]},
+    "commands": {"thermostat": ["temperature_setpoint"]},
+}
+
 DUMMY_APP = App(
     id="app-1",
     user_id="user-1",
@@ -29,7 +44,7 @@ DUMMY_APP = App(
     api_url="https://example.com",
     icon="https://example.com/icon.png",
     status=AppStatus.REGISTERED,
-    manifest="name: My App\n",
+    manifest=MANIFEST,
     created_at=NOW,
 )
 
@@ -108,6 +123,7 @@ def test_get_app(app: FastAPI):
         assert data["id"] == "app-1"
         assert data["name"] == "My App"
         assert data["status"] == "registered"
+        assert data["capabilities"] == EXPECTED_CAPABILITIES
 
 
 def test_get_app_not_found(app: FastAPI, apps_service: AsyncMock):

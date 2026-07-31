@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
+from apps.manifest import AppCapabilities, parse_capabilities
+
 
 class RegistrationRequestStatus(StrEnum):
     PENDING = "pending"
@@ -21,7 +23,14 @@ class RegistrationRequest(BaseModel):
     hashed_password: str
     status: RegistrationRequestStatus = RegistrationRequestStatus.PENDING
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # The app's manifest, in YAML. Named `config` on the wire, per the
+    # registration contract apps are written against.
     config: str = ""
+
+    @computed_field
+    @property
+    def capabilities(self) -> AppCapabilities:
+        return parse_capabilities(self.config)
 
 
 class RegistrationRequestCreate(BaseModel):
@@ -33,6 +42,9 @@ class RegistrationRequestCreate(BaseModel):
 class AppStatus(StrEnum):
     REGISTERED = "registered"
     HEALTHY = "healthy"
+    # The app is up but is missing its config: the health loop re-pushes the
+    # stored one, if any.
+    NEEDS_CONFIG = "needs_config"
     UNHEALTHY = "unhealthy"
 
 
@@ -65,6 +77,11 @@ class App(BaseModel):
 
     @computed_field
     @property
+    def capabilities(self) -> AppCapabilities:
+        return parse_capabilities(self.manifest)
+
+    @computed_field
+    @property
     def health_url(self) -> str:
         return f"{self.api_url}/health"
 
@@ -77,6 +94,7 @@ class App(BaseModel):
 __all__ = [
     "REQUIRED_CONFIG_FIELDS",
     "App",
+    "AppCapabilities",
     "AppStatus",
     "PushStatus",
     "RegistrationRequest",

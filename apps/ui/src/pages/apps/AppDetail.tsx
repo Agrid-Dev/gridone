@@ -10,6 +10,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import type { User } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AppStatusBadge } from "./components/AppStatusBadge";
+import { AppCapabilities } from "./components/AppCapabilities";
 import AppConfigForm from "./components/AppConfigForm";
 
 export default function AppDetail() {
@@ -132,6 +133,10 @@ export default function AppDetail() {
             <span className="text-muted-foreground">{t("fields.icon")}</span>
             <p className="mt-1 text-2xl">{app.icon}</p>
           </div>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-4">
+          <AppCapabilities capabilities={app.capabilities} />
         </div>
       </div>
 

@@ -1447,10 +1447,27 @@ export interface components {
        */
       created_at?: string;
       push_status?: components["schemas"]["PushStatus"] | null;
+      readonly capabilities: components["schemas"]["AppCapabilities"];
       /** Health Url */
       readonly health_url: string;
       /** Enable Url */
       readonly enable_url: string;
+    };
+    /**
+     * AppCapabilities
+     * @description Device-level intent declared by an app's manifest.
+     */
+    AppCapabilities: {
+      /** Produces */
+      produces?: string[];
+      /** Reads */
+      reads?: {
+        [key: string]: string[];
+      };
+      /** Commands */
+      commands?: {
+        [key: string]: string[];
+      };
     };
     /** AppConfigResult */
     AppConfigResult: {
@@ -1464,7 +1481,7 @@ export interface components {
      * AppStatus
      * @enum {string}
      */
-    AppStatus: "registered" | "healthy" | "unhealthy";
+    AppStatus: "registered" | "healthy" | "needs_config" | "unhealthy";
     /**
      * Asset
      * @description Public asset model (API response).
@@ -2981,6 +2998,7 @@ export interface components {
       created_at: string;
       /** Config */
       config: string;
+      capabilities: components["schemas"]["AppCapabilities"];
     };
     /** ReorderRequest */
     ReorderRequest: {
