@@ -1,3 +1,9 @@
+## v0.183.0 (2026-07-31)
+
+### Feat
+
+- **ui**: dashboard period defaults to 7 days over a longer preset ladder
+
 ## v0.182.0 (2026-07-31)
 
 ### Feat
