@@ -3,7 +3,13 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
+import {
+  DASHBOARD_DEFAULT_PRESET,
+  DASHBOARD_PRESET_OPTIONS,
+} from "@/lib/timeRange";
 import { TimeRangeSelect } from "./TimeRangeSelect";
+
+const STORAGE_KEY = "test.dashboards.period";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -13,10 +19,14 @@ vi.mock("react-i18next", () =>
     "timeRange.rangeLastMinutes": "Last {{count}} min",
     "timeRange.rangeLastHours": "Last {{count}}h",
     "timeRange.rangeLastDays": "Last {{count}}d",
+    "timeRange.rangeLastMonths": "Last {{count}} months",
   }),
 );
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+});
 
 function renderWithRouter(
   ui: React.ReactElement,
@@ -115,6 +125,68 @@ describe("TimeRangeSelect", () => {
     const endInput = screen.getByLabelText("end") as HTMLInputElement;
     expect(startInput.value).toBe("2026-03-01T08:00");
     expect(endInput.value).toBe("2026-03-01T18:00");
+  });
+
+  it("offers the preset list it is given instead of the default ladder", () => {
+    renderWithRouter(
+      <TimeRangeSelect
+        presets={DASHBOARD_PRESET_OPTIONS}
+        defaultPreset={DASHBOARD_DEFAULT_PRESET}
+      />,
+    );
+    fireEvent.click(screen.getByText("Last 7d"));
+
+    expect(screen.getByText("Last 3 months")).toBeInTheDocument();
+    expect(screen.queryByText("Last 10 min")).not.toBeInTheDocument();
+  });
+
+  it("reopens on the remembered preset when the URL carries no period", () => {
+    window.localStorage.setItem(STORAGE_KEY, "3mo");
+    renderWithRouter(
+      <TimeRangeSelect
+        presets={DASHBOARD_PRESET_OPTIONS}
+        defaultPreset={DASHBOARD_DEFAULT_PRESET}
+        storageKey={STORAGE_KEY}
+      />,
+    );
+    expect(screen.getByText("Last 3 months")).toBeInTheDocument();
+  });
+
+  // The link is the shared artifact: a preference must never override the
+  // period someone else deliberately put in the URL.
+  it("lets a period in the URL win over the remembered preset", () => {
+    window.localStorage.setItem(STORAGE_KEY, "3mo");
+    renderWithRouter(
+      <TimeRangeSelect
+        presets={DASHBOARD_PRESET_OPTIONS}
+        defaultPreset={DASHBOARD_DEFAULT_PRESET}
+        storageKey={STORAGE_KEY}
+      />,
+      ["/?last=1d"],
+    );
+    expect(screen.getByText("Last 1d")).toBeInTheDocument();
+  });
+
+  it("remembers a picked preset for the next visit", () => {
+    renderWithRouter(
+      <TimeRangeSelect
+        presets={DASHBOARD_PRESET_OPTIONS}
+        defaultPreset={DASHBOARD_DEFAULT_PRESET}
+        storageKey={STORAGE_KEY}
+      />,
+    );
+    fireEvent.click(screen.getByText("Last 7d"));
+    fireEvent.click(screen.getByText("Last 3 months"));
+
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("3mo");
+  });
+
+  it("remembers nothing for a view that opted out", () => {
+    renderWithRouter(<TimeRangeSelect />);
+    fireEvent.click(screen.getByText("Last 3h"));
+    fireEvent.click(screen.getByText("Last 1d"));
+
+    expect(window.localStorage.length).toBe(0);
   });
 
   it("resets specified params on change", () => {

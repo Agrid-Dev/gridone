@@ -5,18 +5,58 @@ import {
   parseRangeParams,
   writeRangeParams,
   rangeEndsNow,
+  hasRangeParams,
+  DASHBOARD_PRESET_OPTIONS,
   DEFAULT_PRESET,
+  PRESET_OPTIONS,
   type TimeRange,
 } from "./timeRange";
 
-describe("resolveTimeRange", () => {
-  it.each(["10m", "30m", "1h", "3h", "12h", "1d", "7d"] as const)(
-    "preset %s returns { last: preset }",
-    (preset) => {
-      const result = resolveTimeRange({ kind: "preset", preset });
-      expect(result).toEqual({ last: preset });
+describe("preset ladders", () => {
+  it("offers dashboards a longer window than device-scoped views", () => {
+    const longest = (options: typeof PRESET_OPTIONS) =>
+      options[options.length - 1].value;
+    expect(longest(PRESET_OPTIONS)).toBe("7d");
+    expect(longest(DASHBOARD_PRESET_OPTIONS)).toBe("12mo");
+  });
+
+  it("drops the sub-hour presets from the dashboard ladder", () => {
+    const values = DASHBOARD_PRESET_OPTIONS.map((o) => o.value);
+    expect(values).not.toContain("10m");
+    expect(values).not.toContain("30m");
+  });
+});
+
+describe("hasRangeParams", () => {
+  it.each(["last=1d", "start=2026-01-01", "end=2026-01-31"])(
+    "is true when the URL carries %s",
+    (query) => {
+      expect(hasRangeParams(new URLSearchParams(query))).toBe(true);
     },
   );
+
+  it("is false on a bare URL", () => {
+    expect(hasRangeParams(new URLSearchParams("page=3"))).toBe(false);
+  });
+});
+
+describe("resolveTimeRange", () => {
+  it.each([
+    "10m",
+    "30m",
+    "1h",
+    "3h",
+    "12h",
+    "1d",
+    "7d",
+    "1mo",
+    "3mo",
+    "6mo",
+    "12mo",
+  ] as const)("preset %s returns { last: preset }", (preset) => {
+    const result = resolveTimeRange({ kind: "preset", preset });
+    expect(result).toEqual({ last: preset });
+  });
 
   it("preset 'all' returns empty object", () => {
     const result = resolveTimeRange({ kind: "preset", preset: "all" });
@@ -51,11 +91,21 @@ describe("rangeLabel", () => {
     if (key === "timeRange.rangeLastMinutes") return `Last ${opts?.count} min`;
     if (key === "timeRange.rangeLastHours") return `Last ${opts?.count}h`;
     if (key === "timeRange.rangeLastDays") return `Last ${opts?.count}d`;
+    if (key === "timeRange.rangeLastMonths")
+      return `Last ${opts?.count} months`;
     return key;
   }) as Parameters<typeof rangeLabel>[1];
 
   it("returns preset label", () => {
     expect(rangeLabel({ kind: "preset", preset: "3h" }, t)).toBe("Last 3h");
+  });
+
+  // A dashboard preset reaching a device-scoped view (shared link, remembered
+  // preference) must still read as a label rather than as its raw value.
+  it("labels a preset the device-scoped ladder does not offer", () => {
+    expect(rangeLabel({ kind: "preset", preset: "3mo" }, t)).toBe(
+      "Last 3 months",
+    );
   });
 
   it("returns 'All time' for all preset", () => {
