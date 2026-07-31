@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mergeTimeSeries } from "./mergeTimeSeries";
+import {
+  holdLastRowUntil,
+  mergeTimeSeries,
+  type MergedRow,
+} from "./mergeTimeSeries";
 import type { DataPoint } from "@gridone/sdk";
 
 const point = (ts: string, value: string | number | boolean): DataPoint => ({
@@ -163,5 +167,43 @@ describe("mergeTimeSeries", () => {
     expect(result).toHaveLength(1);
     expect(result[0].values.missing_attr).toBeNull();
     expect(result[0].isNew.missing_attr).toBe(false);
+  });
+});
+
+describe("holdLastRowUntil", () => {
+  const row = (timestamp: string, mode: string): MergedRow => ({
+    timestamp,
+    values: { mode },
+    previousValues: {},
+    commandIds: {},
+    isNew: { mode: true },
+  });
+
+  it("appends a synthetic row carrying the last values to the end", () => {
+    const rows = [
+      row("2026-07-30T10:11:44Z", "idle"),
+      row("2026-07-31T09:00:11Z", "heat"),
+    ];
+    const end = new Date("2026-07-31T12:00:00Z");
+
+    const held = holdLastRowUntil(rows, end);
+
+    expect(held).toHaveLength(3);
+    const trailing = held[2];
+    expect(trailing.timestamp).toBe(end.toISOString());
+    expect(trailing.values).toEqual({ mode: "heat" });
+    // Display-only: nothing is new, so change-filtered table views skip it.
+    expect(trailing.isNew).toEqual({});
+    expect(trailing.commandIds).toEqual({});
+  });
+
+  it("returns the rows untouched when the last one already reaches the end", () => {
+    const rows = [row("2026-07-31T12:00:00Z", "heat")];
+
+    expect(holdLastRowUntil(rows, new Date("2026-07-31T11:00:00Z"))).toBe(rows);
+  });
+
+  it("leaves an empty row list alone", () => {
+    expect(holdLastRowUntil([], new Date())).toEqual([]);
   });
 });

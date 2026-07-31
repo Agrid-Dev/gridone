@@ -13,6 +13,33 @@ export type MergedRow = {
 const DEFAULT_PRECISION_MS = 1000;
 
 /**
+ * Repeat the last row's values at *end* so the final values span to it.
+ *
+ * A point is recorded only on change, so the merged index stops at the last
+ * recorded point — but the values it carries are what the device has held
+ * ever since. A step or band chart drawn from the rows alone gives that
+ * final stretch zero width: a mode that switched to "heat" at the last
+ * point never shows "heat" at all.
+ *
+ * The synthetic row is display-only: nothing in it is new (`isNew` empty),
+ * so table views that keep rows with a real change never see it.
+ */
+export function holdLastRowUntil(rows: MergedRow[], end: Date): MergedRow[] {
+  const last = rows[rows.length - 1];
+  if (!last || new Date(last.timestamp) >= end) return rows;
+  return [
+    ...rows,
+    {
+      timestamp: end.toISOString(),
+      values: last.values,
+      previousValues: last.values,
+      commandIds: {},
+      isNew: {},
+    },
+  ];
+}
+
+/**
  * Merge multiple time-series into a single table with forward-fill.
  *
  * Returns rows sorted ascending (oldest first).
