@@ -102,6 +102,26 @@ class PostgresStorage:
         )
         return self._row_to_series(row) if row else None
 
+    async def get_series_by_keys(self, keys: list[SeriesKey]) -> list[TimeSeries]:
+        """Fetch every series matching *keys* in a single round-trip.
+
+        ``unnest`` zips the owner/metric arrays back into (owner_id, metric)
+        rows joined against ``ts_series`` — one query however many keys.
+        Keys with no series simply match nothing.
+        """
+        if not keys:
+            return []
+        rows = await self._pool.fetch(
+            """
+            SELECT s.* FROM ts_series s
+            JOIN unnest($1::text[], $2::text[]) AS k(owner_id, metric)
+              ON s.owner_id = k.owner_id AND s.metric = k.metric
+            """,
+            [k.owner_id for k in keys],
+            [k.metric for k in keys],
+        )
+        return [self._row_to_series(row) for row in rows]
+
     async def list_series(
         self,
         *,

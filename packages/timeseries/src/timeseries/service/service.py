@@ -82,6 +82,12 @@ _OPERATORS_BY_DATA_TYPE: dict[DataType, dict[AggregationOperator, DataType | Non
 DEFAULT_RAW_LIMIT = 10_000
 MAX_RAW_LIMIT = 100_000
 
+# How many per-series aggregations one space aggregation runs concurrently.
+# Kept below the postgres pool size (see storage/factory.py) so a wide
+# target occupies at most this many connections and the rest of the
+# platform's timeseries traffic — ingestion included — is never starved.
+AGGREGATE_FANOUT_LIMIT = 4
+
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
@@ -328,10 +334,7 @@ class TimeSeriesService(Service):
             msg = "start (or last) is required for aggregation"
             raise InvalidError(msg)
 
-        maybe_series = await asyncio.gather(
-            *(self._backend.get_series_by_key(key) for key in keys)
-        )
-        series = [s for s in maybe_series if s is not None]
+        series = await self._backend.get_series_by_keys(keys)
         if not series:
             msg = "No timeseries found for any device in the target"
             raise NotFoundError(msg)
@@ -351,9 +354,17 @@ class TimeSeriesService(Service):
             raise InvalidError(msg)
         query = query.model_copy(update={"interval": interval})
 
-        results = await asyncio.gather(
-            *(self._backend.aggregate(s.key, query) for s in series)
-        )
+        # Bounded fan-out: the postgres pool is shared by the whole platform,
+        # so one wide target must not queue N acquires at once and starve
+        # ingestion behind a dashboard render. The cap stays below the pool
+        # size so other timeseries work always finds a free connection.
+        semaphore = asyncio.Semaphore(AGGREGATE_FANOUT_LIMIT)
+
+        async def _aggregate(s: TimeSeries) -> AggregationResult:
+            async with semaphore:
+                return await self._backend.aggregate(s.key, query)
+
+        results = await asyncio.gather(*(_aggregate(s) for s in series))
         result = SpaceAggregationResult(
             interval=interval,
             agg=query.agg,
