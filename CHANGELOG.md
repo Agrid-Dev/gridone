@@ -1,3 +1,9 @@
+## v0.179.1 (2026-07-31)
+
+### Fix
+
+- **ui**: hold the last recorded value to the window end in the history chart
+
 ## v0.179.0 (2026-07-31)
 
 ### Feat
