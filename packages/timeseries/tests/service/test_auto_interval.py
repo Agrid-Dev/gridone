@@ -16,17 +16,19 @@ class TestResolveAutoInterval:
     @pytest.mark.parametrize(
         ("period", "expected"),
         [
-            # < MIN_BUCKETS * 15min (30min) → no valid interval → whole
-            (timedelta(minutes=20), "whole"),
-            (timedelta(minutes=29), "whole"),  # just below 30min boundary → whole
-            (timedelta(minutes=30), "15min"),  # exactly 2 * 15min = MIN_BUCKETS → valid
-            # 15min is closest to TARGET_BUCKETS for short periods
-            (timedelta(hours=1), "15min"),  # 1h → 4 buckets (15min), closest to 200
-            (timedelta(hours=6), "15min"),  # 6h → 24 buckets (15min)
+            # < MIN_BUCKETS * 1min (2min) → no valid interval → whole
+            (timedelta(minutes=1), "whole"),
+            (timedelta(minutes=2), "1min"),  # exactly 2 * 1min = MIN_BUCKETS → valid
+            # 1min is closest to TARGET_BUCKETS for short periods
+            (timedelta(minutes=20), "1min"),  # 20min → 20 buckets (1min)
+            (timedelta(hours=1), "1min"),  # 1h → 60 buckets (1min), closest to 200
+            (timedelta(hours=6), "1min"),  # 6h → 360 buckets, diff=160 < 15min diff=176
+            # crossover 1min→15min near ~6h15 (375min)
+            (timedelta(hours=8), "15min"),  # 8h → 32 buckets (15min), diff=168 < 280
             (
                 timedelta(hours=24),
                 "15min",
-            ),  # 24h → 96 buckets (15min), diff=104 < 1h diff=176
+            ),  # 24h → 96 buckets (15min); 1min would make 1440 > MAX_BUCKETS
             (timedelta(days=3), "15min"),  # 3d → 288 buckets (15min), closest to 200
             # crossover 15min→1h near ~3.3 days (80h)
             (
@@ -74,7 +76,9 @@ class TestValidIntervalsForPeriod:
     @pytest.mark.parametrize(
         ("period", "expected"),
         [
-            (timedelta(hours=1), ["raw", "whole", "15min"]),
+            (timedelta(minutes=5), ["raw", "whole", "1min"]),
+            (timedelta(hours=1), ["raw", "whole", "1min", "15min"]),
+            # 1min drops out past MAX_BUCKETS (~16h40)
             (timedelta(hours=24), ["raw", "whole", "15min", "1h"]),
             (timedelta(days=7), ["raw", "whole", "15min", "1h", "1d"]),
             (timedelta(days=11), ["raw", "whole", "1h", "1d"]),

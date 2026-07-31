@@ -7,7 +7,7 @@ MIN_BUCKETS = 2
 MAX_BUCKETS = 1000
 TARGET_BUCKETS = 200
 
-CANONICAL_INTERVALS: list[str] = ["15min", "1h", "1d", "1mo"]
+CANONICAL_INTERVALS: list[str] = ["1min", "15min", "1h", "1d", "1mo"]
 
 _CANONICAL_TIMEDELTAS: list[timedelta] = [
     parse_duration(iv) for iv in CANONICAL_INTERVALS

@@ -630,8 +630,8 @@ class TestAutoIntervalService:
         await ts_service.create_series(
             data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
         )
-        t1 = datetime(2026, 1, 1, 0, 5, tzinfo=UTC)
-        t2 = datetime(2026, 1, 1, 0, 10, tzinfo=UTC)
+        t1 = datetime(2026, 1, 1, 0, 0, 20, tzinfo=UTC)
+        t2 = datetime(2026, 1, 1, 0, 1, tzinfo=UTC)
         await ts_service.upsert_points(
             key,
             [DataPoint(timestamp=t1, value=1.0), DataPoint(timestamp=t2, value=2.0)],
@@ -641,7 +641,7 @@ class TestAutoIntervalService:
             AggregationQuery(
                 agg=AggregationOperator.AVG,
                 start=datetime(2026, 1, 1, 0, 0, tzinfo=UTC),
-                end=datetime(2026, 1, 1, 0, 20, tzinfo=UTC),
+                end=datetime(2026, 1, 1, 0, 1, 30, tzinfo=UTC),
             ),
         )
         assert result.interval == "whole"
@@ -710,7 +710,8 @@ class TestAutoIntervalService:
     @pytest.mark.parametrize(
         ("period", "expected_interval"),
         [
-            (timedelta(minutes=20), "whole"),  # < MIN_BUCKETS * 15min → whole
+            (timedelta(minutes=1), "whole"),  # < MIN_BUCKETS * 1min → whole
+            (timedelta(minutes=20), "1min"),  # 20min → 20 buckets (1min)
             (timedelta(days=3), "15min"),  # 3d → 288 buckets (15min), closest to 200
             (timedelta(days=7), "1h"),  # 7d → 168 buckets (1h), closest to 200
             (timedelta(days=14), "1h"),  # 14d → 336 buckets (1h), closest to 200
@@ -1191,8 +1192,8 @@ class TestDeltaOperator:
             ts_service,
             "auto_short_index",
             [
-                (start + timedelta(minutes=5), 100.0),
-                (start + timedelta(minutes=10), 112.0),
+                (start + timedelta(seconds=20), 100.0),
+                (start + timedelta(seconds=60), 112.0),
             ],
         )
         result = await ts_service.get_aggregate(
@@ -1200,7 +1201,7 @@ class TestDeltaOperator:
             AggregationQuery(
                 agg=AggregationOperator.DELTA,
                 start=start,
-                end=start + timedelta(minutes=20),
+                end=start + timedelta(seconds=90),
             ),
         )
         assert result.interval == "whole"
