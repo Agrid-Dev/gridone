@@ -497,6 +497,26 @@ class TestHealthCheck:
         assert stored.push_status == PushStatus.OK
         assert stored.status == AppStatus.HEALTHY
 
+    async def test_one_failing_app_does_not_skip_the_others(
+        self, users_manager, http_client
+    ):
+        """A storage error on one app must not cost the rest of the tick."""
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.list_all.return_value = [
+            make_app("app-1", status=AppStatus.REGISTERED),
+            make_app("app-2", user_id="user-2", status=AppStatus.REGISTERED),
+        ]
+        storage.update_status.side_effect = [ConnectionError("storage is down"), None]
+        manager = AppsManager(storage, users_manager, http_client)
+
+        await manager._check_all_apps_health()  # noqa: SLF001
+
+        assert http_client.get.await_count == 2
+        assert storage.update_status.await_args_list[1].args == (
+            "app-2",
+            AppStatus.HEALTHY,
+        )
+
     async def test_health_check_loop_survives_a_failing_tick(self, apps_manager):
         """A raising tick must not kill the task — the loop is the only probe."""
         ticks = 0

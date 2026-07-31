@@ -200,14 +200,20 @@ class AppsManager:
             try:
                 await self._check_all_apps_health()
             except Exception:
-                # A failing tick must not kill the loop: the task would die
+                # Last resort, for what per-app handling cannot catch (listing
+                # the apps): an escaping exception would kill the task
                 # silently and health checks would never run again.
                 logger.exception("Health check tick failed")
             await asyncio.sleep(interval)
 
     async def _check_all_apps_health(self) -> None:
         for app in await self._app_storage.list_all():
-            await self._check_app_health(app)
+            try:
+                await self._check_app_health(app)
+            except Exception:
+                # One app must not cost the others their probe: without this
+                # they would be skipped until the next interval.
+                logger.exception("Health check failed for app %s", app.id)
 
     async def _check_app_health(self, app: App) -> None:
         """Probe one app, record its status, and re-deliver its config if asked.
