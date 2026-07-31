@@ -57,8 +57,7 @@
           "count": "devices holding a value",
           "mode": "most frequent across devices"
         },
-        "seriesLabel_one": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}} · {{count}} device",
-        "seriesLabel_other": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}} · {{count}} devices"
+        "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
     "add": "Add widget",

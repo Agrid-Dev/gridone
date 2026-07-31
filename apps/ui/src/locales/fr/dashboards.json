@@ -57,8 +57,7 @@
           "count": "appareils ayant une valeur",
           "mode": "la plus fréquente parmi les appareils"
         },
-        "seriesLabel_one": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}} · {{count}} appareil",
-        "seriesLabel_other": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}} · {{count}} appareils"
+        "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
     "add": "Ajouter un widget",

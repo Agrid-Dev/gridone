@@ -117,12 +117,14 @@ const SpaceChartView: FC<{
   if (points.length === 0)
     return <Message>{t("widgets.chart.noData")}</Message>;
 
+  // No device count in the label: series_count is series with history, not
+  // the resolved set, and the true contributor count varies per bucket. The
+  // accurate counts live in the editor's coverage read and on each point.
   const label = t("widgets.chart.space.seriesLabel", {
     attribute: toLabel(target.attribute),
     agg,
     spaceAgg,
     interval: data.interval,
-    count: data.series_count,
   });
   const chartProps = singleSeriesChartProps(
     data.aggregation_data_type,

@@ -12,7 +12,7 @@ vi.mock("react-i18next", () =>
     "widgets.chart.noData": "No data over the period",
     "widgets.chart.unboundedPeriod": "Aggregation needs a bounded period",
     "widgets.chart.space.seriesLabel":
-      "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}} · {{count}} devices",
+      "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}",
   }),
 );
 
@@ -242,7 +242,7 @@ describe("ChartWidgetView with a space aggregation", () => {
     expect(useMultiTimeSeries).not.toHaveBeenCalled();
     expect(useTargetDevices).not.toHaveBeenCalled();
     expect(screen.getByTestId("chart")).toHaveTextContent(
-      "Temperature · avg · avg · 1h · 3 devices",
+      "Temperature · avg · avg · 1h",
     );
   });
 
