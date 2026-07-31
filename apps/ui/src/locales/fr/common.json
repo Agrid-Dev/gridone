@@ -200,6 +200,17 @@
       "placeholder": "Sélectionner des utilisateurs",
       "search": "Rechercher des utilisateurs",
       "noUsers": "Aucun utilisateur trouvé"
+    },
+    "asset": {
+      "label": "Emplacements",
+      "placeholder": "Sélectionner des emplacements",
+      "search": "Rechercher des emplacements",
+      "noAssets": "Aucun emplacement trouvé"
+    },
+    "multiSelect": {
+      "placeholder": "Sélectionner des valeurs",
+      "search": "Rechercher",
+      "noOptions": "Aucune valeur trouvée"
     }
   },
   "app": {

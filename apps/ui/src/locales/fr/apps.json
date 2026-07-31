@@ -32,6 +32,20 @@
   "configError": "Erreur lors de l'enregistrement de la configuration",
   "configSave": "Enregistrer",
   "noConfig": "Aucune configuration disponible pour cette application.",
+  "config": {
+    "unreachable": "Cette application est injoignable : son formulaire de configuration ne peut pas \u00eatre charg\u00e9.",
+    "rejected": "Cette configuration ne correspond pas \u00e0 ce qu'attend l'application",
+    "pushStatus": {
+      "ok": "Transmise",
+      "pending": "Transmission en attente",
+      "rejected": "Refus\u00e9e par l'application"
+    },
+    "pushStatusHint": {
+      "ok": "L'application fonctionne avec cette configuration.",
+      "pending": "Enregistr\u00e9e, mais pas encore prise par l'application \u2014 la transmission est retent\u00e9e automatiquement.",
+      "rejected": "L'application a refus\u00e9 cette configuration. Corrigez-la puis enregistrez de nouveau."
+    }
+  },
   "requests": {
     "title": "Demandes d'enregistrement",
     "singular": "Demande",

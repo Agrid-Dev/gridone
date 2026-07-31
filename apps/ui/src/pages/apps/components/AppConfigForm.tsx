@@ -1,53 +1,56 @@
-import { FC, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { FC, useEffect, useMemo, useState } from "react";
+import { useForm, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { isGridoneError } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
-import { InputController } from "@/components/forms/controllers/InputController";
-import { SwitchController } from "@/components/forms/controllers/SwitchController";
-import { toLabel } from "@/lib/textFormat";
+import {
+  defaultsFor,
+  effectiveSchema,
+  fieldsOf,
+  findDiscriminant,
+  pickSchemaKeys,
+  resolveLabel,
+  toZodSchema,
+  type AppSchemaNode,
+} from "@/lib/appConfigSchema";
+import { AppConfigField } from "./AppConfigField";
+import { AppPushStatusBadge } from "./AppPushStatusBadge";
+import type { PushStatus } from "@gridone/sdk";
 
 interface AppConfigFormProps {
   appId: string;
+  pushStatus?: PushStatus | null;
 }
 
-/** UI view of the JSON schema an app declares for its config (the SDK types
- *  the payload loosely as an untyped JSON object). */
-type JsonSchemaProperty = {
-  type?: string;
-  description?: string;
-  default?: unknown;
-  minimum?: number;
-  maximum?: number;
-  minLength?: number;
-  maxLength?: number;
-};
+/** Status the API answers with when the app itself cannot serve its schema —
+ *  a different failure from an app that simply declares no configuration. */
+const APP_UNREACHABLE_STATUS = 503;
+/** The config was refused by the schema the app declares. */
+const INVALID_CONFIG_STATUS = 422;
 
-type AppConfigSchema = {
-  type?: string;
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-};
-
-const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
+/** Configuration panel of an app: fetches the schema the app serves, renders
+ *  the generated form, and reports how the last save was delivered. */
+const AppConfigForm: FC<AppConfigFormProps> = ({ appId, pushStatus }) => {
   const { t } = useTranslation("apps");
   const client = useGridoneClient();
 
   const {
     data: schema,
     isLoading: schemaLoading,
-    isError: schemaError,
+    error: schemaError,
   } = useQuery({
     queryKey: ["apps", appId, "config-schema"],
     queryFn: async () =>
-      (await client.apps.getConfigSchema(appId)) as AppConfigSchema,
+      (await client.apps.getConfigSchema(appId)) as AppSchemaNode,
+    retry: false,
   });
 
   const {
@@ -71,110 +74,173 @@ const AppConfigForm: FC<AppConfigFormProps> = ({ appId }) => {
     );
   }
 
+  const unreachable =
+    isGridoneError(schemaError) &&
+    schemaError.status === APP_UNREACHABLE_STATUS;
+
   if (schemaError || configError || !schema?.properties) {
     return (
       <div className="rounded-lg border border-dashed border-border bg-muted p-6">
         <h3 className="text-sm font-medium text-foreground">
           {t("configuration")}
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground">{t("noConfig")}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t(unreachable ? "config.unreachable" : "noConfig")}
+        </p>
       </div>
     );
   }
 
-  return <ConfigForm appId={appId} schema={schema} defaultValues={config!} />;
+  return (
+    <ConfigForm
+      appId={appId}
+      schema={schema}
+      storedConfig={config ?? {}}
+      pushStatus={pushStatus}
+    />
+  );
 };
 
 interface ConfigFormProps {
   appId: string;
-  schema: AppConfigSchema;
-  defaultValues: Record<string, unknown>;
+  schema: AppSchemaNode;
+  storedConfig: Record<string, unknown>;
+  pushStatus?: PushStatus | null;
 }
 
-const ConfigForm: FC<ConfigFormProps> = ({ appId, schema, defaultValues }) => {
-  const { t } = useTranslation("apps");
+const ConfigForm: FC<ConfigFormProps> = ({
+  appId,
+  schema,
+  storedConfig,
+  pushStatus,
+}) => {
+  const { t, i18n } = useTranslation("apps");
   const queryClient = useQueryClient();
   const client = useGridoneClient();
+  const locale = i18n.language;
 
-  const zodSchema = useMemo(
-    () =>
-      z.fromJSONSchema(
-        schema as Parameters<typeof z.fromJSONSchema>[0],
-      ) as z.ZodObject,
-    [schema],
+  const discriminant = useMemo(() => findDiscriminant(schema), [schema]);
+  const [branchValue, setBranchValue] = useState(() =>
+    discriminant ? String(storedConfig[discriminant.name] ?? "") : undefined,
   );
 
-  const { control, handleSubmit, formState } = useForm({
-    resolver: zodResolver(zodSchema),
+  /** Root fields plus the selected branch's, as one flat object schema. */
+  const activeSchema = useMemo(
+    () => effectiveSchema(schema, branchValue),
+    [schema, branchValue],
+  );
+
+  const fields = useMemo(
+    () =>
+      fieldsOf(activeSchema).map((field) => ({
+        ...field,
+        schema: {
+          ...field.schema,
+          title:
+            resolveLabel(field.schema.title, schema.i18n, locale) ?? field.name,
+          description: resolveLabel(
+            field.schema.description,
+            schema.i18n,
+            locale,
+          ),
+        },
+      })),
+    [activeSchema, schema.i18n, locale],
+  );
+
+  const resolver = useMemo(
+    () => zodResolver(toZodSchema(activeSchema)),
+    [activeSchema],
+  );
+
+  const { control, handleSubmit, formState, watch } = useForm<FieldValues>({
+    resolver,
     mode: "onChange",
-    defaultValues: defaultValues as Record<string, string | number | boolean>,
+    // Seeded once, from the branch the stored config already selects.
+    defaultValues: { ...defaultsFor(activeSchema), ...storedConfig },
   });
+
+  // Selecting another branch swaps the rendered fields and the validator, but
+  // must not rebuild the form — the root values already entered stay put.
+  useEffect(() => {
+    if (!discriminant) return;
+    const subscription = watch((values, { name }) => {
+      if (name === discriminant.name) {
+        setBranchValue(String(values[discriminant.name] ?? ""));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, discriminant]);
+
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       client.apps.updateConfig(appId, values),
     onSuccess: () => {
+      setValidationError(null);
+      // Exact keys on purpose: a prefix invalidation would also re-fetch the
+      // schema through the app, and an app that just went down would replace
+      // the form with the unreachable panel right after a successful save.
+      queryClient.invalidateQueries({ queryKey: ["apps"], exact: true });
+      queryClient.invalidateQueries({ queryKey: ["apps", appId], exact: true });
       queryClient.invalidateQueries({ queryKey: ["apps", appId, "config"] });
       toast.success(t("configSaved"));
     },
-    onError: (err: Error) => toast.error(t("configError") + ": " + err.message),
+    onError: (error: Error) => {
+      const invalid =
+        isGridoneError(error) && error.status === INVALID_CONFIG_STATUS;
+      setValidationError(invalid ? error.detail : null);
+      toast.error(t("configError"));
+    },
   });
 
-  const onSubmit = (values: Record<string, unknown>) => {
-    mutation.mutate(values);
+  const onSubmit = (values: FieldValues) => {
+    // Values of an abandoned `oneOf` branch stay in the form state; the config
+    // is a flat object, so they would otherwise ship with the payload.
+    mutation.mutate(pickSchemaKeys(values, activeSchema));
   };
-
-  const requiredSet = new Set(schema.required ?? []);
-  const isBusy = mutation.isPending;
 
   return (
     <Card>
       <CardContent className="py-6">
-        <h3 className="mb-4 text-sm font-medium text-foreground">
-          {t("configuration")}
-        </h3>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h3 className="text-sm font-medium text-foreground">
+            {t("configuration")}
+          </h3>
+          <AppPushStatusBadge status={pushStatus} />
+        </div>
+
+        {validationError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTitle>{t("config.rejected")}</AlertTitle>
+            <AlertDescription>{validationError}</AlertDescription>
+          </Alert>
+        )}
+
         <form
           id="app-config-form"
           onSubmit={handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-2"
         >
-          {Object.entries(schema.properties ?? {}).map(
-            ([propertyName, property]) => {
-              if (property.type === "boolean") {
-                return (
-                  <SwitchController
-                    key={propertyName}
-                    name={propertyName}
-                    control={control}
-                    label={toLabel(propertyName)}
-                    required={requiredSet.has(propertyName)}
-                    description={property.description}
-                  />
-                );
-              }
-
-              return (
-                <InputController
-                  key={propertyName}
-                  name={propertyName}
-                  control={control}
-                  label={toLabel(propertyName)}
-                  type={property.type}
-                  required={requiredSet.has(propertyName)}
-                  description={property.description}
-                />
-              );
-            },
-          )}
+          {fields.map((field) => (
+            <AppConfigField
+              key={field.name}
+              name={field.name}
+              schema={field.schema}
+              control={control}
+              required={field.required}
+            />
+          ))}
         </form>
       </CardContent>
       <CardFooter className="flex justify-end">
         <Button
           type="submit"
           form="app-config-form"
-          disabled={!formState.isValid || isBusy}
+          disabled={!formState.isValid || mutation.isPending}
         >
-          {isBusy ? (
+          {mutation.isPending ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
             <Check className="mr-2 h-4 w-4" />
