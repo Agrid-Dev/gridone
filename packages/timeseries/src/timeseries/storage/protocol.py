@@ -21,6 +21,8 @@ class TimeSeriesStorage(Protocol):
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None: ...
 
+    async def get_series_by_keys(self, keys: list[SeriesKey]) -> list[TimeSeries]: ...
+
     async def list_series(
         self,
         *,

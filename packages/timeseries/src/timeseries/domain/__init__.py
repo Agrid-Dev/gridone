@@ -22,6 +22,11 @@ from timeseries.domain.models import (
     TimeSeries,
     validate_value_type,
 )
+from timeseries.domain.space import (
+    SpaceAggregationResult,
+    combine_space,
+    resolve_space_aggregation_data_type,
+)
 from timeseries.domain.time_range import (
     normalize_to_utc,
     parse_duration,
@@ -45,11 +50,14 @@ __all__ = [
     "IntervalUnit",
     "SeriesKey",
     "SortOrder",
+    "SpaceAggregationResult",
     "TimeSeries",
+    "combine_space",
     "normalize_to_utc",
     "parse_duration",
     "resolve_aggregation_data_type",
     "resolve_last",
+    "resolve_space_aggregation_data_type",
     "validate_tz_name",
     "validate_value_type",
 ]

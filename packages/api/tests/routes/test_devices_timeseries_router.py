@@ -1187,3 +1187,157 @@ class TestAggregateOptions:
                 params={"end": datetime(2026, 1, 8, tzinfo=UTC).isoformat()},
             )
         assert response.status_code == 422
+
+
+class TestSpaceAggregate:
+    """GET /timeseries/aggregate — one attribute folded over a device set."""
+
+    START = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
+    END = datetime(2026, 7, 1, 2, 0, tzinfo=UTC)
+
+    @staticmethod
+    def _thermostat(device_id: str) -> object:
+        from devices_manager.core.device import Attribute
+        from devices_manager.dto.device_dto import Device
+        from devices_manager.types import DataType as DmDataType
+
+        return Device(
+            id=device_id,
+            name=device_id,
+            type="thermostat",
+            attributes={
+                "temperature": Attribute.create(
+                    "temperature", DmDataType.FLOAT, {"read"}
+                )
+            },
+            config={},
+            driver_id="drv",
+            transport_id="tr",
+            is_faulty=False,
+        )
+
+    def _install_dm(self, app: FastAPI, devices: list[object]) -> None:
+        dm = MagicMock()
+
+        def _list_devices(**kwargs: object) -> list[object]:
+            ids = kwargs.get("ids")
+            if ids is not None:
+                return [d for d in devices if d.id in set(ids)]  # type: ignore[attr-defined]
+            return list(devices)
+
+        dm.list_devices.side_effect = _list_devices
+        app.dependency_overrides[get_device_manager] = lambda: dm
+
+    async def _seed(
+        self, ts_service: TimeSeriesService, owner: str, values: list[float]
+    ) -> None:
+        key = SeriesKey(owner_id=owner, metric="temperature")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=owner, metric="temperature"
+        )
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(
+                    timestamp=self.START + timedelta(hours=i, minutes=10), value=v
+                )
+                for i, v in enumerate(values)
+            ],
+        )
+
+    def _params(self, **overrides: object) -> dict:
+        params: dict = {
+            "type": "thermostat",
+            "attribute": "temperature",
+            "agg": "avg",
+            "space_agg": "avg",
+            "interval": "1h",
+            "start": self.START.isoformat(),
+            "end": self.END.isoformat(),
+        }
+        params.update(overrides)
+        return params
+
+    async def test_folds_the_device_set_into_one_series(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(app, [self._thermostat("t1"), self._thermostat("t2")])
+        await self._seed(ts_service, "t1", [10.0, 20.0])
+        await self._seed(ts_service, "t2", [20.0, 40.0])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate", params=self._params())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["space_agg"] == "avg"
+        assert body["aggregation_data_type"] == "float"
+        assert body["series_count"] == 2
+        assert [(p["value"], p["count"]) for p in body["points"]] == [
+            (15.0, 2),
+            (30.0, 2),
+        ]
+
+    async def test_ids_filter_narrows_the_target(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(app, [self._thermostat("t1"), self._thermostat("t2")])
+        await self._seed(ts_service, "t1", [10.0, 20.0])
+        await self._seed(ts_service, "t2", [20.0, 40.0])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(ids="t1")
+            )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["series_count"] == 1
+        assert [p["value"] for p in body["points"]] == [10.0, 20.0]
+
+    async def test_device_without_history_shrinks_series_count(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(app, [self._thermostat("t1"), self._thermostat("t2")])
+        await self._seed(ts_service, "t1", [10.0, 20.0])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate", params=self._params())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["series_count"] == 1
+
+    async def test_no_device_exposes_attribute_is_422(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._thermostat("t1")])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(attribute="humidity")
+            )
+        assert response.status_code == 422
+
+    async def test_non_space_operator_is_422(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(app, [self._thermostat("t1")])
+        await self._seed(ts_service, "t1", [10.0])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(space_agg="delta")
+            )
+        assert response.status_code == 422
+
+    async def test_raw_interval_is_422(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(app, [self._thermostat("t1")])
+        await self._seed(ts_service, "t1", [10.0])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(interval="raw")
+            )
+        assert response.status_code == 422
+
+    async def test_no_series_at_all_is_404(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._thermostat("t1")])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate", params=self._params())
+        assert response.status_code == 404

@@ -46,6 +46,10 @@ class MemoryStorage:
             return None
         return await self.get_series(series_id)
 
+    async def get_series_by_keys(self, keys: list[SeriesKey]) -> list[TimeSeries]:
+        found = [await self.get_series_by_key(key) for key in keys]
+        return [series for series in found if series is not None]
+
     async def list_series(
         self,
         *,

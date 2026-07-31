@@ -10,7 +10,7 @@ from api.dependencies import (
     get_ts_service,
     require_permission,
 )
-from api.devices_filter import to_list_devices_kwargs
+from api.devices_filter import parse_tags_params, to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
@@ -44,22 +44,6 @@ from timeseries.service import TimeSeriesService
 logger = logging.getLogger(__name__)
 
 
-def _parse_tags(raw: list[str] | None) -> dict[str, list[str]] | None:
-    """Parse ``?tags=key:value`` query params into a tags filter dict.
-
-    Filter semantics: AND across keys, OR within values of the same key.
-    Repeat the param for OR: ``?tags=asset_id:a1&tags=asset_id:a2``.
-    """
-    if not raw:
-        return None
-    result: dict[str, list[str]] = {}
-    for item in raw:
-        key, _, value = item.partition(":")
-        if value:
-            result.setdefault(key, []).append(value)
-    return result or None
-
-
 router = APIRouter()
 # Command dispatch + templates live in their own router but are mounted
 # under /devices so URLs stay device-scoped (``/devices/commands``,
@@ -90,7 +74,7 @@ def get_devices_query(
         {
             "ids": ids,
             "types": types,
-            "tags": _parse_tags(tags),
+            "tags": parse_tags_params(tags),
             "attribute": attribute,
             "is_faulty": is_faulty,
             "asset_id": asset_id,

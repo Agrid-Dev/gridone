@@ -60,6 +60,39 @@ would report 0 everywhere.
 Like every operator, `delta` is ignored when `interval=raw` is requested
 explicitly — see the note below.
 
+## Space aggregation
+
+`get_aggregate_many(keys, query, space_agg)` folds one attribute over a set of
+series into a single series, in two stages:
+
+1. **Time** — every series runs the same resolved `AggregationQuery`, in the
+   storage backend. The gap-filled bucket grids are anchored on the query's
+   `start`/`end`, so they are identical across series.
+2. **Space** — `combine_space` (`domain/space.py`) reduces each bucket's values
+   across the set with `space_agg`.
+
+The space vocabulary is `models.types.SPACE_AGGREGATION_OPERATORS`: `avg`,
+`sum`, `min`, `max`, `count`, `mode`. The other operators need an ordering
+(`first`/`last`/`delta`) or time spent per value (`tw_*`), neither of which
+exists across devices, and are refused. The set lives in `models` so a config
+(e.g. a dashboard widget) can validate membership at save time without
+importing this package; what a pair of operators yields remains `AGG_COMPAT`,
+applied twice: `space_agg` runs on the *output* type of `agg` — `last` on a
+bool set then `sum` counts how many are ON (int), `avg` gives the fraction
+(float), `mode` on a str `mode` chain names the predominant state.
+
+Per output bucket, `value` is the fold and `count` is how many series
+contributed — not a sample count. A series with no data in a bucket (e.g. a
+device added mid-window: gap-filled `None`, no LOCF anchor) simply does not
+contribute there, which is how sets with different history bounds stay
+aggregable. LOCF still applies within each series' own history, so a device
+that last reported an hour ago still holds its value in the fold. `mode`
+breaks ties on the smallest value, matching the time-side SQL convention.
+`interval=raw` is refused: without shared buckets there is nothing to fold.
+
+Keys without a recorded series are skipped (reported via `series_count`);
+mixed data types across the found series raise `InvalidError`.
+
 ## `interval=raw`
 
 `raw` returns the stored points untouched, so the operator plays no part in the

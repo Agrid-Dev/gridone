@@ -225,6 +225,51 @@ def test_chart_config_rejects_an_unknown_operator():
         )
 
 
+def test_chart_config_accepts_a_space_operator():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"types": ["thermostat"]}, "attribute": "hvac_mode"},
+            "agg": "mode",
+            "space_agg": "mode",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.space_agg is AggregationOperator.MODE
+
+
+def test_chart_config_space_agg_requires_agg():
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "chart",
+                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "space_agg": "avg",
+            }
+        )
+
+
+def test_chart_config_rejects_a_non_space_operator():
+    # first/last/delta/tw_* need an ordering or a duration a device set does
+    # not have; refused at save rather than at render.
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "chart",
+                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "agg": "avg",
+                "space_agg": "delta",
+            }
+        )
+
+
 @pytest.mark.parametrize("color", ["#000000", "#FFFFFF", "#1a2B3c"])
 def test_text_config_accepts_valid_hex(color: str):
     config = TextWidgetConfig(text="x", color=color)
