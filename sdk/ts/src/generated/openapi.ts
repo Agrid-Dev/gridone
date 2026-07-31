@@ -3079,8 +3079,6 @@ export interface components {
       aggregation_data_type: components["schemas"]["DataType"];
       /** Timezone */
       timezone: string;
-      /** Device Count */
-      device_count: number;
       /** Series Count */
       series_count: number;
       /** Points */

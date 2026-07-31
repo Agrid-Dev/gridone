@@ -297,7 +297,6 @@ async def get_devices_timeseries_aggregate(
         data_type=result.data_type,
         aggregation_data_type=result.aggregation_data_type,
         timezone=result.timezone,
-        device_count=len(resolved.device_ids),
         series_count=result.series_count,
         points=[
             AggregatedPointResponse(

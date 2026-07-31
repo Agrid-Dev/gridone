@@ -1270,7 +1270,6 @@ class TestSpaceAggregate:
         body = response.json()
         assert body["space_agg"] == "avg"
         assert body["aggregation_data_type"] == "float"
-        assert body["device_count"] == 2
         assert body["series_count"] == 2
         assert [(p["value"], p["count"]) for p in body["points"]] == [
             (15.0, 2),
@@ -1289,7 +1288,7 @@ class TestSpaceAggregate:
             )
         assert response.status_code == 200
         body = response.json()
-        assert body["device_count"] == 1
+        assert body["series_count"] == 1
         assert [p["value"] for p in body["points"]] == [10.0, 20.0]
 
     async def test_device_without_history_shrinks_series_count(
@@ -1301,7 +1300,6 @@ class TestSpaceAggregate:
             response = await ac.get("/timeseries/aggregate", params=self._params())
         assert response.status_code == 200
         body = response.json()
-        assert body["device_count"] == 2
         assert body["series_count"] == 1
 
     async def test_no_device_exposes_attribute_is_422(

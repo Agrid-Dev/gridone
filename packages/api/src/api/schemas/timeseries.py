@@ -50,10 +50,8 @@ class SpaceAggregationResultResponse(BaseModel):
     data_type: DataType
     aggregation_data_type: DataType
     timezone: str
-    device_count: int
-    """Devices the target resolved to (exposing the attribute)."""
     series_count: int
-    """Devices among those with recorded history, i.e. series aggregated."""
+    """Series aggregated — the resolved devices that have recorded history."""
     points: list[AggregatedPointResponse]
     """Per bucket, ``value`` folds the contributing series and ``count`` is
     how many contributed."""
