@@ -47,6 +47,7 @@ export type { NotificationListParams } from "./resources/notifications";
 export { TimeseriesResource } from "./resources/timeseries";
 export type {
   AggregateOptionsParams,
+  SpaceAggregateParams,
   TimeseriesAggregateParams,
   TimeseriesExportParams,
   TimeseriesListParams,

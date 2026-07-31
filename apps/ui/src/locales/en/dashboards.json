@@ -44,6 +44,20 @@
           "count": "number of points",
           "delta": "difference over the bucket"
         }
+      },
+      "space": {
+        "label": "Space aggregation",
+        "description": "Folds the devices into a single series, per bucket.",
+        "captions": {
+          "none": "one series per device",
+          "avg": "mean across devices",
+          "sum": "total across devices",
+          "min": "lowest across devices",
+          "max": "highest across devices",
+          "count": "devices holding a value",
+          "mode": "most frequent across devices"
+        },
+        "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
     "add": "Add widget",

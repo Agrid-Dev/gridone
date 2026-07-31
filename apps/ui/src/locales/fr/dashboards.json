@@ -44,6 +44,20 @@
           "count": "nombre de points",
           "delta": "différence sur le pas de temps"
         }
+      },
+      "space": {
+        "label": "Agrégation spatiale",
+        "description": "Regroupe les appareils en une seule série, par pas de temps.",
+        "captions": {
+          "none": "une série par appareil",
+          "avg": "moyenne des appareils",
+          "sum": "total des appareils",
+          "min": "la plus basse des appareils",
+          "max": "la plus haute des appareils",
+          "count": "appareils ayant une valeur",
+          "mode": "la plus fréquente parmi les appareils"
+        },
+        "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
     "add": "Ajouter un widget",

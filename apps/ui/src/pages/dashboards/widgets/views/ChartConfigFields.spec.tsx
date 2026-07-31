@@ -13,6 +13,12 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.captions.min": "lowest value",
     "widgets.chart.agg.captions.mode": "most frequent value",
     "widgets.chart.agg.unsupported": "not supported",
+    "widgets.chart.space.label": "Space aggregation",
+    "widgets.chart.space.description": "Folds the devices into one series.",
+    "widgets.chart.space.captions.none": "one series per device",
+    "widgets.chart.space.captions.avg": "mean across devices",
+    "widgets.chart.space.captions.min": "lowest across devices",
+    "widgets.chart.space.captions.mode": "most frequent across devices",
   }),
 );
 
@@ -139,7 +145,13 @@ function Harness({
 }) {
   const form = useForm({
     defaultValues: {
-      config: { type: "chart", target: "", agg: null, ...defaultConfig },
+      config: {
+        type: "chart",
+        target: "",
+        agg: null,
+        space_agg: null,
+        ...defaultConfig,
+      },
     },
   });
   onValues(form.watch("config"));
@@ -182,6 +194,7 @@ describe("ChartConfigFields", () => {
       type: "chart",
       target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
       agg: null,
+      space_agg: null,
     });
   });
 
@@ -212,5 +225,42 @@ describe("ChartConfigFields", () => {
     });
 
     expect(latest().agg).toBe("avg");
+  });
+
+  // Space aggregation runs on what the time operator yields, so it is only
+  // offered once one is chosen — raw series cannot be folded.
+  it("offers space operators only once a time operator is chosen", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+    });
+
+    const selects = screen.getAllByTestId("agg");
+    expect(selects).toHaveLength(2);
+    const spaceValues = Array.from(selects[1].querySelectorAll("option"))
+      .filter((o) => !o.disabled)
+      .map((o) => o.getAttribute("value"));
+    // `null` keeps one series per device; the rest is the space vocabulary the
+    // chain's output type admits (the fixture matrix only defines avg/min/mode).
+    expect(spaceValues).toEqual(["null", "avg", "min", "mode"]);
+  });
+
+  it("hides space aggregation for raw charts", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: null,
+    });
+
+    expect(screen.getAllByTestId("agg")).toHaveLength(1);
+  });
+
+  it("clears the space operator when the time operator is dropped", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: null,
+      space_agg: "avg",
+    });
+
+    expect(latest().space_agg).toBeNull();
   });
 });

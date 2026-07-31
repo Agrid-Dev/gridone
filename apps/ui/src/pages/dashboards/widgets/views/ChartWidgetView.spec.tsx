@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import type { DataPoint } from "@gridone/sdk";
+import { GridoneError, type DataPoint } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -11,6 +11,8 @@ vi.mock("react-i18next", () =>
     "widgets.chart.noSeries": "No history recorded",
     "widgets.chart.noData": "No data over the period",
     "widgets.chart.unboundedPeriod": "Aggregation needs a bounded period",
+    "widgets.chart.space.seriesLabel":
+      "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}",
   }),
 );
 
@@ -22,6 +24,11 @@ vi.mock("./useTargetDevices", () => ({
 const useMultiTimeSeries = vi.fn();
 vi.mock("@/hooks/useMultiTimeSeries", () => ({
   useMultiTimeSeries: (args: unknown) => useMultiTimeSeries(args),
+}));
+
+const useSpaceAggregate = vi.fn();
+vi.mock("./useSpaceAggregate", () => ({
+  useSpaceAggregate: (args: unknown) => useSpaceAggregate(args),
 }));
 
 const useDashboardPeriod = vi.fn();
@@ -190,5 +197,81 @@ describe("ChartWidgetView", () => {
     expect(
       screen.queryByText("Could not load history"),
     ).not.toBeInTheDocument();
+  });
+});
+
+const SPACE_CONFIG = { ...CONFIG, agg: "avg", space_agg: "avg" };
+
+function mockSpaceResult(over: Record<string, unknown> = {}) {
+  useSpaceAggregate.mockReturnValue({
+    data: {
+      interval: "1h",
+      agg: "avg",
+      space_agg: "avg",
+      data_type: "float",
+      aggregation_data_type: "float",
+      timezone: "UTC",
+      series_count: 3,
+      points: [
+        { interval_start: "2026-07-28T10:00:00Z", value: 21.5, count: 3 },
+        { interval_start: "2026-07-28T11:00:00Z", value: 22.0, count: 2 },
+      ],
+    },
+    isLoading: false,
+    error: null,
+    ...over,
+  });
+}
+
+describe("ChartWidgetView with a space aggregation", () => {
+  it("folds the set into one labelled series with a single request", () => {
+    mockSpaceResult();
+
+    render(<ChartWidgetView config={SPACE_CONFIG} />);
+
+    // One request for the folded series; no per-device fan-out at all.
+    expect(useSpaceAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: SPACE_CONFIG.target,
+        agg: "avg",
+        spaceAgg: "avg",
+        last: "7d",
+        refetchInterval: 300_000,
+      }),
+    );
+    expect(useMultiTimeSeries).not.toHaveBeenCalled();
+    expect(useTargetDevices).not.toHaveBeenCalled();
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "Temperature · avg · avg · 1h",
+    );
+  });
+
+  it("reads a 404 as no recorded history for the set", () => {
+    mockSpaceResult({
+      data: undefined,
+      error: new GridoneError(404, "no series"),
+    });
+
+    render(<ChartWidgetView config={SPACE_CONFIG} />);
+
+    expect(screen.getByText("No history recorded")).toBeInTheDocument();
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty-period state when no bucket holds a value", () => {
+    mockSpaceResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        series_count: 2,
+        points: [
+          { interval_start: "2026-07-28T10:00:00Z", value: null, count: 0 },
+        ],
+      },
+    });
+
+    render(<ChartWidgetView config={SPACE_CONFIG} />);
+
+    expect(screen.getByText("No data over the period")).toBeInTheDocument();
   });
 });

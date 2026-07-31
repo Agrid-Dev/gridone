@@ -68,6 +68,30 @@ const CASES: Case[] = [
     ],
   ],
   [
+    "aggregateSpace",
+    (t) =>
+      t.aggregateSpace({
+        type: ["thermostat"],
+        attribute: "temperature",
+        agg: "avg",
+        space_agg: "avg",
+        last: "24h",
+      }),
+    [
+      "GET",
+      "/devices/timeseries/aggregate",
+      {
+        searchParams: {
+          type: ["thermostat"],
+          attribute: "temperature",
+          agg: "avg",
+          space_agg: "avg",
+          last: "24h",
+        },
+      },
+    ],
+  ],
+  [
     "getAggregateOptions",
     (t) => t.getAggregateOptions({ last: "7d" }),
     [
