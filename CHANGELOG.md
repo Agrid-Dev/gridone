@@ -1,3 +1,9 @@
+## v0.182.0 (2026-07-31)
+
+### Feat
+
+- **timeseries**: 1min canonical interval for short windows
+
 ## v0.181.0 (2026-07-31)
 
 ### Feat
