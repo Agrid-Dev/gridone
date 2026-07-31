@@ -1,3 +1,10 @@
+## v0.181.0 (2026-07-31)
+
+### Feat
+
+- standard device control widget (AGR-882) — 2/2 UI (#502)
+- standard device control widget (AGR-882) — 1/2 backend (#501)
+
 ## v0.180.0 (2026-07-31)
 
 ### Feat
