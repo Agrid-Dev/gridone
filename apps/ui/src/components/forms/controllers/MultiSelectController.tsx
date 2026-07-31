@@ -44,7 +44,13 @@ type MultiSelectControllerProps<
 
 /** Multi-select over a closed set of options — the array counterpart of
  *  ``SelectController``. Holds a `string[]` field and toggles values in and
- *  out of it from a searchable, checkable Popover. */
+ *  out of it from a searchable, checkable Popover.
+ *
+ *  The Popover+Command shell below is the third copy of the same markup
+ *  (`UserPicker`, `AssetPicker`); they differ only in where the options come
+ *  from and how each row renders. Extracting the shared shell is deliberately
+ *  deferred to the schema-driven forms consolidation (AGR-919 registry,
+ *  AGR-922 arrays) rather than done piecemeal here. */
 export function MultiSelectController<
   TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,

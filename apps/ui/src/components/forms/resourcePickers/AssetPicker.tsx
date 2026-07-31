@@ -58,7 +58,9 @@ type AssetPickerProps = CommonProps &
  *  would hide legitimate targets. Ancestor names disambiguate same-named rooms.
  *
  *  Multi-select renders a searchable, checkable Popover (mirroring
- *  ``UserPicker``); single-select a plain Select (mirroring ``DevicePicker``). */
+ *  ``UserPicker`` and ``MultiSelectController`` — the shared shell is extracted
+ *  with the schema-driven forms consolidation, AGR-919); single-select a plain
+ *  Select (mirroring ``DevicePicker``). */
 export const AssetPicker: FC<AssetPickerProps> = (props) => {
   const { label, description, required, id, invalid, error } = props;
   const { t } = useTranslation("common");
