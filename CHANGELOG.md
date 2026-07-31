@@ -1,3 +1,13 @@
+## v0.179.0 (2026-07-31)
+
+### Feat
+
+- **apps**: ternary health, config re-push, manifest capabilities
+
+### Fix
+
+- **apps**: isolate per-app failures in the health tick
+
 ## v0.178.0 (2026-07-30)
 
 ### Feat
