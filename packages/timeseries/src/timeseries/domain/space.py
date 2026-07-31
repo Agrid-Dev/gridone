@@ -10,6 +10,7 @@ not contribute to that bucket.
 from collections import Counter
 from statistics import fmean
 from typing import TYPE_CHECKING, Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, computed_field, model_validator
 
@@ -77,6 +78,26 @@ class SpaceAggregationResult(BaseModel):
                 )
                 raise ValueError(msg)
         return self
+
+    def localized(self) -> "SpaceAggregationResult":
+        """Copy with point timestamps rendered in the result's own timezone.
+
+        Points are computed in UTC; the timezone the buckets were cut in is
+        carried on the result. The service applies this as its final read
+        step, so timestamps reach every controller already rendered — the
+        same instants, shown in the timezone that shaped the buckets.
+        """
+        tz = ZoneInfo(self.timezone)
+        return self.model_copy(
+            update={
+                "points": [
+                    p.model_copy(
+                        update={"interval_start": p.interval_start.astimezone(tz)}
+                    )
+                    for p in self.points
+                ]
+            }
+        )
 
 
 _SpaceValue = bool | int | float | str

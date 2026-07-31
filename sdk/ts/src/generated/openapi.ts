@@ -441,7 +441,9 @@ export interface paths {
      * @description Aggregate one attribute over a device set into a single series.
      *
      *     The target resolves at read time; devices whose history starts
-     *     mid-window simply contribute to fewer buckets.
+     *     mid-window simply contribute to fewer buckets. The domain result is
+     *     already wire-shaped, so it serves as the response as-is — localized
+     *     because API timestamps render in the timezone the buckets were cut in.
      */
     get: operations["get_devices_timeseries_aggregate_devices_timeseries_aggregate_get"];
     put?: never;
@@ -1391,6 +1393,18 @@ export interface components {
           [key: string]: components["schemas"]["DataType"] | null;
         };
       };
+    };
+    /** AggregatedPoint */
+    AggregatedPoint: {
+      /**
+       * Interval Start
+       * Format: date-time
+       */
+      interval_start: string;
+      /** Value */
+      value: boolean | number | string | null;
+      /** Count */
+      count: number;
     };
     /** AggregatedPointResponse */
     AggregatedPointResponse: {
@@ -2583,6 +2597,7 @@ export interface components {
       /** Matched */
       matched: number;
     };
+    Interval: string;
     /** IntervalOption */
     IntervalOption: {
       /** Interval */
@@ -2590,6 +2605,11 @@ export interface components {
       /** Bucket Count */
       bucket_count: number | null;
     };
+    /**
+     * IntervalUnit
+     * @enum {string}
+     */
+    IntervalUnit: "min" | "h" | "d" | "mo";
     /** KNXSecureCredentials */
     KNXSecureCredentials: {
       /** Device Authentication Password */
@@ -3069,20 +3089,20 @@ export interface components {
      * @enum {string}
      */
     SortOrder: "asc" | "desc";
-    /** SpaceAggregationResultResponse */
-    SpaceAggregationResultResponse: {
+    /** SpaceAggregationResult */
+    SpaceAggregationResult: {
       /** Interval */
-      interval: string;
+      interval: components["schemas"]["Interval"] | "whole";
       agg: components["schemas"]["AggregationOperator"];
       space_agg: components["schemas"]["AggregationOperator"];
       data_type: components["schemas"]["DataType"];
-      aggregation_data_type: components["schemas"]["DataType"];
       /** Timezone */
       timezone: string;
       /** Series Count */
       series_count: number;
       /** Points */
-      points: components["schemas"]["AggregatedPointResponse"][];
+      points: components["schemas"]["AggregatedPoint"][];
+      readonly aggregation_data_type: components["schemas"]["DataType"];
     };
     /** StandardAttributeSchema */
     StandardAttributeSchema: {
@@ -4649,7 +4669,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SpaceAggregationResultResponse"];
+          "application/json": components["schemas"]["SpaceAggregationResult"];
         };
       };
       /** @description Validation Error */

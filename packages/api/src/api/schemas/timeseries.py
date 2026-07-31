@@ -43,20 +43,6 @@ class AggregationResultResponse(BaseModel):
     points: list[AggregatedPointResponse]
 
 
-class SpaceAggregationResultResponse(BaseModel):
-    interval: str
-    agg: AggregationOperator
-    space_agg: AggregationOperator
-    data_type: DataType
-    aggregation_data_type: DataType
-    timezone: str
-    series_count: int
-    """Series aggregated — the resolved devices that have recorded history."""
-    points: list[AggregatedPointResponse]
-    """Per bucket, ``value`` folds the contributing series and ``count`` is
-    how many contributed."""
-
-
 class IntervalOption(BaseModel):
     interval: str
     bucket_count: int | None

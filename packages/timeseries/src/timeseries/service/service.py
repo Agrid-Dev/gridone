@@ -354,7 +354,7 @@ class TimeSeriesService(Service):
         results = await asyncio.gather(
             *(self._backend.aggregate(s.key, query) for s in series)
         )
-        return SpaceAggregationResult(
+        result = SpaceAggregationResult(
             interval=interval,
             agg=query.agg,
             space_agg=space_agg,
@@ -363,6 +363,10 @@ class TimeSeriesService(Service):
             series_count=len(series),
             points=combine_space(list(results), space_agg),
         )
+        # The service resolves the timezone, so it also applies it: every
+        # controller reads timestamps already rendered in it, instead of each
+        # one having to remember to.
+        return result.localized()
 
     async def get_aggregate_options(
         self,

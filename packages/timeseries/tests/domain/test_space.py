@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -226,6 +226,25 @@ class TestSpaceAggregationResult:
             points=[AggregatedPoint(interval_start=T0, value=0.5, count=2)],
         )
         assert result.aggregation_data_type == DataType.FLOAT
+
+    def test_localized_renders_points_in_its_own_timezone(self) -> None:
+        result = SpaceAggregationResult(
+            interval=Interval.model_validate("1h"),
+            agg=AggregationOperator.AVG,
+            space_agg=AggregationOperator.AVG,
+            data_type=DataType.FLOAT,
+            timezone="Europe/Paris",
+            series_count=1,
+            points=[AggregatedPoint(interval_start=T0, value=1.0, count=1)],
+        )
+
+        localized = result.localized()
+
+        point = localized.points[0]
+        assert point.interval_start == T0  # same instant
+        assert point.interval_start.utcoffset() == timedelta(hours=2)  # CEST
+        # The original is untouched — localized() is a copy.
+        assert result.points[0].interval_start.utcoffset() == timedelta(0)
 
     def test_point_values_must_match_output_type(self) -> None:
         with pytest.raises(ValueError, match="does not match"):

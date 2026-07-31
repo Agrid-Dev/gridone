@@ -5,7 +5,7 @@ thermostats, count of thermostats ON, predominant HVAC mode — plus the
 different-bounds requirement (a device whose history starts mid-window).
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -149,6 +149,28 @@ class TestGetAggregateMany:
         )
         assert result.aggregation_data_type == DataType.STRING
         assert [p.value for p in result.points] == ["heat", "cool", "cool"]
+
+    async def test_points_render_in_the_resolved_timezone(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        # The service resolves the timezone and applies it: controllers get
+        # timestamps already rendered, whoever they are.
+        keys = [await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])]
+        query = AggregationQuery.model_validate(
+            {
+                "agg": AggregationOperator.AVG,
+                "interval": "1h",
+                "start": START,
+                "end": END,
+                "timezone": "Europe/Paris",
+            }
+        )
+        result = await ts_service.get_aggregate_many(
+            keys, query, AggregationOperator.AVG
+        )
+        assert result.timezone == "Europe/Paris"
+        first = result.points[0].interval_start
+        assert first.utcoffset() == timedelta(hours=2)  # CEST in July
 
     async def test_whole_interval_yields_one_bucket(
         self, ts_service: TimeSeriesService

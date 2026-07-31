@@ -20,7 +20,6 @@ from api.schemas.timeseries import (
     DataPointResponse,
     FetchPointsResultResponse,
     IntervalOption,
-    SpaceAggregationResultResponse,
     TimeSeriesResponse,
 )
 from api.targets import CompositeTargetResolver
@@ -31,6 +30,7 @@ from timeseries.domain import (
     AggregationOperator,
     AggregationQuery,
     SeriesKey,
+    SpaceAggregationResult,
 )
 from timeseries.service import TimeSeriesService
 
@@ -277,36 +277,20 @@ async def get_devices_timeseries_aggregate(
     ),
     resolver: CompositeTargetResolver = Depends(get_target_resolver),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> SpaceAggregationResultResponse:
+) -> SpaceAggregationResult:
     """Aggregate one attribute over a device set into a single series.
 
     The target resolves at read time; devices whose history starts
-    mid-window simply contribute to fewer buckets.
+    mid-window simply contribute to fewer buckets. The service's result is
+    already wire-shaped — timestamps rendered in the timezone the buckets
+    were cut in — so it serves as the response untouched.
     """
     resolved = await resolver.resolve(target)
     keys = [
         SeriesKey(owner_id=device_id, metric=target.attribute)
         for device_id in resolved.device_ids
     ]
-    result = await ts.get_aggregate_many(keys, query, space_agg)
-    tz = ZoneInfo(result.timezone)
-    return SpaceAggregationResultResponse(
-        interval=str(result.interval),
-        agg=result.agg,
-        space_agg=result.space_agg,
-        data_type=result.data_type,
-        aggregation_data_type=result.aggregation_data_type,
-        timezone=result.timezone,
-        series_count=result.series_count,
-        points=[
-            AggregatedPointResponse(
-                interval_start=p.interval_start.astimezone(tz),
-                value=p.value,
-                count=p.count,
-            )
-            for p in result.points
-        ],
-    )
+    return await ts.get_aggregate_many(keys, query, space_agg)
 
 
 @router.get(
