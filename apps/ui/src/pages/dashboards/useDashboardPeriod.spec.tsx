@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { ReactNode } from "react";
-import { DEFAULT_PRESET } from "@/lib/timeRange";
+import { DASHBOARD_DEFAULT_PRESET } from "@/lib/timeRange";
 import {
   LIVE_REFETCH_INTERVAL_MS,
   useDashboardPeriod,
@@ -22,15 +22,18 @@ function renderPeriod(url: string) {
 }
 
 describe("useDashboardPeriod", () => {
-  it("falls back to the shared default preset on a bare URL", () => {
+  it("falls back to the dashboard default preset on a bare URL", () => {
     const { current } = renderPeriod("/dashboards/d1");
-    expect(current.range).toEqual({ kind: "preset", preset: DEFAULT_PRESET });
-    expect(current.query).toEqual({ last: DEFAULT_PRESET });
+    expect(current.range).toEqual({
+      kind: "preset",
+      preset: DASHBOARD_DEFAULT_PRESET,
+    });
+    expect(current.query).toEqual({ last: DASHBOARD_DEFAULT_PRESET });
   });
 
   it("reads the period from the URL so a shared link reproduces the view", () => {
-    const { current } = renderPeriod("/dashboards/d1?last=7d");
-    expect(current.query).toEqual({ last: "7d" });
+    const { current } = renderPeriod("/dashboards/d1?last=3mo");
+    expect(current.query).toEqual({ last: "3mo" });
   });
 
   it("passes a custom range through as start/end", () => {

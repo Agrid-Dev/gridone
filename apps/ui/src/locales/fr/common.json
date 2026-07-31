@@ -5,6 +5,8 @@
     "rangeLastHours_other": "{{count}} dernières heures",
     "rangeLastDays_one": "Dernier jour",
     "rangeLastDays_other": "{{count}} derniers jours",
+    "rangeLastMonths_one": "Dernier mois",
+    "rangeLastMonths_other": "{{count}} derniers mois",
     "rangeAll": "Tout l'historique",
     "rangeCustom": "Plage personnalisée",
     "rangeApply": "Appliquer"

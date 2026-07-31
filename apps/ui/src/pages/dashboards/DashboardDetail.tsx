@@ -8,9 +8,14 @@ import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { Button } from "@/components/ui/button";
+import {
+  DASHBOARD_DEFAULT_PRESET,
+  DASHBOARD_PRESET_OPTIONS,
+} from "@/lib/timeRange";
 import { DashboardGrid } from "./DashboardGrid";
 import { DashboardTabs } from "./DashboardTabs";
 import { DashboardToolbox } from "./DashboardToolbox";
+import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
 import { useLayoutEditor } from "./useLayoutEditor";
 
@@ -32,7 +37,16 @@ const DashboardDetailContent: FC = () => {
           second header) with the switcher row below it. The period sits in the
           header actions: it applies to the whole page, above the tabs, so it
           reads as a property of the view rather than of one dashboard. */}
-      <ResourceHeader title={t("title")} actions={<TimeRangeSelect />} />
+      <ResourceHeader
+        title={t("title")}
+        actions={
+          <TimeRangeSelect
+            presets={DASHBOARD_PRESET_OPTIONS}
+            defaultPreset={DASHBOARD_DEFAULT_PRESET}
+            storageKey={DASHBOARD_PERIOD_STORAGE_KEY}
+          />
+        }
+      />
       <div className="flex flex-col gap-2">
         {/* Navigation row: tabs on the left; a toolbox toggle on the right (or
             the layout Save/Cancel controls while editing). Edition actions live
