@@ -60,6 +60,13 @@
         "seriesLabel": "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}"
       }
     },
+    "deviceControl": {
+      "empty": "Choisissez un appareil à contrôler.",
+      "notFound": "Cet appareil n'existe plus.",
+      "error": "Impossible de charger cet appareil.",
+      "noControl": "Ce type d'appareil n'a pas de contrôle standard.",
+      "live": "En direct"
+    },
     "add": "Ajouter un widget",
     "addTitle": "Ajouter un widget",
     "addSubmit": "Ajouter le widget",

@@ -4,7 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { SEMANTIC_TEXT_CLASS, type StatusLevel } from "@/lib/semanticColors";
+import {
+  SEMANTIC_BG_CLASS,
+  SEMANTIC_TEXT_CLASS,
+  type StatusLevel,
+} from "@/lib/semanticColors";
 import { ConnectionStatus } from "@/lib/devices";
 
 const STATUS_CONFIG: Record<
@@ -85,6 +89,28 @@ export function ConnectionStatusBadge({
       <Icon className="h-3 w-3" />
       {t(labelKey)}
     </Badge>
+  );
+}
+
+/** Connection status as a small solid dot — for tight chrome (widget headers)
+ *  where a badge would crowd the row. Neutral when the status is unknown. */
+export function ConnectionStatusDot({
+  status,
+  className,
+}: {
+  status: ConnectionStatus | null;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "h-2 w-2 rounded-full",
+        status
+          ? SEMANTIC_BG_CLASS[STATUS_LEVEL[status]]
+          : "bg-muted-foreground",
+        className,
+      )}
+    />
   );
 }
 

@@ -3,6 +3,8 @@ import type { Control, FieldValues } from "react-hook-form";
 import type * as z from "zod";
 import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
+import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
+import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
 
 /** A widget type's renderer. The config is untyped at the registry boundary;
@@ -24,6 +26,7 @@ export type WidgetConfigFieldsComponent = FC<{
 export const widgetViews: Record<string, WidgetViewComponent> = {
   text: TextWidgetView,
   chart: ChartWidgetView,
+  device_control: DeviceControlWidgetView,
 };
 
 /**
@@ -36,6 +39,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
  */
 export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   chart: ChartConfigFields,
+  device_control: DeviceControlConfigFields,
 };
 
 /**

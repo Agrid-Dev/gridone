@@ -1,10 +1,12 @@
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
+import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
 
 export default function DeviceLiveControl() {
-  const { device, draft, savingAttr, feedback, handleDraftChange, handleSave } =
-    useDeviceDetails();
+  const device = useDeviceFromRoute();
+  const { draft, savingAttr, feedback, handleDraftChange, handleSave } =
+    useDeviceDetails(device);
 
   const standardEntry = getStandardDeviceEntry(device.type);
 
