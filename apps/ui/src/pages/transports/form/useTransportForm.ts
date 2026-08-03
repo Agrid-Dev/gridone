@@ -13,6 +13,10 @@ import {
   setServerFieldErrors,
 } from "@/lib/forms/serverErrors";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import {
+  useSchemaForm,
+  type SchemaFormValues,
+} from "@/components/forms/schema-form";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -30,27 +34,9 @@ export const transportProtocols = [
 /** The subset of protocols the form can edit. */
 export type FormProtocol = (typeof transportProtocols)[number];
 
-export type JsonSchemaProperty = {
-  type?: "string" | "number" | "integer" | "boolean" | "object";
-  title?: string;
-  description?: string;
-  default?: string | number | boolean | null;
-  enum?: Array<string | number>;
-  anyOf?: JsonSchemaProperty[];
-  oneOf?: JsonSchemaProperty[];
-  multiline?: boolean;
-};
-
-export type TransportSchema = {
-  title?: string;
-  type?: "object";
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-};
-
 /** UI view of `client.transports.getSchemas()`: config JSON schema keyed by
  *  protocol (the SDK types the payload loosely as untyped JSON objects). */
-export type TransportSchemas = Record<string, TransportSchema>;
+export type TransportSchemas = Record<string, Record<string, unknown>>;
 
 type TransportFormValues = {
   name: string;
@@ -142,15 +128,20 @@ export const useTransportForm = (
   const configJsonSchema =
     protocol && transportProtocols.includes(protocol)
       ? configSchemas[protocol]
-      : { required: [] };
-  const configZodSchema = z.fromJSONSchema(configJsonSchema) as z.ZodObject;
-  const configFormMethods = useForm<z.infer<typeof configZodSchema>>({
-    resolver: zodResolver(configZodSchema),
-    defaultValues: currentTransport?.config ?? {},
+      : undefined;
+  const {
+    form: configFormMethods,
+    fields: configFields,
+    defaultValues: configDefaults,
+  } = useSchemaForm({
+    schema: configJsonSchema,
+    values: currentTransport?.config as SchemaFormValues | undefined,
   });
   useEffect(() => {
     if (transportProtocols.includes(protocol)) {
-      configFormMethods.reset();
+      // Re-seed the config values for the newly selected protocol's schema
+      // (schema defaults, overlaid with the edited transport's config).
+      configFormMethods.reset(configDefaults);
     }
   }, [protocol]);
   const handleSubmit = async () => {
@@ -179,10 +170,10 @@ export const useTransportForm = (
     return values;
   };
   /**
-   * ADR 0002 error handling, composed over the form's temporary two-RHF-
-   * instance split (kept by AGR-919): validation errors try the config
-   * fields first, then the base fields; anything the user can't see on a
-   * field surfaces as a toast.
+   * ADR 0002 error handling, composed over the form's two-RHF-instance split
+   * (hand-written base fields + schema-driven config): validation errors try
+   * the config fields first, then the base fields; anything the user can't
+   * see on a field surfaces as a toast.
    */
   const applyServerError = (error: unknown) => {
     const normalized = normalizeError(error);
@@ -211,7 +202,7 @@ export const useTransportForm = (
     isSubmitting: createMutation.isPending || updateMutation.isPending,
     baseFormMethods,
     configFormMethods,
-    jsonSchema: configSchemas[protocol],
+    configFields,
     lockedProtocol,
   };
 };

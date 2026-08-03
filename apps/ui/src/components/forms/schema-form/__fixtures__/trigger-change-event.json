@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "Condition": {
+      "properties": {
+        "operator": {
+          "$ref": "#/$defs/ConditionOperator"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Threshold"
+        }
+      },
+      "required": ["operator", "threshold"],
+      "title": "Condition",
+      "type": "object"
+    },
+    "ConditionOperator": {
+      "enum": ["gt", "lt", "gte", "lte", "eq", "ne"],
+      "title": "ConditionOperator",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "attribute": {
+      "title": "Attribute",
+      "type": "string"
+    },
+    "condition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Condition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": ["device_id", "attribute"],
+  "title": "ChangeEventTrigger",
+  "type": "object"
+}

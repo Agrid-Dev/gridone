@@ -1,0 +1,11 @@
+{
+  "properties": {
+    "cron": {
+      "title": "Cron expression",
+      "type": "string"
+    }
+  },
+  "required": ["cron"],
+  "title": "ScheduleTrigger",
+  "type": "object"
+}

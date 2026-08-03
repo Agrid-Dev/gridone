@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "BacnetWritePriority": {
+      "maximum": 16,
+      "minimum": 5,
+      "type": "integer"
+    }
+  },
+  "properties": {
+    "ip_with_mask": {
+      "title": "Ip With Mask",
+      "type": "string"
+    },
+    "port": {
+      "default": 47808,
+      "exclusiveMinimum": 0,
+      "title": "Port",
+      "type": "integer"
+    },
+    "discovery_address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Discovery Address"
+    },
+    "bbmd_address": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bbmd Address"
+    },
+    "foreign_ttl": {
+      "default": 900,
+      "exclusiveMinimum": 0,
+      "title": "Foreign Ttl",
+      "type": "integer"
+    },
+    "local_device_instance": {
+      "default": 990001,
+      "exclusiveMinimum": 0,
+      "title": "Local Device Instance",
+      "type": "integer"
+    },
+    "local_device_name": {
+      "default": "GridOne BACnet Client",
+      "title": "Local Device Name",
+      "type": "string"
+    },
+    "max_apdu_length": {
+      "default": 1024,
+      "exclusiveMinimum": 0,
+      "title": "Max Apdu Length",
+      "type": "integer"
+    },
+    "vendor_identifier": {
+      "default": 999,
+      "exclusiveMinimum": 0,
+      "title": "Vendor Identifier",
+      "type": "integer"
+    },
+    "segmentation_supported": {
+      "default": 3,
+      "exclusiveMinimum": 0,
+      "title": "Segmentation Supported",
+      "type": "integer"
+    },
+    "discovery_timeout": {
+      "default": 5.0,
+      "exclusiveMinimum": 0,
+      "title": "Discovery Timeout",
+      "type": "number"
+    },
+    "read_property_timeout": {
+      "default": 5.0,
+      "exclusiveMinimum": 0,
+      "title": "Read Property Timeout",
+      "type": "number"
+    },
+    "write_property_timeout": {
+      "default": 5.0,
+      "exclusiveMinimum": 0,
+      "title": "Write Property Timeout",
+      "type": "number"
+    },
+    "default_write_priority": {
+      "$ref": "#/$defs/BacnetWritePriority",
+      "default": 8
+    }
+  },
+  "required": ["ip_with_mask"],
+  "title": "BacnetTransportConfig",
+  "type": "object"
+}

@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "host": {
+      "description": "Hostname or IP address of the M-Bus/TCP gateway (no spaces, no protocol like tcp://)",
+      "examples": ["192.168.1.10", "mbus-gateway.local"],
+      "minLength": 1,
+      "pattern": "^[^\\s:/]+(\\.[^\\s:/]+)*$",
+      "title": "Host",
+      "type": "string"
+    },
+    "port": {
+      "exclusiveMinimum": 0,
+      "title": "Port",
+      "type": "integer"
+    },
+    "baud_rate": {
+      "default": 2400,
+      "exclusiveMinimum": 0,
+      "title": "Baud Rate",
+      "type": "integer"
+    }
+  },
+  "required": ["host", "port"],
+  "title": "MBusTransportConfig",
+  "type": "object"
+}

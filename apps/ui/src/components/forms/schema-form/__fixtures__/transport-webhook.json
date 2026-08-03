@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "auth": {
+      "default": "bearer",
+      "enum": ["none", "bearer", "hmac_sha256"],
+      "title": "Auth",
+      "type": "string"
+    },
+    "secret": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Secret"
+    }
+  },
+  "title": "WebhookTransportConfig",
+  "type": "object"
+}

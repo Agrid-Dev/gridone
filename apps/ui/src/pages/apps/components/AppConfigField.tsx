@@ -31,11 +31,11 @@ interface AppConfigFieldProps {
  *
  * **Do not copy this mapping into another feature.** These are repo-wide
  * JSON Schema conventions living here only until the schema-driven forms
- * project gives them a home: AGR-919 builds the `schema-form` widget registry
- * (and deletes `SchemaField`), AGR-920 migrates app config onto it, AGR-922
- * adds array support. `asset-id` is the one that needs the registry's
- * per-consumer override seam rather than a plain move — it pulls
- * `useAssetTree`, and the shared builder must stay domain-agnostic.
+ * project gives them a home: the `schema-form` widget registry now exists
+ * (AGR-919), AGR-920 migrates app config onto it, AGR-922 adds array
+ * support. `asset-id` is the one that needs the registry's per-consumer
+ * `overrides` seam rather than a plain move — it pulls `useAssetTree`, and
+ * the shared builder must stay domain-agnostic.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,
