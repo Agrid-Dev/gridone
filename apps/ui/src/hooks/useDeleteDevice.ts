@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { isGridoneError } from "@gridone/sdk";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 export const useDeleteDevice = () => {
   const navigate = useNavigate();
@@ -17,11 +17,9 @@ export const useDeleteDevice = () => {
       toast.success(t("devices.feedback.deleted"));
     },
     onError: (err: Error) => {
-      const detail = isGridoneError(err)
-        ? err.detail || err.message
-        : err.message;
-      const errorMessage = `${t("common:errors.default")}: ${detail}`;
-      toast.error(errorMessage);
+      const detail = serverErrorMessage(err);
+      const base = t("common:errors.default");
+      toast.error(detail ? `${base}: ${detail}` : base);
     },
     onSettled: () => {
       queryClient.refetchQueries({ queryKey: ["devices"] });

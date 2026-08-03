@@ -6,12 +6,12 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  isGridoneError,
   type WidgetCreateBody,
   type WidgetSchemas,
   type WidgetUpdateBody,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { dashboardKey } from "./useDashboards";
 
 /** JSON Schemas of the registered widget types (backend is the source of
@@ -31,8 +31,9 @@ export function useWidgetSchemas(): WidgetSchemas {
 function useWidgetErrorToast() {
   const { t } = useTranslation("common");
   return (error: Error) => {
-    const detail = isGridoneError(error) ? error.detail : error.message;
-    toast.error(`${t("errors.default")}: ${detail}`);
+    const detail = serverErrorMessage(error);
+    const base = t("errors.default");
+    toast.error(detail ? `${base}: ${detail}` : base);
   };
 }
 

@@ -1,5 +1,7 @@
 """Unit tests for apps.config_validation."""
 
+from typing import ClassVar
+
 import pytest
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
@@ -153,6 +155,48 @@ def test_unknown_format_annotation_is_ignored():
 def test_unknown_root_keyword_is_ignored():
     """The `i18n` root key is a Draft 2020-12 unknown keyword, silently ignored."""
     validate_config({"lat": 48.8, "lng": 2.3}, SCHEMA)
+
+
+class TestSecretRedaction:
+    """Secret-marked nodes must never echo the submitted value back — not in
+    the 422 items, not in the flattened `str(exc)` log summary."""
+
+    SCHEMA: ClassVar[dict] = {
+        "type": "object",
+        "properties": {
+            "api_key": {"type": "string", "minLength": 10, "format": "password"},
+            "token": {"type": "string", "pattern": "^sk-", "secret": True},
+            "note": {"type": "string", "minLength": 5},
+        },
+    }
+
+    def _single_error(self, payload) -> tuple[ValidationErrorItem, str]:
+        with pytest.raises(ConfigValidationError) as exc_info:
+            validate_config(payload, self.SCHEMA)
+        assert len(exc_info.value.errors) == 1
+        return exc_info.value.errors[0], str(exc_info.value)
+
+    def test_format_password_value_is_redacted(self):
+        item, summary = self._single_error({"api_key": "hunter2"})
+        assert "hunter2" not in item.msg
+        assert "hunter2" not in summary
+        assert item.msg == "must be at least 10 characters"
+        assert item.loc == ("api_key",)
+
+    def test_secret_marker_value_is_redacted(self):
+        item, summary = self._single_error({"token": "hunter2"})
+        assert "hunter2" not in item.msg
+        assert "hunter2" not in summary
+        assert item.msg == "does not match the expected pattern '^sk-'"
+
+    def test_wrong_type_on_a_secret_node_is_redacted(self):
+        item, _ = self._single_error({"api_key": 12345})
+        assert "12345" not in item.msg
+        assert item.msg == "is not of type 'string'"
+
+    def test_non_secret_fields_keep_the_actionable_message(self):
+        item, _ = self._single_error({"note": "hi"})
+        assert item.msg == "'hi' is too short"
 
 
 class TestValidateSchema:

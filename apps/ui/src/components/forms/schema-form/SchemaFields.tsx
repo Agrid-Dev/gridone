@@ -1,18 +1,21 @@
-import { useEffect, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Plus, Trash2 } from "lucide-react";
 import {
+  useController,
   useFieldArray,
   useFormState,
   type Control,
   type FieldArrayPath,
   type FieldValues,
 } from "react-hook-form";
+import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { SwitchController } from "@/components/forms/controllers/SwitchController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui";
 import {
   FieldDescription,
   FieldError,
@@ -38,7 +41,10 @@ export type SchemaFieldOverrides = Record<
 >;
 
 /** Enumerates the concrete RHF paths currently rendered for server-error
- * mapping, including indexed array rows and flat object item properties. */
+ * mapping, including indexed array rows and flat object item properties.
+ * `unsupported` descriptors are excluded: their placeholder renders no
+ * `FieldError`, so an error mapped onto them would disappear entirely —
+ * omitting the path routes it to the root banner instead. */
 export const schemaFieldPaths = (
   fields: FieldDescriptor[],
   values: FieldValues,
@@ -46,6 +52,7 @@ export const schemaFieldPaths = (
 ): string[] => {
   const paths: string[] = [];
   for (const descriptor of fields) {
+    if (descriptor.kind === "unsupported") continue;
     const name = `${namePrefix}${descriptor.name}`;
     paths.push(name);
     if (descriptor.kind !== "array" || !descriptor.arrayItem) continue;
@@ -78,8 +85,59 @@ const StringWidget = ({ descriptor, name, control }: SchemaWidgetProps) => {
     description: descriptor.description,
     required: descriptor.required,
   };
+  // Multiline wins over secret: there is no masked textarea, so a multiline
+  // credential (PEM private key) stays a plain textarea for now.
   if (descriptor.multiline) return <TextareaController {...shared} />;
+  if (descriptor.secret) {
+    return (
+      <SecretWidget descriptor={descriptor} name={name} control={control} />
+    );
+  }
   return <InputController {...shared} type="text" />;
+};
+
+/** Masked input with a reveal toggle for credential-bearing fields
+ *  (`secret: true` marker, app contract's `format: password`). The toggle
+ *  only affects local display, never the stored value. */
+const SecretWidget = ({ descriptor, name, control }: SchemaWidgetProps) => {
+  const { t } = useTranslation("common");
+  const [revealed, setRevealed] = useState(false);
+  const { field, fieldState } = useController({ name, control });
+  return (
+    <FieldShell
+      id={name}
+      invalid={fieldState.invalid}
+      label={descriptor.label}
+      description={descriptor.description}
+      error={fieldState.error}
+      required={descriptor.required}
+    >
+      <div className="relative">
+        <Input
+          id={name}
+          aria-invalid={fieldState.invalid}
+          aria-required={descriptor.required}
+          autoComplete="off"
+          type={revealed ? "text" : "password"}
+          className="pr-9"
+          {...field}
+          value={(field.value as string | undefined) ?? ""}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="absolute inset-y-0 right-0 h-full w-9 text-muted-foreground"
+          aria-label={t(
+            revealed ? "schemaForm.hideSecret" : "schemaForm.showSecret",
+          )}
+          onClick={() => setRevealed((current) => !current)}
+        >
+          {revealed ? <EyeOff /> : <Eye />}
+        </Button>
+      </div>
+    </FieldShell>
+  );
 };
 
 const NumberWidget = ({ descriptor, name, control }: SchemaWidgetProps) => (

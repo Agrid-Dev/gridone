@@ -34,6 +34,7 @@ class KNXTransportConfig(BaseTransportConfig):
                 "KNX IP-Secure device authentication password "
                 "(set together with the secure user password)"
             ),
+            json_schema_extra={"secret": True},
         ),
     ] = None
     secure_user_password: Annotated[
@@ -43,6 +44,7 @@ class KNXTransportConfig(BaseTransportConfig):
                 "KNX IP-Secure user password "
                 "(set together with the secure device authentication password)"
             ),
+            json_schema_extra={"secret": True},
         ),
     ] = None
     secure_user_id: Annotated[

@@ -2,12 +2,9 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import {
-  isGridoneError,
-  type DiscoveryHandler,
-  type TransportProtocols,
-} from "@gridone/sdk";
+import { type DiscoveryHandler, type TransportProtocols } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 const MQTT_PROTOCOL: TransportProtocols = "mqtt";
 
@@ -63,11 +60,7 @@ export function useDeviceDiscovery({
   const enabled = intent ?? serverEnabled;
 
   const reportError = (error: unknown) => {
-    const detail = isGridoneError(error)
-      ? error.detail
-      : error instanceof Error
-        ? error.message
-        : null;
+    const detail = serverErrorMessage(error);
     const base = t("devices.fields.discoverDevicesLikeMeError");
     toast.error(detail ? `${base}: ${detail}` : base);
   };

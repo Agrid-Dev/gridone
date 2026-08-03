@@ -68,9 +68,25 @@ the generic pipeline. New nested triggers are not exempt automatically.
 Vendor keywords must remain domain-neutral:
 
 - `multiline: true` on a string renders a textarea (used by MQTT PEM fields).
-- `secret` is reserved for the shared masked-input marker. Do not assign it a
-  different meaning; until the shared secret widget lands, first-party schemas
-  should not rely on it for masking.
+- `secret: true` on a string renders a masked input with a reveal toggle
+  (KNX IP-Secure passwords, the MQTT password, the webhook secret). The app
+  contract's `format: password` maps onto the same widget. When a field
+  carries both `secret` and `multiline` (a PEM private key), `multiline`
+  wins: there is no masked textarea yet, so the value renders unmasked.
+
+## Server errors
+
+`applyServerFieldErrors(form, error, options)` maps a `GridoneError` onto a
+schema form: 422 `{loc, msg, type}` items land on the deepest registered path
+in `options.fieldNames` (pass `schemaFieldPaths(fields, form.getValues())` to
+register indexed array rows; leave `unsupported`-kind descriptors out — their
+placeholder renders no error slot, so their errors must reach the banner).
+Everything unmatched — model-level `loc: []`, unknown fields, string details,
+unknown failures — becomes a `root.server` error rendered by
+`ServerErrorAlert`, plus a toast. `useClearServerErrorOnChange(form)` clears
+the banner on the next edit (react-hook-form does not clear root errors by
+itself). Non-form surfaces use `serverErrorMessage` from
+`@/lib/serverErrorMessage` instead. Full contract: ADR 0002.
 
 ## Third-party app schemas
 
@@ -85,12 +101,12 @@ and its `422` errors are shown on the form.
 App schemas add four extensions, prepared in
 `apps/ui/src/lib/appConfigSchema.ts` before entering the shared builder:
 
-| Extension                           | Meaning                                                                                                      |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Root `i18n` catalog                 | `title` and `description` are looked up by exact locale, then base language, then used literally             |
-| `format: asset-id`                  | Asset selector; single for a string and multiple for an array                                                |
-| `format: password`                  | Masked secret input; this is the app-contract spelling pending unification with the reserved `secret` marker |
-| `oneOf` with a `const` discriminant | A selector chooses a branch, whose fields are flattened into the root form                                   |
+| Extension                           | Meaning                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Root `i18n` catalog                 | `title` and `description` are looked up by exact locale, then base language, then used literally |
+| `format: asset-id`                  | Asset selector; single for a string and multiple for an array                                    |
+| `format: password`                  | Masked secret input with a reveal toggle — same widget as the first-party `secret: true` marker  |
+| `oneOf` with a `const` discriminant | A selector chooses a branch, whose fields are flattened into the root form                       |
 
 Discriminated branches must remain flat. They are flattened before Zod
 conversion because converting the canonical branch objects directly as a union

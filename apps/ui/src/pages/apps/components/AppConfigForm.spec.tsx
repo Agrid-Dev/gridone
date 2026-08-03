@@ -289,7 +289,11 @@ describe("AppConfigForm — PMS schema", () => {
     renderForm();
 
     expect(await screen.findByText("Client ID")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Secret/)).toHaveAttribute("type", "password");
+    // Scope to inputs: the shared secret widget adds a reveal-toggle button
+    // whose accessible name also matches /Secret/.
+    expect(
+      screen.getByLabelText(/Secret/, { selector: "input" }),
+    ).toHaveAttribute("type", "password");
     expect(screen.queryByText("Token")).not.toBeInTheDocument();
   });
 
@@ -345,6 +349,22 @@ describe("AppConfigForm — PMS schema", () => {
     expect(
       await screen.findByText("Config validation failed: client_id: too short"),
     ).toBeInTheDocument();
+    expect(mockToast.error).toHaveBeenCalled();
+  });
+
+  it("surfaces the crafted app-fault 503 message on save", async () => {
+    // The app went down (or serves a broken schema) between load and save:
+    // the backend's server-authored 503 body must reach the user instead of
+    // the generic fallback — the app is at fault, not their input.
+    const user = userEvent.setup();
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(503, "App is unreachable"),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(await screen.findByText("App is unreachable")).toBeInTheDocument();
     expect(mockToast.error).toHaveBeenCalled();
   });
 

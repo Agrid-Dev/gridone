@@ -137,12 +137,51 @@ def _to_error_item(error: ValidationError) -> ValidationErrorItem:
     """
     loc = tuple(error.absolute_path)
     if error.validator == "required":
+        # The message names the missing key, never a submitted value — safe.
         missing = _missing_property(error)
         if missing is not None:
             return ValidationErrorItem(
                 loc=(*loc, missing), msg=error.message, type="missing"
             )
-    return ValidationErrorItem(loc=loc, msg=error.message, type=str(error.validator))
+    msg = _redacted_message(error) if _is_secret_node(error.schema) else error.message
+    return ValidationErrorItem(loc=loc, msg=msg, type=str(error.validator))
+
+
+def _is_secret_node(schema: object) -> bool:
+    """A node the form dialect marks as credential-bearing: the app contract's
+    `format: password` or the first-party `secret: true` marker."""
+    if not isinstance(schema, dict):
+        return False
+    for keyword, value in schema.items():
+        if keyword == "format" and value == "password":
+            return True
+        if keyword == "secret" and value is True:
+            return True
+    return False
+
+
+def _redacted_message(error: ValidationError) -> str:
+    """Constraint-only message for secret nodes.
+
+    jsonschema embeds the failing instance in most messages (`"'hunter2' is
+    too short"`), which would echo the credential into the 422 body, the
+    rendered field error, and any log line that stringifies the exception
+    (`str(ConfigValidationError)` is the documented log-facing form).
+    """
+    constraint = error.validator_value
+    match error.validator:
+        case "minLength":
+            return f"must be at least {constraint} characters"
+        case "maxLength":
+            return f"must be at most {constraint} characters"
+        case "pattern":
+            return f"does not match the expected pattern {constraint!r}"
+        case "type":
+            return f"is not of type {constraint!r}"
+        case "enum":
+            return "is not one of the allowed values"
+        case _:
+            return f"does not satisfy the '{error.validator}' constraint"
 
 
 def _missing_property(error: ValidationError) -> str | None:

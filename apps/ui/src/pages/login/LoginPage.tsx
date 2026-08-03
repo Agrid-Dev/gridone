@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { TriangleAlert } from "lucide-react";
 import { isGridoneError, NetworkError } from "@gridone/sdk";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { getAuthSchema } from "@/lib/authSchema";
@@ -69,7 +70,7 @@ export default function LoginPage() {
     } catch (err) {
       if (isGridoneError(err) && !(err instanceof NetworkError)) {
         form.setError("root", {
-          message: err.detail || t("auth.login.error"),
+          message: serverErrorMessage(err) ?? t("auth.login.error"),
         });
       } else {
         // A NetworkError means the request never completed (transport/network

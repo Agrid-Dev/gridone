@@ -255,6 +255,8 @@
     "itemLabel": "Élément {{index}}",
     "emptyArray": "Aucun élément. Ajoutez le premier élément.",
     "unsupportedField": "Ce type de champ ne peut pas encore être modifié ici.",
-    "serverErrorTitle": "Vérifiez ce formulaire"
+    "serverErrorTitle": "Vérifiez ce formulaire",
+    "showSecret": "Afficher la valeur",
+    "hideSecret": "Masquer la valeur"
   }
 }

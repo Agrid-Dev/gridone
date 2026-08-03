@@ -82,6 +82,7 @@
         }
       ],
       "default": null,
+      "secret": true,
       "title": "Password"
     }
   },

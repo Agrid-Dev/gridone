@@ -169,6 +169,39 @@ describe("TransportForm — schema-driven config (AGR-919)", () => {
       tls_insecure: false,
     });
   });
+
+  it("clears a rejected field's error as the user corrects it", async () => {
+    // Submission runs through RHF handleSubmit (isSubmitted flips), so the
+    // default reValidateMode "onChange" re-validates on every keystroke —
+    // the old trigger()-based flow kept stale errors until the next click.
+    mockGetTransportSchemas.mockResolvedValue(schemasWithRealMqtt);
+    const { container } = renderForm();
+
+    fireEvent.change(await screen.findByLabelText(/fields\.name/), {
+      target: { value: "My broker" },
+    });
+    fireEvent.change(screen.getByLabelText(/^host/i), {
+      target: { value: "broker.local" },
+    });
+    fireEvent.change(screen.getByLabelText("Port"), { target: { value: "0" } });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    const portError = await screen.findByText(/too small|greater than/i);
+    expect(portError).toBeInTheDocument();
+    expect(mockCreateTransport).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Port"), {
+      target: { value: "1883" },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/too small|greater than/i),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });
 
 describe("TransportForm — KNX flat IP-Secure fields (AGR-920)", () => {

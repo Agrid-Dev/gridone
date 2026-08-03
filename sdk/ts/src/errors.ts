@@ -100,9 +100,12 @@ export type NormalizedError =
  * status code (a 422 carries either a validation array or a domain message):
  *
  * - well-formed validation array → `fieldErrors`
- * - string detail on a 4xx or 502 → `message`
- * - everything else (5xx, network, malformed body, non-Gridone errors) →
- *   `unknown`, so raw server text is never surfaced to users.
+ * - string detail on a 4xx, 502 or 503 → `message` (Gridone's own 502/503
+ *   bodies are server-authored constants — e.g. the app-fault 503s
+ *   "App is unreachable" / "App returned an invalid config schema" — so
+ *   surfacing them is deliberate, not a leak)
+ * - everything else (500/other 5xx, network, malformed body, non-Gridone
+ *   errors) → `unknown`, so raw server text is never surfaced to users.
  */
 export function normalizeError(error: unknown): NormalizedError {
   if (!isGridoneError(error)) {
@@ -112,10 +115,8 @@ export function normalizeError(error: unknown): NormalizedError {
     return { kind: "fieldErrors", errors: error.validationErrors };
   }
   const clientError = error.status >= 400 && error.status < 500;
-  if (
-    typeof error.rawDetail === "string" &&
-    (clientError || error.status === 502)
-  ) {
+  const gatewayError = error.status === 502 || error.status === 503;
+  if (typeof error.rawDetail === "string" && (clientError || gatewayError)) {
     return { kind: "message", message: error.rawDetail };
   }
   return { kind: "unknown" };

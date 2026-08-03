@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { isGridoneError, type Device } from "@gridone/sdk";
+import { type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 type DraftValue = string | number | boolean | null;
 
@@ -51,12 +52,7 @@ export function useDebouncedAttributeWrite({
           }),
         );
       } catch (err) {
-        const message = isGridoneError(err)
-          ? err.detail || err.message
-          : err instanceof Error
-            ? err.message
-            : t("deviceDetails.updateFailed");
-        toast.error(message);
+        toast.error(serverErrorMessage(err) ?? t("deviceDetails.updateFailed"));
       } finally {
         setSaving((prev) => {
           const next = new Set(prev);

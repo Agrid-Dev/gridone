@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { GridoneError } from "@gridone/sdk";
 import { useDebouncedAttributeWrite } from "../useDebouncedAttributeWrite";
 
 // --- Mocks ---
@@ -224,7 +225,9 @@ describe("useDebouncedAttributeWrite", () => {
     expect(mockToast.success.mock.calls[0][0]).toContain('"value":"22"');
   });
 
-  it("shows error toast on API failure", async () => {
+  it("shows the generic toast when the failure carries no safe message", async () => {
+    // A plain Error (network/programming failure) has no server-authored
+    // text — its message must not reach the user (ADR 0002).
     mockSendCommand.mockRejectedValue(new Error("Network error"));
     const { result } = setup();
 
@@ -232,7 +235,22 @@ describe("useDebouncedAttributeWrite", () => {
       result.current.changeAndSaveNow("onoff_state", true);
     });
 
-    expect(mockToast.error).toHaveBeenCalledWith("Network error");
+    expect(mockToast.error).toHaveBeenCalledWith("deviceDetails.updateFailed");
+  });
+
+  it("shows the server's domain message on a 422", async () => {
+    mockSendCommand.mockRejectedValue(
+      new GridoneError(422, "Value is out of the supported range"),
+    );
+    const { result } = setup();
+
+    await act(async () => {
+      result.current.changeAndSaveNow("onoff_state", true);
+    });
+
+    expect(mockToast.error).toHaveBeenCalledWith(
+      "Value is out of the supported range",
+    );
   });
 
   it("cleans up timers on unmount", () => {

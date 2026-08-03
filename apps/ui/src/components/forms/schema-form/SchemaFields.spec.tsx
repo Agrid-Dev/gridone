@@ -1,6 +1,12 @@
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createI18nMock } from "@/test/i18nMock";
 
@@ -11,6 +17,8 @@ vi.mock("react-i18next", () =>
     "schemaForm.itemLabel": "Item {{index}}",
     "schemaForm.emptyArray": "No items yet. Add the first item.",
     "schemaForm.unsupportedField": "Unsupported field",
+    "schemaForm.showSecret": "Show value",
+    "schemaForm.hideSecret": "Hide value",
   }),
 );
 
@@ -74,6 +82,35 @@ describe("SchemaFields — one widget per kind", () => {
       />,
     );
     expect(screen.getByLabelText("Cert").tagName).toBe("TEXTAREA");
+  });
+
+  it("renders a secret-marked string masked, with a working reveal toggle", () => {
+    render(
+      <Harness
+        schema={flatSchema({ password: { type: "string", secret: true } })}
+      />,
+    );
+    const input = screen.getByLabelText("Password");
+    expect(input).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show value" }));
+    expect(input).toHaveAttribute("type", "text");
+    fireEvent.click(screen.getByRole("button", { name: "Hide value" }));
+    expect(input).toHaveAttribute("type", "password");
+  });
+
+  it("masks the app contract's format password through the same widget", () => {
+    render(
+      <Harness
+        schema={flatSchema({
+          api_key: { type: "string", format: "password" },
+        })}
+      />,
+    );
+    expect(screen.getByLabelText("Api Key")).toHaveAttribute(
+      "type",
+      "password",
+    );
   });
 
   it("renders integer and number properties as number inputs", () => {

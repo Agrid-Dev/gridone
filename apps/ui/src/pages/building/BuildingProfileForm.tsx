@@ -33,13 +33,18 @@ const HIDDEN_FIELDS = new Set(["latitude", "longitude", "cover_url"]);
 /** `icon` widget override: the schema types it as free text, the form offers
  *  the supported set through the picker (suggestions keyed off the name). */
 const IconWidget: FC<SchemaWidgetProps> = ({ descriptor, name, control }) => {
-  const { field } = useController({ name, control });
+  const { field, fieldState } = useController({ name, control });
   const buildingName = useWatch({ control, name: "name" }) as
     | string
     | null
     | undefined;
   return (
-    <FieldShell id={name} label={descriptor.label}>
+    <FieldShell
+      id={name}
+      label={descriptor.label}
+      invalid={fieldState.invalid}
+      error={fieldState.error}
+    >
       <IconPicker
         value={(field.value as string | null) ?? null}
         onChange={field.onChange}

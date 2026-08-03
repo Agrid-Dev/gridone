@@ -144,4 +144,24 @@ describe("BuildingProfileForm — schema-driven rendering (AGR-920)", () => {
       await screen.findByText("Year is outside the supported range"),
     ).toBeInTheDocument();
   });
+
+  it("renders server errors targeting the icon override field", async () => {
+    // The IconPicker override must surface fieldState like registry widgets:
+    // before AGR-921's T7 fix, an error mapped onto `icon` was set but
+    // rendered nowhere (no field text, no banner — silently dropped).
+    const onSubmit = vi.fn().mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "icon"],
+          msg: "Unknown icon name",
+          type: "value_error",
+        },
+      ]),
+    );
+    renderForm({ name: "HQ" }, onSubmit);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Unknown icon name")).toBeInTheDocument();
+  });
 });
