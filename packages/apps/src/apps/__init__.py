@@ -1,4 +1,9 @@
-from apps.errors import AppUnreachableError, InvalidAppSchemaError
+from apps.errors import (
+    AppUnreachableError,
+    ConfigValidationError,
+    InvalidAppSchemaError,
+    ValidationErrorItem,
+)
 from apps.manifest import AppCapabilities
 from apps.models import (
     App,
@@ -16,9 +21,11 @@ __all__ = [
     "AppStatus",
     "AppUnreachableError",
     "AppsService",
+    "ConfigValidationError",
     "InvalidAppSchemaError",
     "PushStatus",
     "RegistrationRequest",
     "RegistrationRequestCreate",
     "RegistrationRequestStatus",
+    "ValidationErrorItem",
 ]
