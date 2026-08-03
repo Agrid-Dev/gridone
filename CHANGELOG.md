@@ -1,3 +1,9 @@
+## v0.185.0 (2026-08-03)
+
+### Feat
+
+- **sdk,ui**: structured API errors — GridoneError parsing + form mapping (AGR-809)
+
 ## v0.184.0 (2026-08-03)
 
 ### Feat
