@@ -51,6 +51,26 @@ async def _stop_services(services: list[Service]) -> None:
     await asyncio.gather(*[svc.stop() for svc in services])
 
 
+def _build_automations_service(
+    storage_url: str | None,
+    devices_service: DevicesService,
+    commands_service: CommandsService,
+    notifications_service: NotificationsService,
+) -> AutomationsService:
+    """Assemble the automation providers exposed by this API."""
+    return AutomationsService(
+        storage_url=storage_url,
+        trigger_providers=[
+            ScheduleTriggerProvider(),
+            ChangeEventTriggerProvider(devices_service),
+        ],
+        action_providers=[
+            CommandsActionProvider(commands_service),
+            NotificationsActionProvider(notifications_service),
+        ],
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
     settings = load_settings()
@@ -122,16 +142,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
     await commands_service.start()
     app.state.commands_service = commands_service
 
-    automations_svc = AutomationsService(
-        storage_url=settings.storage_url,
-        trigger_providers=[
-            ScheduleTriggerProvider(),
-            ChangeEventTriggerProvider(dm),
-        ],
-        action_providers=[
-            CommandsActionProvider(commands_service),
-            NotificationsActionProvider(notifications_svc),
-        ],
+    automations_svc = _build_automations_service(
+        settings.storage_url,
+        dm,
+        commands_service,
+        notifications_svc,
     )
     await automations_svc.start()
     app.state.automations_service = automations_svc
