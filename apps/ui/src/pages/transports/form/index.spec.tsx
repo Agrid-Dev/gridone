@@ -9,14 +9,22 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createI18nMock } from "@/test/i18nMock";
+import { GridoneError } from "@gridone/sdk";
 import type { TransportSchemas } from "./useTransportForm";
 
-const { mockGetTransportSchemas, mockCreateTransport, mockUpdateTransport } =
-  vi.hoisted(() => ({
-    mockGetTransportSchemas: vi.fn(),
-    mockCreateTransport: vi.fn(),
-    mockUpdateTransport: vi.fn(),
-  }));
+const {
+  mockGetTransportSchemas,
+  mockCreateTransport,
+  mockUpdateTransport,
+  mockToastError,
+} = vi.hoisted(() => ({
+  mockGetTransportSchemas: vi.fn(),
+  mockCreateTransport: vi.fn(),
+  mockUpdateTransport: vi.fn(),
+  mockToastError: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({ toast: { error: mockToastError } }));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
@@ -101,5 +109,94 @@ describe("TransportForm — PEM multiline fields", () => {
     // This is the bug the multiline flag fixes: a single-line <input>'s value
     // sanitization (HTML spec) strips embedded newlines outright.
     expect((hostInput as HTMLInputElement).value).not.toContain("\n");
+  });
+});
+
+describe("TransportForm — server errors (ADR 0002)", () => {
+  async function submitFilledForm() {
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    const { container } = renderForm();
+
+    const hostInput = await screen.findByLabelText(/host/i);
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: "My broker" },
+    });
+    fireEvent.change(hostInput, { target: { value: "broker.local" } });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+  }
+
+  it("maps a 422 validation array onto the matching config field", async () => {
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "mqtt", "config", "host"],
+          msg: "Host is unreachable",
+          type: "value_error",
+        },
+      ]),
+    );
+
+    await submitFilledForm();
+
+    expect(await screen.findByText("Host is unreachable")).toBeInTheDocument();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("maps a base-field validation error onto the name field", async () => {
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "mqtt", "name"],
+          msg: "Name is too long",
+          type: "string_too_long",
+        },
+      ]),
+    );
+
+    await submitFilledForm();
+
+    expect(await screen.findByText("Name is too long")).toBeInTheDocument();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("toasts the domain message for a string-detail error", async () => {
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(409, "A transport with this name already exists"),
+    );
+
+    await submitFilledForm();
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith(
+        "saveFailed: A transport with this name already exists",
+      ),
+    );
+  });
+
+  it("toasts the generic fallback for orphaned field errors and 5xx", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "mqtt", "device_id"],
+          msg: "Extra inputs are not permitted",
+          type: "extra_forbidden",
+        },
+      ]),
+    );
+
+    await submitFilledForm();
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("saveFailed"),
+    );
+    expect(
+      screen.queryByText("Extra inputs are not permitted"),
+    ).not.toBeInTheDocument();
+    consoleError.mockRestore();
   });
 });
