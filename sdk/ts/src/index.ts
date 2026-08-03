@@ -11,7 +11,9 @@ export {
   isGridoneError,
   isNotFound,
   NetworkError,
+  normalizeError,
 } from "./errors";
+export type { NormalizedError, ValidationErrorItem } from "./errors";
 export type {
   FetchLike,
   HttpMethod,

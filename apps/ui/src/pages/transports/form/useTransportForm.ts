@@ -2,12 +2,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import {
-  isGridoneError,
+  normalizeError,
   type Transport,
   type TransportCreate,
   type TransportProtocols,
   type TransportUpdate,
 } from "@gridone/sdk";
+import {
+  reportOrphanedServerErrors,
+  setServerFieldErrors,
+} from "@/lib/forms/serverErrors";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -63,17 +67,6 @@ export type TransportFormCallbacks = {
 export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
   const queryClient = useQueryClient();
   const client = useGridoneClient();
-  const { t } = useTranslation(["transports", "common"]);
-
-  const reportError = (error: unknown) => {
-    const detail = isGridoneError(error)
-      ? error.detail
-      : error instanceof Error
-        ? error.message
-        : null;
-    const base = t("saveFailed");
-    toast.error(detail ? `${base}: ${detail}` : base);
-  };
 
   const createMutation = useMutation({
     mutationFn: (payload: TransportFormValues) =>
@@ -82,7 +75,6 @@ export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
       callbacks.onCreated?.(result);
     },
-    onError: reportError,
   });
   const updateMutation = useMutation({
     mutationFn: ({
@@ -99,7 +91,6 @@ export const useTransportFormQueries = (callbacks: TransportFormCallbacks) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
       callbacks.onUpdated?.(result);
     },
-    onError: reportError,
   });
   return {
     createMutation,
@@ -130,6 +121,7 @@ export const useTransportForm = (
 ) => {
   const { lockedProtocol, ...callbacks } = options;
   const { createMutation, updateMutation } = useTransportFormQueries(callbacks);
+  const { t } = useTranslation(["transports", "common"]);
   const isCreate = !currentTransport;
   const baseSchema = z.object({
     name: z.string().min(1),
@@ -179,13 +171,37 @@ export const useTransportForm = (
         : createMutation.mutateAsync;
     try {
       await mutate(values);
-    } catch {
-      // onError handler in useTransportFormQueries already surfaces a toast.
-      // Swallow here so the rejection doesn't bubble as an unhandled promise;
-      // the modal stays open so the user can adjust and retry.
+    } catch (error) {
+      // The modal stays open so the user can adjust and retry.
+      applyServerError(error);
       return;
     }
     return values;
+  };
+  /**
+   * ADR 0002 error handling, composed over the form's temporary two-RHF-
+   * instance split (kept by AGR-919): validation errors try the config
+   * fields first, then the base fields; anything the user can't see on a
+   * field surfaces as a toast.
+   */
+  const applyServerError = (error: unknown) => {
+    const normalized = normalizeError(error);
+    if (normalized.kind === "fieldErrors") {
+      const orphans = setServerFieldErrors(
+        baseFormMethods,
+        setServerFieldErrors(configFormMethods, normalized.errors),
+      );
+      reportOrphanedServerErrors(orphans);
+      if (orphans.length > 0) {
+        toast.error(t("saveFailed"));
+      }
+      return;
+    }
+    toast.error(
+      normalized.kind === "message"
+        ? `${t("saveFailed")}: ${normalized.message}`
+        : t("saveFailed"),
+    );
   };
   const handleCancel = () => callbacks.onCancel?.();
   return {

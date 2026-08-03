@@ -218,11 +218,11 @@ export class HttpClient {
 
   private async toGridoneError(response: Response): Promise<GridoneError> {
     const data: unknown = await response.json().catch(() => null);
+    // Hand the raw `detail` over — GridoneError derives the display string
+    // and parses structured validation errors itself.
     const detail =
       data !== null && typeof data === "object" && "detail" in data
-        ? typeof data.detail === "string"
-          ? data.detail
-          : JSON.stringify(data.detail)
+        ? data.detail
         : response.statusText;
     return new GridoneError(response.status, detail);
   }
