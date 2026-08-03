@@ -1,0 +1,91 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "host": {
+      "title": "Host",
+      "type": "string"
+    },
+    "port": {
+      "default": 1883,
+      "exclusiveMinimum": 0,
+      "title": "Port",
+      "type": "integer"
+    },
+    "tls": {
+      "default": false,
+      "title": "Tls",
+      "type": "boolean"
+    },
+    "tls_insecure": {
+      "default": false,
+      "title": "Tls Insecure",
+      "type": "boolean"
+    },
+    "ca_cert": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "multiline": true,
+      "title": "Ca Cert"
+    },
+    "client_cert": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "multiline": true,
+      "title": "Client Cert"
+    },
+    "client_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "multiline": true,
+      "title": "Client Key"
+    },
+    "username": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Username"
+    },
+    "password": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Password"
+    }
+  },
+  "required": ["host"],
+  "title": "MqttTransportConfig",
+  "type": "object"
+}

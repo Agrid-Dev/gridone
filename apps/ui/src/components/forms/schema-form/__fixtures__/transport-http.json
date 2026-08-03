@@ -1,0 +1,13 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "request_timeout": {
+      "default": 10,
+      "exclusiveMinimum": 0,
+      "title": "Request Timeout",
+      "type": "integer"
+    }
+  },
+  "title": "HttpTransportConfig",
+  "type": "object"
+}

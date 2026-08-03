@@ -17,8 +17,9 @@
  *
  * These extensions (`i18n`, `asset-id`, `password`, discriminated `oneOf`) are
  * part of the form-schema dialect, not app-specific: AGR-923 documents and
- * CI-guards the dialect, AGR-919/920 fold this conversion into the single
- * `schema-form` builder. Until then they live here.
+ * CI-guards the dialect, and AGR-920 migrates this conversion onto the
+ * `schema-form` builder (`components/forms/schema-form`, built in AGR-919).
+ * Until then they live here.
  */
 import * as z from "zod";
 

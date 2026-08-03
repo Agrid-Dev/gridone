@@ -1,0 +1,62 @@
+{
+  "$defs": {
+    "KNXSecureCredentials": {
+      "additionalProperties": false,
+      "properties": {
+        "device_authentication_password": {
+          "title": "Device Authentication Password",
+          "type": "string"
+        },
+        "user_password": {
+          "title": "User Password",
+          "type": "string"
+        },
+        "user_id": {
+          "default": 2,
+          "exclusiveMinimum": 0,
+          "title": "User Id",
+          "type": "integer"
+        }
+      },
+      "required": ["device_authentication_password", "user_password"],
+      "title": "KNXSecureCredentials",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "gateway_ip": {
+      "description": "KNX/IP gateway host or IP (no protocol prefix)",
+      "minLength": 1,
+      "pattern": "^[^\\s:/]+(\\.[^\\s:/]+)*$",
+      "title": "Gateway Ip",
+      "type": "string"
+    },
+    "port": {
+      "default": 3671,
+      "exclusiveMinimum": 0,
+      "title": "Port",
+      "type": "integer"
+    },
+    "tunneling_mode": {
+      "default": "udp",
+      "enum": ["udp", "tcp"],
+      "title": "Tunneling Mode",
+      "type": "string"
+    },
+    "secure_credentials": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KNXSecureCredentials"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": ["gateway_ip"],
+  "title": "KNXTransportConfig",
+  "type": "object"
+}

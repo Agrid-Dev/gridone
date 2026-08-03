@@ -1,0 +1,42 @@
+{
+  "properties": {
+    "host": {
+      "description": "Hostname or IP address (no spaces, no protocol like tcp://)",
+      "examples": ["192.168.1.10", "plc.local", "modbus-server"],
+      "minLength": 1,
+      "pattern": "^[^\\s:/]+(\\.[^\\s:/]+)*$",
+      "title": "Host",
+      "type": "string"
+    },
+    "port": {
+      "default": 502,
+      "exclusiveMinimum": 0,
+      "title": "Port",
+      "type": "integer"
+    },
+    "read_timeout": {
+      "default": 3.0,
+      "exclusiveMinimum": 0,
+      "title": "Read Timeout",
+      "type": "number"
+    },
+    "max_block": {
+      "default": 100,
+      "description": "Largest contiguous run of registers/bits fetched in one read. Lower it for gateways that reject full-size requests.",
+      "maximum": 125,
+      "minimum": 1,
+      "title": "Max Block",
+      "type": "integer"
+    },
+    "max_gap": {
+      "default": 0,
+      "description": "Largest hole between two attributes' addresses that is read and discarded to keep them in one request. 0 merges only strictly contiguous addresses.",
+      "minimum": 0,
+      "title": "Max Gap",
+      "type": "integer"
+    }
+  },
+  "required": ["host"],
+  "title": "ModbusTCPTransportConfig",
+  "type": "object"
+}

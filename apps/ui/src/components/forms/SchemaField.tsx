@@ -1,8 +1,9 @@
 import type { Control, FieldValues } from "react-hook-form";
-import { InputController } from "@/components/forms/controllers/InputController";
-import { SelectController } from "@/components/forms/controllers/SelectController";
-import { SwitchController } from "@/components/forms/controllers/SwitchController";
-import { toLabel } from "@/lib/textFormat";
+import {
+  normalizeProperty,
+  SchemaFieldWidget,
+  type JsonSchemaObject,
+} from "./schema-form";
 
 /** A minimal JSON Schema node (widget config properties are flat primitives). */
 export interface JsonSchema {
@@ -27,14 +28,9 @@ interface SchemaFieldProps {
   required?: boolean;
 }
 
-/** Renders one config property from its JSON Schema, mapping the primitive
- *  type/enum to the matching form control — the generic bridge for any
- *  backend-schema-driven form (pairs with `z.fromJSONSchema` for validation).
- *
- *  The same "iterate properties → controller by type" logic is currently
- *  inlined per feature (automations `GenericTriggerFormBody`, transports/apps
- *  config forms). Those should consolidate onto this component as part of the
- *  shared SchemaFields builder (AGR-919). */
+/** Legacy single-property bridge over the `schema-form` widget registry, kept
+ *  for consumers not yet on `SchemaFields` (widget config: follow-up; app
+ *  config: AGR-920). New consumers should use `SchemaFields` directly. */
 export function SchemaField({
   name,
   propName,
@@ -42,56 +38,10 @@ export function SchemaField({
   control,
   required,
 }: SchemaFieldProps) {
-  const label = schema.title ?? toLabel(propName);
-  const description = schema.description;
-
-  if (Array.isArray(schema.enum)) {
-    return (
-      <SelectController
-        name={name}
-        control={control}
-        label={label}
-        description={description}
-        required={required}
-        options={schema.enum.map((value) => ({
-          value: String(value),
-          label: toLabel(String(value)),
-        }))}
-      />
-    );
-  }
-
-  if (schema.type === "boolean") {
-    return (
-      <SwitchController
-        name={name}
-        control={control}
-        label={label}
-        description={description}
-      />
-    );
-  }
-
-  if (schema.type === "number" || schema.type === "integer") {
-    return (
-      <InputController
-        name={name}
-        control={control}
-        label={label}
-        description={description}
-        required={required}
-        type="number"
-      />
-    );
-  }
-
+  const descriptor = normalizeProperty(propName, schema as JsonSchemaObject, {
+    required,
+  });
   return (
-    <InputController
-      name={name}
-      control={control}
-      label={label}
-      description={description}
-      required={required}
-    />
+    <SchemaFieldWidget descriptor={descriptor} name={name} control={control} />
   );
 }

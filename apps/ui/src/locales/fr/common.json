@@ -248,5 +248,8 @@
   },
   "topbar": {
     "notifications": "Notifications"
+  },
+  "schemaForm": {
+    "unsupportedField": "Ce type de champ ne peut pas encore être modifié ici."
   }
 }

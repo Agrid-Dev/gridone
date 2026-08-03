@@ -40,6 +40,7 @@ vi.mock("react-i18next", () => createI18nMock({}));
 
 // Import after the mocks above are registered.
 import TransportForm from "./index";
+import realMqttSchema from "@/components/forms/schema-form/__fixtures__/transport-mqtt.json";
 
 const CONFIG_SCHEMAS: TransportSchemas = {
   mqtt: {
@@ -109,6 +110,54 @@ describe("TransportForm — PEM multiline fields", () => {
     // This is the bug the multiline flag fixes: a single-line <input>'s value
     // sanitization (HTML spec) strips embedded newlines outright.
     expect((hostInput as HTMLInputElement).value).not.toContain("\n");
+  });
+});
+
+describe("TransportForm — schema-driven config (AGR-919)", () => {
+  const schemasWithRealMqtt = {
+    ...CONFIG_SCHEMAS,
+    mqtt: realMqttSchema,
+  } as unknown as TransportSchemas;
+
+  it("renders boolean config fields as switches (real MQTT schema)", async () => {
+    mockGetTransportSchemas.mockResolvedValue(schemasWithRealMqtt);
+    renderForm();
+
+    expect(
+      await screen.findByRole("switch", { name: /^tls$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: /tls insecure/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("seeds schema defaults as actual values and submits them explicitly", async () => {
+    mockGetTransportSchemas.mockResolvedValue(schemasWithRealMqtt);
+    mockCreateTransport.mockResolvedValue({ id: "t1" });
+    const { container } = renderForm();
+
+    // Defaults are real form values now, not input placeholders.
+    expect(await screen.findByLabelText("Port")).toHaveValue(1883);
+
+    // The i18n mock leaves the base field label as its raw key; the real MQTT
+    // schema also has a `Username` field, so /name/i would be ambiguous.
+    fireEvent.change(screen.getByLabelText(/fields\.name/), {
+      target: { value: "My broker" },
+    });
+    fireEvent.change(screen.getByLabelText(/^host/i), {
+      target: { value: "broker.local" },
+    });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(mockCreateTransport).toHaveBeenCalled());
+    expect(mockCreateTransport.mock.calls[0][0].config).toMatchObject({
+      host: "broker.local",
+      port: 1883,
+      tls: false,
+      tls_insecure: false,
+    });
   });
 });
 

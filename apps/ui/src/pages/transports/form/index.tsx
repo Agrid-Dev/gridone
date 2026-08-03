@@ -10,10 +10,9 @@ import {
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
-import { TextareaController } from "@/components/forms/controllers/TextAreaController";
+import { SchemaFields } from "@/components/forms/schema-form";
 import { Button } from "@/components/ui";
 import { useTranslation } from "react-i18next";
-import { toLabel } from "@/lib/textFormat";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 
@@ -37,7 +36,7 @@ const TransportForm: FC<TransportFormProps> = ({
   const {
     baseFormMethods,
     configFormMethods,
-    jsonSchema,
+    configFields,
     handleSubmit,
     isSubmitting,
     handleCancel,
@@ -53,7 +52,6 @@ const TransportForm: FC<TransportFormProps> = ({
     e.preventDefault();
     await handleSubmit();
   };
-  const requiredSet = new Set(jsonSchema?.required ?? []);
   const protocolLocked = !isCreate || lockedProtocol !== undefined;
 
   return (
@@ -81,39 +79,10 @@ const TransportForm: FC<TransportFormProps> = ({
           disabled={protocolLocked}
           title={protocolLocked ? t("fields.protocolDisabled") : undefined}
         />
-        {jsonSchema &&
-          Object.entries(jsonSchema.properties || {}).map(
-            ([propertyName, property]) => {
-              if (property.multiline) {
-                return (
-                  <TextareaController
-                    key={propertyName}
-                    name={propertyName}
-                    control={configFormMethods.control}
-                    label={toLabel(propertyName)}
-                    required={requiredSet.has(propertyName)}
-                    description={property.description}
-                  />
-                );
-              }
-              return (
-                <InputController
-                  key={propertyName}
-                  name={propertyName}
-                  control={configFormMethods.control}
-                  label={toLabel(propertyName)}
-                  type={property.type}
-                  required={requiredSet.has(propertyName)}
-                  description={property.description}
-                  inputProps={{
-                    placeholder: property.default
-                      ? String(property.default)
-                      : undefined,
-                  }}
-                />
-              );
-            },
-          )}
+        <SchemaFields
+          fields={configFields}
+          control={configFormMethods.control}
+        />
       </form>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">
         <Button variant="outline" type="button" onClick={handleCancel}>

@@ -1,0 +1,30 @@
+{
+  "$defs": {
+    "AssetType": {
+      "description": "Allowed asset hierarchy types.",
+      "enum": ["org", "building", "floor", "room", "zone"],
+      "title": "AssetType",
+      "type": "string"
+    }
+  },
+  "description": "DTO for creating an asset.",
+  "properties": {
+    "name": {
+      "maxLength": 128,
+      "minLength": 1,
+      "strip_whitespace": true,
+      "title": "Name",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/AssetType"
+    },
+    "parent_id": {
+      "title": "Parent Id",
+      "type": "string"
+    }
+  },
+  "required": ["name", "type", "parent_id"],
+  "title": "AssetCreate",
+  "type": "object"
+}
