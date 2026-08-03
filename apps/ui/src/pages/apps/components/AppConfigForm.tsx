@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { isGridoneError } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -20,7 +19,13 @@ import {
   toZodSchema,
   type AppSchemaNode,
 } from "@/lib/appConfigSchema";
-import { normalizeSchema, SchemaFields } from "@/components/forms/schema-form";
+import {
+  applyServerFieldErrors,
+  normalizeSchema,
+  SchemaFields,
+  ServerErrorAlert,
+  useClearServerErrorOnChange,
+} from "@/components/forms/schema-form";
 import { appConfigOverrides } from "./AppConfigField";
 import { AppPushStatusBadge } from "./AppPushStatusBadge";
 import type { PushStatus } from "@gridone/sdk";
@@ -33,9 +38,6 @@ interface AppConfigFormProps {
 /** Status the API answers with when the app itself cannot serve its schema —
  *  a different failure from an app that simply declares no configuration. */
 const APP_UNREACHABLE_STATUS = 503;
-/** The config was refused by the schema the app declares. */
-const INVALID_CONFIG_STATUS = 422;
-
 /** Configuration panel of an app: fetches the schema the app serves, renders
  *  the generated form, and reports how the last save was delivered. */
 const AppConfigForm: FC<AppConfigFormProps> = ({ appId, pushStatus }) => {
@@ -144,12 +146,14 @@ const ConfigForm: FC<ConfigFormProps> = ({
     [activeSchema],
   );
 
-  const { control, handleSubmit, formState, watch } = useForm<FieldValues>({
+  const form = useForm<FieldValues>({
     resolver,
     mode: "onChange",
     // Seeded once, from the branch the stored config already selects.
     defaultValues: { ...defaultsFor(activeSchema), ...storedConfig },
   });
+  useClearServerErrorOnChange(form);
+  const { control, handleSubmit, formState, watch } = form;
 
   // Selecting another branch swaps the rendered fields and the validator, but
   // must not rebuild the form — the root values already entered stay put.
@@ -163,13 +167,11 @@ const ConfigForm: FC<ConfigFormProps> = ({
     return () => subscription.unsubscribe();
   }, [watch, discriminant]);
 
-  const [validationError, setValidationError] = useState<string | null>(null);
-
   const mutation = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       client.apps.updateConfig(appId, values),
     onSuccess: () => {
-      setValidationError(null);
+      form.clearErrors("root.server");
       // Exact keys on purpose: a prefix invalidation would also re-fetch the
       // schema through the app, and an app that just went down would replace
       // the form with the unreachable panel right after a successful save.
@@ -179,10 +181,10 @@ const ConfigForm: FC<ConfigFormProps> = ({
       toast.success(t("configSaved"));
     },
     onError: (error: Error) => {
-      const invalid =
-        isGridoneError(error) && error.status === INVALID_CONFIG_STATUS;
-      setValidationError(invalid ? error.detail : null);
-      toast.error(t("configError"));
+      applyServerFieldErrors(form, error, {
+        fieldNames: fields.map((field) => field.name),
+        fallbackMessage: t("configError"),
+      });
     },
   });
 
@@ -202,12 +204,11 @@ const ConfigForm: FC<ConfigFormProps> = ({
           <AppPushStatusBadge status={pushStatus} />
         </div>
 
-        {validationError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>{t("config.rejected")}</AlertTitle>
-            <AlertDescription>{validationError}</AlertDescription>
-          </Alert>
-        )}
+        <ServerErrorAlert
+          className="mb-4"
+          title={t("config.rejected")}
+          message={formState.errors.root?.server?.message}
+        />
 
         <form
           id="app-config-form"

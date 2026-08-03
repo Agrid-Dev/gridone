@@ -6,6 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { GridoneError } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -123,5 +124,24 @@ describe("BuildingProfileForm — schema-driven rendering (AGR-920)", () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ icon: "factory" });
+  });
+
+  it("attaches structured server errors to schema-driven profile fields", async () => {
+    const onSubmit = vi.fn().mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "year_built"],
+          msg: "Year is outside the supported range",
+          type: "less_than_equal",
+        },
+      ]),
+    );
+    renderForm({ name: "HQ" }, onSubmit);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      await screen.findByText("Year is outside the supported range"),
+    ).toBeInTheDocument();
   });
 });

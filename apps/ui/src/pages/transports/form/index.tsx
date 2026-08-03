@@ -10,7 +10,7 @@ import {
 } from "./useTransportForm";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
-import { SchemaFields } from "@/components/forms/schema-form";
+import { SchemaFields, ServerErrorAlert } from "@/components/forms/schema-form";
 import { Button } from "@/components/ui";
 import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
@@ -82,6 +82,13 @@ const TransportForm: FC<TransportFormProps> = ({
         <SchemaFields
           fields={configFields}
           control={configFormMethods.control}
+        />
+        <ServerErrorAlert
+          className="md:col-span-2"
+          message={
+            configFormMethods.formState.errors.root?.server?.message ??
+            baseFormMethods.formState.errors.root?.server?.message
+          }
         />
       </form>
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end sm:gap-2">

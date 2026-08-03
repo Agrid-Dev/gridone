@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type * as z from "zod";
 import { buildZodSchema } from "./buildZodSchema";
 import { normalizeSchema } from "./normalizeSchema";
+import { useClearServerErrorOnChange } from "./serverErrors";
 import type { NormalizedSchema } from "./types";
 
 export type SchemaFormValues = Record<string, unknown>;
@@ -55,5 +56,6 @@ export const useSchemaForm = ({
     zodSchema as unknown as z.ZodType<SchemaFormValues, SchemaFormValues>,
   ) as Resolver<SchemaFormValues>;
   const form = useForm<SchemaFormValues>({ resolver, mode, defaultValues });
+  useClearServerErrorOnChange(form);
   return { form, fields: normalized.fields, defaultValues };
 };

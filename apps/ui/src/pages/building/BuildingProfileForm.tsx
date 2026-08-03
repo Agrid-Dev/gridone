@@ -7,7 +7,9 @@ import { Separator } from "@/components/ui/separator";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { IconPicker } from "@/components/forms/IconPicker";
 import {
+  applyServerFieldErrors,
   SchemaFields,
+  ServerErrorAlert,
   useSchemaForm,
   type SchemaFormValues,
   type SchemaWidgetProps,
@@ -50,7 +52,7 @@ const IconWidget: FC<SchemaWidgetProps> = ({ descriptor, name, control }) => {
 export const BuildingProfileForm: FC<{
   schema: Record<string, unknown>;
   defaultValues: Record<string, unknown>;
-  onSubmit: (values: Record<string, unknown>) => void;
+  onSubmit: (values: Record<string, unknown>) => void | Promise<void>;
   isPending: boolean;
 }> = ({ schema, defaultValues, onSubmit, isPending }) => {
   const { t } = useTranslation("profile");
@@ -71,8 +73,19 @@ export const BuildingProfileForm: FC<{
       return labelKey ? { ...field, label: t(labelKey) } : field;
     });
 
+  const handleSubmit = async (values: Record<string, unknown>) => {
+    try {
+      await onSubmit(values);
+    } catch (error) {
+      applyServerFieldErrors(form, error, {
+        fieldNames: visibleFields.map((field) => field.name),
+        fallbackMessage: t("saveError"),
+      });
+    }
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
         <SchemaFields
           fields={visibleFields}
@@ -80,6 +93,8 @@ export const BuildingProfileForm: FC<{
           overrides={{ icon: IconWidget }}
         />
       </div>
+
+      <ServerErrorAlert message={form.formState.errors.root?.server?.message} />
 
       <Separator />
 

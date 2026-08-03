@@ -12,6 +12,15 @@ export {
   type SchemaFormValues,
   type UseSchemaFormOptions,
 } from "./useSchemaForm";
+export { ServerErrorAlert } from "./ServerErrorAlert";
+export {
+  applyServerFieldErrors,
+  normalizeServerErrorLocation,
+  useClearServerErrorOnChange,
+  type AppliedServerFieldErrors,
+  type ApplyServerFieldErrorsOptions,
+  type ServerLocationOptions,
+} from "./serverErrors";
 export type {
   FieldDescriptor,
   FieldKind,

@@ -15,7 +15,11 @@ from api.routes.transports_router import (
     router,
 )
 from devices_manager import DevicesServiceInterface, IngressRequest, IngressResult
-from devices_manager.dto import Transport, build_transport
+from devices_manager.dto import (
+    TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
+    Transport,
+    build_transport,
+)
 from devices_manager.types import TransportProtocols
 from models.errors import InvalidError, NotFoundError, UnauthorizedError
 
@@ -118,6 +122,24 @@ class TestCreateTransport:
         response = client.post("/", json=payload)
         assert response.status_code == 422
 
+    def test_config_field_error_loc_pins_union_and_config_scopes(
+        self, client: TestClient
+    ):
+        """AGR-921 shape 1: FastAPI owns `body.<tag>.config.<field>`."""
+        response = client.post(
+            "/",
+            json={
+                "name": "Broker",
+                "protocol": "mqtt",
+                "config": {"host": "broker.local", "port": 0},
+            },
+        )
+
+        assert response.status_code == 422
+        assert [item["loc"] for item in response.json()["detail"]] == [
+            ["body", "mqtt", "config", "port"]
+        ]
+
 
 class TestUpdateTransport:
     @pytest.mark.asyncio
@@ -136,6 +158,24 @@ class TestUpdateTransport:
         async with async_client as ac:
             response = await ac.patch("/my-mqtt", json={"config": {"port": "abc"}})
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_config_field_error_loc_is_relative_to_config_model(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        """AGR-921 shape 2: update-time revalidation starts at the field."""
+        config_class = TRANSPORT_CONFIG_CLASS_BY_PROTOCOL[TransportProtocols.MQTT]
+        with pytest.raises(ValidationError) as exc_info:
+            config_class.model_validate({"host": "broker.local", "port": 0})
+        dm.update_transport.side_effect = exc_info.value
+
+        async with async_client as ac:
+            response = await ac.patch(
+                "/my-mqtt", json={"config": {"host": "broker.local", "port": 0}}
+            )
+
+        assert response.status_code == 422
+        assert [item["loc"] for item in response.json()["detail"]] == [["port"]]
 
     @pytest.mark.asyncio
     async def test_not_found(self, async_client: AsyncClient, dm: MagicMock):

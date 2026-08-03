@@ -29,14 +29,10 @@ const BuildingProfileEdit: FC = () => {
   // Form fields are schema-native (snake_case), same as the SDK wire format.
   const defaultValues = (profile.data ?? {}) as Record<string, unknown>;
 
-  const handleSubmit = (values: Record<string, unknown>) => {
-    save.mutate(values, {
-      onSuccess: () => {
-        toast.success(t("saved"));
-        navigate("/");
-      },
-      onError: (error: Error) => toast.error(error.message),
-    });
+  const handleSubmit = async (values: Record<string, unknown>) => {
+    await save.mutateAsync(values);
+    toast.success(t("saved"));
+    navigate("/");
   };
 
   return (
