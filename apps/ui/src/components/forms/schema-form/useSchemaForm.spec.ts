@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { normalizeSchema } from "./normalizeSchema";
-import { schemaFormDefaults } from "./useSchemaForm";
+import { emptyOptionalsToNull, schemaFormDefaults } from "./useSchemaForm";
 import mqttSchema from "./__fixtures__/transport-mqtt.json";
+import knxSchema from "./__fixtures__/transport-knx.json";
 import changeEventSchema from "./__fixtures__/trigger-change-event.json";
 
 describe("schemaFormDefaults", () => {
@@ -46,5 +47,41 @@ describe("schemaFormDefaults", () => {
     });
 
     expect(schemaFormDefaults(normalized)).toEqual({ meters: [] });
+  });
+});
+
+describe("emptyOptionalsToNull", () => {
+  it("maps cleared optional inputs to null so a PATCH unsets them", () => {
+    const { fields } = normalizeSchema(knxSchema);
+    const values = {
+      gateway_ip: "gw.local",
+      secure_device_authentication_password: "",
+      secure_user_password: "",
+      secure_user_id: 2,
+    };
+
+    expect(emptyOptionalsToNull(values, fields)).toEqual({
+      gateway_ip: "gw.local",
+      secure_device_authentication_password: null,
+      secure_user_password: null,
+      secure_user_id: 2,
+    });
+  });
+
+  it("keeps empty strings on required fields — validation owns those", () => {
+    const { fields } = normalizeSchema(mqttSchema);
+
+    expect(emptyOptionalsToNull({ host: "", password: "" }, fields)).toEqual({
+      host: "",
+      password: null,
+    });
+  });
+
+  it("leaves unsupported fields untouched so they round-trip verbatim", () => {
+    const { fields } = normalizeSchema(changeEventSchema);
+
+    expect(
+      emptyOptionalsToNull({ device_id: "dev1", condition: "" }, fields),
+    ).toEqual({ device_id: "dev1", condition: "" });
   });
 });

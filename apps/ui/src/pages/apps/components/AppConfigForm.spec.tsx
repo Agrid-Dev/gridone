@@ -369,6 +369,30 @@ describe("AppConfigForm — PMS schema", () => {
     expect(mockToast.error).not.toHaveBeenCalled();
   });
 
+  it("attaches missing-required errors to their field (AGR-993 loc contract)", async () => {
+    // The backend now rewrites jsonschema `required` errors from the parent
+    // loc to the field itself (loc ["client_id"], type "missing") — the most
+    // common validation failure must land under the input, not in the banner.
+    const user = userEvent.setup();
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["client_id"],
+          msg: "'client_id' is a required property",
+          type: "missing",
+        },
+      ]),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(
+      await screen.findByText("'client_id' is a required property"),
+    ).toBeInTheDocument();
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
+
   it("attaches indexed app-config errors to the rendered array field", async () => {
     const user = userEvent.setup();
     mockClient.apps.getConfigSchema.mockResolvedValue({

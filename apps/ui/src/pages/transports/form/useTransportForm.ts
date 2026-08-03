@@ -16,6 +16,7 @@ import {
 } from "@/components/forms/schema-form";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
+  emptyOptionalsToNull,
   useSchemaForm,
   type SchemaFormValues,
 } from "@/components/forms/schema-form";
@@ -151,7 +152,10 @@ export const useTransportForm = (
   const handleSubmit = async () => {
     const values = {
       ...baseFormMethods.getValues(),
-      config: configFormMethods.getValues(),
+      // Cleared optional inputs hold "" — send an explicit null so the
+      // backend unsets them (PATCH merges: an absent key keeps the old
+      // value, and "" would store a blank credential).
+      config: emptyOptionalsToNull(configFormMethods.getValues(), configFields),
     };
     const [okBase, okConfig] = await Promise.all([
       baseFormMethods.trigger(),

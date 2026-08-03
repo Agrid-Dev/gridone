@@ -867,6 +867,7 @@ dependencies = [
     { name = "jsonschema" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "referencing" },
 ]
 
 [package.metadata]
@@ -878,6 +879,7 @@ requires-dist = [
     { name = "jsonschema", specifier = ">=4" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "referencing", specifier = ">=0.36" },
 ]
 
 [[package]]

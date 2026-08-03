@@ -1,9 +1,14 @@
 """Unit tests for apps.config_validation."""
 
 import pytest
+from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
-from apps.config_validation import validate_config, validate_schema
-from apps.errors import ConfigValidationError, InvalidAppSchemaError
+from apps.config_validation import _to_error_item, validate_config, validate_schema
+from apps.errors import (
+    ConfigValidationError,
+    InvalidAppSchemaError,
+    ValidationErrorItem,
+)
 from models.errors import InvalidError
 
 SCHEMA = {
@@ -42,10 +47,10 @@ def test_valid_payload_passes():
     [
         pytest.param(
             {"lat": 48.8},
-            (),
-            "required",
+            ("lng",),
+            "missing",
             "'lng' is a required property",
-            id="required-reports-at-the-parent-loc",
+            id="required-appends-the-missing-property-to-loc",
         ),
         pytest.param(
             {"lat": "north", "lng": 2.3},
@@ -77,10 +82,10 @@ def test_valid_payload_passes():
         ),
         pytest.param(
             {"lat": 48.8, "lng": 2.3, "meters": [{"point_id": "a"}, {}]},
-            ("meters", 1),
-            "required",
+            ("meters", 1, "point_id"),
+            "missing",
             "'point_id' is a required property",
-            id="nested-required-reports-at-the-item-loc",
+            id="nested-required-lands-on-the-item-field",
         ),
     ],
 )
@@ -95,7 +100,11 @@ def test_error_items_follow_the_pydantic_contract(payload, loc, type_, msg_fragm
 
 def test_multiple_errors_are_collected_and_sorted_by_path():
     exc = _validation_errors({"lat": 999, "lng": -999, "meters": [{}]})
-    assert [e.loc for e in exc.errors] == [("lat",), ("lng",), ("meters", 0)]
+    assert [e.loc for e in exc.errors] == [
+        ("lat",),
+        ("lng",),
+        ("meters", 0, "point_id"),
+    ]
 
 
 def test_str_keeps_the_flattened_summary():
@@ -108,14 +117,32 @@ def test_str_keeps_the_flattened_summary():
 
 
 def test_root_errors_are_labeled_in_the_summary():
-    exc = _validation_errors({"lat": 48.8})
-    assert "<root>: 'lng' is a required property" in str(exc)
+    # `required` now lands on the field, so a root loc only occurs for other
+    # validators (e.g. a root `type` error) — pin the summary label directly.
+    exc = ConfigValidationError(
+        [ValidationErrorItem(loc=(), msg="is not of type 'object'", type="type")]
+    )
+    assert "<root>: is not of type 'object'" in str(exc)
 
 
 def test_config_validation_error_is_an_invalid_error():
     """Consumers catching the generic InvalidError keep working."""
     with pytest.raises(InvalidError, match="lng"):
         validate_config({"lat": 48.8}, SCHEMA)
+
+
+def test_unmatchable_required_message_falls_back_to_the_parent_loc():
+    """If jsonschema's `required` wording ever changes, the item degrades to
+    the old parent-loc shape instead of pointing at the wrong field."""
+    error = JsonSchemaValidationError(
+        "custom wording",
+        validator="required",
+        validator_value=["api_key"],
+        instance={},
+    )
+    item = _to_error_item(error)
+    assert item.loc == ()
+    assert item.type == "required"
 
 
 def test_unknown_format_annotation_is_ignored():
@@ -146,3 +173,57 @@ class TestValidateSchema:
     def test_malformed_schema_raises(self, schema):
         with pytest.raises(InvalidAppSchemaError, match="invalid config schema"):
             validate_schema(schema)
+
+    @pytest.mark.parametrize(
+        "schema",
+        [
+            pytest.param(
+                {"properties": {"x": {"$ref": "#/$defs/Missing"}}},
+                id="dangling-local-ref",
+            ),
+            pytest.param(
+                {"properties": {"x": {"$ref": "https://example.com/x.json"}}},
+                id="remote-ref",
+            ),
+            pytest.param(
+                {
+                    "properties": {
+                        "rows": {"type": "array", "items": {"$ref": "#/$defs/Nope"}}
+                    }
+                },
+                id="dangling-ref-inside-items",
+            ),
+        ],
+    )
+    def test_unresolvable_ref_raises(self, schema):
+        """`check_schema` passes these — refs are only resolved at validation
+        time, where they would explode as an unhandled 500 (AGR-993 AC2)."""
+        with pytest.raises(InvalidAppSchemaError, match="invalid config schema"):
+            validate_schema(schema)
+
+    def test_resolvable_local_ref_passes(self):
+        validate_schema(
+            {
+                "$defs": {"Point": {"type": "string"}},
+                "properties": {"x": {"$ref": "#/$defs/Point"}},
+            }
+        )
+
+    def test_ref_shaped_data_inside_value_keywords_is_not_walked(self):
+        """`const`/`enum`/`default`/`examples` hold data, not subschemas — a
+        `$ref`-looking dict inside them must not be resolved as a reference."""
+        validate_schema(
+            {
+                "properties": {
+                    "template": {"type": "object", "const": {"$ref": "#/nowhere"}}
+                }
+            }
+        )
+
+
+def test_validate_config_maps_unresolvable_refs_to_the_app_fault():
+    """Backstop for callers that skipped `validate_schema`: the ref failure
+    inside `iter_errors` stays a controlled app-fault error, never a 500."""
+    schema = {"properties": {"x": {"$ref": "#/$defs/Missing"}}}
+    with pytest.raises(InvalidAppSchemaError, match="invalid config schema"):
+        validate_config({"x": 1}, schema)

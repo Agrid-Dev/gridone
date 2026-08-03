@@ -69,6 +69,47 @@ class TestKNXTransportConfig:
         with pytest.raises(ValidationError, match="must be set together"):
             KNXTransportConfig(gateway_ip="192.168.1.1", **kwargs)
 
+    def test_blank_passwords_normalize_to_absent_and_stay_plain(self) -> None:
+        # A cleared form input arrives as "" — it must NOT enable IP-Secure
+        # with empty credentials (the handshake would fail at connect time).
+        cfg = KNXTransportConfig(
+            gateway_ip="192.168.1.1",
+            secure_device_authentication_password="",
+            secure_user_password="",
+        )
+        assert cfg.secure_device_authentication_password is None
+        assert cfg.secure_user_password is None
+        xc = cfg.to_xknx_connection_config()
+        assert xc.connection_type is ConnectionType.TUNNELING
+        assert xc.secure_config is None
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            pytest.param(
+                {
+                    "secure_device_authentication_password": "",
+                    "secure_user_password": "usr",
+                },
+                id="blank_device_password",
+            ),
+            pytest.param(
+                {
+                    "secure_device_authentication_password": "dev",
+                    "secure_user_password": "",
+                },
+                id="blank_user_password",
+            ),
+        ],
+    )
+    def test_one_blank_password_still_fails_the_pair_rule(
+        self, kwargs: dict[str, Any]
+    ) -> None:
+        # "" used to defeat the `is None` pair check, silently keeping a
+        # half-configured IP-Secure setup.
+        with pytest.raises(ValidationError, match="must be set together"):
+            KNXTransportConfig(gateway_ip="192.168.1.1", **kwargs)
+
     def test_legacy_secure_credentials_key_rejected(self) -> None:
         # The pre-flattening nested shape: no consumer ever stored it, so it
         # now fails `extra="forbid"` instead of getting a migration.

@@ -8,6 +8,7 @@ export {
   type SchemaWidgetProps,
 } from "./SchemaFields";
 export {
+  emptyOptionalsToNull,
   schemaFormDefaults,
   useSchemaForm,
   type SchemaFormValues,

@@ -176,6 +176,62 @@ class TestUpdateTransport:
 
         assert response.status_code == 422
         assert [item["loc"] for item in response.json()["detail"]] == [["port"]]
+        # Sanitized contract: no pydantic `input`/`ctx`/`url` internals leak
+        # (`input` would echo submitted secrets back to the client).
+        assert all(
+            set(item.keys()) == {"loc", "msg", "type"}
+            for item in response.json()["detail"]
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("protocol", "config", "expected_msg"),
+        [
+            pytest.param(
+                TransportProtocols.KNX,
+                {"gateway_ip": "10.0.0.1", "secure_user_password": "pw"},
+                "secure_device_authentication_password and secure_user_password "
+                "must be set together to enable KNX IP-Secure",
+                id="knx-lone-secure-password",
+            ),
+            pytest.param(
+                TransportProtocols.MQTT,
+                {"host": "broker.local", "client_cert": "cert"},
+                "client_cert and client_key must be provided together",
+                id="mqtt-cert-without-key",
+            ),
+            pytest.param(
+                TransportProtocols.WEBHOOK,
+                {},
+                "secret is required unless auth is 'none'",
+                id="webhook-auth-without-secret",
+            ),
+        ],
+    )
+    async def test_model_validator_error_returns_a_sanitized_422(
+        self,
+        async_client: AsyncClient,
+        dm: MagicMock,
+        protocol: TransportProtocols,
+        config: dict,
+        expected_msg: str,
+    ):
+        """AGR-921 shape 3 driven by REAL model validators: their `ctx` holds a
+        raw ValueError, which used to crash the JSON encoder into a 500 —
+        the clear pair message never reached the edit form.
+        """
+        config_class = TRANSPORT_CONFIG_CLASS_BY_PROTOCOL[protocol]
+        with pytest.raises(ValidationError) as exc_info:
+            config_class.model_validate(config)
+        dm.update_transport.side_effect = exc_info.value
+
+        async with async_client as ac:
+            response = await ac.patch("/my-mqtt", json={"config": config})
+
+        assert response.status_code == 422
+        assert response.json() == {
+            "detail": [{"loc": [], "msg": expected_msg, "type": "value_error"}]
+        }
 
     @pytest.mark.asyncio
     async def test_not_found(self, async_client: AsyncClient, dm: MagicMock):
