@@ -1,3 +1,9 @@
+## v0.190.0 (2026-08-03)
+
+### Feat
+
+- **ui**: add array field support (AGR-922)
+
 ## v0.189.0 (2026-08-03)
 
 ### Feat
