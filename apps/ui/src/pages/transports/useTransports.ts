@@ -6,13 +6,10 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import {
-  isGridoneError,
-  type Transport,
-  type TransportCreate,
-} from "@gridone/sdk";
+import { type Transport, type TransportCreate } from "@gridone/sdk";
 import { useTranslation } from "react-i18next";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 export const useTransports = () => {
   const { t } = useTranslation(["transports", "common"]);
@@ -24,9 +21,9 @@ export const useTransports = () => {
     initialData: [],
   });
   const handleApiError = (err: Error) => {
-    const detail = isGridoneError(err) ? err.detail : err.message;
-    const errorMessage = `${t("common:errors.default")}: ${detail}`;
-    toast.error(errorMessage);
+    const detail = serverErrorMessage(err);
+    const base = t("common:errors.default");
+    toast.error(detail ? `${base}: ${detail}` : base);
   };
   const createMutation = useMutation({
     mutationFn: (payload: TransportCreate) => client.transports.create(payload),
@@ -65,8 +62,9 @@ export const useDeleteTransport = () => {
       navigate("..");
     },
     onError: (err: Error) => {
-      const detail = isGridoneError(err) ? err.detail : err.message;
-      toast.error(`${t("common:errors.default")}: ${detail}`);
+      const detail = serverErrorMessage(err);
+      const base = t("common:errors.default");
+      toast.error(detail ? `${base}: ${detail}` : base);
     },
   });
   const handleDelete = async (transportId: string) =>

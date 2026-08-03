@@ -46,6 +46,9 @@ export interface FieldDescriptor {
   arrayItem?: ArrayItemDescriptor;
   /** Vendor marker: render a textarea instead of a single-line input. */
   multiline: boolean;
+  /** Credential-bearing field (`secret: true` marker or the app contract's
+   *  `format: "password"`): rendered masked with a reveal toggle. */
+  secret: boolean;
   /** Resolved, unwrapped node (constraints intact) — feeds `buildZodSchema`. */
   schema: JsonSchemaObject;
 }

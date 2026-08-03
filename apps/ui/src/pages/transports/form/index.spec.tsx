@@ -169,6 +169,39 @@ describe("TransportForm — schema-driven config (AGR-919)", () => {
       tls_insecure: false,
     });
   });
+
+  it("clears a rejected field's error as the user corrects it", async () => {
+    // Submission runs through RHF handleSubmit (isSubmitted flips), so the
+    // default reValidateMode "onChange" re-validates on every keystroke —
+    // the old trigger()-based flow kept stale errors until the next click.
+    mockGetTransportSchemas.mockResolvedValue(schemasWithRealMqtt);
+    const { container } = renderForm();
+
+    fireEvent.change(await screen.findByLabelText(/fields\.name/), {
+      target: { value: "My broker" },
+    });
+    fireEvent.change(screen.getByLabelText(/^host/i), {
+      target: { value: "broker.local" },
+    });
+    fireEvent.change(screen.getByLabelText("Port"), { target: { value: "0" } });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    const portError = await screen.findByText(/too small|greater than/i);
+    expect(portError).toBeInTheDocument();
+    expect(mockCreateTransport).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Port"), {
+      target: { value: "1883" },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/too small|greater than/i),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });
 
 describe("TransportForm — KNX flat IP-Secure fields (AGR-920)", () => {
@@ -303,17 +336,44 @@ describe("TransportForm — server errors (ADR 0002)", () => {
     expect(mockToastError).toHaveBeenCalledWith("saveFailed");
   });
 
-  it("shows KNX password-pair errors in the form-level banner", async () => {
+  it("shows KNX password-pair errors in the form-level banner on edit", async () => {
+    // The exact message + empty loc the API emits since the PATCH handler
+    // sanitizes model-validator errors (T1): asserting the production wording
+    // keeps this spec honest about what users actually read.
+    const pairMessage =
+      "secure_device_authentication_password and secure_user_password " +
+      "must be set together to enable KNX IP-Secure";
     mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
-    mockCreateTransport.mockRejectedValue(
+    mockUpdateTransport.mockRejectedValue(
       new GridoneError(422, [
-        {
-          loc: ["body", "knx", "config"],
-          msg: "The two KNX secure passwords must be set together",
-          type: "value_error",
-        },
+        { loc: [], msg: pairMessage, type: "value_error" },
       ]),
     );
+    const { container } = renderForm("knx", {
+      id: "knx-1",
+      name: "KNX gateway",
+      protocol: "knx",
+      config: { gateway_ip: "gw.local" },
+    } as Transport);
+
+    expect(await screen.findByLabelText(/gateway ip/i)).toHaveValue("gw.local");
+    fireEvent.change(screen.getByLabelText(/secure user password/i), {
+      target: { value: "user-pass" },
+    });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    expect(await screen.findByText(pairMessage)).toBeInTheDocument();
+    expect(mockToastError).toHaveBeenCalledWith("saveFailed");
+  });
+
+  it("submits cleared secure passwords as null, never empty strings", async () => {
+    // Typed-then-cleared inputs hold "" — the wire payload must carry null so
+    // the backend unsets them ("" used to enable IP-Secure with blank
+    // credentials, and an absent key would keep the old value on PATCH).
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    mockCreateTransport.mockResolvedValue({ id: "t1" });
     const { container } = renderForm("knx");
 
     fireEvent.change(await screen.findByLabelText(/fields\.name/), {
@@ -322,16 +382,25 @@ describe("TransportForm — server errors (ADR 0002)", () => {
     fireEvent.change(screen.getByLabelText(/gateway ip/i), {
       target: { value: "gw.local" },
     });
+    for (const label of [
+      /secure device authentication password/i,
+      /secure user password/i,
+    ]) {
+      fireEvent.change(screen.getByLabelText(label), {
+        target: { value: "secret" },
+      });
+      fireEvent.change(screen.getByLabelText(label), { target: { value: "" } });
+    }
     const form = container.querySelector("form");
     if (!form) throw new Error("form not found");
     fireEvent.submit(form);
 
-    expect(
-      await screen.findByText(
-        "The two KNX secure passwords must be set together",
-      ),
-    ).toBeInTheDocument();
-    expect(mockToastError).toHaveBeenCalledWith("saveFailed");
+    await waitFor(() => expect(mockCreateTransport).toHaveBeenCalled());
+    expect(mockCreateTransport.mock.calls[0][0].config).toMatchObject({
+      gateway_ip: "gw.local",
+      secure_device_authentication_password: null,
+      secure_user_password: null,
+    });
   });
 
   it("maps a base-field validation error onto the name field", async () => {

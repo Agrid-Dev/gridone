@@ -6,8 +6,9 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { isGridoneError, type Driver, type DriverYaml } from "@gridone/sdk";
+import { type Driver, type DriverYaml } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useTranslation } from "react-i18next";
 import type { DevicesFilter } from "@/lib/devices";
 
@@ -51,9 +52,9 @@ export const useDrivers = (filters?: DevicesFilter) => {
     initialData: [],
   });
   const handleApiError = (err: Error) => {
-    const detail = isGridoneError(err) ? err.detail : err.message;
-    const errorMessage = `${t("common:errors.default")}: ${detail}`;
-    toast.error(errorMessage);
+    const detail = serverErrorMessage(err);
+    const base = t("common:errors.default");
+    toast.error(detail ? `${base}: ${detail}` : base);
   };
   const createMutation = useMutation({
     mutationFn: (payload: DriverYaml) =>
@@ -125,8 +126,9 @@ export const useDeleteDriver = () => {
       navigate("..");
     },
     onError: (err: Error) => {
-      const detail = isGridoneError(err) ? err.detail : err.message;
-      toast.error(`${t("common:errors.default")}: ${detail}`);
+      const detail = serverErrorMessage(err);
+      const base = t("common:errors.default");
+      toast.error(detail ? `${base}: ${detail}` : base);
     },
   });
   const handleDelete = async (driverId: string) =>

@@ -134,6 +134,15 @@ export function applyServerFieldErrors<T extends FieldValues>(
   }
 
   if (unmatched.length > 0) {
+    if (import.meta.env.DEV) {
+      // A server loc matched no rendered field — usually a leaked payload key
+      // (extra_forbidden) or a field the dialect can't render.
+      // eslint-disable-next-line no-console -- dev-only diagnostic
+      console.error(
+        "applyServerFieldErrors: unmatched server error locations",
+        unmatched.map((item) => item.loc),
+      );
+    }
     surfaceRootError(form, joinMessages(unmatched), options);
   }
 

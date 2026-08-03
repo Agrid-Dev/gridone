@@ -115,6 +115,62 @@ class TestGetConfigSchema:
         with pytest.raises(InvalidError, match="plain text error"):
             await apps_manager.get_config_schema("app-1")
 
+    async def test_app_returns_error_with_non_object_json_body(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A bare JSON array has no `.get` — must fall back to the raw text,
+        not explode in the detail extraction (was an unhandled 500)."""
+        await app_storage.save(make_app())
+        resp_mock = MagicMock()
+        resp_mock.status_code = 400
+        resp_mock.text = '["oops"]'
+        resp_mock.json.return_value = ["oops"]
+        http_client.request.side_effect = httpx.HTTPStatusError(
+            "Bad Request", request=MagicMock(), response=resp_mock
+        )
+
+        with pytest.raises(InvalidError, match=r"App returned 400"):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_non_json_success_body_is_app_unreachable(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A 200 text/html body (proxy error page, captive portal) must be a
+        controlled app fault, not an unhandled JSONDecodeError -> 500."""
+        await app_storage.save(make_app())
+        response = MagicMock()
+        response.json.side_effect = ValueError("not JSON")
+        http_client.request.return_value = response
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_non_object_json_success_body_is_app_unreachable(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A 200 JSON array would fail the route's `-> dict` response model
+        as a bare 500 — reject it at the proxy instead."""
+        await app_storage.save(make_app())
+        response = MagicMock()
+        response.json.return_value = ["not", "a", "schema"]
+        http_client.request.return_value = response
+
+        with pytest.raises(AppUnreachableError):
+            await apps_manager.get_config_schema("app-1")
+
+    async def test_malformed_schema_is_the_apps_fault_on_read_too(
+        self, apps_manager, app_storage, http_client
+    ):
+        """Same guard as the write path: without it a broken app renders as
+        'this app has no configuration' instead of the crafted 503."""
+        await app_storage.save(make_app())
+        response = MagicMock()
+        response.json.return_value = {"type": "not-a-json-type"}
+        http_client.request.return_value = response
+
+        with pytest.raises(InvalidAppSchemaError):
+            await apps_manager.get_config_schema("app-1")
+
 
 class TestGetConfig:
     async def test_returns_stored_config(self, apps_manager, app_storage):

@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { GridoneError, type Asset, type Device } from "@gridone/sdk";
+import { type Asset, type Device } from "@gridone/sdk";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -68,12 +69,8 @@ export function CommandWizard(props: CommandWizardProps) {
   // Error toasts — fires once per distinct error instance.
   useEffect(() => {
     if (!commitError) return;
-    const detail =
-      commitError instanceof GridoneError
-        ? commitError.detail || commitError.message
-        : commitError.message;
-    toast.error(String(detail));
-  }, [commitError]);
+    toast.error(serverErrorMessage(commitError) ?? t("common:errors.default"));
+  }, [commitError, t]);
 
   const stateOf = (idx: number) =>
     idx < step ? "done" : idx === step ? "active" : "pending";

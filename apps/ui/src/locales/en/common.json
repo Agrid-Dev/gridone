@@ -255,6 +255,8 @@
     "itemLabel": "Item {{index}}",
     "emptyArray": "No items yet. Add the first item.",
     "unsupportedField": "This field type can't be edited here yet.",
-    "serverErrorTitle": "Check this form"
+    "serverErrorTitle": "Check this form",
+    "showSecret": "Show value",
+    "hideSecret": "Hide value"
   }
 }

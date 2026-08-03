@@ -120,6 +120,9 @@ describe("normalizeError", () => {
     [409, "A transport with this name already exists"],
     [422, "End must be after start"],
     [502, "Upstream device rejected the command"],
+    // Gridone's app-fault 503 bodies are server-authored constants the user
+    // must see ("the app is broken, not your input") — deliberately surfaced.
+    [503, "App returned an invalid config schema"],
   ])("maps a string-detail %i to message", (status, detail) => {
     expect(normalizeError(new GridoneError(status, detail))).toEqual({
       kind: "message",
@@ -129,7 +132,6 @@ describe("normalizeError", () => {
 
   it.each([
     ["a 500 with a string detail", new GridoneError(500, "Traceback: ...")],
-    ["a 503 with a string detail", new GridoneError(503, "App is unreachable")],
     ["a network error", new NetworkError("fetch failed")],
     ["a 422 with a malformed array", new GridoneError(422, [{ oops: true }])],
     ["a 400 with an object detail", new GridoneError(400, { code: 3 })],

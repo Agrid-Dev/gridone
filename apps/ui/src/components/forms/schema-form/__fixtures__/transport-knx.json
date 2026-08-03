@@ -31,6 +31,7 @@
       ],
       "default": null,
       "description": "KNX IP-Secure device authentication password (set together with the secure user password)",
+      "secret": true,
       "title": "Secure Device Authentication Password"
     },
     "secure_user_password": {
@@ -44,6 +45,7 @@
       ],
       "default": null,
       "description": "KNX IP-Secure user password (set together with the secure device authentication password)",
+      "secret": true,
       "title": "Secure User Password"
     },
     "secure_user_id": {

@@ -15,6 +15,7 @@ from api.dependencies import get_apps_service, get_current_token_payload
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
 from apps import App, AppStatus, PushStatus
+from apps.config_validation import validate_config
 from apps.errors import (
     AppUnreachableError,
     ConfigValidationError,
@@ -169,6 +170,20 @@ def test_get_config_schema_app_unreachable(app: FastAPI, apps_service: AsyncMock
         assert resp.status_code == 503
 
 
+def test_get_config_schema_invalid_schema_is_a_503(
+    app: FastAPI, apps_service: AsyncMock
+):
+    """A broken schema must read as an app fault on the READ path too — not
+    render as 'this app has no configuration' in the UI."""
+    apps_service.get_config_schema = AsyncMock(
+        side_effect=InvalidAppSchemaError("App returned an invalid config schema")
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1/config/schema")
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "App returned an invalid config schema"
+
+
 # ── GET /apps/{app_id}/config ──────────────────────────────
 
 
@@ -208,9 +223,9 @@ def test_update_config_validation_error_emits_pydantic_contract(
                     type="type",
                 ),
                 ValidationErrorItem(
-                    loc=(),
+                    loc=("lng",),
                     msg="'lng' is a required property",
-                    type="required",
+                    type="missing",
                 ),
             ]
         )
@@ -227,9 +242,61 @@ def test_update_config_validation_error_emits_pydantic_contract(
                     "msg": "42 is not of type 'string'",
                     "type": "type",
                 },
-                {"loc": [], "msg": "'lng' is a required property", "type": "required"},
+                {
+                    "loc": ["lng"],
+                    "msg": "'lng' is a required property",
+                    "type": "missing",
+                },
             ]
         }
+
+
+def test_update_config_emits_real_jsonschema_items_end_to_end(
+    app: FastAPI, apps_service: AsyncMock
+):
+    """Drives a REAL `validate_config` failure through the handler: the items
+    are jsonschema-produced, not hand-built, so a regression in the mapping
+    layer (loc types, the `required` -> field-level rewrite) fails here even
+    though every layer's own unit tests construct their inputs themselves.
+    """
+    schema = {
+        "type": "object",
+        "properties": {
+            "api_key": {"type": "string"},
+            "meters": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"point_id": {"type": "string"}},
+                    "required": ["point_id"],
+                },
+            },
+        },
+        "required": ["api_key"],
+    }
+    payload = {"meters": [{"point_id": 42}]}
+    with pytest.raises(ConfigValidationError) as exc_info:
+        validate_config(payload, schema)
+    apps_service.update_config = AsyncMock(side_effect=exc_info.value)
+
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json=payload)
+
+    assert resp.status_code == 422
+    assert resp.json() == {
+        "detail": [
+            {
+                "loc": ["api_key"],
+                "msg": "'api_key' is a required property",
+                "type": "missing",
+            },
+            {
+                "loc": ["meters", 0, "point_id"],
+                "msg": "42 is not of type 'string'",
+                "type": "type",
+            },
+        ]
+    }
 
 
 def test_update_config_plain_invalid_error_keeps_string_detail(

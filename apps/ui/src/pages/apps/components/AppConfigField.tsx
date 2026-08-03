@@ -1,7 +1,6 @@
 import { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { useController, type Control, type FieldValues } from "react-hook-form";
-import { InputController } from "@/components/forms/controllers/InputController";
 import { MultiSelectController } from "@/components/forms/controllers/MultiSelectController";
 import { SchemaField } from "@/components/forms/SchemaField";
 import { AssetPicker } from "@/components/forms/resourcePickers/AssetPicker";
@@ -13,11 +12,7 @@ import type {
   SchemaFieldOverrides,
   SchemaWidgetProps,
 } from "@/components/forms/schema-form";
-import {
-  ASSET_ID_FORMAT,
-  PASSWORD_FORMAT,
-  type AppSchemaNode,
-} from "@/lib/appConfigSchema";
+import { ASSET_ID_FORMAT, type AppSchemaNode } from "@/lib/appConfigSchema";
 
 interface AppConfigFieldProps {
   name: string;
@@ -31,14 +26,16 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset references, masked secrets, list values. Since AGR-920 the config
- * form renders through `SchemaFields`, and this component is mounted through
- * its per-consumer `overrides` seam (`appConfigOverrides` below) only for the
- * shapes listed above; primitives go straight to the shared widget registry.
+ * asset references and scalar list values. Since AGR-920 the config form
+ * renders through `SchemaFields`, and this component is mounted through its
+ * per-consumer `overrides` seam (`appConfigOverrides` below) only for the
+ * shapes listed above; primitives — including `format: password`, masked by
+ * the registry's shared secret widget — go straight to the widget registry.
  * (The `SchemaField` delegation at the bottom keeps this component usable
  * standalone.) `asset-id` is why the seam exists rather than a registry
  * entry — it pulls `useAssetTree`, and the shared builder must stay
- * domain-agnostic. Array kinds get their registry home in AGR-922.
+ * domain-agnostic. Flat-object arrays live in the registry (AGR-922);
+ * scalar arrays deliberately keep the app-contract pickers/textarea here.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,
@@ -60,19 +57,6 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
         control={control}
         required={required}
         multiple={isArray}
-      />
-    );
-  }
-
-  if (schema.format === PASSWORD_FORMAT) {
-    return (
-      <InputController
-        name={name}
-        control={control}
-        label={schema.title}
-        description={schema.description}
-        required={required}
-        type="password"
       />
     );
   }
@@ -110,10 +94,12 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
   );
 };
 
-/** The shapes the app contract renders itself instead of the registry. */
+/** The shapes the app contract renders itself instead of the registry.
+ *  `format: password` is NOT one of them anymore: the registry's shared
+ *  secret widget masks it (same path as the first-party `secret` marker). */
 const needsAppWidget = (field: FieldDescriptor): boolean => {
   const schema = field.schema as AppSchemaNode;
-  if (schema.format === ASSET_ID_FORMAT || schema.format === PASSWORD_FORMAT) {
+  if (schema.format === ASSET_ID_FORMAT) {
     return true;
   }
   // Keep the app contract's scalar-array pickers/text area, but let the shared

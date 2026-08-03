@@ -4,12 +4,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
-  isGridoneError,
   type Device,
   type DeviceCreate,
   type DeviceUpdate,
   type Transport,
 } from "@gridone/sdk";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import type { FormProtocol } from "@/pages/transports/form/useTransportForm";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useDrivers } from "@/pages/drivers/useDrivers";
@@ -214,10 +214,9 @@ export const useDeviceForm = (device?: Device) => {
       navigate(`..`, { relative: "path" });
     },
     onError: (err: Error) => {
-      const detail = isGridoneError(err)
-        ? err.detail || err.message
-        : err.message;
-      toast.error(`${t("devices.feedback.updateError")}: ${detail}`);
+      const detail = serverErrorMessage(err);
+      const base = t("devices.feedback.updateError");
+      toast.error(detail ? `${base}: ${detail}` : base);
     },
   });
 

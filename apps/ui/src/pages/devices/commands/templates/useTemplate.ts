@@ -7,12 +7,9 @@ import {
   useSuspenseQuery,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  GridoneError,
-  type CommandTemplateResponse,
-  type Device,
-} from "@gridone/sdk";
+import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
@@ -23,7 +20,7 @@ import { useAssetTree } from "@/hooks/useAssetTree";
  *  by the TargetPresenter, and the execute/delete mutations with their toast +
  *  navigation side effects. */
 export function useTemplate(templateId: string) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const navigate = useNavigate();
   const client = useGridoneClient();
   const queryClient = useQueryClient();
@@ -52,7 +49,8 @@ export function useTemplate(templateId: string) {
       queryClient.invalidateQueries({ queryKey: ["commands"] });
       navigate(`/devices/commands?batch_id=${result.batch_id}`);
     },
-    onError: (err) => toast.error(describeError(err)),
+    onError: (err) =>
+      toast.error(serverErrorMessage(err) ?? t("common:errors.default")),
   });
 
   const remove = useMutation({
@@ -62,7 +60,8 @@ export function useTemplate(templateId: string) {
       queryClient.invalidateQueries({ queryKey: ["command-templates"] });
       navigate("/devices/commands/templates");
     },
-    onError: (err) => toast.error(describeError(err)),
+    onError: (err) =>
+      toast.error(serverErrorMessage(err) ?? t("common:errors.default")),
   });
 
   return {
@@ -75,9 +74,4 @@ export function useTemplate(templateId: string) {
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };
-}
-
-function describeError(err: Error): string {
-  if (err instanceof GridoneError) return err.detail || err.message;
-  return err.message;
 }

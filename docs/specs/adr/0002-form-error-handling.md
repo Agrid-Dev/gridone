@@ -26,6 +26,7 @@ cannot disambiguate:
 | Request/config validation → 422 | **array** of `{loc, msg, type}` | map to form fields |
 | Domain `InvalidError` → 422 | **string** | show the message |
 | 404 / 409 / 403 / 502 | string | show the message |
+| 503 (app fault) | string | show the message — these bodies are gridone-authored constants ("App is unreachable", "App returned an invalid config schema") |
 | 500 / other 5xx / network | anything | generic fallback — never surface raw server text |
 
 The rule is therefore: **branch on the shape of `detail`, not on the status
@@ -56,36 +57,46 @@ JSON-stringified) and gains:
 `GridoneError | unknown` → discriminated union:
 
 - `{kind: "fieldErrors", errors}` — well-formed validation array;
-- `{kind: "message", message}` — string `detail` on a 4xx or 502;
-- `{kind: "unknown"}` — everything else (5xx, network/status 0, malformed
-  bodies, non-Gridone errors). Callers show a generic fallback for these.
+- `{kind: "message", message}` — string `detail` on a 4xx, 502 or 503
+  (gridone's own 502/503 bodies are server-authored constants);
+- `{kind: "unknown"}` — everything else (500/other 5xx, network/status 0,
+  malformed bodies, non-Gridone errors). Callers show a generic fallback.
 
-### Layer 2 — form application (`apps/ui/src/lib/forms/serverErrors.ts`)
+### Layer 2 — form application (`apps/ui/src/components/forms/schema-form/serverErrors.ts`)
 
-- `setServerFieldErrors(form, errors)` — for each item, derives candidate
-  react-hook-form paths from `loc` (drop `body`, then progressively strip
-  leading segments; each candidate also gets a camelCase variant) and calls
-  `setError(path, {type: "server", msg})` on the first candidate that exists
-  in `form.getValues()` (public API only — no private RHF internals). Returns
-  the **orphans**: items that matched no field (e.g. `extra_forbidden` on a
-  leaked key, AGR-807's `device_id`).
-- `applyServerErrors(form, err, {fallbackMessage, surface})` — the one-call
-  path for a submit handler: field errors → fields; orphans → fallback +
-  `console.error` in dev; `message` → `surface` (`root` sets a
-  `root.server` form error, default; `toast` uses sonner); `unknown` →
-  fallback. Returns the orphans so callers can route them further.
+- `normalizeServerErrorLocation(loc, {prefixes, unionTag})` — strips the
+  `body` prefix, caller-declared container prefixes (e.g. `config`) and at
+  most one discriminated-union tag, yielding a form-relative path.
+- `applyServerFieldErrors(form, error, {fieldNames, fallbackMessage,
+  toastMessage?, prefixes?, unionTag?})` — the one-call path for a submit
+  handler. Field errors land on the **deepest matching** registered path
+  (`fieldNames` — flat names, or `schemaFieldPaths(fields, getValues())`
+  for indexed array rows; `unsupported`-kind descriptors must be left out,
+  their placeholder renders no error slot). Everything unmatched — model-level
+  locations (`loc: []`), unknown fields, string-detail errors, `unknown`
+  failures — becomes a `root.server` form error (rendered by
+  `ServerErrorAlert`) plus a toast, with a dev-only `console.error` listing
+  the unmatched locations. Returns `{appliedPaths, unmatched}`.
+- `useClearServerErrorOnChange(form)` — `root.server` does **not** clear on
+  the next resolver run (react-hook-form only replaces field errors), so this
+  hook clears it explicitly on the first change; field-level server errors
+  clear on the next validation of their field.
 
-Server errors set via `setError` are cleared by react-hook-form on the next
-resolver run for that field, so no explicit cleanup is needed.
+Non-form surfaces (list/delete mutations, wizards) use
+`apps/ui/src/lib/serverErrorMessage.ts`: `serverErrorMessage(error)` returns
+server-authored text safe to toast (validation arrays flatten to
+`field: message` lines) or `undefined` when only the caller's generic
+fallback may be shown.
 
 ### Reference adopter
 
-The transports form (create/edit) is the reference. It temporarily runs two
-RHF instances inside one `<form>` (base fields + schema-driven config — a
-split AGR-919 keeps), so it composes Layer 1 + `setServerFieldErrors` (config
-fields first, then base fields, remainder → toast) instead of the single-form
-`applyServerErrors` convenience. Single-RHF-instance forms should use
-`applyServerErrors`; rollout is AGR-921.
+The transports form (create/edit) is the reference. It runs two RHF
+instances inside one `<form>` (base fields + schema-driven config — a split
+AGR-919 keeps), so it buckets `normalizeError` output itself and calls
+`applyServerFieldErrors` once per instance (config first with
+`prefixes: ["config"]` + the protocol as `unionTag`, then base fields).
+Single-RHF-instance forms (app config, building profile, generic trigger)
+call `applyServerFieldErrors` once.
 
 ## Alternatives considered
 
@@ -100,8 +111,10 @@ fields first, then base fields, remainder → toast) instead of the single-form
 
 ## Consequences
 
-- 5xx/network details never reach users; 4xx domain messages do; validation
-  errors land on their fields with the orphan escape hatch.
+- 500/network details never reach users (every toast site goes through
+  `serverErrorMessage` or `applyServerFieldErrors`); 4xx domain messages and
+  the gridone-authored 502/503 bodies do; validation errors land on their
+  fields with the orphan escape hatch.
 - The SDK never throws away the response body, so future consumers (CLI, MCP)
   can build their own presentation on `rawDetail`/`validationErrors`.
 - The `loc`-to-field matching is heuristic (prefix stripping); forms with

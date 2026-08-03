@@ -536,3 +536,23 @@ class TestUpdateConfig:
 
         with pytest.raises(ValidationError):
             client.update_config({"nonsense": True}, reconnect=False)
+
+    def test_field_error_loc_is_relative_to_the_config_model(self) -> None:
+        # AGR-921 shape 2 pinned at its source: the API forwards these loc
+        # tuples verbatim, and the UI's field mapping depends on them.
+        client = _mqtt_client()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.update_config({"port": 0}, reconnect=False)
+
+        assert [e["loc"] for e in exc_info.value.errors()] == [("port",)]
+
+    def test_model_validator_error_loc_is_the_config_root(self) -> None:
+        # Pair rules raise from `@model_validator` -> empty loc; the UI routes
+        # that to the form-level banner, so the shape must not drift silently.
+        client = _mqtt_client()
+
+        with pytest.raises(ValidationError) as exc_info:
+            client.update_config({"client_cert": "cert"}, reconnect=False)
+
+        assert [e["loc"] for e in exc_info.value.errors()] == [()]

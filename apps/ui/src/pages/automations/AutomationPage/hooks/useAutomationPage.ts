@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import type { Automation } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 /**
  * Fetches the automation under Suspense — an unknown id propagates as
@@ -33,7 +34,8 @@ export function useAutomation(automationId: string) {
       toast.success(t("toasts.deleted"));
       navigate("/automations");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) =>
+      toast.error(serverErrorMessage(err) ?? t("toasts.saveError")),
   });
 
   return {

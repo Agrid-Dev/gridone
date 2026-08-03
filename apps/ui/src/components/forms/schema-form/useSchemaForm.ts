@@ -28,6 +28,29 @@ export const schemaFormDefaults = (
   return defaults;
 };
 
+/** Submit-side counterpart of the resolver's empty-as-absent rule: a cleared
+ *  optional text input holds `""`, which the API would store verbatim — or,
+ *  on PATCH, fail to unset, since merge semantics need an explicit `null`.
+ *  Map `""` to `null` for optional fields only: required fields keep `""` so
+ *  validation stays the authority there, and unsupported fields round-trip
+ *  untouched. */
+export const emptyOptionalsToNull = (
+  values: SchemaFormValues,
+  fields: NormalizedSchema["fields"],
+): SchemaFormValues => {
+  const optionalNames = new Set(
+    fields
+      .filter((field) => !field.required && field.kind !== "unsupported")
+      .map((field) => field.name),
+  );
+  return Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [
+      name,
+      value === "" && optionalNames.has(name) ? null : value,
+    ]),
+  );
+};
+
 export interface UseSchemaFormOptions {
   /** The JSON Schema driving the form (an object schema with `properties`). */
   schema: unknown;

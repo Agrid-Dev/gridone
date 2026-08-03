@@ -16,6 +16,7 @@ import {
 } from "@/components/forms/schema-form";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
+  emptyOptionalsToNull,
   useSchemaForm,
   type SchemaFormValues,
 } from "@/components/forms/schema-form";
@@ -149,15 +150,26 @@ export const useTransportForm = (
     }
   }, [protocol]);
   const handleSubmit = async () => {
+    // Validate through RHF's handleSubmit (not trigger()): it flips
+    // `isSubmitted`, so the default reValidateMode "onChange" clears a
+    // rejected field's error as the user corrects it — trigger() kept
+    // stale errors until the next click.
+    let okBase = false;
+    let okConfig = false;
+    await baseFormMethods.handleSubmit(() => {
+      okBase = true;
+    })();
+    await configFormMethods.handleSubmit(() => {
+      okConfig = true;
+    })();
+    if (!okBase || !okConfig) return;
     const values = {
       ...baseFormMethods.getValues(),
-      config: configFormMethods.getValues(),
+      // Cleared optional inputs hold "" — send an explicit null so the
+      // backend unsets them (PATCH merges: an absent key keeps the old
+      // value, and "" would store a blank credential).
+      config: emptyOptionalsToNull(configFormMethods.getValues(), configFields),
     };
-    const [okBase, okConfig] = await Promise.all([
-      baseFormMethods.trigger(),
-      configFormMethods.trigger(),
-    ]);
-    if (!okBase || !okConfig) return;
     const transportId = currentTransport?.id; // discriminates between edit and create
     const mutate =
       transportId !== undefined
@@ -176,6 +188,11 @@ export const useTransportForm = (
   /** Route endpoint-relative errors across the form's two RHF instances. */
   const applyServerError = (error: unknown) => {
     const normalized = normalizeError(error);
+    // Unsupported fields render no FieldError — an error mapped onto one
+    // would vanish; leaving them out routes it to the root banner.
+    const configFieldNames = configFields
+      .filter((field) => field.kind !== "unsupported")
+      .map((field) => field.name);
     const fallbackMessage = t("saveFailed");
     const toastMessage = (serverMessage: string | undefined) =>
       serverMessage ? `${fallbackMessage}: ${serverMessage}` : fallbackMessage;
@@ -201,7 +218,7 @@ export const useTransportForm = (
           new GridoneError(422, configErrors),
           {
             ...sharedOptions,
-            fieldNames: configFields.map((field) => field.name),
+            fieldNames: configFieldNames,
             prefixes: ["config"],
             unionTag: protocol,
           },
@@ -222,7 +239,7 @@ export const useTransportForm = (
     }
     applyServerFieldErrors(configFormMethods, error, {
       ...sharedOptions,
-      fieldNames: configFields.map((field) => field.name),
+      fieldNames: configFieldNames,
     });
   };
   const handleCancel = () => callbacks.onCancel?.();

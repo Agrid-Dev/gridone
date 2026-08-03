@@ -43,7 +43,11 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   useEffect(() => {
     if (serverError === undefined) return;
     applyServerFieldErrors(form, serverError, {
-      fieldNames: fields.map((field) => field.name),
+      // Unsupported fields render no FieldError — leave them unregistered so
+      // their errors reach the root banner instead of vanishing.
+      fieldNames: fields
+        .filter((field) => field.kind !== "unsupported")
+        .map((field) => field.name),
       fallbackMessage: saveErrorMessage,
       prefixes: ["trigger", "params"],
       unionTag: type,

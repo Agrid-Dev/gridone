@@ -22,7 +22,7 @@ class MqttTransportConfig(BaseTransportConfig):
     client_cert: Annotated[str | None, PEM_FIELD] = None
     client_key: Annotated[str | None, PEM_FIELD] = None
     username: str | None = None
-    password: str | None = None
+    password: Annotated[str | None, Field(json_schema_extra={"secret": True})] = None
 
     @model_validator(mode="after")
     def _client_cert_and_key_together(self) -> Self:

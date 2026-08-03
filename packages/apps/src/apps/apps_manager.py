@@ -59,7 +59,11 @@ class AppsManager:
 
     async def get_config_schema(self, app_id: str) -> dict:
         app = await self.get_app(app_id)
-        return await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
+        schema = await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
+        # Same guard as the write path: a broken schema must read as "the app
+        # is at fault" (503), not as "this app has no configuration".
+        validate_schema(schema)
+        return schema
 
     async def get_config(self, app_id: str) -> dict[str, Any]:
         app = await self.get_app(app_id)
@@ -124,7 +128,9 @@ class AppsManager:
         """Forward an HTTP request to an app endpoint.
 
         Raises:
-            AppUnreachableError: if the app cannot be reached.
+            AppUnreachableError: if the app cannot be reached, or answers
+                with anything but a JSON object (an app that does not speak
+                the contract is indistinguishable from one that is down).
             NotFoundError: if the app returns 404.
             InvalidError: if the app returns a client error (4xx).
         """
@@ -133,12 +139,10 @@ class AppsManager:
                 method, url, timeout=_APP_REQUEST_TIMEOUT, json=json
             )
             resp.raise_for_status()
+            body = resp.json()
         except httpx.HTTPStatusError as exc:
             status = exc.response.status_code
-            try:
-                detail = exc.response.json().get("detail", exc.response.text)
-            except (ValueError, KeyError):
-                detail = exc.response.text
+            detail = self._error_response_detail(exc.response)
             if status == 404:  # noqa: PLR2004
                 raise NotFoundError(detail) from exc
             if status >= 500:  # noqa: PLR2004
@@ -147,11 +151,34 @@ class AppsManager:
                 raise AppUnreachableError(msg) from exc
             msg = f"App returned {status}: {detail}"
             raise InvalidError(msg) from exc
+        except ValueError as exc:  # a 2xx body that is not JSON
+            logger.warning("App at %s returned a non-JSON body", url)
+            msg = "App is unreachable"
+            raise AppUnreachableError(msg) from exc
         except httpx.HTTPError as exc:
             logger.warning("App unreachable at %s: %s", url, exc)
             msg = "App is unreachable"
             raise AppUnreachableError(msg) from exc
-        return resp.json()
+        if not isinstance(body, dict):
+            logger.warning("App at %s returned a non-object JSON body", url)
+            msg = "App is unreachable"
+            raise AppUnreachableError(msg)
+        return body
+
+    @staticmethod
+    def _error_response_detail(response: httpx.Response) -> str:
+        """Best-effort `detail` extraction from an app error response.
+
+        Falls back to the raw text when the body is not JSON or not the
+        `{"detail": ...}` object shape (e.g. a bare JSON array).
+        """
+        try:
+            body = response.json()
+        except ValueError:
+            return response.text
+        if isinstance(body, dict):
+            return body.get("detail", response.text)
+        return response.text
 
     # ── Enable / Disable ─────────────────────────────────────────────────
 

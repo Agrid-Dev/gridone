@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { Automation, Trigger } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { type MetadataFormValues } from "../form/MetadataForm";
 import type { ActionFormResult } from "../presenters/types";
 
@@ -54,7 +55,14 @@ export function useCreateAutomation() {
       toast.success(t("toasts.created"));
       navigate(`/automations/${automation.id}`);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      // The wizard is on the action step when create fires, so field mapping
+      // has no mounted trigger form — surface a readable message instead of
+      // the raw `HTTP 422: [...]` blob GridoneError.message carries.
+      const detail = serverErrorMessage(err);
+      const base = t("toasts.saveError");
+      toast.error(detail ? `${base}: ${detail}` : base);
+    },
   });
 
   const submitMetadata = (values: MetadataFormValues) => {

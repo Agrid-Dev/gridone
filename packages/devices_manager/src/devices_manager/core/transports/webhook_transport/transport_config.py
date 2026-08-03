@@ -1,6 +1,6 @@
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, Field, model_validator
 
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
@@ -13,7 +13,7 @@ class WebhookTransportConfig(BaseTransportConfig):
     # (device-level ingestion, like MQTT or BACnet credentials), so the
     # transport carries its own auth scheme and verifies each push itself.
     auth: WebhookAuthScheme = "bearer"
-    secret: str | None = None
+    secret: Annotated[str | None, Field(json_schema_extra={"secret": True})] = None
 
     @model_validator(mode="after")
     def _secret_required_unless_auth_disabled(self) -> Self:

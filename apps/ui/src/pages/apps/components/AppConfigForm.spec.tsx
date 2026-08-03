@@ -289,7 +289,11 @@ describe("AppConfigForm — PMS schema", () => {
     renderForm();
 
     expect(await screen.findByText("Client ID")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Secret/)).toHaveAttribute("type", "password");
+    // Scope to inputs: the shared secret widget adds a reveal-toggle button
+    // whose accessible name also matches /Secret/.
+    expect(
+      screen.getByLabelText(/Secret/, { selector: "input" }),
+    ).toHaveAttribute("type", "password");
     expect(screen.queryByText("Token")).not.toBeInTheDocument();
   });
 
@@ -348,6 +352,22 @@ describe("AppConfigForm — PMS schema", () => {
     expect(mockToast.error).toHaveBeenCalled();
   });
 
+  it("surfaces the crafted app-fault 503 message on save", async () => {
+    // The app went down (or serves a broken schema) between load and save:
+    // the backend's server-authored 503 body must reach the user instead of
+    // the generic fallback — the app is at fault, not their input.
+    const user = userEvent.setup();
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(503, "App is unreachable"),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(await screen.findByText("App is unreachable")).toBeInTheDocument();
+    expect(mockToast.error).toHaveBeenCalled();
+  });
+
   it("attaches structured app-config errors to the offending field", async () => {
     const user = userEvent.setup();
     mockClient.apps.updateConfig.mockRejectedValue(
@@ -365,6 +385,30 @@ describe("AppConfigForm — PMS schema", () => {
 
     expect(
       await screen.findByText("Client ID is too short"),
+    ).toBeInTheDocument();
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
+
+  it("attaches missing-required errors to their field (AGR-993 loc contract)", async () => {
+    // The backend now rewrites jsonschema `required` errors from the parent
+    // loc to the field itself (loc ["client_id"], type "missing") — the most
+    // common validation failure must land under the input, not in the banner.
+    const user = userEvent.setup();
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["client_id"],
+          msg: "'client_id' is a required property",
+          type: "missing",
+        },
+      ]),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(
+      await screen.findByText("'client_id' is a required property"),
     ).toBeInTheDocument();
     expect(mockToast.error).not.toHaveBeenCalled();
   });

@@ -6,9 +6,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { isGridoneError, type MeResponse } from "@gridone/sdk";
+import { type MeResponse } from "@gridone/sdk";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { getAuthSchema } from "@/lib/authSchema";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,7 @@ import { InputController } from "@/components/forms/controllers/InputController"
 
 /** A user-safe message for a failed save — never leaks raw server internals. */
 function toErrorMessage(err: unknown, fallback: string): string {
-  if (isGridoneError(err)) return err.detail || fallback;
-  if (err instanceof Error) return err.message;
-  return fallback;
+  return serverErrorMessage(err) ?? fallback;
 }
 
 type ProfileFormValues = {

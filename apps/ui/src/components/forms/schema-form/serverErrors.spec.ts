@@ -12,6 +12,8 @@ import {
   applyServerFieldErrors,
   useClearServerErrorOnChange,
 } from "./serverErrors";
+import { normalizeSchema } from "./normalizeSchema";
+import { schemaFieldPaths } from "./SchemaFields";
 
 const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { error: mockToastError } }));
@@ -149,6 +151,33 @@ describe("applyServerFieldErrors", () => {
     });
 
     expect(form.formState.errors.root?.server?.message).toBe("Unknown field");
+    expect(mockToastError).toHaveBeenCalledWith("Save failed");
+  });
+
+  it("routes errors on unsupported (non-rendering) fields to the root banner", () => {
+    // An object property normalizes to kind "unsupported", whose placeholder
+    // renders no FieldError. schemaFieldPaths must therefore not register it:
+    // a matched-but-invisible setError would drop the failure entirely
+    // (no field text, no banner, no toast).
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { fields } = normalizeSchema({
+      type: "object",
+      properties: {
+        host: { type: "string" },
+        thresholds: { type: "object", properties: {} },
+      },
+    });
+    const form = makeForm({ host: "", thresholds: { max: 40 } });
+
+    act(() => {
+      applyServerFieldErrors(
+        form,
+        new GridoneError(422, [item(["thresholds", "max"], "Too high")]),
+        { ...options, fieldNames: schemaFieldPaths(fields, form.getValues()) },
+      );
+    });
+
+    expect(form.formState.errors.root?.server?.message).toBe("Too high");
     expect(mockToastError).toHaveBeenCalledWith("Save failed");
   });
 

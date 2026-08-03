@@ -1,6 +1,7 @@
 import type { AutomationUpdate, ProviderSchemas } from "@gridone/sdk";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { usePermissions } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -17,7 +18,8 @@ const useToggleAutomation = (automationId: string) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.enabled"));
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) =>
+      toast.error(serverErrorMessage(err) ?? t("toasts.saveError")),
   });
 
   const { mutate: disable, isPending: isDisabling } = useMutation({
@@ -26,7 +28,8 @@ const useToggleAutomation = (automationId: string) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.disabled"));
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) =>
+      toast.error(serverErrorMessage(err) ?? t("toasts.saveError")),
   });
   return { enable, disable, isToggling: isEnabling || isDisabling };
 };

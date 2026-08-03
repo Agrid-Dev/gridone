@@ -178,6 +178,7 @@ export const normalizeProperty = (
         : undefined,
     arrayItem,
     multiline: node.multiline === true,
+    secret: node.secret === true || node.format === "password",
     schema: arrayItem ? { ...node, items: arrayItem.schema } : node,
   };
 };

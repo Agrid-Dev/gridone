@@ -7,13 +7,13 @@ import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  isGridoneError,
   type Dashboard,
   type DashboardCreate,
   type DashboardPatch,
   type DashboardSummary,
   type LayoutItem,
 } from "@gridone/sdk";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 /** Query key for the dashboard summaries list (feeds the tab bar). */
@@ -75,8 +75,9 @@ export function useCreateDashboard() {
       toast.success(t("create.success", { name: created.name }));
     },
     onError: (error: Error) => {
-      const detail = isGridoneError(error) ? error.detail : error.message;
-      toast.error(`${t("common:errors.default")}: ${detail}`);
+      const detail = serverErrorMessage(error);
+      const base = t("common:errors.default");
+      toast.error(detail ? `${base}: ${detail}` : base);
     },
   });
 
@@ -89,8 +90,9 @@ export function useCreateDashboard() {
 function useApiErrorToast() {
   const { t } = useTranslation("common");
   return (error: Error) => {
-    const detail = isGridoneError(error) ? error.detail : error.message;
-    toast.error(`${t("errors.default")}: ${detail}`);
+    const detail = serverErrorMessage(error);
+    const base = t("errors.default");
+    toast.error(detail ? `${base}: ${detail}` : base);
   };
 }
 
