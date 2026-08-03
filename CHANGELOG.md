@@ -1,3 +1,13 @@
+## v0.191.0 (2026-08-03)
+
+### Feat
+
+- **ui,sdk,apps,devices-manager**: P1 — secret masking and error-UX rollout
+
+### Fix
+
+- **api,apps,devices-manager,ui**: close schema-form P0 error-path gaps
+
 ## v0.190.0 (2026-08-03)
 
 ### Feat
