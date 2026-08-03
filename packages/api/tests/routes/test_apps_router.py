@@ -15,7 +15,12 @@ from api.dependencies import get_apps_service, get_current_token_payload
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
 from apps import App, AppStatus, PushStatus
-from apps.errors import AppUnreachableError, InvalidAppSchemaError
+from apps.errors import (
+    AppUnreachableError,
+    ConfigValidationError,
+    InvalidAppSchemaError,
+    ValidationErrorItem,
+)
 from models.errors import InvalidError, NotFoundError
 from users.auth import TokenPayload
 
@@ -187,13 +192,59 @@ def test_update_config(app: FastAPI, apps_service: AsyncMock):
         )
 
 
-def test_update_config_validation_error(app: FastAPI, apps_service: AsyncMock):
+def test_update_config_validation_error_emits_pydantic_contract(
+    app: FastAPI, apps_service: AsyncMock
+):
+    """Pins AGR-921 shape 5: 422 with `detail: [{loc, msg, type}]`, the same
+    envelope FastAPI emits for pydantic request validation, `loc` relative to
+    the config object (numeric indices included, no `body` prefix).
+    """
     apps_service.update_config = AsyncMock(
-        side_effect=InvalidError("Config validation failed: lat: 999 is too large")
+        side_effect=ConfigValidationError(
+            [
+                ValidationErrorItem(
+                    loc=("meters", 0, "point_id"),
+                    msg="42 is not of type 'string'",
+                    type="type",
+                ),
+                ValidationErrorItem(
+                    loc=(),
+                    msg="'lng' is a required property",
+                    type="required",
+                ),
+            ]
+        )
     )
     with TestClient(app) as client:
-        resp = client.patch("/apps/app-1/config", json={"lat": 999})
+        resp = client.patch(
+            "/apps/app-1/config", json={"meters": [{"point_id": 42}], "lat": 48.8}
+        )
         assert resp.status_code == 422
+        assert resp.json() == {
+            "detail": [
+                {
+                    "loc": ["meters", 0, "point_id"],
+                    "msg": "42 is not of type 'string'",
+                    "type": "type",
+                },
+                {"loc": [], "msg": "'lng' is a required property", "type": "required"},
+            ]
+        }
+
+
+def test_update_config_plain_invalid_error_keeps_string_detail(
+    app: FastAPI, apps_service: AsyncMock
+):
+    """A non-config InvalidError (e.g. the app rejects the schema fetch) stays
+    AGR-921 shape 4: the exact-class handler must not swallow the base one.
+    """
+    apps_service.update_config = AsyncMock(
+        side_effect=InvalidError("App returned 400: bad request")
+    )
+    with TestClient(app) as client:
+        resp = client.patch("/apps/app-1/config", json={"lat": 40.7})
+        assert resp.status_code == 422
+        assert resp.json() == {"detail": "App returned 400: bad request"}
 
 
 def test_update_config_app_unreachable(app: FastAPI, apps_service: AsyncMock):
