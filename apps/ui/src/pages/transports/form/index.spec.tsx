@@ -9,7 +9,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { createI18nMock } from "@/test/i18nMock";
-import { GridoneError } from "@gridone/sdk";
+import { GridoneError, type Transport } from "@gridone/sdk";
 import type { TransportSchemas } from "./useTransportForm";
 
 const {
@@ -50,6 +50,7 @@ const CONFIG_SCHEMAS: TransportSchemas = {
     required: ["host"],
     properties: {
       host: { type: "string" },
+      port: { type: "integer", default: 1883 },
       ca_cert: { type: "string", multiline: true },
     },
   },
@@ -59,7 +60,10 @@ const CONFIG_SCHEMAS: TransportSchemas = {
   knx: realKnxSchema,
 } as unknown as TransportSchemas;
 
-function renderForm(lockedProtocol: FormProtocol = "mqtt") {
+function renderForm(
+  lockedProtocol: FormProtocol = "mqtt",
+  transport?: Transport,
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: 0 },
@@ -71,9 +75,10 @@ function renderForm(lockedProtocol: FormProtocol = "mqtt") {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   }
-  return render(<TransportForm lockedProtocol={lockedProtocol} />, {
-    wrapper: Wrapper,
-  });
+  return render(
+    <TransportForm lockedProtocol={lockedProtocol} transport={transport} />,
+    { wrapper: Wrapper },
+  );
 }
 
 afterEach(() => {
@@ -248,6 +253,87 @@ describe("TransportForm — server errors (ADR 0002)", () => {
     expect(mockToastError).not.toHaveBeenCalled();
   });
 
+  it("maps update errors whose loc is relative to the config model", async () => {
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    mockUpdateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["port"],
+          msg: "Input should be greater than 0",
+          type: "greater_than",
+        },
+      ]),
+    );
+    const { container } = renderForm("mqtt", {
+      id: "mqtt-1",
+      name: "My broker",
+      protocol: "mqtt",
+      config: { host: "broker.local", port: 1883 },
+    } as Transport);
+
+    expect(await screen.findByLabelText(/host/i)).toHaveValue("broker.local");
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    expect(
+      await screen.findByText("Input should be greater than 0"),
+    ).toBeInTheDocument();
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  it("shows model-validator errors in the form-level banner", async () => {
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "mqtt", "config"],
+          msg: "client_cert and client_key must be provided together",
+          type: "value_error",
+        },
+      ]),
+    );
+
+    await submitFilledForm();
+
+    expect(
+      await screen.findByText(
+        "client_cert and client_key must be provided together",
+      ),
+    ).toBeInTheDocument();
+    expect(mockToastError).toHaveBeenCalledWith("saveFailed");
+  });
+
+  it("shows KNX password-pair errors in the form-level banner", async () => {
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    mockCreateTransport.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["body", "knx", "config"],
+          msg: "The two KNX secure passwords must be set together",
+          type: "value_error",
+        },
+      ]),
+    );
+    const { container } = renderForm("knx");
+
+    fireEvent.change(await screen.findByLabelText(/fields\.name/), {
+      target: { value: "KNX gateway" },
+    });
+    fireEvent.change(screen.getByLabelText(/gateway ip/i), {
+      target: { value: "gw.local" },
+    });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    expect(
+      await screen.findByText(
+        "The two KNX secure passwords must be set together",
+      ),
+    ).toBeInTheDocument();
+    expect(mockToastError).toHaveBeenCalledWith("saveFailed");
+  });
+
   it("maps a base-field validation error onto the name field", async () => {
     mockCreateTransport.mockRejectedValue(
       new GridoneError(422, [
@@ -277,12 +363,12 @@ describe("TransportForm — server errors (ADR 0002)", () => {
         "saveFailed: A transport with this name already exists",
       ),
     );
+    expect(
+      screen.getByText("A transport with this name already exists"),
+    ).toBeInTheDocument();
   });
 
-  it("toasts the generic fallback for orphaned field errors and 5xx", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => undefined);
+  it("shows orphaned field errors in the banner and fallback toast", async () => {
     mockCreateTransport.mockRejectedValue(
       new GridoneError(422, [
         {
@@ -299,8 +385,7 @@ describe("TransportForm — server errors (ADR 0002)", () => {
       expect(mockToastError).toHaveBeenCalledWith("saveFailed"),
     );
     expect(
-      screen.queryByText("Extra inputs are not permitted"),
-    ).not.toBeInTheDocument();
-    consoleError.mockRestore();
+      screen.getByText("Extra inputs are not permitted"),
+    ).toBeInTheDocument();
   });
 });

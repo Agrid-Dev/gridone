@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { GridoneError } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -48,5 +49,29 @@ describe("GenericTriggerFormBody", () => {
     expect(screen.getByLabelText(/^Attribute/)).toBeInTheDocument();
     expect(screen.getByText("Condition")).toBeInTheDocument();
     expect(screen.getByText("Unsupported field")).toBeInTheDocument();
+  });
+
+  it("attaches a scoped server error to its schema-driven field", async () => {
+    render(
+      <GenericTriggerFormBody
+        type="schedule"
+        schema={scheduleSchema}
+        onSubmit={noop}
+        onCancel={noop}
+        serverError={
+          new GridoneError(422, [
+            {
+              loc: ["body", "trigger", "schedule", "params", "cron"],
+              msg: "Cron expression is not supported",
+              type: "value_error",
+            },
+          ])
+        }
+      />,
+    );
+
+    expect(
+      await screen.findByText("Cron expression is not supported"),
+    ).toBeInTheDocument();
   });
 });

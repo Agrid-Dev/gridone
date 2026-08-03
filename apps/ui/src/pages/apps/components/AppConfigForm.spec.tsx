@@ -347,6 +347,57 @@ describe("AppConfigForm — PMS schema", () => {
     ).toBeInTheDocument();
     expect(mockToast.error).toHaveBeenCalled();
   });
+
+  it("attaches structured app-config errors to the offending field", async () => {
+    const user = userEvent.setup();
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["client_id"],
+          msg: "Client ID is too short",
+          type: "minLength",
+        },
+      ]),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(
+      await screen.findByText("Client ID is too short"),
+    ).toBeInTheDocument();
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
+
+  it("attaches indexed app-config errors to the rendered array field", async () => {
+    const user = userEvent.setup();
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: {
+        meters: {
+          type: "array",
+          title: "Meters",
+          items: { type: "string" },
+        },
+      },
+    });
+    mockClient.apps.getConfig.mockResolvedValue({ meters: ["meter-1"] });
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["meters", 0],
+          msg: "Meter is unknown",
+          type: "enum",
+        },
+      ]),
+    );
+    renderForm();
+
+    await user.click(await screen.findByRole("button", { name: /configSave/ }));
+
+    expect(await screen.findByText("Meter is unknown")).toBeInTheDocument();
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
 });
 
 describe("AppConfigForm — registry widgets (AGR-920 migration)", () => {

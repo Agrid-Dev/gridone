@@ -4,6 +4,7 @@
   "cancel": "Annuler",
   "saving": "Enregistrement…",
   "saved": "Profil du bâtiment enregistré",
+  "saveError": "Impossible d’enregistrer le profil du bâtiment.",
   "loadError": "Impossible de charger le formulaire du profil du bâtiment.",
   "icon": {
     "none": "Aucune icône",

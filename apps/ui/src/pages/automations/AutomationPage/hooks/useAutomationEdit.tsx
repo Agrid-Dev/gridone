@@ -38,25 +38,34 @@ const useUpdateAutomation = (automationId: string, onUpdated?: () => void) => {
   const [submittingSection, setSubmittingSection] = useState<string | null>(
     null,
   );
+  const [sectionError, setSectionError] = useState<{
+    section: string;
+    error: unknown;
+  } | null>(null);
 
   const { mutate } = useMutation({
-    mutationFn: (payload: AutomationUpdate) =>
+    mutationFn: ({ payload }: { section: string; payload: AutomationUpdate }) =>
       client.automations.update(automationId, payload),
     onSuccess: () => {
+      setSectionError(null);
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       toast.success(t("toasts.updated"));
       onUpdated?.();
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (error: Error, { section }) => {
+      setSectionError({ section, error });
+      if (section !== "trigger") toast.error(t("toasts.saveError"));
+    },
     onSettled: () => setSubmittingSection(null),
   });
 
   const update = (section: string, payload: AutomationUpdate) => {
     setSubmittingSection(section);
-    mutate(payload);
+    setSectionError(null);
+    mutate({ section, payload });
   };
 
-  return { update, submittingSection };
+  return { update, submittingSection, sectionError };
 };
 
 export const useAutomationEdit = (automationId: string) => {
@@ -69,8 +78,9 @@ export const useAutomationEdit = (automationId: string) => {
   });
 
   const editing = useEditingSection();
-  const { update, submittingSection } = useUpdateAutomation(automationId, () =>
-    editing.setEditingSection(null),
+  const { update, submittingSection, sectionError } = useUpdateAutomation(
+    automationId,
+    () => editing.setEditingSection(null),
   );
 
   return {
@@ -79,6 +89,8 @@ export const useAutomationEdit = (automationId: string) => {
     canWrite,
     update,
     submittingSection,
+    triggerServerError:
+      sectionError?.section === "trigger" ? sectionError.error : undefined,
     ...editing,
     ...useToggleAutomation(automationId),
   };

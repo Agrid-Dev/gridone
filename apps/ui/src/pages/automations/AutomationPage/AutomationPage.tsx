@@ -29,6 +29,7 @@ const AutomationPageContent: FC = () => {
     setEditingSection,
     update,
     submittingSection,
+    triggerServerError,
   } = useAutomationEdit(automationId);
   const { automation, remove, isDeleting } = useAutomation(automationId);
 
@@ -107,6 +108,7 @@ const AutomationPageContent: FC = () => {
               initialValue={automation.trigger}
               onSubmit={(trigger) => update("trigger", { trigger })}
               onCancel={() => setEditingSection(null)}
+              serverError={triggerServerError}
             />
           ) : (
             <TriggerPresenter trigger={automation.trigger} />

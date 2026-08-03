@@ -1,7 +1,11 @@
-import { FC } from "react";
+import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
-import { SchemaFields } from "@/components/forms/schema-form";
+import {
+  applyServerFieldErrors,
+  SchemaFields,
+  ServerErrorAlert,
+} from "@/components/forms/schema-form";
 import type { Trigger } from "@gridone/sdk";
 import {
   useGenericTriggerForm,
@@ -16,6 +20,7 @@ interface GenericTriggerFormBodyProps {
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
+  serverError?: unknown;
 }
 
 /** Schema-driven fallback for trigger providers without a registered custom
@@ -28,10 +33,22 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   onCancel,
   formId,
   hideActions,
+  serverError,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
+  const saveErrorMessage = t("automations:toasts.saveError");
 
   const { form, fields } = useGenericTriggerForm(schema, initialValue?.params);
+
+  useEffect(() => {
+    if (serverError === undefined) return;
+    applyServerFieldErrors(form, serverError, {
+      fieldNames: fields.map((field) => field.name),
+      fallbackMessage: saveErrorMessage,
+      prefixes: ["trigger", "params"],
+      unionTag: type,
+    });
+  }, [serverError, form, fields, saveErrorMessage, type]);
 
   const handleFormSubmit = (values: Record<string, unknown>) => {
     onSubmit({ provider_id: type, params: values });
@@ -46,6 +63,8 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
       <div className="grid gap-4">
         <SchemaFields fields={fields} control={form.control} />
       </div>
+
+      <ServerErrorAlert message={form.formState.errors.root?.server?.message} />
 
       {!hideActions && (
         <div className="flex align-middle justify-end gap-2 mt-8">

@@ -1,5 +1,6 @@
-import { FC } from "react";
+import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -21,6 +22,7 @@ interface TriggerFormProps {
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
+  serverError?: unknown;
 }
 
 const TriggerForm: FC<TriggerFormProps> = ({
@@ -29,8 +31,10 @@ const TriggerForm: FC<TriggerFormProps> = ({
   onCancel,
   formId,
   hideActions,
+  serverError,
 }) => {
   const { t } = useTranslation("automations");
+  const saveErrorMessage = t("toasts.saveError");
   const {
     isLoading,
     availableTypes,
@@ -40,10 +44,16 @@ const TriggerForm: FC<TriggerFormProps> = ({
     initialValueForType,
   } = useTriggerForm(initialValue);
 
-  if (isLoading) return <Skeleton className="h-32 w-full" />;
-
   const descriptor = type ? getTriggerDescriptor(type) : null;
   const CustomForm = descriptor?.CustomFormRenderer;
+
+  useEffect(() => {
+    if (serverError !== undefined && CustomForm) {
+      toast.error(saveErrorMessage);
+    }
+  }, [CustomForm, saveErrorMessage, serverError]);
+
+  if (isLoading) return <Skeleton className="h-32 w-full" />;
 
   return (
     <div className="space-y-3">
@@ -90,6 +100,7 @@ const TriggerForm: FC<TriggerFormProps> = ({
             onCancel={onCancel}
             formId={formId}
             hideActions={hideActions}
+            serverError={serverError}
           />
         ) : null)}
     </div>

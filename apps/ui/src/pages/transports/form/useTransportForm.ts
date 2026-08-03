@@ -1,17 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import {
+  GridoneError,
   normalizeError,
+  type ValidationErrorItem,
   type Transport,
   type TransportCreate,
   type TransportProtocols,
   type TransportUpdate,
 } from "@gridone/sdk";
 import {
-  reportOrphanedServerErrors,
-  setServerFieldErrors,
-} from "@/lib/forms/serverErrors";
+  applyServerFieldErrors,
+  normalizeServerErrorLocation,
+  useClearServerErrorOnChange,
+} from "@/components/forms/schema-form";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
   useSchemaForm,
@@ -125,6 +127,7 @@ export const useTransportForm = (
         ? { protocol: lockedProtocol }
         : {},
   });
+  useClearServerErrorOnChange(baseFormMethods);
   const protocol = baseFormMethods.watch("protocol");
   const configJsonSchema =
     protocol && transportProtocols.includes(protocol)
@@ -170,30 +173,57 @@ export const useTransportForm = (
     }
     return values;
   };
-  /**
-   * ADR 0002 error handling, composed over the form's two-RHF-instance split
-   * (hand-written base fields + schema-driven config): validation errors try
-   * the config fields first, then the base fields; anything the user can't
-   * see on a field surfaces as a toast.
-   */
+  /** Route endpoint-relative errors across the form's two RHF instances. */
   const applyServerError = (error: unknown) => {
     const normalized = normalizeError(error);
+    const fallbackMessage = t("saveFailed");
+    const toastMessage = (serverMessage: string | undefined) =>
+      serverMessage ? `${fallbackMessage}: ${serverMessage}` : fallbackMessage;
+    const sharedOptions = { fallbackMessage, toastMessage };
+
     if (normalized.kind === "fieldErrors") {
-      const orphans = setServerFieldErrors(
-        baseFormMethods,
-        setServerFieldErrors(configFormMethods, normalized.errors),
-      );
-      reportOrphanedServerErrors(orphans);
-      if (orphans.length > 0) {
-        toast.error(t("saveFailed"));
+      const configErrors: ValidationErrorItem[] = [];
+      const baseErrors: ValidationErrorItem[] = [];
+      for (const item of normalized.errors) {
+        const relativeLoc = normalizeServerErrorLocation(item.loc, {
+          unionTag: protocol,
+        });
+        const isConfigError =
+          relativeLoc.length === 0 ||
+          relativeLoc[0] === "config" ||
+          (!isCreate && item.loc[0] !== "body");
+        (isConfigError ? configErrors : baseErrors).push(item);
+      }
+
+      if (configErrors.length > 0) {
+        applyServerFieldErrors(
+          configFormMethods,
+          new GridoneError(422, configErrors),
+          {
+            ...sharedOptions,
+            fieldNames: configFields.map((field) => field.name),
+            prefixes: ["config"],
+            unionTag: protocol,
+          },
+        );
+      }
+      if (baseErrors.length > 0) {
+        applyServerFieldErrors(
+          baseFormMethods,
+          new GridoneError(422, baseErrors),
+          {
+            ...sharedOptions,
+            fieldNames: ["name", "protocol"],
+            unionTag: protocol,
+          },
+        );
       }
       return;
     }
-    toast.error(
-      normalized.kind === "message"
-        ? `${t("saveFailed")}: ${normalized.message}`
-        : t("saveFailed"),
-    );
+    applyServerFieldErrors(configFormMethods, error, {
+      ...sharedOptions,
+      fieldNames: configFields.map((field) => field.name),
+    });
   };
   const handleCancel = () => callbacks.onCancel?.();
   return {

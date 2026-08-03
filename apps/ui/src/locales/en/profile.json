@@ -4,6 +4,7 @@
   "cancel": "Cancel",
   "saving": "Saving…",
   "saved": "Building profile saved",
+  "saveError": "Couldn’t save the building profile.",
   "loadError": "Couldn’t load the building profile form.",
   "icon": {
     "none": "No icon",
