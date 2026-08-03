@@ -1,3 +1,9 @@
+## v0.184.0 (2026-08-03)
+
+### Feat
+
+- **ui**: schema-driven app config form
+
 ## v0.183.0 (2026-07-31)
 
 ### Feat
