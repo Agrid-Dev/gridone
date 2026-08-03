@@ -1,3 +1,9 @@
+## v0.187.0 (2026-08-03)
+
+### Feat
+
+- **devices-manager,ui**: flatten KNX secure creds + migrate forms (AGR-920)
+
 ## v0.186.0 (2026-08-03)
 
 ### Feat
