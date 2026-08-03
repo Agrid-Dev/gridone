@@ -115,7 +115,7 @@ describe("applyServerFieldErrors", () => {
     expect(mockToastError).toHaveBeenCalledWith("Save failed");
   });
 
-  it("maps an indexed app-config location to its rendered ancestor field", () => {
+  it("maps an indexed app-config location to its concrete row field", () => {
     const form = makeForm({ meters: [{ point_id: "" }] });
 
     act(() => {
@@ -124,11 +124,14 @@ describe("applyServerFieldErrors", () => {
         new GridoneError(422, [
           item(["meters", 0, "point_id"], "Must be a string", "type"),
         ]),
-        { ...options, fieldNames: ["meters"] },
+        {
+          ...options,
+          fieldNames: ["meters", "meters.0", "meters.0.point_id"],
+        },
       );
     });
 
-    expect(form.getFieldState("meters").error?.message).toBe(
+    expect(form.getFieldState("meters.0.point_id").error?.message).toBe(
       "Must be a string",
     );
     expect(mockToastError).not.toHaveBeenCalled();

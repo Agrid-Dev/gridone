@@ -64,7 +64,7 @@ const KIND_BY_TYPE: Record<string, FieldKind> = {
   boolean: "boolean",
 };
 
-const classify = (node: JsonSchemaObject): FieldKind => {
+const classifyScalar = (node: JsonSchemaObject): FieldKind => {
   if (Array.isArray(node.enum)) return "enum";
   // A leftover union (several non-null branches) is not a renderable primitive.
   if (Array.isArray(node.anyOf) || Array.isArray(node.oneOf)) {
@@ -73,6 +73,70 @@ const classify = (node: JsonSchemaObject): FieldKind => {
   return typeof node.type === "string"
     ? (KIND_BY_TYPE[node.type] ?? "unsupported")
     : "unsupported";
+};
+
+const SCALAR_KINDS = new Set<FieldKind>([
+  "string",
+  "number",
+  "integer",
+  "boolean",
+  "enum",
+]);
+
+const nestedValidationSchema = (field: FieldDescriptor): JsonSchemaObject =>
+  field.nullable ? { anyOf: [field.schema, { type: "null" }] } : field.schema;
+
+/** Normalizes only the two array item shapes in the dialect: one scalar, or
+ *  an object whose properties are all scalar. Any nested array/object/union
+ *  makes the whole array explicitly unsupported. */
+const normalizeArrayItem = (
+  rawItems: unknown,
+  defs: JsonSchemaObject,
+): FieldDescriptor["arrayItem"] => {
+  if (!isObject(rawItems)) return undefined;
+  const resolved = resolveRef(rawItems, defs);
+  const { node } = unwrapNullUnion(resolved, defs);
+
+  if (node.type !== "object") {
+    const field = normalizeProperty("item", rawItems, {
+      required: true,
+      defs,
+    });
+    if (!SCALAR_KINDS.has(field.kind)) return undefined;
+    return { kind: "scalar", field, schema: nestedValidationSchema(field) };
+  }
+
+  if (!isObject(node.properties)) return undefined;
+  const required = new Set(
+    Array.isArray(node.required)
+      ? node.required.filter((name): name is string => typeof name === "string")
+      : [],
+  );
+  const fields = Object.entries(node.properties)
+    .filter((entry): entry is [string, JsonSchemaObject] => isObject(entry[1]))
+    .map(([name, property]) =>
+      normalizeProperty(name, property, {
+        required: required.has(name),
+        defs,
+      }),
+    );
+  if (
+    fields.length !== Object.keys(node.properties).length ||
+    fields.some((field) => !SCALAR_KINDS.has(field.kind))
+  ) {
+    return undefined;
+  }
+
+  return {
+    kind: "object",
+    fields,
+    schema: {
+      ...node,
+      properties: Object.fromEntries(
+        fields.map((field) => [field.name, nestedValidationSchema(field)]),
+      ),
+    },
+  };
 };
 
 /** Normalizes one property node into a `FieldDescriptor`. Exposed for
@@ -85,7 +149,14 @@ export const normalizeProperty = (
   const defs = options.defs ?? {};
   const resolved = resolveRef(rawNode, defs);
   const { node, nullable } = unwrapNullUnion(resolved, defs);
-  const kind = classify(node);
+  const arrayItem =
+    node.type === "array" ? normalizeArrayItem(node.items, defs) : undefined;
+  const kind =
+    node.type === "array"
+      ? arrayItem
+        ? "array"
+        : "unsupported"
+      : classifyScalar(node);
   return {
     name,
     kind,
@@ -105,8 +176,9 @@ export const normalizeProperty = (
               typeof v === "string" || typeof v === "number",
           )
         : undefined,
+    arrayItem,
     multiline: node.multiline === true,
-    schema: node,
+    schema: arrayItem ? { ...node, items: arrayItem.schema } : node,
   };
 };
 

@@ -1,10 +1,15 @@
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "schemaForm.addItem": "Add item",
+    "schemaForm.removeItem": "Remove item {{index}}",
+    "schemaForm.itemLabel": "Item {{index}}",
+    "schemaForm.emptyArray": "No items yet. Add the first item.",
     "schemaForm.unsupportedField": "Unsupported field",
   }),
 );
@@ -22,21 +27,24 @@ function Harness({
   values,
   namePrefix,
   overrides,
+  onSubmit,
 }: {
   schema: unknown;
   values?: SchemaFormValues;
   namePrefix?: string;
   overrides?: Record<string, (props: SchemaWidgetProps) => ReactElement>;
+  onSubmit?: (values: SchemaFormValues) => void;
 }) {
   const { form, fields } = useSchemaForm({ schema, values });
   return (
-    <form>
+    <form onSubmit={form.handleSubmit((submitted) => onSubmit?.(submitted))}>
       <SchemaFields
         fields={fields}
         control={form.control}
         namePrefix={namePrefix}
         overrides={overrides}
       />
+      {onSubmit && <button type="submit">Submit</button>}
     </form>
   );
 }
@@ -177,5 +185,124 @@ describe("SchemaFields — composition", () => {
     );
     expect(screen.getByTestId("custom-widget")).toHaveTextContent("zone");
     expect(screen.queryByLabelText("Zone")).not.toBeInTheDocument();
+  });
+});
+
+describe("SchemaFields — arrays", () => {
+  it("shows the empty state and supports adding, editing, and removing scalar rows", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <Harness
+        schema={flatSchema({
+          tags: { type: "array", title: "Tags", items: { type: "string" } },
+        })}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    expect(
+      screen.getByText("No items yet. Add the first item."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    await user.type(screen.getByLabelText(/^Item 1/), "first");
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    await user.type(screen.getByLabelText(/^Item 2/), "second");
+    await user.click(screen.getByRole("button", { name: "Remove item 1" }));
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({ tags: ["second"] }),
+    );
+  });
+
+  it("renders smart-meter rows and displays validation on the item field", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        schema={flatSchema({
+          meters: {
+            type: "array",
+            title: "Meters",
+            items: {
+              type: "object",
+              properties: {
+                provider: { type: "string", enum: ["alpha", "beta"] },
+                point_id: { type: "string", minLength: 1 },
+              },
+              required: ["provider", "point_id"],
+            },
+          },
+        })}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    expect(
+      screen.getByRole("combobox", { name: /Provider/ }),
+    ).toBeInTheDocument();
+    const pointId = screen.getByLabelText(/Point Id/);
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(pointId.closest('[data-slot="field"]')).toHaveTextContent(
+        /expected string/i,
+      ),
+    );
+  });
+
+  it("disables row actions at minItems and maxItems", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        schema={flatSchema({
+          tags: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 1,
+            maxItems: 2,
+          },
+        })}
+        values={{ tags: ["first"] }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Remove item 1" }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Add item" }));
+    expect(screen.getByRole("button", { name: "Add item" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Remove item 1" })).toBeEnabled();
+  });
+
+  it("renders the unsupported placeholder for objects nested inside rows", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(
+      <Harness
+        schema={flatSchema({
+          groups: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                metadata: { type: "object", properties: {} },
+              },
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Unsupported field")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add item" }),
+    ).not.toBeInTheDocument();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('unsupported schema shape for field "groups"'),
+      expect.anything(),
+    );
   });
 });

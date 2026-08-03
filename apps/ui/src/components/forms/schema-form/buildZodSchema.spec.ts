@@ -143,3 +143,62 @@ describe("buildZodSchema — enums", () => {
     expect(issues[0].path).toEqual(["tunneling_mode"]);
   });
 });
+
+describe("buildZodSchema — arrays", () => {
+  const arraySchema = zodFor({
+    type: "object",
+    properties: {
+      meters: {
+        type: "array",
+        minItems: 1,
+        maxItems: 2,
+        items: {
+          type: "object",
+          properties: {
+            point_id: { type: "string", minLength: 1 },
+          },
+          required: ["point_id"],
+        },
+      },
+    },
+    required: ["meters"],
+  });
+
+  it("honors item validation and keeps the indexed field path", () => {
+    const issues = issuesOf(
+      arraySchema.safeParse({ meters: [{ point_id: "" }] }),
+    );
+    expect(issues[0].path).toEqual(["meters", 0, "point_id"]);
+  });
+
+  it("honors minItems and maxItems", () => {
+    expect(arraySchema.safeParse({ meters: [] }).success).toBe(false);
+    expect(
+      arraySchema.safeParse({
+        meters: [{ point_id: "a" }, { point_id: "b" }, { point_id: "c" }],
+      }).success,
+    ).toBe(false);
+    expect(arraySchema.safeParse({ meters: [{ point_id: "a" }] }).success).toBe(
+      true,
+    );
+  });
+
+  it("preserves nullable properties inside object items", () => {
+    const schema = zodFor({
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              note: { anyOf: [{ type: "string" }, { type: "null" }] },
+            },
+          },
+        },
+      },
+    });
+
+    expect(schema.safeParse({ items: [{ note: null }] }).success).toBe(true);
+  });
+});

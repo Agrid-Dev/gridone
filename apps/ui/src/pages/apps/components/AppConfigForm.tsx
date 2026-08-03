@@ -23,6 +23,7 @@ import {
   applyServerFieldErrors,
   normalizeSchema,
   SchemaFields,
+  schemaFieldPaths,
   ServerErrorAlert,
   useClearServerErrorOnChange,
 } from "@/components/forms/schema-form";
@@ -181,8 +182,14 @@ const ConfigForm: FC<ConfigFormProps> = ({
       toast.success(t("configSaved"));
     },
     onError: (error: Error) => {
+      const registryFields = fields.filter(
+        (field) => overrides[field.name] === undefined,
+      );
       applyServerFieldErrors(form, error, {
-        fieldNames: fields.map((field) => field.name),
+        fieldNames: [
+          ...schemaFieldPaths(registryFields, form.getValues()),
+          ...Object.keys(overrides),
+        ],
         fallbackMessage: t("configError"),
       });
     },
