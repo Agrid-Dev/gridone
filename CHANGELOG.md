@@ -1,3 +1,9 @@
+## v0.189.0 (2026-08-03)
+
+### Feat
+
+- **ui**: surface schema-form server errors (AGR-921)
+
 ## v0.188.0 (2026-08-03)
 
 ### Feat
