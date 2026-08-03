@@ -1,3 +1,9 @@
+## v0.188.0 (2026-08-03)
+
+### Feat
+
+- **apps,api**: structured {loc,msg,type} app-config 422s (AGR-993)
+
 ## v0.187.0 (2026-08-03)
 
 ### Feat
