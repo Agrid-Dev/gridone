@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { normalizeSchema } from "./normalizeSchema";
 import { schemaFormDefaults } from "./useSchemaForm";
-import knxSchema from "./__fixtures__/transport-knx.json";
 import mqttSchema from "./__fixtures__/transport-mqtt.json";
+import changeEventSchema from "./__fixtures__/trigger-change-event.json";
 
 describe("schemaFormDefaults", () => {
   it("seeds schema defaults as actual values", () => {
@@ -29,14 +29,11 @@ describe("schemaFormDefaults", () => {
   });
 
   it("keeps entity values for unsupported fields so they round-trip", () => {
-    const credentials = {
-      device_authentication_password: "x",
-      user_password: "y",
-    };
-    const defaults = schemaFormDefaults(normalizeSchema(knxSchema), {
-      gateway_ip: "gw",
-      secure_credentials: credentials,
+    const condition = { operator: "gt", threshold: 21 };
+    const defaults = schemaFormDefaults(normalizeSchema(changeEventSchema), {
+      device_id: "dev1",
+      condition,
     });
-    expect(defaults.secure_credentials).toEqual(credentials);
+    expect(defaults.condition).toEqual(condition);
   });
 });

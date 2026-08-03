@@ -167,7 +167,6 @@ export type TransportProtocols = Schemas["TransportProtocols"];
 export type TransportConnectionState = Schemas["TransportConnectionState"];
 export type HttpTransportConfig = Schemas["HttpTransportConfig"];
 export type KNXTransportConfig = Schemas["KNXTransportConfig"];
-export type KNXSecureCredentials = Schemas["KNXSecureCredentials"];
 export type MqttTransportConfig = Schemas["MqttTransportConfig"];
 export type ModbusTCPTransportConfig = Schemas["ModbusTCPTransportConfig"];
 export type MBusTransportConfig = Schemas["MBusTransportConfig"];

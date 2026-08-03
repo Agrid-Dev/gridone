@@ -71,8 +71,8 @@ const EnumWidget = ({ descriptor, name, control }: SchemaWidgetProps) => (
 );
 
 /** Explicit placeholder for shapes the flat dialect can't render (nested
- *  objects until phase 2, arrays until AGR-922) — never a silent skip. The
- *  field's stored value round-trips untouched. */
+ *  objects — the dialect stays flat — and arrays until AGR-922) — never a
+ *  silent skip. The field's stored value round-trips untouched. */
 const UnsupportedWidget = ({ descriptor, name }: SchemaWidgetProps) => {
   const { t } = useTranslation("common");
   useEffect(() => {

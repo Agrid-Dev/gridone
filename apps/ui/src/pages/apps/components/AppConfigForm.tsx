@@ -14,14 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   defaultsFor,
   effectiveSchema,
-  fieldsOf,
   findDiscriminant,
+  localizeSchema,
   pickSchemaKeys,
-  resolveLabel,
   toZodSchema,
   type AppSchemaNode,
 } from "@/lib/appConfigSchema";
-import { AppConfigField } from "./AppConfigField";
+import { normalizeSchema, SchemaFields } from "@/components/forms/schema-form";
+import { appConfigOverrides } from "./AppConfigField";
 import { AppPushStatusBadge } from "./AppPushStatusBadge";
 import type { PushStatus } from "@gridone/sdk";
 
@@ -130,23 +130,14 @@ const ConfigForm: FC<ConfigFormProps> = ({
     [schema, branchValue],
   );
 
-  const fields = useMemo(
-    () =>
-      fieldsOf(activeSchema).map((field) => ({
-        ...field,
-        schema: {
-          ...field.schema,
-          title:
-            resolveLabel(field.schema.title, schema.i18n, locale) ?? field.name,
-          description: resolveLabel(
-            field.schema.description,
-            schema.i18n,
-            locale,
-          ),
-        },
-      })),
+  // Localized before normalization so the registry widgets and the
+  // app-contract widgets both read resolved titles/descriptions.
+  const { fields } = useMemo(
+    () => normalizeSchema(localizeSchema(activeSchema, schema.i18n, locale)),
     [activeSchema, schema.i18n, locale],
   );
+
+  const overrides = useMemo(() => appConfigOverrides(fields), [fields]);
 
   const resolver = useMemo(
     () => zodResolver(toZodSchema(activeSchema)),
@@ -223,15 +214,11 @@ const ConfigForm: FC<ConfigFormProps> = ({
           onSubmit={handleSubmit(onSubmit)}
           className="grid gap-4 md:grid-cols-2"
         >
-          {fields.map((field) => (
-            <AppConfigField
-              key={field.name}
-              name={field.name}
-              schema={field.schema}
-              control={control}
-              required={field.required}
-            />
-          ))}
+          <SchemaFields
+            fields={fields}
+            control={control}
+            overrides={overrides}
+          />
         </form>
       </CardContent>
       <CardFooter className="flex justify-end">

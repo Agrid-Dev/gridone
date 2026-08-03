@@ -41,6 +41,8 @@ vi.mock("react-i18next", () => createI18nMock({}));
 // Import after the mocks above are registered.
 import TransportForm from "./index";
 import realMqttSchema from "@/components/forms/schema-form/__fixtures__/transport-mqtt.json";
+import realKnxSchema from "@/components/forms/schema-form/__fixtures__/transport-knx.json";
+import type { FormProtocol } from "./useTransportForm";
 
 const CONFIG_SCHEMAS: TransportSchemas = {
   mqtt: {
@@ -54,9 +56,10 @@ const CONFIG_SCHEMAS: TransportSchemas = {
   http: { type: "object", properties: {} },
   "modbus-tcp": { type: "object", properties: {} },
   bacnet: { type: "object", properties: {} },
+  knx: realKnxSchema,
 } as unknown as TransportSchemas;
 
-function renderForm() {
+function renderForm(lockedProtocol: FormProtocol = "mqtt") {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: 0 },
@@ -68,7 +71,9 @@ function renderForm() {
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
   }
-  return render(<TransportForm lockedProtocol="mqtt" />, { wrapper: Wrapper });
+  return render(<TransportForm lockedProtocol={lockedProtocol} />, {
+    wrapper: Wrapper,
+  });
 }
 
 afterEach(() => {
@@ -157,6 +162,56 @@ describe("TransportForm — schema-driven config (AGR-919)", () => {
       port: 1883,
       tls: false,
       tls_insecure: false,
+    });
+  });
+});
+
+describe("TransportForm — KNX flat IP-Secure fields (AGR-920)", () => {
+  it("renders the flat secure fields with the schema defaults seeded", async () => {
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    renderForm("knx");
+
+    expect(
+      await screen.findByLabelText(/secure device authentication password/i),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/secure user password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/secure user id/i)).toHaveValue(2);
+    expect(screen.getByLabelText(/port/i)).toHaveValue(3671);
+  });
+
+  it("creates an IP-Secure KNX transport entirely from the form", async () => {
+    mockGetTransportSchemas.mockResolvedValue(CONFIG_SCHEMAS);
+    mockCreateTransport.mockResolvedValue({ id: "t1" });
+    const { container } = renderForm("knx");
+
+    fireEvent.change(await screen.findByLabelText(/fields\.name/), {
+      target: { value: "KNX gateway" },
+    });
+    fireEvent.change(screen.getByLabelText(/gateway ip/i), {
+      target: { value: "gw.local" },
+    });
+    fireEvent.change(
+      screen.getByLabelText(/secure device authentication password/i),
+      { target: { value: "dev-pass" } },
+    );
+    fireEvent.change(screen.getByLabelText(/secure user password/i), {
+      target: { value: "user-pass" },
+    });
+    const form = container.querySelector("form");
+    if (!form) throw new Error("form not found");
+    fireEvent.submit(form);
+
+    await waitFor(() => expect(mockCreateTransport).toHaveBeenCalled());
+    expect(mockCreateTransport.mock.calls[0][0]).toMatchObject({
+      protocol: "knx",
+      config: {
+        gateway_ip: "gw.local",
+        port: 3671,
+        tunneling_mode: "udp",
+        secure_device_authentication_password: "dev-pass",
+        secure_user_password: "user-pass",
+        secure_user_id: 2,
+      },
     });
   });
 });

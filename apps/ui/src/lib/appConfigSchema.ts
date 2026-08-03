@@ -17,11 +17,17 @@
  *
  * These extensions (`i18n`, `asset-id`, `password`, discriminated `oneOf`) are
  * part of the form-schema dialect, not app-specific: AGR-923 documents and
- * CI-guards the dialect, and AGR-920 migrates this conversion onto the
- * `schema-form` builder (`components/forms/schema-form`, built in AGR-919).
- * Until then they live here.
+ * CI-guards the dialect. Since AGR-920 the zod conversion goes through the
+ * `schema-form` builder (`components/forms/schema-form`); the helpers here
+ * only prepare the app-served schema for it (flattening, localization) and
+ * keep the app-contract behaviours the builder does not own.
  */
 import * as z from "zod";
+import {
+  buildZodSchema,
+  normalizeSchema,
+  type JsonSchemaObject,
+} from "@/components/forms/schema-form";
 
 /**
  * Node of an app-declared config schema.
@@ -153,6 +159,27 @@ export function effectiveSchema(
   };
 }
 
+/**
+ * Returns the schema with every property's `title`/`description` resolved
+ * through the root `i18n` catalog — run before `normalizeSchema` so the
+ * registry widgets and the app-contract widgets both read localized text.
+ */
+export function localizeSchema(
+  schema: AppSchemaNode,
+  catalog: AppSchemaNode["i18n"],
+  locale: string,
+): AppSchemaNode {
+  const properties: Record<string, AppSchemaNode> = {};
+  for (const [name, node] of Object.entries(schema.properties ?? {})) {
+    properties[name] = {
+      ...node,
+      title: resolveLabel(node.title, catalog, locale),
+      description: resolveLabel(node.description, catalog, locale),
+    };
+  }
+  return { ...schema, properties };
+}
+
 /** Ordered field specs of a flattened schema, discriminant included. */
 export function fieldsOf(schema: AppSchemaNode): SchemaFieldSpec[] {
   const required = new Set(schema.required ?? []);
@@ -189,21 +216,22 @@ export function pickSchemaKeys(
 }
 
 /**
- * Converts a flattened schema to a zod validator for inline field errors.
+ * Converts a flattened schema to a zod validator for inline field errors,
+ * through the shared `schema-form` builder (the app's single
+ * `z.fromJSONSchema` call site). Fields the flat dialect can't render
+ * (arrays, nested objects) are excluded from client validation — their
+ * values round-trip and the server stays the authority.
  *
- * Apps serve their own schemas, so conversion can fail on a construct zod does
- * not implement. That must not take the form down: the fallback accepts
- * anything and leaves validation to `PATCH /apps/{id}/config`, which is the
- * authority either way (its 422 is surfaced on the form).
+ * Apps serve their own schemas, so conversion can still fail on a construct
+ * zod does not implement. That must not take the form down: the fallback
+ * accepts anything and leaves validation to `PATCH /apps/{id}/config`, which
+ * is the authority either way (its 422 is surfaced on the form).
  */
 export function toZodSchema(schema: AppSchemaNode): z.ZodObject {
   try {
-    // Custom formats (`asset-id`) need no zod counterpart: they select the
-    // widget, not the validation, and zod passes unknown formats through.
-    // The input is always a flattened object schema, hence the object cast.
-    return z.fromJSONSchema(
-      schema as Parameters<typeof z.fromJSONSchema>[0],
-    ) as z.ZodObject;
+    // Custom formats (`asset-id`, `password`) need no zod counterpart: they
+    // select the widget, not the validation.
+    return buildZodSchema(normalizeSchema(schema as JsonSchemaObject));
   } catch {
     return z.looseObject({});
   }

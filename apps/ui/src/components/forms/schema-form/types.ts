@@ -3,8 +3,9 @@
 export type JsonSchemaObject = { [keyword: string]: unknown };
 
 /** The widget-dispatch kinds the flat dialect supports. `unsupported` is the
- *  extension point: nested objects (phase 2) and arrays (AGR-922) will become
- *  their own kinds instead of falling through to it. */
+ *  extension point: arrays (AGR-922) — and nested objects, should the dialect
+ *  ever reopen to them — would become their own kinds instead of falling
+ *  through to it. */
 export type FieldKind =
   | "string"
   | "number"

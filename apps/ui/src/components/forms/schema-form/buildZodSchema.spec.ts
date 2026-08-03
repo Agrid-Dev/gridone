@@ -79,15 +79,13 @@ describe("buildZodSchema — bounded ints and patterns", () => {
 
 describe("buildZodSchema — unsupported fields", () => {
   it("excludes them from validation but round-trips their values", () => {
-    // KNX `secure_credentials` (nested object) can't be edited by the flat
+    // change_event's nested `condition` object can't be edited by the flat
     // form; a stored value must neither fail validation nor be stripped.
-    const schema = zodFor(knxSchema);
+    const schema = zodFor(changeEventSchema);
     const stored = {
-      gateway_ip: "gw.local",
-      secure_credentials: {
-        device_authentication_password: "x",
-        user_password: "y",
-      },
+      device_id: "dev1",
+      attribute: "temp",
+      condition: { operator: "gt", threshold: 21 },
     };
     const result = schema.safeParse(stored);
     expect(result.success).toBe(true);
@@ -98,6 +96,37 @@ describe("buildZodSchema — unsupported fields", () => {
     const schema = zodFor(changeEventSchema);
     expect(
       schema.safeParse({ device_id: "dev1", attribute: "temp" }).success,
+    ).toBe(true);
+  });
+});
+
+describe("buildZodSchema — KNX flat IP-Secure fields (AGR-920)", () => {
+  const schema = zodFor(knxSchema);
+
+  it("accepts a minimal payload and applies the secure user id default", () => {
+    const result = schema.safeParse({ gateway_ip: "gw.local" });
+    expect(result.success).toBe(true);
+    expect(result.data).toMatchObject({ secure_user_id: 2 });
+  });
+
+  it("accepts the secure passwords as plain optional strings", () => {
+    expect(
+      schema.safeParse({
+        gateway_ip: "gw.local",
+        secure_device_authentication_password: "dev",
+        secure_user_password: "usr",
+        secure_user_id: 3,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("treats cleared or null secure inputs as absent", () => {
+    expect(
+      schema.safeParse({
+        gateway_ip: "gw.local",
+        secure_device_authentication_password: "",
+        secure_user_password: null,
+      }).success,
     ).toBe(true);
   });
 });

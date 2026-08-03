@@ -28,6 +28,7 @@ export const transportProtocols = [
   "http",
   "modbus-tcp",
   "bacnet",
+  "knx",
   "webhook",
 ] as const satisfies readonly TransportProtocols[];
 
