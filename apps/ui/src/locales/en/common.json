@@ -202,6 +202,17 @@
       "placeholder": "Select users",
       "search": "Search users",
       "noUsers": "No users found"
+    },
+    "asset": {
+      "label": "Locations",
+      "placeholder": "Select locations",
+      "search": "Search locations",
+      "noAssets": "No locations found"
+    },
+    "multiSelect": {
+      "placeholder": "Select values",
+      "search": "Search",
+      "noOptions": "No values found"
     }
   },
   "app": {

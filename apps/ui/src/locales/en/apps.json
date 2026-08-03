@@ -32,6 +32,20 @@
   "configError": "Failed to save configuration",
   "configSave": "Save",
   "noConfig": "No configuration available for this application.",
+  "config": {
+    "unreachable": "This application is unreachable, so its configuration form cannot be loaded.",
+    "rejected": "This configuration does not match what the application expects",
+    "pushStatus": {
+      "ok": "Delivered",
+      "pending": "Delivery pending",
+      "rejected": "Refused by the app"
+    },
+    "pushStatusHint": {
+      "ok": "The application is running on this configuration.",
+      "pending": "Saved, but not taken by the application yet — delivery is retried automatically.",
+      "rejected": "The application refused this configuration. Correct it and save again."
+    }
+  },
   "requests": {
     "title": "Registration requests",
     "singular": "Request",

@@ -141,7 +141,9 @@ export default function AppDetail() {
       </div>
 
       {/* Configuration */}
-      {can("users:write") && <AppConfigForm appId={appId!} />}
+      {can("users:write") && (
+        <AppConfigForm appId={appId!} pushStatus={app.push_status} />
+      )}
     </section>
   );
 }
