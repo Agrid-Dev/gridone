@@ -375,6 +375,7 @@ Any function containing regex, bit manipulation, protocol-specific encoding, or 
 #### 22. All forms use react-hook-form + zod
 
 Generate zod schemas from JSON schemas when available (`z.fromJSONSchema()`). Use shadcn `Field`, `FieldLabel`, and `data-invalid` for error states.
+Schemas rendered through the shared builder must follow the [form-schema dialect](apps/ui/src/components/forms/schema-form/README.md); extend that contract and its guardrail deliberately before publishing a new shape.
 
 #### 23. One route per action
 
