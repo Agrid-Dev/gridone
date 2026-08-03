@@ -1,3 +1,9 @@
+## v0.186.0 (2026-08-03)
+
+### Feat
+
+- **ui**: schema-form builder core + migrate transports & trigger forms (AGR-919)
+
 ## v0.185.0 (2026-08-03)
 
 ### Feat
