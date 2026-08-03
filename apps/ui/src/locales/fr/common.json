@@ -250,6 +250,10 @@
     "notifications": "Notifications"
   },
   "schemaForm": {
+    "addItem": "Ajouter un élément",
+    "removeItem": "Supprimer l’élément {{index}}",
+    "itemLabel": "Élément {{index}}",
+    "emptyArray": "Aucun élément. Ajoutez le premier élément.",
     "unsupportedField": "Ce type de champ ne peut pas encore être modifié ici.",
     "serverErrorTitle": "Vérifiez ce formulaire"
   }

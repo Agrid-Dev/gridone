@@ -3,6 +3,7 @@ export { normalizeProperty, normalizeSchema } from "./normalizeSchema";
 export {
   SchemaFields,
   SchemaFieldWidget,
+  schemaFieldPaths,
   type SchemaFieldOverrides,
   type SchemaWidgetProps,
 } from "./SchemaFields";
@@ -22,6 +23,7 @@ export {
   type ServerLocationOptions,
 } from "./serverErrors";
 export type {
+  ArrayItemDescriptor,
   FieldDescriptor,
   FieldKind,
   JsonSchemaObject,

@@ -111,10 +111,16 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
 };
 
 /** The shapes the app contract renders itself instead of the registry. */
-const needsAppWidget = (schema: AppSchemaNode): boolean =>
-  schema.type === "array" ||
-  schema.format === ASSET_ID_FORMAT ||
-  schema.format === PASSWORD_FORMAT;
+const needsAppWidget = (field: FieldDescriptor): boolean => {
+  const schema = field.schema as AppSchemaNode;
+  if (schema.format === ASSET_ID_FORMAT || schema.format === PASSWORD_FORMAT) {
+    return true;
+  }
+  // Keep the app contract's scalar-array pickers/text area, but let the shared
+  // registry own row-based flat-object arrays. Unsupported deeper arrays must
+  // reach its explicit placeholder instead of degrading to "[object Object]".
+  return schema.type === "array" && field.arrayItem?.kind === "scalar";
+};
 
 /** `AppConfigField` mounted as a schema-form widget (override seam). The
  *  descriptor's label wins so untitled properties keep a humanized label. */
@@ -139,9 +145,7 @@ export const appConfigOverrides = (
   fields: FieldDescriptor[],
 ): SchemaFieldOverrides =>
   Object.fromEntries(
-    fields
-      .filter((field) => needsAppWidget(field.schema as AppSchemaNode))
-      .map((field) => [field.name, AppConfigWidget]),
+    fields.filter(needsAppWidget).map((field) => [field.name, AppConfigWidget]),
   );
 
 /** `format: asset-id` — multi-select over the asset tree for an array, single

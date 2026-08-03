@@ -169,13 +169,25 @@ export function localizeSchema(
   catalog: AppSchemaNode["i18n"],
   locale: string,
 ): AppSchemaNode {
+  const localizeNode = (node: AppSchemaNode): AppSchemaNode => ({
+    ...node,
+    title: resolveLabel(node.title, catalog, locale),
+    description: resolveLabel(node.description, catalog, locale),
+    ...(node.items ? { items: localizeNode(node.items) } : {}),
+    ...(node.properties
+      ? {
+          properties: Object.fromEntries(
+            Object.entries(node.properties).map(([name, property]) => [
+              name,
+              localizeNode(property),
+            ]),
+          ),
+        }
+      : {}),
+  });
   const properties: Record<string, AppSchemaNode> = {};
   for (const [name, node] of Object.entries(schema.properties ?? {})) {
-    properties[name] = {
-      ...node,
-      title: resolveLabel(node.title, catalog, locale),
-      description: resolveLabel(node.description, catalog, locale),
-    };
+    properties[name] = localizeNode(node);
   }
   return { ...schema, properties };
 }
@@ -219,7 +231,7 @@ export function pickSchemaKeys(
  * Converts a flattened schema to a zod validator for inline field errors,
  * through the shared `schema-form` builder (the app's single
  * `z.fromJSONSchema` call site). Fields the flat dialect can't render
- * (arrays, nested objects) are excluded from client validation — their
+ * (nested objects outside supported array rows) are excluded from client validation — their
  * values round-trip and the server stays the authority.
  *
  * Apps serve their own schemas, so conversion can still fail on a construct

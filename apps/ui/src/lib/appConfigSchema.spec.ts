@@ -4,6 +4,7 @@ import {
   effectiveSchema,
   fieldsOf,
   findDiscriminant,
+  localizeSchema,
   pickSchemaKeys,
   resolveLabel,
   toZodSchema,
@@ -103,6 +104,37 @@ describe("resolveLabel", () => {
 
   it("leaves an absent title absent", () => {
     expect(resolveLabel(undefined, copiloteSchema.i18n, "en")).toBeUndefined();
+  });
+});
+
+describe("localizeSchema", () => {
+  it("localizes titles inside flat object array items", () => {
+    const localized = localizeSchema(
+      {
+        type: "object",
+        properties: {
+          meters: {
+            type: "array",
+            title: "meters.title",
+            items: {
+              type: "object",
+              properties: {
+                point_id: { type: "string", title: "point.title" },
+              },
+            },
+          },
+        },
+      },
+      {
+        en: { "meters.title": "Meters", "point.title": "Point ID" },
+      },
+      "en",
+    );
+
+    expect(localized.properties?.meters.title).toBe("Meters");
+    expect(localized.properties?.meters.items?.properties?.point_id.title).toBe(
+      "Point ID",
+    );
   });
 });
 

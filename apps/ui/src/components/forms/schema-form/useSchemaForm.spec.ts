@@ -36,4 +36,15 @@ describe("schemaFormDefaults", () => {
     });
     expect(defaults.condition).toEqual(condition);
   });
+
+  it("seeds supported arrays for the empty-state renderer", () => {
+    const normalized = normalizeSchema({
+      type: "object",
+      properties: {
+        meters: { type: "array", items: { type: "string" } },
+      },
+    });
+
+    expect(schemaFormDefaults(normalized)).toEqual({ meters: [] });
+  });
 });

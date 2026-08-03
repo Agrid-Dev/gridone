@@ -20,6 +20,7 @@ export const schemaFormDefaults = (
   const defaults: SchemaFormValues = {};
   for (const field of normalized.fields) {
     if (field.default !== undefined) defaults[field.name] = field.default;
+    else if (field.kind === "array") defaults[field.name] = [];
   }
   for (const [name, value] of Object.entries(values ?? {})) {
     if (value !== null && value !== undefined) defaults[name] = value;

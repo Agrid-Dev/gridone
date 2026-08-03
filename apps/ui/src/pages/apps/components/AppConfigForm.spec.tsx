@@ -398,6 +398,50 @@ describe("AppConfigForm — PMS schema", () => {
     expect(await screen.findByText("Meter is unknown")).toBeInTheDocument();
     expect(mockToast.error).not.toHaveBeenCalled();
   });
+
+  it("attaches indexed smart-meter errors to the right row field", async () => {
+    const user = userEvent.setup();
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: {
+        meters: {
+          type: "array",
+          title: "Meters",
+          items: {
+            type: "object",
+            properties: {
+              provider: { type: "string", enum: ["alpha", "beta"] },
+              point_id: { type: "string", title: "Point ID" },
+            },
+            required: ["provider", "point_id"],
+          },
+        },
+      },
+    });
+    mockClient.apps.getConfig.mockResolvedValue({
+      meters: [{ provider: "alpha", point_id: "meter-1" }],
+    });
+    mockClient.apps.updateConfig.mockRejectedValue(
+      new GridoneError(422, [
+        {
+          loc: ["meters", 0, "point_id"],
+          msg: "Point is unknown",
+          type: "enum",
+        },
+      ]),
+    );
+    renderForm();
+
+    const pointId = await screen.findByLabelText(/Point ID/);
+    await user.click(screen.getByRole("button", { name: /configSave/ }));
+
+    await waitFor(() =>
+      expect(pointId.closest('[data-slot="field"]')).toHaveTextContent(
+        "Point is unknown",
+      ),
+    );
+    expect(mockToast.error).not.toHaveBeenCalled();
+  });
 });
 
 describe("AppConfigForm — registry widgets (AGR-920 migration)", () => {

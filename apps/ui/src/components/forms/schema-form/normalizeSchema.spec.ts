@@ -147,6 +147,78 @@ describe("normalizeSchema — trigger params schemas", () => {
   });
 });
 
+describe("normalizeSchema — arrays", () => {
+  it("normalizes scalar items for repeatable rows", () => {
+    const fields = fieldByName({
+      type: "object",
+      properties: {
+        thresholds: {
+          type: "array",
+          items: { type: "number", minimum: 0 },
+        },
+      },
+    });
+
+    expect(fields.thresholds).toMatchObject({
+      kind: "array",
+      arrayItem: {
+        kind: "scalar",
+        field: { kind: "number", required: true },
+      },
+    });
+  });
+
+  it("normalizes flat object items and their required scalar fields", () => {
+    const fields = fieldByName({
+      type: "object",
+      properties: {
+        meters: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              provider: { type: "string", enum: ["a", "b"] },
+              point_id: { type: "string" },
+            },
+            required: ["provider", "point_id"],
+          },
+        },
+      },
+    });
+
+    expect(fields.meters.kind).toBe("array");
+    expect(fields.meters.arrayItem).toMatchObject({
+      kind: "object",
+      fields: [
+        { name: "provider", kind: "enum", required: true },
+        { name: "point_id", kind: "string", required: true },
+      ],
+    });
+  });
+
+  it("classifies deeper item shapes as unsupported", () => {
+    const fields = fieldByName({
+      type: "object",
+      properties: {
+        groups: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              metadata: { type: "object", properties: {} },
+            },
+          },
+        },
+      },
+    });
+
+    expect(fields.groups).toMatchObject({
+      kind: "unsupported",
+      arrayItem: undefined,
+    });
+  });
+});
+
 describe("normalizeSchema — degenerate inputs", () => {
   it.each([
     ["undefined", undefined],
