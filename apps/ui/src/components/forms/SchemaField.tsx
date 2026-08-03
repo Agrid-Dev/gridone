@@ -29,8 +29,8 @@ interface SchemaFieldProps {
 }
 
 /** Legacy single-property bridge over the `schema-form` widget registry, kept
- *  for consumers not yet on `SchemaFields` (widget config: follow-up; app
- *  config: AGR-920). New consumers should use `SchemaFields` directly. */
+ *  for consumers not yet on `SchemaFields` (widget config: follow-up).
+ *  New consumers should use `SchemaFields` directly. */
 export function SchemaField({
   name,
   propName,

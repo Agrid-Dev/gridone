@@ -349,6 +349,26 @@ describe("AppConfigForm — PMS schema", () => {
   });
 });
 
+describe("AppConfigForm — registry widgets (AGR-920 migration)", () => {
+  it("renders primitives through the schema-form registry (switch, multiline)", async () => {
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: {
+        enabled: { type: "boolean", title: "Enabled", default: false },
+        notes: { type: "string", multiline: true, title: "Notes" },
+      },
+    });
+    mockClient.apps.getConfig.mockResolvedValue({});
+
+    renderForm();
+
+    expect(
+      await screen.findByRole("switch", { name: "Enabled" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Notes").tagName).toBe("TEXTAREA");
+  });
+});
+
 describe("AppConfigForm — degraded states", () => {
   it("tells the app is unreachable when the API answers 503", async () => {
     mockClient.apps.getConfigSchema.mockRejectedValue(

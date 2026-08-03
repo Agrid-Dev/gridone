@@ -128,14 +128,18 @@ describe("SchemaFields — real transport schemas (parity checks)", () => {
     expect(screen.getByLabelText("Port")).toHaveValue(1883);
   });
 
-  it("KNX: tunneling_mode is a select, secure_credentials an explicit placeholder", () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("KNX: tunneling_mode is a select, flat IP-Secure fields are editable", () => {
     render(<Harness schema={knxSchema} />);
     expect(
       screen.getByRole("combobox", { name: "Tunneling Mode" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Secure Credentials")).toBeInTheDocument();
-    expect(screen.getByText("Unsupported field")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Secure Device Authentication Password").tagName,
+    ).toBe("INPUT");
+    expect(screen.getByLabelText("Secure User Password").tagName).toBe("INPUT");
+    expect(screen.getByLabelText("Secure User Id")).toHaveValue(2);
+    // The whole schema is renderable — nothing falls back to the placeholder.
+    expect(screen.queryByText("Unsupported field")).not.toBeInTheDocument();
   });
 
   it("merges entity values over schema defaults on edit", () => {

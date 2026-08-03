@@ -1,27 +1,17 @@
-import { FC, useMemo } from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { FC } from "react";
+import { useController, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { Button } from "@/components/ui";
 import { Separator } from "@/components/ui/separator";
-import { InputController } from "@/components/forms/controllers/InputController";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { IconPicker } from "@/components/forms/IconPicker";
-import { toLabel } from "@/lib/textFormat";
-import { useNavigate } from "react-router";
-
-type SchemaProperty = {
-  type?: string;
-  title?: string;
-  description?: string;
-  anyOf?: { type?: string }[];
-};
-
-type BuildingProfileSchema = {
-  properties?: Record<string, SchemaProperty>;
-  required?: string[];
-};
+import {
+  SchemaFields,
+  useSchemaForm,
+  type SchemaFormValues,
+  type SchemaWidgetProps,
+} from "@/components/forms/schema-form";
 
 /** Schema field name → its localized label key in the `profile` namespace.
  *  Unknown fields fall back to the schema `title` / a humanized name. */
@@ -38,15 +28,24 @@ const FIELD_LABEL_KEYS = {
 /** Schema fields not surfaced in the form (kept on save, just not edited). */
 const HIDDEN_FIELDS = new Set(["latitude", "longitude", "cover_url"]);
 
-/** A field's effective scalar type, unwrapping the `anyOf: [{...}, {null}]`
- *  shape Pydantic emits for optional fields. Numeric types map to a number
- *  input; everything else (incl. `icon`, for now) is a text input. */
-function inputType(property: SchemaProperty): "number" | "text" {
-  const type =
-    property.type ??
-    property.anyOf?.find((v) => v.type && v.type !== "null")?.type;
-  return type === "number" || type === "integer" ? "number" : "text";
-}
+/** `icon` widget override: the schema types it as free text, the form offers
+ *  the supported set through the picker (suggestions keyed off the name). */
+const IconWidget: FC<SchemaWidgetProps> = ({ descriptor, name, control }) => {
+  const { field } = useController({ name, control });
+  const buildingName = useWatch({ control, name: "name" }) as
+    | string
+    | null
+    | undefined;
+  return (
+    <FieldShell id={name} label={descriptor.label}>
+      <IconPicker
+        value={(field.value as string | null) ?? null}
+        onChange={field.onChange}
+        name={buildingName}
+      />
+    </FieldShell>
+  );
+};
 
 export const BuildingProfileForm: FC<{
   schema: Record<string, unknown>;
@@ -56,70 +55,30 @@ export const BuildingProfileForm: FC<{
 }> = ({ schema, defaultValues, onSubmit, isPending }) => {
   const { t } = useTranslation("profile");
   const navigate = useNavigate();
-  const typedSchema = schema as BuildingProfileSchema;
 
-  const zodSchema = useMemo(
-    () =>
-      z.fromJSONSchema(
-        schema as Parameters<typeof z.fromJSONSchema>[0],
-      ) as z.ZodObject,
-    [schema],
-  );
-
-  const { control, handleSubmit } = useForm({
-    resolver: zodResolver(zodSchema),
-    defaultValues: defaultValues as Record<string, string | number | null>,
+  const { form, fields } = useSchemaForm({
+    schema,
+    values: defaultValues as SchemaFormValues,
   });
 
-  const required = new Set(typedSchema.required ?? []);
-  const buildingName = useWatch({ control, name: "name" }) as
-    | string
-    | null
-    | undefined;
+  // Hidden fields stay in the form state and the submitted payload — they are
+  // only excluded from rendering.
+  const visibleFields = fields
+    .filter((field) => !HIDDEN_FIELDS.has(field.name))
+    .map((field) => {
+      const labelKey =
+        FIELD_LABEL_KEYS[field.name as keyof typeof FIELD_LABEL_KEYS];
+      return labelKey ? { ...field, label: t(labelKey) } : field;
+    });
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
-        {Object.entries(typedSchema.properties ?? {})
-          .filter(([name]) => !HIDDEN_FIELDS.has(name))
-          .map(([name, property]) => {
-            const labelKey =
-              FIELD_LABEL_KEYS[name as keyof typeof FIELD_LABEL_KEYS];
-            const label = labelKey
-              ? t(labelKey)
-              : (property.title ?? toLabel(name));
-
-            if (name === "icon") {
-              return (
-                <Controller
-                  key={name}
-                  name="icon"
-                  control={control}
-                  render={({ field }) => (
-                    <FieldShell id="icon" label={label}>
-                      <IconPicker
-                        value={(field.value as string | null) ?? null}
-                        onChange={field.onChange}
-                        name={buildingName}
-                      />
-                    </FieldShell>
-                  )}
-                />
-              );
-            }
-
-            return (
-              <InputController
-                key={name}
-                name={name}
-                control={control}
-                label={label}
-                type={inputType(property)}
-                required={required.has(name)}
-                description={property.description}
-              />
-            );
-          })}
+        <SchemaFields
+          fields={visibleFields}
+          control={form.control}
+          overrides={{ icon: IconWidget }}
+        />
       </div>
 
       <Separator />

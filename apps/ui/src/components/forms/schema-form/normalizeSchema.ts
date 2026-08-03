@@ -13,7 +13,7 @@ const isObject = (value: unknown): value is JsonSchemaObject =>
  *  node's sibling keywords (siblings win: BACnet's `default_write_priority`
  *  is `{$ref: BacnetWritePriority, default: 8}` — the default must survive).
  *  The def's `title` is dropped: it names the shared model (`AssetType`,
- *  `KNXSecureCredentials`), not the field, so the label falls back to the
+ *  `Condition`), not the field, so the label falls back to the
  *  property name unless the field declares its own title. Unresolvable refs
  *  return the node unchanged, which downstream classifies as `unsupported`
  *  rather than dropping the field. */

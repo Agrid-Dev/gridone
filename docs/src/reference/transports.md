@@ -142,15 +142,11 @@ KNX uses the KNX/IP tunneling protocol to communicate with a KNX/IP gateway. It 
 | `gateway_ip` | yes | — | Hostname or IP address of the KNX/IP gateway (no protocol prefix) |
 | `port` | no | `3671` | UDP or TCP port of the KNX/IP gateway |
 | `tunneling_mode` | no | `"udp"` | Tunneling transport: `"udp"` or `"tcp"` |
-| `secure_credentials` | no | — | KNX Secure credentials — if set, always uses TCP Secure regardless of `tunneling_mode` |
+| `secure_device_authentication_password` | no | — | KNX IP-Secure device authentication password |
+| `secure_user_password` | no | — | KNX IP-Secure user password |
+| `secure_user_id` | no | `2` | KNX IP-Secure tunnel user ID |
 
-**`secure_credentials` fields:**
-
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `device_authentication_password` | yes | — | KNX Secure device authentication password |
-| `user_password` | yes | — | KNX Secure user password |
-| `user_id` | no | `2` | KNX Secure user ID |
+**KNX IP-Secure** is enabled by setting **both** `secure_device_authentication_password` and `secure_user_password` (setting only one of them is a validation error). When enabled, the connection always uses TCP Secure regardless of `tunneling_mode`.
 
 ---
 

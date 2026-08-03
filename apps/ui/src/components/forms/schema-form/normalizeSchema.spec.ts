@@ -83,14 +83,21 @@ describe("normalizeSchema — KNX transport config", () => {
     expect(fields.gateway_ip.description).toContain("gateway");
   });
 
-  it("keeps the nested-object property as an unsupported descriptor", () => {
-    // `secure_credentials` is `anyOf: [$ref KNXSecureCredentials, null]` —
-    // a nested object the flat dialect can't render (until phase 2), but it
-    // must never be silently dropped.
-    expect(fields.secure_credentials).toBeDefined();
-    expect(fields.secure_credentials.kind).toBe("unsupported");
-    // The def's model-name title must not leak into the field label.
-    expect(fields.secure_credentials.label).toBe("Secure Credentials");
+  it("normalizes the flat IP-Secure fields (AGR-920 flattening)", () => {
+    expect(fields.secure_device_authentication_password).toMatchObject({
+      kind: "string",
+      required: false,
+      nullable: true,
+    });
+    expect(fields.secure_user_password).toMatchObject({
+      kind: "string",
+      required: false,
+      nullable: true,
+    });
+    expect(fields.secure_user_id).toMatchObject({
+      kind: "integer",
+      default: 2,
+    });
   });
 });
 

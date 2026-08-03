@@ -2630,18 +2630,6 @@ export interface components {
      * @enum {string}
      */
     IntervalUnit: "min" | "h" | "d" | "mo";
-    /** KNXSecureCredentials */
-    KNXSecureCredentials: {
-      /** Device Authentication Password */
-      device_authentication_password: string;
-      /** User Password */
-      user_password: string;
-      /**
-       * User Id
-       * @default 2
-       */
-      user_id?: number;
-    };
     /** KNXTransportConfig */
     KNXTransportConfig: {
       /**
@@ -2660,7 +2648,22 @@ export interface components {
        * @enum {string}
        */
       tunneling_mode?: "udp" | "tcp";
-      secure_credentials?: components["schemas"]["KNXSecureCredentials"] | null;
+      /**
+       * Secure Device Authentication Password
+       * @description KNX IP-Secure device authentication password (set together with the secure user password)
+       */
+      secure_device_authentication_password?: string | null;
+      /**
+       * Secure User Password
+       * @description KNX IP-Secure user password (set together with the secure device authentication password)
+       */
+      secure_user_password?: string | null;
+      /**
+       * Secure User Id
+       * @description KNX IP-Secure tunnel user ID
+       * @default 2
+       */
+      secure_user_id?: number;
     };
     /** KnxTransport */
     KnxTransport: {

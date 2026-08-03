@@ -1,28 +1,4 @@
 {
-  "$defs": {
-    "KNXSecureCredentials": {
-      "additionalProperties": false,
-      "properties": {
-        "device_authentication_password": {
-          "title": "Device Authentication Password",
-          "type": "string"
-        },
-        "user_password": {
-          "title": "User Password",
-          "type": "string"
-        },
-        "user_id": {
-          "default": 2,
-          "exclusiveMinimum": 0,
-          "title": "User Id",
-          "type": "integer"
-        }
-      },
-      "required": ["device_authentication_password", "user_password"],
-      "title": "KNXSecureCredentials",
-      "type": "object"
-    }
-  },
   "additionalProperties": false,
   "properties": {
     "gateway_ip": {
@@ -44,16 +20,38 @@
       "title": "Tunneling Mode",
       "type": "string"
     },
-    "secure_credentials": {
+    "secure_device_authentication_password": {
       "anyOf": [
         {
-          "$ref": "#/$defs/KNXSecureCredentials"
+          "type": "string"
         },
         {
           "type": "null"
         }
       ],
-      "default": null
+      "default": null,
+      "description": "KNX IP-Secure device authentication password (set together with the secure user password)",
+      "title": "Secure Device Authentication Password"
+    },
+    "secure_user_password": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "KNX IP-Secure user password (set together with the secure device authentication password)",
+      "title": "Secure User Password"
+    },
+    "secure_user_id": {
+      "default": 2,
+      "description": "KNX IP-Secure tunnel user ID",
+      "exclusiveMinimum": 0,
+      "title": "Secure User Id",
+      "type": "integer"
     }
   },
   "required": ["gateway_ip"],

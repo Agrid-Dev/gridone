@@ -8,6 +8,11 @@ import { AssetPicker } from "@/components/forms/resourcePickers/AssetPicker";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { Textarea } from "@/components/ui/textarea";
 import { toLabel } from "@/lib/textFormat";
+import type {
+  FieldDescriptor,
+  SchemaFieldOverrides,
+  SchemaWidgetProps,
+} from "@/components/forms/schema-form";
 import {
   ASSET_ID_FORMAT,
   PASSWORD_FORMAT,
@@ -26,16 +31,14 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset references, masked secrets, list values — and delegates every
- * primitive (`enum`, boolean, number, string) to the shared ``SchemaField``.
- *
- * **Do not copy this mapping into another feature.** These are repo-wide
- * JSON Schema conventions living here only until the schema-driven forms
- * project gives them a home: the `schema-form` widget registry now exists
- * (AGR-919), AGR-920 migrates app config onto it, AGR-922 adds array
- * support. `asset-id` is the one that needs the registry's per-consumer
- * `overrides` seam rather than a plain move — it pulls `useAssetTree`, and
- * the shared builder must stay domain-agnostic.
+ * asset references, masked secrets, list values. Since AGR-920 the config
+ * form renders through `SchemaFields`, and this component is mounted through
+ * its per-consumer `overrides` seam (`appConfigOverrides` below) only for the
+ * shapes listed above; primitives go straight to the shared widget registry.
+ * (The `SchemaField` delegation at the bottom keeps this component usable
+ * standalone.) `asset-id` is why the seam exists rather than a registry
+ * entry — it pulls `useAssetTree`, and the shared builder must stay
+ * domain-agnostic. Array kinds get their registry home in AGR-922.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,
@@ -106,6 +109,40 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
     />
   );
 };
+
+/** The shapes the app contract renders itself instead of the registry. */
+const needsAppWidget = (schema: AppSchemaNode): boolean =>
+  schema.type === "array" ||
+  schema.format === ASSET_ID_FORMAT ||
+  schema.format === PASSWORD_FORMAT;
+
+/** `AppConfigField` mounted as a schema-form widget (override seam). The
+ *  descriptor's label wins so untitled properties keep a humanized label. */
+const AppConfigWidget: FC<SchemaWidgetProps> = ({
+  descriptor,
+  name,
+  control,
+}) => (
+  <AppConfigField
+    name={name}
+    schema={{
+      ...(descriptor.schema as AppSchemaNode),
+      title: descriptor.label,
+    }}
+    control={control}
+    required={descriptor.required}
+  />
+);
+
+/** Per-field `SchemaFields` overrides for the app-contract shapes. */
+export const appConfigOverrides = (
+  fields: FieldDescriptor[],
+): SchemaFieldOverrides =>
+  Object.fromEntries(
+    fields
+      .filter((field) => needsAppWidget(field.schema as AppSchemaNode))
+      .map((field) => [field.name, AppConfigWidget]),
+  );
 
 /** `format: asset-id` — multi-select over the asset tree for an array, single
  *  select for a string, per the app config contract. */
