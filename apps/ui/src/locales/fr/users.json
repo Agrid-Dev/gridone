@@ -1,7 +1,12 @@
 {
   "title": "Utilisateurs",
+  "subtitle": "Gérez qui accède au bâtiment et avec quels droits.",
   "create": "Ajouter un utilisateur",
   "edit": "Modifier l'utilisateur",
+  "dialogDescriptions": {
+    "create": "Créez un compte et attribuez-lui un rôle d’accès au bâtiment.",
+    "edit": "Modifiez les informations du compte et son rôle d’accès."
+  },
   "created": "Utilisateur cr\u00e9\u00e9",
   "updated": "Utilisateur mis \u00e0 jour",
   "deleted": "Utilisateur supprim\u00e9",
@@ -13,6 +18,53 @@
   "unblocked": "Utilisateur d\u00e9bloqu\u00e9",
   "blockedBadge": "Bloqu\u00e9",
   "you": "vous",
+  "searchPlaceholder": "Rechercher un utilisateur…",
+  "notProvided": "Non renseigné",
+  "filters": {
+    "label": "Filtrer les utilisateurs par rôle",
+    "all": "Tous"
+  },
+  "columns": {
+    "user": "Utilisateur",
+    "role": "Rôle",
+    "title": "Fonction",
+    "status": "Statut",
+    "actions": "Actions"
+  },
+  "statuses": {
+    "active": "Actif",
+    "blocked": "Bloqué",
+    "passwordChangeRequired": "Configuration requise"
+  },
+  "actions": {
+    "open": "Ouvrir les actions pour {{name}}",
+    "block": "Bloquer l’utilisateur",
+    "unblock": "Débloquer l’utilisateur",
+    "delete": "Supprimer l’utilisateur"
+  },
+  "roleSummary": {
+    "title": "Rôles",
+    "descriptions": {
+      "admin": "Configuration et gestion des utilisateurs",
+      "operator": "Pilotage et exploitation du bâtiment",
+      "viewer": "Consultation et rapports uniquement"
+    }
+  },
+  "accountSummary": {
+    "title": "État des comptes",
+    "passwordChange": "Configuration requise"
+  },
+  "empty": {
+    "title": "Aucun utilisateur",
+    "description": "Ajoutez un utilisateur pour lui donner accès à ce bâtiment.",
+    "noResults": "Aucun utilisateur trouvé",
+    "noResultsDescription": "Essayez une autre recherche ou un autre rôle."
+  },
+  "validation": {
+    "usernameRequired": "Saisissez un nom d’utilisateur.",
+    "passwordRequired": "Saisissez un mot de passe.",
+    "emailInvalid": "Saisissez une adresse email valide."
+  },
   "roles": {
     "admin": "Administrateur",
     "operator": "Op\u00e9rateur",
