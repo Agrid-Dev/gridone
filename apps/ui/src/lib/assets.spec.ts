@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Asset } from "@gridone/sdk";
-import { ancestorPathOf } from "./assets";
+import {
+  ancestorPathOf,
+  flattenDeviceAssets,
+  type AssetTreeNode,
+} from "./assets";
 
 function asset(id: string, name: string, path: string[]): Asset {
   return {
@@ -40,5 +44,46 @@ describe("ancestorPathOf", () => {
   it("tolerates an absent path", () => {
     const pathless = { ...building, path: undefined } as unknown as Asset;
     expect(ancestorPathOf(pathless, assetsById)).toBe("");
+  });
+});
+
+function node(
+  base: Asset,
+  devices: { id: string; name: string }[] = [],
+  children: AssetTreeNode[] = [],
+): AssetTreeNode {
+  return { ...base, devices, children };
+}
+
+describe("flattenDeviceAssets", () => {
+  it("maps each embedded device to the node it hangs off", () => {
+    const tree = [
+      node(
+        building,
+        [{ id: "d1", name: "Chiller" }],
+        [node(floor, [{ id: "d2", name: "AHU" }])],
+      ),
+    ];
+    const byDevice = flattenDeviceAssets(tree);
+    expect(byDevice.d1.name).toBe("Building A");
+    expect(byDevice.d2.name).toBe("Floor 1");
+  });
+
+  it("omits devices attached to no asset", () => {
+    expect(flattenDeviceAssets([node(building)])).toEqual({});
+  });
+
+  it("tolerates nodes without a devices key", () => {
+    const bare = { ...building, children: [] } as AssetTreeNode;
+    expect(flattenDeviceAssets([bare])).toEqual({});
+  });
+
+  it("returns plain assets, dropping the tree-only keys", () => {
+    const tree = [node(room, [{ id: "d1", name: "Sensor" }])];
+    expect(flattenDeviceAssets(tree).d1).toEqual(room);
+  });
+
+  it("returns an empty map for an empty tree", () => {
+    expect(flattenDeviceAssets([])).toEqual({});
   });
 });

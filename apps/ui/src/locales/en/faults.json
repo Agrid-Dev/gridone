@@ -1,16 +1,27 @@
 {
   "faults": {
     "title": "Active faults",
-    "caption": "Active issues across your fleet — investigate, acknowledge, and resolve.",
-    "searchPlaceholder": "Search by device or fault…",
+    "caption": "Active issues across your fleet — investigate and resolve.",
     "emptyTitle": "No active faults across your fleet.",
     "emptyDescription": "All devices are reporting healthy attributes.",
     "unableToLoad": "Unable to load faults",
+    "export": "Export",
+    "exportFilenameStem": "active-faults",
+    "summary": {
+      "alert_one": "Alert — immediate action",
+      "alert_other": "Alerts — immediate action",
+      "warning_one": "Warning — keep watching",
+      "warning_other": "Warnings — keep watching",
+      "info_one": "Info — for information",
+      "info_other": "Info — for information"
+    },
     "columns": {
       "device": "Device",
+      "zone": "Zone",
       "fault": "Fault",
       "severity": "Severity",
-      "activeSince": "Active for"
+      "activeSince": "Active for",
+      "since": "Since (timestamp)"
     }
   }
 }

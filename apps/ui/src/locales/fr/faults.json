@@ -1,16 +1,27 @@
 {
   "faults": {
     "title": "Défauts actifs",
-    "caption": "Problèmes actifs sur l'ensemble de votre flotte — investiguez, acquittez et résolvez.",
-    "searchPlaceholder": "Rechercher par équipement ou défaut…",
+    "caption": "Problèmes actifs sur l'ensemble de votre flotte — investiguez et résolvez.",
     "emptyTitle": "Aucun défaut actif sur votre flotte.",
     "emptyDescription": "Tous les équipements signalent des attributs sains.",
     "unableToLoad": "Impossible de charger les défauts",
+    "export": "Exporter",
+    "exportFilenameStem": "defauts-actifs",
+    "summary": {
+      "alert_one": "Alerte — action immédiate",
+      "alert_other": "Alertes — action immédiate",
+      "warning_one": "Avertissement — à surveiller",
+      "warning_other": "Avertissements — à surveiller",
+      "info_one": "Info — pour information",
+      "info_other": "Infos — pour information"
+    },
     "columns": {
       "device": "Équipement",
+      "zone": "Zone",
       "fault": "Défaut",
       "severity": "Gravité",
-      "activeSince": "Actif depuis"
+      "activeSince": "Actif depuis",
+      "since": "Depuis (horodatage)"
     }
   }
 }

@@ -59,6 +59,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 vi.mock("@/lib/assets", () => ({
   flattenAssetTree: () => [],
   flattenAssetTreeById: () => ({}),
+  flattenDeviceAssets: () => ({}),
 }));
 
 vi.mock("@/pages/devices/commands/presenters/TargetPresenter", () => ({
