@@ -1,7 +1,12 @@
 {
   "title": "Users",
+  "subtitle": "Manage who can access the building and what they can do.",
   "create": "Add user",
   "edit": "Edit user",
+  "dialogDescriptions": {
+    "create": "Create an account and assign its building access role.",
+    "edit": "Update this user’s account details and access role."
+  },
   "created": "User created",
   "updated": "User updated",
   "deleted": "User deleted",
@@ -13,6 +18,53 @@
   "unblocked": "User unblocked",
   "blockedBadge": "Blocked",
   "you": "you",
+  "searchPlaceholder": "Search for a user…",
+  "notProvided": "Not provided",
+  "filters": {
+    "label": "Filter users by role",
+    "all": "All"
+  },
+  "columns": {
+    "user": "User",
+    "role": "Role",
+    "title": "Position",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "statuses": {
+    "active": "Active",
+    "blocked": "Blocked",
+    "passwordChangeRequired": "Setup required"
+  },
+  "actions": {
+    "open": "Open actions for {{name}}",
+    "block": "Block user",
+    "unblock": "Unblock user",
+    "delete": "Delete user"
+  },
+  "roleSummary": {
+    "title": "Roles",
+    "descriptions": {
+      "admin": "Configuration and user management",
+      "operator": "Building control and operations",
+      "viewer": "Read-only access and reports"
+    }
+  },
+  "accountSummary": {
+    "title": "Account status",
+    "passwordChange": "Setup required"
+  },
+  "empty": {
+    "title": "No users yet",
+    "description": "Add a user to give them access to this building.",
+    "noResults": "No matching users",
+    "noResultsDescription": "Try a different search or role filter."
+  },
+  "validation": {
+    "usernameRequired": "Enter a username.",
+    "passwordRequired": "Enter a password.",
+    "emailInvalid": "Enter a valid email address."
+  },
   "roles": {
     "admin": "Admin",
     "operator": "Operator",
