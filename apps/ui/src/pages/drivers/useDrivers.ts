@@ -10,7 +10,6 @@ import { type Driver, type DriverYaml } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useTranslation } from "react-i18next";
-import type { DevicesFilter } from "@/lib/devices";
 
 // Matches the raw value of a top-level `id:` field in the driver YAML, e.g.
 // "id: my_driver" or "id: 'my_driver'" -> captures `my_driver` (unquoted) or
@@ -36,19 +35,15 @@ export function extractDriverId(yaml: string): string {
   return id;
 }
 
-// Driver listing only filters by `types`; other DevicesFilter dimensions
-// (ids, asset_id, is_faulty) are accepted from the shared filter UI but
-// ignored by the backend.
-export const useDrivers = (filters?: DevicesFilter) => {
+// The driver catalog is small and always fetched whole: the list page needs
+// the unfiltered totals for its type chips and filters client-side.
+export const useDrivers = () => {
   const { t } = useTranslation(["drivers", "common"]);
   const navigate = useNavigate();
   const client = useGridoneClient();
   const driversListQuery = useQuery<Driver[]>({
-    queryKey: ["drivers", filters],
-    queryFn: () =>
-      client.drivers.list(
-        filters?.types?.length ? { type: filters.types[0] } : undefined,
-      ),
+    queryKey: ["drivers"],
+    queryFn: () => client.drivers.list(),
     initialData: [],
   });
   const handleApiError = (err: Error) => {
