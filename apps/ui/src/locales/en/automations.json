@@ -1,11 +1,32 @@
 {
   "title": "Automations",
-  "caption": "Trigger actions on devices when schedules fire or attribute values change.",
+  "caption": "The rules that run the building without intervention.",
   "singular": "Automation",
   "comingSoon": "Coming soon",
   "flow": {
     "trigger": "Trigger",
     "action": "Action"
+  },
+  "stats": {
+    "active_one": "active",
+    "active_other": "active",
+    "paused": "paused",
+    "executions24h": "executions (24 h)"
+  },
+  "recentExecutions": {
+    "title": "Recent executions",
+    "yesterdayAt": "yesterday {{time}}"
+  },
+  "card": {
+    "lastExecuted": "Ran {{ago}}"
+  },
+  "wizard": {
+    "untitled": "New automation",
+    "steps": {
+      "metadata": "Details",
+      "trigger": "Trigger",
+      "action": "Action"
+    }
   },
   "metadata": {
     "title": "Automation",
@@ -29,6 +50,10 @@
       "schedule": "Schedule",
       "change_event": "Attribute change",
       "unknown": "Unknown trigger"
+    },
+    "typeDescriptions": {
+      "schedule": "Runs the action on a recurring schedule.",
+      "change_event": "Reacts when a device attribute changes or crosses a threshold."
     },
     "type": "Trigger type",
 
@@ -107,6 +132,10 @@
     "types": {
       "command_template": "Run a command",
       "notification": "Send a notification"
+    },
+    "typeDescriptions": {
+      "command_template": "Sends a command to the targeted equipment.",
+      "notification": "Notifies the selected users."
     },
     "commandActionForm": {
       "sourceLabel": "Command source",

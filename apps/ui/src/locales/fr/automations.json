@@ -1,11 +1,32 @@
 {
   "title": "Automatisations",
-  "caption": "Déclenchez des actions sur les équipements selon une programmation ou un changement d'attribut.",
+  "caption": "Les règles qui pilotent le bâtiment sans intervention.",
   "singular": "Automatisation",
   "comingSoon": "Bientôt disponible",
   "flow": {
     "trigger": "Déclencheur",
     "action": "Action"
+  },
+  "stats": {
+    "active_one": "active",
+    "active_other": "actives",
+    "paused": "en pause",
+    "executions24h": "exécutions (24 h)"
+  },
+  "recentExecutions": {
+    "title": "Dernières exécutions",
+    "yesterdayAt": "hier {{time}}"
+  },
+  "card": {
+    "lastExecuted": "Exécutée {{ago}}"
+  },
+  "wizard": {
+    "untitled": "Nouvelle automatisation",
+    "steps": {
+      "metadata": "Informations",
+      "trigger": "Déclencheur",
+      "action": "Action"
+    }
   },
   "metadata": {
     "title": "Automatisation",
@@ -29,6 +50,10 @@
       "schedule": "Horaire",
       "change_event": "Changement d'attribut",
       "unknown": "Déclencheur inconnu"
+    },
+    "typeDescriptions": {
+      "schedule": "Exécute l'action selon une programmation récurrente.",
+      "change_event": "Réagit quand un attribut d'appareil change ou franchit un seuil."
     },
     "type": "Type de déclencheur",
     "cron": "Expression cron",
@@ -106,6 +131,10 @@
     "types": {
       "command_template": "Exécuter une commande",
       "notification": "Envoyer une notification"
+    },
+    "typeDescriptions": {
+      "command_template": "Envoie une commande aux équipements ciblés.",
+      "notification": "Notifie les utilisateurs choisis."
     },
     "commandActionForm": {
       "sourceLabel": "Source de la commande",

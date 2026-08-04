@@ -1,17 +1,9 @@
 import { FC, FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import type { Action } from "@gridone/sdk";
 import type { Severity } from "@/lib/severity";
-import { TitlePresenter } from "../presenters/BasePresenter";
+import { TypePickerCards } from "../../components/TypePickerCards";
 import {
   ACTION_PROVIDER_DESCRIPTORS,
   getActionDescriptor,
@@ -105,31 +97,22 @@ const ActionForm: FC<ActionFormProps> = ({
   return (
     <form id={formId} onSubmit={handleSubmit} className="space-y-6">
       {showTypePicker && (
-        <FieldShell
-          id="action-type-picker"
-          label={t("automations:actions.type")}
-        >
-          <Select onValueChange={handleTypeChange} value={type}>
-            <SelectTrigger className="w-full sm:w-80">
-              <SelectValue placeholder={t("automations:actions.type")} />
-            </SelectTrigger>
-            <SelectContent>
-              {actionTypes.map((typeKey) => {
-                const Icon = getActionDescriptor(typeKey).icon;
-                return (
-                  <SelectItem key={typeKey} value={typeKey}>
-                    <TitlePresenter
-                      icon={Icon}
-                      title={t(`automations:actions.types.${typeKey}`, {
-                        defaultValue: typeKey,
-                      })}
-                    />
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-        </FieldShell>
+        <TypePickerCards
+          aria-label={t("automations:actions.type")}
+          value={type}
+          onSelect={handleTypeChange}
+          options={actionTypes.map((typeKey) => ({
+            value: typeKey,
+            icon: getActionDescriptor(typeKey).icon,
+            label: t(`automations:actions.types.${typeKey}`, {
+              defaultValue: typeKey,
+            }),
+            description:
+              t(`automations:actions.typeDescriptions.${typeKey}`, {
+                defaultValue: "",
+              }) || undefined,
+          }))}
+        />
       )}
       <Body
         key={type}

@@ -12,6 +12,7 @@ import AutomationExecutionHistory from "./AutomationExecutionHistory";
 import EditableCard from "./EditableCard";
 import FlowConnector from "./components/FlowConnector";
 import { ActionPresenter } from "./presenters/ActionPresenter";
+import { RuleSentence } from "../components/RuleSentence";
 import { useAutomationEdit } from "./hooks/useAutomationEdit";
 import TriggerForm from "./form/TriggerForm";
 import ActionForm from "./form/ActionForm";
@@ -55,6 +56,8 @@ const AutomationPageContent: FC = () => {
           ) : undefined
         }
       />
+
+      <RuleSentence trigger={automation.trigger} action={automation.action} />
 
       <EditableCard
         title={t("metadata.title")}

@@ -10,12 +10,12 @@ import { formatValue } from "@/lib/formatValue";
 import type { TriggerDescriptor } from "./types";
 import { ChangeEventForm } from "../form/ChangeEventForm";
 
-type Condition = {
+export type Condition = {
   operator: "gt" | "lt" | "gte" | "lte" | "eq" | "ne";
   threshold: string | number | boolean;
 };
 
-function isCondition(value: unknown): value is Condition {
+export function isCondition(value: unknown): value is Condition {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return typeof v.operator === "string" && "threshold" in v;
