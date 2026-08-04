@@ -1,11 +1,18 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
     "automations:actions.type": "Action type",
     "automations:actions.types.command_template": "Run a command",
+    "automations:actions.types.notification": "Send a notification",
     "common:common.cancel": "Cancel",
     "common:common.save": "Save",
   }),
@@ -17,19 +24,34 @@ vi.mock("react-i18next", () =>
 vi.mock("./actionTypes/CommandActionForm", () => ({
   CommandActionForm: () => <div data-testid="command-action-body" />,
 }));
+vi.mock("./actionTypes/NotificationActionForm", () => ({
+  NotificationActionForm: () => <div data-testid="notification-action-body" />,
+}));
 
 import ActionForm from "./ActionForm";
 
 afterEach(() => cleanup());
 
 describe("ActionForm", () => {
-  it("renders the descriptor body and hides the type Select while only one descriptor is registered", () => {
+  it("renders one type card per registered descriptor and the default body", () => {
     render(<ActionForm onSubmit={() => {}} onCancel={() => {}} />);
 
+    const picker = screen.getByRole("radiogroup", { name: "Action type" });
+    const radios = within(picker).getAllByRole("radio");
+    expect(radios).toHaveLength(2);
+    expect(
+      within(picker).getByRole("radio", { name: /Run a command/ }),
+    ).toHaveAttribute("aria-checked", "true");
     expect(screen.getByTestId("command-action-body")).toBeInTheDocument();
-    // The type picker only renders once we have more than one action type
-    // descriptor (e.g. when ``notification`` lands).
-    expect(screen.queryByLabelText("Action type")).not.toBeInTheDocument();
+  });
+
+  it("switches the body when another type card is selected", () => {
+    render(<ActionForm onSubmit={() => {}} onCancel={() => {}} />);
+
+    fireEvent.click(screen.getByRole("radio", { name: /Send a notification/ }));
+
+    expect(screen.getByTestId("notification-action-body")).toBeInTheDocument();
+    expect(screen.queryByTestId("command-action-body")).not.toBeInTheDocument();
   });
 
   it("disables Save until the body emits a result", () => {

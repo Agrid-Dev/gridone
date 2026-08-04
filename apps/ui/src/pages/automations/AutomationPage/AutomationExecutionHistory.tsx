@@ -2,6 +2,7 @@ import { FC } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { AutomationExecution } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -107,14 +108,10 @@ const AutomationExecutionHistory: FC<AutomationExecutionHistoryProps> = ({
   const { data: executions, isLoading } = useAutomationExecutions(automationId);
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <Skeleton className="h-24 w-full rounded-lg" />;
   }
 
-  if (!executions) {
-    return <div>No executions found</div>;
-  }
-
-  return <ExecutionsSection executions={executions} />;
+  return <ExecutionsSection executions={executions ?? []} />;
 };
 
 export default AutomationExecutionHistory;

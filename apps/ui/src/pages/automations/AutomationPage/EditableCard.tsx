@@ -15,6 +15,7 @@ interface EditableCardProps {
   editLabel?: string;
   isSubmitting?: boolean;
   variant?: EditableCardVariant;
+  className?: string;
 }
 
 const EditableCard: FC<EditableCardProps> = ({
@@ -24,6 +25,7 @@ const EditableCard: FC<EditableCardProps> = ({
   editLabel,
   isSubmitting,
   variant = "default",
+  className,
 }) => {
   const { t } = useTranslation("common");
   const ariaLabel = editLabel ?? t("common.edit");
@@ -32,6 +34,7 @@ const EditableCard: FC<EditableCardProps> = ({
       className={cn(
         "relative",
         variant === "ghost" && "border-transparent bg-transparent shadow-none",
+        className,
       )}
       aria-busy={isSubmitting}
     >
