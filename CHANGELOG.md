@@ -1,3 +1,9 @@
+## v0.191.3 (2026-08-04)
+
+### Refactor
+
+- **ui**: grouped devices table with global ⌘K search (AGR-1001)
+
 ## v0.191.2 (2026-08-04)
 
 ### Refactor
