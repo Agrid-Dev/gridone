@@ -1,6 +1,6 @@
 [project]
 name = "gridone"
-version = "0.192.0"
+version = "0.193.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"

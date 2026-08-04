@@ -1,3 +1,9 @@
+## v0.193.0 (2026-08-04)
+
+### Feat
+
+- **ui**: remove breadcrumbs and align page headers
+
 ## v0.192.0 (2026-08-04)
 
 ### Feat
