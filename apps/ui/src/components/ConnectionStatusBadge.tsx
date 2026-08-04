@@ -51,7 +51,7 @@ const STATUS_CONFIG: Record<
 };
 
 /** Connection status mapped onto the shared semantic colour levels. */
-const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
+export const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
   [ConnectionStatus.Idle]: "info",
   [ConnectionStatus.Ok]: "ok",
   [ConnectionStatus.Degraded]: "warning",

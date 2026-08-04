@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deviceTypeIcon } from "@/components/DeviceTypeChip";
+import { deviceTypeIcon } from "@/lib/deviceTypes";
 import { sortedByName } from "@/lib/sortByName";
 
 interface DevicePickerProps {

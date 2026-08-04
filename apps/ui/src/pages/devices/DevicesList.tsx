@@ -1,39 +1,48 @@
-import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { DeviceCard } from "./DeviceCard";
 import { Button } from "@/components/ui";
-import { useDevicesList } from "@/hooks/useDevicesList";
-import { sortedByName } from "@/lib/sortByName";
-import { useFilterParams } from "@/hooks/useFilterParams";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
-import { FilterIndicator, TypeFilter } from "@/components/FilterBar";
 import { HealthFilter } from "@/components/HealthFilter";
-import { SearchFilter } from "@/components/SearchFilter";
 import { History, Plus, Terminal } from "lucide-react";
+import { DevicesSummary } from "./DevicesSummary";
+import { DeviceTypeChips } from "./DeviceTypeChips";
+import { DevicesTable } from "./DevicesTable";
+import { useDevicesPage } from "./useDevicesPage";
 
 export default function DevicesList() {
   const { t } = useTranslation(["devices", "common"]);
-  const filters = useFilterParams();
   const [, setSearchParams] = useSearchParams();
-  const { devices, loading, error } = useDevicesList(filters);
-  const sortedDevices = useMemo(() => sortedByName(devices), [devices]);
   const can = usePermissions();
-  const hasFilters = !!filters;
+  const {
+    groups,
+    typeCounts,
+    total,
+    connectionCounts,
+    summaryLoading,
+    assetNameOf,
+    loading,
+    error,
+    hasFilters,
+  } = useDevicesPage();
 
   return (
     <section className="space-y-6">
       <ResourceHeader
         title={t("devices.title")}
+        caption={
+          summaryLoading ? undefined : (
+            <DevicesSummary total={total} counts={connectionCounts} />
+          )
+        }
         actions={
           <>
             <Button asChild variant="outline" size="sm">
               <Link to="/devices/commands">
                 <History />
-                {t("commands.title")}
+                {t("commands.subtitle")}
               </Link>
             </Button>
             {can("devices:write") && (
@@ -57,11 +66,9 @@ export default function DevicesList() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <FilterIndicator />
-        <TypeFilter />
-        <HealthFilter />
+        <DeviceTypeChips counts={typeCounts} total={total} />
         <div className="ml-auto">
-          <SearchFilter />
+          <HealthFilter />
         </div>
       </div>
 
@@ -72,17 +79,13 @@ export default function DevicesList() {
       )}
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Skeleton key={index} className="h-48" />
+        <div className="space-y-2">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <Skeleton key={index} className="h-10" />
           ))}
         </div>
-      ) : sortedDevices.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {sortedDevices.map((device) => (
-            <DeviceCard key={device.id} device={device} />
-          ))}
-        </div>
+      ) : groups.length > 0 ? (
+        <DevicesTable groups={groups} assetNameOf={assetNameOf} />
       ) : (
         <ResourceEmpty
           resourceName={t("common:common.device").toLowerCase()}

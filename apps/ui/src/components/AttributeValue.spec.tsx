@@ -1,5 +1,16 @@
-import { afterEach, describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { createI18nMock } from "@/test/i18nMock";
+
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "common.hvacMode.heat": "Heating",
+    "common.hvacMode.cool": "Cooling",
+    "common.hvacMode.fan": "Fan",
+    "common.hvacMode.auto": "Auto",
+  }),
+);
+
 import { AttributeValue } from "./AttributeValue";
 import { DeviceType } from "@/lib/devices";
 
@@ -53,7 +64,7 @@ describe("AttributeValue — formatting", () => {
 });
 
 describe("AttributeValue — standard enum badge", () => {
-  it("renders icon + label for a known mode value", () => {
+  it("renders icon + translated label for a known mode value", () => {
     render(
       <AttributeValue
         value="heat"
@@ -61,8 +72,30 @@ describe("AttributeValue — standard enum badge", () => {
         deviceType={DeviceType.Thermostat}
       />,
     );
-    expect(screen.getByText("heat")).toBeInTheDocument();
+    expect(screen.getByText("Heating")).toBeInTheDocument();
     expect(document.querySelector("svg")).toBeTruthy();
+  });
+
+  it("renders hvac_mode with the same translated label", () => {
+    render(
+      <AttributeValue
+        value="cool"
+        attributeName="hvac_mode"
+        deviceType={DeviceType.AhuSingleFlux}
+      />,
+    );
+    expect(screen.getByText("Cooling")).toBeInTheDocument();
+  });
+
+  it("keeps non-mode enum values raw (fan_speed)", () => {
+    render(
+      <AttributeValue
+        value="low"
+        attributeName="fan_speed"
+        deviceType={DeviceType.Thermostat}
+      />,
+    );
+    expect(screen.getByText("low")).toBeInTheDocument();
   });
 
   it("renders icon + label for a known fan_speed value", () => {

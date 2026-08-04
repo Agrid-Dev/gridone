@@ -2,15 +2,15 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { useCommandHotkey } from "@/hooks/useCommandHotkey";
-import { AssetSearchDialog } from "./AssetSearchDialog";
+import { GlobalSearchDialog } from "./GlobalSearchDialog";
 
 /** Search affordance in the topbar: a button dressed as an input, opening the
- *  zone palette on click or ⌘K.
+ *  global palette (devices / zones / faults) on click or ⌘K.
  *
- *  The dialog is not rendered until the first open, so the asset tree is not
- *  fetched on routes that never need it. Once mounted it stays mounted, so the
- *  query cache keeps every subsequent open instant. */
-export function AssetSearch() {
+ *  The dialog is not rendered until the first open, so its queries are not
+ *  fetched on routes that never need them. Once mounted it stays mounted, so
+ *  the query cache keeps every subsequent open instant. */
+export function GlobalSearch() {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [hasOpened, setHasOpened] = useState(false);
@@ -42,7 +42,7 @@ export function AssetSearch() {
         </kbd>
       </button>
 
-      {hasOpened && <AssetSearchDialog open={open} onOpenChange={setOpen} />}
+      {hasOpened && <GlobalSearchDialog open={open} onOpenChange={setOpen} />}
     </>
   );
 }
