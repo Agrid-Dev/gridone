@@ -1,3 +1,9 @@
+## v0.191.2 (2026-08-04)
+
+### Refactor
+
+- **ui**: card-based building page with per-floor breakdown
+
 ## v0.191.1 (2026-08-04)
 
 ### Refactor
