@@ -1,3 +1,9 @@
+## v0.194.0 (2026-08-04)
+
+### Feat
+
+- **ui**: redesign drivers page as a dense catalog table
+
 ## v0.193.0 (2026-08-04)
 
 ### Feat
