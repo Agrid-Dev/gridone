@@ -1,3 +1,9 @@
+## v0.191.5 (2026-08-04)
+
+### Refactor
+
+- **ui**: faults page redesign with severity summary cards (AGR-1003)
+
 ## v0.191.4 (2026-08-04)
 
 ### Refactor
