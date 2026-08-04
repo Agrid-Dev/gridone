@@ -1,54 +1,41 @@
 {
+  "title": "Building",
+  "subtitle": "Building profile, device fleet and associated zones.",
   "editProfile": "Edit profile",
   "setup": {
     "title": "Set up your building",
     "description": "Add your building's key facts to bring your home page to life."
   },
-  "hero": {
+  "identity": {
     "defaultName": "My building",
     "addressEmpty": "Address not provided",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
     "surface": "Surface",
     "floors": "Floors",
-    "yearBuilt": "Built"
+    "yearBuilt": "Built",
+    "zones": "Zones"
   },
-  "resources": {
-    "title": "Resources",
-    "description": "Jump into the systems and zones that power this site.",
-    "notifications": {
-      "title": "Notifications",
-      "empty": "No new notification",
-      "more_one": "and {{count}} more notification",
-      "more_other": "and {{count}} more notifications"
-    },
-    "zones": {
-      "title": "Zones",
-      "description": "Floors, rooms and groupings that organize this building.",
-      "empty": "You have no zone yet.",
-      "add": "Add a zone",
-      "unit_one": "zone",
-      "unit_other": "zones"
-    },
-    "devices": {
-      "title": "Devices",
-      "description": "Every connected device installed across the site.",
-      "empty": "You have no device yet.",
-      "add": "Add a device",
-      "unit_one": "device",
-      "unit_other": "devices"
-    },
-    "byType": "By type",
-    "devicesUnit_one": "device",
-    "devicesUnit_other": "devices"
+  "notificationsCard": {
+    "title": "Recent notifications",
+    "viewAll": "View all",
+    "empty": "No new notification"
   },
-  "details": {
-    "title": "Details",
-    "description": "Key facts about this site.",
-    "operator": "Operator",
-    "address": "Address",
-    "surface": "Surface",
-    "floors": "Floors",
-    "yearBuilt": "Year built",
-    "coordinates": "Coordinates"
+  "devicesCard": {
+    "title": "Devices",
+    "empty": "You have no device yet.",
+    "add": "Add a device",
+    "unit_one": "device",
+    "unit_other": "devices"
+  },
+  "zonesByLevel": {
+    "title": "Zones by level",
+    "viewAll": "View zones",
+    "level": "Level",
+    "zones": "Zones",
+    "devices": "Devices",
+    "empty": "No level in the asset tree.",
+    "addZone": "Add a zone"
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"

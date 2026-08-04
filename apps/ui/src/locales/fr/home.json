@@ -1,54 +1,41 @@
 {
+  "title": "Bâtiment",
+  "subtitle": "Profil du bâtiment, parc d’appareils et zones associées.",
   "editProfile": "Modifier le profil",
   "setup": {
     "title": "Configurez votre bâtiment",
     "description": "Ajoutez les informations clés de votre bâtiment pour configurer votre page d’accueil."
   },
-  "hero": {
+  "identity": {
     "defaultName": "Mon bâtiment",
     "addressEmpty": "Adresse non renseignée",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
     "surface": "Surface",
     "floors": "Étages",
-    "yearBuilt": "Année"
+    "yearBuilt": "Année",
+    "zones": "Zones"
   },
-  "resources": {
-    "title": "Ressources",
-    "description": "Accédez aux systèmes et zones qui composent ce site.",
-    "notifications": {
-      "title": "Notifications",
-      "empty": "Aucune nouvelle notification",
-      "more_one": "et {{count}} autre notification",
-      "more_other": "et {{count}} autres notifications"
-    },
-    "zones": {
-      "title": "Zones",
-      "description": "Étages, pièces et regroupements qui structurent le bâtiment.",
-      "empty": "Vous n’avez pas encore de zone.",
-      "add": "Ajouter une zone",
-      "unit_one": "zone",
-      "unit_other": "zones"
-    },
-    "devices": {
-      "title": "Appareils",
-      "description": "Tous les appareils connectés installés sur le site.",
-      "empty": "Vous n’avez pas encore d’appareil.",
-      "add": "Ajouter un appareil",
-      "unit_one": "appareil",
-      "unit_other": "appareils"
-    },
-    "byType": "Par type",
-    "devicesUnit_one": "appareil",
-    "devicesUnit_other": "appareils"
+  "notificationsCard": {
+    "title": "Notifications récentes",
+    "viewAll": "Tout voir",
+    "empty": "Aucune nouvelle notification"
   },
-  "details": {
-    "title": "Détails",
-    "description": "Données clés sur ce site.",
-    "operator": "Exploitant",
-    "address": "Adresse",
-    "surface": "Surface",
-    "floors": "Étages",
-    "yearBuilt": "Année de construction",
-    "coordinates": "Coordonnées"
+  "devicesCard": {
+    "title": "Appareils",
+    "empty": "Vous n’avez pas encore d’appareil.",
+    "add": "Ajouter un appareil",
+    "unit_one": "appareil",
+    "unit_other": "appareils"
+  },
+  "zonesByLevel": {
+    "title": "Zones par niveau",
+    "viewAll": "Voir les zones",
+    "level": "Niveau",
+    "zones": "Zones",
+    "devices": "Appareils",
+    "empty": "Aucun niveau dans l’arborescence.",
+    "addZone": "Ajouter une zone"
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"
