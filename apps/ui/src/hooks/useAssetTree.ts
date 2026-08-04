@@ -5,6 +5,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import {
   flattenAssetTree,
   flattenAssetTreeById,
+  flattenDeviceAssets,
   type AssetTreeNode,
 } from "@/lib/assets";
 
@@ -14,12 +15,14 @@ import {
  *  without reimplementing the walk in every page.
  *
  *  Returns the raw tree (for tree-shaped UIs), the flat name-sorted list
- *  (for asset selectors), and the id-keyed map (for asset-name lookups in
- *  presenters). All three views share the same query cache. */
+ *  (for asset selectors), the id-keyed map (for asset-name lookups in
+ *  presenters), and the device-keyed map (for labelling a device with the
+ *  asset it sits in). All four views share the same query cache. */
 export function useAssetTree(): {
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
   assetsById: Record<string, Asset>;
+  assetByDeviceId: Record<string, Asset>;
   isLoading: boolean;
 } {
   const client = useGridoneClient();
@@ -34,6 +37,10 @@ export function useAssetTree(): {
     () => flattenAssetTreeById(assetTree),
     [assetTree],
   );
+  const assetByDeviceId = useMemo(
+    () => flattenDeviceAssets(assetTree),
+    [assetTree],
+  );
 
-  return { assetTree, assetsList, assetsById, isLoading };
+  return { assetTree, assetsList, assetsById, assetByDeviceId, isLoading };
 }

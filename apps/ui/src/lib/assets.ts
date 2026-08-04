@@ -58,6 +58,25 @@ export function flattenAssetTreeById(
   return out;
 }
 
+/** Device id → the asset it hangs off, walked from a `tree-with-devices`
+ *  tree. `devices` lists the devices tagged to that exact node (attachment is
+ *  not recursive), so the owning node is recorded as-is. Devices attached to
+ *  no asset are simply absent, letting callers render their own placeholder. */
+export function flattenDeviceAssets(
+  tree: AssetTreeNode[],
+): Record<string, Asset> {
+  const out: Record<string, Asset> = {};
+  const walk = (nodes: AssetTreeNode[]) => {
+    for (const node of nodes) {
+      const asset = toAsset(node);
+      for (const device of node.devices ?? []) out[device.id] = asset;
+      walk(node.children);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
 /** "Building A › Floor 1" — the asset's ancestor names, itself excluded.
  *
  *  `path` is a materialized list of ancestor ids ending with the asset's own,

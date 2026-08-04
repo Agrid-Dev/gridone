@@ -9,6 +9,7 @@ import { useCommandsByIds } from "@/hooks/useCommandsByIds";
 import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
 import { useUsers } from "@/hooks/useUsers";
 import { defaultVisibleAttributes } from "@/lib/devices";
+import { downloadBlob } from "@/lib/download";
 import type { VisibilityState } from "@tanstack/react-table";
 import React, {
   ReactNode,
@@ -51,16 +52,6 @@ function writeVisibility(deviceId: string, state: VisibilityState) {
   } catch {
     // silently ignore storage errors
   }
-}
-
-/** Trigger a browser download of *blob* under *filename*. */
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 type DeviceHistoryContextValue = {
