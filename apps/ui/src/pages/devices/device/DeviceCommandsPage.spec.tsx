@@ -15,7 +15,6 @@ let currentDevice: Device;
 vi.mock("@/hooks/useDevice", () => ({
   useDeviceFromRoute: () => currentDevice,
 }));
-vi.mock("@/components/BreadcrumbProvider", () => ({ useBreadcrumb: vi.fn() }));
 vi.mock("@/pages/devices/commands/CommandsPage", () => ({
   default: ({ deviceId }: { deviceId?: string }) => (
     <div data-testid="commands-page">commands:{deviceId}</div>

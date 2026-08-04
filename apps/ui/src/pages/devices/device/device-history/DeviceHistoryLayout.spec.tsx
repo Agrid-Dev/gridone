@@ -61,10 +61,6 @@ vi.mock("@/hooks/useDevice", () => ({
   useDeviceFromRoute: () => mockDevice.current,
 }));
 
-vi.mock("@/components/BreadcrumbProvider", () => ({
-  useBreadcrumb: () => {},
-}));
-
 vi.mock("@/hooks/useCommandsByIds", () => ({
   useCommandsByIds: () => ({ commandsMap: new Map() }),
 }));

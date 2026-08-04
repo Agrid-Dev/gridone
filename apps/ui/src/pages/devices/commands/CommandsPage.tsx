@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { COMMANDS_CRUMB } from "@/lib/breadcrumbTrail";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useCommands } from "@/hooks/useCommands";
 import { CommandsFilterBar } from "./CommandsFilterBar";
@@ -20,10 +18,6 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
   const { t } = useTranslation("devices");
   const can = usePermissions();
   const cmd = useCommands({ deviceId });
-
-  // Standalone /devices/commands owns its crumb; when embedded under a device
-  // (history → commands tab) the device layout already supplies the trail.
-  useBreadcrumb(deviceId ? [] : [COMMANDS_CRUMB]);
 
   const newCommandHref = deviceId
     ? `/devices/${deviceId}/commands/new`

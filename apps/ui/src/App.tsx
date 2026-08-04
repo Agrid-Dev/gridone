@@ -14,8 +14,6 @@ import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
-import { BreadcrumbProvider } from "./components/BreadcrumbProvider";
-import { Breadcrumbs } from "./components/Breadcrumbs";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -37,48 +35,45 @@ function ProtectedLayout() {
   }, [profile?.name]);
 
   return (
-    <BreadcrumbProvider>
-      <div className="min-h-screen bg-background bg-grid">
-        <TopBar />
-        <Sidebar />
-        <div className="ml-64 flex min-h-screen flex-col pt-16">
-          <main className="flex-1">
-            <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
-              <Breadcrumbs />
-              <Routes>
-                <Route index element={<Home />} />
-                {dashboardsEnabled && (
-                  <Route path="/dashboards/*" element={<Dashboards />} />
-                )}
-                <Route path="/assets/*" element={<Assets />} />
-                <Route path="/devices/*" element={<Devices />} />
-                <Route path="/drivers/*" element={<Drivers />} />
-                <Route path="/transports/*" element={<Transports />} />
-                <Route path="/apps/*" element={<Apps />} />
-                <Route path="/automations/*" element={<Automations />} />
-                <Route path="/faults" element={<FaultsPage />} />
-                <Route path="/notifications" element={<NotificationsPage />} />
-                <Route path="/users" element={<UsersPage />} />
-                <Route path="/profile/edit" element={<BuildingProfileEdit />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                {sandboxEnabled && (
-                  <Route
-                    path="/sandbox/synoptics"
-                    element={
-                      <Suspense>
-                        <SynopticsSandbox />
-                      </Suspense>
-                    }
-                  />
-                )}
-                <Route path="*" element={<NotFoundFallback />} />
-              </Routes>
-              <Toaster />
-            </div>
-          </main>
-        </div>
+    <div className="min-h-screen bg-background bg-grid">
+      <TopBar />
+      <Sidebar />
+      <div className="ml-64 flex min-h-screen flex-col pt-16">
+        <main className="flex-1">
+          <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
+            <Routes>
+              <Route index element={<Home />} />
+              {dashboardsEnabled && (
+                <Route path="/dashboards/*" element={<Dashboards />} />
+              )}
+              <Route path="/assets/*" element={<Assets />} />
+              <Route path="/devices/*" element={<Devices />} />
+              <Route path="/drivers/*" element={<Drivers />} />
+              <Route path="/transports/*" element={<Transports />} />
+              <Route path="/apps/*" element={<Apps />} />
+              <Route path="/automations/*" element={<Automations />} />
+              <Route path="/faults" element={<FaultsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/profile/edit" element={<BuildingProfileEdit />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              {sandboxEnabled && (
+                <Route
+                  path="/sandbox/synoptics"
+                  element={
+                    <Suspense>
+                      <SynopticsSandbox />
+                    </Suspense>
+                  }
+                />
+              )}
+              <Route path="*" element={<NotFoundFallback />} />
+            </Routes>
+            <Toaster />
+          </div>
+        </main>
       </div>
-    </BreadcrumbProvider>
+    </div>
   );
 }
 

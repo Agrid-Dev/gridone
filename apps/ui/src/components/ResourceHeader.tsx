@@ -16,9 +16,7 @@ type ResourceHeaderProps = {
 
 /** The single header shared by every resource detail/list/form page: the
  *  title with an optional status slot, an optional caption, and a
- *  right-aligned actions slot (which may host an overflow menu). Resource
- *  context lives in the breadcrumb, so this header shows only the title — no
- *  eyebrow and no back link.
+ *  right-aligned actions slot (which may host an overflow menu).
  *
  *  Actions share a centred row with the title rather than sitting beside the
  *  title+caption block: a control is taller than the title's line box, so

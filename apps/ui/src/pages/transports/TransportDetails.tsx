@@ -8,7 +8,6 @@ import { TypographyH3, TypographyP } from "@/components/ui/typography";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { toLabel } from "@/lib/textFormat";
 import type { Transport } from "@gridone/sdk";
@@ -34,8 +33,6 @@ const TransportDetails: FC<{
 }> = ({ transport, onDelete }) => {
   const { t } = useTranslation("transports");
   const can = usePermissions();
-  useBreadcrumb([{ to: `/transports/${transport.id}`, label: transport.name }]);
-
   const configEntries = Object.entries(transport.config);
 
   return (
