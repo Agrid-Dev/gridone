@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import type { FieldError } from "react-hook-form";
 import type { Asset } from "@gridone/sdk";
 import { useAssetTree } from "@/hooks/useAssetTree";
+import { ancestorPathOf } from "@/lib/assets";
 import { FieldShell } from "../controllers/FieldShell";
 import { Button } from "@/components/ui";
 import {
@@ -95,13 +96,8 @@ export const AssetPicker: FC<AssetPickerProps> = (props) => {
     );
   }
 
-  /** "Building A › Floor 1" — the asset's ancestors, itself excluded. */
   const ancestorsOf = (asset: Asset): string =>
-    (asset.path ?? [])
-      .slice(0, -1)
-      .map((ancestorId) => assetsById[ancestorId]?.name)
-      .filter(Boolean)
-      .join(" › ");
+    ancestorPathOf(asset, assetsById);
 
   if (!props.multiple) {
     return shell(

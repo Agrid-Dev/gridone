@@ -33,3 +33,9 @@ class ResizeObserverStub {
 
 window.ResizeObserver ??=
   ResizeObserverStub as unknown as typeof ResizeObserver;
+
+// ---------------------------------------------------------------------------
+// scrollIntoView stub — jsdom does not implement it, and cmdk calls it when it
+// auto-selects an item (command palette, resource pickers).
+// ---------------------------------------------------------------------------
+Element.prototype.scrollIntoView ??= function scrollIntoView() {};

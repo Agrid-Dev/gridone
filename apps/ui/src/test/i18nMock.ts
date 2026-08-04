@@ -21,8 +21,17 @@
  *  - When the key is absent, falls back to `opts.defaultValue` (i18next
  *    convention) and finally to the raw key — matching real-i18next's
  *    behaviour with `returnEmptyString: false`.
+ *  - Exposes an `i18n` object for components that read `i18n.language` (e.g.
+ *    locale-aware `Intl` formatters). Pass `language` to override it.
+ *
+ * Note: lookup is exact — there is no plural resolution. Register the base key
+ * (`"sidebar.faultsBadge"`), not `_one` / `_other`.
  */
-export function createI18nMock(translations: Record<string, string>) {
+export function createI18nMock(
+  translations: Record<string, string>,
+  { language = "fr" }: { language?: string } = {},
+) {
+  const i18n = { language, resolvedLanguage: language };
   return {
     useTranslation: () => ({
       t: (key: string, opts?: Record<string, unknown>) => {
@@ -33,6 +42,7 @@ export function createI18nMock(translations: Record<string, string>) {
         }
         return key;
       },
+      i18n,
     }),
   };
 }

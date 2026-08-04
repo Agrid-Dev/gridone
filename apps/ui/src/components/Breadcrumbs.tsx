@@ -9,52 +9,31 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { OrgAvatar } from "@/components/OrgAvatar";
-import {
-  isProfileConfigured,
-  useBuildingProfile,
-} from "@/hooks/useBuildingProfile";
 import { useRegisteredCrumbs } from "@/components/BreadcrumbProvider";
 import { buildTrail, type TrailCrumb } from "@/lib/breadcrumbTrail";
 
+/** Route trail for the current page, rendered at the top of the content
+ *  column. The building identity is NOT repeated here — it lives in the
+ *  sidebar — so the trail starts at the section ("Devices › CTA Restaurant")
+ *  and collapses to nothing on the home route. */
 export function Breadcrumbs() {
   const { t } = useTranslation("common");
   const { pathname } = useLocation();
-  const { data: profile } = useBuildingProfile();
-  const configured = isProfileConfigured(profile);
 
   const registered = useRegisteredCrumbs();
   const trail = buildTrail(pathname, registered);
+
+  if (trail.length === 0) return null;
 
   const label = (crumb: TrailCrumb): string =>
     crumb.label ?? (crumb.labelKey ? t(crumb.labelKey as never) : "");
 
   return (
-    <Breadcrumb className="min-w-0">
+    <Breadcrumb className="mb-6 min-w-0">
       <BreadcrumbList className="flex-nowrap">
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link
-              to={configured ? "/" : "/devices"}
-              className="inline-flex min-w-0 items-center gap-2"
-            >
-              <OrgAvatar
-                icon={profile?.icon}
-                name={profile?.name}
-                className="h-7 w-7"
-              />
-              {configured && (
-                <span className="truncate font-sans text-base font-semibold tracking-tight text-foreground">
-                  {profile?.name}
-                </span>
-              )}
-            </Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
-
-        {trail.map((crumb) => (
+        {trail.map((crumb, index) => (
           <Fragment key={crumb.to}>
-            <BreadcrumbSeparator />
+            {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem className="min-w-0">
               {crumb.isCurrent ? (
                 <BreadcrumbPage className="truncate">

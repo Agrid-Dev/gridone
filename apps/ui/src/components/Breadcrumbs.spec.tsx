@@ -1,6 +1,5 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 
@@ -13,9 +12,7 @@ vi.mock("react-i18next", () =>
 
 import { Breadcrumbs } from "./Breadcrumbs";
 import { BreadcrumbProvider, useBreadcrumb } from "./BreadcrumbProvider";
-import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 import type { BreadcrumbCrumb } from "@/lib/breadcrumbTrail";
-import type { BuildingProfile, GridoneClient } from "@gridone/sdk";
 
 afterEach(cleanup);
 
@@ -24,74 +21,37 @@ function Register({ crumbs }: { crumbs: BreadcrumbCrumb[] }) {
   return null;
 }
 
-function makeProfile(name: string | null): BuildingProfile {
-  return {
-    name,
-    address: null,
-    surface: null,
-    floors: null,
-    year_built: null,
-    operator: null,
-    latitude: null,
-    longitude: null,
-    cover_url: null,
-    icon: null,
-  };
-}
-
 function renderAt(
   pathname: string,
-  {
-    profileName = null,
-    crumbs = [],
-  }: { profileName?: string | null; crumbs?: BreadcrumbCrumb[] } = {},
+  { crumbs = [] }: { crumbs?: BreadcrumbCrumb[] } = {},
 ) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  const profile = makeProfile(profileName);
-  queryClient.setQueryData(["building-profile"], profile);
-  const fakeClient = {
-    assets: { getBuildingProfile: () => Promise.resolve(profile) },
-  } as unknown as GridoneClient;
   return render(
-    <GridoneClientProvider client={fakeClient}>
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter initialEntries={[pathname]}>
-          <BreadcrumbProvider>
-            <Register crumbs={crumbs} />
-            <Breadcrumbs />
-          </BreadcrumbProvider>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </GridoneClientProvider>,
+    <MemoryRouter initialEntries={[pathname]}>
+      <BreadcrumbProvider>
+        <Register crumbs={crumbs} />
+        <Breadcrumbs />
+      </BreadcrumbProvider>
+    </MemoryRouter>,
   );
 }
 
 describe("Breadcrumbs", () => {
-  it("renders the building name as the root, linking to /", () => {
-    renderAt("/", { profileName: "Tour Mercure" });
-    expect(screen.getByRole("link", { name: /Tour Mercure/ })).toHaveAttribute(
-      "href",
-      "/",
-    );
+  it("renders nothing on the home route", () => {
+    const { container } = renderAt("/");
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows only the root on the home route", () => {
-    renderAt("/", { profileName: "Tour Mercure" });
-    expect(screen.queryByText("Devices")).not.toBeInTheDocument();
-    expect(screen.queryByText("›")).not.toBeInTheDocument();
-  });
-
-  it("degrades to a nameless Home root linking to /devices when unconfigured", () => {
-    const { container } = renderAt("/devices", { profileName: null });
-    expect(screen.queryByText("Tour Mercure")).not.toBeInTheDocument();
-    expect(container.querySelector("a")).toHaveAttribute("href", "/devices");
+  it("does not repeat the building identity, which lives in the sidebar", () => {
+    renderAt("/devices/dev-1", {
+      crumbs: [{ to: "/devices/dev-1", label: "RTU-3" }],
+    });
+    // The section is the first crumb — no org avatar, no building name link.
+    const links = screen.getAllByRole("link");
+    expect(links[0]).toHaveAttribute("href", "/devices");
   });
 
   it("renders a route-registered entity name and the derived section link", () => {
     renderAt("/devices/dev-1", {
-      profileName: "Tour Mercure",
       crumbs: [{ to: "/devices/dev-1", label: "RTU-3" }],
     });
     expect(screen.getByRole("link", { name: "Devices" })).toHaveAttribute(
@@ -104,7 +64,6 @@ describe("Breadcrumbs", () => {
 
   it("shows an automation's name, not its id (regression)", () => {
     renderAt("/automations/auto-1", {
-      profileName: "Tour Mercure",
       crumbs: [{ to: "/automations/auto-1", label: "Night setback" }],
     });
     expect(screen.getByText("Night setback")).toBeInTheDocument();
@@ -113,9 +72,13 @@ describe("Breadcrumbs", () => {
 
   it("renders › separators between segments", () => {
     renderAt("/devices/dev-1", {
-      profileName: "Tour Mercure",
       crumbs: [{ to: "/devices/dev-1", label: "RTU-3" }],
     });
     expect(screen.getAllByText("›").length).toBeGreaterThan(0);
+  });
+
+  it("renders no leading separator before the first crumb", () => {
+    renderAt("/devices", {});
+    expect(screen.queryByText("›")).not.toBeInTheDocument();
   });
 });

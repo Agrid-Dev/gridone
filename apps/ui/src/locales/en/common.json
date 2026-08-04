@@ -234,7 +234,19 @@
   "nav": {
     "supervision": "Supervision",
     "configuration": "Configuration",
-    "administration": "Administration"
+    "main": "Main navigation"
+  },
+  "sidebar": {
+    "building": {
+      "actions": "Building actions",
+      "view": "View building",
+      "edit": "Edit profile",
+      "unnamed": "My building",
+      "floors_one": "{{count}} floor",
+      "floors_other": "{{count}} floors"
+    },
+    "faultsBadge_one": "{{count}} active fault",
+    "faultsBadge_other": "{{count}} active faults"
   },
   "breadcrumb": {
     "history": "History",
@@ -247,7 +259,14 @@
     "settings": "My account"
   },
   "topbar": {
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "search": {
+      "label": "Search a zone",
+      "placeholder": "Search a zone…",
+      "description": "Search and open a zone in the building.",
+      "empty": "No zone found",
+      "loading": "Loading zones…"
+    }
   },
   "schemaForm": {
     "addItem": "Add item",
