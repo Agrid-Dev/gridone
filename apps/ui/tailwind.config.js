@@ -90,12 +90,24 @@ module.exports = {
           from: { opacity: 0, transform: "translateY(8px)" },
           to: { opacity: 1, transform: "translateY(0)" },
         },
+        // Odometer pair: the outgoing value rises out of the frame while the
+        // incoming one climbs in from below. See components/layout/RollingText.
+        "roll-out": {
+          from: { opacity: 1, transform: "translateY(0)" },
+          to: { opacity: 0, transform: "translateY(-100%)" },
+        },
+        "roll-in": {
+          from: { opacity: 0, transform: "translateY(100%)" },
+          to: { opacity: 1, transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "highlight-fade": "highlight-fade 3s ease-out forwards",
         "fade-up": "fade-up 0.4s ease-out both",
+        "roll-out": "roll-out 0.35s ease-out forwards",
+        "roll-in": "roll-in 0.35s ease-out both",
       },
     },
   },

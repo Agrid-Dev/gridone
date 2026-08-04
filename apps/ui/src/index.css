@@ -31,7 +31,8 @@
     --radius: 0.5rem;
 
     --sidebar: 0 0% 100%;
-    --sidebar-foreground: 220 15% 35%;
+    /* rgb(71, 85, 105) — the sidebar's resting text colour. */
+    --sidebar-foreground: 215 19% 35%;
     --sidebar-accent: 201 90% 27%;
 
     --chart-1: 201 90% 27%;
@@ -82,7 +83,8 @@
     --ring: 201 85% 55%;
 
     --sidebar: 230 28% 9%;
-    --sidebar-foreground: 220 14% 62%;
+    /* Same hue as light mode, lightened for contrast on the dark sidebar. */
+    --sidebar-foreground: 215 14% 62%;
     --sidebar-accent: 201 85% 55%;
 
     --chart-1: 201 85% 55%;

@@ -20,14 +20,14 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
     isActive
       ? "bg-accent text-accent-foreground"
-      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      : "text-sidebar-foreground hover:bg-accent/60 hover:text-foreground"
   }`;
 
 /** Muted group heading separating the nav into Supervision / Configuration.
  *  Collapses its top spacing when it is the first item. */
 function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70 first:pt-1">
+    <p className="px-3 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/70 first:pt-1">
       {children}
     </p>
   );

@@ -30,7 +30,7 @@ export function AssetSearch() {
         aria-label={t("topbar.search.label")}
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K"
-        className="flex h-9 w-full max-w-xs items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60 lg:max-w-sm"
+        className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60"
       >
         <Search aria-hidden className="h-4 w-4 shrink-0" />
         <span className="truncate">{t("topbar.search.placeholder")}</span>

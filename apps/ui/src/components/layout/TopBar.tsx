@@ -17,9 +17,12 @@ export function TopBar() {
   );
 
   return (
-    /* Starts at the sidebar's right edge — see the stacking note in Sidebar. */
-    <header className="fixed left-64 right-0 top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="min-w-0 flex-1">
+    /* Starts at the sidebar's right edge — see the stacking note in Sidebar.
+     * Opaque `bg-sidebar` (pure white in light mode) rather than a translucent
+     * background: it makes the topbar and sidebar one continuous chrome
+     * surface, and there is nothing left to blur behind an opaque bar. */
+    <header className="fixed left-64 right-0 top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border bg-sidebar px-6">
+      <div className="w-1/2 min-w-0">
         <AssetSearch />
       </div>
 
@@ -29,7 +32,7 @@ export function TopBar() {
         <NavLink
           to="/notifications"
           aria-label={t("topbar.notifications")}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useNow } from "@/hooks/useNow";
+import { RollingText } from "./RollingText";
 
 /** Current date and time in the topbar, e.g. "mar. 21 juillet · 16:45".
  *
@@ -31,9 +32,10 @@ export function LiveClock() {
   return (
     <time
       dateTime={now.toISOString()}
-      className="hidden text-sm text-muted-foreground lg:block"
+      className="hidden whitespace-nowrap text-sm text-muted-foreground lg:block"
     >
-      {dateFormat.format(now)} · {timeFormat.format(now)}
+      {dateFormat.format(now)} ·{" "}
+      <RollingText value={timeFormat.format(now)} className="tabular-nums" />
     </time>
   );
 }
