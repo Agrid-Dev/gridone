@@ -266,16 +266,6 @@
     "devicesBadge_one": "{{count}} device",
     "devicesBadge_other": "{{count}} devices"
   },
-  "breadcrumb": {
-    "history": "History",
-    "commands": "Commands",
-    "templates": "Templates",
-    "newCommand": "New command",
-    "edit": "Edit",
-    "config": "Configuration",
-    "new": "New",
-    "settings": "My account"
-  },
   "topbar": {
     "notifications": "Notifications",
     "search": {

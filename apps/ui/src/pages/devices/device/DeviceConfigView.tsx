@@ -8,7 +8,6 @@ import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
@@ -32,10 +31,6 @@ export default function DeviceConfigView() {
   const can = usePermissions();
   const { handleDelete, isDeleting } = useDeleteDevice();
   const { transportsListQuery } = useTransports();
-
-  useBreadcrumb([
-    { to: `/devices/${device.id}/config`, labelKey: "breadcrumb.config" },
-  ]);
 
   const transport = transportsListQuery.data?.find(
     (item) => item.id === device.transport_id,

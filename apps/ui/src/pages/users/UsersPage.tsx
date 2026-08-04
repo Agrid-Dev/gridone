@@ -182,7 +182,7 @@ export default function UsersPage() {
   return (
     <section className="space-y-6">
       <ResourceHeader
-        title={<span className="text-3xl font-bold">{t("title")}</span>}
+        title={t("title")}
         caption={<span className="text-base">{t("subtitle")}</span>}
         actions={
           canWrite ? (

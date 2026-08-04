@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import type { Asset, AssetUpdate as AssetUpdatePayload } from "@gridone/sdk";
@@ -48,11 +47,6 @@ export default function AssetEdit() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  useBreadcrumb([
-    { to: `/assets/${assetId}`, label: asset?.name || assetId },
-    { to: `/assets/${assetId}/edit`, labelKey: "breadcrumb.edit" },
-  ]);
-
   if (isLoading || !asset) {
     return (
       <div className="space-y-4">
@@ -74,6 +68,7 @@ export default function AssetEdit() {
     <section className="space-y-6">
       <ResourceHeader
         title={t("edit")}
+        caption={asset.name}
         actions={
           can("assets:write") ? (
             <ResourceDeleteButton

@@ -14,8 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { COMMANDS_CRUMB, TEMPLATES_CRUMB } from "@/lib/breadcrumbTrail";
 import {
   Empty,
   EmptyContent,
@@ -51,8 +49,6 @@ export default function TemplatesListPage() {
   });
 
   const { assetsById } = useAssetTree();
-
-  useBreadcrumb([COMMANDS_CRUMB, TEMPLATES_CRUMB]);
 
   const header = (
     <ResourceHeader

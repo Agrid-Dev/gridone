@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { DriverDevicesSection } from "./DriverDevicesSection";
@@ -60,7 +59,6 @@ const DriverDetails: FC<{
 }> = ({ driver, onDelete }) => {
   const { t } = useTranslation("drivers");
   const can = usePermissions();
-  useBreadcrumb([{ to: `/drivers/${driver.id}`, label: driver.id }]);
   return (
     <div className="space-y-6">
       <ResourceHeader

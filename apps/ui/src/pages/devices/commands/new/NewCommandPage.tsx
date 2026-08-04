@@ -7,8 +7,6 @@ import type { Asset } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import type { DevicesFilter } from "@/lib/devices";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
-import { COMMANDS_CRUMB } from "@/lib/breadcrumbTrail";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -61,37 +59,6 @@ export default function NewCommandPage() {
     queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
   });
-
-  useBreadcrumb(
-    deviceId
-      ? // Nested under the device frame, which already owns the device crumb,
-        // so we only add the Commands → New segments.
-        [
-          {
-            to: `/devices/${deviceId}/commands`,
-            labelKey: "breadcrumb.commands",
-          },
-          {
-            to: `/devices/${deviceId}/commands/new`,
-            labelKey: "breadcrumb.newCommand",
-          },
-        ]
-      : assetId
-        ? [
-            { to: `/assets/${assetId}`, label: lockedAsset?.name || assetId },
-            {
-              to: `/assets/${assetId}/commands/new`,
-              labelKey: "breadcrumb.newCommand",
-            },
-          ]
-        : [
-            COMMANDS_CRUMB,
-            {
-              to: "/devices/commands/new",
-              labelKey: "breadcrumb.newCommand",
-            },
-          ],
-  );
 
   if (!can("devices:write")) {
     return <ErrorFallback title={t("common:errors.default")} />;

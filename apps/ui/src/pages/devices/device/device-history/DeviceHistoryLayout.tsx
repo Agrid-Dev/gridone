@@ -18,7 +18,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useStandardTypes } from "@/hooks/useStandardTypes";
 import { standardAttributeNames } from "@/lib/devices";
@@ -49,10 +48,6 @@ export default function DeviceHistoryLayout() {
   const device = useDeviceFromRoute();
   const deviceId = device.id;
   const standardTypes = useStandardTypes();
-
-  useBreadcrumb([
-    { to: `/devices/${deviceId}/history`, labelKey: "breadcrumb.history" },
-  ]);
 
   const attributeNames = useMemo(
     () => Object.keys(device.attributes ?? {}),

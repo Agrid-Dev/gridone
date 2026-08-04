@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { isReadOnlyDevice } from "@/lib/devices";
 import CommandsPage from "@/pages/devices/commands/CommandsPage";
@@ -8,10 +7,6 @@ import CommandsPage from "@/pages/devices/commands/CommandsPage";
 export default function DeviceCommandsPage() {
   const { t } = useTranslation("devices");
   const device = useDeviceFromRoute();
-
-  useBreadcrumb([
-    { to: `/devices/${device.id}/commands`, labelKey: "breadcrumb.commands" },
-  ]);
 
   // Read-only devices (e.g. a weather sensor) can't be commanded. Keep the tab
   // reachable but explain why it's empty rather than disabling the nav item.

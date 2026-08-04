@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { usePermissions } from "@/contexts/AuthContext";
 import type { User } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -55,8 +54,6 @@ export default function AppDetail() {
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  useBreadcrumb([{ to: `/apps/${appId}`, label: app?.name || appId }]);
 
   if (isLoading || !app) {
     return (

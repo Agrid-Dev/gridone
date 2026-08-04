@@ -3,7 +3,6 @@ import type { FC } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Info, Settings2, X } from "lucide-react";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
@@ -26,8 +25,6 @@ const DashboardDetailContent: FC = () => {
   const { editing, layout, dirty, enter, save, cancel, onLayoutChange } =
     useLayoutEditor(dashboard);
   const [toolboxOpen, setToolboxOpen] = useState(false);
-
-  useBreadcrumb([{ to: `/dashboards/${dashboard.id}`, label: dashboard.name }]);
 
   const hasWidgets = (dashboard.widgets ?? []).length > 0;
 

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import type { Asset, AssetCreate as AssetCreatePayload } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AssetForm } from "./components/AssetForm";
@@ -16,8 +15,6 @@ export default function AssetCreate() {
   const client = useGridoneClient();
   const [searchParams] = useSearchParams();
   const parentIdParam = searchParams.get("parentId");
-
-  useBreadcrumb([{ to: "/assets/new", labelKey: "breadcrumb.new" }]);
 
   // Fetch all assets so we can find the root when no parentId is provided
   const { data: allAssets = [] } = useQuery<Asset[]>({

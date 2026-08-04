@@ -4,7 +4,6 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Card } from "@/components/ui/card";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { cn } from "@/lib/utils";
 import EditableCard from "./AutomationPage/EditableCard";
 import FlowConnector from "./AutomationPage/components/FlowConnector";
@@ -37,8 +36,6 @@ const NewAutomationPage: FC = () => {
     goPrevious,
     isSubmitting,
   } = useCreateAutomation();
-
-  useBreadcrumb([{ to: "/automations/new", labelKey: "breadcrumb.new" }]);
 
   const onTrigger = currentStep !== "metadata";
   const onAction = currentStep === "action";

@@ -1,7 +1,6 @@
 import type { FC } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useBreadcrumb } from "@/components/BreadcrumbProvider";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import type { WidgetCreateBody } from "@gridone/sdk";
 import { useDashboardFromRoute } from "../useDashboards";
@@ -14,14 +13,6 @@ const WidgetCreateContent: FC = () => {
   const dashboard = useDashboardFromRoute();
   const schemas = useWidgetSchemas();
   const { addWidget } = useAddWidget(dashboard.id);
-
-  useBreadcrumb([
-    { to: `/dashboards/${dashboard.id}`, label: dashboard.name },
-    {
-      to: `/dashboards/${dashboard.id}/widgets/new`,
-      label: t("widgets.addTitle"),
-    },
-  ]);
 
   return (
     <WidgetEditor
