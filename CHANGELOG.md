@@ -1,3 +1,9 @@
+## v0.192.0 (2026-08-04)
+
+### Feat
+
+- **ui**: redesign users page and fix responsive layout
+
 ## v0.191.5 (2026-08-04)
 
 ### Refactor
