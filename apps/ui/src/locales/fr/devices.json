@@ -50,10 +50,30 @@
       "healthy": "Sains",
       "faulty": "En défaut"
     },
-    "search": {
-      "label": "Rechercher des appareils",
-      "placeholder": "Rechercher…",
-      "clear": "Effacer la recherche"
+    "filters": {
+      "label": "Filtrer par type",
+      "all": "Tous"
+    },
+    "summary": {
+      "deviceCount_one": "{{count}} appareil",
+      "deviceCount_other": "{{count}} appareils",
+      "ok_one": "{{count}} connecté",
+      "ok_other": "{{count}} connectés",
+      "degraded_one": "{{count}} dégradé",
+      "degraded_other": "{{count}} dégradés",
+      "error_one": "{{count}} déconnecté",
+      "error_other": "{{count}} déconnectés",
+      "idle_one": "{{count}} inactif",
+      "idle_other": "{{count}} inactifs"
+    },
+    "table": {
+      "device": "Appareil",
+      "zone": "Zone",
+      "measure": "Mesure",
+      "setpoint": "Consigne",
+      "mode": "Mode",
+      "connection": "Connexion",
+      "faults": "Défauts"
     }
   },
   "deviceDetails": {

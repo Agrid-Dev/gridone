@@ -1,43 +1,26 @@
-import { ComponentType, FC } from "react";
+import { FC } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import {
-  AirVent,
-  CloudSun,
-  Cpu,
-  Fan,
-  Thermometer,
-  Wind,
-  Zap,
-} from "lucide-react";
 import type { Device } from "@gridone/sdk";
+import { CardHeaderLink } from "./CardHeaderLink";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
-import { DeviceType } from "@/lib/devices";
-import { CardHeaderLink } from "./CardHeaderLink";
-
-type IconType = ComponentType<{ className?: string }>;
-
-const DEVICE_TYPE_ICONS: Record<DeviceType, IconType> = {
-  [DeviceType.Thermostat]: Thermometer,
-  [DeviceType.Awhp]: Fan,
-  [DeviceType.ElectricityMeter]: Zap,
-  [DeviceType.WeatherSensor]: CloudSun,
-  [DeviceType.AhuDoubleFlux]: AirVent,
-  [DeviceType.AhuSingleFlux]: AirVent,
-  [DeviceType.AirExtractor]: Wind,
-};
-
-const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));
-const OTHER_KEY = "other";
+import {
+  countDevicesByType,
+  deviceTypeKeyIcon,
+  deviceTypeLabel,
+  OTHER_KEY,
+  type DeviceTypeIcon,
+  type DeviceTypeKey,
+} from "@/lib/deviceTypes";
 
 type DeviceTile = {
-  key: string;
+  key: DeviceTypeKey;
   label: string;
   count: number;
-  icon: IconType;
+  icon: DeviceTypeIcon;
   to: string;
 };
 
@@ -47,10 +30,11 @@ export const DevicesCard: FC<{ devices: Device[]; loading: boolean }> = ({
   devices,
   loading,
 }) => {
-  const { t } = useTranslation(["home", "standardDevices"]);
+  const { t } = useTranslation("home");
+  const { t: tTypes } = useTranslation("standardDevices");
   const can = usePermissions();
 
-  const tiles = buildDeviceTiles(devices, t);
+  const tiles = buildDeviceTiles(devices, tTypes);
 
   return (
     <Card>
@@ -92,44 +76,22 @@ export const DevicesCard: FC<{ devices: Device[]; loading: boolean }> = ({
 };
 
 /** Group devices by known type (untyped/unknown fall under `other`), ordered
- *  by count desc with `other` last. Each known type links to its filtered
- *  list; `other` links to the unfiltered list. */
+ *  by count desc with `other` last. Each tile links to its filtered list. */
 function buildDeviceTiles(
   devices: Device[],
-  t: TFunction<["home", "standardDevices"]>,
+  tTypes: TFunction<"standardDevices">,
 ): DeviceTile[] {
-  const counts = new Map<string, number>();
-  for (const device of devices) {
-    const key =
-      device.type && KNOWN_DEVICE_TYPES.has(device.type)
-        ? device.type
-        : OTHER_KEY;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-
-  return [...counts.entries()]
+  return [...countDevicesByType(devices).entries()]
     .sort(([a, ca], [b, cb]) =>
       a === OTHER_KEY ? 1 : b === OTHER_KEY ? -1 : cb - ca,
     )
     .map(([key, count]) => ({
       key,
-      label: deviceTypeLabel(key, count, t),
+      label: deviceTypeLabel(key, count, tTypes),
       count,
-      icon: key === OTHER_KEY ? Cpu : DEVICE_TYPE_ICONS[key as DeviceType],
-      to: key === OTHER_KEY ? "/devices" : `/devices?type=${key}`,
+      icon: deviceTypeKeyIcon(key),
+      to: `/devices?type=${key}`,
     }));
-}
-
-function deviceTypeLabel(
-  key: string,
-  count: number,
-  t: TFunction<["home", "standardDevices"]>,
-): string {
-  const form = count === 1 ? "name" : "name_plural";
-  if (key === OTHER_KEY) {
-    return t(`other.${form}`, { ns: "standardDevices" });
-  }
-  return t(`${key as DeviceType}.${form}`, { ns: "standardDevices" });
 }
 
 const DeviceTypeTile: FC<{ tile: DeviceTile }> = ({ tile }) => {

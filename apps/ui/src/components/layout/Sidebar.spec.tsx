@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { FaultView } from "@gridone/sdk";
+import type { Device, FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -20,6 +20,7 @@ vi.mock("react-i18next", () =>
     "nav.supervision": "Supervision",
     "nav.configuration": "Configuration",
     "sidebar.faultsBadge": "{{count}} active faults",
+    "sidebar.devicesBadge": "{{count}} devices",
   }),
 );
 
@@ -28,6 +29,7 @@ const permissions: { can: (permission: string) => boolean } = {
 };
 const flags = { dashboards: true };
 let faults: FaultView[] = [];
+let devices: Device[] = [];
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ health: { version: "0.3.0" } }),
@@ -40,6 +42,10 @@ vi.mock("@/utils/featureFlags", () => ({
 
 vi.mock("@/hooks/useFaultsList", () => ({
   useFaultsList: () => ({ faults, loading: false, error: null }),
+}));
+
+vi.mock("@/hooks/useDevicesList", () => ({
+  useDevicesList: () => ({ devices, loading: false, error: null }),
 }));
 
 // The building block has its own spec; stub it so this one stays about nav.
@@ -61,6 +67,7 @@ beforeEach(() => {
   permissions.can = () => true;
   flags.dashboards = true;
   faults = [];
+  devices = [];
 });
 afterEach(cleanup);
 
@@ -102,6 +109,24 @@ describe("Sidebar", () => {
     const faultsLink = screen.getByRole("link", { name: /Faults/ });
     expect(faultsLink).not.toHaveTextContent("0");
     expect(screen.queryByLabelText(/active faults/)).not.toBeInTheDocument();
+  });
+
+  it("badges the Devices link with the fleet count, neutrally styled", () => {
+    devices = [{}, {}] as Device[];
+    faults = [{}] as FaultView[];
+    renderSidebar();
+    const badge = screen.getByLabelText("2 devices");
+    expect(badge).toHaveTextContent("2");
+    // Inventory count, not an alarm — must not share the faults badge style.
+    expect(badge).not.toHaveClass("bg-destructive");
+    expect(screen.getByLabelText("1 active faults")).toHaveClass(
+      "bg-destructive",
+    );
+  });
+
+  it("renders no devices badge for an empty fleet", () => {
+    renderSidebar();
+    expect(screen.queryByLabelText(/devices/)).not.toBeInTheDocument();
   });
 
   it("shows the Gridone brand linking home, and the version in the footer", () => {

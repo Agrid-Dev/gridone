@@ -125,6 +125,14 @@
       "ahu_single_flux": "Single-flux AHU",
       "air_extractor": "Air Extractor"
     },
+    "hvacMode": {
+      "heat": "Heating",
+      "cool": "Cooling",
+      "fan": "Fan",
+      "auto": "Auto",
+      "off": "Off",
+      "on": "On"
+    },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",
     "notFound": "Not found",
@@ -163,6 +171,14 @@
       "alert": "alert",
       "warning": "warning",
       "info": "info"
+    },
+    "severityCount": {
+      "alert_one": "{{count}} alert",
+      "alert_other": "{{count}} alerts",
+      "warning_one": "{{count}} warning",
+      "warning_other": "{{count}} warnings",
+      "info_one": "{{count}} info",
+      "info_other": "{{count}} infos"
     },
     "faults": {
       "activeSince": "Active for {{ago}}",
@@ -246,7 +262,9 @@
       "floors_other": "{{count}} floors"
     },
     "faultsBadge_one": "{{count}} active fault",
-    "faultsBadge_other": "{{count}} active faults"
+    "faultsBadge_other": "{{count}} active faults",
+    "devicesBadge_one": "{{count}} device",
+    "devicesBadge_other": "{{count}} devices"
   },
   "breadcrumb": {
     "history": "History",
@@ -261,11 +279,16 @@
   "topbar": {
     "notifications": "Notifications",
     "search": {
-      "label": "Search a zone",
-      "placeholder": "Search a zone…",
-      "description": "Search and open a zone in the building.",
-      "empty": "No zone found",
-      "loading": "Loading zones…"
+      "label": "Global search",
+      "placeholder": "Search a device, a zone, a fault…",
+      "description": "Search and open a device, a zone or a fault.",
+      "empty": "No results",
+      "loading": "Loading…",
+      "groups": {
+        "devices": "Devices",
+        "zones": "Zones",
+        "faults": "Faults"
+      }
     }
   },
   "schemaForm": {

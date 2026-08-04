@@ -4,7 +4,7 @@ import { Bell } from "lucide-react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { mostSevere, SEVERITY_DOT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
-import { AssetSearch } from "./AssetSearch";
+import { GlobalSearch } from "./GlobalSearch";
 import { LiveClock } from "./LiveClock";
 import { UserMenu } from "./UserMenu";
 
@@ -23,7 +23,7 @@ export function TopBar() {
      * surface, and there is nothing left to blur behind an opaque bar. */
     <header className="fixed left-64 right-0 top-0 z-40 flex h-16 items-center justify-between gap-4 border-b border-border bg-sidebar px-6">
       <div className="w-1/2 min-w-0">
-        <AssetSearch />
+        <GlobalSearch />
       </div>
 
       <div className="flex items-center gap-3">

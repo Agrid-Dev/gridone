@@ -50,10 +50,30 @@
       "healthy": "Healthy",
       "faulty": "Faulty"
     },
-    "search": {
-      "label": "Search devices",
-      "placeholder": "Search devices…",
-      "clear": "Clear search"
+    "filters": {
+      "label": "Filter by type",
+      "all": "All"
+    },
+    "summary": {
+      "deviceCount_one": "{{count}} device",
+      "deviceCount_other": "{{count}} devices",
+      "ok_one": "{{count}} connected",
+      "ok_other": "{{count}} connected",
+      "degraded_one": "{{count}} degraded",
+      "degraded_other": "{{count}} degraded",
+      "error_one": "{{count}} disconnected",
+      "error_other": "{{count}} disconnected",
+      "idle_one": "{{count}} idle",
+      "idle_other": "{{count}} idle"
+    },
+    "table": {
+      "device": "Device",
+      "zone": "Zone",
+      "measure": "Measure",
+      "setpoint": "Setpoint",
+      "mode": "Mode",
+      "connection": "Connection",
+      "faults": "Faults"
     }
   },
   "deviceDetails": {

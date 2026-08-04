@@ -9,6 +9,7 @@ import {
   Snowflake,
   Sun,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/lib/devices";
 import type { Severity } from "@/lib/severity";
 import { formatValue, type CellValue } from "@/lib/formatValue";
@@ -29,6 +30,17 @@ const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
   fan: Fan,
   auto: RefreshCcwDot,
 };
+
+/** Display label keys for the HVAC mode wire values ("Chauffage", "Froid"…);
+ *  values without an entry (and non-mode attributes) render raw. */
+const HVAC_MODE_LABEL_KEYS = {
+  heat: "common.hvacMode.heat",
+  cool: "common.hvacMode.cool",
+  fan: "common.hvacMode.fan",
+  auto: "common.hvacMode.auto",
+} as const;
+
+const HVAC_MODE_ATTRIBUTES = new Set(["mode", "hvac_mode"]);
 
 const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = Object.fromEntries(
   Object.entries(HVAC_MODE_ICONS).map(([value, Icon]) => {
@@ -125,6 +137,7 @@ export function AttributeValue({
   fault,
   className,
 }: AttributeValueProps) {
+  const { t } = useTranslation();
   if (fault) {
     const level = fault.isFaulty ? SEVERITY_LEVEL[fault.severity] : "ok";
     return (
@@ -149,6 +162,9 @@ export function AttributeValue({
 
   if (renderer) {
     const { Icon, color, rotate } = renderer;
+    const labelKey = HVAC_MODE_ATTRIBUTES.has(attributeName)
+      ? HVAC_MODE_LABEL_KEYS[String(value) as keyof typeof HVAC_MODE_LABEL_KEYS]
+      : undefined;
     return (
       <span
         className={cn("inline-flex items-center gap-[0.4em]", color, className)}
@@ -157,7 +173,11 @@ export function AttributeValue({
           className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
           aria-hidden
         />
-        <span>{String(value)}</span>
+        <span>
+          {labelKey
+            ? t(labelKey, { defaultValue: String(value) })
+            : String(value)}
+        </span>
       </span>
     );
   }

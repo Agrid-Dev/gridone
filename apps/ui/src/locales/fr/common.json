@@ -125,6 +125,14 @@
       "ahu_single_flux": "CTA simple flux",
       "air_extractor": "Extracteur d'air"
     },
+    "hvacMode": {
+      "heat": "Chauffage",
+      "cool": "Froid",
+      "fan": "Ventilation",
+      "auto": "Auto",
+      "off": "Arrêt",
+      "on": "Marche"
+    },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",
     "notFound": "Introuvable",
@@ -163,6 +171,14 @@
       "alert": "alerte",
       "warning": "avertissement",
       "info": "info"
+    },
+    "severityCount": {
+      "alert_one": "{{count}} alerte",
+      "alert_other": "{{count}} alertes",
+      "warning_one": "{{count}} avertissement",
+      "warning_other": "{{count}} avertissements",
+      "info_one": "{{count}} info",
+      "info_other": "{{count}} infos"
     },
     "faults": {
       "activeSince": "Actif depuis {{ago}}",
@@ -246,7 +262,9 @@
       "floors_other": "{{count}} étages"
     },
     "faultsBadge_one": "{{count}} défaut actif",
-    "faultsBadge_other": "{{count}} défauts actifs"
+    "faultsBadge_other": "{{count}} défauts actifs",
+    "devicesBadge_one": "{{count}} appareil",
+    "devicesBadge_other": "{{count}} appareils"
   },
   "breadcrumb": {
     "history": "Historique",
@@ -261,11 +279,16 @@
   "topbar": {
     "notifications": "Notifications",
     "search": {
-      "label": "Rechercher une zone",
-      "placeholder": "Rechercher une zone…",
-      "description": "Recherchez et ouvrez une zone du bâtiment.",
-      "empty": "Aucune zone trouvée",
-      "loading": "Chargement des zones…"
+      "label": "Recherche globale",
+      "placeholder": "Rechercher un appareil, une zone, un défaut…",
+      "description": "Recherchez et ouvrez un appareil, une zone ou un défaut.",
+      "empty": "Aucun résultat",
+      "loading": "Chargement…",
+      "groups": {
+        "devices": "Appareils",
+        "zones": "Zones",
+        "faults": "Défauts"
+      }
     }
   },
   "schemaForm": {

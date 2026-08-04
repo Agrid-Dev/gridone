@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
+import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
@@ -33,13 +34,26 @@ function SectionLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** Count pill on a nav item. Rendered only when there is something to report,
- *  so a badge always means "needs attention". */
-function NavBadge({ count, label }: { count: number; label: string }) {
+/** Count pill on a nav item, rendered only when the count is non-zero.
+ *  `destructive` means "needs attention" (faults); `neutral` is a plain
+ *  inventory count (devices). */
+function NavBadge({
+  count,
+  label,
+  variant = "destructive",
+}: {
+  count: number;
+  label: string;
+  variant?: "destructive" | "neutral";
+}) {
   return (
     <span
       aria-label={label}
-      className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground"
+      className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
+        variant === "destructive"
+          ? "bg-destructive text-destructive-foreground"
+          : "bg-muted text-muted-foreground"
+      }`}
     >
       {count}
     </span>
@@ -52,10 +66,12 @@ export function Sidebar() {
   const { health } = useAuth();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const { faults } = useFaultsList();
+  const { devices } = useDevicesList();
 
   const version = health.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
   const faultCount = faults.length;
+  const deviceCount = devices.length;
 
   return (
     /* Stacking contract for the shell — sidebar and topbar no longer overlap
@@ -95,6 +111,13 @@ export function Sidebar() {
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />
             {t("app.devices")}
+            {deviceCount > 0 && (
+              <NavBadge
+                variant="neutral"
+                count={deviceCount}
+                label={t("sidebar.devicesBadge", { count: deviceCount })}
+              />
+            )}
           </NavLink>
 
           <NavLink to="/assets" className={navLinkClass}>

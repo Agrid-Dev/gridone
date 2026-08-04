@@ -1,32 +1,8 @@
-import {
-  Thermometer,
-  Fan,
-  CloudSun,
-  Zap,
-  AirVent,
-  Wind,
-  CircleHelp,
-} from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
-import { DeviceType } from "@/lib/devices";
-
-export const DEVICE_TYPE_ICONS: Record<DeviceType, typeof Thermometer> = {
-  [DeviceType.Thermostat]: Thermometer,
-  [DeviceType.Awhp]: Fan,
-  [DeviceType.WeatherSensor]: CloudSun,
-  [DeviceType.ElectricityMeter]: Zap,
-  [DeviceType.AhuDoubleFlux]: AirVent,
-  [DeviceType.AhuSingleFlux]: AirVent,
-  [DeviceType.AirExtractor]: Wind,
-};
-
-export function deviceTypeIcon(
-  type: DeviceType | string | null | undefined,
-): typeof Thermometer | null {
-  if (!type) return null;
-  return DEVICE_TYPE_ICONS[type as DeviceType] ?? CircleHelp;
-}
+import type { DeviceType } from "@/lib/devices";
+import { deviceTypeIcon } from "@/lib/deviceTypes";
 
 type DeviceTypeChipProps = {
   type: DeviceType | string | null | undefined;
