@@ -1,3 +1,9 @@
+## v0.191.4 (2026-08-04)
+
+### Refactor
+
+- **ui**: automations tab redesign with rule chips (AGR-1002)
+
 ## v0.191.3 (2026-08-04)
 
 ### Refactor
