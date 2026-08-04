@@ -1,3 +1,10 @@
+## v0.191.1 (2026-08-04)
+
+### Refactor
+
+- **ui**: full-height sidebar shell with zone search
+- **ui**: full-height sidebar shell with zone search
+
 ## v0.191.0 (2026-08-03)
 
 ### Feat
