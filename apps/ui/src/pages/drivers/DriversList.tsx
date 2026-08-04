@@ -1,60 +1,22 @@
-import React, { FC } from "react";
-import { useDrivers } from "./useDrivers";
-import type { Driver } from "@gridone/sdk";
-import { Card } from "@/components/ui";
+import { FC } from "react";
 import { Link, useSearchParams } from "react-router";
-import { Badge } from "@/components/ui/badge";
-import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { useTranslation } from "react-i18next";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
-import { Button } from "@/components/ui";
-import { Plus } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { TypeFilterChips } from "@/components/TypeFilterChips";
 import { usePermissions } from "@/contexts/AuthContext";
-import { useFilterParams } from "@/hooks/useFilterParams";
-import { FilterIndicator, TypeFilter } from "@/components/FilterBar";
+import { DriversTable } from "./DriversTable";
+import { useDriversPage } from "./useDriversPage";
 
-const DriverCard: FC<{ driver: Driver }> = ({ driver }) => {
-  const { t } = useTranslation("drivers");
-  return (
-    <Link to={driver.id} className="group block h-full no-underline">
-      <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
-        <div>
-          <div className="flex items-center gap-1.5">
-            {driver.image_src && (
-              <img
-                src={driver.image_src}
-                alt={driver.id}
-                className="h-10 w-10 rounded object-cover"
-              />
-            )}
-            <span className="ml-auto">
-              <DeviceTypeChip type={driver.type ?? null} />
-            </span>
-          </div>
-          <h2 className="mt-0.5 min-w-0 truncate font-display text-base font-semibold text-card-foreground">
-            {driver.id}
-          </h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="info">{driver.transport}</Badge>
-          <Badge variant="outline" className="text-[10px]">
-            {driver.attributes.length}&nbsp;
-            {t("attribute", { count: driver.attributes.length })}
-          </Badge>
-        </div>
-      </Card>
-    </Link>
-  );
-};
-
-const DriversListContainer: FC<{
-  driversCount: number;
-  children: React.ReactNode;
-}> = ({ driversCount, children }) => {
-  const { t } = useTranslation("drivers");
+const DriversList: FC = () => {
+  const { t } = useTranslation(["drivers", "common"]);
+  const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
+  const { drivers, typeCounts, total, loading, hasFilters } = useDriversPage();
+
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -71,30 +33,26 @@ const DriversListContainer: FC<{
           ) : undefined
         }
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterIndicator />
-        <TypeFilter />
-      </div>
-      {driversCount > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {children}
-        </div>
-      ) : (
-        <div>{children}</div>
-      )}
-    </section>
-  );
-};
 
-const DriversList: FC<{ drivers: Driver[]; hasFilters: boolean }> = ({
-  drivers,
-  hasFilters,
-}) => {
-  const [, setSearchParams] = useSearchParams();
-  return (
-    <DriversListContainer driversCount={drivers.length}>
-      {drivers.length ? (
-        drivers.map((driver) => <DriverCard key={driver.id} driver={driver} />)
+      <TypeFilterChips
+        options={typeCounts.map(({ type, count }) => ({
+          key: type,
+          label: t(`common:common.deviceTypes.${type}`, { defaultValue: type }),
+          count,
+        }))}
+        total={total}
+        allLabel={t("common:common.allTypes")}
+        ariaLabel={t("filters.label")}
+      />
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-10" />
+          ))}
+        </div>
+      ) : drivers.length > 0 ? (
+        <DriversTable drivers={drivers} />
       ) : (
         <ResourceEmpty
           resourceName="driver"
@@ -102,25 +60,8 @@ const DriversList: FC<{ drivers: Driver[]; hasFilters: boolean }> = ({
           onClearFilters={() => setSearchParams({})}
         />
       )}
-    </DriversListContainer>
+    </section>
   );
 };
 
-const DriversListLoader: FC = () => (
-  <DriversListContainer driversCount={0}>
-    {Array.from({ length: 6 }).map((_, index) => (
-      <Skeleton key={index} className="h-40" />
-    ))}
-  </DriversListContainer>
-);
-
-const DriversListWrapper: FC = () => {
-  const filters = useFilterParams();
-  const { driversListQuery: query } = useDrivers(filters);
-  if (query.isLoading) {
-    return <DriversListLoader />;
-  }
-  const drivers = query.data;
-  return <DriversList drivers={drivers} hasFilters={!!filters} />;
-};
-export default DriversListWrapper;
+export default DriversList;

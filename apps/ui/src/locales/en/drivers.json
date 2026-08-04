@@ -15,6 +15,15 @@
     "deviceConfig": "Device configuration",
     "none": "None"
   },
+  "filters": {
+    "label": "Filter by type"
+  },
+  "table": {
+    "driver": "Driver",
+    "type": "Type",
+    "protocol": "Protocol",
+    "attributes": "Attributes"
+  },
   "devicesSection": {
     "title": "Devices using this driver",
     "empty": "No devices use this driver yet.",
