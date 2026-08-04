@@ -15,9 +15,10 @@ import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import { BreadcrumbProvider } from "./components/BreadcrumbProvider";
+import { Breadcrumbs } from "./components/Breadcrumbs";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
-import { Sidebar } from "./components/Sidebar";
-import { TopBar } from "./components/TopBar";
+import { Sidebar } from "./components/layout/Sidebar";
+import { TopBar } from "./components/layout/TopBar";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
@@ -43,6 +44,7 @@ function ProtectedLayout() {
         <div className="ml-64 flex min-h-screen flex-col pt-16">
           <main className="flex-1">
             <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
+              <Breadcrumbs />
               <Routes>
                 <Route index element={<Home />} />
                 {dashboardsEnabled && (

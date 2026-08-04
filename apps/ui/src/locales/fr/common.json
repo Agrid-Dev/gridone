@@ -234,7 +234,19 @@
   "nav": {
     "supervision": "Supervision",
     "configuration": "Configuration",
-    "administration": "Administration"
+    "main": "Navigation principale"
+  },
+  "sidebar": {
+    "building": {
+      "actions": "Actions du bâtiment",
+      "view": "Voir le bâtiment",
+      "edit": "Modifier le profil",
+      "unnamed": "Mon bâtiment",
+      "floors_one": "{{count}} étage",
+      "floors_other": "{{count}} étages"
+    },
+    "faultsBadge_one": "{{count}} défaut actif",
+    "faultsBadge_other": "{{count}} défauts actifs"
   },
   "breadcrumb": {
     "history": "Historique",
@@ -247,7 +259,14 @@
     "settings": "Mon compte"
   },
   "topbar": {
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "search": {
+      "label": "Rechercher une zone",
+      "placeholder": "Rechercher une zone…",
+      "description": "Recherchez et ouvrez une zone du bâtiment.",
+      "empty": "Aucune zone trouvée",
+      "loading": "Chargement des zones…"
+    }
   },
   "schemaForm": {
     "addItem": "Ajouter un élément",

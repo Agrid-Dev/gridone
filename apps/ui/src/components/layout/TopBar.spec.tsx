@@ -74,20 +74,18 @@ function renderTopBar() {
 }
 
 describe("TopBar", () => {
-  it("spans the full width on top (inset-x-0, raised z-index)", () => {
+  it("sits beside the full-height sidebar, not above it", () => {
     const { container } = renderTopBar();
     const header = container.querySelector("header");
-    expect(header?.className).toContain("inset-x-0");
-    expect(header?.className).toContain("z-50");
+    expect(header?.className).toContain("left-64");
+    expect(header?.className).toContain("right-0");
+    expect(header?.className).not.toContain("inset-x-0");
+    // z-50 is reserved for Radix portals.
+    expect(header?.className).toContain("z-40");
   });
 
-  it("lays out building identity, notifications and account avatar", () => {
+  it("lays out notifications and the account avatar", () => {
     renderTopBar();
-    // Building identity as breadcrumb root.
-    expect(screen.getByRole("link", { name: /Tour Mercure/ })).toHaveAttribute(
-      "href",
-      "/",
-    );
     // Notifications.
     expect(screen.getByLabelText("Notifications")).toBeInTheDocument();
     // Account avatar (circle), initials from the user name.
@@ -96,10 +94,8 @@ describe("TopBar", () => {
     expect(avatar.className).toContain("rounded-full");
   });
 
-  it("renders the building name in body font, not the display font", () => {
+  it("no longer carries the building identity, which moved to the sidebar", () => {
     renderTopBar();
-    const name = screen.getByText("Tour Mercure");
-    expect(name.className).toContain("font-sans");
-    expect(name.className).not.toContain("font-display");
+    expect(screen.queryByText("Tour Mercure")).not.toBeInTheDocument();
   });
 });

@@ -58,6 +58,26 @@ export function flattenAssetTreeById(
   return out;
 }
 
+/** "Building A › Floor 1" — the asset's ancestor names, itself excluded.
+ *
+ *  `path` is a materialized list of ancestor ids ending with the asset's own,
+ *  so the last entry is dropped. Ids missing from `assetsById` are skipped
+ *  rather than rendered as `undefined` — a partially loaded tree degrades to a
+ *  shorter path instead of a broken label.
+ *
+ *  Shared by the asset picker and the topbar zone search so both label a zone
+ *  the same way. */
+export function ancestorPathOf(
+  asset: Asset,
+  assetsById: Record<string, Asset>,
+): string {
+  return (asset.path ?? [])
+    .slice(0, -1)
+    .map((ancestorId) => assetsById[ancestorId]?.name)
+    .filter(Boolean)
+    .join(" › ");
+}
+
 function toAsset(node: AssetTreeNode): Asset {
   return {
     id: node.id,
