@@ -1,5 +1,6 @@
 {
   "title": "Réseaux",
+  "caption": "Un réseau connecte Gridone aux équipements via un protocole et ses paramètres de connexion.",
   "listTitle": "Liste des réseaux ({{count}})",
   "subtitle": "Canaux d'intégration",
   "backToList": "Retour à la liste",
@@ -14,6 +15,8 @@
   "notFoundDetails": "Aucun réseau trouvé pour l'id \"{{transportId}}\"",
   "fields": {
     "name": "Nom",
+    "drivers": "Drivers",
+    "noDrivers": "Aucun driver rattaché",
     "protocol": "Protocole",
     "protocolDisabled": "Le protocole d'un réseau ne peut être modifié après création.",
     "configuration": "Configuration",
@@ -23,8 +26,54 @@
   "protocols": {
     "mqtt": "MQTT",
     "http": "HTTP",
+    "knx": "KNX",
+    "mbus": "M-Bus",
+    "modbus-tcp": "Modbus TCP",
     "modbus_tcp": "Modbus TCP",
-    "bacnet": "BACnet"
+    "bacnet": "BACnet",
+    "webhook": "Webhook"
+  },
+  "sections": {
+    "general": "Général",
+    "connectionParameters": "Paramètres de connexion"
+  },
+  "table": {
+    "network": "Réseau",
+    "drivers": "Drivers",
+    "protocol": "Protocole",
+    "connection": "Connexion",
+    "devices": "Appareils"
+  },
+  "connection": {
+    "http": "Configurée par appareil",
+    "webhook": "Webhook entrant",
+    "knx": "Aucun point de connexion",
+    "mqtt": "Aucun point de connexion",
+    "mbus": "Aucun point de connexion",
+    "modbus-tcp": "Aucun point de connexion",
+    "bacnet": "Aucun point de connexion",
+    "noParameters": "Aucun paramètre de connexion"
+  },
+  "configFields": {
+    "gateway_ip": "Passerelle",
+    "host": "Hôte",
+    "port": "Port",
+    "ip_with_mask": "Adresse IP et masque",
+    "request_timeout": "Délai d’attente des requêtes",
+    "read_timeout": "Délai d’attente de lecture",
+    "discovery_timeout": "Délai de découverte",
+    "write_property_timeout": "Délai d’écriture",
+    "read_property_timeout": "Délai de lecture de propriété",
+    "tunneling_mode": "Mode tunnel",
+    "baud_rate": "Débit en bauds",
+    "max_block": "Taille de bloc maximale",
+    "max_gap": "Écart maximal",
+    "tls": "TLS",
+    "tls_insecure": "Autoriser un TLS non sécurisé",
+    "username": "Nom d’utilisateur",
+    "password": "Mot de passe",
+    "auth": "Authentification",
+    "secret": "Secret"
   },
   "validation": {
     "required": "Ce champ est requis.",
