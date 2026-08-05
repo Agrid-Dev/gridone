@@ -16,17 +16,52 @@ type TypeFilterChipsProps = {
   total: number;
   allLabel: string;
   ariaLabel: string;
+  /** Optional controlled mode for filters that do not use the `type` query
+   *  parameter. `null` selects the leading "all" chip. */
+  selectedKey?: string | null;
+  onSelect?: (key: string | null) => void;
 };
 
-/** Row of type filter chips ("Tous les types 7", "Thermostat 4", …) driving
- *  the `?type=` query param. Shared by the fleet and driver lists; each
- *  caller owns its own labels and bucketing. */
+/** Row of resource filter chips ("Tous les types 7", "Thermostat 4", …).
+ *  It drives `?type=` by default and supports controlled selection for other
+ *  resource dimensions, such as user roles. */
 export function TypeFilterChips({
   options,
   total,
   allLabel,
   ariaLabel,
+  selectedKey,
+  onSelect,
 }: TypeFilterChipsProps) {
+  if (onSelect) {
+    return (
+      <FilterChips
+        options={options}
+        total={total}
+        allLabel={allLabel}
+        ariaLabel={ariaLabel}
+        selected={selectedKey ?? null}
+        select={onSelect}
+      />
+    );
+  }
+
+  return (
+    <QueryParamTypeFilterChips
+      options={options}
+      total={total}
+      allLabel={allLabel}
+      ariaLabel={ariaLabel}
+    />
+  );
+}
+
+function QueryParamTypeFilterChips({
+  options,
+  total,
+  allLabel,
+  ariaLabel,
+}: Omit<TypeFilterChipsProps, "selectedKey" | "onSelect">) {
   const [searchParams, setSearchParams] = useSearchParams();
   const selected = searchParams.get("type");
 
@@ -39,6 +74,29 @@ export function TypeFilterChips({
     });
   };
 
+  return (
+    <FilterChips
+      options={options}
+      total={total}
+      allLabel={allLabel}
+      ariaLabel={ariaLabel}
+      selected={selected}
+      select={select}
+    />
+  );
+}
+
+function FilterChips({
+  options,
+  total,
+  allLabel,
+  ariaLabel,
+  selected,
+  select,
+}: Omit<TypeFilterChipsProps, "selectedKey" | "onSelect"> & {
+  selected: string | null;
+  select: (key: string | null) => void;
+}) {
   return (
     <div
       role="group"

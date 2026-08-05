@@ -118,7 +118,8 @@
     "output": "Résultat",
     "viewBatch": "Commande exécutée",
     "error": "Erreur",
-    "empty": "Aucune exécution pour le moment"
+    "empty": "Aucune exécution pour le moment",
+    "emptyDescription": "L’historique apparaîtra ici après la première exécution d’une automatisation."
   },
   "actions": {
     "create": "Nouvelle automatisation",

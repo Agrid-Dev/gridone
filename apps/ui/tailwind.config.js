@@ -7,7 +7,6 @@ module.exports = {
       fontFamily: {
         sans: ["Figtree", "system-ui", "-apple-system", "sans-serif"],
         display: ["Outfit", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

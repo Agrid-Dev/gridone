@@ -103,9 +103,7 @@ export function buildCommandColumns(
         const value = row.original.value;
         const dataType = row.original.data_type;
         return (
-          <span className="tabular-nums font-mono">
-            {formatValue(value, dataType)}
-          </span>
+          <span className="tabular-nums">{formatValue(value, dataType)}</span>
         );
       },
     },

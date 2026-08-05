@@ -18,7 +18,7 @@ export function ElectricityMeterPreview({ device }: StandardPreviewProps) {
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
         <Zap className="h-5 w-5 text-muted-foreground" />
-        <span className="font-mono text-2xl font-light tabular-nums leading-none">
+        <span className="text-2xl font-light tabular-nums leading-none">
           {fmt(a.activePower, 0)}
           <span className="ml-1 text-xs text-muted-foreground">W</span>
         </span>

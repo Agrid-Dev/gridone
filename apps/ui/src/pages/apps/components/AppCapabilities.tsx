@@ -22,11 +22,7 @@ const AttributesByType: FC<{
             {toLabel(deviceType)}
           </span>
           {attributes.map((attribute) => (
-            <Badge
-              key={attribute}
-              variant="outline"
-              className="font-mono text-xs"
-            >
+            <Badge key={attribute} variant="outline" className="text-xs">
               {attribute}
             </Badge>
           ))}

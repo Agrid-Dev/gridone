@@ -175,11 +175,11 @@ function AutomationCard({
         <div className="flex items-start gap-3">
           <span
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary",
               !enabled && "opacity-50",
             )}
           >
-            <Icon aria-hidden className="h-5 w-5" />
+            <Icon aria-hidden className="h-4 w-4" />
           </span>
           <div
             className={cn(

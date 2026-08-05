@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Card } from "@/components/ui/card";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_BG_CLASS } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
@@ -34,9 +35,13 @@ export function RecentExecutionsPanel({
           ))}
         </div>
       ) : recent.length === 0 ? (
-        <p className="mt-3 rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-          {t("executions.empty")}
-        </p>
+        <ResourceEmpty
+          resourceName={t("executions.title").toLowerCase()}
+          showCreate={false}
+          title={t("executions.empty")}
+          description={t("executions.emptyDescription")}
+          className="mt-3 gap-3 p-4 md:p-4"
+        />
       ) : (
         <ul className="mt-1 divide-y divide-border/60">
           {recent.map(({ execution, automationName }) => (
@@ -56,7 +61,7 @@ export function RecentExecutionsPanel({
               >
                 {automationName}
               </Link>
-              <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                 {formatExecutionMoment(execution, language, t)}
               </span>
             </li>

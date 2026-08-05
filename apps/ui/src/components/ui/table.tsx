@@ -82,6 +82,19 @@ const TableHead = React.forwardRef<
 ));
 TableHead.displayName = "TableHead";
 
+const Th = React.forwardRef<
+  HTMLTableCellElement,
+  React.ThHTMLAttributes<HTMLTableCellElement>
+  // eslint-disable-next-line react/prop-types
+>(({ className, ...props }, ref) => (
+  <TableHead
+    ref={ref}
+    className={cn("h-10 text-xs uppercase tracking-wider", className)}
+    {...props}
+  />
+));
+Th.displayName = "Th";
+
 const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
@@ -113,6 +126,7 @@ export {
   TableBody,
   TableFooter,
   TableHead,
+  Th,
   TableRow,
   TableCell,
   TableCaption,

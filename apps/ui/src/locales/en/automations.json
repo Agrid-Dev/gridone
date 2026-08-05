@@ -119,7 +119,8 @@
     "output": "Output",
     "viewBatch": "View command",
     "error": "Error",
-    "empty": "No executions yet"
+    "empty": "No executions yet",
+    "emptyDescription": "History will appear here after an automation runs for the first time."
   },
   "actions": {
     "create": "New automation",

@@ -19,6 +19,7 @@ interface ResourceEmptyProps {
   showCreate?: boolean;
   title?: string;
   description?: string;
+  className?: string;
 }
 
 export const ResourceEmpty: FC<ResourceEmptyProps> = ({
@@ -28,10 +29,11 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   showCreate = true,
   title,
   description,
+  className,
 }) => {
   const { t } = useTranslation();
   return (
-    <Empty>
+    <Empty className={className}>
       <EmptyHeader>
         <EmptyMedia variant="icon">
           <FileSearchCorner />

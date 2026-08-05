@@ -43,7 +43,7 @@ export function CommandSummary({ values }: { values: WizardFormValues }) {
     <span className="text-foreground">
       <span className="font-medium">{toLabel(values.attribute)}</span>
       <span className="mx-2 text-muted-foreground">=</span>
-      <span className="font-mono tabular-nums">
+      <span className="tabular-nums">
         {formatValue(values.value, values.attributeDataType)}
       </span>
     </span>

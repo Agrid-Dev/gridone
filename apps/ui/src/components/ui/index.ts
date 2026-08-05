@@ -24,6 +24,7 @@ export {
   TableBody,
   TableFooter,
   TableHead,
+  Th,
   TableRow,
   TableCell,
   TableCaption,

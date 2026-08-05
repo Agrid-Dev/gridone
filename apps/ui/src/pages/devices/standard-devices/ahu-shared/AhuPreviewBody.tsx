@@ -35,7 +35,7 @@ export function AhuPreviewBody({
         <span className="text-xs text-muted-foreground truncate">
           {label("supplyAir")}:
         </span>
-        <span className="font-mono text-2xl font-light tabular-nums leading-none">
+        <span className="text-2xl font-light tabular-nums leading-none">
           {fmt(supplyAirTemperature, 1)}°
         </span>
       </div>

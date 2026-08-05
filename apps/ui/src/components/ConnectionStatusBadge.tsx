@@ -1,8 +1,9 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Activity, Clock, Wifi, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
+import { EmptyValue } from "@/components/EmptyValue";
 import { cn } from "@/lib/utils";
 import {
   SEMANTIC_BG_CLASS,
@@ -66,7 +67,7 @@ export function ConnectionStatusValue({
   status: ConnectionStatus | null;
 }) {
   const { t } = useTranslation("devices");
-  if (!status) return <span className="text-muted-foreground">—</span>;
+  if (!status) return <EmptyValue />;
   return (
     <span
       className={cn("font-medium", SEMANTIC_TEXT_CLASS[STATUS_LEVEL[status]])}
@@ -78,8 +79,10 @@ export function ConnectionStatusValue({
 
 export function ConnectionStatusBadge({
   status,
+  label,
 }: {
   status: ConnectionStatus | null;
+  label?: ReactNode;
 }) {
   const { t } = useTranslation("devices");
   if (!status) return null;
@@ -87,7 +90,7 @@ export function ConnectionStatusBadge({
   return (
     <Badge variant={variant} className="gap-1">
       <Icon className="h-3 w-3" />
-      {t(labelKey)}
+      {label ?? t(labelKey)}
     </Badge>
   );
 }

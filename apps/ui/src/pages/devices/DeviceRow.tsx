@@ -4,6 +4,7 @@ import { Cpu } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { AttributeValue } from "@/components/AttributeValue";
+import { EmptyValue } from "@/components/EmptyValue";
 import {
   ConnectionStatusDot,
   ConnectionStatusValue,
@@ -14,8 +15,6 @@ import { deviceTypeIcon } from "@/lib/deviceTypes";
 import { getActiveFaults } from "@/lib/faults";
 import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
-
-const Dash = () => <span className="text-muted-foreground">—</span>;
 
 /** One device of the fleet table. The whole row navigates to the device
  *  detail; the name stays a real link for accessibility. */
@@ -37,10 +36,9 @@ export function DeviceRow({
     >
       <TableCell className="py-2.5">
         <span className="flex items-center gap-2.5">
-          <Icon
-            className="h-4 w-4 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-4 w-4" aria-hidden />
+          </span>
           <Link
             to={`/devices/${device.id}`}
             className="font-medium hover:underline"
@@ -51,12 +49,12 @@ export function DeviceRow({
         </span>
       </TableCell>
       <TableCell className="py-2.5 text-muted-foreground">
-        {zoneName ?? <Dash />}
+        {zoneName ?? <EmptyValue />}
       </TableCell>
-      <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums">
+      <TableCell className="py-2.5 text-right text-sm tabular-nums">
         {deviceMeasure(device)}
       </TableCell>
-      <TableCell className="py-2.5 text-right font-mono text-sm tabular-nums text-muted-foreground">
+      <TableCell className="py-2.5 text-right text-sm tabular-nums text-muted-foreground">
         {deviceSetpoint(device)}
       </TableCell>
       <TableCell className="py-2.5">
@@ -78,7 +76,7 @@ export function DeviceRow({
 function ModeCell({ device }: { device: Device }) {
   const { t } = useTranslation();
   const mode = deviceMode(device);
-  if (!mode) return <Dash />;
+  if (!mode) return <EmptyValue />;
   if (mode.kind === "onoff") {
     return (
       <span className={cn(mode.value === "off" && "text-muted-foreground")}>
@@ -100,7 +98,7 @@ function ModeCell({ device }: { device: Device }) {
 function FaultsCell({ device }: { device: Device }) {
   const { t } = useTranslation();
   const faults = getActiveFaults(device);
-  if (faults.length === 0) return <Dash />;
+  if (faults.length === 0) return <EmptyValue />;
   const severity = faults[0].severity;
   const count = faults.filter((fault) => fault.severity === severity).length;
   return (

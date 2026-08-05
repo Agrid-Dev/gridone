@@ -9,6 +9,7 @@ import { createI18nMock } from "@/test/i18nMock";
 vi.mock("react-i18next", () =>
   createI18nMock({
     "devices.title": "Devices",
+    "devices.caption": "Monitor the building fleet.",
     "devices.actions.add": "Add",
     "devices.health.label": "Health",
     "devices.health.all": "All",

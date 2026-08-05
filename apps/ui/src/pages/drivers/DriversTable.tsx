@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
@@ -8,15 +8,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui/table";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
+import { EmptyValue } from "@/components/EmptyValue";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
-import { cn } from "@/lib/utils";
-
-const Dash = () => <span className="text-muted-foreground">—</span>;
 
 /** The driver catalog: one row per driver, with the device family it serves,
  *  its transport protocol and how many attributes it exposes. */
@@ -47,6 +45,7 @@ export function DriversTable({ drivers }: { drivers: Driver[] }) {
 /** One driver of the catalog. The whole row navigates to the driver detail;
  *  the id stays a real link for accessibility. */
 function DriverRow({ driver }: { driver: Driver }) {
+  const { t } = useTranslation("transports");
   const navigate = useNavigate();
   const to = `/drivers/${driver.id}`;
 
@@ -57,7 +56,7 @@ function DriverRow({ driver }: { driver: Driver }) {
           <DriverIcon driver={driver} />
           <Link
             to={to}
-            className="font-mono text-sm font-medium hover:underline"
+            className="text-sm font-medium hover:underline"
             onClick={(event) => event.stopPropagation()}
           >
             {driver.id}
@@ -65,11 +64,13 @@ function DriverRow({ driver }: { driver: Driver }) {
         </span>
       </TableCell>
       <TableCell className="py-2.5">
-        {driver.type ? <DeviceTypeChip type={driver.type} /> : <Dash />}
+        {driver.type ? <DeviceTypeChip type={driver.type} /> : <EmptyValue />}
       </TableCell>
       <TableCell className="py-2.5">
-        <Badge variant="info" className="font-mono text-[11px] font-medium">
-          {driver.transport}
+        <Badge variant="info" className="text-[11px] font-medium">
+          {t(`protocols.${driver.transport}`, {
+            defaultValue: driver.transport,
+          })}
         </Badge>
       </TableCell>
       <TableCell className="py-2.5 text-right tabular-nums">
@@ -90,30 +91,20 @@ function DriverIcon({ driver }: { driver: Driver }) {
 
   if (src && failedSrc !== src) {
     return (
-      <img
-        src={src}
-        alt=""
-        onError={() => setFailedSrc(src)}
-        className="h-6 w-6 shrink-0 rounded object-contain"
-      />
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted p-1.5">
+        <img
+          src={src}
+          alt=""
+          onError={() => setFailedSrc(src)}
+          className="h-full w-full object-contain"
+        />
+      </span>
     );
   }
   const Icon = deviceTypeIcon(driver.type) ?? Cpu;
-  return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />;
-}
-
-function Th({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
   return (
-    <TableHead
-      className={cn("h-10 text-xs uppercase tracking-wider", className)}
-    >
-      {children}
-    </TableHead>
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <Icon className="h-4 w-4" aria-hidden />
+    </span>
   );
 }

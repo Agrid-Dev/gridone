@@ -65,7 +65,7 @@ export function buildColumns(
           key={`${row.original.timestamp}-${value}`}
           className={cn(
             "inline-flex items-center gap-1.5",
-            isNumericType(dt) && "tabular-nums font-mono",
+            isNumericType(dt) && "tabular-nums",
             isNew ? "text-foreground font-medium" : "text-muted-foreground/50",
             recent && "rounded-sm px-1 -mx-1 animate-highlight-fade",
           )}

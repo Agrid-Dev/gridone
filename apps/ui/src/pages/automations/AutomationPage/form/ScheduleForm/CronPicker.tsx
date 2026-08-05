@@ -153,7 +153,6 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           label={t("triggers.cron")}
           description={t("triggers.schedule.customHelp")}
           inputProps={{
-            className: "font-mono",
             placeholder: "0 9 * * *",
             spellCheck: false,
             autoCapitalize: "none",
