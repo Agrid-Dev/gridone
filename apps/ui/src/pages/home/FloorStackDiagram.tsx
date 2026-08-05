@@ -1,5 +1,5 @@
-import { FC } from "react";
-import { Link } from "react-router";
+import { FC, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { FloorRow } from "./rollup";
 
@@ -21,9 +21,12 @@ const MAX_MARKER_OPACITY = 1;
  */
 export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
   const { t } = useTranslation("home");
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
   const visualRows = [...rows].reverse().map((row, index) => ({
     ...row,
     colors: layerColors(index, rows.length),
+    spreadOffset: layerSpreadOffset(index, rows.length),
   }));
   const gap = Math.max(
     MIN_LAYER_GAP,
@@ -39,6 +42,8 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
         aria-label={t("zonesByLevel.diagramLabel")}
         viewBox={`0 0 284 ${viewBoxHeight}`}
         className="mx-auto h-auto w-full max-w-80 overflow-visible"
+        onMouseEnter={() => setExpanded(true)}
+        onMouseLeave={() => setExpanded(false)}
       >
         <path
           d={floorPath(lastOffset + 8)}
@@ -46,7 +51,7 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
           stroke="hsl(var(--border))"
           strokeWidth="1"
         />
-        {visualRows.map(({ floor, colors }, index) => (
+        {visualRows.map(({ floor, colors, spreadOffset }, index) => (
           <path
             key={floor.id}
             data-floor-id={floor.id}
@@ -55,6 +60,13 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
             stroke={colors.stroke}
             strokeWidth="1.25"
             vectorEffect="non-scaling-stroke"
+            onClick={() => navigate(`/assets/${floor.id}`)}
+            className="cursor-pointer transition-transform duration-300 ease-out hover:brightness-95"
+            style={{
+              transform: expanded
+                ? `translateY(${spreadOffset}px)`
+                : "translateY(0)",
+            }}
           />
         ))}
       </svg>
@@ -113,4 +125,11 @@ function layerColors(index: number, count: number) {
     stroke: color(MIN_STROKE_OPACITY, MAX_STROKE_OPACITY),
     marker: color(MIN_MARKER_OPACITY, MAX_MARKER_OPACITY),
   };
+}
+
+/** Spreads layers around the stack centre without growing tall stacks too far. */
+function layerSpreadOffset(index: number, count: number): number {
+  const centre = (count - 1) / 2;
+  const step = Math.min(8, 20 / Math.max(count - 1, 1));
+  return (index - centre) * step;
 }

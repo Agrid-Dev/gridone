@@ -1,6 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router";
 import type { Asset } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import type { FloorRow } from "./rollup";
@@ -14,6 +15,8 @@ vi.mock("react-i18next", () =>
 
 import { FloorStackDiagram } from "./FloorStackDiagram";
 
+afterEach(cleanup);
+
 function row(id: string, name: string): FloorRow {
   return {
     floor: { id, name, type: "floor" } as Asset,
@@ -23,7 +26,8 @@ function row(id: string, name: string): FloorRow {
 }
 
 describe("FloorStackDiagram", () => {
-  it("draws one layer per floor from top floor to ground floor", () => {
+  it("draws and spreads floors from top floor to ground floor", async () => {
+    const user = userEvent.setup();
     render(
       <MemoryRouter>
         <FloorStackDiagram
@@ -48,6 +52,12 @@ describe("FloorStackDiagram", () => {
     expect(
       new Set(layers.map((layer) => layer.getAttribute("fill"))).size,
     ).toBe(3);
+    await user.hover(diagram);
+    expect(layers.map((layer) => layer.getAttribute("style"))).toEqual([
+      "transform: translateY(-8px);",
+      "transform: translateY(0px);",
+      "transform: translateY(8px);",
+    ]);
 
     const legend = screen.getByRole("list", { name: "Building floors" });
     const links = within(legend).getAllByRole("link");
@@ -68,5 +78,30 @@ describe("FloorStackDiagram", () => {
         ),
       ).size,
     ).toBe(3);
+  });
+
+  it("opens the matching floor when a layer is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <FloorStackDiagram
+                rows={[row("ground", "Ground floor"), row("first", "Floor 1")]}
+              />
+            }
+          />
+          <Route path="/assets/:id" element={<p>Floor details</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const firstFloor = document.querySelector('[data-floor-id="first"]');
+    expect(firstFloor).not.toBeNull();
+    await user.click(firstFloor!);
+
+    expect(screen.getByText("Floor details")).toBeInTheDocument();
   });
 });
