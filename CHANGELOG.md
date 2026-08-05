@@ -1,3 +1,9 @@
+## v0.196.0 (2026-08-05)
+
+### Feat
+
+- **ui**: redesign zones page by floor
+
 ## v0.195.0 (2026-08-05)
 
 ### Feat
