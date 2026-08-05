@@ -1,5 +1,6 @@
 {
   "title": "Networks",
+  "caption": "A network connects Gridone to equipment through a protocol and its connection settings.",
   "listTitle": "List of available networks ({{count}})",
   "subtitle": "Integration channels",
   "backToList": "Back to list",
@@ -14,6 +15,8 @@
   "notFoundDetails": "No network found for id \"{{transportId}}\"",
   "fields": {
     "name": "Name",
+    "drivers": "Drivers",
+    "noDrivers": "No attached driver",
     "protocol": "Protocol",
     "protocolDisabled": "A network's protocol cannot be modified after creation.",
     "configuration": "Configuration",
@@ -23,8 +26,54 @@
   "protocols": {
     "mqtt": "MQTT",
     "http": "HTTP",
+    "knx": "KNX",
+    "mbus": "M-Bus",
+    "modbus-tcp": "Modbus TCP",
     "modbus_tcp": "Modbus TCP",
-    "bacnet": "BACnet"
+    "bacnet": "BACnet",
+    "webhook": "Webhook"
+  },
+  "sections": {
+    "general": "General",
+    "connectionParameters": "Connection settings"
+  },
+  "table": {
+    "network": "Network",
+    "drivers": "Drivers",
+    "protocol": "Protocol",
+    "connection": "Connection",
+    "devices": "Devices"
+  },
+  "connection": {
+    "http": "Configured per device",
+    "webhook": "Incoming webhook",
+    "knx": "No endpoint",
+    "mqtt": "No endpoint",
+    "mbus": "No endpoint",
+    "modbus-tcp": "No endpoint",
+    "bacnet": "No endpoint",
+    "noParameters": "No connection settings"
+  },
+  "configFields": {
+    "gateway_ip": "Gateway",
+    "host": "Host",
+    "port": "Port",
+    "ip_with_mask": "IP address and mask",
+    "request_timeout": "Request timeout",
+    "read_timeout": "Read timeout",
+    "discovery_timeout": "Discovery timeout",
+    "write_property_timeout": "Write timeout",
+    "read_property_timeout": "Read property timeout",
+    "tunneling_mode": "Tunnelling mode",
+    "baud_rate": "Baud rate",
+    "max_block": "Maximum block size",
+    "max_gap": "Maximum gap",
+    "tls": "TLS",
+    "tls_insecure": "Allow insecure TLS",
+    "username": "Username",
+    "password": "Password",
+    "auth": "Authentication",
+    "secret": "Secret"
   },
   "validation": {
     "required": "This field is required.",

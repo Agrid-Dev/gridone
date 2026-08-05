@@ -1,49 +1,91 @@
-import { FC, type ReactNode } from "react";
+import { type FC, type ReactNode, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Pencil } from "lucide-react";
-import { Button, Card, CardContent } from "@/components/ui";
-import { Label } from "@/components/ui/label";
-import { TypographyH3, TypographyP } from "@/components/ui/typography";
+import { ArrowLeft, Pencil } from "lucide-react";
+import type { Transport } from "@gridone/sdk";
+import { Badge } from "@/components/ui/badge";
+import { Button, Card } from "@/components/ui";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useDevicesList } from "@/hooks/useDevicesList";
 import { toLabel } from "@/lib/textFormat";
-import type { Transport } from "@gridone/sdk";
-import { useTransportFromRoute, useDeleteTransport } from "./useTransports";
+import { useDeleteTransport, useTransportFromRoute } from "./useTransports";
 import { TransportStatusBadge } from "./TransportStatusBadge";
 import { TransportDevicesSection } from "./TransportDevicesSection";
+import {
+  presentTransportConfigValue,
+  summarizeTransportDevices,
+} from "./transportPresentation";
 
-const Property: FC<{ label: string; value: ReactNode }> = ({
+const PropertyRow: FC<{ label: ReactNode; value: ReactNode }> = ({
   label,
   value,
 }) => (
-  <div>
-    <Label>{label}</Label>
-    <TypographyP>
-      {value !== null && value !== undefined && value !== "" ? value : "N/A"}
-    </TypographyP>
+  <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(9rem,0.7fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
+    <dt className="text-sm text-muted-foreground">{label}</dt>
+    <dd className="min-w-0 text-sm font-medium text-foreground sm:text-right">
+      {value ?? "—"}
+    </dd>
   </div>
 );
 
-const TransportDetails: FC<{
+const DetailsCard: FC<{ title: ReactNode; children: ReactNode }> = ({
+  title,
+  children,
+}) => (
+  <Card className="overflow-hidden rounded-xl">
+    <div className="border-b px-5 py-4">
+      <h2 className="font-display text-base font-semibold">{title}</h2>
+    </div>
+    <dl className="divide-y px-5">{children}</dl>
+  </Card>
+);
+
+export const TransportDetails: FC<{
   transport: Transport;
   onDelete: (transportId: string) => Promise<void>;
 }> = ({ transport, onDelete }) => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const can = usePermissions();
+  const deviceFilter = useMemo(
+    () => ({ transport_id: transport.id }),
+    [transport.id],
+  );
+  const { devices } = useDevicesList(deviceFilter);
+  const driverIds = useMemo(
+    () => summarizeTransportDevices(devices).get(transport.id)?.driverIds ?? [],
+    [devices, transport.id],
+  );
   const configEntries = Object.entries(transport.config);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      <Link
+        to=".."
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {t("backToList")}
+      </Link>
+
       <ResourceHeader
         title={transport.name}
-        status={<TransportStatusBadge state={transport.connection_state} />}
+        status={
+          <div className="flex items-center gap-2">
+            <Badge variant="info" className="font-mono text-[11px]">
+              {t(`protocols.${transport.protocol}`, {
+                defaultValue: transport.protocol,
+              })}
+            </Badge>
+            <TransportStatusBadge state={transport.connection_state} />
+          </div>
+        }
         actions={
           can("transports:write") ? (
             <div className="flex items-center gap-2">
-              <Button asChild>
+              <Button asChild variant="outline">
                 <Link to="edit">
                   <Pencil className="h-4 w-4" />
                   {t("editAction")}
@@ -59,38 +101,80 @@ const TransportDetails: FC<{
           ) : undefined
         }
       />
-      <Card className="py-4">
-        <CardContent className="space-y-4">
-          <div className="flex justify-start gap-16">
-            <Property
-              label={t("fields.protocol")}
-              value={t(`protocols.${transport.protocol}`, {
-                defaultValue: transport.protocol,
-              })}
+
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.95fr)]">
+        <div className="space-y-5">
+          <DetailsCard title={t("sections.general")}>
+            <PropertyRow label={t("fields.name")} value={transport.name} />
+            <PropertyRow
+              label={t("fields.drivers")}
+              value={<DriverLinks driverIds={driverIds} />}
             />
-          </div>
-          <div>
-            <TypographyH3>{t("fields.configuration")}</TypographyH3>
-            <div className="mt-2 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {configEntries.length > 0 ? (
-                configEntries.map(([key, value]) => (
-                  <Property
-                    key={key}
-                    label={toLabel(key)}
-                    value={String(value)}
-                  />
-                ))
-              ) : (
-                <TypographyP>N/A</TypographyP>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <TransportDevicesSection transportId={transport.id} />
+            <PropertyRow
+              label={t("fields.protocol")}
+              value={
+                <Badge variant="info" className="font-mono text-[11px]">
+                  {t(`protocols.${transport.protocol}`, {
+                    defaultValue: transport.protocol,
+                  })}
+                </Badge>
+              }
+            />
+          </DetailsCard>
+
+          <DetailsCard title={t("sections.connectionParameters")}>
+            {configEntries.length > 0 ? (
+              configEntries.map(([key, value]) => (
+                <PropertyRow
+                  key={key}
+                  label={t(`configFields.${key}`, {
+                    defaultValue: toLabel(key),
+                  })}
+                  value={
+                    <span className="break-all font-mono text-xs">
+                      {presentTransportConfigValue(key, value, (boolean) =>
+                        t(`common:common.${boolean}`),
+                      )}
+                    </span>
+                  }
+                />
+              ))
+            ) : (
+              <PropertyRow
+                label={t("fields.configuration")}
+                value={t("connection.noParameters")}
+              />
+            )}
+          </DetailsCard>
+        </div>
+
+        <TransportDevicesSection transportId={transport.id} />
+      </div>
     </div>
   );
 };
+
+function DriverLinks({ driverIds }: { driverIds: string[] }) {
+  const { t } = useTranslation("transports");
+  if (driverIds.length === 0) {
+    return (
+      <span className="text-muted-foreground">{t("fields.noDrivers")}</span>
+    );
+  }
+  return (
+    <span className="flex flex-wrap justify-start gap-x-2 gap-y-1 sm:justify-end">
+      {driverIds.map((driverId) => (
+        <Link
+          key={driverId}
+          to={`/drivers/${driverId}`}
+          className="font-mono text-xs text-primary hover:underline"
+        >
+          {driverId}
+        </Link>
+      ))}
+    </span>
+  );
+}
 
 const TransportDetailsContent: FC = () => {
   const transport = useTransportFromRoute();
