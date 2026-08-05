@@ -2,6 +2,11 @@ import { Building2, Layers3, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { AssetTreeNode } from "@/lib/assets";
 
@@ -63,7 +68,7 @@ function AddLink({
   label: string;
   compact?: boolean;
 }) {
-  return (
+  const link = (
     <Link
       to={createHref(parentId, type)}
       aria-label={label}
@@ -77,6 +82,15 @@ function AddLink({
       <Plus className="h-4 w-4" />
       {!compact && label}
     </Link>
+  );
+
+  if (!compact) return link;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

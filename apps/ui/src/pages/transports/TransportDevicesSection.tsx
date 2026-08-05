@@ -62,7 +62,7 @@ export const TransportDevicesSection: FC<{ transportId: string }> = ({
                   <span className="block truncate text-sm font-medium text-foreground">
                     {device.name || device.id}
                   </span>
-                  <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                  <span className="block truncate text-[11px] text-muted-foreground">
                     {device.driver_id}
                   </span>
                 </span>

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TypographyH5, TypographySmall } from "@/components/ui/typography";
 import { OrgAvatar } from "@/components/OrgAvatar";
+import { EmptyValue } from "@/components/EmptyValue";
 import { useDeviceContext } from "@/contexts/DeviceContext";
 import { isProfileConfigured } from "@/hooks/useBuildingProfile";
 import { cn } from "@/lib/utils";
@@ -159,7 +160,7 @@ const StatsGrid: FC<{ profile: BuildingProfile; zoneCount: number }> = ({
                   stat.value ? "text-foreground" : "text-muted-foreground",
                 )}
               >
-                {stat.value ?? "–"}
+                {stat.value ?? <EmptyValue />}
               </p>
             </div>
           ))}

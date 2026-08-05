@@ -185,7 +185,7 @@ describe("UsersPage", () => {
     expect(screen.queryByText("Alice Martin")).not.toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Search for a user…"));
-    await user.click(screen.getByRole("button", { name: "Viewer · 1" }));
+    await user.click(screen.getByRole("button", { name: "Viewer1" }));
     expect(screen.getByText("Cara Chen")).toBeVisible();
     expect(screen.queryByText("Bob Bernard")).not.toBeInTheDocument();
   });

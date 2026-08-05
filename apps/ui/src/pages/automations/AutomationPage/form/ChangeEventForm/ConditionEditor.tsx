@@ -67,9 +67,7 @@ export const ConditionEditor: FC<ConditionEditorProps> = ({
           <SelectContent>
             {operators.map((op) => (
               <SelectItem key={op} value={op}>
-                <span className="font-mono">
-                  {t(`operators.${op}`, { defaultValue: op })}
-                </span>
+                <span>{t(`operators.${op}`, { defaultValue: op })}</span>
               </SelectItem>
             ))}
           </SelectContent>

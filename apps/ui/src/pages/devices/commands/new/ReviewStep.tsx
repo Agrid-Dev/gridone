@@ -81,7 +81,7 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                       {d.name || d.id}
                     </TableCell>
                     <TableCell>
-                      <span className="inline-flex items-center gap-2 font-mono tabular-nums">
+                      <span className="inline-flex items-center gap-2 tabular-nums">
                         {currentFormatted === null ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (

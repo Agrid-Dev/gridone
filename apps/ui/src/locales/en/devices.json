@@ -1,6 +1,7 @@
 {
   "devices": {
     "title": "Devices",
+    "caption": "Monitor building equipment, readings, and connection health.",
     "unableToLoad": "Unable to load devices",
     "create": {
       "title": "Create Device",

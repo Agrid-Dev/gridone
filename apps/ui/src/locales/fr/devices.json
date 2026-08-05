@@ -1,6 +1,7 @@
 {
   "devices": {
     "title": "Appareils",
+    "caption": "Supervisez les équipements du bâtiment, leurs mesures et leur état de connexion.",
     "unableToLoad": "Impossible de charger les appareils",
     "create": {
       "title": "Ajouter un appareil",

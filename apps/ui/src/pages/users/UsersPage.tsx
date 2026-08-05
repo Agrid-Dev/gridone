@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { EmptyValue } from "@/components/EmptyValue";
+import { TypeFilterChips } from "@/components/TypeFilterChips";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,13 +57,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { getUserInitials, getUserRole, ROLES } from "./userPresentation";
-import { useUsersPage, type UserFilter } from "./useUsersPage";
+import { useUsersPage } from "./useUsersPage";
 
 const ROLE_PRESENTATION: Record<
   Role,
@@ -170,15 +172,6 @@ export default function UsersPage() {
     users,
   } = useUsersPage();
 
-  const filters: Array<{ value: UserFilter; label: string; count: number }> = [
-    { value: "all", label: t("filters.all"), count: users.length },
-    ...ROLES.map((role) => ({
-      value: role,
-      label: t(`roles.${role}`),
-      count: roleCounts[role],
-    })),
-  ];
-
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -212,47 +205,35 @@ export default function UsersPage() {
                 />
               </div>
 
-              <div
-                className="flex max-w-full gap-2 overflow-x-auto pb-1 lg:pb-0"
-                aria-label={t("filters.label")}
-              >
-                {filters.map((filter) => (
-                  <Button
-                    key={filter.value}
-                    type="button"
-                    size="sm"
-                    variant={
-                      roleFilter === filter.value ? "default" : "outline"
-                    }
-                    aria-pressed={roleFilter === filter.value}
-                    onClick={() => setRoleFilter(filter.value)}
-                    className="rounded-full px-3.5"
-                  >
-                    {filter.label} · {filter.count}
-                  </Button>
-                ))}
+              <div className="max-w-full overflow-x-auto pb-1 lg:pb-0">
+                <TypeFilterChips
+                  options={ROLES.map((role) => ({
+                    key: role,
+                    label: t(`roles.${role}`),
+                    count: roleCounts[role],
+                  }))}
+                  total={users.length}
+                  allLabel={t("filters.all")}
+                  ariaLabel={t("filters.label")}
+                  selectedKey={roleFilter === "all" ? null : roleFilter}
+                  onSelect={(key) =>
+                    setRoleFilter((key as Role | null) ?? "all")
+                  }
+                />
               </div>
             </div>
 
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="min-w-52 pl-6 text-[11px] font-semibold uppercase tracking-wider">
-                    {t("columns.user")}
-                  </TableHead>
-                  <TableHead className="min-w-32 text-[11px] font-semibold uppercase tracking-wider">
-                    {t("columns.role")}
-                  </TableHead>
-                  <TableHead className="min-w-32 text-[11px] font-semibold uppercase tracking-wider">
-                    {t("columns.title")}
-                  </TableHead>
-                  <TableHead className="min-w-40 text-[11px] font-semibold uppercase tracking-wider">
-                    {t("columns.status")}
-                  </TableHead>
+                  <Th className="min-w-52 pl-6">{t("columns.user")}</Th>
+                  <Th className="min-w-32">{t("columns.role")}</Th>
+                  <Th className="min-w-32">{t("columns.title")}</Th>
+                  <Th className="min-w-40">{t("columns.status")}</Th>
                   {canWrite && (
-                    <TableHead className="w-16 pr-5 text-right">
+                    <Th className="w-16 pr-5 text-right">
                       <span className="sr-only">{t("columns.actions")}</span>
-                    </TableHead>
+                    </Th>
                   )}
                 </TableRow>
               </TableHeader>
@@ -264,11 +245,11 @@ export default function UsersPage() {
                       <TableRow
                         key={user.id}
                         className={cn(
-                          "h-[5.25rem] hover:bg-accent/30",
+                          "hover:bg-accent/30",
                           isCurrentUser && "bg-accent/40",
                         )}
                       >
-                        <TableCell className="pl-6">
+                        <TableCell className="py-2.5 pl-6">
                           <div className="flex items-center gap-3.5">
                             <span
                               className={cn(
@@ -297,17 +278,17 @@ export default function UsersPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5">
                           <RoleBadge role={getUserRole(user)} />
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {user.title || t("notProvided")}
+                        <TableCell className="py-2.5 text-sm text-muted-foreground">
+                          {user.title || <EmptyValue />}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="py-2.5">
                           <UserStatus user={user} />
                         </TableCell>
                         {canWrite && (
-                          <TableCell className="pr-5 text-right">
+                          <TableCell className="py-2.5 pr-5 text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button

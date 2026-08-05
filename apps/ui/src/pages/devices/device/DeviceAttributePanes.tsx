@@ -185,7 +185,7 @@ function AttributeRow({
           <DetailRow
             label={t("deviceDetails.attributeDetails.type")}
             value={attribute.data_type}
-            mono
+            tabular
           />
           <DetailRow
             label={t("deviceDetails.attributeDetails.access")}
@@ -198,12 +198,12 @@ function AttributeRow({
           <DetailRow
             label={t("deviceDetails.attributeDetails.synced")}
             value={syncedAgo || "—"}
-            mono
+            tabular
           />
           <DetailRow
             label={t("deviceDetails.attributeDetails.changed")}
             value={changedAgo || "—"}
-            mono
+            tabular
           />
           {isWritable && (
             <p className="mt-1 flex items-center gap-1.5 border-t border-border pt-1.5 text-xs italic text-primary">
@@ -221,18 +221,16 @@ function AttributeRow({
 function DetailRow({
   label,
   value,
-  mono,
+  tabular,
 }: {
   label: string;
   value: string;
-  mono?: boolean;
+  tabular?: boolean;
 }) {
   return (
     <div className="flex justify-between gap-6 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className={mono ? "font-mono tabular-nums" : undefined}>
-        {value}
-      </span>
+      <span className={tabular ? "tabular-nums" : undefined}>{value}</span>
     </div>
   );
 }

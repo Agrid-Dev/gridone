@@ -18,7 +18,7 @@ export function WritePresenter({ write, className }: WritePresenterProps) {
     >
       <span className="font-medium">{toLabel(write.attribute)}</span>
       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="font-mono tabular-nums">
+      <span className="tabular-nums">
         {formatValue(write.value, write.data_type)}
       </span>
     </span>

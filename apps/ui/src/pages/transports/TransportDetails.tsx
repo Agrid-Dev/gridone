@@ -5,6 +5,8 @@ import { ArrowLeft, Pencil } from "lucide-react";
 import type { Transport } from "@gridone/sdk";
 import { Badge } from "@/components/ui/badge";
 import { Button, Card } from "@/components/ui";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import { EmptyValue } from "@/components/EmptyValue";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
@@ -12,7 +14,6 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { toLabel } from "@/lib/textFormat";
 import { useDeleteTransport, useTransportFromRoute } from "./useTransports";
-import { TransportStatusBadge } from "./TransportStatusBadge";
 import { TransportDevicesSection } from "./TransportDevicesSection";
 import {
   presentTransportConfigValue,
@@ -26,7 +27,7 @@ const PropertyRow: FC<{ label: ReactNode; value: ReactNode }> = ({
   <div className="grid gap-1 py-3.5 sm:grid-cols-[minmax(9rem,0.7fr)_minmax(0,1fr)] sm:items-center sm:gap-6">
     <dt className="text-sm text-muted-foreground">{label}</dt>
     <dd className="min-w-0 text-sm font-medium text-foreground sm:text-right">
-      {value ?? "—"}
+      {value ?? <EmptyValue />}
     </dd>
   </div>
 );
@@ -74,12 +75,17 @@ export const TransportDetails: FC<{
         title={transport.name}
         status={
           <div className="flex items-center gap-2">
-            <Badge variant="info" className="font-mono text-[11px]">
+            <Badge variant="info" className="text-[11px]">
               {t(`protocols.${transport.protocol}`, {
                 defaultValue: transport.protocol,
               })}
             </Badge>
-            <TransportStatusBadge state={transport.connection_state} />
+            <ConnectionStatusBadge
+              status={transport.connection_state.status}
+              label={t(`status.${transport.connection_state.status}`, {
+                defaultValue: t("status.unknown"),
+              })}
+            />
           </div>
         }
         actions={
@@ -113,7 +119,7 @@ export const TransportDetails: FC<{
             <PropertyRow
               label={t("fields.protocol")}
               value={
-                <Badge variant="info" className="font-mono text-[11px]">
+                <Badge variant="info" className="text-[11px]">
                   {t(`protocols.${transport.protocol}`, {
                     defaultValue: transport.protocol,
                   })}
@@ -131,7 +137,7 @@ export const TransportDetails: FC<{
                     defaultValue: toLabel(key),
                   })}
                   value={
-                    <span className="break-all font-mono text-xs">
+                    <span className="break-all text-xs">
                       {presentTransportConfigValue(key, value, (boolean) =>
                         t(`common:common.${boolean}`),
                       )}
@@ -167,7 +173,7 @@ function DriverLinks({ driverIds }: { driverIds: string[] }) {
         <Link
           key={driverId}
           to={`/drivers/${driverId}`}
-          className="font-mono text-xs text-primary hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           {driverId}
         </Link>

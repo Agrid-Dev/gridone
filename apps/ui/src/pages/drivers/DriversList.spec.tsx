@@ -15,6 +15,9 @@ vi.mock("react-i18next", () =>
     "table.type": "Type",
     "table.protocol": "Protocol",
     "table.attributes": "Attributes",
+    "protocols.http": "HTTP",
+    "protocols.mbus": "M-Bus",
+    "protocols.modbus-tcp": "Modbus TCP",
     "common:common.allTypes": "All types",
     "common:common.deviceTypes.thermostat": "Thermostat",
     "common:common.deviceTypes.awhp": "Heat pump",
@@ -118,7 +121,7 @@ describe("DriversList — table", () => {
     ]);
     const row = screen.getByText("chiller_emulator_modbus").closest("tr");
     expect(row).not.toBeNull();
-    expect(within(row!).getByText("modbus-tcp")).toBeInTheDocument();
+    expect(within(row!).getByText("Modbus TCP")).toBeInTheDocument();
     expect(within(row!).getByText("9")).toBeInTheDocument();
     expect(within(row!).getByText("Heat pump")).toBeInTheDocument();
   });

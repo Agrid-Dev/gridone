@@ -2,14 +2,15 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { EmptyValue } from "@/components/EmptyValue";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui/table";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
@@ -101,11 +102,11 @@ export default function FaultsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead>{t("faults.columns.device")}</TableHead>
-              <TableHead>{t("faults.columns.zone")}</TableHead>
-              <TableHead>{t("faults.columns.fault")}</TableHead>
-              <TableHead>{t("faults.columns.severity")}</TableHead>
-              <TableHead>{t("faults.columns.activeSince")}</TableHead>
+              <Th>{t("faults.columns.device")}</Th>
+              <Th>{t("faults.columns.zone")}</Th>
+              <Th>{t("faults.columns.fault")}</Th>
+              <Th>{t("faults.columns.severity")}</Th>
+              <Th>{t("faults.columns.activeSince")}</Th>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -137,22 +138,22 @@ function FaultTableRow({ row }: { row: FaultRow }) {
           "bg-status-error/5 hover:bg-status-error/10",
       )}
     >
-      <TableCell className="font-medium">
+      <TableCell className="py-2.5 font-medium">
         <Link
           to={`/devices/${row.device_id}`}
-          className="text-primary hover:underline"
+          className="text-foreground hover:underline"
         >
           {row.device_name}
         </Link>
       </TableCell>
-      <TableCell className="text-muted-foreground">
-        {row.zone ?? <span aria-hidden>—</span>}
+      <TableCell className="py-2.5 text-muted-foreground">
+        {row.zone ?? <EmptyValue />}
       </TableCell>
-      <TableCell>{label}</TableCell>
-      <TableCell>
+      <TableCell className="py-2.5">{label}</TableCell>
+      <TableCell className="py-2.5">
         <SeverityLabel severity={row.severity} />
       </TableCell>
-      <TableCell className="text-sm tabular-nums text-muted-foreground">
+      <TableCell className="py-2.5 text-sm tabular-nums text-muted-foreground">
         {activeSince}
       </TableCell>
     </TableRow>

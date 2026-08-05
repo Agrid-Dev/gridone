@@ -1,8 +1,7 @@
-import { FC, ReactNode } from "react";
+import { FC } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Asset, Device } from "@gridone/sdk";
-import { cn } from "@/lib/utils";
 import { CardHeaderLink } from "./CardHeaderLink";
 import {
   Card,
@@ -12,9 +11,9 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -47,19 +46,15 @@ export const ZonesByLevelCard: FC<{
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <HeadCell>{t("zonesByLevel.level")}</HeadCell>
-                <HeadCell className="text-right">
-                  {t("zonesByLevel.zones")}
-                </HeadCell>
-                <HeadCell className="text-right">
-                  {t("zonesByLevel.devices")}
-                </HeadCell>
+                <Th className="px-0">{t("zonesByLevel.level")}</Th>
+                <Th className="px-0 text-right">{t("zonesByLevel.zones")}</Th>
+                <Th className="px-0 text-right">{t("zonesByLevel.devices")}</Th>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map(({ floor, zoneCount, deviceCount }) => (
                 <TableRow key={floor.id}>
-                  <TableCell className="px-0 py-3">
+                  <TableCell className="px-0 py-2.5">
                     <Link
                       to={`/assets/${floor.id}`}
                       className="font-medium text-foreground hover:text-primary hover:underline"
@@ -67,10 +62,10 @@ export const ZonesByLevelCard: FC<{
                       {floor.name}
                     </Link>
                   </TableCell>
-                  <TableCell className="px-0 py-3 text-right tabular-nums">
+                  <TableCell className="px-0 py-2.5 text-right tabular-nums">
                     {zoneCount}
                   </TableCell>
-                  <TableCell className="px-0 py-3 text-right tabular-nums">
+                  <TableCell className="px-0 py-2.5 text-right tabular-nums">
                     {deviceCount}
                   </TableCell>
                 </TableRow>
@@ -94,20 +89,6 @@ export const ZonesByLevelCard: FC<{
     </Card>
   );
 };
-
-const HeadCell: FC<{ children: ReactNode; className?: string }> = ({
-  children,
-  className,
-}) => (
-  <TableHead
-    className={cn(
-      "h-10 px-0 text-xs font-semibold uppercase tracking-wider",
-      className,
-    )}
-  >
-    {children}
-  </TableHead>
-);
 
 const TableSkeleton: FC = () => (
   <div className="space-y-2">

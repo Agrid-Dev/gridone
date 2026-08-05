@@ -54,10 +54,7 @@ export function CommandsFilterBar({
   if (batchId) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge
-          variant="outline"
-          className="gap-1.5 px-2.5 py-1 font-mono text-xs"
-        >
+        <Badge variant="outline" className="gap-1.5 px-2.5 py-1 text-xs">
           <span className="text-muted-foreground">{t("commands.batch")}:</span>
           <span>{batchId}</span>
           <button

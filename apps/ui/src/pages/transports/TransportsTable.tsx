@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Network } from "lucide-react";
@@ -8,18 +7,16 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import { TransportStatusBadge } from "./TransportStatusBadge";
+import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
+import { EmptyValue } from "@/components/EmptyValue";
 import {
   transportEndpoint,
   type TransportDeviceSummary,
 } from "./transportPresentation";
-
-const Dash = () => <span className="text-muted-foreground">—</span>;
 
 export function TransportsTable({
   transports,
@@ -70,7 +67,7 @@ function TransportRow({
 
   return (
     <TableRow onClick={() => navigate(to)} className="cursor-pointer">
-      <TableCell className="py-3">
+      <TableCell className="py-2.5">
         <span className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <Network className="h-4 w-4" aria-hidden />
@@ -84,25 +81,30 @@ function TransportRow({
           </Link>
         </span>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell className="py-2.5">
         <DriverLinks driverIds={summary?.driverIds ?? []} />
       </TableCell>
-      <TableCell className="py-3">
-        <Badge variant="info" className="font-mono text-[11px] font-medium">
+      <TableCell className="py-2.5">
+        <Badge variant="info" className="text-[11px] font-medium">
           {t(`protocols.${transport.protocol}`, {
             defaultValue: transport.protocol,
           })}
         </Badge>
       </TableCell>
-      <TableCell className="py-3">
+      <TableCell className="py-2.5">
         <div className="flex min-w-44 items-center justify-between gap-3">
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             {endpoint ?? t(`connection.${transport.protocol}`)}
           </span>
-          <TransportStatusBadge state={transport.connection_state} compact />
+          <ConnectionStatusBadge
+            status={transport.connection_state.status}
+            label={t(`status.${transport.connection_state.status}`, {
+              defaultValue: t("status.unknown"),
+            })}
+          />
         </div>
       </TableCell>
-      <TableCell className="py-3 text-right font-medium tabular-nums">
+      <TableCell className="py-2.5 text-right font-medium tabular-nums">
         {summary?.count ?? 0}
       </TableCell>
     </TableRow>
@@ -110,7 +112,7 @@ function TransportRow({
 }
 
 function DriverLinks({ driverIds }: { driverIds: string[] }) {
-  if (driverIds.length === 0) return <Dash />;
+  if (driverIds.length === 0) return <EmptyValue />;
 
   return (
     <span className="flex max-w-56 flex-wrap items-center gap-x-1 text-xs">
@@ -119,7 +121,7 @@ function DriverLinks({ driverIds }: { driverIds: string[] }) {
           {index > 0 && <span className="text-muted-foreground">, </span>}
           <Link
             to={`/drivers/${driverId}`}
-            className="font-mono font-medium text-muted-foreground hover:text-primary hover:underline"
+            className="font-medium text-muted-foreground hover:text-primary hover:underline"
             onClick={(event) => event.stopPropagation()}
           >
             {driverId}
@@ -130,21 +132,5 @@ function DriverLinks({ driverIds }: { driverIds: string[] }) {
         <span className="text-muted-foreground">+{driverIds.length - 2}</span>
       )}
     </span>
-  );
-}
-
-function Th({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <TableHead
-      className={cn("h-10 text-xs uppercase tracking-wider", className)}
-    >
-      {children}
-    </TableHead>
   );
 }

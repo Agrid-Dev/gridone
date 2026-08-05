@@ -32,11 +32,7 @@ export default function DevicesList() {
     <section className="space-y-6">
       <ResourceHeader
         title={t("devices.title")}
-        caption={
-          summaryLoading ? undefined : (
-            <DevicesSummary total={total} counts={connectionCounts} />
-          )
-        }
+        caption={t("devices.caption")}
         actions={
           <>
             <Button asChild variant="outline" size="sm">
@@ -64,6 +60,12 @@ export default function DevicesList() {
           </>
         }
       />
+
+      {!summaryLoading && (
+        <div className="text-sm text-muted-foreground">
+          <DevicesSummary total={total} counts={connectionCounts} />
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <DeviceTypeChips counts={typeCounts} total={total} />

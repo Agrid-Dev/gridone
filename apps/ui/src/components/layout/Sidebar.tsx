@@ -166,7 +166,7 @@ export function Sidebar() {
           <div className="shrink-0 border-t border-border px-4 py-3 text-right">
             <span
               aria-label={versionLabel}
-              className="font-mono text-xs font-medium text-muted-foreground"
+              className="text-xs font-medium text-muted-foreground"
               title={versionLabel}
             >
               v{version}

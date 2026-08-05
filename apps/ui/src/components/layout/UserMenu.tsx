@@ -40,7 +40,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label={user.name || user.username}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary font-mono text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
         >
           {getInitials(user.name, user.username)}
         </button>

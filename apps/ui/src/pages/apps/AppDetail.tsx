@@ -112,9 +112,7 @@ export default function AppDetail() {
           </div>
           <div>
             <span className="text-muted-foreground">{t("fields.apiUrl")}</span>
-            <p className="mt-1 font-mono text-xs text-foreground">
-              {app.api_url}
-            </p>
+            <p className="mt-1 text-xs text-foreground">{app.api_url}</p>
           </div>
           <div>
             <span className="text-muted-foreground">

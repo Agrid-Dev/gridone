@@ -1,20 +1,19 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui/table";
 import {
   deviceTypeBucketLabel,
   deviceTypeKeyIcon,
   type DeviceTypeGroup,
 } from "@/lib/deviceTypes";
-import { cn } from "@/lib/utils";
 import { DeviceRow } from "./DeviceRow";
 
 type DevicesTableProps = {
@@ -71,21 +70,5 @@ export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
         </TableBody>
       </Table>
     </div>
-  );
-}
-
-function Th({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <TableHead
-      className={cn("h-10 text-xs uppercase tracking-wider", className)}
-    >
-      {children}
-    </TableHead>
   );
 }

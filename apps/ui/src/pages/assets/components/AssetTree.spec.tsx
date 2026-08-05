@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import type { AssetType } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import type { AssetTreeNode } from "@/lib/assets";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -63,7 +64,9 @@ const organization = assetNode("org-1", "org", "Agrid", [building]);
 function renderOverview(canEdit = true) {
   return render(
     <MemoryRouter>
-      <AssetTree tree={[organization]} canEdit={canEdit} />
+      <TooltipProvider>
+        <AssetTree tree={[organization]} canEdit={canEdit} />
+      </TooltipProvider>
     </MemoryRouter>,
   );
 }

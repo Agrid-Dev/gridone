@@ -55,7 +55,7 @@ export const ChangeEventPresenter = ({ trigger }: { trigger: Trigger }) => {
       </Row>
       <Row label={t("triggers.condition")}>
         {condition ? (
-          <span className="font-mono text-sm">
+          <span className="text-sm">
             {t(`operators.${condition.operator}`, {
               defaultValue: condition.operator,
             })}{" "}
