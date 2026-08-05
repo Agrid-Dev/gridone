@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import type { FloorRow } from "./rollup";
 
 const LAYER_HEIGHT = 98;
@@ -13,6 +14,8 @@ const MIN_STROKE_OPACITY = 0.42;
 const MAX_STROKE_OPACITY = 0.75;
 const MIN_MARKER_OPACITY = 0.55;
 const MAX_MARKER_OPACITY = 1;
+/** Opacity added to a layer's fill while its floor is hovered. */
+const ACTIVE_FILL_BOOST = 0.16;
 
 /**
  * Draws the building floors as an isometric stack. The layer gap shrinks for
@@ -23,6 +26,10 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
   const { t } = useTranslation("home");
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
+  // A layer and its legend entry sit in separate subtrees, so highlighting one
+  // from the other can't be a CSS `:hover`: the pointed-at (or focused) floor
+  // is held in state and both sides read it.
+  const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
   const visualRows = [...rows].reverse().map((row, index) => ({
     ...row,
     colors: layerColors(index, rows.length),
@@ -43,7 +50,10 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
         viewBox={`0 0 284 ${viewBoxHeight}`}
         className="mx-auto h-auto w-full max-w-80 overflow-visible"
         onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
+        onMouseLeave={() => {
+          setExpanded(false);
+          setActiveFloorId(null);
+        }}
       >
         <path
           d={floorPath(lastOffset + 8)}
@@ -51,51 +61,67 @@ export const FloorStackDiagram: FC<{ rows: FloorRow[] }> = ({ rows }) => {
           stroke="hsl(var(--border))"
           strokeWidth="1"
         />
-        {visualRows.map(({ floor, colors, spreadOffset }, index) => (
-          <path
-            key={floor.id}
-            data-floor-id={floor.id}
-            d={floorPath(index * gap)}
-            fill={colors.fill}
-            stroke={colors.stroke}
-            strokeWidth="1.25"
-            vectorEffect="non-scaling-stroke"
-            onClick={() => navigate(`/assets/${floor.id}`)}
-            className="cursor-pointer transition-transform duration-300 ease-out hover:brightness-95"
-            style={{
-              transform: expanded
-                ? `translateY(${spreadOffset}px)`
-                : "translateY(0)",
-            }}
-          />
-        ))}
+        {visualRows.map(({ floor, colors, spreadOffset }, index) => {
+          const active = activeFloorId === floor.id;
+          return (
+            <path
+              key={floor.id}
+              data-floor-id={floor.id}
+              data-active={active || undefined}
+              d={floorPath(index * gap)}
+              fill={active ? colors.fillActive : colors.fill}
+              stroke={active ? colors.marker : colors.stroke}
+              strokeWidth={active ? "2" : "1.25"}
+              vectorEffect="non-scaling-stroke"
+              onClick={() => navigate(`/assets/${floor.id}`)}
+              onMouseEnter={() => setActiveFloorId(floor.id)}
+              className="cursor-pointer transition-[transform,fill,stroke] duration-300 ease-out"
+              style={{
+                transform: expanded
+                  ? `translateY(${spreadOffset}px)`
+                  : "translateY(0)",
+              }}
+            />
+          );
+        })}
       </svg>
 
       <ul
         aria-label={t("zonesByLevel.diagramLegend")}
         className="grid min-w-32 grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-1"
+        onMouseLeave={() => setActiveFloorId(null)}
       >
-        {visualRows.map(({ floor, zoneCount, colors }) => (
-          <li key={floor.id}>
-            <Link
-              to={`/assets/${floor.id}`}
-              className="group flex items-center gap-2.5 text-sm font-medium text-foreground"
-            >
-              <span
-                aria-hidden="true"
-                data-floor-marker={floor.id}
-                className="h-2.5 w-2.5 shrink-0 rounded-[3px]"
-                style={{ backgroundColor: colors.marker }}
-              />
-              <span className="group-hover:text-primary group-hover:underline">
-                {floor.name}{" "}
-                <span className="tabular-nums text-muted-foreground">
-                  ({zoneCount})
+        {visualRows.map(({ floor, zoneCount, colors }) => {
+          const active = activeFloorId === floor.id;
+          return (
+            <li key={floor.id}>
+              <Link
+                to={`/assets/${floor.id}`}
+                data-active={active || undefined}
+                onMouseEnter={() => setActiveFloorId(floor.id)}
+                onFocus={() => setActiveFloorId(floor.id)}
+                onBlur={() => setActiveFloorId(null)}
+                className="flex items-center gap-2.5 text-sm font-medium text-foreground"
+              >
+                <span
+                  aria-hidden="true"
+                  data-floor-marker={floor.id}
+                  className={cn(
+                    "h-2.5 w-2.5 shrink-0 rounded-[3px] transition-shadow",
+                    active && "ring-2 ring-primary/30",
+                  )}
+                  style={{ backgroundColor: colors.marker }}
+                />
+                <span className={cn(active && "text-primary underline")}>
+                  {floor.name}{" "}
+                  <span className="tabular-nums text-muted-foreground">
+                    ({zoneCount})
+                  </span>
                 </span>
-              </span>
-            </Link>
-          </li>
-        ))}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -122,6 +148,10 @@ function layerColors(index: number, count: number) {
 
   return {
     fill: color(MIN_FILL_OPACITY, MAX_FILL_OPACITY),
+    fillActive: color(
+      MIN_FILL_OPACITY + ACTIVE_FILL_BOOST,
+      MAX_FILL_OPACITY + ACTIVE_FILL_BOOST,
+    ),
     stroke: color(MIN_STROKE_OPACITY, MAX_STROKE_OPACITY),
     marker: color(MIN_MARKER_OPACITY, MAX_MARKER_OPACITY),
   };

@@ -6,6 +6,7 @@ import { Pencil } from "lucide-react";
 import type { Asset, Device } from "@gridone/sdk";
 import { Button } from "@/components/ui";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useBuildingProfile } from "@/hooks/useBuildingProfile";
 import { countZones, findOrgName } from "./rollup";
 import { IdentityCard } from "./IdentityCard";
@@ -19,6 +20,7 @@ import { ZonesByLevelCard } from "./ZonesByLevelCard";
 const Home: FC = () => {
   const { t } = useTranslation("home");
   const client = useGridoneClient();
+  const can = usePermissions();
 
   const { data: profile, isLoading: profileLoading } = useBuildingProfile();
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
@@ -39,12 +41,14 @@ const Home: FC = () => {
           </h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
-        <Button asChild variant="outline">
-          <Link to="/profile/edit">
-            <Pencil className="h-4 w-4" />
-            {t("editProfile")}
-          </Link>
-        </Button>
+        {can("assets:write") && (
+          <Button asChild variant="outline">
+            <Link to="/profile/edit">
+              <Pencil className="h-4 w-4" />
+              {t("editProfile")}
+            </Link>
+          </Button>
+        )}
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-12">

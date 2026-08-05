@@ -80,6 +80,37 @@ describe("FloorStackDiagram", () => {
     ).toBe(3);
   });
 
+  it("highlights a layer and its legend entry together, from either side", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <FloorStackDiagram
+          rows={[row("ground", "Ground floor"), row("first", "Floor 1")]}
+        />
+      </MemoryRouter>,
+    );
+
+    const layer = document.querySelector('[data-floor-id="first"]')!;
+    const legendEntry = screen.getByRole("link", { name: "Floor 1 (0)" });
+    const otherLayer = document.querySelector('[data-floor-id="ground"]')!;
+
+    expect(layer).not.toHaveAttribute("data-active");
+    expect(legendEntry).not.toHaveAttribute("data-active");
+
+    await user.hover(layer);
+    expect(layer).toHaveAttribute("data-active", "true");
+    expect(legendEntry).toHaveAttribute("data-active", "true");
+    expect(otherLayer).not.toHaveAttribute("data-active");
+
+    await user.hover(legendEntry);
+    expect(layer).toHaveAttribute("data-active", "true");
+    expect(legendEntry).toHaveAttribute("data-active", "true");
+
+    await user.unhover(legendEntry);
+    expect(layer).not.toHaveAttribute("data-active");
+    expect(legendEntry).not.toHaveAttribute("data-active");
+  });
+
   it("opens the matching floor when a layer is clicked", async () => {
     const user = userEvent.setup();
     render(

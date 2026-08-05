@@ -1,28 +1,17 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { BuildingProfile } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "sidebar.building.actions": "Building actions",
-    "sidebar.building.view": "View building",
-    "sidebar.building.edit": "Edit profile",
     "sidebar.building.unnamed": "My building",
     "sidebar.building.floors": "{{count}} floors",
   }),
 );
 
-const permissions: { can: (permission: string) => boolean } = {
-  can: () => true,
-};
 let profile: Partial<BuildingProfile> | undefined;
-
-vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => (permission: string) => permissions.can(permission),
-}));
 
 vi.mock("@/hooks/useBuildingProfile", () => ({
   useBuildingProfile: () => ({ data: profile }),
@@ -39,7 +28,6 @@ function renderSwitcher() {
 }
 
 beforeEach(() => {
-  permissions.can = () => true;
   profile = {
     name: "Hôtel Bellevue",
     address: "Paris 11e",
@@ -68,28 +56,11 @@ describe("BuildingSwitcher", () => {
     expect(screen.queryByText(/·/)).not.toBeInTheDocument();
   });
 
-  it("offers both actions to a user who can edit assets", async () => {
-    const user = userEvent.setup();
+  it("links straight to the building page instead of opening a menu", () => {
     renderSwitcher();
-    await user.click(screen.getByRole("button", { name: "Building actions" }));
     expect(
-      await screen.findByRole("menuitem", { name: "View building" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("menuitem", { name: "Edit profile" }),
-    ).toBeInTheDocument();
-  });
-
-  it("hides the edit action without assets:write", async () => {
-    permissions.can = (permission) => permission !== "assets:write";
-    const user = userEvent.setup();
-    renderSwitcher();
-    await user.click(screen.getByRole("button", { name: "Building actions" }));
-    expect(
-      await screen.findByRole("menuitem", { name: "View building" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("menuitem", { name: "Edit profile" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: /Hôtel Bellevue/ }),
+    ).toHaveAttribute("href", "/");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

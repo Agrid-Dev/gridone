@@ -255,9 +255,6 @@
   },
   "sidebar": {
     "building": {
-      "actions": "Building actions",
-      "view": "View building",
-      "edit": "Edit profile",
       "unnamed": "My building",
       "floors_one": "{{count}} floor",
       "floors_other": "{{count}} floors"

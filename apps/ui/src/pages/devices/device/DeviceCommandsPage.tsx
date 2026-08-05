@@ -21,8 +21,7 @@ export default function DeviceCommandsPage() {
     );
   }
 
-  // The device frame already renders the device header and tab bar, so we
-  // suppress the default CommandsPage header; the New command action lives on
-  // the filter bar.
-  return <CommandsPage deviceId={device.id} header={<></>} />;
+  // The device frame already renders the device header — with its own "send a
+  // command" action — and the tab bar, so the page drops both here.
+  return <CommandsPage deviceId={device.id} embedded />;
 }

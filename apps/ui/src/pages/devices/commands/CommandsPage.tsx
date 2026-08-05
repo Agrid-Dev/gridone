@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react";
@@ -11,10 +10,15 @@ import { CommandsTable } from "./CommandsTable";
 
 type CommandsPageProps = {
   deviceId?: string;
-  header?: ReactNode;
+  /** Set when the page is nested in a frame that already renders its own header
+   *  and "send a command" action — both are dropped to avoid duplicating them. */
+  embedded?: boolean;
 };
 
-export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
+export default function CommandsPage({
+  deviceId,
+  embedded = false,
+}: CommandsPageProps) {
   const { t } = useTranslation("devices");
   const can = usePermissions();
   const cmd = useCommands({ deviceId });
@@ -23,18 +27,19 @@ export default function CommandsPage({ deviceId, header }: CommandsPageProps) {
     ? `/devices/${deviceId}/commands/new`
     : "/devices/commands/new";
 
-  const newCommandButton = can("devices:write") ? (
-    <Button asChild size="sm">
-      <Link to={newCommandHref}>
-        <Terminal />
-        {t("commands.newCommand")}
-      </Link>
-    </Button>
-  ) : null;
+  const newCommandButton =
+    !embedded && can("devices:write") ? (
+      <Button asChild size="sm">
+        <Link to={newCommandHref}>
+          <Terminal />
+          {t("commands.newCommand")}
+        </Link>
+      </Button>
+    ) : null;
 
   return (
     <section className="space-y-6">
-      {header ?? (
+      {!embedded && (
         <ResourceHeader
           title={t("commands.title")}
           actions={
