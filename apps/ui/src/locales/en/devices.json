@@ -297,7 +297,14 @@
       "runStatus": "Status",
       "mode": "Mode",
       "waterSide": "Water",
-      "airSide": "Air"
+      "airSide": "Air",
+      "chilledWater": "Chilled water",
+      "chilledWaterLast24h": "Chilled water — last 24 h",
+      "waterLast24h": "Water — last 24 h",
+      "noWaterHistory": "No water temperature history",
+      "avgDeviation": "Avg. deviation",
+      "runHours": "Run hours",
+      "energy24h": "Energy 24 h"
     },
     "weatherSensor": {
       "wind": "Wind",

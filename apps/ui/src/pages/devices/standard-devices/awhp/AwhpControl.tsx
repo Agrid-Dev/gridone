@@ -1,250 +1,253 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Fan, Wind, Droplets, ArrowRight, Thermometer } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Droplets,
+  Fan,
+  GitCommitHorizontal,
+  Wind,
+} from "lucide-react";
 import { DeviceType, isAwhp, readAwhpAttributes } from "@/lib/devices";
 import { Badge } from "@/components/ui/badge";
 import { AttributeValue } from "@/components/AttributeValue";
+import { useAssetTree } from "@/hooks/useAssetTree";
+import { fmt } from "@/lib/formatValue";
+import { cn } from "@/lib/utils";
 import { ControlPanel } from "../ControlPanel";
 import type { StandardControlProps } from "../types";
+import { cycleMedia, type CycleMedium } from "./cycleMedia";
 
-function fmt(v: number | null, unit = "°"): string {
-  if (v == null) return "—";
-  return `${Number(v).toFixed(1)}${unit}`;
+type StageTone = "cold" | "neutral" | "hot";
+
+const STAGE_HEADER_CLASS: Record<StageTone, string> = {
+  cold: "text-hvac-cool",
+  neutral: "text-muted-foreground",
+  hot: "text-hvac-heat",
+};
+
+const STAGE_BOX_CLASS: Record<StageTone, string> = {
+  cold: "border-hvac-cool/20 bg-hvac-cool/5",
+  neutral: "border-border bg-muted/40",
+  hot: "border-hvac-heat/20 bg-hvac-heat/5",
+};
+
+const MEDIUM_ICONS: Record<CycleMedium, LucideIcon> = {
+  water: Droplets,
+  air: Wind,
+};
+
+/** One exchanger box of the refrigerant cycle (evaporator / compressor /
+ *  condenser), tinted by its thermal role. */
+function CycleStage({
+  tone,
+  icon: Icon,
+  label,
+  children,
+}: {
+  tone: StageTone;
+  icon: LucideIcon;
+  label: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl border p-4",
+        STAGE_BOX_CLASS[tone],
+      )}
+    >
+      <div
+        className={cn("flex items-center gap-1.5", STAGE_HEADER_CLASS[tone])}
+      >
+        <Icon className="h-4 w-4" />
+        <span className="text-[11px] font-bold uppercase tracking-wider">
+          {label}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 function Reading({
   label,
   value,
-  unit = "°",
-  className = "",
+  unit = "",
 }: {
   label: string;
   value: number | null;
   unit?: string;
-  className?: string;
 }) {
+  if (value == null) return null;
   return (
-    <div className={`flex items-baseline gap-1 ${className}`}>
+    <div className="flex items-baseline gap-1.5">
       <span className="text-[10px] text-muted-foreground">{label}</span>
-      <span className="text-xs font-medium tabular-nums">
-        {fmt(value, unit)}
+      <span className="font-mono text-xs font-medium tabular-nums">
+        {fmt(value, 1, unit)}
       </span>
     </div>
   );
 }
 
-export function AwhpControl({ device }: StandardControlProps) {
+function WaterReading({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null;
+}) {
+  return (
+    <div className="flex items-baseline gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="font-mono text-sm font-semibold tabular-nums">
+        {fmt(value, 1, " °C")}
+      </span>
+    </div>
+  );
+}
+
+export function AwhpControl({
+  device,
+  size = "lg",
+}: StandardControlProps & { size?: "lg" | "full" }) {
   const { t } = useTranslation("devices");
+  const { t: tCommon } = useTranslation();
+  const { assetByDeviceId } = useAssetTree();
 
   if (!isAwhp(device)) return null;
   const a = readAwhpAttributes(device);
+  const media = cycleMedia(a.mode);
+  const heating = media.condenser === "water";
+  const asset = assetByDeviceId[device.id];
+
+  const typeLabel = tCommon(`common.deviceTypes.${DeviceType.Awhp}`);
+  const mediumHeadline = (medium: CycleMedium) =>
+    medium === "water"
+      ? `${t("controls.awhp.waterSide")} ${fmt(a.outletTemperature, 1, " °C")}`
+      : `${t("controls.awhp.airSide")} ${fmt(a.outdoorTemperature, 1, " °C")}`;
 
   return (
-    <ControlPanel
-      size="lg"
-      modeChip={
-        a.mode ? (
-          <Badge variant="info">
-            <AttributeValue
-              deviceType={DeviceType.Awhp}
-              attributeName="mode"
-              value={a.mode}
+    <ControlPanel size={size}>
+      <div className="space-y-5">
+        {/* ── Header: mode · type/location · run status ── */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {a.mode && (
+              <Badge variant="info">
+                <AttributeValue
+                  deviceType={DeviceType.Awhp}
+                  attributeName="mode"
+                  value={a.mode}
+                />
+              </Badge>
+            )}
+            <span className="truncate text-sm text-muted-foreground">
+              {typeLabel}
+              {asset ? ` · ${asset.name}` : ""}
+            </span>
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {t("controls.awhp.runStatus")} ·{" "}
+            <span className="uppercase text-foreground">
+              {a.unitRunStatus ?? "—"}
+            </span>
+          </span>
+        </div>
+
+        {/* ── Refrigerant cycle: evaporator → compressor → condenser ── */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-stretch gap-1 sm:gap-2">
+          <CycleStage
+            tone="cold"
+            icon={MEDIUM_ICONS[media.evaporator]}
+            label={t("controls.awhp.evaporator")}
+          >
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {mediumHeadline(media.evaporator)}
+            </span>
+          </CycleStage>
+
+          <div className="flex items-center justify-center px-1">
+            <ArrowRight className="h-4 w-4 text-hvac-cool" />
+          </div>
+
+          <CycleStage
+            tone="neutral"
+            icon={Fan}
+            label={t("controls.awhp.compressor")}
+          >
+            <div className="flex flex-col items-center gap-0.5">
+              <Reading
+                label={t("controls.awhp.suction")}
+                value={a.compressorSuctionPressure}
+                unit=" bar"
+              />
+              <Reading
+                label={t("controls.awhp.discharge")}
+                value={a.compressorDischargePressure}
+                unit=" bar"
+              />
+            </div>
+          </CycleStage>
+
+          <div className="flex items-center justify-center px-1">
+            <ArrowRight className="h-4 w-4 text-hvac-heat" />
+          </div>
+
+          <CycleStage
+            tone="hot"
+            icon={MEDIUM_ICONS[media.condenser]}
+            label={t("controls.awhp.condenser")}
+          >
+            <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+              {mediumHeadline(media.condenser)}
+            </span>
+          </CycleStage>
+        </div>
+
+        {/* ── Expansion valve on the return path ── */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 border-t border-dashed border-border" />
+          <div className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1 text-muted-foreground">
+            <GitCommitHorizontal className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-medium uppercase tracking-wider">
+              {t("controls.awhp.expansionValve")}
+            </span>
+          </div>
+          <div className="flex-1 border-t border-dashed border-border" />
+        </div>
+
+        {/* ── Water circuit: inlet / outlet / setpoint ── */}
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl bg-muted/50 px-4 py-3">
+          <div
+            className={cn(
+              "flex items-center gap-1.5",
+              heating ? "text-hvac-heat" : "text-hvac-cool",
+            )}
+          >
+            <Droplets className="h-4 w-4" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">
+              {heating
+                ? t("controls.awhp.waterSide")
+                : t("controls.awhp.chilledWater")}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <WaterReading
+              label={t("controls.awhp.inlet")}
+              value={a.inletTemperature}
             />
-          </Badge>
-        ) : null
-      }
-      headerLabel={
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {t("controls.awhp.runStatus")}:{" "}
-          <span className="text-foreground">{a.unitRunStatus ?? "—"}</span>
-        </span>
-      }
-    >
-      {/* ── Outdoor temperature ── */}
-      {a.outdoorTemperature != null && (
-        <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{t("controls.awhp.outdoor")}</span>
-          <span className="font-semibold tabular-nums text-foreground">
-            {fmt(a.outdoorTemperature)}
-          </span>
-        </div>
-      )}
-
-      {/* ── Schematic ── */}
-      <div className="flex flex-col items-center gap-0">
-        {/* Row 1: Evaporator → Compressor → Condenser */}
-        <div className="flex w-full items-center gap-0">
-          {/* Evaporator */}
-          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-primary/20 bg-primary/[0.06] p-3">
-            <div className="flex items-center gap-1 text-primary">
-              <Wind className="h-4 w-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("controls.awhp.evaporator")}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              {a.evaporatorSaturatedRefrigerantTemperature != null && (
-                <Reading
-                  label={t("controls.awhp.satTemp")}
-                  value={a.evaporatorSaturatedRefrigerantTemperature}
-                />
-              )}
-              {a.evaporatorRefrigerantPressure != null && (
-                <Reading
-                  label={t("controls.awhp.pressure")}
-                  value={a.evaporatorRefrigerantPressure}
-                  unit=" bar"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Pipe: evap → compressor (cold suction gas) */}
-          <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-sky-500" />
-            {a.compressorSuctionTemperature != null && (
-              <span className="text-[9px] tabular-nums text-muted-foreground">
-                {fmt(a.compressorSuctionTemperature)}
-              </span>
+            <WaterReading
+              label={t("controls.awhp.outlet")}
+              value={a.outletTemperature}
+            />
+            {a.setpointTemperature != null && (
+              <WaterReading
+                label={t("controls.awhp.setpoint")}
+                value={a.setpointTemperature}
+              />
             )}
           </div>
-
-          {/* Compressor */}
-          <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-muted/80 p-3">
-            <div className="flex items-center gap-1 text-foreground">
-              <Fan className="h-4 w-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("controls.awhp.compressor")}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              {a.compressorSuctionPressure != null && (
-                <Reading
-                  label={t("controls.awhp.suction")}
-                  value={a.compressorSuctionPressure}
-                  unit=" bar"
-                />
-              )}
-              {a.compressorDischargePressure != null && (
-                <Reading
-                  label={t("controls.awhp.discharge")}
-                  value={a.compressorDischargePressure}
-                  unit=" bar"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Pipe: compressor → condenser (hot discharge gas) */}
-          <div className="flex flex-col items-center px-1">
-            <ArrowRight className="h-4 w-4 text-red-500" />
-            {a.compressorDischargeTemperature != null && (
-              <span className="text-[9px] tabular-nums text-muted-foreground">
-                {fmt(a.compressorDischargeTemperature)}
-              </span>
-            )}
-          </div>
-
-          {/* Condenser */}
-          <div className="flex flex-1 flex-col items-center gap-1 rounded-xl border border-orange-200 bg-orange-50/60 p-3">
-            <div className="flex items-center gap-1 text-orange-700">
-              <Droplets className="h-4 w-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">
-                {t("controls.awhp.condenser")}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-0.5">
-              {a.condenserSaturatedRefrigerantTemperature != null && (
-                <Reading
-                  label={t("controls.awhp.satTemp")}
-                  value={a.condenserSaturatedRefrigerantTemperature}
-                />
-              )}
-              {a.condenserRefrigerantPressure != null && (
-                <Reading
-                  label={t("controls.awhp.pressure")}
-                  value={a.condenserRefrigerantPressure}
-                  unit=" bar"
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Return path (expansion valve is cold/hot pivot) */}
-        <div className="flex w-full items-stretch">
-          {/* Left vertical pipe — cold liquid up to evaporator */}
-          <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-sky-300" />
-          </div>
-          <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
-          {/* Right vertical pipe — hot liquid down from condenser */}
-          <div className="flex flex-1 items-center justify-center">
-            <div className="h-6 w-px border-l border-dashed border-red-300" />
-          </div>
-        </div>
-
-        {/* Expansion valve */}
-        <div className="rounded-lg border border-dashed border-border px-4 py-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {t("controls.awhp.expansionValve")}
-          </span>
-        </div>
-
-        {/* Bottom connecting lines */}
-        <div className="flex w-full items-stretch">
-          {/* Bottom-left — cold liquid leaving the valve */}
-          <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-sky-300" />
-          </div>
-          <div className="flex-shrink-0" style={{ width: "calc(100% / 3)" }} />
-          {/* Bottom-right — hot liquid entering the valve */}
-          <div className="flex flex-1 items-center justify-center">
-            <div className="h-4 w-px border-l border-dashed border-red-300" />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Water side: inlet / outlet / setpoint ── */}
-      <div className="mt-4 flex items-center justify-between rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3">
-        <div className="flex items-center gap-1.5">
-          <Droplets className="h-3.5 w-3.5 text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
-            {t("controls.awhp.waterSide")}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1">
-            <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">
-              {t("controls.awhp.inlet")}
-            </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {fmt(a.inletTemperature)}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <ArrowRight className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">
-              {t("controls.awhp.outlet")}
-            </span>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {fmt(a.outletTemperature)}
-            </span>
-          </div>
-
-          {a.setpointTemperature != null && (
-            <div className="flex items-center gap-1 border-l border-border pl-4">
-              <span className="text-[10px] text-muted-foreground">
-                {t("controls.awhp.setpoint")}
-              </span>
-              <span className="text-sm font-semibold tabular-nums">
-                {fmt(a.setpointTemperature)}
-              </span>
-            </div>
-          )}
         </div>
       </div>
     </ControlPanel>

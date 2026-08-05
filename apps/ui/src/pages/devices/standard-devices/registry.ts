@@ -5,7 +5,7 @@ import {
   ThermostatControl,
   ThermostatSupervision,
 } from "./thermostat";
-import { AwhpPreview, AwhpControl } from "./awhp";
+import { AwhpPreview, AwhpControl, AwhpSupervision } from "./awhp";
 import { WeatherSensorPreview, WeatherSensorControl } from "./weather-sensor";
 import {
   ElectricityMeterPreview,
@@ -35,6 +35,7 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.Awhp]: {
     Preview: AwhpPreview,
     Control: AwhpControl,
+    Supervision: AwhpSupervision,
   },
   [DeviceType.WeatherSensor]: {
     Preview: WeatherSensorPreview,
