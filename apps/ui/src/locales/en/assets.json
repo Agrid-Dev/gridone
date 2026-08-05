@@ -16,6 +16,24 @@
   "inlineCreate": {
     "placeholder": "Zone name..."
   },
+  "overview": {
+    "subtitle": "Organized by floor · zones can contain sub-zones · select a zone to view its details.",
+    "legend": "Zone types",
+    "floorCount_one": "{{count}} floor",
+    "floorCount_other": "{{count}} floors",
+    "zoneCount_one": "{{count}} zone",
+    "zoneCount_other": "{{count}} zones",
+    "deviceCount_one": "{{count}} device",
+    "deviceCount_other": "{{count}} devices",
+    "linkedDevices_one": "{{count}} linked device",
+    "linkedDevices_other": "{{count}} linked devices",
+    "otherZones": "Other zones",
+    "noFloors": "No floors have been added yet.",
+    "addBuilding": "Add a building",
+    "addFloor": "Add a floor",
+    "addZoneTo": "Add a zone to {{name}}",
+    "addSubzoneTo": "Add a sub-zone to {{name}}"
+  },
   "fields": {
     "name": "Name",
     "type": "Type",

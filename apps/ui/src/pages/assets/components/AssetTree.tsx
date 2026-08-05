@@ -1,596 +1,335 @@
-import type { FocusEvent } from "react";
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
-import { Link } from "react-router";
+import { Building2, Layers3, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDroppable,
-  useDraggable,
-} from "@dnd-kit/core";
-import type { DragStartEvent, DragEndEvent } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
-import {
-  ChevronDown,
-  ChevronRight,
-  Building2,
-  Layers,
-  DoorOpen,
-  MapPin,
-  Globe,
-  GripVertical,
-  Plus,
-  Pencil,
-  Cpu,
-} from "lucide-react";
+import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { AssetTreeNode } from "@/lib/assets";
-import { ASSET_TYPES } from "@/lib/assets";
-import { sortedByName } from "@/lib/sortByName";
 
-const typeIcons: Record<string, typeof Building2> = {
-  org: Globe,
-  building: Building2,
-  floor: Layers,
-  room: DoorOpen,
-  zone: MapPin,
+const ZONE_TYPES = new Set(["room", "zone"]);
+
+const zonePillStyles: Record<string, string> = {
+  room: "border-hvac-heat/30 bg-hvac-heat/10 text-[hsl(var(--hvac-heat))] hover:bg-hvac-heat/20",
+  zone: "border-primary/25 bg-primary/10 text-primary hover:bg-primary/20",
 };
 
-/** Tailwind classes for each asset type badge. */
-const typeBadgeColors: Record<string, string> = {
-  org: "border-purple-200 bg-purple-50 text-purple-700",
-  building: "border-blue-200 bg-blue-50 text-blue-700",
-  floor: "border-amber-200 bg-amber-50 text-amber-700",
-  room: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  zone: "border-rose-200 bg-rose-50 text-rose-700",
-};
-
-/** Suggested child type given the parent type. */
-const nextTypeMap: Record<string, string> = {
-  org: "building",
-  building: "floor",
-  floor: "room",
-  room: "zone",
-  zone: "zone",
-};
-
-/** Collect all descendant IDs for a given node (excluding itself). */
-function collectDescendantIds(node: AssetTreeNode): Set<string> {
-  const ids = new Set<string>();
-  for (const child of node.children) {
-    ids.add(child.id);
-    for (const id of collectDescendantIds(child)) {
-      ids.add(id);
-    }
-  }
-  return ids;
-}
-
-/** Find a node by ID in the tree. */
-function findNode(
-  roots: AssetTreeNode[],
-  id: string,
-): AssetTreeNode | undefined {
-  for (const root of roots) {
-    if (root.id === id) return root;
-    const found = findNode(root.children, id);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-/** Build a flat map of nodeId -> list of sibling IDs (children of the same parent). */
-function buildSiblingMap(roots: AssetTreeNode[]): Map<string, string[]> {
-  const map = new Map<string, string[]>();
-
-  function walk(children: AssetTreeNode[]) {
-    const ids = children.map((c) => c.id);
-    for (const child of children) {
-      map.set(child.id, ids);
-      walk(child.children);
-    }
-  }
-  walk(roots);
-  return map;
-}
-
-const EXPANDED_STORAGE_KEY = "asset-tree-expanded";
-
-/** Collect IDs of nodes at depth < maxDepth (used for default expanded set). */
-function collectDefaultExpanded(
-  roots: AssetTreeNode[],
-  maxDepth = 2,
-): Set<string> {
-  const ids = new Set<string>();
-  function walk(nodes: AssetTreeNode[], depth: number) {
-    for (const node of nodes) {
-      if (depth < maxDepth) {
-        ids.add(node.id);
-        walk(node.children, depth + 1);
-      }
-    }
-  }
-  walk(roots, 0);
-  return ids;
-}
-
-function loadExpandedIds(): Set<string> | null {
-  try {
-    const raw = localStorage.getItem(EXPANDED_STORAGE_KEY);
-    if (!raw) return null;
-    const arr = JSON.parse(raw) as string[];
-    return new Set(arr);
-  } catch {
-    return null;
-  }
-}
-
-function saveExpandedIds(ids: Set<string>) {
-  localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify([...ids]));
-}
-
-/* ------------------------------------------------------------------ */
-/*  Inline "add child" row                                            */
-/* ------------------------------------------------------------------ */
-
-function InlineCreateRow({
-  depth,
-  parentType,
-  onConfirm,
-  onCancel,
-}: {
-  depth: number;
-  parentType: string;
-  onConfirm: (name: string, type: string) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useTranslation("assets");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [name, setName] = useState("");
-  const [type, setType] = useState(nextTypeMap[parentType] ?? "zone");
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  const submit = () => {
-    const trimmed = name.trim();
-    if (trimmed) onConfirm(trimmed, type);
-    else onCancel();
-  };
-
-  const handleBlur = (e: FocusEvent<HTMLDivElement>) => {
-    // If focus is moving to another element inside this row, do nothing
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-    submit();
-  };
-
-  return (
-    <div
-      className="flex items-center gap-2 py-2 px-3"
-      style={{ paddingLeft: `${depth * 24 + 12}px` }}
-      onBlur={handleBlur}
-    >
-      <span className="w-5" />
-      <span className="w-5" />
-      <select
-        value={type}
-        onChange={(e) => setType(e.target.value)}
-        className="h-7 rounded border border-border bg-card px-1 text-xs"
-      >
-        {ASSET_TYPES.map((at) => (
-          <option key={at} value={at}>
-            {t(`types.${at}`, { defaultValue: at })}
-          </option>
-        ))}
-      </select>
-      <input
-        ref={inputRef}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
-          if (e.key === "Escape") onCancel();
-        }}
-        placeholder={t("inlineCreate.placeholder")}
-        className="h-7 flex-1 rounded border border-border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-      />
-    </div>
+function countZones(node: AssetTreeNode): number {
+  return node.children.reduce(
+    (total, child) =>
+      total + (ZONE_TYPES.has(child.type) ? 1 : 0) + countZones(child),
+    0,
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Tree node                                                          */
-/* ------------------------------------------------------------------ */
+function countDevices(node: AssetTreeNode): number {
+  return (
+    (node.devices?.length ?? 0) +
+    node.children.reduce((total, child) => total + countDevices(child), 0)
+  );
+}
 
-function TreeNode({
+function findNodesByType(
+  nodes: AssetTreeNode[],
+  type: string,
+): AssetTreeNode[] {
+  const matches: AssetTreeNode[] = [];
+
+  for (const node of nodes) {
+    if (node.type === type) {
+      matches.push(node);
+      continue;
+    }
+    matches.push(...findNodesByType(node.children, type));
+  }
+
+  return matches;
+}
+
+function createHref(
+  parentId: string,
+  type: "building" | "floor" | "room" | "zone",
+) {
+  const params = new URLSearchParams({ parentId, type });
+  return `/assets/new?${params.toString()}`;
+}
+
+function AddLink({
+  parentId,
+  type,
+  label,
+  compact = false,
+}: {
+  parentId: string;
+  type: "building" | "floor" | "room" | "zone";
+  label: string;
+  compact?: boolean;
+}) {
+  return (
+    <Link
+      to={createHref(parentId, type)}
+      aria-label={label}
+      className={cn(
+        "inline-flex items-center justify-center border border-dashed border-border text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        compact
+          ? "h-10 w-10 shrink-0 rounded-xl"
+          : "min-h-11 w-full gap-2 rounded-xl px-4 text-sm font-medium",
+      )}
+    >
+      <Plus className="h-4 w-4" />
+      {!compact && label}
+    </Link>
+  );
+}
+
+function ZonePill({
   node,
-  depth,
-  activeId,
-  invalidDropIds,
-  addingChildOf,
-  setAddingChildOf,
-  expandedIds,
-  toggleExpanded,
-  onCreateChild,
-  onRename,
+  canEdit,
 }: {
   node: AssetTreeNode;
-  depth: number;
-  activeId: string | null;
-  invalidDropIds: Set<string>;
-  addingChildOf: string | null;
-  setAddingChildOf: (id: string | null) => void;
-  expandedIds: Set<string>;
-  toggleExpanded: (id: string) => void;
-  onCreateChild?: (parentId: string, name: string, type: string) => void;
-  onRename?: (assetId: string, newName: string) => void;
+  canEdit: boolean;
 }) {
   const { t } = useTranslation("assets");
-  const expanded = expandedIds.has(node.id);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(node.name);
-  const renameInputRef = useRef<HTMLInputElement>(null);
-
   const hasChildren = node.children.length > 0;
-  const hasDevices = (node.devices?.length ?? 0) > 0;
-  const isExpandable = hasChildren || hasDevices || addingChildOf === node.id;
-  const Icon = typeIcons[node.type] ?? Building2;
+  const linkedDevices = node.devices?.length ?? 0;
 
-  const isRoot = !node.parent_id;
-  const isDragging = activeId === node.id;
-  const isInvalidDrop = invalidDropIds.has(node.id);
+  const pill = (
+    <Link
+      to={`/assets/${node.id}`}
+      className={cn(
+        "inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-all hover:-translate-y-px hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        zonePillStyles[node.type] ??
+          "border-border bg-muted/60 text-foreground hover:bg-muted",
+      )}
+    >
+      <span>{node.name}</span>
+      {linkedDevices > 0 && (
+        <>
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-current opacity-70"
+            aria-hidden="true"
+          />
+          <span className="sr-only">
+            {t("overview.linkedDevices", { count: linkedDevices })}
+          </span>
+        </>
+      )}
+    </Link>
+  );
 
-  // Draggable — root cannot be dragged
-  const {
-    attributes: dragAttributes,
-    listeners: dragListeners,
-    setNodeRef: setDragRef,
-  } = useDraggable({
-    id: node.id,
-    disabled: isRoot,
-  });
-
-  // Droppable — every node can be a drop target (except invalid ones)
-  const { isOver, setNodeRef: setDropRef } = useDroppable({
-    id: node.id,
-    disabled: isInvalidDrop,
-  });
-
-  const isValidDropTarget = activeId && isOver && !isInvalidDrop;
-
-  // Auto-expand when this node is selected for adding a child
-  useEffect(() => {
-    if (addingChildOf === node.id && !expanded) toggleExpanded(node.id);
-  }, [addingChildOf, node.id, expanded, toggleExpanded]);
-
-  // Auto-focus rename input
-  useEffect(() => {
-    if (isRenaming) {
-      renameInputRef.current?.focus();
-      renameInputRef.current?.select();
-    }
-  }, [isRenaming]);
-
-  const submitRename = () => {
-    const trimmed = renameValue.trim();
-    if (trimmed && trimmed !== node.name && onRename) {
-      onRename(node.id, trimmed);
-    }
-    setIsRenaming(false);
-    setRenameValue(node.name);
-  };
+  if (!hasChildren) return pill;
 
   return (
-    <div ref={setDropRef}>
-      <div
-        ref={setDragRef}
-        className={`group flex items-center gap-2 py-2 px-3 rounded-md transition-colors ${
-          isDragging
-            ? "opacity-40"
-            : isValidDropTarget
-              ? "bg-primary/10 ring-2 ring-primary ring-inset"
-              : "hover:bg-muted/50"
-        }`}
-        style={{ paddingLeft: `${depth * 24 + 12}px` }}
-      >
-        {/* Drag handle */}
-        {!isRoot ? (
-          <button
-            className="flex items-center justify-center h-5 w-5 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
-            {...dragListeners}
-            {...dragAttributes}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-        ) : (
-          <span className="w-5" />
-        )}
-
-        {/* Expand/collapse */}
-        {isExpandable ? (
-          <button
-            onClick={() => toggleExpanded(node.id)}
-            className="flex items-center justify-center h-5 w-5 text-muted-foreground/60 hover:text-foreground"
-          >
-            {expanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </button>
-        ) : (
-          <span className="w-5" />
-        )}
-        <Icon className="h-4 w-4 text-muted-foreground" />
-
-        {/* Name — inline rename or link */}
-        {isRenaming ? (
-          <input
-            ref={renameInputRef}
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitRename();
-              if (e.key === "Escape") {
-                setIsRenaming(false);
-                setRenameValue(node.name);
-              }
-            }}
-            onBlur={submitRename}
-            className="h-7 flex-1 rounded border border-border px-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        ) : (
-          <Link
-            to={`/assets/${node.id}`}
-            className="text-sm font-medium text-foreground hover:underline underline-offset-2"
-          >
-            {node.name}
-          </Link>
-        )}
-
-        <Badge
-          variant="outline"
-          className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
-        >
-          {t(`types.${node.type}`, { defaultValue: node.type })}
-        </Badge>
-
-        {/* Hover actions */}
-        {!isRenaming && (
-          <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {onRename && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setRenameValue(node.name);
-                  setIsRenaming(true);
-                }}
-                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
-                title={t("edit")}
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-            )}
-            {onCreateChild && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAddingChildOf(node.id);
-                }}
-                className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted"
-                title={t("addChild")}
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </span>
-        )}
-      </div>
-
-      {/* Children + inline create + devices */}
-      {expanded && (
-        <>
-          {addingChildOf === node.id && onCreateChild && (
-            <InlineCreateRow
-              depth={depth + 1}
-              parentType={node.type}
-              onConfirm={(name, type) => {
-                onCreateChild(node.id, name, type);
-                setAddingChildOf(null);
-              }}
-              onCancel={() => setAddingChildOf(null)}
-            />
-          )}
-          {node.children.map((child) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              activeId={activeId}
-              invalidDropIds={invalidDropIds}
-              addingChildOf={addingChildOf}
-              setAddingChildOf={setAddingChildOf}
-              expandedIds={expandedIds}
-              toggleExpanded={toggleExpanded}
-              onCreateChild={onCreateChild}
-              onRename={onRename}
-            />
-          ))}
-          {sortedByName(node.devices ?? []).map((device) => (
-            <div
-              key={`device-${device.id}`}
-              className="flex items-center gap-2 py-1.5 px-3"
-              style={{ paddingLeft: `${(depth + 1) * 24 + 12}px` }}
-            >
-              <span className="w-5" />
-              <span className="w-5" />
-              <Cpu className="h-3.5 w-3.5 text-muted-foreground/60" />
-              <Link
-                to={`/devices/${device.id}`}
-                className="text-sm text-muted-foreground hover:underline underline-offset-2"
-              >
-                {device.name}
-              </Link>
-            </div>
-          ))}
-        </>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 p-1.5">
+      {pill}
+      {node.children.map((child) => (
+        <ZonePill key={child.id} node={child} canEdit={canEdit} />
+      ))}
+      {canEdit && (
+        <AddLink
+          parentId={node.id}
+          type="zone"
+          label={t("overview.addSubzoneTo", { name: node.name })}
+          compact
+        />
       )}
     </div>
   );
 }
 
-/** Ghost node shown during drag. */
-function DragOverlayContent({ node }: { node: AssetTreeNode }) {
+function FloorRow({
+  floor,
+  canEdit,
+}: {
+  floor: AssetTreeNode;
+  canEdit: boolean;
+}) {
   const { t } = useTranslation("assets");
-  const Icon = typeIcons[node.type] ?? Building2;
+  const zoneCount = countZones(floor);
+  const deviceCount = countDevices(floor);
 
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 shadow-lg">
-      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60" />
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{node.name}</span>
-      <Badge
-        variant="outline"
-        className={`text-xs ${typeBadgeColors[node.type] ?? ""}`}
-      >
-        {t(`types.${node.type}`, { defaultValue: node.type })}
-      </Badge>
+    <article className="grid gap-4 rounded-xl px-3 py-4 transition-colors hover:bg-accent/65 focus-within:bg-accent/65 sm:grid-cols-[9rem_minmax(0,1fr)] lg:grid-cols-[10rem_minmax(0,1fr)]">
+      <div className="min-w-0">
+        <Link
+          to={`/assets/${floor.id}`}
+          className="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          {floor.name}
+        </Link>
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
+          {t("overview.zoneCount", { count: zoneCount })}
+          <span className="px-1.5" aria-hidden="true">
+            ·
+          </span>
+          {t("overview.deviceCount", { count: deviceCount })}
+        </p>
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        {floor.children.map((child) => (
+          <ZonePill key={child.id} node={child} canEdit={canEdit} />
+        ))}
+        {canEdit && (
+          <AddLink
+            parentId={floor.id}
+            type="room"
+            label={t("overview.addZoneTo", { name: floor.name })}
+            compact
+          />
+        )}
+      </div>
+    </article>
+  );
+}
+
+function BuildingCard({
+  building,
+  canEdit,
+}: {
+  building: AssetTreeNode;
+  canEdit: boolean;
+}) {
+  const { t } = useTranslation("assets");
+  const floors = findNodesByType(building.children, "floor");
+  const looseZones = building.children.filter(
+    (child) => child.type !== "floor",
+  );
+  const looseZoneCount = looseZones.reduce(
+    (total, node) =>
+      total + (ZONE_TYPES.has(node.type) ? 1 : 0) + countZones(node),
+    0,
+  );
+  const looseDeviceCount = looseZones.reduce(
+    (total, node) => total + countDevices(node),
+    0,
+  );
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Building2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <Link
+            to={`/assets/${building.id}`}
+            className="truncate text-base font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:text-lg"
+          >
+            {building.name}
+          </Link>
+          <Badge
+            variant="info"
+            className="hidden rounded-full px-3 py-1 sm:inline-flex"
+          >
+            {t(`types.${building.type}`, { defaultValue: building.type })}
+          </Badge>
+        </div>
+        <span className="text-xs font-semibold text-muted-foreground sm:text-sm">
+          {t("overview.floorCount", { count: floors.length })}
+        </span>
+      </header>
+
+      <div className="space-y-1 px-2 py-3 sm:px-4">
+        {floors.map((floor) => (
+          <FloorRow key={floor.id} floor={floor} canEdit={canEdit} />
+        ))}
+
+        {looseZones.length > 0 && (
+          <article className="grid gap-4 rounded-xl px-3 py-4 transition-colors hover:bg-accent/65 sm:grid-cols-[9rem_minmax(0,1fr)] lg:grid-cols-[10rem_minmax(0,1fr)]">
+            <div>
+              <span className="font-semibold text-foreground">
+                {t("overview.otherZones")}
+              </span>
+              <p className="mt-1 text-xs font-medium text-muted-foreground">
+                {t("overview.zoneCount", { count: looseZoneCount })}
+                <span className="px-1.5" aria-hidden="true">
+                  ·
+                </span>
+                {t("overview.deviceCount", { count: looseDeviceCount })}
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {looseZones.map((zone) => (
+                <ZonePill key={zone.id} node={zone} canEdit={canEdit} />
+              ))}
+            </div>
+          </article>
+        )}
+
+        {floors.length === 0 && looseZones.length === 0 && (
+          <div className="flex min-h-24 flex-col items-center justify-center gap-2 px-4 py-6 text-center">
+            <Layers3 className="h-5 w-5 text-muted-foreground/70" />
+            <p className="text-sm text-muted-foreground">
+              {t("overview.noFloors")}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {canEdit && (
+        <footer className="px-4 pb-4 sm:px-6 sm:pb-5">
+          <AddLink
+            parentId={building.id}
+            type="floor"
+            label={t("overview.addFloor")}
+          />
+        </footer>
+      )}
+    </section>
+  );
+}
+
+export function ZonesLegend() {
+  const { t } = useTranslation("assets");
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-end gap-x-5 gap-y-2 text-xs font-medium text-muted-foreground sm:text-sm"
+      aria-label={t("overview.legend")}
+    >
+      <span className="inline-flex items-center gap-2">
+        <span className="h-3.5 w-3.5 rounded border border-hvac-heat/30 bg-hvac-heat/10" />
+        {t("types.room")}
+      </span>
+      <span className="inline-flex items-center gap-2">
+        <span className="h-3.5 w-3.5 rounded border border-primary/25 bg-primary/10" />
+        {t("types.zone")}
+      </span>
     </div>
   );
 }
 
 type AssetTreeProps = {
   tree: AssetTreeNode[];
-  onMove?: (assetId: string, newParentId: string) => void;
-  onCreateChild?: (parentId: string, name: string, type: string) => void;
-  onRename?: (assetId: string, newName: string) => void;
-  onReorder?: (parentId: string, orderedIds: string[]) => void;
+  canEdit?: boolean;
 };
 
-export function AssetTree({
-  tree,
-  onMove,
-  onCreateChild,
-  onRename,
-  onReorder,
-}: AssetTreeProps) {
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [addingChildOf, setAddingChildOf] = useState<string | null>(null);
-
-  // Expanded state — persisted to localStorage
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
-    return loadExpandedIds() ?? collectDefaultExpanded(tree);
-  });
-
-  const toggleExpanded = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      saveExpandedIds(next);
-      return next;
-    });
-  }, []);
-
-  // Require a small movement before starting drag (avoids accidental drags on click)
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-  );
-
-  // Build a sibling map for reorder detection
-  const siblingMap = useMemo(() => buildSiblingMap(tree), [tree]);
-
-  // Compute which IDs are invalid drop targets for the active node
-  const invalidDropIds = useMemo(() => {
-    if (!activeId) return new Set<string>();
-    const activeNode = findNode(tree, activeId);
-    if (!activeNode) return new Set<string>();
-    // Cannot drop onto self or any descendant
-    const ids = collectDescendantIds(activeNode);
-    ids.add(activeId);
-    return ids;
-  }, [activeId, tree]);
-
-  const activeNode = activeId ? findNode(tree, activeId) : null;
-
-  function handleDragStart(event: DragStartEvent) {
-    setActiveId(String(event.active.id));
-  }
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    setActiveId(null);
-
-    if (!over) return;
-    const draggedId = String(active.id);
-    const targetId = String(over.id);
-
-    if (invalidDropIds.has(targetId)) return;
-    if (draggedId === targetId) return;
-
-    const draggedNode = findNode(tree, draggedId);
-    const targetNode = findNode(tree, targetId);
-    if (!draggedNode || !targetNode) return;
-
-    // Same parent → sibling reorder
-    if (
-      draggedNode.parent_id &&
-      draggedNode.parent_id === targetNode.parent_id &&
-      onReorder
-    ) {
-      const siblings = siblingMap.get(draggedId) ?? [];
-      const oldIndex = siblings.indexOf(draggedId);
-      const newIndex = siblings.indexOf(targetId);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(siblings, oldIndex, newIndex);
-        onReorder(draggedNode.parent_id, newOrder);
-      }
-      return;
-    }
-
-    // Different parent → reparent
-    if (onMove) {
-      onMove(draggedId, targetId);
-    }
-  }
-
-  function handleDragCancel() {
-    setActiveId(null);
-  }
+export function AssetTree({ tree, canEdit = false }: AssetTreeProps) {
+  const { t } = useTranslation("assets");
+  const buildings = findNodesByType(tree, "building");
+  const cards = buildings.length > 0 ? buildings : tree;
+  const organization = findNodesByType(tree, "org")[0];
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragCancel={handleDragCancel}
-    >
-      <div>
-        {tree.map((root) => (
-          <TreeNode
-            key={root.id}
-            node={root}
-            depth={0}
-            activeId={activeId}
-            invalidDropIds={invalidDropIds}
-            addingChildOf={addingChildOf}
-            setAddingChildOf={setAddingChildOf}
-            expandedIds={expandedIds}
-            toggleExpanded={toggleExpanded}
-            onCreateChild={onCreateChild}
-            onRename={onRename}
+    <div className="space-y-6">
+      <ZonesLegend />
+
+      <div className="space-y-5">
+        {cards.map((building) => (
+          <BuildingCard
+            key={building.id}
+            building={building}
+            canEdit={canEdit}
           />
         ))}
       </div>
-      <DragOverlay dropAnimation={null}>
-        {activeNode ? <DragOverlayContent node={activeNode} /> : null}
-      </DragOverlay>
-    </DndContext>
+
+      {canEdit && organization && (
+        <AddLink
+          parentId={organization.id}
+          type="building"
+          label={t("overview.addBuilding")}
+        />
+      )}
+    </div>
   );
 }
