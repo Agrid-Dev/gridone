@@ -1,3 +1,9 @@
+## v0.199.0 (2026-08-05)
+
+### Feat
+
+- **ui**: redesign AWHP supervision page
+
 ## v0.198.0 (2026-08-05)
 
 ### Feat
