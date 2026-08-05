@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Clock } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -9,16 +8,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { readStoredPreset, writeStoredPreset } from "@/lib/periodPreference";
+import { useTimeRangeUrlState } from "@/hooks/useTimeRangeUrlState";
 import {
   type PresetOption,
-  type TimeRange,
   type TimeRangePreset,
   DEFAULT_PRESET,
   PRESET_OPTIONS,
-  hasRangeParams,
-  parseRangeParams,
-  writeRangeParams,
   rangeLabel,
 } from "@/lib/timeRange";
 
@@ -42,46 +37,15 @@ export function TimeRangeSelect({
   storageKey,
 }: TimeRangeSelectProps) {
   const { t } = useTranslation("common");
-  const [searchParams, setSearchParams] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
-  const timeRange = useMemo(
-    () => parseRangeParams(searchParams, defaultPreset),
-    [searchParams, defaultPreset],
-  );
-
-  const applyRange = useCallback(
-    (range: TimeRange) => {
-      setSearchParams(
-        (prev) => {
-          const next = writeRangeParams(prev, range, defaultPreset);
-          for (const key of onChangeParamsReset) {
-            next.delete(key);
-          }
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    // `onChangeParamsReset` is a fresh array literal at every call site, so it
-    // is depended on by contents rather than by identity — otherwise the
-    // callback changes every render and the restore effect below re-fires.
-    [setSearchParams, defaultPreset, onChangeParamsReset.join(",")],
-  );
-
-  // Seed a bare URL from the remembered preset. The URL stays the single source
-  // of truth — restoring writes to it, so every reader agrees — and a link that
-  // carries its own period always wins, which is what keeps a shared link
-  // reproducing the view it was copied from. Replaces rather than pushes: the
-  // preference is not a navigation the back button should undo.
-  const remembered = storageKey ? readStoredPreset(storageKey) : null;
-  const bareUrl = !hasRangeParams(searchParams);
-  useEffect(() => {
-    if (!bareUrl || !remembered || remembered === defaultPreset) return;
-    applyRange({ kind: "preset", preset: remembered });
-  }, [bareUrl, remembered, defaultPreset, applyRange]);
+  const { timeRange, applyRange, applyPreset } = useTimeRangeUrlState({
+    defaultPreset,
+    onChangeParamsReset,
+    storageKey,
+  });
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen && timeRange.kind === "custom") {
@@ -92,8 +56,7 @@ export function TimeRangeSelect({
   };
 
   const handlePreset = (preset: TimeRangePreset) => {
-    applyRange({ kind: "preset", preset });
-    if (storageKey) writeStoredPreset(storageKey, preset);
+    applyPreset(preset);
     setOpen(false);
   };
 

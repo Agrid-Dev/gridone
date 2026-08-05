@@ -1,58 +1,49 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   useReactTable,
   getCoreRowModel,
   getPaginationRowModel,
-  getSortedRowModel,
   flexRender,
   type PaginationState,
-  type SortingState,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, History } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Button,
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
+  Th,
 } from "@/components/ui";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { ErrorFallback } from "@/components/fallbacks/Error";
-import { buildColumns } from "./columns";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { buildEventColumns } from "./eventColumns";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 const PAGE_SIZE = 20;
 
-export default function DeviceHistoryTable() {
-  const { t } = useTranslation(["devices", "common"]);
-  const {
-    availableAttributes,
-    dataTypes,
-    columnVisibility,
-    handleVisibilityChange,
-    columnOrder,
-    setColumnOrder,
-    filteredRows,
-    commandsMap,
-    usersMap,
-    isLoading,
-    error,
-  } = useDeviceHistoryContext();
+/** The events log: one row per recorded value change of the active metric and
+ *  the state series, newest first, with URL-synced pagination. */
+export default function HistoryEventsTable() {
+  const { t, i18n } = useTranslation(["devices", "common"]);
+  const { events, dataTypes, deviceType, commandsMap, usersMap } =
+    useDeviceHistoryContext();
+  const labelFor = useAttributeLabel();
 
   const columns = useMemo(
     () =>
-      buildColumns(availableAttributes, dataTypes, t, commandsMap, usersMap),
-    [availableAttributes, dataTypes, t, commandsMap, usersMap],
+      buildEventColumns({
+        t,
+        locale: i18n.language,
+        labelFor,
+        dataTypes,
+        deviceType,
+        commandsMap,
+        usersMap,
+      }),
+    [t, i18n.language, labelFor, dataTypes, deviceType, commandsMap, usersMap],
   );
 
   // URL-synced pagination (1-based in URL, 0-based internally)
@@ -84,9 +75,9 @@ export default function DeviceHistoryTable() {
   );
 
   // Clamp to last page when current page exceeds page count
-  const maxPage = Math.max(0, Math.ceil(filteredRows.length / PAGE_SIZE) - 1);
+  const maxPage = Math.max(0, Math.ceil(events.length / PAGE_SIZE) - 1);
   useEffect(() => {
-    if (filteredRows.length > 0 && pageIndex > maxPage) {
+    if (events.length > 0 && pageIndex > maxPage) {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -100,82 +91,40 @@ export default function DeviceHistoryTable() {
         { replace: true },
       );
     }
-  }, [filteredRows.length, pageIndex, maxPage, setSearchParams]);
-
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "timestamp", desc: true },
-  ]);
+  }, [events.length, pageIndex, maxPage, setSearchParams]);
 
   const table = useReactTable({
-    data: filteredRows,
+    data: events,
     columns,
     state: {
-      sorting,
-      columnVisibility,
-      columnOrder,
       pagination: { pageIndex, pageSize: PAGE_SIZE },
     },
-    onSortingChange: setSorting,
     onPaginationChange: handlePaginationChange,
-    onColumnVisibilityChange: handleVisibilityChange,
-    onColumnOrderChange: setColumnOrder,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     autoResetPageIndex: false,
   });
 
-  if (error) {
-    return (
-      <ErrorFallback
-        title={
-          error instanceof Error ? error.message : t("common:errors.default")
-        }
-        showHomeLink={false}
-      />
-    );
-  }
-
-  if (!isLoading && availableAttributes.length === 0) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <History />
-          </EmptyMedia>
-          <EmptyTitle>{t("common:common.noData")}</EmptyTitle>
-          <EmptyDescription>
-            {t("deviceDetails.noHistoryDescription", {
-              defaultValue:
-                "No time-series data has been recorded for this device yet.",
-            })}
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-
   const { pageIndex: currentPage, pageSize } = table.getState().pagination;
-  const totalRows = table.getFilteredRowModel().rows.length;
+  const totalRows = events.length;
   const pageCount = table.getPageCount();
 
   return (
     <div className="space-y-4">
-      {/* Table */}
       <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="bg-muted/50 hover:bg-muted/50">
                 {hg.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <Th key={header.id}>
                     {header.isPlaceholder
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
                           header.getContext(),
                         )}
-                  </TableHead>
+                  </Th>
                 ))}
               </TableRow>
             ))}
