@@ -129,6 +129,7 @@
       "heat": "Chauffage",
       "cool": "Froid",
       "fan": "Ventilation",
+      "dry": "Déshumidification",
       "auto": "Auto",
       "off": "Arrêt",
       "on": "Marche"

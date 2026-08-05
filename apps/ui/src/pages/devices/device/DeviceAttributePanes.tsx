@@ -3,6 +3,10 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Tooltip,
   TooltipArrow,
   TooltipContent,
@@ -66,22 +70,24 @@ export function DeviceAttributePanes({ device }: { device: Device }) {
   })).filter((pane) => pane.rows.length > 0);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {panes.map((pane) => (
-        <section key={pane.kind} className="space-y-1">
-          <h3 className="px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t(pane.titleKey)}
-          </h3>
-          <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 lg:grid-cols-2">
-            {pane.rows.map((attribute) => (
-              <AttributeRow
-                key={attribute.name}
-                device={device}
-                attribute={attribute}
-              />
-            ))}
-          </div>
-        </section>
+        <Card key={pane.kind}>
+          <CardHeader>
+            <CardTitle>{t(pane.titleKey)}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 lg:grid-cols-2">
+              {pane.rows.map((attribute) => (
+                <AttributeRow
+                  key={attribute.name}
+                  device={device}
+                  attribute={attribute}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );

@@ -1,23 +1,31 @@
 import { useTranslation } from "react-i18next";
-import { ChevronUp, ChevronDown, Power, Loader2 } from "lucide-react";
+import { Loader2, Minus, Plus, Power } from "lucide-react";
 import {
   DeviceType,
+  deviceAttributes,
+  isAttributeWritable,
   isThermostat,
   readThermostatAttributes,
 } from "@/lib/devices";
-import {
-  AttributeValue,
-  lookupValueRenderer,
-} from "@/components/AttributeValue";
+import { lookupValueRenderer } from "@/components/AttributeValue";
 import { useDebouncedAttributeWrite } from "@/hooks/useDebouncedAttributeWrite";
+import type { AttributeFields } from "@/lib/faults";
 import { cn } from "@/lib/utils";
 import {
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui";
 import type { StandardControlProps } from "../registry";
+import { ThermostatDial } from "./ThermostatDial";
+import { ThermostatModeControl } from "./ThermostatModeControl";
+import { dialRange } from "./dialGeometry";
+import { resolveModeOptions } from "./modeOptions";
 
 const STEP = 0.5;
 
@@ -43,6 +51,7 @@ export function ThermostatControl({
       : attrs.temperatureSetpoint;
 
   const isOn = draft.onoff_state != null ? Boolean(draft.onoff_state) : false;
+  const mode = draft.mode != null ? String(draft.mode) : attrs.mode;
   const min = attrs.temperatureSetpointMin;
   const max = attrs.temperatureSetpointMax;
   // min/max optional: clamp only in the direction that has a bound.
@@ -57,36 +66,23 @@ export function ThermostatControl({
   const modeRenderer = lookupValueRenderer(
     DeviceType.Thermostat,
     "mode",
-    attrs.mode as string,
+    mode as string,
   );
   const onColor = modeRenderer?.color ?? "text-primary";
 
-  return (
-    <div className="relative mx-auto flex aspect-square w-full max-w-xs items-center justify-center overflow-hidden rounded-2xl border bg-card shadow-md">
-      {/* Mode-tinted glow: blooms when on, drains to nothing when off. */}
-      <div
-        aria-hidden
-        className={cn(
-          "pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current blur-3xl transition-opacity duration-500",
-          onColor,
-          isOn ? "opacity-20" : "opacity-0",
-        )}
-      />
-      <div className="absolute left-4 right-4 top-4 flex items-center justify-between">
-        {attrs.mode ? (
-          <AttributeValue
-            deviceType={DeviceType.Thermostat}
-            attributeName="mode"
-            value={attrs.mode}
-            className={cn(
-              "text-xs uppercase tracking-widest transition-colors",
-              !isOn && "text-muted-foreground",
-            )}
-          />
-        ) : (
-          <span />
-        )}
+  // Humidity is not part of the standard thermostat schema; some drivers
+  // expose it as an extra attribute — shown when present, omitted otherwise.
+  const humidity = deviceAttributes(device)["humidity"]?.current_value;
 
+  const modeAttr = deviceAttributes(device)["mode"] as
+    | AttributeFields
+    | undefined;
+  const modeWritable = modeAttr != null && isAttributeWritable(device, "mode");
+
+  return (
+    <Card className="mx-auto w-full max-w-sm">
+      <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardTitle>{t("controls.thermostat.control")}</CardTitle>
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
@@ -131,68 +127,69 @@ export function ThermostatControl({
             </TooltipContent>
           </Tooltip>
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Center: current temp + setpoint controls */}
-      <div className="relative z-10 flex flex-col items-start gap-4">
-        {attrs.temperature != null && (
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              {t("controls.thermostat.current")}
-            </span>
-            <span className="text-sm font-medium tabular-nums">
-              {Number(attrs.temperature).toFixed(1)}°
-            </span>
-          </div>
-        )}
+      <CardContent className="space-y-6">
+        <ThermostatDial
+          setpoint={setpoint != null ? Number(setpoint) : null}
+          measured={
+            attrs.temperature != null ? Number(attrs.temperature) : null
+          }
+          {...dialRange(min, max)}
+          isOn={isOn}
+          modeColorClass={onColor}
+          saving={setpointSaving}
+        />
 
-        <div>
-          <span className="mb-[-6px] block text-xs uppercase tracking-widest text-muted-foreground">
-            {t("controls.thermostat.setpoint")}
+        {/* Setpoint steppers flanking the humidity readout */}
+        <div className="flex items-center justify-center gap-6">
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            aria-label={t("controls.thermostat.decreaseSetpoint")}
+            disabled={!canDecrement || setpointSaving}
+            onClick={() =>
+              setpoint != null &&
+              changeAndSave("temperature_setpoint", Number(setpoint) - STEP)
+            }
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+          <span className="min-w-24 text-center text-sm text-muted-foreground">
+            {typeof humidity === "number" && (
+              <>
+                {t("controls.thermostat.humidity")}{" "}
+                <span className="font-medium tabular-nums text-foreground">
+                  {humidity.toFixed(0)} %
+                </span>
+              </>
+            )}
           </span>
-          <div className="flex items-center gap-1">
-            <div
-              className={`flex items-start transition-opacity duration-1000 ${setpointSaving ? "animate-pulse" : ""}`}
-            >
-              <span
-                className={cn(
-                  "text-5xl font-extralight tabular-nums leading-none transition-colors",
-                  !isOn && "text-muted-foreground",
-                )}
-              >
-                {setpoint != null ? Number(setpoint).toFixed(1) : "—"}
-              </span>
-              <span className="text-lg text-muted-foreground">°</span>
-            </div>
-            <div className="flex flex-col">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t("controls.thermostat.increaseSetpoint")}
-                disabled={!canIncrement || setpointSaving}
-                onClick={() =>
-                  setpoint != null &&
-                  changeAndSave("temperature_setpoint", setpoint + STEP)
-                }
-              >
-                <ChevronUp className="!h-8 !w-8 text-foreground" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={t("controls.thermostat.decreaseSetpoint")}
-                disabled={!canDecrement || setpointSaving}
-                onClick={() =>
-                  setpoint != null &&
-                  changeAndSave("temperature_setpoint", setpoint - STEP)
-                }
-              >
-                <ChevronDown className="!h-8 !w-8 text-foreground" />
-              </Button>
-            </div>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            aria-label={t("controls.thermostat.increaseSetpoint")}
+            disabled={!canIncrement || setpointSaving}
+            onClick={() =>
+              setpoint != null &&
+              changeAndSave("temperature_setpoint", Number(setpoint) + STEP)
+            }
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
-      </div>
-    </div>
+
+        {modeWritable && (
+          <ThermostatModeControl
+            value={mode != null ? String(mode) : null}
+            options={resolveModeOptions(modeAttr)}
+            saving={isSaving("mode")}
+            onSelect={(next) => changeAndSaveNow("mode", next)}
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -1,10 +1,11 @@
 import { type FC, type ReactNode, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import type { Transport } from "@gridone/sdk";
 import { Badge } from "@/components/ui/badge";
 import { Button, Card } from "@/components/ui";
+import { BackLink } from "@/components/BackLink";
 import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import { EmptyValue } from "@/components/EmptyValue";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
@@ -63,13 +64,7 @@ export const TransportDetails: FC<{
 
   return (
     <div className="space-y-5">
-      <Link
-        to=".."
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {t("backToList")}
-      </Link>
+      <BackLink to="..">{t("backToList")}</BackLink>
 
       <ResourceHeader
         title={transport.name}

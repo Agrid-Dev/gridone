@@ -46,6 +46,7 @@ export function FloatPanel({
             <LegendSwatch
               color={CHART_COLORS[i % CHART_COLORS.length]}
               variant="line"
+              dash={s.dash}
             />
             <span style={legendLabelStyle}>{s.label}</span>
           </div>
@@ -85,6 +86,7 @@ export function FloatPanel({
               data={data}
               // Integer series step between values; floats interpolate linearly.
               curve={stepKeySet.has(s.key) ? curveStepAfter : undefined}
+              strokeDasharray={s.dash ? "6 4" : undefined}
               {...floatAccessors}
             />
           );

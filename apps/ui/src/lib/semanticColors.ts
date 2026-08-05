@@ -15,6 +15,7 @@ export type SemanticColor =
   | "hvacHeat"
   | "hvacCool"
   | "hvacFan"
+  | "hvacDry"
   | "hvacAuto";
 
 /** The status slice of {@link SemanticColor} — used for severities and status. */
@@ -32,6 +33,7 @@ const CSS_VAR: Record<SemanticColor, string> = {
   hvacHeat: "--hvac-heat",
   hvacCool: "--hvac-cool",
   hvacFan: "--hvac-fan",
+  hvacDry: "--hvac-dry",
   hvacAuto: "--hvac-auto",
 };
 
@@ -49,6 +51,7 @@ export const SEMANTIC_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacHeat: "text-hvac-heat",
   hvacCool: "text-hvac-cool",
   hvacFan: "text-hvac-fan",
+  hvacDry: "text-hvac-dry",
   hvacAuto: "text-hvac-auto",
 };
 
@@ -61,6 +64,7 @@ export const SEMANTIC_HOVER_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacHeat: "group-hover:text-hvac-heat",
   hvacCool: "group-hover:text-hvac-cool",
   hvacFan: "group-hover:text-hvac-fan",
+  hvacDry: "group-hover:text-hvac-dry",
   hvacAuto: "group-hover:text-hvac-auto",
 };
 
@@ -73,6 +77,7 @@ export const SEMANTIC_BG_CLASS: Record<SemanticColor, string> = {
   hvacHeat: "bg-hvac-heat",
   hvacCool: "bg-hvac-cool",
   hvacFan: "bg-hvac-fan",
+  hvacDry: "bg-hvac-dry",
   hvacAuto: "bg-hvac-auto",
 };
 
@@ -98,6 +103,7 @@ export const ATTRIBUTE_VALUE_COLORS: Record<
     heat: "hvacHeat",
     cool: "hvacCool",
     fan: "hvacFan",
+    dry: "hvacDry",
     auto: "hvacAuto",
   },
   connection_status: {

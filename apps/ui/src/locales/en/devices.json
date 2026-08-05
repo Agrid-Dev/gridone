@@ -79,6 +79,8 @@
   },
   "deviceDetails": {
     "title": "Device",
+    "backToDevices": "Devices",
+    "sendCommand": "Send a command",
     "tabs": {
       "label": "Device sections",
       "overview": "Live",
@@ -263,6 +265,12 @@
     "thermostat": {
       "setpoint": "Setpoint",
       "current": "Current",
+      "control": "Control",
+      "measured": "Measured",
+      "humidity": "Humidity",
+      "modePickerLabel": "Operating mode",
+      "temperatureLast24h": "Temperature — last 24 h",
+      "noTemperatureHistory": "No temperature history",
       "mode": "Mode",
       "fanSpeed": "Fan speed",
       "on": "On",

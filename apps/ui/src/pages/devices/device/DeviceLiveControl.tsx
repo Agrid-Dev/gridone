@@ -9,13 +9,16 @@ export default function DeviceLiveControl() {
     useDeviceDetails(device);
 
   const standardEntry = getStandardDeviceEntry(device.type);
+  // A type with a full supervision layout renders it; others get their bare
+  // control, centred as before.
+  const StandardView = standardEntry?.Supervision ?? standardEntry?.Control;
 
   return (
     <div className="space-y-8">
       {/* ── Standard control (if registered) ── */}
-      {standardEntry && (
+      {StandardView && (
         <div className="py-2">
-          <standardEntry.Control
+          <StandardView
             device={device}
             draft={draft}
             savingAttr={savingAttr}
