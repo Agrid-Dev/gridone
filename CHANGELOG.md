@@ -1,3 +1,9 @@
+## v0.195.0 (2026-08-05)
+
+### Feat
+
+- **ui**: redesign transport list and detail pages
+
 ## v0.194.0 (2026-08-04)
 
 ### Feat
