@@ -1,3 +1,9 @@
+## v0.198.0 (2026-08-05)
+
+### Feat
+
+- **ui**: redesign thermostat supervision page
+
 ## v0.197.0 (2026-08-05)
 
 ### Feat
