@@ -16,8 +16,16 @@ vi.mock("@/hooks/useDevice", () => ({
   useDeviceFromRoute: () => currentDevice,
 }));
 vi.mock("@/pages/devices/commands/CommandsPage", () => ({
-  default: ({ deviceId }: { deviceId?: string }) => (
-    <div data-testid="commands-page">commands:{deviceId}</div>
+  default: ({
+    deviceId,
+    embedded,
+  }: {
+    deviceId?: string;
+    embedded?: boolean;
+  }) => (
+    <div data-testid="commands-page" data-embedded={String(!!embedded)}>
+      commands:{deviceId}
+    </div>
   ),
 }));
 
@@ -64,8 +72,13 @@ describe("DeviceCommandsPage", () => {
     currentDevice = makeDevice(["read", "write"]);
     render(<DeviceCommandsPage />);
 
+    // Embedded: the device header above already offers the send-command action.
     expect(screen.getByTestId("commands-page")).toHaveTextContent(
       "commands:d1",
+    );
+    expect(screen.getByTestId("commands-page")).toHaveAttribute(
+      "data-embedded",
+      "true",
     );
     expect(screen.queryByText("Read-only device")).not.toBeInTheDocument();
   });
