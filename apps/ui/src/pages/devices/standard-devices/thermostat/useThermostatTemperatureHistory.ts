@@ -1,43 +1,14 @@
 import { useMemo } from "react";
-import { useDeviceSeries, useSeriesPoints } from "@/hooks/useDeviceTimeSeries";
-import { holdLastRowUntil, mergeTimeSeries } from "@/lib/mergeTimeSeries";
+import { useDeviceMetricsHistory } from "@/hooks/useDeviceMetricsHistory";
 
 const METRICS = ["temperature", "temperature_setpoint"] as const;
-const WINDOW = "1d";
 
-/** Measured + setpoint temperature over the last 24 h, merged onto a single
- *  forward-filled timeline (the device-history pipeline) and shaped for
+/** Measured + setpoint temperature over the last 24 h, shaped for
  *  {@link TimeSeriesChart}: floats for the measured line, the setpoint as an
  *  int series so it renders as a step line on the shared axis. */
 export function useThermostatTemperatureHistory(deviceId: string) {
-  const { series, isLoading: seriesLoading } = useDeviceSeries(deviceId);
-
-  const temperatureSeries = useMemo(
-    () =>
-      series.filter((s) => (METRICS as readonly string[]).includes(s.metric)),
-    [series],
-  );
-
-  const { pointsByMetric, isLoading: pointsLoading } = useSeriesPoints(
-    temperatureSeries,
-    undefined,
-    undefined,
-    WINDOW,
-  );
-
-  const rows = useMemo(
-    () =>
-      holdLastRowUntil(
-        mergeTimeSeries(pointsByMetric, [...METRICS]),
-        new Date(),
-      ),
-    [pointsByMetric],
-  );
-
-  const timestamps = useMemo(
-    () => rows.map((r) => new Date(r.timestamp)),
-    [rows],
-  );
+  const { rows, timestamps, recordedMetrics, isLoading } =
+    useDeviceMetricsHistory(deviceId, METRICS);
 
   const values = useMemo(
     () =>
@@ -50,14 +21,10 @@ export function useThermostatTemperatureHistory(deviceId: string) {
     [rows],
   );
 
-  const hasTemperature = temperatureSeries.some(
-    (s) => s.metric === "temperature",
-  );
-
   return {
     timestamps,
     values,
-    isLoading: seriesLoading || pointsLoading,
-    hasData: hasTemperature && rows.length > 0,
+    isLoading,
+    hasData: recordedMetrics.has("temperature") && rows.length > 0,
   };
 }

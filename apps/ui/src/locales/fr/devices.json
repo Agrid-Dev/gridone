@@ -297,7 +297,14 @@
       "runStatus": "État",
       "mode": "Mode",
       "waterSide": "Eau",
-      "airSide": "Air"
+      "airSide": "Air",
+      "chilledWater": "Eau glacée",
+      "chilledWaterLast24h": "Eau glacée — dernières 24 h",
+      "waterLast24h": "Eau — dernières 24 h",
+      "noWaterHistory": "Aucun historique de température d'eau",
+      "avgDeviation": "Écart moyen",
+      "runHours": "Heures de marche",
+      "energy24h": "Énergie 24 h"
     },
     "weatherSensor": {
       "wind": "Vent",

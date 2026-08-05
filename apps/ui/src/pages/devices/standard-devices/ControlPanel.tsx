@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 type ControlPanelProps = {
-  size?: "sm" | "lg";
+  size?: "sm" | "lg" | "full";
   modeChip?: ReactNode;
   headerLabel?: ReactNode;
   footer?: ReactNode;
@@ -22,7 +22,8 @@ export function ControlPanel({
     <div
       className={cn(
         "mx-auto w-full rounded-2xl border bg-card shadow-lg",
-        size === "lg" ? "max-w-2xl" : "max-w-sm",
+        size === "sm" && "max-w-sm",
+        size === "lg" && "max-w-2xl",
       )}
     >
       {hasHeader && (
