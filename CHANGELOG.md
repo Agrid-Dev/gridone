@@ -1,3 +1,9 @@
+## v0.200.0 (2026-08-05)
+
+### Feat
+
+- **ui**: redesign device history page
+
 ## v0.199.0 (2026-08-05)
 
 ### Feat
