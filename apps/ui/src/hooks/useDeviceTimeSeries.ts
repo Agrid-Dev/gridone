@@ -55,13 +55,15 @@ export function useSeriesPoints(
   // dataUpdatedAt so the memo only recomputes when data actually changes.
   const pointsFingerprint = pointsQueries.map((q) => q.dataUpdatedAt).join(",");
 
-  const pointsByMetric = useMemo(
+  const { pointsByMetric, truncatedMetrics } = useMemo(
     () => {
       const result: Record<string, DataPoint[]> = {};
+      const truncated: string[] = [];
       seriesList.forEach((series, i) => {
         result[series.metric] = pointsQueries[i]?.data?.points ?? [];
+        if (pointsQueries[i]?.data?.truncated) truncated.push(series.metric);
       });
-      return result;
+      return { pointsByMetric: result, truncatedMetrics: truncated };
     },
     // pointsFingerprint is a stable scalar derived from the query timestamps;
     // it changes only when the underlying data actually updates.
@@ -72,6 +74,7 @@ export function useSeriesPoints(
 
   return {
     pointsByMetric,
+    truncatedMetrics,
     isLoading,
     error: pointsQueries.find((q) => q.error)?.error ?? null,
   };

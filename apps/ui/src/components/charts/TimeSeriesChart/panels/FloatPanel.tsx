@@ -70,8 +70,10 @@ export function FloatPanel({
       >
         {ctx?.yScaleRef && <ScaleCapture yScaleRef={ctx.yScaleRef} />}
         {isLast && <Axis orientation="bottom" numTicks={5} />}
-        <AnimatedAxis orientation="left" />
-        <AnimatedGrid columns={false} />
+        {/* A tick-count hint: d3 rounds to nice steps, so ~4-6 gridlines
+            instead of the dense default ladder. */}
+        <AnimatedAxis orientation="left" numTicks={4} />
+        <AnimatedGrid columns={false} numTicks={4} />
         {series.map((s) => {
           const data = timestamps
             .map((t, i) => ({
