@@ -1,3 +1,14 @@
+## v0.197.0 (2026-08-05)
+
+### Feat
+
+- **ui**: animate clickable floor stack
+- **ui**: add compact floor stack diagram
+
+### Refactor
+
+- **ui**: standardize redesigned page patterns
+
 ## v0.196.0 (2026-08-05)
 
 ### Feat
