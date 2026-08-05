@@ -34,6 +34,8 @@
     "level": "Level",
     "zones": "Zones",
     "devices": "Devices",
+    "diagramLabel": "Building floor diagram",
+    "diagramLegend": "Building floors",
     "empty": "No level in the asset tree.",
     "addZone": "Add a zone"
   },

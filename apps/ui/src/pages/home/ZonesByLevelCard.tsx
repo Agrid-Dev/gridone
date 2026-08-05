@@ -3,24 +3,13 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Asset, Device } from "@gridone/sdk";
 import { CardHeaderLink } from "./CardHeaderLink";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-  Th,
-} from "@/components/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { buildFloorRows } from "./rollup";
+import { FloorStackDiagram } from "./FloorStackDiagram";
 
-/** Per-floor breakdown of the asset tree: zone and device counts, one row per
- *  floor asset in curated tree order, each linking to the floor's page. */
+/** Visual breakdown of the asset tree, one layer per floor with its zone count. */
 export const ZonesByLevelCard: FC<{
   assets: Asset[];
   devices: Device[];
@@ -41,37 +30,9 @@ export const ZonesByLevelCard: FC<{
       </CardHeader>
       <CardContent>
         {loading ? (
-          <TableSkeleton />
+          <DiagramSkeleton />
         ) : rows.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <Th className="px-0">{t("zonesByLevel.level")}</Th>
-                <Th className="px-0 text-right">{t("zonesByLevel.zones")}</Th>
-                <Th className="px-0 text-right">{t("zonesByLevel.devices")}</Th>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map(({ floor, zoneCount, deviceCount }) => (
-                <TableRow key={floor.id}>
-                  <TableCell className="px-0 py-2.5">
-                    <Link
-                      to={`/assets/${floor.id}`}
-                      className="font-medium text-foreground hover:text-primary hover:underline"
-                    >
-                      {floor.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="px-0 py-2.5 text-right tabular-nums">
-                    {zoneCount}
-                  </TableCell>
-                  <TableCell className="px-0 py-2.5 text-right tabular-nums">
-                    {deviceCount}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <FloorStackDiagram rows={rows} />
         ) : (
           <p className="text-sm text-muted-foreground">
             {t("zonesByLevel.empty")}{" "}
@@ -90,10 +51,4 @@ export const ZonesByLevelCard: FC<{
   );
 };
 
-const TableSkeleton: FC = () => (
-  <div className="space-y-2">
-    {[0, 1, 2, 3].map((i) => (
-      <Skeleton key={i} className="h-8 w-full rounded-md" />
-    ))}
-  </div>
-);
+const DiagramSkeleton: FC = () => <Skeleton className="h-48 w-full" />;

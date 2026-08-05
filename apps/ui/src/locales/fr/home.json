@@ -34,6 +34,8 @@
     "level": "Niveau",
     "zones": "Zones",
     "devices": "Appareils",
+    "diagramLabel": "Schéma des niveaux du bâtiment",
+    "diagramLegend": "Niveaux du bâtiment",
     "empty": "Aucun niveau dans l’arborescence.",
     "addZone": "Ajouter une zone"
   },
