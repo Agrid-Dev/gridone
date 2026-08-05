@@ -1,6 +1,10 @@
 import type { ComponentType } from "react";
 import { DeviceType } from "@/lib/devices";
-import { ThermostatPreview, ThermostatControl } from "./thermostat";
+import {
+  ThermostatPreview,
+  ThermostatControl,
+  ThermostatSupervision,
+} from "./thermostat";
 import { AwhpPreview, AwhpControl } from "./awhp";
 import { WeatherSensorPreview, WeatherSensorControl } from "./weather-sensor";
 import {
@@ -17,12 +21,16 @@ export type { StandardPreviewProps, StandardControlProps } from "./types";
 export type StandardDeviceEntry = {
   Preview: ComponentType<StandardPreviewProps>;
   Control: ComponentType<StandardControlProps>;
+  /** Full supervision-tab layout (control + companion cards). Types without
+   *  one render their bare Control (see DeviceLiveControl). */
+  Supervision?: ComponentType<StandardControlProps>;
 };
 
 const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.Thermostat]: {
     Preview: ThermostatPreview,
     Control: ThermostatControl,
+    Supervision: ThermostatSupervision,
   },
   [DeviceType.Awhp]: {
     Preview: AwhpPreview,

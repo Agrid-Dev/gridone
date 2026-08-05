@@ -53,6 +53,7 @@
     --hvac-heat: 25 95% 53%;
     --hvac-cool: 217 91% 60%;
     --hvac-fan: 142 71% 45%;
+    --hvac-dry: 187 71% 42%;
     --hvac-auto: 48 96% 53%;
   }
 
@@ -104,6 +105,7 @@
     --hvac-heat: 25 95% 62%;
     --hvac-cool: 217 91% 68%;
     --hvac-fan: 142 65% 55%;
+    --hvac-dry: 187 65% 55%;
     --hvac-auto: 48 90% 60%;
   }
 }

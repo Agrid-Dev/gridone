@@ -8,6 +8,9 @@ export type Series = {
    *  back to `key` — right when the series is keyed by its attribute, needed
    *  when it is keyed by something else (a dashboard chart keys per device). */
   semanticKey?: string;
+  /** Render the line (and its legend swatch) dashed — e.g. a setpoint drawn
+   *  against its measured value. Line panels only. */
+  dash?: boolean;
 };
 
 export type TimeSeriesChartProps = {

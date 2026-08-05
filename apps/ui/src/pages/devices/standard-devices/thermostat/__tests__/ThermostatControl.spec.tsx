@@ -34,10 +34,11 @@ type AttributeFixture = {
   read_write_modes: string[];
   current_value: unknown;
   last_updated: string | null;
+  value_options?: unknown[];
 };
 
 function makeThermostat(
-  overrides: Partial<Record<string, { current_value: unknown }>> = {},
+  overrides: Partial<Record<string, Partial<AttributeFixture>>> = {},
 ): Device {
   const defaults: Record<string, AttributeFixture> = {
     temperature: {
@@ -79,7 +80,7 @@ function makeThermostat(
       name: "mode",
       data_type: "string",
       read_write_modes: ["read"],
-      current_value: "heating",
+      current_value: "heat",
       last_updated: null,
     },
   };
@@ -151,9 +152,9 @@ describe("ThermostatControl", () => {
     vi.useRealTimers();
   });
 
-  it("renders the current temperature", () => {
+  it("renders the measured temperature", () => {
     renderControl();
-    expect(screen.getByText("21.5°")).toBeInTheDocument();
+    expect(screen.getByText("21.5 °C")).toBeInTheDocument();
   });
 
   it("renders the setpoint from draft", () => {
@@ -180,12 +181,7 @@ describe("ThermostatControl", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the mode label", () => {
-    renderControl();
-    expect(screen.getByText("heating")).toBeInTheDocument();
-  });
-
-  it("calls changeAndSave with incremented setpoint on up arrow click", async () => {
+  it("calls changeAndSave with incremented setpoint on plus click", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderControl();
 
@@ -200,7 +196,7 @@ describe("ThermostatControl", () => {
     );
   });
 
-  it("calls changeAndSave with decremented setpoint on down arrow click", async () => {
+  it("calls changeAndSave with decremented setpoint on minus click", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderControl();
 
@@ -237,7 +233,7 @@ describe("ThermostatControl", () => {
     expect(powerButton).toBeDisabled();
   });
 
-  it("disables arrows while saving temperature_setpoint", () => {
+  it("disables steppers while saving temperature_setpoint", () => {
     mockIsSaving.mockImplementation(
       (name: string) => name === "temperature_setpoint",
     );
@@ -255,7 +251,7 @@ describe("ThermostatControl", () => {
     ).toBeDisabled();
   });
 
-  it("keeps up arrow enabled when max bound is missing", () => {
+  it("keeps plus enabled when max bound is missing", () => {
     const device = makeThermostat({
       temperature_setpoint_max: { current_value: null },
     });
@@ -268,7 +264,7 @@ describe("ThermostatControl", () => {
     ).toBeEnabled();
   });
 
-  it("keeps down arrow enabled when min bound is missing", () => {
+  it("keeps minus enabled when min bound is missing", () => {
     const device = makeThermostat({
       temperature_setpoint_min: { current_value: null },
     });
@@ -276,12 +272,12 @@ describe("ThermostatControl", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "controls.thermostat.decreaseSetpoint",
+        name: "controls.thermostat.increaseSetpoint",
       }),
     ).toBeEnabled();
   });
 
-  it("disables up arrow at max bound", () => {
+  it("disables plus at max bound", () => {
     const device = makeThermostat({
       temperature_setpoint: { current_value: 30 },
       temperature_setpoint_max: { current_value: 30 },
@@ -295,7 +291,7 @@ describe("ThermostatControl", () => {
     ).toBeDisabled();
   });
 
-  it("disables down arrow at min bound", () => {
+  it("disables minus at min bound", () => {
     const device = makeThermostat({
       temperature_setpoint: { current_value: 16 },
       temperature_setpoint_min: { current_value: 16 },
@@ -307,6 +303,79 @@ describe("ThermostatControl", () => {
         name: "controls.thermostat.decreaseSetpoint",
       }),
     ).toBeDisabled();
+  });
+
+  it("shows humidity only when the attribute is present", () => {
+    const withHumidity = makeThermostat({
+      humidity: {
+        name: "humidity",
+        data_type: "float",
+        read_write_modes: ["read"],
+        current_value: 43,
+        last_updated: null,
+      },
+    });
+    renderControl(withHumidity);
+    expect(screen.getByText("43 %")).toBeInTheDocument();
+
+    cleanup();
+    renderControl();
+    expect(screen.queryByText("43 %")).not.toBeInTheDocument();
+  });
+
+  it("hides the mode picker when the mode attribute is read-only", () => {
+    renderControl();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+  });
+
+  it("offers the modes declared in value_options, current one checked", () => {
+    const device = makeThermostat({
+      mode: {
+        read_write_modes: ["read", "write"],
+        value_options: ["heat", "cool", "auto"],
+      },
+    });
+    renderControl(device);
+
+    const group = screen.getByRole("radiogroup");
+    expect(group).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByRole("radio", { name: "heat" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: "cool" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
+  it("writes the mode immediately when picking another segment", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const device = makeThermostat({
+      mode: {
+        read_write_modes: ["read", "write"],
+        value_options: ["heat", "cool", "auto"],
+      },
+    });
+    renderControl(device);
+
+    await user.click(screen.getByRole("radio", { name: "cool" }));
+    expect(mockChangeAndSaveNow).toHaveBeenCalledWith("mode", "cool");
+  });
+
+  it("ignores clicks on the already-active mode", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const device = makeThermostat({
+      mode: {
+        read_write_modes: ["read", "write"],
+        value_options: ["heat", "cool", "auto"],
+      },
+    });
+    renderControl(device);
+
+    await user.click(screen.getByRole("radio", { name: "heat" }));
+    expect(mockChangeAndSaveNow).not.toHaveBeenCalled();
   });
 
   it("returns null for non-thermostat devices", () => {

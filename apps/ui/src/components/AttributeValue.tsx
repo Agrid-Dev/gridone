@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUpNarrowWide,
+  Droplets,
   Fan,
   RefreshCcwDot,
   SignalHigh,
@@ -28,6 +29,7 @@ const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
   heat: Sun,
   cool: Snowflake,
   fan: Fan,
+  dry: Droplets,
   auto: RefreshCcwDot,
 };
 
@@ -37,6 +39,7 @@ const HVAC_MODE_LABEL_KEYS = {
   heat: "common.hvacMode.heat",
   cool: "common.hvacMode.cool",
   fan: "common.hvacMode.fan",
+  dry: "common.hvacMode.dry",
   auto: "common.hvacMode.auto",
 } as const;
 

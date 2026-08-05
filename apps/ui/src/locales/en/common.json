@@ -129,6 +129,7 @@
       "heat": "Heating",
       "cool": "Cooling",
       "fan": "Fan",
+      "dry": "Dry",
       "auto": "Auto",
       "off": "Off",
       "on": "On"

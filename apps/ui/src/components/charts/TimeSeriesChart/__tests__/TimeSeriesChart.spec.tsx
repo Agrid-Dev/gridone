@@ -474,6 +474,40 @@ describe("TimeSeriesChart — legend swatches", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dashed series — e.g. a setpoint drawn against its measured value
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — dashed series", () => {
+  function renderWithDash() {
+    return render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "temperature", label: "Temperature" },
+          { key: "humidity", label: "Humidity", dash: true },
+        ]}
+        lineValues={floatValues}
+        width={WIDTH}
+      />,
+    );
+  }
+
+  it("renders a dash: true series with a dashed stroke", () => {
+    const { container } = renderWithDash();
+    const dashed = container.querySelectorAll('path[stroke-dasharray="6 4"]');
+    expect(dashed.length).toBe(1);
+  });
+
+  it("stripes the dashed series' legend swatch", () => {
+    renderWithDash();
+    expect(swatchFor("Humidity").style.backgroundImage).toContain(
+      "repeating-linear-gradient",
+    );
+    expect(swatchFor("Temperature").style.backgroundImage).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Integer series — share the float panel, rendered as step lines
 // ---------------------------------------------------------------------------
 

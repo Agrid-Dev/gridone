@@ -79,6 +79,8 @@
   },
   "deviceDetails": {
     "title": "Appareil",
+    "backToDevices": "Appareils",
+    "sendCommand": "Envoyer une commande",
     "tabs": {
       "label": "Sections de l'appareil",
       "overview": "Supervision",
@@ -263,6 +265,12 @@
     "thermostat": {
       "setpoint": "Consigne",
       "current": "Actuelle",
+      "control": "Contrôle",
+      "measured": "Mesurée",
+      "humidity": "Humidité",
+      "modePickerLabel": "Mode de fonctionnement",
+      "temperatureLast24h": "Température — dernières 24 h",
+      "noTemperatureHistory": "Aucun historique de température",
       "mode": "Mode",
       "fanSpeed": "Vitesse ventilateur",
       "on": "ON",
