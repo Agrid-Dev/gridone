@@ -3,10 +3,15 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import type { Asset, AssetCreate as AssetCreatePayload } from "@gridone/sdk";
+import type {
+  Asset,
+  AssetCreate as AssetCreatePayload,
+  AssetType,
+} from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AssetForm } from "./components/AssetForm";
 import type { AssetFormValues } from "./components/AssetForm";
+import { ASSET_TYPES } from "@/lib/assets";
 
 export default function AssetCreate() {
   const { t } = useTranslation("assets");
@@ -15,6 +20,10 @@ export default function AssetCreate() {
   const client = useGridoneClient();
   const [searchParams] = useSearchParams();
   const parentIdParam = searchParams.get("parentId");
+  const typeParam = searchParams.get("type");
+  const defaultType: AssetType = ASSET_TYPES.includes(typeParam as AssetType)
+    ? (typeParam as AssetType)
+    : "building";
 
   // Fetch all assets so we can find the root when no parentId is provided
   const { data: allAssets = [] } = useQuery<Asset[]>({
@@ -49,7 +58,7 @@ export default function AssetCreate() {
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm
-          defaultValues={{ name: "", type: "building", parentId }}
+          defaultValues={{ name: "", type: defaultType, parentId }}
           onSubmit={handleSubmit}
           isPending={mutation.isPending}
         />

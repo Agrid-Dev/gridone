@@ -16,6 +16,24 @@
   "inlineCreate": {
     "placeholder": "Nom de la zone..."
   },
+  "overview": {
+    "subtitle": "Organisées par étage · les zones peuvent contenir des sous-zones · sélectionnez une zone pour voir son détail.",
+    "legend": "Types de zones",
+    "floorCount_one": "{{count}} étage",
+    "floorCount_other": "{{count}} étages",
+    "zoneCount_one": "{{count}} zone",
+    "zoneCount_other": "{{count}} zones",
+    "deviceCount_one": "{{count}} appareil",
+    "deviceCount_other": "{{count}} appareils",
+    "linkedDevices_one": "{{count}} appareil lié",
+    "linkedDevices_other": "{{count}} appareils liés",
+    "otherZones": "Autres zones",
+    "noFloors": "Aucun étage n’a encore été ajouté.",
+    "addBuilding": "Ajouter un bâtiment",
+    "addFloor": "Ajouter un étage",
+    "addZoneTo": "Ajouter une zone à {{name}}",
+    "addSubzoneTo": "Ajouter une sous-zone à {{name}}"
+  },
   "fields": {
     "name": "Nom",
     "type": "Type",
