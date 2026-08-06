@@ -652,3 +652,103 @@ describe("StringPanel — many unique values", () => {
     expect(screen.queryByText(/Other/)).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Value axis units (AGR — "° on the y-axis")
+// ---------------------------------------------------------------------------
+
+describe("FloatPanel — value axis units", () => {
+  /** Tick labels of the left (value) axis. */
+  function leftAxisTicks(container: HTMLElement): string[] {
+    const axis = container.querySelector("g.visx-axis-value");
+    return Array.from(axis?.querySelectorAll("text") ?? []).map(
+      (node) => node.textContent ?? "",
+    );
+  }
+
+  it("suffixes the ticks when every series on the axis is a temperature", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "temperature", label: "Temperature" },
+          { key: "temperature_setpoint", label: "Setpoint" },
+        ]}
+        lineValues={{
+          temperature: floatValues.temperature,
+          temperature_setpoint: floatValues.temperature.map(() => 21),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const ticks = leftAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.every((tick) => tick.endsWith("°"))).toBe(true);
+  });
+
+  it("reads the attribute off semanticKey when the series is keyed otherwise", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          {
+            key: "device-1",
+            label: "Room 101",
+            semanticKey: "outlet_temperature",
+          },
+        ]}
+        lineValues={{ "device-1": floatValues.temperature }}
+        width={WIDTH}
+      />,
+    );
+    const ticks = leftAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.every((tick) => tick.endsWith("°"))).toBe(true);
+  });
+
+  it("keeps tick labels free of whitespace", () => {
+    // `@visx/text` wraps a label on whitespace, so "10 000 W" would render
+    // stacked over three lines instead of on the tick.
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[{ key: "active_power", label: "Power" }]}
+        lineValues={{ active_power: timestamps.map((_, i) => 10000 + i * 500) }}
+        width={WIDTH}
+      />,
+    );
+    const ticks = leftAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.every((tick) => tick.endsWith("W"))).toBe(true);
+    expect(ticks.some((tick) => /\s/.test(tick))).toBe(false);
+  });
+
+  it("leaves the axis bare when the series disagree on their unit", () => {
+    // The shared fixture plots a temperature against a humidity.
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        width={WIDTH}
+      />,
+    );
+    const ticks = leftAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.some((tick) => tick.includes("°"))).toBe(false);
+  });
+
+  it("leaves the axis bare for an attribute with no knowable unit", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[{ key: "pressure", label: "Pressure" }]}
+        lineValues={{ pressure: floatValues.temperature }}
+        width={WIDTH}
+      />,
+    );
+    const ticks = leftAxisTicks(container);
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.every((tick) => /^[\d.,-]+$/.test(tick))).toBe(true);
+  });
+});
