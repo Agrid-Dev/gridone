@@ -9,11 +9,8 @@ import {
   TableRow,
   Th,
 } from "@/components/ui/table";
-import {
-  deviceTypeBucketLabel,
-  deviceTypeKeyIcon,
-  type DeviceTypeGroup,
-} from "@/lib/deviceTypes";
+import { type DeviceTypeGroup } from "@/lib/deviceTypes";
+import { DeviceGroupHeading } from "./DeviceGroupHeading";
 import { DeviceRow } from "./DeviceRow";
 
 type DevicesTableProps = {
@@ -25,7 +22,6 @@ type DevicesTableProps = {
  *  {@link DeviceRow} per device. */
 export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
   const { t } = useTranslation("devices");
-  const { t: tTypes } = useTranslation("standardDevices");
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
@@ -42,31 +38,25 @@ export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {groups.map((group) => {
-            const Icon = deviceTypeKeyIcon(group.key);
-            return (
-              <Fragment key={group.key}>
-                <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableCell colSpan={7} className="py-2">
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                      <Icon className="h-3.5 w-3.5" aria-hidden />
-                      {deviceTypeBucketLabel(group.key, tTypes)}
-                      <span className="tabular-nums">
-                        {group.devices.length}
-                      </span>
-                    </span>
-                  </TableCell>
-                </TableRow>
-                {group.devices.map((device) => (
-                  <DeviceRow
-                    key={device.id}
-                    device={device}
-                    zoneName={assetNameOf(device)}
+          {groups.map((group) => (
+            <Fragment key={group.key}>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                <TableCell colSpan={7} className="py-2">
+                  <DeviceGroupHeading
+                    typeKey={group.key}
+                    count={group.devices.length}
                   />
-                ))}
-              </Fragment>
-            );
-          })}
+                </TableCell>
+              </TableRow>
+              {group.devices.map((device) => (
+                <DeviceRow
+                  key={device.id}
+                  device={device}
+                  zoneName={assetNameOf(device)}
+                />
+              ))}
+            </Fragment>
+          ))}
         </TableBody>
       </Table>
     </div>

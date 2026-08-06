@@ -97,6 +97,28 @@ export function ancestorPathOf(
     .join(" › ");
 }
 
+/** Assets that place a device inside the building, from the top down. `org`
+ *  and `building` are excluded: a single-building deployment repeats them on
+ *  every device, which reads as noise rather than as a location. */
+const ZONE_PATH_TYPES = new Set<AssetType>(["floor", "room", "zone"]);
+
+/** "Floor 2 · Room 201" — where a device sits, the asset itself included.
+ *
+ *  Same materialized `path` as {@link ancestorPathOf}, kept whole and then
+ *  narrowed to the zone-level ancestors; ids missing from `assetsById` are
+ *  skipped so a partially loaded tree degrades to a shorter label. */
+export function zonePathOf(
+  asset: Asset,
+  assetsById: Record<string, Asset>,
+): string {
+  const chain = asset.path?.length ? asset.path : [asset.id];
+  return chain
+    .map((id) => assetsById[id])
+    .filter((node) => node && ZONE_PATH_TYPES.has(node.type))
+    .map((node) => node.name)
+    .join(" · ");
+}
+
 function toAsset(node: AssetTreeNode): Asset {
   return {
     id: node.id,

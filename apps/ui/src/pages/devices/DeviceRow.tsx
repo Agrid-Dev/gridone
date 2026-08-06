@@ -3,18 +3,22 @@ import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { AttributeValue } from "@/components/AttributeValue";
 import { EmptyValue } from "@/components/EmptyValue";
 import {
   ConnectionStatusDot,
   ConnectionStatusValue,
 } from "@/components/ConnectionStatusBadge";
-import { getConnectionStatus, type DeviceType } from "@/lib/devices";
-import { deviceMeasure, deviceMode, deviceSetpoint } from "@/lib/deviceSummary";
+import { getConnectionStatus } from "@/lib/devices";
+import {
+  deviceMeasureReading,
+  deviceSetpointReading,
+  formatReading,
+} from "@/lib/deviceSummary";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
-import { getActiveFaults } from "@/lib/faults";
+import { activeFaultSummary } from "@/lib/faults";
 import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
+import { DeviceModeValue } from "./DeviceModeValue";
 
 /** One device of the fleet table. The whole row navigates to the device
  *  detail; the name stays a real link for accessibility. */
@@ -26,6 +30,7 @@ export function DeviceRow({
   zoneName: string | null;
 }) {
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
   const status = getConnectionStatus(device);
   const Icon = deviceTypeIcon(device.type) ?? Cpu;
 
@@ -52,13 +57,13 @@ export function DeviceRow({
         {zoneName ?? <EmptyValue />}
       </TableCell>
       <TableCell className="py-2.5 text-right text-sm tabular-nums">
-        {deviceMeasure(device)}
+        {formatReading(deviceMeasureReading(device), i18n.language)}
       </TableCell>
       <TableCell className="py-2.5 text-right text-sm tabular-nums text-muted-foreground">
-        {deviceSetpoint(device)}
+        {formatReading(deviceSetpointReading(device), i18n.language)}
       </TableCell>
       <TableCell className="py-2.5">
-        <ModeCell device={device} />
+        <DeviceModeValue device={device} />
       </TableCell>
       <TableCell className="py-2.5">
         <span className="flex items-center gap-2">
@@ -73,37 +78,15 @@ export function DeviceRow({
   );
 }
 
-function ModeCell({ device }: { device: Device }) {
-  const { t } = useTranslation();
-  const mode = deviceMode(device);
-  if (!mode) return <EmptyValue />;
-  if (mode.kind === "onoff") {
-    return (
-      <span className={cn(mode.value === "off" && "text-muted-foreground")}>
-        {t(`common.hvacMode.${mode.value}`)}
-      </span>
-    );
-  }
-  return (
-    <AttributeValue
-      attributeName={mode.attribute}
-      deviceType={device.type as DeviceType}
-      value={mode.value}
-    />
-  );
-}
-
 /** Count of active faults at the device's highest active severity
  *  ("1 alerte"); lower-severity faults are visible on the detail page. */
 function FaultsCell({ device }: { device: Device }) {
   const { t } = useTranslation();
-  const faults = getActiveFaults(device);
-  if (faults.length === 0) return <EmptyValue />;
-  const severity = faults[0].severity;
-  const count = faults.filter((fault) => fault.severity === severity).length;
+  const summary = activeFaultSummary(device);
+  if (!summary) return <EmptyValue />;
   return (
-    <span className={cn("font-medium", SEVERITY_TEXT_CLASS[severity])}>
-      {t(`common.severityCount.${severity}`, { count })}
+    <span className={cn("font-medium", SEVERITY_TEXT_CLASS[summary.severity])}>
+      {t(`common.severityCount.${summary.severity}`, { count: summary.count })}
     </span>
   );
 }

@@ -29,6 +29,14 @@ vi.mock("react-i18next", () =>
     "devices.table.mode": "Mode",
     "devices.table.connection": "Connection",
     "devices.table.faults": "Faults",
+    "devices.card.vsSetpoint": "{{delta}} vs setpoint",
+    "devices.card.noFault": "No fault",
+    "devices.card.trendLabel": "24 h trend",
+    "common.view.label": "View",
+    "common.view.table": "Table",
+    "common.view.grid": "Cards",
+    "common:common.severityCount.alert": "{{count}} alert(s)",
+    "common:common.severityCount.warning": "{{count}} warning(s)",
     "deviceDetails.connectionStatus.ok": "Connected",
     "deviceDetails.connectionStatus.degraded": "Degraded",
     "deviceDetails.connectionStatus.error": "Disconnected",
@@ -54,14 +62,36 @@ vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: (...args: unknown[]) => mockUseDevicesList(...args),
 }));
 
-const zone = { id: "a1", name: "Floor 1", type: "floor" } as Asset;
+const floor = {
+  id: "a0",
+  name: "Floor 2",
+  type: "floor",
+  path: ["a0"],
+} as Asset;
+const zone = {
+  id: "a1",
+  name: "Floor 1",
+  type: "room",
+  parent_id: "a0",
+  path: ["a0", "a1"],
+} as Asset;
 vi.mock("@/hooks/useAssetTree", () => ({
   useAssetTree: () => ({
     assetTree: [],
-    assetsList: [zone],
-    assetsById: { a1: zone },
+    assetsList: [floor, zone],
+    assetsById: { a0: floor, a1: zone },
     isLoading: false,
   }),
+}));
+
+/** The stored view preference, controlled per test. `null` exercises the
+ *  page default. Mocked rather than written to `localStorage` so the specs
+ *  neither leak state between tests nor depend on a working store. */
+let storedView: "table" | "grid" | null = "table";
+vi.mock("@/lib/viewPreference", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/viewPreference")>()),
+  readStoredView: () => storedView,
+  writeStoredView: vi.fn(),
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -115,6 +145,7 @@ function lastTableFilter(): DevicesFilter | undefined {
 }
 
 beforeEach(() => {
+  storedView = "table";
   mockUseDevicesList.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
     loading: false,
@@ -310,8 +341,9 @@ describe("DevicesList — table", () => {
     const row = screen.getByRole("link", { name: "Chambre 101" }).closest("tr");
     expect(row).not.toBeNull();
     expect(row).toHaveTextContent("Floor 1");
-    expect(row).toHaveTextContent("20.5°");
-    expect(row).toHaveTextContent("21.0°");
+    // The i18n mock speaks French: measures follow the active locale.
+    expect(row).toHaveTextContent("20,5°");
+    expect(row).toHaveTextContent("21,0°");
     expect(row).toHaveTextContent("Heating");
     expect(row).toHaveTextContent("Connected");
   });
@@ -371,6 +403,156 @@ describe("DevicesList — table", () => {
     const row = screen.getByRole("link", { name: "Alpha" }).closest("tr");
     // Zone, measure, setpoint, mode, connection, faults are all unknown.
     expect(row?.textContent).toContain("—");
+  });
+});
+
+describe("DevicesList — view toggle", () => {
+  const thermostat = makeDevice("d1", "Ch. 201", {
+    type: "thermostat",
+    tags: { asset_id: "a1" },
+    attributes: {
+      temperature: attr(21.4),
+      temperature_setpoint: attr(21),
+      mode: attr("heat"),
+      onoff_state: attr(true),
+      connection_status: attr("ok"),
+    },
+  });
+
+  beforeEach(() => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [thermostat],
+      loading: false,
+      error: null,
+    });
+  });
+
+  it("shows cards when no view has been stored yet", () => {
+    storedView = null;
+    renderAt();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ch\. 201/ })).toBeInTheDocument();
+  });
+
+  it("restores the stored view", () => {
+    storedView = "table";
+    renderAt();
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("switches between table and cards", async () => {
+    storedView = "table";
+    renderAt();
+    await userEvent.click(screen.getByRole("tab", { name: "Cards" }));
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Table" }));
+    expect(screen.getByRole("table")).toBeInTheDocument();
+  });
+
+  it("remembers the view that was picked", async () => {
+    const { writeStoredView } = await import("@/lib/viewPreference");
+    storedView = "table";
+    renderAt();
+    await userEvent.click(screen.getByRole("tab", { name: "Cards" }));
+    expect(writeStoredView).toHaveBeenCalledWith("devices.view", "grid");
+  });
+});
+
+describe("DevicesList — cards", () => {
+  beforeEach(() => {
+    storedView = "grid";
+  });
+
+  it("summarizes a thermostat: location, measure, distance to setpoint, mode", () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "Ch. 201", {
+          type: "thermostat",
+          tags: { asset_id: "a1" },
+          attributes: {
+            temperature: attr(21.4),
+            temperature_setpoint: attr(21),
+            mode: attr("heat"),
+            onoff_state: attr(true),
+            connection_status: attr("ok"),
+          },
+        }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    const card = screen.getByRole("link", { name: /Ch\. 201/ });
+    expect(card).toHaveAttribute("href", "/devices/d1");
+    expect(card).toHaveTextContent("Floor 2 · Floor 1");
+    expect(card).toHaveTextContent("21,4°");
+    expect(card).toHaveTextContent("+0,4° vs setpoint");
+    expect(card).toHaveTextContent("Heating");
+    expect(card).toHaveTextContent("No fault");
+  });
+
+  it("shows the highest active severity instead of the healthy label", () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "Ch. 411", {
+          type: "thermostat",
+          attributes: {
+            comm_fault: {
+              kind: "fault",
+              name: "comm_fault",
+              severity: "alert",
+              is_faulty: true,
+              current_value: true,
+            },
+          },
+        }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    const card = screen.getByRole("link", { name: /Ch\. 411/ });
+    expect(card).toHaveTextContent("1 alert(s)");
+    expect(card).not.toHaveTextContent("No fault");
+  });
+
+  it("groups cards under the same type headings as the table", () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d3", "M1", { type: "electricity_meter" }),
+        makeDevice("d1", "T1", { type: "thermostat" }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    const sections = screen.getAllByRole("region");
+    expect(sections).toHaveLength(2);
+    expect(screen.getByRole("region", { name: /Thermostats/ })).toBe(
+      sections[0],
+    );
+    expect(screen.getByRole("region", { name: /Electricity meters/ })).toBe(
+      sections[1],
+    );
+    expect(within(sections[0]).getByText("T1")).toBeInTheDocument();
+    expect(within(sections[1]).getByText("M1")).toBeInTheDocument();
+  });
+
+  it("does not fetch history for cards that never became visible", () => {
+    // The global IntersectionObserver stub never reports an intersection, so
+    // a card rendered off-screen must not mount its sparkline.
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "Ch. 201", {
+          type: "thermostat",
+          attributes: { temperature: attr(21.4) },
+        }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    expect(screen.queryByRole("img", { name: "24 h trend" })).toBeNull();
   });
 });
 

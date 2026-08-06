@@ -75,6 +75,11 @@
       "mode": "Mode",
       "connection": "Connexion",
       "faults": "Défauts"
+    },
+    "card": {
+      "vsSetpoint": "{{delta}} vs consigne",
+      "noFault": "Aucun défaut",
+      "trendLabel": "Tendance sur 24 h"
     }
   },
   "deviceDetails": {
