@@ -1,4 +1,4 @@
-import { Building2, Layers3, Plus } from "lucide-react";
+import { Building2, CornerDownRight, Layers3, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +94,38 @@ function AddLink({
   );
 }
 
+/** The sub-zones of a zone, listed with their own device counts. Shown on
+ *  hover or focus of the pill: a floor holds a dozen zones, so nesting them
+ *  all inline turns the row into a wall — the count stays on the pill and the
+ *  detail comes on demand. */
+function SubzoneList({ node }: { node: AssetTreeNode }) {
+  const { t } = useTranslation("assets");
+
+  return (
+    <div className="min-w-48 space-y-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {t("overview.subzoneCount", { count: node.children.length })}
+      </p>
+      <ul className="space-y-1">
+        {node.children.map((child) => (
+          <li key={child.id} className="flex items-center gap-4 text-sm">
+            <span className="flex min-w-0 items-center gap-1.5 font-medium">
+              <CornerDownRight
+                className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="truncate">{child.name}</span>
+            </span>
+            <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+              {t("overview.deviceCount", { count: countDevices(child) })}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ZonePill({
   node,
   canEdit,
@@ -102,7 +134,7 @@ function ZonePill({
   canEdit: boolean;
 }) {
   const { t } = useTranslation("assets");
-  const hasChildren = node.children.length > 0;
+  const subzones = node.children.length;
   const linkedDevices = node.devices?.length ?? 0;
 
   const pill = (
@@ -126,26 +158,50 @@ function ZonePill({
           </span>
         </>
       )}
+      {subzones > 0 && (
+        <>
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/70 px-1.5 py-0.5 text-xs font-semibold"
+            aria-hidden="true"
+          >
+            <CornerDownRight className="h-3 w-3" />
+            {subzones}
+          </span>
+          <span className="sr-only">
+            {t("overview.subzoneCount", { count: subzones })}
+          </span>
+        </>
+      )}
     </Link>
   );
 
-  if (!hasChildren) return pill;
-
+  // The padding (cancelled by the negative margin) pulls the add button inside
+  // the group's own box: a button that sat outside it would lose `group-hover`
+  // the moment the pointer moved onto it, and vanish mid-click.
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 p-1.5">
-      {pill}
-      {node.children.map((child) => (
-        <ZonePill key={child.id} node={child} canEdit={canEdit} />
-      ))}
-      {canEdit && (
-        <AddLink
-          parentId={node.id}
-          type="zone"
-          label={t("overview.addSubzoneTo", { name: node.name })}
-          compact
-        />
+    <span className="group relative -m-1.5 inline-flex p-1.5">
+      {subzones > 0 ? (
+        // Shorter than the app-wide delay: this card is the way sub-zones are
+        // read, not an afterthought hint about a control.
+        <Tooltip delayDuration={150}>
+          <TooltipTrigger asChild>{pill}</TooltipTrigger>
+          <TooltipContent align="start" className="px-3 py-2.5">
+            <SubzoneList node={node} />
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        pill
       )}
-    </div>
+      {canEdit && (
+        <Link
+          to={createHref(node.id, "zone")}
+          aria-label={t("overview.addSubzoneTo", { name: node.name })}
+          className="pointer-events-none absolute right-0 top-0 z-10 inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground opacity-0 shadow-sm transition-opacity hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        >
+          <Plus className="h-3 w-3" />
+        </Link>
+      )}
+    </span>
   );
 }
 

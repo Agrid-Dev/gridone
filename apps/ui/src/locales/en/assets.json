@@ -27,6 +27,8 @@
     "deviceCount_other": "{{count}} devices",
     "linkedDevices_one": "{{count}} linked device",
     "linkedDevices_other": "{{count}} linked devices",
+    "subzoneCount_one": "{{count}} sub-zone",
+    "subzoneCount_other": "{{count}} sub-zones",
     "otherZones": "Other zones",
     "noFloors": "No floors have been added yet.",
     "addBuilding": "Add a building",

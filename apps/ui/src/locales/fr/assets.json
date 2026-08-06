@@ -27,6 +27,8 @@
     "deviceCount_other": "{{count}} appareils",
     "linkedDevices_one": "{{count}} appareil lié",
     "linkedDevices_other": "{{count}} appareils liés",
+    "subzoneCount_one": "{{count}} sous-zone",
+    "subzoneCount_other": "{{count}} sous-zones",
     "otherZones": "Autres zones",
     "noFloors": "Aucun étage n’a encore été ajouté.",
     "addBuilding": "Ajouter un bâtiment",
