@@ -55,6 +55,17 @@ window.IntersectionObserver ??=
   IntersectionObserverStub as unknown as typeof IntersectionObserver;
 
 // ---------------------------------------------------------------------------
+// Pointer capture stubs — jsdom implements no pointer capture at all, so any
+// drag interaction (thermostat dial, Radix pointer-based primitives) throws on
+// the first pointerdown.
+// ---------------------------------------------------------------------------
+Element.prototype.setPointerCapture ??= function setPointerCapture() {};
+Element.prototype.releasePointerCapture ??= function releasePointerCapture() {};
+Element.prototype.hasPointerCapture ??= function hasPointerCapture() {
+  return false;
+};
+
+// ---------------------------------------------------------------------------
 // scrollIntoView stub — jsdom does not implement it, and cmdk calls it when it
 // auto-selects an item (command palette, resource pickers).
 // ---------------------------------------------------------------------------

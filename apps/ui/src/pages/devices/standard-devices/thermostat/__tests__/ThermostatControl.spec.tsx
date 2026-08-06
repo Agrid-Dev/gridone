@@ -211,6 +211,32 @@ describe("ThermostatControl", () => {
     );
   });
 
+  it("routes a dial adjustment through the same debounced write as the steppers", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    renderControl();
+
+    const dial = screen.getByRole("slider");
+    await user.type(dial, "{ArrowUp}");
+
+    expect(mockChangeAndSave).toHaveBeenCalledWith(
+      "temperature_setpoint",
+      22.5,
+    );
+  });
+
+  it("bounds the dial by the device's setpoint range", () => {
+    const device = makeThermostat({
+      temperature_setpoint_min: { current_value: 18 },
+      temperature_setpoint_max: { current_value: 24 },
+    });
+    renderControl(device);
+
+    const dial = screen.getByRole("slider");
+    expect(dial).toHaveAttribute("aria-valuemin", "18");
+    expect(dial).toHaveAttribute("aria-valuemax", "24");
+    expect(dial).toHaveAttribute("aria-valuenow", "22");
+  });
+
   it("calls changeAndSaveNow on power toggle", async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderControl();

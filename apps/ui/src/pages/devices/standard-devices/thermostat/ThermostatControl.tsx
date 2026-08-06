@@ -139,6 +139,10 @@ export function ThermostatControl({
           isOn={isOn}
           modeColorClass={onColor}
           saving={setpointSaving}
+          step={STEP}
+          // Same write path as the steppers: the debounce collapses a whole
+          // drag into a single command, sent once the knob comes to rest.
+          onChange={(value) => changeAndSave("temperature_setpoint", value)}
         />
 
         {/* Setpoint steppers flanking the humidity readout */}
