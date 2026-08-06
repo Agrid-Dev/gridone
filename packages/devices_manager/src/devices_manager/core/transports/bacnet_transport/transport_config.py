@@ -2,7 +2,7 @@ import ipaddress
 from typing import Annotated
 
 from bacpypes3.basetypes import Segmentation
-from pydantic import AfterValidator, PositiveFloat, PositiveInt
+from pydantic import AfterValidator, Field, PositiveFloat, PositiveInt
 
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
@@ -19,6 +19,12 @@ DEFAULT_FOREIGN_TTL = 900  # seconds, BBMD foreign-device registration lifetime
 DEFAULT_READ_PROPERTY_TIMEOUT = 5.0  # seconds
 DEFAULT_WRITE_PROPERTY_TIMEOUT = 5.0  # seconds
 DEFAULT_WRITE_PRIORITY = 8
+# A ReadPropertyMultiple response swaps each outgoing property reference for
+# an encoded value plus its own framing, which the request doesn't carry —
+# so a request is budgeted to this fraction of a device's Max-APDU, leaving
+# headroom for the response.
+DEFAULT_RPM_REQUEST_APDU_FRACTION = 0.5
+DEFAULT_RPM_ENABLED = True
 
 DEFAULT_MASK = "/24"
 
@@ -63,3 +69,27 @@ class BacnetTransportConfig(BaseTransportConfig):
     read_property_timeout: PositiveFloat = DEFAULT_READ_PROPERTY_TIMEOUT
     write_property_timeout: PositiveFloat = DEFAULT_WRITE_PROPERTY_TIMEOUT
     default_write_priority: BacnetWritePriority = DEFAULT_WRITE_PRIORITY
+    rpm_request_apdu_fraction: Annotated[
+        float,
+        Field(
+            gt=0,
+            le=1,
+            description=(
+                "Fraction of a device's Max-APDU a ReadPropertyMultiple "
+                "request is budgeted to, reserving the rest for the "
+                "response. Lower it for devices whose RPM responses carry "
+                "more framing/value overhead than usual."
+            ),
+        ),
+    ] = DEFAULT_RPM_REQUEST_APDU_FRACTION
+    rpm_enabled: Annotated[
+        bool,
+        Field(
+            description=(
+                "Whether to batch reads via ReadPropertyMultiple. False "
+                "forces the per-property ReadProperty fallback for every "
+                "device on this transport, regardless of RPM support — "
+                "for comparing before/after batching performance."
+            ),
+        ),
+    ] = DEFAULT_RPM_ENABLED

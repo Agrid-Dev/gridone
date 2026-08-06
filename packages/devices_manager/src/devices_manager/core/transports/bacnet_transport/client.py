@@ -1,16 +1,22 @@
 import asyncio
 import contextlib
+import logging
+from collections.abc import AsyncGenerator, Iterable
+from typing import NoReturn
 
 from bacpypes3.apdu import (
+    APDU,
     AbortPDU,
     Error,
     ReadPropertyACK,
+    ReadPropertyMultipleACK,
+    ReadPropertyMultipleRequest,
     ReadPropertyRequest,
     RejectPDU,
     SimpleAckPDU,
     WritePropertyRequest,
 )
-from bacpypes3.basetypes import BinaryPV
+from bacpypes3.basetypes import BinaryPV, PropertyIdentifier
 from bacpypes3.constructeddata import AnyAtomic
 from bacpypes3.ipv4.app import ForeignApplication, NormalApplication
 from bacpypes3.pdu import Address, IPv4Address
@@ -21,15 +27,21 @@ from bacpypes3.primitivedata import (
     Unsigned,
 )
 
-from devices_manager.core.transports.base import PullTransportClient
+from devices_manager.core.transports.base import PullTransportClient, dedupe_addresses
+from devices_manager.core.transports.batch_read import read_results
 from devices_manager.core.transports.connected import connected
+from devices_manager.core.transports.io_timing import timed_io
+from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols
 
 from .application import make_local_application
 from .bacnet_address import BacnetAddress
 from .bacnet_types import BacnetObjectType
+from .rpm_plan import RpmRequest, plan_rpm
 from .transport_config import BacnetTransportConfig
+
+logger = logging.getLogger(__name__)
 
 
 def get_device_identifier(device_instance: int) -> ObjectIdentifier:
@@ -101,6 +113,101 @@ def encode_present_value(
 type DevicesDict = dict[ObjectIdentifier, Address]
 
 
+class BacnetServiceRejectedError(RuntimeError):
+    """The device rejected the confirmed service itself (RejectPDU/AbortPDU),
+    not just one transaction — distinct from ``Error``, which only fails the
+    request that carried it."""
+
+
+def _raise_for_response(response: object, *, target: str, action: str) -> NoReturn:
+    """Classify a non-ACK BACnet response and raise accordingly.
+
+    ``Error`` means only this one transaction failed (e.g. one bad
+    property). ``RejectPDU``/``AbortPDU`` mean the device rejected the
+    confirmed *service* itself (e.g. RPM unrecognized) — raised as
+    :class:`BacnetServiceRejectedError` so callers can distinguish "this
+    read failed" from "stop attempting this service on this device",
+    driving the RPM-support fallback cache in ``_read_rpm_request``.
+    """
+    if isinstance(response, Error):
+        msg = (
+            f"BACnet error on {action} to {target}: "
+            f"{response.errorClass}:{response.errorCode}"
+        )
+        raise RuntimeError(msg)  # noqa: TRY004
+    if isinstance(response, RejectPDU):
+        msg = f"BACnet reject on {action} to {target}: rejectReason={response.reason}"
+        raise BacnetServiceRejectedError(msg)
+    if isinstance(response, AbortPDU):
+        msg = f"BACnet abort on {action} to {target}: abortReason={response.reason}"
+        raise BacnetServiceRejectedError(msg)
+    msg = f"Unexpected response to {action}: {response!r}"
+    raise TypeError(msg)
+
+
+def _decode_property_value(container: object) -> AttributeValueType:
+    """Unwrap a bacpypes3 ``Any``-typed property value into a plain Python
+    primitive — the same cast used for both a single ReadProperty ACK and
+    one element of a ReadPropertyMultiple ACK."""
+    return to_native(container.cast_out(AnyAtomic).get_value())  # ty: ignore[unresolved-attribute]
+
+
+def _decode_rpm(
+    rpm_request: RpmRequest, ack: ReadPropertyMultipleACK
+) -> list[tuple[BacnetAddress, AttributeValueType | Exception]]:
+    """Split one RPM ACK back into a value or error per member address.
+
+    Every address in ``rpm_request.addresses`` is guaranteed exactly one
+    entry in the result: a ``propertyAccessError`` element yields an error
+    for that address without failing the others, and an address the ACK
+    omits entirely (partial/buggy RPM support) is reported as an error
+    rather than silently dropped — the caller must be able to treat "no
+    entry" as impossible.
+    """
+    by_key = {
+        (
+            ObjectIdentifier(f"{address.object_type},{address.object_instance}"),
+            PropertyIdentifier(address.property_name),
+        ): address
+        for address in rpm_request.addresses
+    }
+    results: dict[str, tuple[BacnetAddress, AttributeValueType | Exception]] = {
+        address.id: (
+            address,
+            RuntimeError(
+                f"BACnet read-property-multiple response for device "
+                f"{rpm_request.device_instance} omitted "
+                f"{address.object_type}:{address.object_instance} "
+                f"{address.property_name}"
+            ),
+        )
+        for address in rpm_request.addresses
+    }
+    for access_result in ack.listOfReadAccessResults:  # ty: ignore[not-iterable]
+        for element in access_result.listOfResults:
+            address = by_key.get(
+                (access_result.objectIdentifier, element.propertyIdentifier)
+            )
+            if address is None:
+                continue
+            choice = element.readResult
+            if choice.propertyAccessError is not None:
+                error = choice.propertyAccessError
+                results[address.id] = (
+                    address,
+                    RuntimeError(
+                        f"BACnet error on read-property-multiple to "
+                        f"{access_result.objectIdentifier} "
+                        f"{element.propertyIdentifier}: "
+                        f"{error.errorClass}:{error.errorCode}"
+                    ),
+                )
+                continue
+            value = _decode_property_value(choice.propertyValue)
+            results[address.id] = (address, value)
+    return list(results.values())
+
+
 class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     protocol = TransportProtocols.BACNET
     _config_builder = BacnetTransportConfig
@@ -108,6 +215,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     config: BacnetTransportConfig
     _application: NormalApplication | ForeignApplication
     _known_devices: DevicesDict
+    _device_max_apdu: dict[int, int]
+    _rpm_supported: dict[int, bool]
     _serialize_reads = True
 
     def __init__(
@@ -115,6 +224,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> None:
         self.config = config
         self._known_devices = {}
+        self._device_max_apdu = {}
+        self._rpm_supported = {}
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
@@ -137,6 +248,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         # Lock order: see TransportClient._read_lock in base.py.
         async with self._read_lock, self._connection_lock:
             self._known_devices = {}
+            self._device_max_apdu = {}
+            self._rpm_supported = {}
             if hasattr(self, "_application") and self._application:
                 self._application.close()
             await super().close()
@@ -162,19 +275,43 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             who_is = self._application.who_is()
         i_ams = await asyncio.wait_for(who_is, timeout=self.config.discovery_timeout)
         discovered_devices: DevicesDict = {}
+        discovered_max_apdu: dict[int, int] = {}
         for i_am in i_ams:
             with contextlib.suppress(Exception):
                 discovered_devices[i_am.iAmDeviceIdentifier] = i_am.pduSource
+                discovered_max_apdu[i_am.iAmDeviceIdentifier[1]] = int(
+                    i_am.maxAPDULengthAccepted
+                )
+        self._device_max_apdu = discovered_max_apdu
         return discovered_devices
 
     def _device_address(self, address: BacnetAddress) -> Address:
-        device_address = self._known_devices.get(
-            get_device_identifier(address.device_instance)
-        )
+        return self._device_address_for_instance(address.device_instance)
+
+    def _device_address_for_instance(self, device_instance: int) -> Address:
+        device_address = self._known_devices.get(get_device_identifier(device_instance))
         if not device_address:
-            msg = f"Bacnet device instance {address.device_instance} not found"
+            msg = f"Bacnet device instance {device_instance} not found"
             raise KeyError(msg)
         return device_address
+
+    async def _request(
+        self, request: APDU, *, target: str, action: str, request_timeout: float
+    ) -> APDU | None:
+        """Send a confirmed-service request, normalizing both ways bacpypes3
+        can deliver a device's Error/RejectPDU/AbortPDU: returned as the
+        awaited call's result, or raised directly. Both are ``BaseException``
+        subclasses (not ``Exception``), so a raised one would otherwise slip
+        past every ``except Exception`` up the call chain uncaught — routing
+        it through ``_raise_for_response`` here means callers only ever see
+        the ACK they asked for, or an already-classified normal exception.
+        """
+        try:
+            return await asyncio.wait_for(
+                self._application.request(request), timeout=request_timeout
+            )
+        except (Error, RejectPDU, AbortPDU) as e:
+            _raise_for_response(e, target=target, action=action)
 
     @connected
     async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
@@ -184,17 +321,198 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             propertyIdentifier=address.property_name,
         )
         request.pduDestination = self._device_address(address)
-        response = await asyncio.wait_for(
-            self._application.request(request),
-            timeout=self.config.read_property_timeout,
+        target = f"{obj_id} {address.property_name}"
+        response = await self._request(
+            request,
+            target=target,
+            action="read-property",
+            request_timeout=self.config.read_property_timeout,
         )
-        if not isinstance(response, ReadPropertyACK):
-            msg = f"Unexpected response: {response!r}"
-            raise TypeError(msg)
-        return to_native(response.propertyValue.cast_out(AnyAtomic).get_value())
+        if isinstance(response, ReadPropertyACK):
+            return _decode_property_value(response.propertyValue)
+        _raise_for_response(response, target=target, action="read-property")
 
     async def _read(self, address: BacnetAddress) -> AttributeValueType:
         return await self._read_bacnet(address)
+
+    @connected
+    async def _read_rpm(self, rpm_request: RpmRequest) -> ReadPropertyMultipleACK:
+        request = ReadPropertyMultipleRequest(
+            listOfReadAccessSpecs=list(rpm_request.specs)
+        )
+        request.pduDestination = self._device_address_for_instance(
+            rpm_request.device_instance
+        )
+        target = f"device {rpm_request.device_instance}"
+        response = await self._request(
+            request,
+            target=target,
+            action="read-property-multiple",
+            request_timeout=self.config.read_property_timeout,
+        )
+        if isinstance(response, ReadPropertyMultipleACK):
+            return response
+        _raise_for_response(response, target=target, action="read-property-multiple")
+
+    async def _read_rpm_request(
+        self, rpm_request: RpmRequest, sweep_id: str | None
+    ) -> list[ReadResult] | None:
+        """Issue one RPM request and split its ACK into a result per address.
+
+        Returns ``None`` on ANY failure — an explicit rejection
+        (``BacnetServiceRejectedError``), a silent timeout (some devices
+        signal an unsupported service by dropping the request rather than
+        sending a proper Reject/Abort), a decode error, or anything else —
+        and marks the device unsupported so it isn't re-attempted every
+        sweep. One strike: a device that fails RPM for any reason, including
+        a single transient timeout, falls back to per-property reads for the
+        rest of the session (reset on reconnect). The caller falls back to
+        per-property reads for this request's addresses too.
+
+        The lock is held for the transaction only, then released before
+        results are handed on, so one long RPM sweep cannot starve another
+        read.
+        """
+        async with self._read_lock:
+            try:
+                async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
+                    ack = await self._read_rpm(rpm_request)
+                    values = _decode_rpm(rpm_request, ack)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(
+                    "[Transport %s] device %d does not support "
+                    "ReadPropertyMultiple — falling back to per-property "
+                    "reads (%s: %s)",
+                    self.id,
+                    rpm_request.device_instance,
+                    type(e).__name__,
+                    e,
+                )
+                self._rpm_supported[rpm_request.device_instance] = False
+                return None
+            if sweep_id is not None:
+                for address, value in values:
+                    if not isinstance(value, Exception):
+                        self._sweep_memo.remember(address.id, sweep_id, value)
+                        self._sweep_memo.record(hit=False)
+        return [
+            ReadError(address.id, value)
+            if isinstance(value, Exception)
+            else ReadOk(address.id, value)
+            for address, value in values
+        ]
+
+    def _fallback_read(
+        self, addresses: Iterable[BacnetAddress], sweep_id: str | None
+    ) -> AsyncGenerator[ReadResult]:
+        """Per-property ReadProperty for addresses that aren't using RPM —
+        because the device is already known unsupported, an RPM request just
+        failed, or ``rpm_enabled`` is off. Goes through the base :meth:`read`,
+        so it's isolated per address (``read_results``), memoized, and timed
+        the same as any other single read.
+        """
+        return read_results(
+            addresses,
+            lambda a: self.read(a, sweep_id),
+            concurrent=not self._serialize_reads,
+        )
+
+    async def _read_device_rpm(
+        self,
+        device_instance: int,
+        addresses: list[BacnetAddress],
+        sweep_id: str | None,
+    ) -> AsyncGenerator[ReadResult]:
+        requests = plan_rpm(
+            addresses,
+            max_apdu_by_device=self._device_max_apdu,
+            request_apdu_fraction=self.config.rpm_request_apdu_fraction,
+        )
+        if requests:
+            logger.debug(
+                "[Transport %s] device %d: %d address(es) coalesced into %d "
+                "ReadPropertyMultiple request(s)",
+                self.id,
+                device_instance,
+                len(addresses),
+                len(requests),
+            )
+        for rpm_request in requests:
+            # A rejection on an earlier chunk of this same sweep already
+            # disabled RPM for the device — later chunks skip straight to
+            # the fallback instead of re-attempting a service just proven
+            # unsupported.
+            if not self._rpm_supported.get(device_instance, True):
+                async for result in self._fallback_read(
+                    rpm_request.addresses, sweep_id
+                ):
+                    yield result
+                continue
+            results = await self._read_rpm_request(rpm_request, sweep_id)
+            if results is None:
+                async for result in self._fallback_read(
+                    rpm_request.addresses, sweep_id
+                ):
+                    yield result
+                continue
+            for result in results:
+                yield result
+
+    async def read_many(
+        self,
+        addresses: list[BacnetAddress],
+        sweep_id: str | None = None,
+    ) -> AsyncGenerator[ReadResult]:
+        """Read addresses as coalesced ReadPropertyMultiple requests, one per
+        device instance's Max-APDU-sized chunk. A device that has already
+        shown (RejectPDU/AbortPDU, or simply never responding) it doesn't
+        support RPM falls back to sequential ReadProperty for the rest of
+        the session.
+
+        The RPM path bypasses the base :meth:`read`, so it consults and
+        populates ``self._sweep_memo`` directly (same store `memoize_sweep`
+        uses) to stay coalesced with any on-demand reads sharing this sweep.
+
+        ``config.rpm_enabled`` is snapshotted once at the top of the sweep,
+        so a config patch landing mid-sweep can't split one sweep between
+        RPM and forced-fallback devices. ``False`` forces every device on
+        this transport onto the per-property fallback regardless of RPM
+        support, for comparing before/after batching performance.
+        """
+        rpm_enabled = self.config.rpm_enabled
+        if not rpm_enabled:
+            logger.debug(
+                "[Transport %s] rpm_enabled=False — forcing per-property "
+                "ReadProperty for %d address(es)",
+                self.id,
+                len(addresses),
+            )
+        pending: list[BacnetAddress] = []
+        for address in dedupe_addresses(addresses).values():
+            cached = (
+                self._sweep_memo.recall(address.id, sweep_id)
+                if sweep_id is not None
+                else None
+            )
+            if cached is None:
+                pending.append(address)
+            else:
+                self._sweep_memo.record(hit=True)
+                yield ReadOk(address.id, cached)
+
+        by_device: dict[int, list[BacnetAddress]] = {}
+        for address in pending:
+            by_device.setdefault(address.device_instance, []).append(address)
+
+        for device_instance, device_addresses in by_device.items():
+            if rpm_enabled and self._rpm_supported.get(device_instance, True):
+                async for result in self._read_device_rpm(
+                    device_instance, device_addresses, sweep_id
+                ):
+                    yield result
+            else:
+                async for result in self._fallback_read(device_addresses, sweep_id):
+                    yield result
 
     @connected
     async def _write_bacnet(
@@ -210,41 +528,17 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             priority=address.write_priority or self.config.default_write_priority,
         )
         request.pduDestination = self._device_address(address)
-        response = await asyncio.wait_for(
-            self._application.request(request),
-            timeout=self.config.write_property_timeout,
+        target = f"{obj_id} {address.property_name}"
+        response = await self._request(
+            request,
+            target=target,
+            action="write-property",
+            request_timeout=self.config.write_property_timeout,
         )
 
         if isinstance(response, SimpleAckPDU):
             return
-
-        # BACnet Error APDU (e.g. invalid-data-type, not-writable, etc.)
-        if isinstance(response, Error):
-            msg = (
-                f"BACnet error on write-property to {obj_id} {address.property_name}: "
-                f"{response.errorClass}:{response.errorCode}"
-            )
-            raise RuntimeError(msg)  # noqa: TRY004
-
-        # Local device rejected the APDU (syntax, missing fields, etc.)
-        if isinstance(response, RejectPDU):
-            msg = (
-                f"BACnet reject on write-property to {obj_id} {address.property_name}: "
-                f"rejectReason={response.rejectReason}"  # ty: ignore[unresolved-attribute]
-            )
-            raise RuntimeError(msg)  # noqa: TRY004
-
-        # Abort (e.g. segmentation, resources, etc.)
-        if isinstance(response, AbortPDU):
-            msg = (
-                f"BACnet abort on write-property to {obj_id} {address.property_name}: "
-                f"abortReason={response.abortReason}, "  # ty: ignore[unresolved-attribute]
-                f"apduAbortReject={response.apduAbortReject}"  # ty: ignore[unresolved-attribute]
-            )
-            raise RuntimeError(msg)  # noqa: TRY004
-
-        msg = f"Unexpected response to WritePropertyRequest: {response!r}"
-        raise TypeError(msg)
+        _raise_for_response(response, target=target, action="write-property")
 
     async def write(
         self,

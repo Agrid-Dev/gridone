@@ -2,6 +2,7 @@ import pytest
 
 from devices_manager.core.transports.bacnet_transport.transport_config import (
     DEFAULT_PORT,
+    DEFAULT_RPM_REQUEST_APDU_FRACTION,
     BacnetTransportConfig,
     is_valid_ip_with_mask,
     validate_ip,
@@ -44,8 +45,19 @@ def test_config_defaults() -> None:
     assert config.discovery_address is None
     assert config.bbmd_address is None
     assert config.default_write_priority == 8
+    assert config.rpm_request_apdu_fraction == DEFAULT_RPM_REQUEST_APDU_FRACTION
 
 
 def test_config_rejects_invalid_bbmd_address() -> None:
     with pytest.raises(ValueError, match="Invalid IP address"):
         BacnetTransportConfig(ip_with_mask="192.168.0.5/24", bbmd_address="not-an-ip")
+
+
+@pytest.mark.parametrize("fraction", [0, -0.5, 1.1])
+def test_config_rejects_out_of_range_rpm_request_apdu_fraction(
+    fraction: float,
+) -> None:
+    with pytest.raises(ValueError, match="rpm_request_apdu_fraction"):
+        BacnetTransportConfig(
+            ip_with_mask="192.168.0.5/24", rpm_request_apdu_fraction=fraction
+        )
