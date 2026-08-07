@@ -1,13 +1,15 @@
 import { History } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { Card } from "@/components/ui/card";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SEMANTIC_BG_CLASS } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
-import { executionTime, type RecentExecution } from "./executionsSummary";
+import {
+  formatExecutionMoment,
+  type RecentExecution,
+} from "./executionsSummary";
 
 interface RecentExecutionsPanelProps {
   recent: RecentExecution[];
@@ -70,30 +72,4 @@ export function RecentExecutionsPanel({
       )}
     </Card>
   );
-}
-
-/** "16:20" today, "hier 23:00" yesterday, "3 août 23:00" beyond — the panel
- *  favors clock times (like a log) over relative wording. */
-function formatExecutionMoment(
-  execution: RecentExecution["execution"],
-  language: string | undefined,
-  t: TFunction<"automations">,
-): string {
-  const date = new Date(executionTime(execution));
-  const time = date.toLocaleTimeString(language, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) return time;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (date.toDateString() === yesterday.toDateString()) {
-    return t("recentExecutions.yesterdayAt", { time });
-  }
-  const day = date.toLocaleDateString(language, {
-    day: "numeric",
-    month: "short",
-  });
-  return `${day} ${time}`;
 }

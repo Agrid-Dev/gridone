@@ -11,7 +11,8 @@
     "active_one": "active",
     "active_other": "active",
     "paused": "paused",
-    "executions24h": "executions (24 h)"
+    "executions24h_one": "execution (24 h)",
+    "executions24h_other": "executions (24 h)"
   },
   "recentExecutions": {
     "title": "Recent executions",
@@ -26,6 +27,26 @@
       "metadata": "Details",
       "trigger": "Trigger",
       "action": "Action"
+    }
+  },
+  "editPage": {
+    "breadcrumbLabel": "Breadcrumb",
+    "lastExecution": "Last run {{ago}}.",
+    "neverExecuted": "Never run yet.",
+    "unsavedChanges": "Unsaved changes",
+    "saveChanges": "Save changes",
+    "deleteHint": "The execution history is kept.",
+    "identity": {
+      "title": "Identity",
+      "description": "The name shows up in the execution history and in notifications."
+    },
+    "when": {
+      "title": "When",
+      "description": "One trigger per automation."
+    },
+    "then": {
+      "title": "Then",
+      "description": "Runs on every trigger."
     }
   },
   "metadata": {

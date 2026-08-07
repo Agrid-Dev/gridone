@@ -7,6 +7,10 @@ export type CustomTriggerFormProps = {
   type: string;
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
+  /** Continuous result-state callback, mirroring ``CustomActionFormProps``.
+   *  Lets a parent aggregate an always-editable trigger form behind its own
+   *  Save. `null` while the form is incomplete. Must be referentially stable. */
+  onChange?: (trigger: Trigger | null) => void;
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;

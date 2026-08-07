@@ -18,6 +18,7 @@ type InputControllerProps<
   description?: React.ReactNode;
   required?: boolean;
   type?: React.HTMLInputTypeAttribute;
+  orientation?: React.ComponentProps<typeof FieldShell>["orientation"];
   inputProps?: Omit<
     React.ComponentProps<typeof Input>,
     | "aria-invalid"
@@ -41,6 +42,7 @@ export function InputController<
   description,
   type = "text",
   required,
+  orientation,
   inputProps,
   ...controllerProps
 }: InputControllerProps<TFieldValues, TName>) {
@@ -60,6 +62,7 @@ export function InputController<
       description={description}
       error={fieldState.error}
       required={required}
+      orientation={orientation}
     >
       <Input
         id={id}

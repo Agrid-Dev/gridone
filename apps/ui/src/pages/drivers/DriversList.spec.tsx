@@ -19,11 +19,13 @@ vi.mock("react-i18next", () =>
     "protocols.mbus": "M-Bus",
     "protocols.modbus-tcp": "Modbus TCP",
     "common:common.allTypes": "All types",
+    "common:common.loading": "Loading...",
     "common:common.deviceTypes.thermostat": "Thermostat",
     "common:common.deviceTypes.awhp": "Heat pump",
     "common.deviceTypes.thermostat": "Thermostat",
     "common.deviceTypes.awhp": "Heat pump",
     "empty.noMatch": "No {{resourceName}} matches",
+    "empty.title": "No {{resourceName}} yet",
     "empty.clearFiltersHint": "Clear the filters",
     "empty.clearFilters": "Clear filters",
   }),
@@ -66,9 +68,20 @@ function makeDriver(
   } as unknown as Driver;
 }
 
-function mockDrivers(drivers: Driver[], { isLoading = false } = {}) {
+function mockDrivers(
+  drivers: Driver[],
+  {
+    isLoading = false,
+    isFetching = false,
+    isFetched = true,
+  }: {
+    isLoading?: boolean;
+    isFetching?: boolean;
+    isFetched?: boolean;
+  } = {},
+) {
   mockUseDrivers.mockReturnValue({
-    driversListQuery: { data: drivers, isLoading },
+    driversListQuery: { data: drivers, isLoading, isFetching, isFetched },
   });
 }
 
@@ -133,9 +146,17 @@ describe("DriversList — table", () => {
   });
 
   it("renders skeletons instead of the table while loading", () => {
-    mockDrivers([], { isLoading: true });
+    mockDrivers([], {
+      isLoading: false,
+      isFetching: true,
+      isFetched: false,
+    });
     renderAt();
+    expect(
+      screen.getByRole("status", { name: "Loading..." }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("No driver yet")).not.toBeInTheDocument();
   });
 });
 

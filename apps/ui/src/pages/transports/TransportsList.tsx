@@ -39,7 +39,7 @@ const TransportsListContainer: FC<{ children: ReactNode }> = ({ children }) => {
 };
 
 const TransportsList: FC = () => {
-  const { t } = useTranslation("transports");
+  const { t } = useTranslation(["transports", "common"]);
   const { transportsListQuery } = useTransports();
   const { devices, loading: devicesLoading } = useDevicesList();
 
@@ -52,10 +52,18 @@ const TransportsList: FC = () => {
     [devices],
   );
 
-  if (transportsListQuery.isLoading || devicesLoading) {
+  const transportsLoading =
+    transportsListQuery.isLoading ||
+    (!transportsListQuery.isFetched && transportsListQuery.isFetching);
+
+  if (transportsLoading || devicesLoading) {
     return (
       <TransportsListContainer>
-        <div className="space-y-2">
+        <div
+          role="status"
+          aria-label={t("common:common.loading")}
+          className="space-y-2"
+        >
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-14" />
           ))}

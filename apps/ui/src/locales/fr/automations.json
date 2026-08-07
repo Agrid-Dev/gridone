@@ -11,7 +11,8 @@
     "active_one": "active",
     "active_other": "actives",
     "paused": "en pause",
-    "executions24h": "exécutions (24 h)"
+    "executions24h_one": "exécution (24 h)",
+    "executions24h_other": "exécutions (24 h)"
   },
   "recentExecutions": {
     "title": "Dernières exécutions",
@@ -26,6 +27,26 @@
       "metadata": "Informations",
       "trigger": "Déclencheur",
       "action": "Action"
+    }
+  },
+  "editPage": {
+    "breadcrumbLabel": "Fil d'Ariane",
+    "lastExecution": "Dernière exécution {{ago}}.",
+    "neverExecuted": "Jamais exécutée pour le moment.",
+    "unsavedChanges": "Modifications non enregistrées",
+    "saveChanges": "Enregistrer les modifications",
+    "deleteHint": "L'historique d'exécution est conservé.",
+    "identity": {
+      "title": "Identité",
+      "description": "Le nom apparaît dans l'historique d'exécution et les notifications."
+    },
+    "when": {
+      "title": "Quand",
+      "description": "Un seul déclencheur par automatisation."
+    },
+    "then": {
+      "title": "Alors",
+      "description": "Exécutée à chaque déclenchement."
     }
   },
   "metadata": {

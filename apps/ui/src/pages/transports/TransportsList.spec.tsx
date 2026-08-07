@@ -11,6 +11,7 @@ vi.mock("react-i18next", () =>
     createAction: "Create network",
     empty: "No networks",
     unableToLoad: "Unable to load networks",
+    "common:common.loading": "Loading...",
     "table.network": "Network",
     "table.drivers": "Drivers",
     "table.protocol": "Protocol",
@@ -78,6 +79,8 @@ beforeEach(() => {
         network("tr-1", "Alpha", "knx", { gateway_ip: "10.0.0.30" }),
       ],
       isLoading: false,
+      isFetching: false,
+      isFetched: true,
       isError: false,
     },
   });
@@ -141,4 +144,27 @@ it("renders loading rows while network or device data is loading", () => {
     </MemoryRouter>,
   );
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
+});
+
+it("keeps the empty state hidden during the initial network request", () => {
+  mockUseTransports.mockReturnValue({
+    transportsListQuery: {
+      data: [],
+      isLoading: false,
+      isFetching: true,
+      isFetched: false,
+      isError: false,
+    },
+  });
+
+  render(
+    <MemoryRouter>
+      <TransportsList />
+    </MemoryRouter>,
+  );
+
+  expect(
+    screen.getByRole("status", { name: "Loading..." }),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("No networks")).not.toBeInTheDocument();
 });

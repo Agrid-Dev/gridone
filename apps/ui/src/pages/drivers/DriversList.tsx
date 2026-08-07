@@ -46,7 +46,11 @@ const DriversList: FC = () => {
       />
 
       {loading ? (
-        <div className="space-y-2">
+        <div
+          role="status"
+          aria-label={t("common:common.loading")}
+          className="space-y-2"
+        >
           {Array.from({ length: 6 }).map((_, index) => (
             <Skeleton key={index} className="h-10" />
           ))}

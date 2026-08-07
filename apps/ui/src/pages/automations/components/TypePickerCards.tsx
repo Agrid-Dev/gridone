@@ -39,26 +39,30 @@ export function TypePickerCards({
             aria-checked={selected}
             onClick={() => onSelect(optionValue)}
             className={cn(
-              "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors",
+              "flex min-w-0 flex-col items-start gap-3 rounded-xl border p-4 text-left transition-colors",
               selected
                 ? "border-primary/60 bg-primary/5"
-                : "border-border hover:border-primary/40",
+                : "border-border hover:border-primary/40 hover:bg-muted/30",
             )}
           >
-            <span
+            <Icon
+              aria-hidden
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                selected
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground",
+                "h-5 w-5 shrink-0",
+                selected ? "text-primary" : "text-muted-foreground",
               )}
-            >
-              <Icon aria-hidden className="h-4 w-4" />
-            </span>
+            />
             <span className="min-w-0">
-              <span className="block text-sm font-medium">{label}</span>
+              <span
+                className={cn(
+                  "block text-sm font-semibold",
+                  selected && "text-primary",
+                )}
+              >
+                {label}
+              </span>
               {description && (
-                <span className="mt-0.5 block text-xs text-muted-foreground">
+                <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                   {description}
                 </span>
               )}

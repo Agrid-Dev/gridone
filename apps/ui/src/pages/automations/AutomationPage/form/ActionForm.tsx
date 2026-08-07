@@ -69,7 +69,13 @@ const ActionForm: FC<ActionFormProps> = ({
   hideActions,
 }) => {
   const { t } = useTranslation(["common", "automations"]);
-  const [type, setType] = useState<ActionType>("command_template");
+  // Open on the saved action's own type — otherwise editing a notification
+  // would land on the command body with a mismatched pre-filled result.
+  const [type, setType] = useState<ActionType>(() =>
+    initialValue && initialValue.provider_id in ACTION_PROVIDER_DESCRIPTORS
+      ? initialValue.provider_id
+      : "command_template",
+  );
   const [result, setResult] = useState<ActionFormResult | null>(() =>
     actionToResult(initialValue),
   );

@@ -116,7 +116,7 @@ export default function AutomationsList() {
         {!executions.isLoading && (
           <StatPill
             count={executions.count24h}
-            label={t("stats.executions24h")}
+            label={t("stats.executions24h", { count: executions.count24h })}
             icon={Play}
           />
         )}
