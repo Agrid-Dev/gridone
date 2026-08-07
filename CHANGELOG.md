@@ -1,3 +1,19 @@
+## v0.201.0 (2026-08-07)
+
+### Feat
+
+- **ui**: rework the automation page as a single-save workspace
+- **ui**: redesign zone detail and edit workspace
+- refine active faults page design
+- **ui**: label the chart value axis with its unit
+- **ui**: make the thermostat dial draggable
+- **ui**: summarize sub-zones on the zone pill
+- **ui**: add a card view to the devices page
+
+### Fix
+
+- **ui**: put the zone save action in the header's primary slot
+
 ## v0.200.1 (2026-08-05)
 
 ### Fix
