@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
-import type { Asset, AssetUpdate as AssetUpdatePayload } from "@gridone/sdk";
+import type {
+  Asset,
+  AssetUpdate as AssetUpdatePayload,
+  Device,
+} from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { AssetForm } from "./components/AssetForm";
 import type { AssetFormValues } from "./components/AssetForm";
+import { AssetEditWorkspace } from "./components/AssetEditWorkspace";
+import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetEdit() {
@@ -17,6 +21,7 @@ export default function AssetEdit() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const client = useGridoneClient();
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   const can = usePermissions();
 
@@ -24,6 +29,29 @@ export default function AssetEdit() {
     queryKey: ["assets", assetId],
     queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
+  });
+
+  const { data: allAssets = [] } = useQuery<Asset[]>({
+    queryKey: ["assets"],
+    queryFn: () => client.assets.list(),
+  });
+
+  const { data: children = [] } = useQuery<Asset[]>({
+    queryKey: ["assets", "children", assetId],
+    queryFn: () => client.assets.list({ parent_id: assetId! }),
+    enabled: !!assetId,
+  });
+
+  const { data: deviceIds = [] } = useQuery<string[]>({
+    queryKey: ["assets", assetId, "devices"],
+    queryFn: () => client.assets.listDevices(assetId!),
+    enabled: !!assetId,
+  });
+
+  const { data: devices = [] } = useQuery<Device[]>({
+    queryKey: ["devices"],
+    queryFn: () => client.devices.list(),
+    enabled: deviceIds.length > 0,
   });
 
   const mutation = useMutation({
@@ -49,9 +77,20 @@ export default function AssetEdit() {
 
   if (isLoading || !asset) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64" />
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-80" />
+        <div className="flex items-center gap-4 border-b border-border pb-7">
+          <Skeleton className="h-14 w-14 rounded-2xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-72 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -65,35 +104,28 @@ export default function AssetEdit() {
   };
 
   return (
-    <section className="space-y-6">
-      <ResourceHeader
-        title={t("edit")}
-        caption={asset.name}
-        actions={
-          can("assets:write") ? (
-            <ResourceDeleteButton
-              onDelete={() => deleteMutation.mutate()}
-              isDeleting={deleteMutation.isPending}
-              confirmTitle={t("deleteConfirmTitle")}
-              confirmDetails={t("deleteConfirmDetails", { name: asset.name })}
-            />
-          ) : undefined
-        }
+    <>
+      <AssetEditWorkspace
+        key={asset.id}
+        asset={asset}
+        allAssets={allAssets}
+        childAssets={children}
+        devices={devices}
+        deviceIds={deviceIds}
+        isPending={mutation.isPending}
+        isDeleting={deleteMutation.isPending}
+        canWriteAssets={can("assets:write")}
+        canWriteDevices={can("devices:write")}
+        onSubmit={handleSubmit}
+        onDelete={() => deleteMutation.mutate()}
+        onLinkDevice={() => setLinkDialogOpen(true)}
       />
-
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <AssetForm
-          defaultValues={{
-            name: asset.name,
-            type: asset.type,
-            parentId: asset.parent_id ?? "",
-          }}
-          onSubmit={handleSubmit}
-          isPending={mutation.isPending}
-          isEdit
-          excludeId={assetId}
-        />
-      </div>
-    </section>
+      <DeviceLinkDialog
+        assetId={assetId!}
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        existingDeviceIds={deviceIds}
+      />
+    </>
   );
 }

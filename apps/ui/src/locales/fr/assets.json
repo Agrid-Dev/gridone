@@ -16,6 +16,35 @@
   "inlineCreate": {
     "placeholder": "Nom de la zone..."
   },
+  "editPage": {
+    "breadcrumbLabel": "Emplacement de la zone",
+    "editingHint": "Modifiez l’identité de la zone et sa place dans le bâtiment.",
+    "overviewHint": "Identité, emplacement, sous-zones et appareils rattachés.",
+    "lastModified": "Dernière modification {{time}}.",
+    "supervise": "Superviser",
+    "addSubzone": "Ajouter une sous-zone",
+    "saveChanges": "Enregistrer les modifications",
+    "add": "Ajouter",
+    "identity": {
+      "title": "Identité",
+      "description": "Le nom apparaît dans l’application, les défauts et les commandes.",
+      "identifier": "Identifiant"
+    },
+    "location": {
+      "title": "Place dans le bâtiment",
+      "description": "Visualisez la zone dans son contexte et choisissez son parent direct.",
+      "moveHint": "Changer le parent déplace la zone et ses sous-zones.",
+      "move": "Déplacer cette zone"
+    },
+    "subzones": {
+      "title": "Sous-zones",
+      "description": "Espaces directement contenus dans cette zone."
+    },
+    "devices": {
+      "title": "Appareils rattachés",
+      "description": "Équipements actuellement rattachés à cette zone."
+    }
+  },
   "overview": {
     "subtitle": "Organisées par étage · les zones peuvent contenir des sous-zones · sélectionnez une zone pour voir son détail.",
     "legend": "Types de zones",

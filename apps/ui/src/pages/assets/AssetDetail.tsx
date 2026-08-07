@@ -1,23 +1,19 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useMemo, useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Pencil, Plus, Terminal } from "lucide-react";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { Terminal } from "lucide-react";
+import type { Asset, Device } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Asset } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { compareByName } from "@/lib/sortByName";
-import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
+import { AssetEditWorkspace } from "./components/AssetEditWorkspace";
+import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 
 export default function AssetDetail() {
-  const { t } = useTranslation(["assets", "common", "devices"]);
+  const { t } = useTranslation("devices");
   const { assetId } = useParams<{ assetId: string }>();
-  const queryClient = useQueryClient();
   const client = useGridoneClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const can = usePermissions();
@@ -28,10 +24,9 @@ export default function AssetDetail() {
     enabled: !!assetId,
   });
 
-  const { data: parent } = useQuery<Asset>({
-    queryKey: ["assets", asset?.parent_id],
-    queryFn: () => client.assets.get(asset!.parent_id!),
-    enabled: !!asset?.parent_id,
+  const { data: allAssets = [] } = useQuery<Asset[]>({
+    queryKey: ["assets"],
+    queryFn: () => client.assets.list(),
   });
 
   const { data: children = [] } = useQuery<Asset[]>({
@@ -46,212 +41,65 @@ export default function AssetDetail() {
     enabled: !!assetId,
   });
 
-  const { data: allDevices = [] } = useQuery({
+  const { data: devices = [] } = useQuery<Device[]>({
     queryKey: ["devices"],
     queryFn: () => client.devices.list(),
     enabled: deviceIds.length > 0,
   });
 
-  const deviceNameMap = useMemo(
-    () => new Map(allDevices.map((d) => [d.id, d.name])),
-    [allDevices],
-  );
-
-  // Alphabetical by resolved name; ids without a loaded name sort by id.
-  const sortedDeviceIds = useMemo(
-    () =>
-      deviceIds
-        .map((id) => ({ id, name: deviceNameMap.get(id) }))
-        .sort(compareByName)
-        .map(({ id }) => id),
-    [deviceIds, deviceNameMap],
-  );
-
-  const unlinkMutation = useMutation({
-    mutationFn: (deviceId: string) =>
-      client.devices.deleteTag(deviceId, "asset_id"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["assets", assetId, "devices"],
-      });
-      toast.success(t("devices.unlinked"));
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
   if (isLoading || !asset) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64" />
+      <div className="space-y-6">
+        <Skeleton className="h-5 w-80" />
+        <div className="flex items-center gap-4 border-b border-border pb-7">
+          <Skeleton className="h-14 w-14 rounded-2xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <Skeleton key={index} className="h-72 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
+  const canWriteAssets = can("assets:write");
+  const canWriteDevices = can("devices:write");
+
   return (
-    <section className="space-y-6">
-      <ResourceHeader
-        title={asset.name}
-        actions={
-          <>
-            {can("assets:write") && (
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`/assets/${assetId}/edit`}>
-                  <Pencil />
-                  {t("common:common.update")}
-                </Link>
-              </Button>
-            )}
-            {can("devices:write") && deviceIds.length > 0 && (
-              <Button asChild size="sm">
-                <Link to={`/assets/${assetId}/commands/new`}>
-                  <Terminal />
-                  {t("devices:commands.newCommand")}
-                </Link>
-              </Button>
-            )}
-          </>
-        }
-      />
-
-      {/* Info card */}
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-muted-foreground">{t("fields.type")}</span>
-            <div className="mt-1">
-              <Badge variant="outline">
-                {t(`types.${asset.type}`, { defaultValue: asset.type })}
-              </Badge>
-            </div>
-          </div>
-          {asset.parent_id && (
-            <div>
-              <span className="text-muted-foreground">
-                {t("fields.parent")}
-              </span>
-              <div className="mt-1">
-                <Link
-                  to={`/assets/${asset.parent_id}`}
-                  className="text-foreground underline underline-offset-2 hover:text-muted-foreground"
-                >
-                  {parent?.name ?? asset.parent_id}
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Children */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-foreground">
-            {t("children")} ({children.length})
-          </h3>
-          {can("assets:write") && (
-            <Button size="sm" variant="outline" asChild>
-              <Link to={`/assets/new?parentId=${assetId}`}>
-                <Plus className="h-3.5 w-3.5" />
-                {t("addChild")}
+    <>
+      <AssetEditWorkspace
+        key={asset.id}
+        mode="detail"
+        asset={asset}
+        allAssets={allAssets}
+        childAssets={children}
+        devices={devices}
+        deviceIds={deviceIds}
+        canWriteAssets={canWriteAssets}
+        canWriteDevices={canWriteDevices}
+        headerActions={
+          canWriteDevices && deviceIds.length > 0 ? (
+            <Button asChild className="h-11">
+              <Link to={`/assets/${asset.id}/commands/new`}>
+                <Terminal />
+                {t("commands.newCommand")}
               </Link>
             </Button>
-          )}
-        </div>
-        {children.length > 0 ? (
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-border">
-                {children.map((child) => (
-                  <tr key={child.id} className="hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/assets/${child.id}`}
-                        className="flex items-center gap-2 font-medium text-foreground"
-                      >
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        {child.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline">
-                        {t(`types.${child.type}`, {
-                          defaultValue: child.type,
-                        })}
-                      </Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("noChildren")}</p>
-        )}
-      </div>
-
-      {/* Linked devices */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-foreground">
-            {t("devices.title")} ({deviceIds.length})
-          </h3>
-          {can("assets:write") && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setLinkDialogOpen(true)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {t("devices.link")}
-            </Button>
-          )}
-        </div>
-        {deviceIds.length > 0 ? (
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-border">
-                {sortedDeviceIds.map((deviceId) => (
-                  <tr key={deviceId} className="hover:bg-muted/50">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/devices/${deviceId}`}
-                        className="font-medium text-foreground underline underline-offset-2"
-                      >
-                        {deviceNameMap.get(deviceId) || deviceId}
-                      </Link>
-                    </td>
-                    {can("assets:write") && (
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:bg-red-50 hover:border-red-200"
-                          onClick={() => unlinkMutation.mutate(deviceId)}
-                          disabled={unlinkMutation.isPending}
-                        >
-                          {t("devices.unlink")}
-                        </Button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("devices.noDevices")}
-          </p>
-        )}
-      </div>
-
+          ) : null
+        }
+        onLinkDevice={() => setLinkDialogOpen(true)}
+      />
       <DeviceLinkDialog
         assetId={assetId!}
         open={linkDialogOpen}
         onOpenChange={setLinkDialogOpen}
         existingDeviceIds={deviceIds}
       />
-    </section>
+    </>
   );
 }
