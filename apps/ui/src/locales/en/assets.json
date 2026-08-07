@@ -21,7 +21,6 @@
     "editingHint": "Edit the zone's identity and place in the building.",
     "overviewHint": "Zone identity, location, sub-zones and linked equipment.",
     "lastModified": "Last modified {{time}}.",
-    "supervise": "Supervise",
     "addSubzone": "Add a sub-zone",
     "saveChanges": "Save changes",
     "add": "Add",

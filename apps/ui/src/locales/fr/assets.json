@@ -21,7 +21,6 @@
     "editingHint": "Modifiez l’identité de la zone et sa place dans le bâtiment.",
     "overviewHint": "Identité, emplacement, sous-zones et appareils rattachés.",
     "lastModified": "Dernière modification {{time}}.",
-    "supervise": "Superviser",
     "addSubzone": "Ajouter une sous-zone",
     "saveChanges": "Enregistrer les modifications",
     "add": "Ajouter",

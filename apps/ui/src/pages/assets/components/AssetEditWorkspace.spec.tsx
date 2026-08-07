@@ -26,7 +26,6 @@ vi.mock("react-i18next", () =>
     "editPage.breadcrumbLabel": "Zone location",
     "editPage.editingHint": "Edit this zone.",
     "editPage.overviewHint": "Zone overview.",
-    "editPage.supervise": "Supervise",
     "editPage.addSubzone": "Add a sub-zone",
     "editPage.saveChanges": "Save changes",
     "editPage.add": "Add",
@@ -188,7 +187,16 @@ describe("AssetEditWorkspace", () => {
     const name = screen.getByRole("textbox", { name: "Name" });
     await user.clear(name);
     await user.type(name, "Main lobby");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    // The primary header action commits the form from outside it, so that
+    // changing the parent zone doesn't send users hunting in another card.
+    const save = screen.getByRole("button", { name: "Save changes" });
+    expect(save.closest("form")).toBeNull();
+    expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute(
+      "href",
+      "/assets/lobby",
+    );
+    await user.click(save);
 
     await waitFor(() =>
       expect(onSubmit.mock.calls[0]?.[0]).toEqual({
@@ -230,9 +238,10 @@ describe("AssetEditWorkspace", () => {
     expect(
       screen.getByRole("link", { name: "Move this zone" }),
     ).toHaveAttribute("href", "/assets/lobby/edit");
+    // Supervising: the primary action adds a sub-zone, there is nothing to save.
     expect(
-      screen.queryByRole("link", { name: "Supervise" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Add a sub-zone" }),
+    ).toHaveAttribute("href", "/assets/new?parentId=lobby&type=zone");
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();

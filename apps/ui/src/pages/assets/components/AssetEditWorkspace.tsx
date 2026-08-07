@@ -9,7 +9,6 @@ import {
   CornerDownRight,
   Cpu,
   DoorOpen,
-  Gauge,
   Layers3,
   LayoutGrid,
   Link2,
@@ -48,6 +47,9 @@ type AssetEditWorkspaceProps = {
   onDelete?: () => void;
   onLinkDevice: () => void;
 };
+
+/** The Save button lives in the page header, outside the form it commits. */
+const FORM_ID = "asset-workspace-form";
 
 const assetTypeIcons = {
   org: LayoutGrid,
@@ -230,10 +232,11 @@ export function AssetEditWorkspace({
 
         <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
           {isEditing ? (
+            // Same destination as the old "Supervise" button, named for what
+            // it does while editing: leave without saving.
             <Button variant="outline" asChild className="h-11">
               <Link to={`/assets/${asset.id}`}>
-                <Gauge />
-                {t("editPage.supervise")}
+                {t("common:common.cancel")}
               </Link>
             </Button>
           ) : (
@@ -247,14 +250,29 @@ export function AssetEditWorkspace({
             )
           )}
           {headerActions}
-          {canWriteAssets && (
-            <Button asChild className="h-11">
-              <Link to={`/assets/new?parentId=${asset.id}&type=zone`}>
-                <Plus />
-                {t("editPage.addSubzone")}
-              </Link>
-            </Button>
-          )}
+          {/* The primary slot carries the page's main action: committing the
+              form while editing, adding a sub-zone while supervising. */}
+          {isEditing
+            ? canWriteAssets && (
+                <Button
+                  type="submit"
+                  form={FORM_ID}
+                  className="h-11"
+                  disabled={isPending}
+                >
+                  {isPending
+                    ? t("common:common.saving")
+                    : t("editPage.saveChanges")}
+                </Button>
+              )
+            : canWriteAssets && (
+                <Button asChild className="h-11">
+                  <Link to={`/assets/new?parentId=${asset.id}&type=zone`}>
+                    <Plus />
+                    {t("editPage.addSubzone")}
+                  </Link>
+                </Button>
+              )}
           {isEditing && canWriteAssets && onDelete && (
             <ResourceDeleteButton
               onDelete={onDelete}
@@ -268,9 +286,12 @@ export function AssetEditWorkspace({
         </div>
       </header>
 
-      <form onSubmit={form.handleSubmit((data) => onSubmit?.(data))}>
+      <form
+        id={FORM_ID}
+        onSubmit={form.handleSubmit((data) => onSubmit?.(data))}
+      >
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(20rem,0.9fr)]">
-          <Card className="flex h-full flex-col rounded-2xl p-6 shadow-sm sm:p-7">
+          <Card className="flex flex-col self-start rounded-2xl p-6 shadow-sm sm:p-7">
             <SectionHeading
               title={t("editPage.identity.title")}
               description={t("editPage.identity.description")}
@@ -306,21 +327,6 @@ export function AssetEditWorkspace({
                 </div>
               </div>
             </div>
-
-            {isEditing && canWriteAssets && (
-              <div className="mt-auto flex items-center justify-end gap-2 border-t border-border pt-5">
-                <Button variant="outline" asChild>
-                  <Link to={`/assets/${asset.id}`}>
-                    {t("common:common.cancel")}
-                  </Link>
-                </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending
-                    ? t("common:common.saving")
-                    : t("editPage.saveChanges")}
-                </Button>
-              </div>
-            )}
           </Card>
 
           <Card className="flex h-full flex-col rounded-2xl p-6 shadow-sm sm:p-7">
